@@ -18,6 +18,9 @@ function getHTMLNodeTypeFromASTNodeType(node) {
     case 'horizontalrule':
         return 'hr';
 
+    case 'html':
+        return 'div';
+
     case 'image':
     case 'imagereference':
         return 'img';
@@ -143,6 +146,12 @@ function astToJSX(ast) { /* `this` is the dictionary of definitions */
     if (type === 'footnotedefinition') {
         return this[ast.identifier].children.map(astToJSX);
     } /* the children are stored elsewhere in the definition */
+
+    if (type === 'html') {
+        return (
+            <div key={key} dangerouslySetInnerHTML={{__html: ast.value}} />
+        );
+    } /* arbitrary HTML, do the gross thing for now */
 
     const htmlNodeType = getHTMLNodeTypeFromASTNodeType(ast);
     const props = formExtraPropsForHTMLNodeType({key}, ast);
