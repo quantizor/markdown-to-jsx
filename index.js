@@ -130,14 +130,14 @@ function formExtraPropsForHTMLNodeType(props = {}, ast) {
     return props;
 }
 
-function astToJSX(ast) { /* `this` is the dictionary of definitions */
+function astToJSX(ast, index) { /* `this` is the dictionary of definitions */
     const type = ast.type.toLowerCase();
 
     if (textTypes.indexOf(type) !== -1) {
         return ast.value;
     }
 
-    const key = ast.parent ? ast.parent.children.indexOf(ast) : '0';
+    const key = index || '0';
 
     if (type === 'code') {
         return (
