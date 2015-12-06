@@ -137,7 +137,7 @@ function astToJSX(ast) { /* `this` is the dictionary of definitions */
                 <input key='checkbox'
                        type="checkbox"
                        checked={ast.checked}
-                       readOnly />
+                       disabled />
                 {ast.children.map(astToJSX)}
             </li>
         );
