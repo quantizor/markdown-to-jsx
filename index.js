@@ -1,6 +1,8 @@
 import React from 'react';
 import {parse} from 'mdast';
 
+const textTypes = ['text', 'textnode', 'escape'];
+
 function getHTMLNodeTypeFromASTNodeType(node) {
     switch (node.type.toLowerCase()) {
     case 'break':
@@ -114,7 +116,7 @@ function formExtraPropsForHTMLNodeType(props = {}, ast) {
 function astToJSX(ast) { /* `this` is the dictionary of definitions */
     const type = ast.type.toLowerCase();
 
-    if (type === 'text' || type === 'textnode' || type === 'escape') {
+    if (textTypes.indexOf(type) !== -1) {
         return ast.value;
     }
 
@@ -156,8 +158,18 @@ function astToJSX(ast) { /* `this` is the dictionary of definitions */
     const htmlNodeType = getHTMLNodeTypeFromASTNodeType(ast);
     const props = formExtraPropsForHTMLNodeType({key}, ast);
 
+    if (ast.children.length === 1) {
+        if (textTypes.indexOf(ast.children[0].type.toLowerCase()) !== -1) {
+            ast.children = ast.children[0].value;
+        }
+    } // solitary text children don't need full parsing or React will add a wrapper
+
+    let children =   Array.isArray(ast.children)
+                   ? ast.children.map(astToJSX)
+                   : ast.children;
+
     return   htmlNodeType !== null
-           ? React.createElement(htmlNodeType, props, ast.children.map(astToJSX))
+           ? React.createElement(htmlNodeType, props, children)
            : null;
 }
 
