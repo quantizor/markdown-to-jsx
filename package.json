@@ -6,11 +6,13 @@
   "main": "index.es5.js",
   "devDependencies": {
     "babel-cli": "^6.3.13",
+    "babel-jest": "^6.0.1",
     "babel-preset-es2015": "^6.3.13",
     "babel-preset-react": "^6.3.13",
     "babel-preset-stage-2": "^6.3.13",
     "jest-cli": "^0.8.0",
-    "react": "^0.14.0"
+    "react": "^0.14.0",
+    "react-dom": "^0.14.0"
   },
   "dependencies": {
     "mdast": "^2.3.0"
@@ -25,7 +27,21 @@
       "stage-2"
     ]
   },
+  "jest": {
+    "scriptPreprocessor": "./jest.preprocessor.js",
+    "testRunner": "./node_modules/jest-cli/src/testRunners/jasmine/jasmine2.js",
+    "unmockedModulePathPatterns": [
+      "."
+    ],
+    "modulePathIgnorePatterns": [
+      "./node_modules/"
+    ],
+    "preprocessorIgnorePatterns": [
+      "./node_modules/"
+    ]
+  },
   "scripts": {
-    "prepublish": "babel index.js --out-file index.es5.js"
+    "prepublish": "babel index.js --out-file index.es5.js",
+    "test": "jest --verbose"
   }
 }
