@@ -53,7 +53,10 @@ function getHTMLNodeTypeFromASTNodeType(node) {
         return 'trow';
 
     case 'tablecell':
-        return node.parent.type === 'tableheader' ? 'th' : 'td';
+        return 'td';
+
+    case 'tableheadercell':
+        return 'th';
 
     case 'definition':
     case 'footnotedefinition':
@@ -104,6 +107,20 @@ function formExtraPropsForHTMLNodeType(props = {}, ast) {
         };
 
     case 'table':
+        return {
+            ...props,
+            style: {align: ast.align},
+        };
+
+    case 'tableheader':
+        ast.children = ast.children.map(child => {
+            if (child.type === 'tablecell') {
+                child.type = 'TableHeaderCell';
+            } // inventing a new type so the correct element can be emitted
+
+            return child;
+        });
+
         return {
             ...props,
             style: {align: ast.align},
