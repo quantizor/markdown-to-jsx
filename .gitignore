@@ -1,4 +1,5 @@
 node_modules/
 .git/
 .DS_Store
-es5/
+coverage/
+index.es5.js
