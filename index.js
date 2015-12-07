@@ -117,7 +117,7 @@ function formExtraPropsForHTMLNodeType(props = {}, ast) {
         ast.children = ast.children.map(child => {
             if (child.type === 'tablecell') {
                 child.type = 'TableHeaderCell';
-            } // inventing a new type so the correct element can be emitted
+            } /* inventing a new type so the correct element can be emitted */
 
             return child;
         });
@@ -174,28 +174,29 @@ function astToJSX(ast, index) { /* `this` is the dictionary of definitions */
     } /* arbitrary HTML, do the gross thing for now */
 
     const htmlNodeType = getHTMLNodeTypeFromASTNodeType(ast);
+
+    if (htmlNodeType === null) {
+        return null;
+    } /* bail out, not convertable to any HTML representation */
+
     const props = formExtraPropsForHTMLNodeType({key}, ast);
 
-    if (ast.children.length === 1) {
+    if (ast.children && ast.children.length === 1) {
         if (textTypes.indexOf(ast.children[0].type.toLowerCase()) !== -1) {
             ast.children = ast.children[0].value;
         }
-    } // solitary text children don't need full parsing or React will add a wrapper
+    } /* solitary text children don't need full parsing or React will add a wrapper */
 
     let children =   Array.isArray(ast.children)
                    ? ast.children.map(astToJSX)
                    : ast.children;
 
-    return   htmlNodeType !== null
-           ? React.createElement(htmlNodeType, props, children)
-           : null;
+    return React.createElement(htmlNodeType, props, children);
 }
 
 function extractDefinitionsFromASTTree(ast) {
-    let type;
-
     const reducer = (dictionary, node) => {
-        type = node.type.toLowerCase();
+        let type = node.type.toLowerCase();
 
         if (type === 'definition' || type === 'footnotedefinition') {
             dictionary[node.identifier] = node;
