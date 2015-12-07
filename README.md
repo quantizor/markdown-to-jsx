@@ -4,13 +4,32 @@ Enables the safe parsing of markdown into proper React JSX objects, so you don't
 
 The only exception is arbitrary HTML in the markdown (kind of an antipattern), which will still use the unsafe method.
 
+Uses [mdast](https://github.com/wooorm/mdast) under the hood to parse markdown into a consistent AST format.
+
 Requires React >= 0.14.
+
+## Usage
+
+```js
+import converter from 'markdown-to-jsx';
+import React from 'react';
+import {render} from 'react-dom';
+
+render(converter('# Hello world!'), document.body);
+```
+
+[mdast options](https://github.com/wooorm/mdast#mdastprocessvalue-options-done) can be passed as the second argument:
+
+```js
+converter('# Hello world[^2]!\n\n[^2]: A beautiful place.', {footnotes: true});
+```
+
 
 ## Development Checklist
 
 - [x] Base library
 - [x] Unit testing
-- [ ] Ship 1.0.0 to npm
+- [x] Ship 1.0.0 to npm
 - [ ] _stretch goal_ - don't use `dangerouslySetInnerHTML` for arbitrary HTML in the markdown
 
 ## Known Issues
