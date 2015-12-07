@@ -1,6 +1,7 @@
 {
   "name": "markdown-to-jsx",
   "description": "Interprets markdown text and outputs a JSX equivalent.",
+  "license": "MIT",
   "version": "1.0.0",
   "author": "Evan Jacobs <evan@yaycmyk.com> http://yaycmyk.com",
   "main": "index.es5.js",
