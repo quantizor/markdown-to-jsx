@@ -2,7 +2,7 @@
   "name": "markdown-to-jsx",
   "description": "Interprets markdown text and outputs a JSX equivalent.",
   "license": "MIT",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "keywords": [
     "markdown",
     "react",
