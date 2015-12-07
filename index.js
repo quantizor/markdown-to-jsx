@@ -233,9 +233,17 @@ function extractDefinitionsFromASTTree(ast) {
             aggregator.definitions[node.identifier] = node;
 
             if (node.type === 'footnoteDefinition') {
+                if (   node.children
+                    && node.children.length === 1
+                    && node.children[0].type === 'paragraph') {
+                    node.children[0].children.unshift({
+                        type: 'textNode',
+                        value: `[${node.identifier}]: `,
+                    });
+                } /* package the prefix inside the first child */
+
                 aggregator.footnotes.push(
                     <div key={node.identifier} id={node.identifier}>
-                        <span key='id'>{`[${node.identifier}]: `}</span>
                         {node.value || node.children.map(astToJSX)}
                     </div>
                 );
