@@ -9,9 +9,8 @@ Requires React >= 0.14.
 ## Development Checklist
 
 - [x] Base library
-- [ ] Unit testing
+- [x] Unit testing
 - [ ] Ship 1.0.0 to npm
-
 - [ ] _stretch goal_ - don't use `dangerouslySetInnerHTML` for arbitrary HTML in the markdown
 
 ## Known Issues
