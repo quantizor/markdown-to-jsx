@@ -1,11 +1,13 @@
 import React from 'react';
 import {parse} from 'mdast';
 
-const textTypes = ['text', 'textnode', 'escape'];
+const textTypes = ['text', 'textNode', 'escape'];
+
 let definitions;
+let footnotes;
 
 function getHTMLNodeTypeFromASTNodeType(node) {
-    switch (node.type.toLowerCase()) {
+    switch (node.type) {
     case 'break':
         return 'br';
 
@@ -15,30 +17,33 @@ function getHTMLNodeTypeFromASTNodeType(node) {
     case 'emphasis':
         return 'em';
 
+    case 'footnoteReference':
+        return 'a';
+
     case 'heading':
         return `h${node.depth}`;
 
-    case 'horizontalrule':
+    case 'horizontalRule':
         return 'hr';
 
     case 'html':
         return 'div';
 
     case 'image':
-    case 'imagereference':
+    case 'imageReference':
         return 'img';
 
-    case 'inlinecode':
+    case 'inlineCode':
         return 'code';
 
     case 'link':
-    case 'linkreference':
+    case 'linkReference':
         return 'a';
 
     case 'list':
         return node.ordered ? 'ol' : 'ul';
 
-    case 'listitem':
+    case 'listItem':
         return 'li';
 
     case 'paragraph':
@@ -47,20 +52,17 @@ function getHTMLNodeTypeFromASTNodeType(node) {
     case 'root':
         return 'div';
 
-    case 'tableheader':
+    case 'tableHeader':
         return 'thead';
 
-    case 'tablerow':
-        return 'trow';
+    case 'tableRow':
+        return 'tr';
 
-    case 'tablecell':
+    case 'tableCell':
         return 'td';
 
-    case 'tableheadercell':
-        return 'th';
-
     case 'definition':
-    case 'footnotedefinition':
+    case 'footnoteDefinition':
     case 'yaml':
         return null;
 
@@ -70,7 +72,13 @@ function getHTMLNodeTypeFromASTNodeType(node) {
 }
 
 function formExtraPropsForHTMLNodeType(props = {}, ast) {
-    switch (ast.type.toLowerCase()) {
+    switch (ast.type) {
+    case 'footnoteReference':
+        return {
+            ...props,
+            href: `#${ast.identifier}`,
+        };
+
     case 'image':
         return {
             ...props,
@@ -79,7 +87,7 @@ function formExtraPropsForHTMLNodeType(props = {}, ast) {
             src: ast.src,
         };
 
-    case 'imagereference':
+    case 'imageReference':
         return {
             ...props,
             title: definitions[ast.identifier].title,
@@ -94,7 +102,7 @@ function formExtraPropsForHTMLNodeType(props = {}, ast) {
             href: ast.href,
         };
 
-    case 'linkreference':
+    case 'linkReference':
         return {
             ...props,
             title: definitions[ast.identifier].title,
@@ -112,66 +120,91 @@ function formExtraPropsForHTMLNodeType(props = {}, ast) {
             ...props,
             style: {align: ast.align},
         };
-
-    case 'tableheader':
-        ast.children = ast.children.map(child => {
-            if (child.type === 'tablecell') {
-                child.type = 'TableHeaderCell';
-            } /* inventing a new type so the correct element can be emitted */
-
-            return child;
-        });
-
-        return {
-            ...props,
-            style: {align: ast.align},
-        };
     }
 
     return props;
 }
 
 function astToJSX(ast, index) { /* `this` is the dictionary of definitions */
-    const type = ast.type.toLowerCase();
-
-    if (textTypes.indexOf(type) !== -1) {
+    if (textTypes.indexOf(ast.type) !== -1) {
         return ast.value;
     }
 
     const key = index || '0';
 
-    if (type === 'code') {
+    if (ast.type === 'code') {
         return (
             <pre key={key}>
                 <code className={`lang-${ast.lang}`}>
-                    {ast.children.map(astToJSX)}
+                    {ast.value}
                 </code>
             </pre>
         );
     } /* Refers to fenced blocks, need to create a pre:code nested structure */
 
-    if (    type === 'listItem'
-        && (ast.checked === true || ast.checked === false)) {
-        return (
-            <li>
-                <input key='checkbox'
-                       type="checkbox"
-                       checked={ast.checked}
-                       disabled />
-                {ast.children.map(astToJSX)}
-            </li>
-        );
-    } /* gfm task list, need to add a checkbox */
+    if (ast.type === 'listItem') {
+        if (ast.checked === true || ast.checked === false) {
+            return (
+                <li key={key}>
+                    <input key='checkbox'
+                           type="checkbox"
+                           checked={ast.checked}
+                           disabled />
+                    {ast.children.map(astToJSX)}
+                </li>
+            );
+        } /* gfm task list, need to add a checkbox */
+    }
 
-    if (type === 'footnotedefinition') {
-        return this[ast.identifier].children.map(astToJSX);
-    } /* the children are stored elsewhere in the definition */
-
-    if (type === 'html') {
+    if (ast.type === 'html') {
         return (
             <div key={key} dangerouslySetInnerHTML={{__html: ast.value}} />
         );
     } /* arbitrary HTML, do the gross thing for now */
+
+    if (ast.type === 'table') {
+        const tbody = {type: 'tbody', children: []};
+
+        ast.children = ast.children.reduce((children, child) => {
+            if (child.type === 'tableHeader') {
+                children.unshift(child);
+            } else if (child.type === 'tableRow') {
+                tbody.children.push(child);
+            } else if (child.type === 'tableFooter') {
+                children.push(child);
+            }
+
+            return children;
+
+        }, [tbody]);
+    } /* React yells if things aren't in the proper structure, so need to
+        delve into the immediate children and wrap tablerow(s) in a tbody */
+
+    if (ast.type === 'tableFooter') {
+        ast.children = [{
+            type: 'tr',
+            children: ast.children
+        }];
+    } /* React yells if things aren't in the proper structure, so need to
+        delve into the immediate children and wrap the cells in a tablerow */
+
+    if (ast.type === 'tableHeader') {
+        ast.children = [{
+            type: 'tr',
+            children: ast.children.map(child => {
+                if (child.type === 'tableCell') {
+                    child.type = 'th';
+                } /* et voila, a proper table header */
+
+                return child;
+            })
+        }];
+    } /* React yells if things aren't in the proper structure, so need to
+        delve into the immediate children and wrap the cells in a tablerow */
+
+    if (ast.type === 'footnoteReference') {
+        ast.children = [{type: 'sup', value: ast.identifier}];
+    } /* place the identifier inside a superscript tag for the link */
 
     const htmlNodeType = getHTMLNodeTypeFromASTNodeType(ast);
 
@@ -182,7 +215,7 @@ function astToJSX(ast, index) { /* `this` is the dictionary of definitions */
     const props = formExtraPropsForHTMLNodeType({key}, ast);
 
     if (ast.children && ast.children.length === 1) {
-        if (textTypes.indexOf(ast.children[0].type.toLowerCase()) !== -1) {
+        if (textTypes.indexOf(ast.children[0].type) !== -1) {
             ast.children = ast.children[0].value;
         }
     } /* solitary text children don't need full parsing or React will add a wrapper */
@@ -191,23 +224,33 @@ function astToJSX(ast, index) { /* `this` is the dictionary of definitions */
                    ? ast.children.map(astToJSX)
                    : ast.children;
 
-    return React.createElement(htmlNodeType, props, children);
+    return React.createElement(htmlNodeType, props, ast.value || children);
 }
 
 function extractDefinitionsFromASTTree(ast) {
-    const reducer = (dictionary, node) => {
-        let type = node.type.toLowerCase();
+    const reducer = (aggregator, node) => {
+        if (node.type === 'definition' || node.type === 'footnoteDefinition') {
+            aggregator.definitions[node.identifier] = node;
 
-        if (type === 'definition' || type === 'footnotedefinition') {
-            dictionary[node.identifier] = node;
+            if (node.type === 'footnoteDefinition') {
+                aggregator.footnotes.push(
+                    <div key={node.identifier} id={node.identifier}>
+                        <span key='id'>{`[${node.identifier}]: `}</span>
+                        {node.value || node.children.map(astToJSX)}
+                    </div>
+                );
+            }
         }
 
-        return   node.children
-               ? node.children.reduce(reducer, dictionary)
-               : dictionary;
+        return   Array.isArray(node.children)
+               ? node.children.reduce(reducer, aggregator)
+               : aggregator;
     };
 
-    return (Array.isArray(ast) ? ast : [ast]).reduce(reducer, {});
+    return [ast].reduce(reducer, {
+        definitions: {},
+        footnotes: []
+    });
 }
 
 export default function markdownToJSX(markdown, mdastOptions = {}) {
@@ -219,7 +262,18 @@ export default function markdownToJSX(markdown, mdastOptions = {}) {
         return error;
     }
 
-    definitions = extractDefinitionsFromASTTree(ast);
+    const extracted = extractDefinitionsFromASTTree(ast);
 
-    return astToJSX(ast);
+    definitions = extracted.definitions;
+    footnotes = extracted.footnotes;
+
+    const jsx = astToJSX(ast);
+
+    if (footnotes.length) {
+        jsx.props.children.push(
+            <footer key='footnotes'>{footnotes}</footer>
+        );
+    }
+
+    return jsx;
 }
