@@ -2,6 +2,7 @@ import React from 'react';
 import {parse} from 'mdast';
 
 const textTypes = ['text', 'textnode', 'escape'];
+let definitions;
 
 function getHTMLNodeTypeFromASTNodeType(node) {
     switch (node.type.toLowerCase()) {
@@ -81,9 +82,9 @@ function formExtraPropsForHTMLNodeType(props = {}, ast) {
     case 'imagereference':
         return {
             ...props,
-            title: this[ast.identifier].title,
+            title: definitions[ast.identifier].title,
             alt: ast.alt,
-            src: this[ast.identifier].link,
+            src: definitions[ast.identifier].link,
         };
 
     case 'link':
@@ -96,8 +97,8 @@ function formExtraPropsForHTMLNodeType(props = {}, ast) {
     case 'linkreference':
         return {
             ...props,
-            title: this[ast.identifier].title,
-            href: this[ast.identifier].link,
+            title: definitions[ast.identifier].title,
+            href: definitions[ast.identifier].link,
         };
 
     case 'list':
@@ -217,6 +218,7 @@ export default function markdownToJSX(markdown, mdastOptions = {}) {
         return error;
     }
 
-    // pass the dictionary of definitions in as context for the parsing run
-    return astToJSX.bind(extractDefinitionsFromASTTree(ast))(ast);
+    definitions = extractDefinitionsFromASTTree(ast);
+
+    return astToJSX(ast);
 }
