@@ -3,7 +3,14 @@
   "description": "Interprets markdown text and outputs a JSX equivalent.",
   "license": "MIT",
   "version": "1.0.0",
-  "author": "Evan Jacobs <evan@yaycmyk.com> http://yaycmyk.com",
+  "keywords": [
+    "markdown",
+    "react",
+    "jsx"
+  ],
+  "author": "Evan Jacobs <evan@yaycmyk.com> (http://yaycmyk.com)",
+  "repository": "yaycmyk/markdown-to-jsx",
+  "bugs": "https://github.com/yaycmyk/markdown-to-jsx/issues",
   "main": "index.es5.js",
   "devDependencies": {
     "babel-cli": "^6.3.13",
