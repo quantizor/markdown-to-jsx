@@ -49,7 +49,8 @@
     ]
   },
   "scripts": {
-    "prepublish": "babel index.js --out-file index.es5.js",
+    "prepublish": "npm run es5",
+    "es5": "babel index.js --out-file index.es5.js",
     "test": "jest --verbose"
   }
 }
