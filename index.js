@@ -115,14 +115,36 @@ function formExtraPropsForHTMLNodeType(props = {}, ast) {
             start: ast.start,
         };
 
-    case 'table':
+    case 'tableCell':
+    case 'th':
         return {
             ...props,
-            style: {align: ast.align},
+            style: {textAlign: ast.align},
         };
     }
 
     return props;
+}
+
+function seekCellsAndAlignThemIfNecessary(root, alignmentValues) {
+    const mapper = (child, index) => {
+        if (child.type === 'tableCell') {
+            return {
+                ...child,
+                align: alignmentValues[index],
+            };
+        } else if (Array.isArray(child.children) && child.children.length) {
+            return child.children.map(mapper);
+        }
+
+        return child;
+    };
+
+    if (Array.isArray(root.children) && root.children.length) {
+        root.children = root.children.map(mapper);
+    }
+
+    return root;
 }
 
 function astToJSX(ast, index) { /* `this` is the dictionary of definitions */
@@ -167,16 +189,23 @@ function astToJSX(ast, index) { /* `this` is the dictionary of definitions */
 
         ast.children = ast.children.reduce((children, child) => {
             if (child.type === 'tableHeader') {
-                children.unshift(child);
+                children.unshift(
+                    seekCellsAndAlignThemIfNecessary(child, ast.align)
+                );
             } else if (child.type === 'tableRow') {
-                tbody.children.push(child);
+                tbody.children.push(
+                    seekCellsAndAlignThemIfNecessary(child, ast.align)
+                );
             } else if (child.type === 'tableFooter') {
-                children.push(child);
+                children.push(
+                    seekCellsAndAlignThemIfNecessary(child, ast.align)
+                );
             }
 
             return children;
 
         }, [tbody]);
+
     } /* React yells if things aren't in the proper structure, so need to
         delve into the immediate children and wrap tablerow(s) in a tbody */
 

@@ -372,8 +372,7 @@ describe('markdown-to-jsx', () => {
             expect(row.children[0].tagName).toBe('TD');
         });
 
-        /* disabled until https://github.com/wooorm/mdast/issues/105 is resolved */
-        xit('should handle a table with aligned columns', () => {
+        it('should handle a table with aligned columns', () => {
             const element = render(converter('foo|bar\n-:|-\n1|2'));
             const elementNode = ReactDOM.findDOMNode(element);
             const table = elementNode.querySelector('table');
@@ -384,6 +383,7 @@ describe('markdown-to-jsx', () => {
             expect(thead).not.toBe(null);
             expect(thead.children.length).toBe(2);
             expect(thead.children[0].tagName).toBe('TH');
+            expect(thead.children[0].style.textAlign).toBe('right');
             expect(row).not.toBe(null);
             expect(row.children.length).toBe(2);
             expect(row.children[0].tagName).toBe('TD');
