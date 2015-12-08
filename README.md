@@ -1,5 +1,7 @@
 # markdown to jsx converter
 
+![build status](https://api.travis-ci.org/yaycmyk/markdown-to-jsx.svg)
+
 Enables the safe parsing of markdown into proper React JSX objects, so you don't need to use a pattern like `dangerouslySetInnerHTML` and potentially open your application up to security issues.
 
 The only exception is arbitrary HTML in the markdown (kind of an antipattern), which will still use the unsafe method.

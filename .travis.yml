@@ -1,0 +1,7 @@
+language: node_js
+node_js:
+    - "stable"
+
+script:
+    - npm run es5
+    - npm test
