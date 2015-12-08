@@ -39,9 +39,6 @@ converter('# Hello world[^2]!\n\n[^2]: A beautiful place.', {footnotes: true});
 - mdast's handling of lists will sometimes add a child paragraph tag inside the
   `<li>` where it shouldn't exist - [Bug Ticket](https://github.com/wooorm/mdast/issues/104)
 
-- mdast does not currently have support for column-specific alignment in GFM tables -
-  [Bug Ticket](https://github.com/wooorm/mdast/issues/105)
-
 - mdast incorrectly parses footnote definitions with only one word - [Bug Ticket](https://github.com/wooorm/mdast/issues/106)
 
 MIT
