@@ -181,7 +181,7 @@ describe('markdown-to-jsx', () => {
 
             expect(image).not.toBe(null);
             /* bug in mdast: https://github.com/wooorm/mdast/issues/103 */
-            // expect(image.getAttribute('alt')).toBe(null);
+            expect(image.getAttribute('alt')).toBe(null);
             expect(image.getAttribute('title')).toBe(null);
             expect(image.src).toBe('/xyz.png');
         });

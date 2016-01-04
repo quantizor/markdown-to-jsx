@@ -2,11 +2,12 @@
   "name": "markdown-to-jsx",
   "description": "Interprets markdown text and outputs a JSX equivalent.",
   "license": "MIT",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "keywords": [
     "markdown",
     "react",
-    "jsx"
+    "jsx",
+    "remark"
   ],
   "author": "Evan Jacobs <evan@yaycmyk.com> (http://yaycmyk.com)",
   "repository": "yaycmyk/markdown-to-jsx",
@@ -23,7 +24,7 @@
     "react-dom": "^0.14.0"
   },
   "dependencies": {
-    "mdast": "^2.3.0"
+    "remark": "^3.0.0"
   },
   "peerDependencies": {
     "react": "^0.14.0"

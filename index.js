@@ -1,7 +1,7 @@
 import React from 'react';
-import {parse} from 'mdast';
+import {parse} from 'remark';
 
-const textTypes = ['text', 'textNode', 'escape'];
+const textTypes = ['text', 'textNode'];
 
 let definitions;
 let footnotes;
@@ -292,6 +292,10 @@ function extractDefinitionsFromASTTree(ast) {
 
 export default function markdownToJSX(markdown, mdastOptions = {}) {
     let ast;
+
+    mdastOptions.gfm = mdastOptions.gfm || true;
+    mdastOptions.looseTable = mdastOptions.looseTable || true;
+    mdastOptions.spacedTable = mdastOptions.looseTable || false;
 
     try {
         ast = parse(markdown, mdastOptions);
