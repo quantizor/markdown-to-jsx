@@ -175,7 +175,11 @@ describe('markdown-to-jsx', () => {
         });
 
         it('should handle an image reference', () => {
-            const element = render(converter('![][1]\n[1]: /xyz.png'));
+            const element = render(converter([
+                '![][1]',
+                '[1]: /xyz.png',
+            ].join('\n')));
+
             const elementNode = ReactDOM.findDOMNode(element);
             const image = elementNode.querySelector('img');
 
@@ -187,7 +191,11 @@ describe('markdown-to-jsx', () => {
         });
 
         it('should handle an image reference with alt text', () => {
-            const element = render(converter('![test][1]\n[1]: /xyz.png'));
+            const element = render(converter([
+                '![test][1]',
+                '[1]: /xyz.png',
+            ].join('\n')));
+
             const elementNode = ReactDOM.findDOMNode(element);
             const image = elementNode.querySelector('img');
 
@@ -198,7 +206,11 @@ describe('markdown-to-jsx', () => {
         });
 
         it('should handle an image reference with title', () => {
-            const element = render(converter('![test][1]\n[1]: /xyz.png "foo"'));
+            const element = render(converter([
+                '![test][1]',
+                '[1]: /xyz.png "foo"',
+            ].join('\n')));
+
             const elementNode = ReactDOM.findDOMNode(element);
             const image = elementNode.querySelector('img');
 
@@ -233,7 +245,11 @@ describe('markdown-to-jsx', () => {
         });
 
         it('should handle a link reference', () => {
-            const element = render(converter('[foo][1]\n[1]: /xyz.png'));
+            const element = render(converter([
+                '[foo][1]',
+                '[1]: /xyz.png',
+            ].join('\n')));
+
             const elementNode = ReactDOM.findDOMNode(element);
             const link = elementNode.querySelector('a');
 
@@ -244,7 +260,11 @@ describe('markdown-to-jsx', () => {
         });
 
         it('should handle a link reference with title', () => {
-            const element = render(converter('[foo][1]\n[1]: /xyz.png "bar"'));
+            const element = render(converter([
+                '[foo][1]',
+                '[1]: /xyz.png "bar"',
+            ].join('\n')));
+
             const elementNode = ReactDOM.findDOMNode(element);
             const link = elementNode.querySelector('a');
 
@@ -258,7 +278,12 @@ describe('markdown-to-jsx', () => {
     describe('lists', () => {
         /* disabled pending a fix from mdast: https://github.com/wooorm/mdast/issues/104 */
         xit('should handle a tight list', () => {
-            const element = render(converter('- xyz\n- abc\n- foo'));
+            const element = render(converter([
+                '- xyz',
+                '- abc',
+                '- foo',
+            ].join('\n')));
+
             const elementNode = ReactDOM.findDOMNode(element);
             const list = elementNode.querySelector('ul');
 
@@ -275,7 +300,14 @@ describe('markdown-to-jsx', () => {
         });
 
         it('should handle a loose list', () => {
-            const element = render(converter('- xyz\n\n- abc\n\n- foo'));
+            const element = render(converter([
+                '- xyz',
+                '',
+                '- abc',
+                '',
+                '- foo',
+            ].join('\n')));
+
             const elementNode = ReactDOM.findDOMNode(element);
             const list = elementNode.querySelector('ul');
 
@@ -290,7 +322,12 @@ describe('markdown-to-jsx', () => {
         });
 
         it('should handle an ordered list', () => {
-            const element = render(converter('1. xyz\n1. abc\n1. foo'));
+            const element = render(converter([
+                '1. xyz',
+                '1. abc',
+                '1. foo',
+            ].join('\n')));
+
             const elementNode = ReactDOM.findDOMNode(element);
             const list = elementNode.querySelector('ol');
 
@@ -302,7 +339,12 @@ describe('markdown-to-jsx', () => {
         });
 
         it('should handle an ordered list with a specific start index', () => {
-            const element = render(converter('2. xyz\n3. abc\n4. foo'));
+            const element = render(converter([
+                '2. xyz',
+                '3. abc',
+                '4. foo',
+            ].join('\n')));
+
             const elementNode = ReactDOM.findDOMNode(element);
             const list = elementNode.querySelector('ol');
 
@@ -311,7 +353,12 @@ describe('markdown-to-jsx', () => {
         });
 
         it('should handle a nested list', () => {
-            const element = render(converter('- xyz\n  - abc\n- foo'));
+            const element = render(converter([
+                '- xyz',
+                '  - abc',
+                '- foo',
+            ].join('\n')));
+
             const elementNode = ReactDOM.findDOMNode(element);
             const list = elementNode.querySelector('ul');
 
@@ -357,7 +404,12 @@ describe('markdown-to-jsx', () => {
 
     describe('GFM tables', () => {
         it('should handle a basic table', () => {
-            const element = render(converter('foo|bar\n-|-\n1|2'));
+            const element = render(converter([
+                'foo|bar',
+                '---|---',
+                '1  |2',
+            ].join('\n')));
+
             const elementNode = ReactDOM.findDOMNode(element);
             const table = elementNode.querySelector('table');
             const thead = table.querySelector('thead tr');
@@ -373,7 +425,12 @@ describe('markdown-to-jsx', () => {
         });
 
         it('should handle a table with aligned columns', () => {
-            const element = render(converter('foo|bar\n-:|-\n1|2'));
+            const element = render(converter([
+                'foo|bar',
+                '--:|---',
+                '1  |2',
+            ].join('\n')));
+
             const elementNode = ReactDOM.findDOMNode(element);
             const table = elementNode.querySelector('table');
             const thead = table.querySelector('thead tr');
@@ -412,8 +469,12 @@ describe('markdown-to-jsx', () => {
     });
 
     describe('line breaks', () => {
-        it('should be handled', () => {
-            const element = render(converter('hello  \nthere'));
+        it('should be added for 2-space sequences', () => {
+            const element = render(converter([
+                'hello  ',
+                'there',
+            ].join('\n')));
+
             const elementNode = ReactDOM.findDOMNode(element);
             const lineBreak = elementNode.querySelector('br');
 
@@ -423,7 +484,12 @@ describe('markdown-to-jsx', () => {
 
     describe('fenced code blocks', () => {
         it('should be handled', () => {
-            const element = render(converter('```js\nfoo\n```'));
+            const element = render(converter([
+                '```js',
+                'foo',
+                '```',
+            ].join('\n')));
+
             const elementNode = ReactDOM.findDOMNode(element);
             const pre = elementNode.querySelector('pre');
 
@@ -448,9 +514,11 @@ describe('markdown-to-jsx', () => {
 
     describe('footnotes', () => {
         it('should handle conversion of references into links', () => {
-            const element = render(
-                converter('foo[^abc] bar\n\n[^abc]: Baz baz', {footnotes: true})
-            );
+            const element = render(converter([
+                'foo[^abc] bar',
+                '',
+                '[^abc]: Baz baz',
+            ].join('\n'), {footnotes: true}));
 
             const elementNode = ReactDOM.findDOMNode(element);
 
@@ -472,9 +540,11 @@ describe('markdown-to-jsx', () => {
         });
 
         it('should inject the definitions in a footer at the end of the root', () => {
-            const element = render(
-                converter('foo[^abc] bar\n\n[^abc]: Baz baz', {footnotes: true})
-            );
+            const element = render(converter([
+                'foo[^abc] bar',
+                '',
+                '[^abc]: Baz baz',
+            ].join('\n'), {footnotes: true}));
 
             const elementNode = ReactDOM.findDOMNode(element);
             const definitions = elementNode.children[1];
@@ -484,6 +554,23 @@ describe('markdown-to-jsx', () => {
             expect(definitions.children[0].tagName).toBe('DIV');
             expect(definitions.children[0].id).toBe('abc');
             expect(definitions.children[0].textContent).toBe('[abc]: Baz baz');
+        });
+
+        it('should handle single word footnote definitions', () => {
+            const element = render(converter([
+                'foo[^abc] bar',
+                '',
+                '[^abc]: Baz',
+            ].join('\n'), {footnotes: true}));
+
+            const elementNode = ReactDOM.findDOMNode(element);
+            const definitions = elementNode.children[1];
+
+            expect(definitions).not.toBe(null);
+            expect(definitions.tagName).toBe('FOOTER');
+            expect(definitions.children[0].tagName).toBe('DIV');
+            expect(definitions.children[0].id).toBe('abc');
+            expect(definitions.children[0].textContent).toBe('[abc]: Baz');
         });
     });
 });

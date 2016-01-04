@@ -290,15 +290,13 @@ function extractDefinitionsFromASTTree(ast) {
     });
 }
 
-export default function markdownToJSX(markdown, mdastOptions = {}) {
+export default function markdownToJSX(markdown, remarkOptions = {}) {
     let ast;
 
-    mdastOptions.gfm = mdastOptions.gfm || true;
-    mdastOptions.looseTable = mdastOptions.looseTable || true;
-    mdastOptions.spacedTable = mdastOptions.looseTable || false;
+    remarkOptions.position = remarkOptions.position || false;
 
     try {
-        ast = parse(markdown, mdastOptions);
+        ast = parse(markdown, remarkOptions);
     } catch (error) {
         return error;
     }
