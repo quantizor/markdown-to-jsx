@@ -1,7 +1,7 @@
 import React from 'react';
-import {parse} from 'mdast';
+import {parse} from 'remark';
 
-const textTypes = ['text', 'textNode', 'escape'];
+const textTypes = ['text', 'textNode'];
 
 let definitions;
 let footnotes;
@@ -290,11 +290,13 @@ function extractDefinitionsFromASTTree(ast) {
     });
 }
 
-export default function markdownToJSX(markdown, mdastOptions = {}) {
+export default function markdownToJSX(markdown, remarkOptions = {}) {
     let ast;
 
+    remarkOptions.position = remarkOptions.position || false;
+
     try {
-        ast = parse(markdown, mdastOptions);
+        ast = parse(markdown, remarkOptions);
     } catch (error) {
         return error;
     }
