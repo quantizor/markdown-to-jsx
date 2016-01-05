@@ -408,6 +408,7 @@ describe('markdown-to-jsx', () => {
                 'foo|bar',
                 '---|---',
                 '1  |2',
+                '',
             ].join('\n')));
 
             const elementNode = ReactDOM.findDOMNode(element);
@@ -429,6 +430,7 @@ describe('markdown-to-jsx', () => {
                 'foo|bar',
                 '--:|---',
                 '1  |2',
+                '',
             ].join('\n')));
 
             const elementNode = ReactDOM.findDOMNode(element);
