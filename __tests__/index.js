@@ -575,4 +575,77 @@ describe('markdown-to-jsx', () => {
             expect(definitions.children[0].textContent).toBe('[abc]: Baz');
         });
     });
+
+    describe('custom node types', () => {
+      it('should handle custom paragraph', () => {
+
+          const Paragraph = (props) => <p {...props}>{props.children}</p>;
+          Paragraph.displayName = 'Paragraph';
+
+          const element = converter('testing', {nodeType: {
+            paragraph: {
+              component: Paragraph,
+              props: {
+                size: 'large'
+              }
+            }
+          }});
+
+          expect(element.props.children[0].type.displayName).toBe('Paragraph');
+          expect(element.props.children[0].props.size).toBe('large');
+          expect(element.props.children[0].props.children).toBe('testing');
+      });
+
+      it('should handle custom heading', () => {
+
+          const Heading = (props) => {
+            const Component = props.tag;
+            return (
+              <Component {...props}>{props.children}</Component>
+            );
+          };
+          Heading.displayName = 'Heading';
+
+          const element = converter('### heading', {nodeType: {
+            heading: {
+              component: Heading,
+              dynamicProps: function (ast) {
+                return {
+                  tag: `h${ast.depth}`
+                };
+              }
+            }
+          }});
+
+          expect(element.props.children[0].type.displayName).toBe('Heading');
+          expect(element.props.children[0].props.tag).toBe('h3');
+          expect(element.props.children[0].props.children).toBe('heading');
+      });
+
+      it('should handle custom image', () => {
+
+          const Image = (props) => {
+            return (
+              <div>image</div>
+            );
+          };
+          Image.displayName = 'Image';
+
+          const element = converter('![test image](img.png)', {nodeType: {
+            image: {
+              component: Image,
+              dynamicProps: function (ast) {
+                return {
+                  caption: ast.alt
+                };
+              }
+            }
+          }});
+
+          let imageChildren = element.props.children[0].props.children[0];
+          expect(imageChildren.type.displayName).toBe('Image');
+          expect(imageChildren.props.caption).toBe('test image');
+          expect(imageChildren.props.src).toBe('img.png');
+      });
+    });
 });
