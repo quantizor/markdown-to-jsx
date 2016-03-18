@@ -5,61 +5,63 @@ const textTypes = ['text', 'textNode'];
 
 let definitions;
 let footnotes;
+let nodeType;
 
 function getHTMLNodeTypeFromASTNodeType(node) {
+    const component = nodeType[node.type] ? nodeType[node.type].component : undefined;
     switch (node.type) {
     case 'break':
-        return 'br';
+        return component || 'br';
 
     case 'delete':
-        return 'del';
+        return component || 'del';
 
     case 'emphasis':
-        return 'em';
+        return component || 'em';
 
     case 'footnoteReference':
-        return 'a';
+        return component || 'a';
 
     case 'heading':
-        return `h${node.depth}`;
+        return component || `h${node.depth}`;
 
     case 'horizontalRule':
-        return 'hr';
+        return component || 'hr';
 
     case 'html':
         return 'div';
 
     case 'image':
     case 'imageReference':
-        return 'img';
+        return component || 'img';
 
     case 'inlineCode':
-        return 'code';
+        return component || 'code';
 
     case 'link':
     case 'linkReference':
-        return 'a';
+        return component || 'a';
 
     case 'list':
-        return node.ordered ? 'ol' : 'ul';
+        return component || node.ordered ? 'ol' : 'ul';
 
     case 'listItem':
-        return 'li';
+        return component || 'li';
 
     case 'paragraph':
-        return 'p';
+        return component || 'p';
 
     case 'root':
         return 'div';
 
     case 'tableHeader':
-        return 'thead';
+        return component || 'thead';
 
     case 'tableRow':
-        return 'tr';
+        return component || 'tr';
 
     case 'tableCell':
-        return 'td';
+        return component || 'td';
 
     case 'definition':
     case 'footnoteDefinition':
@@ -72,11 +74,19 @@ function getHTMLNodeTypeFromASTNodeType(node) {
 }
 
 function formExtraPropsForHTMLNodeType(props = {}, ast) {
+    const customProps = nodeType[ast.type] ? nodeType[ast.type].props : {};
+    let dynamicProps;
+    if (nodeType[ast.type] && nodeType[ast.type].dynamicProps) {
+      dynamicProps = nodeType[ast.type].dynamicProps(ast);
+    }
+
     switch (ast.type) {
     case 'footnoteReference':
         return {
             ...props,
             href: `#${ast.identifier}`,
+            ...customProps,
+            ...dynamicProps
         };
 
     case 'image':
@@ -85,6 +95,8 @@ function formExtraPropsForHTMLNodeType(props = {}, ast) {
             title: ast.title,
             alt: ast.alt,
             src: ast.src,
+            ...customProps,
+            ...dynamicProps
         };
 
     case 'imageReference':
@@ -93,6 +105,8 @@ function formExtraPropsForHTMLNodeType(props = {}, ast) {
             title: definitions[ast.identifier].title,
             alt: ast.alt,
             src: definitions[ast.identifier].link,
+            ...customProps,
+            ...dynamicProps
         };
 
     case 'link':
@@ -100,6 +114,8 @@ function formExtraPropsForHTMLNodeType(props = {}, ast) {
             ...props,
             title: ast.title,
             href: ast.href,
+            ...customProps,
+            ...dynamicProps
         };
 
     case 'linkReference':
@@ -107,19 +123,32 @@ function formExtraPropsForHTMLNodeType(props = {}, ast) {
             ...props,
             title: definitions[ast.identifier].title,
             href: definitions[ast.identifier].link,
+            ...customProps,
+            ...dynamicProps
         };
 
     case 'list':
         return {
             ...props,
             start: ast.start,
+            ...customProps,
+            ...dynamicProps
         };
 
+    case 'paragraph':
+    case 'heading':
+        return {
+            ...props,
+            ...customProps,
+            ...dynamicProps
+        };
     case 'tableCell':
     case 'th':
         return {
             ...props,
             style: {textAlign: ast.align},
+            ...customProps,
+            ...dynamicProps
         };
     }
 
@@ -290,10 +319,12 @@ function extractDefinitionsFromASTTree(ast) {
     });
 }
 
-export default function markdownToJSX(markdown, remarkOptions = {}) {
+export default function markdownToJSX(markdown, options = {}) {
     let ast;
 
-    remarkOptions.position = remarkOptions.position || false;
+    const remarkOptions = {...options};
+    remarkOptions.position = options.position || false;
+    delete remarkOptions.nodeType;
 
     try {
         ast = parse(markdown, remarkOptions);
@@ -305,6 +336,7 @@ export default function markdownToJSX(markdown, remarkOptions = {}) {
 
     definitions = extracted.definitions;
     footnotes = extracted.footnotes;
+    nodeType = options.nodeType || {};
 
     const jsx = astToJSX(ast);
 
