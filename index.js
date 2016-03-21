@@ -249,9 +249,9 @@ function astToJSX(ast, index) { /* `this` is the dictionary of definitions */
         }
     } /* solitary text children don't need full parsing or React will add a wrapper */
 
-    let children =   Array.isArray(ast.children)
-                   ? ast.children.map(astToJSX)
-                   : ast.children;
+    const children =   Array.isArray(ast.children)
+                     ? ast.children.map(astToJSX)
+                     : ast.children;
 
     return React.createElement(htmlNodeType, props, ast.value || children);
 }
