@@ -24,7 +24,7 @@
     "react-dom": "^0.14.0"
   },
   "dependencies": {
-    "remark": "^3.0.0"
+    "remark": "^4.0.0"
   },
   "peerDependencies": {
     "react": "^0.14.0"

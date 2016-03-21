@@ -25,9 +25,6 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
         case 'heading':
             return `h${node.depth}`;
 
-        case 'horizontalRule':
-            return 'hr';
-
         case 'html':
             return 'div';
 
@@ -63,6 +60,9 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
         case 'tableCell':
             return 'td';
 
+        case 'thematicBreak':
+            return 'hr';
+
         case 'definition':
         case 'footnoteDefinition':
         case 'yaml':
@@ -86,7 +86,7 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
                 ...props,
                 title: ast.title,
                 alt: ast.alt,
-                src: ast.src,
+                src: ast.url,
             };
 
         case 'imageReference':
@@ -94,21 +94,21 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
                 ...props,
                 title: definitions[ast.identifier].title,
                 alt: ast.alt,
-                src: definitions[ast.identifier].link,
+                src: definitions[ast.identifier].url,
             };
 
         case 'link':
             return {
                 ...props,
                 title: ast.title,
-                href: ast.href,
+                href: ast.url,
             };
 
         case 'linkReference':
             return {
                 ...props,
                 title: definitions[ast.identifier].title,
-                href: definitions[ast.identifier].link,
+                href: definitions[ast.identifier].url,
             };
 
         case 'list':
@@ -189,8 +189,10 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
         if (ast.type === 'table') {
             const tbody = {type: 'tbody', children: []};
 
-            ast.children = ast.children.reduce((children, child) => {
-                if (child.type === 'tableHeader') {
+            ast.children = ast.children.reduce((children, child, index) => {
+                if (index === 0) {
+                    /* manually marking the first row as tableHeader since that was removed in remark@4.x; it's important semantically. */
+                    child.type = 'tableHeader';
                     children.unshift(
                         seekCellsAndAlignThemIfNecessary(child, ast.align)
                     );
