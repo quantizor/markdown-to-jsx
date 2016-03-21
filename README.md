@@ -23,8 +23,39 @@ render(converter('# Hello world!'), document.body);
 [remark options](https://github.com/wooorm/remark#remarkprocessvalue-options-done) can be passed as the second argument:
 
 ```js
-converter('# Hello world[^2]!\n\n[^2]: A beautiful place.', {footnotes: true});
+converter('* abc\n* def\n* ghi', {bullet: '*'});
 ```
+
+_Footnotes are enabled by default as of `markdown-to-jsx@2.0.0`._
+
+## Overriding tags and adding props
+
+As of `markdown-to-jsx@2.0.0`, it's now possible to selectively override a given HTML tag's JSX representation. This is done through a new third argument to the converter: an object made of keys, each being the lowercase html tag name (p, figure, a, etc.) to be overridden.
+
+Each override can be given a `component` that will be substituted for the tag name and/or `props` that will be applied as you would expect.
+
+```js
+converter('Hello there!', {}, {
+    p: {
+        component: MyParagraph,
+        props: {
+            className: 'foo'
+        },
+    }
+});
+```
+
+The code above will replace all emitted `<p>` tags with the given component `MyParagraph`, and add the `className` specified in `props`.
+
+Depending on the type of element, there are some props that must be preserved to ensure the markdown is converted as intended. They are:
+
+- `a`: `title`, `href`
+- `img`: `title`, `alt`, `src`
+- `ol`: `start`
+- `td`: `style`
+- `th`: `style`
+
+Any conflicts between passed `props` and the specific properties above will be resolved in favor of `markdown-to-jsx`'s code.
 
 ## Known Issues
 

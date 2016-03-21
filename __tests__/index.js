@@ -31,6 +31,17 @@ describe('markdown-to-jsx', () => {
         expect(() => converter('', true)).toThrow();
     });
 
+    it('should throw if not passed an object or undefined (third arg)', () => {
+        expect(() => converter('', {})).not.toThrow();
+        expect(() => converter('', {}, {})).not.toThrow();
+
+        expect(() => converter('', {}, 1)).toThrow();
+        expect(() => converter('', {}, function(){})).toThrow();
+        expect(() => converter('', {}, [])).toThrow();
+        expect(() => converter('', {}, null)).toThrow();
+        expect(() => converter('', {}, true)).toThrow();
+    });
+
     it('should handle a basic string', () => {
         const element = render(converter('Hello.'));
         const elementNode = ReactDOM.findDOMNode(element);
@@ -596,6 +607,31 @@ describe('markdown-to-jsx', () => {
             expect(definitions.children[0].tagName).toBe('DIV');
             expect(definitions.children[0].id).toBe('abc');
             expect(definitions.children[0].textContent).toBe('[abc]: Baz');
+        });
+    });
+
+    describe('overrides', () => {
+        it('should substitute the appropriate JSX tag if given a component', () => {
+            const FakeParagraph = (props) => <p className='foo'>{props.children}</p>;
+            const element = render(
+                converter('Hello.', {}, {p: {component: FakeParagraph}})
+            );
+
+            const elementNode = ReactDOM.findDOMNode(element);
+
+            expect(elementNode.children.length).toBe(1);
+            expect(elementNode.children[0].className).toBe('foo');
+        });
+
+        it('should add props to the appropriate JSX tag if supplied', () => {
+            const element = render(
+                converter('Hello.', {}, {p: {props: {className: 'abc'}}})
+            );
+
+            const elementNode = ReactDOM.findDOMNode(element);
+
+            expect(elementNode.children.length).toBe(1);
+            expect(elementNode.children[0].className).toBe('abc');
         });
     });
 });
