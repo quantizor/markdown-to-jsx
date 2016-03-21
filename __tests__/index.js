@@ -8,6 +8,29 @@ describe('markdown-to-jsx', () => {
 
     afterEach(() => ReactDOM.unmountComponentAtNode(mountNode));
 
+    it('should throw if not passed a string (first arg)', () => {
+        expect(() => converter('')).not.toThrow();
+
+        expect(() => converter()).toThrow();
+        expect(() => converter(1)).toThrow();
+        expect(() => converter(function(){})).toThrow();
+        expect(() => converter({})).toThrow();
+        expect(() => converter([])).toThrow();
+        expect(() => converter(null)).toThrow();
+        expect(() => converter(true)).toThrow();
+    });
+
+    it('should throw if not passed an object or undefined (second arg)', () => {
+        expect(() => converter('')).not.toThrow();
+        expect(() => converter('', {})).not.toThrow();
+
+        expect(() => converter('', 1)).toThrow();
+        expect(() => converter('', function(){})).toThrow();
+        expect(() => converter('', [])).toThrow();
+        expect(() => converter('', null)).toThrow();
+        expect(() => converter('', true)).toThrow();
+    });
+
     it('should handle a basic string', () => {
         const element = render(converter('Hello.'));
         const elementNode = ReactDOM.findDOMNode(element);

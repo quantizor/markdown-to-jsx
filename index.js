@@ -293,6 +293,17 @@ function extractDefinitionsFromASTTree(ast) {
 export default function markdownToJSX(markdown, remarkOptions = {}) {
     let ast;
 
+    if (typeof markdown !== 'string') {
+        throw new Error(`markdown-to-jsx: the first argument must be
+                         a string`);
+    }
+
+    if (Object.prototype.toString.call(remarkOptions) !== '[object Object]') {
+        throw new Error(`markdown-to-jsx: the second argument must be
+                         undefined or an object literal ({}) containing
+                         valid remark options`);
+    }
+
     remarkOptions.position = remarkOptions.position || false;
     remarkOptions.footnotes = remarkOptions.footnotes || true;
 
