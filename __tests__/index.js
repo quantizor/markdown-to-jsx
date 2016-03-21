@@ -520,7 +520,7 @@ describe('markdown-to-jsx', () => {
                 'foo[^abc] bar',
                 '',
                 '[^abc]: Baz baz',
-            ].join('\n'), {footnotes: true}));
+            ].join('\n')));
 
             const elementNode = ReactDOM.findDOMNode(element);
 
@@ -546,7 +546,7 @@ describe('markdown-to-jsx', () => {
                 'foo[^abc] bar',
                 '',
                 '[^abc]: Baz baz',
-            ].join('\n'), {footnotes: true}));
+            ].join('\n')));
 
             const elementNode = ReactDOM.findDOMNode(element);
             const definitions = elementNode.children[1];
@@ -563,7 +563,7 @@ describe('markdown-to-jsx', () => {
                 'foo[^abc] bar',
                 '',
                 '[^abc]: Baz',
-            ].join('\n'), {footnotes: true}));
+            ].join('\n')));
 
             const elementNode = ReactDOM.findDOMNode(element);
             const definitions = elementNode.children[1];

@@ -294,6 +294,7 @@ export default function markdownToJSX(markdown, remarkOptions = {}) {
     let ast;
 
     remarkOptions.position = remarkOptions.position || false;
+    remarkOptions.footnotes = remarkOptions.footnotes || true;
 
     try {
         ast = parse(markdown, remarkOptions);
