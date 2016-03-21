@@ -321,8 +321,6 @@ describe('markdown-to-jsx', () => {
             const elementNode = ReactDOM.findDOMNode(element);
             const list = elementNode.querySelector('ul');
 
-            console.log(list.children[0].childNodes[0]);
-
             expect(list).not.toBe(null);
             expect(list.children.length).toBe(3);
             expect(list.children[0].textContent).toBe('xyz');
@@ -498,7 +496,8 @@ describe('markdown-to-jsx', () => {
         it('should be handled', () => {
             const element = render(converter('---'));
             const elementNode = ReactDOM.findDOMNode(element);
-            const rule = elementNode.querySelector('hr');
+
+            const rule = elementNode.querySelectorAll('hr');
 
             expect(rule).not.toBe(null);
         });
@@ -632,6 +631,22 @@ describe('markdown-to-jsx', () => {
 
             expect(elementNode.children.length).toBe(1);
             expect(elementNode.children[0].className).toBe('abc');
+        });
+
+        it('should keep original props when override is used', () => {
+            const element = render(
+                converter('![test image](/xyz.png)', {}, {img: {props: {className: 'image'}}})
+            );
+
+            const elementNode = ReactDOM.findDOMNode(element);
+
+            const image = elementNode.querySelector('img');
+
+            expect(image).not.toBe(null);
+            expect(image.getAttribute('alt')).toBe('test image');
+            expect(image.getAttribute('title')).toBe(null);
+            expect(image.src).toBe('/xyz.png');
+            expect(image.className).toBe('image');
         });
     });
 });

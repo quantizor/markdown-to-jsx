@@ -86,7 +86,7 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
                 ...props,
                 title: ast.title,
                 alt: ast.alt,
-                src: ast.url,
+                src: ast.src,
             };
 
         case 'imageReference':
@@ -94,21 +94,21 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
                 ...props,
                 title: definitions[ast.identifier].title,
                 alt: ast.alt,
-                src: definitions[ast.identifier].url,
+                src: definitions[ast.identifier].link,
             };
 
         case 'link':
             return {
                 ...props,
                 title: ast.title,
-                href: ast.url,
+                href: ast.href,
             };
 
         case 'linkReference':
             return {
                 ...props,
                 title: definitions[ast.identifier].title,
-                href: definitions[ast.identifier].url,
+                href: definitions[ast.identifier].link,
             };
 
         case 'list':
