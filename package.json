@@ -2,7 +2,7 @@
   "name": "markdown-to-jsx",
   "description": "Interprets markdown text and outputs a JSX equivalent.",
   "license": "MIT",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "keywords": [
     "markdown",
     "react",
@@ -13,18 +13,19 @@
   "repository": "yaycmyk/markdown-to-jsx",
   "bugs": "https://github.com/yaycmyk/markdown-to-jsx/issues",
   "main": "index.es5.js",
+  "jsnext:main": "index.js",
   "devDependencies": {
     "babel-cli": "^6.3.13",
     "babel-jest": "^6.0.1",
     "babel-preset-es2015": "^6.3.13",
     "babel-preset-react": "^6.3.13",
     "babel-preset-stage-2": "^6.3.13",
-    "jest-cli": "^0.8.0",
+    "jest-cli": "^0.9.0",
     "react": "^0.14.0",
     "react-dom": "^0.14.0"
   },
   "dependencies": {
-    "remark": "^3.0.0"
+    "remark": "^4.0.0"
   },
   "peerDependencies": {
     "react": "^0.14.0"
