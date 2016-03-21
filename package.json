@@ -13,6 +13,7 @@
   "repository": "yaycmyk/markdown-to-jsx",
   "bugs": "https://github.com/yaycmyk/markdown-to-jsx/issues",
   "main": "index.es5.js",
+  "jsnext:main": "index.js",
   "devDependencies": {
     "babel-cli": "^6.3.13",
     "babel-jest": "^6.0.1",
