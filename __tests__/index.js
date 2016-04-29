@@ -558,21 +558,16 @@ describe('markdown-to-jsx', () => {
 
             const elementNode = ReactDOM.findDOMNode(element);
 
-            const text = elementNode.children[0].children[0];
-            const footnoteLink = elementNode.children[0].children[1];
-            const restOfText = elementNode.children[0].children[2];
+            const text = elementNode.children[0].textContent;
+            const footnoteLink = elementNode.children[0].children[0];
 
-            expect(text).not.toBe(null);
-            expect(text.textContent).toBe('foo');
+            expect(text).toBe('fooabc bar');
 
             expect(footnoteLink).not.toBe(null);
             expect(footnoteLink.textContent).toBe('abc');
             expect(footnoteLink.getAttribute('href')).toBe('#abc');
             expect(footnoteLink.tagName).toBe('A');
             expect(footnoteLink.children[0].tagName).toBe('SUP');
-
-            expect(restOfText).not.toBe(null);
-            expect(restOfText.textContent).toBe(' bar');
         });
 
         it('should inject the definitions in a footer at the end of the root', () => {
