@@ -22,7 +22,7 @@
     "babel-preset-stage-2": "^6.3.13",
     "jest-cli": "^12.0.2",
     "react": "^15.0.0",
-    "react-dom": "^15.0.0"
+    "react-dom": "^15.0.2"
   },
   "dependencies": {
     "remark": "^4.0.0"
