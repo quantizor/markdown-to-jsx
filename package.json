@@ -3,6 +3,9 @@
   "description": "Interprets markdown text and outputs a JSX equivalent.",
   "license": "MIT",
   "version": "2.0.1",
+  "engines": {
+    "node": ">= 4"
+  },
   "keywords": [
     "markdown",
     "react",
