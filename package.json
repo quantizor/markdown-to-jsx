@@ -18,7 +18,7 @@
   "main": "index.es5.js",
   "jsnext:main": "index.js",
   "devDependencies": {
-    "babel-cli": "^6.8.0",
+    "babel-cli": "^6.9.0",
     "babel-jest": "^12.0.2",
     "babel-preset-es2015": "^6.3.13",
     "babel-preset-react": "^6.3.13",
