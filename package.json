@@ -23,7 +23,7 @@
     "babel-preset-es2015": "^6.9.0",
     "babel-preset-react": "^6.3.13",
     "babel-preset-stage-2": "^6.3.13",
-    "jest-cli": "^12.1.1",
+    "jest-cli": "^13.0.0",
     "react": "^15.1.0",
     "react-dom": "^15.1.0"
   },
