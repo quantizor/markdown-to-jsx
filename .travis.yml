@@ -7,4 +7,12 @@ node_js:
 
 os: linux
 
+env:
+  - TARGET_REACT_VERSION=0.14
+  - TARGET_REACT_VERSION=15
+
+before_install:
+  - npm install react@$(echo $TARGET_REACT_VERSION)
+  - npm install react-dom@$(echo $TARGET_REACT_VERSION)
+
 script: npm test
