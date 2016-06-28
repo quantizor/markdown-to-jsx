@@ -2,11 +2,13 @@ import converter from '../index';
 import React from 'react';
 import ReactDOM from 'react-dom';
 
-describe('markdown-to-jsx', () => {
-    const mountNode = document.body.appendChild(document.createElement('div'));
-    const render = jsx => ReactDOM.render(jsx, mountNode);
+const dom = ReactDOM.findDOMNode;
 
-    afterEach(() => ReactDOM.unmountComponentAtNode(mountNode));
+describe('markdown-to-jsx', () => {
+    const root = document.body.appendChild(document.createElement('div'));
+    const render = jsx => ReactDOM.render(jsx, root);
+
+    afterEach(() => ReactDOM.unmountComponentAtNode(root));
 
     it('should throw if not passed a string (first arg)', () => {
         expect(() => converter('')).not.toThrow();
@@ -42,30 +44,34 @@ describe('markdown-to-jsx', () => {
         expect(() => converter('', {}, true)).toThrow();
     });
 
+    it('should discard the root <div> wrapper if there is only one root child', () => {
+        const element = render(converter('Hello.'));
+        const $element = dom(element);
+
+        expect($element.tagName.toLowerCase()).toBe('p');
+    });
+
     it('should handle a basic string', () => {
         const element = render(converter('Hello.'));
-        const elementNode = ReactDOM.findDOMNode(element);
-        const text = elementNode.querySelector('p');
+        const $element = dom(element);
 
-        expect(text).not.toBe(null);
-        expect(text.textContent).toBe('Hello.');
+        expect($element.textContent).toBe('Hello.');
     });
 
     it('should not introduce an intermediate wrapper for basic strings', () => {
         const element = render(converter('Hello.'));
-        const elementNode = ReactDOM.findDOMNode(element);
-        const text = elementNode.querySelector('p');
+        const $element = dom(element);
 
-        expect(text.childNodes.length).toBe(1);
-        expect(text.childNodes[0].nodeType).toBe(3); // TEXT_NODE
+        expect($element.childNodes.length).toBe(1);
+        expect($element.childNodes[0].nodeType).toBe(3); // TEXT_NODE
     });
 
     describe('inline textual elements', () => {
         it('should handle emphasized text', () => {
             const element = render(converter('_Hello._'));
-            const elementNode = ReactDOM.findDOMNode(element);
+            const $element = dom(element);
 
-            const text = elementNode.querySelector('em');
+            const text = $element.querySelector('em');
             expect(text).not.toBe(null);
             expect(text.childNodes.length).toBe(1);
             expect(text.childNodes[0].nodeType).toBe(3); // TEXT_NODE
@@ -74,8 +80,8 @@ describe('markdown-to-jsx', () => {
 
         it('should handle double-emphasized text', () => {
             const element = render(converter('__Hello.__'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const text = elementNode.querySelector('strong');
+            const $element = dom(element);
+            const text = $element.querySelector('strong');
 
             expect(text).not.toBe(null);
             expect(text.childNodes.length).toBe(1);
@@ -85,8 +91,8 @@ describe('markdown-to-jsx', () => {
 
         it('should handle triple-emphasized text', () => {
             const element = render(converter('___Hello.___'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const text = elementNode.querySelector('strong');
+            const $element = dom(element);
+            const text = $element.querySelector('strong');
 
             expect(text).not.toBe(null);
             expect(text.childNodes.length).toBe(1);
@@ -97,8 +103,8 @@ describe('markdown-to-jsx', () => {
 
         it('should handle deleted text', () => {
             const element = render(converter('~~Hello.~~'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const text = elementNode.querySelector('del');
+            const $element = dom(element);
+            const text = $element.querySelector('del');
 
             expect(text).not.toBe(null);
             expect(text.childNodes.length).toBe(1);
@@ -108,77 +114,76 @@ describe('markdown-to-jsx', () => {
 
         it('should handle escaped text', () => {
             const element = render(converter('Hello.\_\_'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const text = elementNode.querySelector('p');
+            const $element = dom(element);
 
-            expect(text).not.toBe(null);
-            expect(text.childNodes.length).toBe(1);
-            expect(text.childNodes[0].nodeType).toBe(3); // TEXT_NODE
-            expect(text.textContent).toBe('Hello.__');
+            expect($element).not.toBe(null);
+            expect($element.childNodes.length).toBe(1);
+            expect($element.childNodes[0].nodeType).toBe(3); // TEXT_NODE
+            expect($element.textContent).toBe('Hello.__');
         });
     });
 
     describe('headings', () => {
         it('should handle level 1 properly', () => {
             const element = render(converter('# Hello World'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const heading = elementNode.querySelector('h1');
+            const $element = dom(element);
 
-            expect(heading).not.toBe(null);
-            expect(heading.textContent).toBe('Hello World');
+            expect($element).not.toBe(null);
+            expect($element.tagName.toLowerCase()).toBe('h1');
+            expect($element.textContent).toBe('Hello World');
         });
 
         it('should handle level 2 properly', () => {
             const element = render(converter('## Hello World'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const heading = elementNode.querySelector('h2');
+            const $element = dom(element);
 
-            expect(heading).not.toBe(null);
-            expect(heading.textContent).toBe('Hello World');
+            expect($element).not.toBe(null);
+            expect($element.tagName.toLowerCase()).toBe('h2');
+            expect($element.textContent).toBe('Hello World');
         });
 
         it('should handle level 3 properly', () => {
             const element = render(converter('### Hello World'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const heading = elementNode.querySelector('h3');
+            const $element = dom(element);
 
-            expect(heading).not.toBe(null);
-            expect(heading.textContent).toBe('Hello World');
+            expect($element).not.toBe(null);
+            expect($element.tagName.toLowerCase()).toBe('h3');
+            expect($element.textContent).toBe('Hello World');
         });
 
         it('should handle level 4 properly', () => {
             const element = render(converter('#### Hello World'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const heading = elementNode.querySelector('h4');
+            const $element = dom(element);
 
-            expect(heading).not.toBe(null);
-            expect(heading.textContent).toBe('Hello World');
+            expect($element).not.toBe(null);
+            expect($element.tagName.toLowerCase()).toBe('h4');
+            expect($element.textContent).toBe('Hello World');
         });
 
         it('should handle level 5 properly', () => {
             const element = render(converter('##### Hello World'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const heading = elementNode.querySelector('h5');
+            const $element = dom(element);
 
-            expect(heading).not.toBe(null);
-            expect(heading.textContent).toBe('Hello World');
+            expect($element).not.toBe(null);
+            expect($element.tagName.toLowerCase()).toBe('h5');
+            expect($element.textContent).toBe('Hello World');
         });
 
         it('should handle level 6 properly', () => {
             const element = render(converter('###### Hello World'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const heading = elementNode.querySelector('h6');
+            const $element = dom(element);
 
-            expect(heading).not.toBe(null);
-            expect(heading.textContent).toBe('Hello World');
+            expect($element).not.toBe(null);
+            expect($element.tagName.toLowerCase()).toBe('h6');
+            expect($element.textContent).toBe('Hello World');
         });
     });
 
     describe('images', () => {
         it('should handle a basic image', () => {
             const element = render(converter('![](/xyz.png)'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const image = elementNode.querySelector('img');
+            const $element = dom(element);
+            const image = $element.querySelector('img');
 
             expect(image).not.toBe(null);
             expect(image.getAttribute('alt')).toBe(null);
@@ -188,8 +193,8 @@ describe('markdown-to-jsx', () => {
 
         it('should handle an image with alt text', () => {
             const element = render(converter('![test](/xyz.png)'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const image = elementNode.querySelector('img');
+            const $element = dom(element);
+            const image = $element.querySelector('img');
 
             expect(image).not.toBe(null);
             expect(image.getAttribute('alt')).toBe('test');
@@ -199,8 +204,8 @@ describe('markdown-to-jsx', () => {
 
         it('should handle an image with title', () => {
             const element = render(converter('![test](/xyz.png "foo")'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const image = elementNode.querySelector('img');
+            const $element = dom(element);
+            const image = $element.querySelector('img');
 
             expect(image).not.toBe(null);
             expect(image.getAttribute('alt')).toBe('test');
@@ -214,8 +219,8 @@ describe('markdown-to-jsx', () => {
                 '[1]: /xyz.png',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const image = elementNode.querySelector('img');
+            const $element = dom(element);
+            const image = $element.querySelector('img');
 
             expect(image).not.toBe(null);
             /* bug in mdast: https://github.com/wooorm/mdast/issues/103 */
@@ -230,8 +235,8 @@ describe('markdown-to-jsx', () => {
                 '[1]: /xyz.png',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const image = elementNode.querySelector('img');
+            const $element = dom(element);
+            const image = $element.querySelector('img');
 
             expect(image).not.toBe(null);
             expect(image.getAttribute('alt')).toBe('test');
@@ -245,8 +250,8 @@ describe('markdown-to-jsx', () => {
                 '[1]: /xyz.png "foo"',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const image = elementNode.querySelector('img');
+            const $element = dom(element);
+            const image = $element.querySelector('img');
 
             expect(image).not.toBe(null);
             expect(image.getAttribute('alt')).toBe('test');
@@ -258,8 +263,8 @@ describe('markdown-to-jsx', () => {
     describe('links', () => {
         it('should handle a basic link', () => {
             const element = render(converter('[foo](/xyz.png)'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const link = elementNode.querySelector('a');
+            const $element = dom(element);
+            const link = $element.querySelector('a');
 
             expect(link).not.toBe(null);
             expect(link.textContent).toBe('foo');
@@ -269,8 +274,8 @@ describe('markdown-to-jsx', () => {
 
         it('should handle a link with title', () => {
             const element = render(converter('[foo](/xyz.png "bar")'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const link = elementNode.querySelector('a');
+            const $element = dom(element);
+            const link = $element.querySelector('a');
 
             expect(link).not.toBe(null);
             expect(link.textContent).toBe('foo');
@@ -284,8 +289,8 @@ describe('markdown-to-jsx', () => {
                 '[1]: /xyz.png',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const link = elementNode.querySelector('a');
+            const $element = dom(element);
+            const link = $element.querySelector('a');
 
             expect(link).not.toBe(null);
             expect(link.textContent).toBe('foo');
@@ -299,8 +304,8 @@ describe('markdown-to-jsx', () => {
                 '[1]: /xyz.png "bar"',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const link = elementNode.querySelector('a');
+            const $element = dom(element);
+            const link = $element.querySelector('a');
 
             expect(link).not.toBe(null);
             expect(link.textContent).toBe('foo');
@@ -318,19 +323,16 @@ describe('markdown-to-jsx', () => {
                 '- foo',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const list = elementNode.querySelector('ul');
+            const $element = dom(element);
 
-            console.log(list.children[0].childNodes[0]);
-
-            expect(list).not.toBe(null);
-            expect(list.children.length).toBe(3);
-            expect(list.children[0].textContent).toBe('xyz');
-            expect(list.children[0].childNodes[0].nodeType).toBe(3); // TEXT_NODE
-            expect(list.children[1].textContent).toBe('abc');
-            expect(list.children[1].childNodes[0].nodeType).toBe(3); // TEXT_NODE
-            expect(list.children[2].textContent).toBe('foo');
-            expect(list.children[2].childNodes[0].nodeType).toBe(3); // TEXT_NODE
+            expect($element).not.toBe(null);
+            expect($element.children.length).toBe(3);
+            expect($element.children[0].textContent).toBe('xyz');
+            expect($element.children[0].childNodes[0].nodeType).toBe(3); // TEXT_NODE
+            expect($element.children[1].textContent).toBe('abc');
+            expect($element.children[1].childNodes[0].nodeType).toBe(3); // TEXT_NODE
+            expect($element.children[2].textContent).toBe('foo');
+            expect($element.children[2].childNodes[0].nodeType).toBe(3); // TEXT_NODE
         });
 
         it('should handle a loose list', () => {
@@ -342,17 +344,17 @@ describe('markdown-to-jsx', () => {
                 '- foo',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const list = elementNode.querySelector('ul');
+            const $element = dom(element);
 
-            expect(list).not.toBe(null);
-            expect(list.children.length).toBe(3);
-            expect(list.children[0].textContent).toBe('xyz');
-            expect(list.children[0].children[0].tagName).toBe('P');
-            expect(list.children[1].textContent).toBe('abc');
-            expect(list.children[1].children[0].tagName).toBe('P');
-            expect(list.children[2].textContent).toBe('foo');
-            expect(list.children[2].children[0].tagName).toBe('P');
+            expect($element).not.toBe(null);
+            expect($element.tagName.toLowerCase()).toBe('ul');
+            expect($element.children.length).toBe(3);
+            expect($element.children[0].textContent).toBe('xyz');
+            expect($element.children[0].children[0].tagName.toLowerCase()).toBe('p');
+            expect($element.children[1].textContent).toBe('abc');
+            expect($element.children[1].children[0].tagName.toLowerCase()).toBe('p');
+            expect($element.children[2].textContent).toBe('foo');
+            expect($element.children[2].children[0].tagName.toLowerCase()).toBe('p');
         });
 
         it('should handle an ordered list', () => {
@@ -362,14 +364,14 @@ describe('markdown-to-jsx', () => {
                 '1. foo',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const list = elementNode.querySelector('ol');
+            const $element = dom(element);
 
-            expect(list).not.toBe(null);
-            expect(list.children.length).toBe(3);
-            expect(list.children[0].textContent).toBe('xyz');
-            expect(list.children[1].textContent).toBe('abc');
-            expect(list.children[2].textContent).toBe('foo');
+            expect($element).not.toBe(null);
+            expect($element.tagName.toLowerCase()).toBe('ol');
+            expect($element.children.length).toBe(3);
+            expect($element.children[0].textContent).toBe('xyz');
+            expect($element.children[1].textContent).toBe('abc');
+            expect($element.children[2].textContent).toBe('foo');
         });
 
         it('should handle an ordered list with a specific start index', () => {
@@ -379,11 +381,10 @@ describe('markdown-to-jsx', () => {
                 '4. foo',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const list = elementNode.querySelector('ol');
+            const $element = dom(element);
 
-            expect(list).not.toBe(null);
-            expect(list.getAttribute('start')).toBe('2');
+            expect($element).not.toBe(null);
+            expect($element.getAttribute('start')).toBe('2');
         });
 
         it('should handle a nested list', () => {
@@ -393,23 +394,22 @@ describe('markdown-to-jsx', () => {
                 '- foo',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const list = elementNode.querySelector('ul');
+            const $element = dom(element);
 
-            expect(list).not.toBe(null);
-            expect(list.children.length).toBe(2);
-            expect(list.children[0].children[0].textContent).toBe('xyz');
-            expect(list.children[0].children[1].tagName).toBe('UL');
-            expect(list.children[0].children[1].children[0].textContent).toBe('abc');
-            expect(list.children[1].textContent).toBe('foo');
+            expect($element).not.toBe(null);
+            expect($element.children.length).toBe(2);
+            expect($element.children[0].children[0].textContent).toBe('xyz');
+            expect($element.children[0].children[1].tagName.toLowerCase()).toBe('ul');
+            expect($element.children[0].children[1].children[0].textContent).toBe('abc');
+            expect($element.children[1].textContent).toBe('foo');
         });
     });
 
     describe('GFM task lists', () => {
         it('should handle unchecked items', () => {
             const element = render(converter('- [ ] foo'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const checkbox = elementNode.querySelector('ul li input');
+            const $element = dom(element);
+            const checkbox = $element.querySelector('ul li input');
 
             expect(checkbox).not.toBe(null);
             expect(checkbox.checked).toBe(false);
@@ -418,8 +418,8 @@ describe('markdown-to-jsx', () => {
 
         it('should handle checked items', () => {
             const element = render(converter('- [x] foo'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const checkbox = elementNode.querySelector('ul li input');
+            const $element = dom(element);
+            const checkbox = $element.querySelector('ul li input');
 
             expect(checkbox).not.toBe(null);
             expect(checkbox.checked).toBe(true);
@@ -428,8 +428,8 @@ describe('markdown-to-jsx', () => {
 
         it('should disable the checkboxes', () => {
             const element = render(converter('- [x] foo'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const checkbox = elementNode.querySelector('ul li input');
+            const $element = dom(element);
+            const checkbox = $element.querySelector('ul li input');
 
             expect(checkbox).not.toBe(null);
             expect(checkbox.disabled).toBe(true);
@@ -445,18 +445,18 @@ describe('markdown-to-jsx', () => {
                 '',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const table = elementNode.querySelector('table');
-            const thead = table.querySelector('thead tr');
-            const row = table.querySelector('tbody tr');
+            const $element = dom(element);
+            const thead = $element.querySelector('thead tr');
+            const row = $element.querySelector('tbody tr');
 
-            expect(table).not.toBe(null);
+            expect($element).not.toBe(null);
+            expect($element.tagName.toLowerCase()).toBe('table');
             expect(thead).not.toBe(null);
             expect(thead.children.length).toBe(2);
-            expect(thead.children[0].tagName).toBe('TH');
+            expect(thead.children[0].tagName.toLowerCase()).toBe('th');
             expect(row).not.toBe(null);
             expect(row.children.length).toBe(2);
-            expect(row.children[0].tagName).toBe('TD');
+            expect(row.children[0].tagName.toLowerCase()).toBe('td');
         });
 
         it('should handle a table with aligned columns', () => {
@@ -467,19 +467,18 @@ describe('markdown-to-jsx', () => {
                 '',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const table = elementNode.querySelector('table');
-            const thead = table.querySelector('thead tr');
-            const row = table.querySelector('tbody tr');
+            const $element = dom(element);
+            const thead = $element.querySelector('thead tr');
+            const row = $element.querySelector('tbody tr');
 
-            expect(table).not.toBe(null);
+            expect($element).not.toBe(null);
             expect(thead).not.toBe(null);
             expect(thead.children.length).toBe(2);
-            expect(thead.children[0].tagName).toBe('TH');
+            expect(thead.children[0].tagName.toLowerCase()).toBe('th');
             expect(thead.children[0].style.textAlign).toBe('right');
             expect(row).not.toBe(null);
             expect(row.children.length).toBe(2);
-            expect(row.children[0].tagName).toBe('TD');
+            expect(row.children[0].tagName.toLowerCase()).toBe('td');
             expect(row.children[0].style.textAlign).toBe('right');
         });
     });
@@ -487,20 +486,19 @@ describe('markdown-to-jsx', () => {
     describe('arbitrary HTML', () => {
         it('should preserve the HTML given', () => {
             const element = render(converter('<dd>Hello</dd>'));
-            const elementNode = ReactDOM.findDOMNode(element);
+            const $element = dom(element);
 
-            expect(elementNode.children[0].tagName).toBe('DIV');
-            expect(elementNode.children[0].children[0].tagName).toBe('DD');
+            expect($element.children[0].tagName).toBe('DD');
         });
     });
 
     describe('horizontal rules', () => {
         it('should be handled', () => {
             const element = render(converter('---'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const rule = elementNode.querySelector('hr');
+            const $element = dom(element);
 
-            expect(rule).not.toBe(null);
+            expect($element).not.toBe(null);
+            expect($element.tagName.toLowerCase()).toBe('hr');
         });
     });
 
@@ -511,8 +509,8 @@ describe('markdown-to-jsx', () => {
                 'there',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const lineBreak = elementNode.querySelector('br');
+            const $element = dom(element);
+            const lineBreak = $element.querySelector('br');
 
             expect(lineBreak).not.toBe(null);
         });
@@ -526,21 +524,21 @@ describe('markdown-to-jsx', () => {
                 '```',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const pre = elementNode.querySelector('pre');
+            const $element = dom(element);
 
-            expect(pre).not.toBe(null);
-            expect(pre.children[0].tagName).toBe('CODE');
-            expect(pre.children[0].classList.contains('lang-js')).toBe(true);
-            expect(pre.children[0].textContent).toBe('foo');
+            expect($element).not.toBe(null);
+            expect($element.tagName.toLowerCase()).toBe('pre');
+            expect($element.children[0].tagName).toBe('CODE');
+            expect($element.children[0].classList.contains('lang-js')).toBe(true);
+            expect($element.children[0].textContent).toBe('foo');
         });
     });
 
     describe('inline code blocks', () => {
         it('should be handled', () => {
             const element = render(converter('`foo`'));
-            const elementNode = ReactDOM.findDOMNode(element);
-            const code = elementNode.querySelector('code');
+            const $element = dom(element);
+            const code = $element.querySelector('code');
 
             expect(code).not.toBe(null);
             expect(code.childNodes[0].nodeType).toBe(3); // TEXT_NODE
@@ -556,10 +554,10 @@ describe('markdown-to-jsx', () => {
                 '[^abc]: Baz baz',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
+            const $element = dom(element);
 
-            const text = elementNode.children[0].textContent;
-            const footnoteLink = elementNode.querySelector('a');
+            const text = $element.children[0].textContent;
+            const footnoteLink = $element.querySelector('a');
 
             expect(text).toBe('fooabc bar');
 
@@ -576,8 +574,8 @@ describe('markdown-to-jsx', () => {
                 '[^abc]: Baz baz',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const definitions = elementNode.children[1];
+            const $element = dom(element);
+            const definitions = $element.children[1];
 
             expect(definitions).not.toBe(null);
             expect(definitions.tagName).toBe('FOOTER');
@@ -593,8 +591,8 @@ describe('markdown-to-jsx', () => {
                 '[^abc]: Baz',
             ].join('\n')));
 
-            const elementNode = ReactDOM.findDOMNode(element);
-            const definitions = elementNode.children[1];
+            const $element = dom(element);
+            const definitions = $element.children[1];
 
             expect(definitions).not.toBe(null);
             expect(definitions.tagName).toBe('FOOTER');
@@ -606,15 +604,22 @@ describe('markdown-to-jsx', () => {
 
     describe('overrides', () => {
         it('should substitute the appropriate JSX tag if given a component', () => {
-            const FakeParagraph = (props) => <p className='foo'>{props.children}</p>;
+            class FakeParagraph extends React.Component {
+                render() {
+                    return (
+                        <p className='foo'>{this.props.children}</p>
+                    );
+                }
+            }
+
             const element = render(
                 converter('Hello.', {}, {p: {component: FakeParagraph}})
             );
 
-            const elementNode = ReactDOM.findDOMNode(element);
+            const $element = dom(element);
 
-            expect(elementNode.children.length).toBe(1);
-            expect(elementNode.children[0].className).toBe('foo');
+            expect($element.className).toBe('foo');
+            expect($element.textContent).toBe('Hello.');
         });
 
         it('should add props to the appropriate JSX tag if supplied', () => {
@@ -622,10 +627,10 @@ describe('markdown-to-jsx', () => {
                 converter('Hello.', {}, {p: {props: {className: 'abc'}}})
             );
 
-            const elementNode = ReactDOM.findDOMNode(element);
+            const $element = dom(element);
 
-            expect(elementNode.children.length).toBe(1);
-            expect(elementNode.children[0].className).toBe('abc');
+            expect($element.className).toBe('abc');
+            expect($element.textContent).toBe('Hello.');
         });
     });
 });

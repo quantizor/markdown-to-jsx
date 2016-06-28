@@ -350,7 +350,13 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
     definitions = extracted.definitions;
     footnotes = extracted.footnotes;
 
-    const jsx = astToJSX(remarkAST);
+    let jsx = astToJSX(remarkAST);
+
+    // discard the root <div> node if there is only one valid initial child
+    // generally this is a paragraph
+    if (jsx.props.children.length === 1) {
+        jsx = jsx.props.children[0];
+    }
 
     if (footnotes.length) {
         jsx.props.children.push(
