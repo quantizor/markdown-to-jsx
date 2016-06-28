@@ -559,14 +559,13 @@ describe('markdown-to-jsx', () => {
             const elementNode = ReactDOM.findDOMNode(element);
 
             const text = elementNode.children[0].textContent;
-            const footnoteLink = elementNode.children[0].children[0];
+            const footnoteLink = elementNode.querySelector('a');
 
             expect(text).toBe('fooabc bar');
 
             expect(footnoteLink).not.toBe(null);
             expect(footnoteLink.textContent).toBe('abc');
             expect(footnoteLink.getAttribute('href')).toBe('#abc');
-            expect(footnoteLink.tagName).toBe('A');
             expect(footnoteLink.children[0].tagName).toBe('SUP');
         });
 
