@@ -166,6 +166,19 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
             );
         } /* Refers to fenced blocks, need to create a pre:code nested structure */
 
+        if (ast.type === 'list' && ast.loose === false) {
+            ast.children = ast.children.map(item => {
+                if (item.children.length === 1 && item.children[0].type === 'paragraph') {
+                    return {
+                        ...item,
+                        children: item.children[0].children,
+                    };
+                }
+
+                return item;
+            });
+        } /* tight list, remove the paragraph wrapper just inside the listItem */
+
         if (ast.type === 'listItem') {
             if (ast.checked === true || ast.checked === false) {
                 return (

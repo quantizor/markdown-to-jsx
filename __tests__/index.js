@@ -315,8 +315,7 @@ describe('markdown-to-jsx', () => {
     });
 
     describe('lists', () => {
-        /* disabled pending a fix from mdast: https://github.com/wooorm/mdast/issues/104 */
-        xit('should handle a tight list', () => {
+        it('should handle a tight list', () => {
             const element = render(converter([
                 '- xyz',
                 '- abc',
