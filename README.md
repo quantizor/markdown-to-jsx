@@ -59,9 +59,6 @@ Any conflicts between passed `props` and the specific properties above will be r
 
 ## Known Issues
 
-- remark's handling of lists will sometimes add a child paragraph tag inside the
-  `<li>` where it shouldn't exist - [Bug Ticket](https://github.com/wooorm/remark/issues/104)
-
 - remark's handling of arbitrary HTML causes nodes to be split, which causes garbage and malformed HTML - [Bug Ticket](https://github.com/wooorm/remark/issues/124)
 
 MIT
