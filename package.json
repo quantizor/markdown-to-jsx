@@ -38,9 +38,6 @@
       "stage-2"
     ]
   },
-  "jest": {
-    "automock": false
-  },
   "scripts": {
     "prepublish": "npm run es5",
     "es5": "babel index.js --out-file index.es5.js",
