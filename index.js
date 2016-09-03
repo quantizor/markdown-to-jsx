@@ -1,5 +1,6 @@
 import React from 'react';
-import {parse} from 'remark';
+import unified from 'unified';
+import parser from 'remark-parse';
 
 const getType = Object.prototype.toString;
 const textTypes = ['text', 'textNode'];
@@ -350,14 +351,7 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
     options.position = options.position || false;
     options.footnotes = options.footnotes || true;
 
-    let remarkAST;
-
-    try {
-        remarkAST = parse(markdown, options);
-    } catch (error) {
-        return error;
-    }
-
+    const remarkAST = unified().use(parser).parse(markdown, options);
     const extracted = extractDefinitionsFromASTTree(remarkAST);
 
     definitions = extracted.definitions;

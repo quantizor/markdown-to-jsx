@@ -17,6 +17,7 @@
   "bugs": "https://github.com/yaycmyk/markdown-to-jsx/issues",
   "main": "index.es5.js",
   "jsnext:main": "index.js",
+  "module": "index.js",
   "devDependencies": {
     "babel-cli": "^6.14.0",
     "babel-jest": "^15.0.0",
@@ -26,7 +27,8 @@
     "jest-cli": "^15.1.1"
   },
   "dependencies": {
-    "remark": "^4.2.2"
+    "remark-parse": "^2.0.1",
+    "unified": "^5.0.0"
   },
   "peerDependencies": {
     "react": ">= 0.14.0"
