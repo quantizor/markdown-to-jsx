@@ -6,150 +6,181 @@ import get from 'lodash.get';
 const getType = Object.prototype.toString;
 const textTypes = ['text', 'textNode'];
 
+function extractDefinitionsFromASTTree(ast, parser) {
+    function reducer(aggregator, node) {
+        if (node.type === 'definition' || node.type === 'footnoteDefinition') {
+            aggregator.definitions[node.identifier] = node;
+
+            if (node.type === 'footnoteDefinition') {
+                if (   node.children
+                    && node.children.length === 1
+                    && node.children[0].type === 'paragraph') {
+                    node.children[0].children.unshift({
+                        type: 'textNode',
+                        value: `[${node.identifier}]: `,
+                    });
+                } /* package the prefix inside the first child */
+
+                aggregator.footnotes.push(
+                    <div key={node.identifier} id={node.identifier}>
+                        {node.value || node.children.map(parser)}
+                    </div>
+                );
+            }
+        }
+
+        return   Array.isArray(node.children)
+               ? node.children.reduce(reducer, aggregator)
+               : aggregator;
+    };
+
+    return [ast].reduce(reducer, {
+        definitions: {},
+        footnotes: []
+    });
+}
+
+function formExtraPropsForHTMLNodeType(props = {}, ast, definitions) {
+    switch (ast.type) {
+    case 'footnoteReference':
+        return {
+            ...props,
+            href: `#${ast.identifier}`,
+        };
+
+    case 'image':
+        return {
+            ...props,
+            title: ast.title,
+            alt: ast.alt,
+            src: ast.url,
+        };
+
+    case 'imageReference':
+        return {
+            ...props,
+            title: get(definitions, `['${ast.identifier}'].title`),
+            alt: ast.alt,
+            src: get(definitions, `['${ast.identifier}'].url`),
+        };
+
+    case 'link':
+        return {
+            ...props,
+            title: ast.title,
+            href: ast.url,
+        };
+
+    case 'linkReference':
+        return {
+            ...props,
+            title: get(definitions, `['${ast.identifier}'].title`),
+            href: get(definitions, `['${ast.identifier}'].url`),
+        };
+
+    case 'list':
+        return {
+            ...props,
+            start: ast.start,
+        };
+
+    case 'tableCell':
+    case 'th':
+        return {
+            ...props,
+            style: {textAlign: ast.align},
+        };
+    }
+
+    return props;
+}
+
+function getHTMLNodeTypeFromASTNodeType(node) {
+    switch (node.type) {
+    case 'break':
+        return 'br';
+
+    case 'delete':
+        return 'del';
+
+    case 'emphasis':
+        return 'em';
+
+    case 'footnoteReference':
+        return 'a';
+
+    case 'heading':
+        return `h${node.depth}`;
+
+    case 'image':
+    case 'imageReference':
+        return 'img';
+
+    case 'inlineCode':
+        return 'code';
+
+    case 'link':
+    case 'linkReference':
+        return 'a';
+
+    case 'list':
+        return node.ordered ? 'ol' : 'ul';
+
+    case 'listItem':
+        return 'li';
+
+    case 'paragraph':
+        return 'p';
+
+    case 'root':
+        return 'div';
+
+    case 'tableHeader':
+        return 'thead';
+
+    case 'tableRow':
+        return 'tr';
+
+    case 'tableCell':
+        return 'td';
+
+    case 'thematicBreak':
+        return 'hr';
+
+    case 'definition':
+    case 'footnoteDefinition':
+    case 'yaml':
+        return null;
+
+    default:
+        return node.type;
+    }
+}
+
+function seekCellsAndAlignThemIfNecessary(root, alignmentValues) {
+    const mapper = (child, index) => {
+        if (child.type === 'tableCell') {
+            return {
+                ...child,
+                align: alignmentValues[index],
+            };
+        } else if (Array.isArray(child.children) && child.children.length) {
+            return child.children.map(mapper);
+        }
+
+        return child;
+    };
+
+    if (Array.isArray(root.children) && root.children.length) {
+        root.children = root.children.map(mapper);
+    }
+
+    return root;
+}
+
 export default function markdownToJSX(markdown, options = {}, overrides = {}) {
     let definitions;
     let footnotes;
-
-    function getHTMLNodeTypeFromASTNodeType(node) {
-        switch (node.type) {
-        case 'break':
-            return 'br';
-
-        case 'delete':
-            return 'del';
-
-        case 'emphasis':
-            return 'em';
-
-        case 'footnoteReference':
-            return 'a';
-
-        case 'heading':
-            return `h${node.depth}`;
-
-        case 'html':
-            return 'div';
-
-        case 'image':
-        case 'imageReference':
-            return 'img';
-
-        case 'inlineCode':
-            return 'code';
-
-        case 'link':
-        case 'linkReference':
-            return 'a';
-
-        case 'list':
-            return node.ordered ? 'ol' : 'ul';
-
-        case 'listItem':
-            return 'li';
-
-        case 'paragraph':
-            return 'p';
-
-        case 'root':
-            return 'div';
-
-        case 'tableHeader':
-            return 'thead';
-
-        case 'tableRow':
-            return 'tr';
-
-        case 'tableCell':
-            return 'td';
-
-        case 'thematicBreak':
-            return 'hr';
-
-        case 'definition':
-        case 'footnoteDefinition':
-        case 'yaml':
-            return null;
-
-        default:
-            return node.type;
-        }
-    }
-
-    function formExtraPropsForHTMLNodeType(props = {}, ast) {
-        switch (ast.type) {
-        case 'footnoteReference':
-            return {
-                ...props,
-                href: `#${ast.identifier}`,
-            };
-
-        case 'image':
-            return {
-                ...props,
-                title: ast.title,
-                alt: ast.alt,
-                src: ast.url,
-            };
-
-        case 'imageReference':
-            return {
-                ...props,
-                title: get(definitions, `['${ast.identifier}'].title`),
-                alt: ast.alt,
-                src: get(definitions, `['${ast.identifier}'].url`),
-            };
-
-        case 'link':
-            return {
-                ...props,
-                title: ast.title,
-                href: ast.url,
-            };
-
-        case 'linkReference':
-            return {
-                ...props,
-                title: get(definitions, `['${ast.identifier}'].title`),
-                href: get(definitions, `['${ast.identifier}'].url`),
-            };
-
-        case 'list':
-            return {
-                ...props,
-                start: ast.start,
-            };
-
-        case 'tableCell':
-        case 'th':
-            return {
-                ...props,
-                style: {textAlign: ast.align},
-            };
-        }
-
-        return props;
-    }
-
-    function seekCellsAndAlignThemIfNecessary(root, alignmentValues) {
-        const mapper = (child, index) => {
-            if (child.type === 'tableCell') {
-                return {
-                    ...child,
-                    align: alignmentValues[index],
-                };
-            } else if (Array.isArray(child.children) && child.children.length) {
-                return child.children.map(mapper);
-            }
-
-            return child;
-        };
-
-        if (Array.isArray(root.children) && root.children.length) {
-            root.children = root.children.map(mapper);
-        }
-
-        return root;
-    }
 
     function astToJSX(ast, index) { /* `this` is the dictionary of definitions */
         if (textTypes.indexOf(ast.type) !== -1) {
@@ -278,7 +309,7 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
            (necessary evil, file an issue if something comes up that needs
            extra attention, only props specified in `formExtraPropsForHTMLNodeType`
            will be overwritten on a key collision) */
-        const finalProps = formExtraPropsForHTMLNodeType(props, ast);
+        const finalProps = formExtraPropsForHTMLNodeType(props, ast, definitions);
 
         if (ast.children && ast.children.length === 1) {
             if (textTypes.indexOf(ast.children[0].type) !== -1) {
@@ -291,40 +322,6 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
                          : ast.children;
 
         return React.createElement(htmlNodeType, finalProps, ast.value || children);
-    }
-
-    function extractDefinitionsFromASTTree(ast) {
-        const reducer = (aggregator, node) => {
-            if (node.type === 'definition' || node.type === 'footnoteDefinition') {
-                aggregator.definitions[node.identifier] = node;
-
-                if (node.type === 'footnoteDefinition') {
-                    if (   node.children
-                        && node.children.length === 1
-                        && node.children[0].type === 'paragraph') {
-                        node.children[0].children.unshift({
-                            type: 'textNode',
-                            value: `[${node.identifier}]: `,
-                        });
-                    } /* package the prefix inside the first child */
-
-                    aggregator.footnotes.push(
-                        <div key={node.identifier} id={node.identifier}>
-                            {node.value || node.children.map(astToJSX)}
-                        </div>
-                    );
-                }
-            }
-
-            return   Array.isArray(node.children)
-                   ? node.children.reduce(reducer, aggregator)
-                   : aggregator;
-        };
-
-        return [ast].reduce(reducer, {
-            definitions: {},
-            footnotes: []
-        });
     }
 
     if (typeof markdown !== 'string') {
@@ -353,7 +350,7 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
     options.footnotes = options.footnotes || true;
 
     const remarkAST = unified().use(parser).parse(markdown, options);
-    const extracted = extractDefinitionsFromASTTree(remarkAST);
+    const extracted = extractDefinitionsFromASTTree(remarkAST, astToJSX);
 
     definitions = extracted.definitions;
     footnotes = extracted.footnotes;
