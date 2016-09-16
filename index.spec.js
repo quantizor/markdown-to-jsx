@@ -15,33 +15,11 @@ describe('markdown-to-jsx', () => {
 
         expect(() => converter()).toThrow();
         expect(() => converter(1)).toThrow();
-        expect(() => converter(function(){})).toThrow();
+        expect(() => converter(() => {})).toThrow();
         expect(() => converter({})).toThrow();
         expect(() => converter([])).toThrow();
         expect(() => converter(null)).toThrow();
         expect(() => converter(true)).toThrow();
-    });
-
-    it('should throw if not passed an object or undefined (second arg)', () => {
-        expect(() => converter('')).not.toThrow();
-        expect(() => converter('', {})).not.toThrow();
-
-        expect(() => converter('', 1)).toThrow();
-        expect(() => converter('', function(){})).toThrow();
-        expect(() => converter('', [])).toThrow();
-        expect(() => converter('', null)).toThrow();
-        expect(() => converter('', true)).toThrow();
-    });
-
-    it('should throw if not passed an object or undefined (third arg)', () => {
-        expect(() => converter('', {})).not.toThrow();
-        expect(() => converter('', {}, {})).not.toThrow();
-
-        expect(() => converter('', {}, 1)).toThrow();
-        expect(() => converter('', {}, function(){})).toThrow();
-        expect(() => converter('', {}, [])).toThrow();
-        expect(() => converter('', {}, null)).toThrow();
-        expect(() => converter('', {}, true)).toThrow();
     });
 
     it('should discard the root <div> wrapper if there is only one root child', () => {
@@ -675,7 +653,7 @@ describe('markdown-to-jsx', () => {
             }
 
             const element = render(
-                converter('Hello.', {}, {p: {component: FakeParagraph}})
+                converter('Hello.', {overrides: {p: {component: FakeParagraph}}})
             );
 
             const $element = dom(element);
@@ -686,7 +664,7 @@ describe('markdown-to-jsx', () => {
 
         it('should add props to the appropriate JSX tag if supplied', () => {
             const element = render(
-                converter('Hello.', {}, {p: {props: {className: 'abc'}}})
+                converter('Hello.', {overrides: {p: {props: {className: 'abc'}}}})
             );
 
             const $element = dom(element);

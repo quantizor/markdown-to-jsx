@@ -1,52 +1,68 @@
-# markdown to jsx converter
+# markdown to jsx compiler
 
 ![build status](https://api.travis-ci.org/yaycmyk/markdown-to-jsx.svg) [![codecov](https://codecov.io/gh/yaycmyk/markdown-to-jsx/branch/master/graph/badge.svg)](https://codecov.io/gh/yaycmyk/markdown-to-jsx)
 
-
 Enables the safe parsing of markdown into proper React JSX objects, so you don't need to use a pattern like `dangerouslySetInnerHTML` and potentially open your application up to security issues.
 
-The only exception is arbitrary HTML in the markdown (kind of an antipattern), which will still use the unsafe method.
+The only exception is arbitrary block-level HTML in the markdown (considered a markdown antipattern), which will still use the unsafe method.
 
-Uses [remark](https://github.com/wooorm/remark) under the hood to parse markdown into a consistent AST format.
+Uses [remark-parse](https://github.com/wooorm/remark-parse) under the hood to parse markdown into a consistent AST format. The following [remark](https://github.com/wooorm/remark) settings are set by `markdown-to-jsx`:
+
+- footnotes: true
+- gfm: true
+- position: false
 
 Requires React >= 0.14.
 
 ## Usage
 
+The default export function signature:
+
 ```js
-import converter from 'markdown-to-jsx';
+compiler(markdown: string, options: object?)
+```
+
+ES6-style usage:
+
+```js
+import compiler from 'markdown-to-jsx';
 import React from 'react';
 import {render} from 'react-dom';
 
-render(converter('# Hello world!'), document.body);
+render(compiler('# Hello world!'), document.body);
 ```
 
-[remark options](https://github.com/wooorm/remark#remarkprocessvalue-options-done) can be passed as the second argument:
+Override a particular HTML tag's output:
 
-```js
-converter('* abc\n* def\n* ghi', {bullet: '*'});
-```
+```jsx
+import compiler from 'markdown-to-jsx';
+import React from 'react';
+import {render} from 'react-dom';
 
-_Footnotes are enabled by default as of `markdown-to-jsx@2.0.0`._
+// surprise, it's a div instead!
+const MyParagraph = ({children, ...props}) => (<div {...props}>{children}</div>);
 
-## Overriding tags and adding props
-
-As of `markdown-to-jsx@2.0.0`, it's now possible to selectively override a given HTML tag's JSX representation. This is done through a new third argument to the converter: an object made of keys, each being the lowercase html tag name (p, figure, a, etc.) to be overridden.
-
-Each override can be given a `component` that will be substituted for the tag name and/or `props` that will be applied as you would expect.
-
-```js
-converter('Hello there!', {}, {
-    p: {
-        component: MyParagraph,
-        props: {
-            className: 'foo'
+render(
+    compiler('# Hello world!', {
+        overrides: {
+            h1: {
+                component: MyParagraph,
+                props: {
+                    className: 'foo',
+                },
+            },
         },
-    }
-});
-```
+    }), document.body
+);
 
-The code above will replace all emitted `<p>` tags with the given component `MyParagraph`, and add the `className` specified in `props`.
+/*
+    renders:
+
+    <div class="foo">
+        Hello World
+    </div>
+ */
+```
 
 Depending on the type of element, there are some props that must be preserved to ensure the markdown is converted as intended. They are:
 
@@ -57,9 +73,5 @@ Depending on the type of element, there are some props that must be preserved to
 - `th`: `style`
 
 Any conflicts between passed `props` and the specific properties above will be resolved in favor of `markdown-to-jsx`'s code.
-
-## Known Issues
-
-- remark's handling of arbitrary HTML causes nodes to be split, which causes garbage and malformed HTML - [Bug Ticket](https://github.com/wooorm/remark/issues/124)
 
 MIT

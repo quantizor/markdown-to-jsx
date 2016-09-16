@@ -399,7 +399,7 @@ function coalesceInlineHTML(ast) {
     return ast.children.forEach(coalescer);
 }
 
-export default function markdownToJSX(markdown, options = {}, overrides = {}) {
+export default function markdownToJSX(markdown, {overrides = {}} = {}) {
     let definitions;
     let footnotes;
 
@@ -550,14 +550,8 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
                          a string`);
     }
 
-    if (getType.call(options) !== '[object Object]') {
-        throw new Error(`markdown-to-jsx: the second argument must be
-                         undefined or an object literal ({}) containing
-                         valid remark options`);
-    }
-
     if (getType.call(overrides) !== '[object Object]') {
-        throw new Error(`markdown-to-jsx: the third argument must be
+        throw new Error(`markdown-to-jsx: options.overrides (second argument property) must be
                          undefined or an object literal with shape:
                          {
                             htmltagname: {
@@ -567,10 +561,12 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
                          }`);
     }
 
-    options.position = options.position || false;
-    options.footnotes = options.footnotes || true;
+    const remarkAST = unified().use(parser).parse(markdown, {
+        footnotes: true,
+        gfm: true,
+        position: false,
+    });
 
-    const remarkAST = unified().use(parser).parse(markdown, options);
     const extracted = extractDefinitionsFromASTTree(remarkAST, astToJSX);
 
     definitions = extracted.definitions;
