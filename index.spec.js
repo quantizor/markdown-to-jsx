@@ -497,16 +497,6 @@ describe('markdown-to-jsx', () => {
 
             expect($element.tagName).toBe('DIV');
         });
-
-        fit('should wrap the HTML in a <span> instead of <div> if a descendant of a block-level element', () => {
-            const element = render(converter('Hello <dd>Hello</dd> **<time>123</time>**'));
-            const $element = dom(element);
-
-            expect($element.querySelector('dd').parentElement.tagName).toBe('SPAN');
-            expect($element.querySelector('dd').parentElement.parentElement.tagName).toBe('P');
-            expect($element.querySelector('time').parentElement.tagName).toBe('SPAN');
-            expect($element.querySelector('time').parentElement.parentElement.tagName).toBe('STRONG');
-        });
     });
 
     describe('horizontal rules', () => {
