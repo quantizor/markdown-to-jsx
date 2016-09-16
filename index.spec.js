@@ -484,6 +484,19 @@ describe('markdown-to-jsx', () => {
             expect($element.children[0].children[0].textContent).toBe('Hello');
         });
 
+        it('processes markdown within nested inline HTML', () => {
+            const element = render(converter('<time><span>**Hello**</span></time>'));
+            const $element = dom(element);
+
+            // inline elements are always wrapped in a paragraph context
+            expect($element.tagName).toBe('P');
+
+            expect($element.children[0].tagName).toBe('TIME');
+            expect($element.children[0].children[0].tagName).toBe('SPAN');
+            expect($element.children[0].children[0].children[0].tagName).toBe('STRONG');
+            expect($element.children[0].children[0].children[0].textContent).toBe('Hello');
+        });
+
         it('processes attributes within inline HTML', () => {
             const element = render(converter('<time data-foo="bar">Hello</time>'));
             const $element = dom(element);
