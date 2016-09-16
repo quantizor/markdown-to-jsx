@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import compiler from './index';
 
 class TryItLive extends React.PureComponent {
-    state = {markdown: document.getElementById('--sample-content').textContent.trim()}
+    state = {markdown: document.getElementById('sample-content').textContent.trim()}
 
     updateState = (e) => this.setState({markdown: e.target.value})
 
@@ -35,4 +35,4 @@ class TryItLive extends React.PureComponent {
     }
 }
 
-ReactDOM.render(<TryItLive />, document.getElementById('--root'));
+ReactDOM.render(<TryItLive />, document.getElementById('root'));
