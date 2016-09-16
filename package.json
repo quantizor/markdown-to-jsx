@@ -3,7 +3,7 @@
   "description": "Interprets markdown text and outputs a JSX equivalent.",
   "homepage": "http://yaycmyk.com/markdown-to-jsx/",
   "license": "MIT",
-  "version": "3.1.1",
+  "version": "4.0.0-beta",
   "engines": {
     "node": ">= 4"
   },

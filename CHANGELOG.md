@@ -1,3 +1,11 @@
+### 4.0.0-beta (September 16, 2016)
+
+f269a87 [pre 4.0] Drop second argument in function signature
+f50219b [Experimental] Begin parsing inline arbitrary HTML
+c381ddd Light refactor to pull some functions out of the main closure
+
+---
+
 ### 3.1.1 (September 15, 2016)
 
 Monkeypatched over a markdown syntax ambiguity that resulted in an exception when when a square-bracketed link without a shortcut identifier is encountered, e.g.
