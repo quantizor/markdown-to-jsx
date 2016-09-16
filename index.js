@@ -337,7 +337,8 @@ function coalesceInlineHTML(ast) {
 
             // are there more html nodes directly after? if so, fold them into the current node
             if (index < siblings.length - 1 && siblings[index + 1].type === 'html') {
-                // further folding is needed
+                // create a new coalescer context
+                coalescer(siblings[index + 1], index + 1, siblings);
             }
 
             let i = index + 1;
