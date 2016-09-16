@@ -15,33 +15,11 @@ describe('markdown-to-jsx', () => {
 
         expect(() => converter()).toThrow();
         expect(() => converter(1)).toThrow();
-        expect(() => converter(function(){})).toThrow();
+        expect(() => converter(() => {})).toThrow();
         expect(() => converter({})).toThrow();
         expect(() => converter([])).toThrow();
         expect(() => converter(null)).toThrow();
         expect(() => converter(true)).toThrow();
-    });
-
-    it('should throw if not passed an object or undefined (second arg)', () => {
-        expect(() => converter('')).not.toThrow();
-        expect(() => converter('', {})).not.toThrow();
-
-        expect(() => converter('', 1)).toThrow();
-        expect(() => converter('', function(){})).toThrow();
-        expect(() => converter('', [])).toThrow();
-        expect(() => converter('', null)).toThrow();
-        expect(() => converter('', true)).toThrow();
-    });
-
-    it('should throw if not passed an object or undefined (third arg)', () => {
-        expect(() => converter('', {})).not.toThrow();
-        expect(() => converter('', {}, {})).not.toThrow();
-
-        expect(() => converter('', {}, 1)).toThrow();
-        expect(() => converter('', {}, function(){})).toThrow();
-        expect(() => converter('', {}, [])).toThrow();
-        expect(() => converter('', {}, null)).toThrow();
-        expect(() => converter('', {}, true)).toThrow();
     });
 
     it('should discard the root <div> wrapper if there is only one root child', () => {
@@ -483,19 +461,74 @@ describe('markdown-to-jsx', () => {
     });
 
     describe('arbitrary HTML', () => {
-        it('should preserve the HTML given', () => {
+        it('preserves the HTML given', () => {
             const element = render(converter('<dd>Hello</dd>'));
             const $element = dom(element);
+
+            // block level elements are currently wrapped with a <div> due to dangerouslySetInnerHTML
+            expect($element.tagName).toBe('DIV');
 
             expect($element.children[0].tagName).toBe('DD');
-            expect($element.children[0].parentElement.tagName).toBe('DIV');
+            expect($element.children[0].textContent).toBe('Hello');
         });
 
-        it('should wrap a top-level bit of HTML in a <div>', () => {
-            const element = render(converter('<dd>Hello</dd>'));
+        it('processes markdown within inline HTML', () => {
+            const element = render(converter('<time>**Hello**</time>'));
             const $element = dom(element);
 
-            expect($element.tagName).toBe('DIV');
+            // inline elements are always wrapped in a paragraph context
+            expect($element.tagName).toBe('P');
+
+            expect($element.children[0].tagName).toBe('TIME');
+            expect($element.children[0].children[0].tagName).toBe('STRONG');
+            expect($element.children[0].children[0].textContent).toBe('Hello');
+        });
+
+        it('processes attributes within inline HTML', () => {
+            const element = render(converter('<time data-foo="bar">Hello</time>'));
+            const $element = dom(element);
+
+            // inline elements are always wrapped in a paragraph context
+            expect($element.tagName).toBe('P');
+
+            expect($element.children[0].tagName).toBe('TIME');
+            expect($element.children[0].getAttribute('data-foo')).toBe('bar');
+            expect($element.children[0].textContent).toBe('Hello');
+        });
+
+        it('processes attributes that need JSX massaging within inline HTML', () => {
+            const element = render(converter('<span contenteditable>Hello</span>'));
+            const $element = dom(element);
+
+            // inline elements are always wrapped in a paragraph context
+            expect($element.tagName).toBe('P');
+
+            expect($element.children[0].tagName).toBe('SPAN');
+            expect($element.children[0].hasAttribute('contenteditable')).toBe(true);
+            expect($element.children[0].textContent).toBe('Hello');
+        });
+
+        it('processes inline HTML with inline styles', () => {
+            const element = render(converter('<span style="color: red; position: top; margin-right: 10px">Hello</span>'));
+            const $element = dom(element);
+
+            // inline elements are always wrapped in a paragraph context
+            expect($element.tagName).toBe('P');
+
+            expect($element.children[0].tagName).toBe('SPAN');
+            expect($element.children[0].style.color).toBe('red');
+            expect($element.children[0].style.marginRight).toBe('10px');
+            expect($element.children[0].style.position).toBe('top');
+            expect($element.children[0].textContent).toBe('Hello');
+        });
+
+        xit('processes markdown within block-level arbitrary HTML', () => {
+            const element = render(converter('<p>**Hello**</p>'));
+            const $element = dom(element);
+
+            expect($element.tagName).toBe('P');
+            expect($element.children[0].tagName).toBe('STRONG');
+            expect($element.children[0].textContent).toBe('Hello');
         });
     });
 
@@ -620,7 +653,7 @@ describe('markdown-to-jsx', () => {
             }
 
             const element = render(
-                converter('Hello.', {}, {p: {component: FakeParagraph}})
+                converter('Hello.', {overrides: {p: {component: FakeParagraph}}})
             );
 
             const $element = dom(element);
@@ -631,7 +664,7 @@ describe('markdown-to-jsx', () => {
 
         it('should add props to the appropriate JSX tag if supplied', () => {
             const element = render(
-                converter('Hello.', {}, {p: {props: {className: 'abc'}}})
+                converter('Hello.', {overrides: {p: {props: {className: 'abc'}}}})
             );
 
             const $element = dom(element);
