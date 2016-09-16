@@ -1,6 +1,7 @@
 import React from 'react';
 import unified from 'unified';
 import parser from 'remark-parse';
+import get from 'lodash.get';
 
 const getType = Object.prototype.toString;
 const textTypes = ['text', 'textNode'];
@@ -93,9 +94,9 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
         case 'imageReference':
             return {
                 ...props,
-                title: definitions[ast.identifier].title,
+                title: get(definitions, `['${ast.identifier}'].title`),
                 alt: ast.alt,
-                src: definitions[ast.identifier].url,
+                src: get(definitions, `['${ast.identifier}'].url`),
             };
 
         case 'link':
@@ -108,8 +109,8 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
         case 'linkReference':
             return {
                 ...props,
-                title: definitions[ast.identifier].title,
-                href: definitions[ast.identifier].url,
+                title: get(definitions, `['${ast.identifier}'].title`),
+                href: get(definitions, `['${ast.identifier}'].url`),
             };
 
         case 'list':

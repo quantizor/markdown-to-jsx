@@ -1,4 +1,4 @@
-import converter from '../index';
+import converter from './index';
 import React from 'react';
 import ReactDOM from 'react-dom';
 
@@ -488,6 +488,14 @@ describe('markdown-to-jsx', () => {
             const $element = dom(element);
 
             expect($element.children[0].tagName).toBe('DD');
+            expect($element.children[0].parentElement.tagName).toBe('DIV');
+        });
+
+        it('should wrap a top-level bit of HTML in a <div>', () => {
+            const element = render(converter('<dd>Hello</dd>'));
+            const $element = dom(element);
+
+            expect($element.tagName).toBe('DIV');
         });
     });
 
