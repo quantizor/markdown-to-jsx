@@ -1,10 +1,133 @@
 import React from 'react';
+import get from 'lodash.get';
 import unified from 'unified';
 import parser from 'remark-parse';
-import get from 'lodash.get';
+
+const BLOCK_ELEMENT_TAGS = [
+    'article',
+    'header',
+    'aside',
+    'hgroup',
+    'blockquote',
+    'hr',
+    'iframe',
+    'body',
+    'li',
+    'map',
+    'button',
+    'object',
+    'canvas',
+    'ol',
+    'caption',
+    'output',
+    'col',
+    'p',
+    'colgroup',
+    'pre',
+    'dd',
+    'progress',
+    'div',
+    'section',
+    'dl',
+    'table',
+    'td',
+    'dt',
+    'tbody',
+    'embed',
+    'textarea',
+    'fieldset',
+    'tfoot',
+    'figcaption',
+    'th',
+    'figure',
+    'thead',
+    'footer',
+    'tr',
+    'form',
+    'ul',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'video',
+    'script',
+    'style',
+];
+const BLOCK_ELEMENT_REGEX = new RegExp(`^<(${BLOCK_ELEMENT_TAGS.join('|')})`, 'i');
+
+// [0] === tag, [...] = attribute pairs
+const HTML_EXTRACTOR_REGEX = /([-A-Za-z0-9_]+)(?:\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|([^>\s]+)))?/g;
+const SELF_CLOSING_ELEMENT_TAGS = [
+    'area',
+    'base',
+    'br',
+    'col',
+    'command',
+    'embed',
+    'hr',
+    'img',
+    'input',
+    'keygen',
+    'link',
+    'meta',
+    'param',
+    'source',
+    'track',
+    'wbr',
+];
+const SELF_CLOSING_ELEMENT_REGEX = new RegExp(`^<(${SELF_CLOSING_ELEMENT_TAGS.join('|')})`, 'i');
+const TEXT_AST_TYPES = ['text', 'textNode'];
+
+const ATTRIBUTE_TO_JSX_PROP_MAP = {
+    'accept-charset': 'acceptCharset',
+    'accesskey': 'accessKey',
+    'allowfullscreen': 'allowFullScreen',
+    'allowtransparency': 'allowTransparency',
+    'autocomplete': 'autoComplete',
+    'autofocus': 'autoFocus',
+    'autoplay': 'autoPlay',
+    'cellpadding': 'cellPadding',
+    'cellspacing': 'cellSpacing',
+    'charset': 'charSet',
+    'class': 'className',
+    'classid': 'classId',
+    'colspan': 'colSpan',
+    'contenteditable': 'contentEditable',
+    'contextmenu': 'contextMenu',
+    'crossorigin': 'crossOrigin',
+    'enctype': 'encType',
+    'for': 'htmlFor',
+    'formaction': 'formAction',
+    'formenctype': 'formEncType',
+    'formmethod': 'formMethod',
+    'formnovalidate': 'formNoValidate',
+    'formtarget': 'formTarget',
+    'frameborder': 'frameBorder',
+    'hreflang': 'hrefLang',
+    'http-equiv': 'httpEquiv',
+    'inputmode': 'inputMode',
+    'keyparams': 'keyParams',
+    'keytype': 'keyType',
+    'marginheight': 'marginHeight',
+    'marginwidth': 'marginWidth',
+    'maxlength': 'maxLength',
+    'mediagroup': 'mediaGroup',
+    'minlength': 'minLength',
+    'novalidate': 'noValidate',
+    'radiogroup': 'radioGroup',
+    'readonly': 'readOnly',
+    'rowspan': 'rowSpan',
+    'spellcheck': 'spellCheck',
+    'srcdoc': 'srcDoc',
+    'srclang': 'srcLang',
+    'srcset': 'srcSet',
+    'tabindex': 'tabIndex',
+    'usemap': 'useMap',
+};
 
 const getType = Object.prototype.toString;
-const textTypes = ['text', 'textNode'];
 
 function extractDefinitionsFromASTTree(ast, parser) {
     function reducer(aggregator, node) {
@@ -178,12 +301,110 @@ function seekCellsAndAlignThemIfNecessary(root, alignmentValues) {
     return root;
 }
 
+function attributeValueToJSXPropValue(key, value) {
+    if (key === 'style') {
+        return value.split(/;\s?/).reduce((styles, kvPair) => {
+
+            const key = kvPair.slice(0, kvPair.indexOf(':'));
+
+            // snake-case to camelCase
+            // also handles PascalCasing vendor prefixes
+            const camelCasedKey = key.replace(/(\-[a-z])/g, (substr) => substr[1].toUpperCase());
+
+            // key.length + 1 to skip over the colon
+            styles[camelCasedKey] = kvPair.slice(key.length + 1).trim();
+
+            return styles;
+
+        }, {});
+    }
+
+    return value;
+}
+
+function coalesceInlineHTML(ast) {
+    function coalescer(node, index, siblings) {
+        if (node.type === 'html') {
+            // ignore block-level elements
+            if (BLOCK_ELEMENT_REGEX.test(node.value)) {
+                return;
+            }
+
+            // ignore self-closing or non-content-bearing elements
+            if (SELF_CLOSING_ELEMENT_REGEX.test(node.value)) {
+                return;
+            }
+
+            // are there more html nodes directly after? if so, fold them into the current node
+            if (index < siblings.length - 1 && siblings[index + 1].type === 'html') {
+                // further folding is needed
+            }
+
+            let i = index + 1;
+            let end;
+
+            // where's the end tag?
+            while (end === undefined && i < siblings.length) {
+                if (siblings[i].type !== 'html') {
+                    i += 1;
+                    continue;
+                }
+
+                end = siblings[i];
+            }
+
+            /* all interim elements now become children of the current node, and we splice them (including end tag)
+               out of the sibling array so they will not be iterated-over by forEach */
+
+            node.children = siblings.slice(index + 1, i);
+            siblings.splice(index + 1, i - index);
+
+            const [tag, ...attributePairs] = node.value.match(HTML_EXTRACTOR_REGEX);
+
+            // reassign the current node to whatever its tag is
+            node.type = tag.toLowerCase();
+
+            // make a best-effort conversion to JSX props
+            node.props = attributePairs.reduce(function(props, kvPair) {
+                const valueIndex = kvPair.indexOf('=');
+                const key = kvPair.slice(0, valueIndex === -1 ? undefined : valueIndex);
+
+                // ignoring inline event handlers at this time - they pose enough of a security risk that they're
+                // not worth preserving; there's a reason React calls it "dangerouslySetInnerHTML"!
+
+                if (key.indexOf('on') !== 0) {
+                    let value = kvPair.slice(key.length + 1);
+
+                    // strip the outermost single/double quote if it exists
+                    if (value[0] === '"' || value[0] === '\'') {
+                        value = value.slice(1, value.length - 1);
+                    }
+
+                    props[ATTRIBUTE_TO_JSX_PROP_MAP[key] || key] = attributeValueToJSXPropValue(key, value) || true;
+                }
+
+                return props;
+
+            }, {});
+
+            // null out .value or astToJSX() will set it as the child
+            node.value = null;
+        }
+
+        if (node.children) {
+            node.children.forEach(coalescer);
+        }
+    };
+
+    return ast.children.forEach(coalescer);
+}
+
 export default function markdownToJSX(markdown, options = {}, overrides = {}) {
     let definitions;
     let footnotes;
 
     function astToJSX(ast, index) { /* `this` is the dictionary of definitions */
-        if (textTypes.indexOf(ast.type) !== -1) {
+        if (TEXT_AST_TYPES.indexOf(ast.type) !== -1) {
             return ast.value;
         }
 
@@ -290,7 +511,7 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
             return null;
         } /* bail out, not convertable to any HTML representation */
 
-        let props = {key};
+        let props = {key, ...ast.props};
 
         const override = overrides[htmlNodeType];
         if (override) {
@@ -312,7 +533,7 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
         const finalProps = formExtraPropsForHTMLNodeType(props, ast, definitions);
 
         if (ast.children && ast.children.length === 1) {
-            if (textTypes.indexOf(ast.children[0].type) !== -1) {
+            if (TEXT_AST_TYPES.indexOf(ast.children[0].type) !== -1) {
                 ast.children = ast.children[0].value;
             }
         } /* solitary text children don't need full parsing or React will add a wrapper */
@@ -354,6 +575,8 @@ export default function markdownToJSX(markdown, options = {}, overrides = {}) {
 
     definitions = extracted.definitions;
     footnotes = extracted.footnotes;
+
+    coalesceInlineHTML(remarkAST);
 
     let jsx = astToJSX(remarkAST);
 
