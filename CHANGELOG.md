@@ -1,3 +1,9 @@
+### 4.0.1-beta (September 16, 2016)
+
+2a00f5a [Experimental] Coalesce/parse nested inline tags
+
+---
+
 ### 4.0.0-beta (September 16, 2016)
 
 f269a87 [pre 4.0] Drop second argument in function signature
