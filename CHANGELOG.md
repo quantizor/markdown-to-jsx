@@ -1,3 +1,21 @@
+### 3.1.1 (September 15, 2016)
+
+Monkeypatched over a markdown syntax ambiguity that resulted in an exception when when a square-bracketed link without a shortcut identifier is encountered, e.g.
+
+```md
+Oh my god, look at [her butt].
+```
+
+According to [Daring Fireball markdown syntax](https://daringfireball.net/projects/markdown/syntax#link), a link reference may omit the shortcut identifier if it's desired to use the original text as the reference, but the empty square brackets still must be included, e.g.
+
+```md
+Oh my god, look at [her butt][].
+
+[her butt]: https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&cad=rja&uact=8&ved=0ahUKEwjxjMnL2JLPAhXKQCYKHfFVAR0QyCkIITAA&url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DLDZX4ooRsWs&usg=AFQjCNHb65jFtOPwGi7HZITW5qJ2PBlURA
+```
+
+---
+
 ### 3.1.0 (September 3, 2016)
 
 - 06eb4c6 Use remark subdeps directly for parsing, remove unnecessary try/catch
