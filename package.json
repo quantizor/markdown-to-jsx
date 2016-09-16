@@ -55,12 +55,12 @@
   "scripts": {
     "prepublish": "npm run es5",
     "es5": "babel index.js --out-file index.es5.js",
-    "site:css": "stylus -u autoprefixer-stylus site.styl -o public/css/style.css",
+    "site:css": "stylus -u autoprefixer-stylus site.styl -o docs/css/style.css",
     "site:css:release": "npm run site:css -- -c",
     "site:css:watch": "npm run site:css -- -w -m -l --sourcemap-inline",
     "site:js": "browserify site.js -t babelify -p bundle-collapser/plugin",
-    "site:js:release": "NODE_ENV=production npm run -s site:js | uglifyjs -mc drop_console --screw-ie8 -o public/js/bundle.js",
-    "site:js:watch": "budo site.js:js/bundle.js -d public -H 0.0.0.0 --colors --live --open --pushstate --iw -- -t babelify",
+    "site:js:release": "NODE_ENV=production npm run -s site:js | uglifyjs -mc drop_console --screw-ie8 -o docs/js/bundle.js",
+    "site:js:watch": "budo site.js:js/bundle.js -d docs -H 0.0.0.0 --colors --live --open --pushstate --iw -- -t babelify",
     "site:release": "npm run site:css:release && npm run site:js:release",
     "start": "sh scripts/parallelize.sh \"npm run site:css:watch\" \"npm run site:js:watch\"",
     "test": "jest --verbose"
