@@ -12,7 +12,7 @@ class TryItLive extends React.PureComponent {
             <main>
                 <header>
                     <a target='_blank' href='https://github.com/yaycmyk/markdown-to-jsx' title='Check out the markdown-to-jsx source code'>
-                        <img src='/images/logo.svg' alt='markdown-to-jsx logo' />
+                        <img src='./images/logo.svg' alt='markdown-to-jsx logo' />
                     </a>
 
                     <p className='description'><code>markdown-to-jsx</code> is a no-fuss compiler that takes Github-flavored Markdown (GFM)<br /> and forms it into renderable React content without the need for <code>dangerouslySetInnerHTML</code>.</p>
