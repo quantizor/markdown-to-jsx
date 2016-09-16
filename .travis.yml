@@ -1,6 +1,10 @@
 branches:
   only: master
 
+cache:
+  directories:
+    - "node_modules"
+
 language: node_js
 
 node_js:
