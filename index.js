@@ -411,7 +411,7 @@ export default function markdownToJSX(markdown, {overrides = {}} = {}) {
 
         const key = index || '0';
 
-        if (ast.type === 'code') {
+        if (ast.type === 'code' && ast.value) {
             return (
                 <pre key={key}>
                     <code className={`lang-${ast.lang}`}>

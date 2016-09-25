@@ -543,6 +543,16 @@ describe('markdown-to-jsx', () => {
             expect($element.children[0].tagName).toBe('STRONG');
             expect($element.children[0].textContent).toBe('Hello');
         });
+
+        it('renders inline <code> tags', () => {
+            const element = render(converter('Text and <code>**code**</code>'));
+            const $element = dom(element);
+
+            expect($element.tagName).toBe('P');
+            expect($element.children[0].tagName).toBe('CODE');
+            expect($element.children[0].children[0].tagName).toBe('STRONG');
+            expect($element.children[0].children[0].textContent).toBe('code');
+        });
     });
 
     describe('horizontal rules', () => {
