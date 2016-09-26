@@ -68,6 +68,7 @@ Depending on the type of element, there are some props that must be preserved to
 
 - `a`: `title`, `href`
 - `img`: `title`, `alt`, `src`
+- `input[type="checkbox"]`: `checked`, `readonly` (specifically, the one rendered by a GFM task list)
 - `ol`: `start`
 - `td`: `style`
 - `th`: `style`

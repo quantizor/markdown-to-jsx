@@ -403,13 +403,13 @@ describe('markdown-to-jsx', () => {
             expect(checkbox.parentNode.textContent).toBe('foo');
         });
 
-        it('should disable the checkboxes', () => {
+        it('should mark the checkboxes as readonly', () => {
             const element = render(converter('- [x] foo'));
             const $element = dom(element);
             const checkbox = $element.querySelector('ul li input');
 
             expect(checkbox).not.toBe(null);
-            expect(checkbox.disabled).toBe(true);
+            expect(checkbox.readOnly).toBe(true);
         });
     });
 
@@ -782,6 +782,22 @@ describe('markdown-to-jsx', () => {
             expect($element.children[0].tagName).toBe('CODE');
             expect($element.children[0].getAttribute('data-foo')).toBe('bar');
             expect($element.children[0].getAttribute('data-baz')).toBe('fizz');
+        });
+
+        it('should be able to override gfm task list items', () => {
+            const element = render(converter('- [ ] foo', {overrides: {li: {props: {className: 'foo'}}}}));
+            const $element = dom(element).querySelector('li');
+
+            expect($element).not.toBe(null);
+            expect($element.className).toContain('foo');
+        });
+
+        it('should be able to override gfm task list item checkboxes', () => {
+            const element = render(converter('- [ ] foo', {overrides: {input: {props: {className: 'foo'}}}}));
+            const $element = dom(element).querySelector('input');
+
+            expect($element).not.toBe(null);
+            expect($element.className).toContain('foo');
         });
     });
 });

@@ -446,14 +446,24 @@ export default function markdownToJSX(markdown, {overrides = {}} = {}) {
 
         if (ast.type === 'listItem') {
             if (ast.checked === true || ast.checked === false) {
-                return (
-                    <li key={key}>
-                        <input key='checkbox'
-                               type="checkbox"
-                               checked={ast.checked}
-                               disabled />
-                        {ast.children.map(astToJSX)}
-                    </li>
+                const liProps = get(overrides, 'li.props', {});
+
+                liProps.key = key;
+
+                const inputProps = get(overrides, 'input.props', {});
+
+                inputProps.key = 'checkbox';
+                inputProps.type = 'checkbox';
+                inputProps.checked = ast.checked;
+                inputProps.readOnly = true;
+
+                return React.createElement(
+                    get(overrides, 'li.component', 'li'),
+                    liProps,
+                    [
+                        React.createElement(get(overrides, 'input.component', 'input'), inputProps),
+                        ast.children.map(astToJSX),
+                    ],
                 );
             } /* gfm task list, need to add a checkbox */
         }
