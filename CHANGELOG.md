@@ -1,3 +1,10 @@
+### 4.0.3-beta (September 26, 2016)
+
+25f70a6 Allow overrides for GFM task list items & associated checkboxes
+3395105 Override support for pre & code elements generated in astToJSX
+
+---
+
 ### 4.0.2-beta (September 25, 2016)
 
 4249c15 Fix rendering of inline code tags -- thank you @sapegin!
