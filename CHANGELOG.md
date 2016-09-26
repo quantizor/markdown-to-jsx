@@ -1,3 +1,9 @@
+### 4.0.2-beta (September 25, 2016)
+
+4249c15 Fix rendering of inline code tags -- thank you @sapegin!
+
+---
+
 ### 4.0.1-beta (September 16, 2016)
 
 2a00f5a [Experimental] Coalesce/parse nested inline tags
