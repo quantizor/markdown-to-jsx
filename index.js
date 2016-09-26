@@ -412,12 +412,22 @@ export default function markdownToJSX(markdown, {overrides = {}} = {}) {
         const key = index || '0';
 
         if (ast.type === 'code' && ast.value) {
-            return (
-                <pre key={key}>
-                    <code className={`lang-${ast.lang}`}>
-                        {ast.value}
-                    </code>
-                </pre>
+            const preProps = get(overrides, 'pre.props', {});
+            const codeProps = get(overrides, 'code.props', {});
+
+            preProps.key = key;
+            codeProps.className =   codeProps.className
+                                  ? `${codeProps.className} lang-${ast.lang}`
+                                  : `lang-${ast.lang}`;
+
+            return React.createElement(
+                get(overrides, 'pre.component', 'pre'),
+                preProps,
+                React.createElement(
+                    get(overrides, 'code.component', 'code'),
+                    codeProps,
+                    ast.value
+                ),
             );
         } /* Refers to fenced blocks, need to create a pre:code nested structure */
 
@@ -436,14 +446,24 @@ export default function markdownToJSX(markdown, {overrides = {}} = {}) {
 
         if (ast.type === 'listItem') {
             if (ast.checked === true || ast.checked === false) {
-                return (
-                    <li key={key}>
-                        <input key='checkbox'
-                               type="checkbox"
-                               checked={ast.checked}
-                               disabled />
-                        {ast.children.map(astToJSX)}
-                    </li>
+                const liProps = get(overrides, 'li.props', {});
+
+                liProps.key = key;
+
+                const inputProps = get(overrides, 'input.props', {});
+
+                inputProps.key = 'checkbox';
+                inputProps.type = 'checkbox';
+                inputProps.checked = ast.checked;
+                inputProps.readOnly = true;
+
+                return React.createElement(
+                    get(overrides, 'li.component', 'li'),
+                    liProps,
+                    [
+                        React.createElement(get(overrides, 'input.component', 'input'), inputProps),
+                        ast.children.map(astToJSX),
+                    ],
                 );
             } /* gfm task list, need to add a checkbox */
         }
