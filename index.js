@@ -412,12 +412,22 @@ export default function markdownToJSX(markdown, {overrides = {}} = {}) {
         const key = index || '0';
 
         if (ast.type === 'code' && ast.value) {
-            return (
-                <pre key={key}>
-                    <code className={`lang-${ast.lang}`}>
-                        {ast.value}
-                    </code>
-                </pre>
+            const preProps = get(overrides, 'pre.props', {});
+            const codeProps = get(overrides, 'code.props', {});
+
+            preProps.key = key;
+            codeProps.className =   codeProps.className
+                                  ? `${codeProps.className} lang-${ast.lang}`
+                                  : `lang-${ast.lang}`;
+
+            return React.createElement(
+                get(overrides, 'pre.component', 'pre'),
+                preProps,
+                React.createElement(
+                    get(overrides, 'code.component', 'code'),
+                    codeProps,
+                    ast.value
+                ),
             );
         } /* Refers to fenced blocks, need to create a pre:code nested structure */
 

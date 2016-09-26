@@ -695,5 +695,93 @@ describe('markdown-to-jsx', () => {
             expect($element.className).toBe('abc');
             expect($element.textContent).toBe('Hello.');
         });
+
+        it('should add props to pre & code tags if supplied', () => {
+            const element = render(
+                converter(`
+                    \`\`\`
+                    foo
+                    \`\`\`
+                `, {
+                    overrides: {
+                        code: {
+                            props: {
+                                'data-foo': 'bar',
+                            },
+                        },
+
+                        pre: {
+                            props: {
+                                className: 'abc',
+                            },
+                        },
+                    },
+                })
+            );
+
+            const $element = dom(element);
+
+            expect($element.tagName).toBe('PRE');
+            expect($element.className).toBe('abc');
+            expect($element.textContent).toContain('foo');
+            expect($element.children[0].tagName).toBe('CODE');
+            expect($element.children[0].getAttribute('data-foo')).toBe('bar');
+        });
+
+        it('should substitute pre & code tags if supplied with an override component', () => {
+            class OverridenPre extends React.Component {
+                render() {
+                    const {children, ...props} = this.props;
+
+                    return (
+                        <pre {...props} data-bar='baz'>{children}</pre>
+                    );
+                }
+            }
+
+            class OverridenCode extends React.Component {
+                render() {
+                    const {children, ...props} = this.props;
+
+                    return (
+                        <code {...props} data-baz='fizz'>{children}</code>
+                    );
+                }
+            }
+
+            const element = render(
+                converter(`
+                    \`\`\`
+                    foo
+                    \`\`\`
+                `, {
+                    overrides: {
+                        code: {
+                            component: OverridenCode,
+                            props: {
+                                'data-foo': 'bar',
+                            },
+                        },
+
+                        pre: {
+                            component: OverridenPre,
+                            props: {
+                                className: 'abc',
+                            },
+                        },
+                    },
+                })
+            );
+
+            const $element = dom(element);
+
+            expect($element.tagName).toBe('PRE');
+            expect($element.className).toBe('abc');
+            expect($element.getAttribute('data-bar')).toBe('baz');
+            expect($element.textContent).toContain('foo');
+            expect($element.children[0].tagName).toBe('CODE');
+            expect($element.children[0].getAttribute('data-foo')).toBe('bar');
+            expect($element.children[0].getAttribute('data-baz')).toBe('fizz');
+        });
     });
 });
