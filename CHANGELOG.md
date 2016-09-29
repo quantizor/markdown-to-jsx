@@ -1,3 +1,9 @@
+### 4.0.3 (September 29, 2016)
+
+First release of 4.x :tada:
+
+---
+
 ### 4.0.3-beta (September 26, 2016)
 
 25f70a6 Allow overrides for GFM task list items & associated checkboxes
