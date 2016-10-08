@@ -20,7 +20,7 @@
   "jsnext:main": "index.js",
   "module": "index.js",
   "devDependencies": {
-    "autoprefixer-stylus": "^0.10.0",
+    "autoprefixer-stylus": "^0.11.0",
     "babel-cli": "^6.14.0",
     "babel-jest": "^16.0.0",
     "babel-preset-es2015": "^6.14.0",
