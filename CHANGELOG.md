@@ -1,3 +1,36 @@
+### 5.0.0 (January 12, 2017)
+
+See the README for updated usage instructions, here's a quick preview:
+
+```jsx
+import Markdown from 'markdown-to-jsx';
+import React from 'react';
+import {render} from 'react-dom';
+
+render((
+    <Markdown>
+        # Hello world!
+    </Markdown>
+), document.body);
+
+/*
+    renders:
+
+    <h1>Hello world!</h1>
+ */
+```
+
+38efb41 [Breaking Change] Default export is now a React HOC
+573021c Update Jest
+bf31694 chore(package): update autoprefixer-stylus to version 0.13.0
+aef6471 chore(package): update jest-cli to version 17.0.0
+b1088c0 chore(package): update babel-jest to version 17.0.0
+8c0b7a5 chore(package): update autoprefixer-stylus to version 0.11.0
+883d728 chore(package): update jest-cli to version 16.0.0
+a504cc2 chore(package): update babel-jest to version 16.0.0
+
+---
+
 ### 4.0.3 (September 29, 2016)
 
 First release of 4.x :tada:
