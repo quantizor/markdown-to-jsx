@@ -16,44 +16,53 @@ Requires React >= 0.14.
 
 ## Usage
 
-The default export function signature:
-
-```js
-compiler(markdown: string, options: object?)
-```
+`markdown-to-jsx` exports a React component by default for easy JSX composition (since version v5):
 
 ES6-style usage:
 
-```js
-import compiler from 'markdown-to-jsx';
+```jsx
+import Markdown from 'markdown-to-jsx';
 import React from 'react';
 import {render} from 'react-dom';
 
-render(compiler('# Hello world!'), document.body);
+render((
+    <Markdown>
+        # Hello world!
+    </Markdown>
+), document.body);
+
+/*
+    renders:
+
+    <h1>Hello world!</h1>
+ */
 ```
 
 Override a particular HTML tag's output:
 
 ```jsx
-import compiler from 'markdown-to-jsx';
+import Markdown from 'markdown-to-jsx';
 import React from 'react';
 import {render} from 'react-dom';
 
 // surprise, it's a div instead!
 const MyParagraph = ({children, ...props}) => (<div {...props}>{children}</div>);
 
-render(
-    compiler('# Hello world!', {
-        overrides: {
-            h1: {
-                component: MyParagraph,
-                props: {
-                    className: 'foo',
+render((
+    <Markdown
+        options={{
+            overrides: {
+                h1: {
+                    component: MyParagraph,
+                    props: {
+                        className: 'foo',
+                    },
                 },
             },
-        },
-    }), document.body
-);
+        }}>
+        # Hello world!
+    </Markdown>
+), document.body);
 
 /*
     renders:
@@ -74,5 +83,29 @@ Depending on the type of element, there are some props that must be preserved to
 - `th`: `style`
 
 Any conflicts between passed `props` and the specific properties above will be resolved in favor of `markdown-to-jsx`'s code.
+
+## Using the compiler directly
+
+If desired, the compiler function is a "named" export on the `markdown-to-jsx` module:
+
+```jsx
+import {compiler} from 'markdown-to-jsx';
+import React from 'react';
+import {render} from 'react-dom';
+
+render(compiler('# Hello world!'), document.body);
+
+/*
+    renders:
+
+    <h1>Hello world!</h1>
+ */
+```
+
+It accepts the following arguments:
+
+```js
+compiler(markdown: string, options: object?)
+```
 
 MIT

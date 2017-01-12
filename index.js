@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {PropTypes} from 'react';
 import get from 'lodash.get';
 import unified from 'unified';
 import parser from 'remark-parse';
@@ -400,7 +400,7 @@ function coalesceInlineHTML(ast) {
     return ast.children.forEach(coalescer);
 }
 
-export default function markdownToJSX(markdown, {overrides = {}} = {}) {
+export function compiler(markdown, {overrides = {}} = {}) {
     let definitions;
     let footnotes;
 
@@ -610,4 +610,22 @@ export default function markdownToJSX(markdown, {overrides = {}} = {}) {
     }
 
     return jsx;
-}
+};
+
+/**
+ * A simple HOC for easy React use. Feed the markdown content as a direct child
+ * and the rest is taken care of automatically.
+ *
+ * @param  {String}   options.children   must be a string
+ * @param  {Object}   options.options    markdown-to-jsx options (arg 2 of the compiler)
+ *
+ * @return {ReactElement} the compiled JSX
+ */
+const Component = ({children, options, ...props}) => compiler(children, options);
+
+Component.propTypes = {
+    children: PropTypes.string.isRequired,
+    options: PropTypes.object,
+};
+
+export default Component;
