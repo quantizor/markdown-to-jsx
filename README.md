@@ -18,16 +18,20 @@ Requires React >= 0.14.
 
 `markdown-to-jsx` exports a React component by default for easy JSX composition (since version v5):
 
-ES6-style usage:
+ES6-style usage\*:
 
 ```jsx
 import Markdown from 'markdown-to-jsx';
 import React from 'react';
 import {render} from 'react-dom';
 
+const markdown = `
+# Hello world!
+`.trim();
+
 render((
     <Markdown>
-        # Hello world!
+        {markdown}
     </Markdown>
 ), document.body);
 
@@ -37,6 +41,8 @@ render((
     <h1>Hello world!</h1>
  */
 ```
+
+\* __NOTE: JSX does not natively preserve newlines in multiline text, which is why the example above is inside an ES6 template literal. In general, writing markdown directly in JSX is discouraged and it's a better idea to keep your content in separate .md files and require them, perhaps using webpack's [raw-loader](https://github.com/webpack-contrib/raw-loader).__
 
 Override a particular HTML tag's output:
 
