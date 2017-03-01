@@ -13,7 +13,7 @@
     "jsx",
     "remark"
   ],
-  "author": "Evan Jacobs <evan@yaycmyk.com> (http://yaycmyk.com)",
+  "author": "Evan Scott <glitterbyte@gmail.com> (http://yaycmyk.com)",
   "repository": "yaycmyk/markdown-to-jsx",
   "bugs": "https://github.com/yaycmyk/markdown-to-jsx/issues",
   "main": "index.es5.js",
