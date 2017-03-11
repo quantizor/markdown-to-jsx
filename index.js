@@ -412,13 +412,25 @@ export function compiler(markdown, {overrides = {}} = {}) {
         const key = index || '0';
 
         if (ast.type === 'code' && ast.value) {
-            const preProps = get(overrides, 'pre.props', {});
-            const codeProps = get(overrides, 'code.props', {});
+            const preProps = Object.assign(
+                {},
+                get(overrides, 'pre.props', {}),
+                {
+                    key
+                }
+            );
 
-            preProps.key = key;
-            codeProps.className =   codeProps.className
-                                  ? `${codeProps.className} lang-${ast.lang}`
-                                  : `lang-${ast.lang}`;
+            const langClassName = `lang-${ast.lang}`;
+            const codeBaseProps = get(overrides, 'code.props', {});
+            const codeProps = Object.assign(
+                {},
+                codeBaseProps,
+                {
+                    className: codeBaseProps.className
+                        ? `${codeBaseProps.className} ${langClassName}`
+                        : langClassName
+                }
+            );
 
             return React.createElement(
                 get(overrides, 'pre.component', 'pre'),
@@ -446,16 +458,24 @@ export function compiler(markdown, {overrides = {}} = {}) {
 
         if (ast.type === 'listItem') {
             if (ast.checked === true || ast.checked === false) {
-                const liProps = get(overrides, 'li.props', {});
+                const liProps = Object.assign(
+                    {},
+                    get(overrides, 'li.props', {}),
+                    {
+                        key
+                    }
+                );
 
-                liProps.key = key;
-
-                const inputProps = get(overrides, 'input.props', {});
-
-                inputProps.key = 'checkbox';
-                inputProps.type = 'checkbox';
-                inputProps.checked = ast.checked;
-                inputProps.readOnly = true;
+                const inputProps = Object.assign(
+                    {},
+                    get(overrides, 'input.props', {}),
+                    {
+                        key: 'checkbox',
+                        type: 'checkbox',
+                        checked: ast.checked,
+                        readOnly: true
+                    }
+                );
 
                 return React.createElement(
                     get(overrides, 'li.component', 'li'),
