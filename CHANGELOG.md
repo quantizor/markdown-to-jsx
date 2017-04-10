@@ -1,3 +1,11 @@
+### 5.0.2 (April 10, 2017)
+
+62adf46 Refactor object.assign -> spread apply
+706ef18 Do not mutate settings object (props @sapegin!)
+b0d1a73 Update my author info
+
+---
+
 ### 5.0.0 (January 12, 2017)
 
 See the README for updated usage instructions, here's a quick preview:
