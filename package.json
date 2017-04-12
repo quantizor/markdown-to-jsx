@@ -32,14 +32,15 @@
     "bundle-collapser": "^1.2.1",
     "codecov": "^1.0.1",
     "jest-cli": "^18.0.0",
-    "react": "^15.3.1",
-    "react-dom": "^15.3.1",
+    "react": "^15.5.4",
+    "react-dom": "^15.5.4",
     "stylus": "^0.54.5",
     "uglify-js": "^2.7.3",
     "watchify": "^3.7.0"
   },
   "dependencies": {
     "lodash.get": "^4.4.2",
+    "prop-types": "^15.5.8",
     "remark-parse": "^2.0.1",
     "unified": "^5.0.0"
   },
