@@ -1,3 +1,9 @@
+### 5.1.0 (April 13, 2017)
+
+76012ec Upgrade to React 15.5.4 (and use prop-types package) (props @ldabiralai!)
+
+---
+
 ### 5.0.2 (April 10, 2017)
 
 62adf46 Refactor object.assign -> spread apply
