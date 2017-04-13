@@ -13,9 +13,9 @@
     "jsx",
     "remark"
   ],
-  "author": "Evan Scott <glitterbyte@gmail.com> (http://yaycmyk.com)",
-  "repository": "yaycmyk/markdown-to-jsx",
-  "bugs": "https://github.com/yaycmyk/markdown-to-jsx/issues",
+  "author": "Evan Scott <probablyup@gmail.com> (http://yaycmyk.com)",
+  "repository": "probablyup/markdown-to-jsx",
+  "bugs": "https://github.com/probablyup/markdown-to-jsx/issues",
   "main": "index.es5.js",
   "jsnext:main": "index.js",
   "module": "index.js",
