@@ -45,7 +45,7 @@
     "unified": "^5.0.0"
   },
   "peerDependencies": {
-    "react": ">= 0.14.0"
+    "react": ">=15.2.1"
   },
   "babel": {
     "presets": [
