@@ -41,8 +41,8 @@
   "dependencies": {
     "lodash.get": "^4.4.2",
     "prop-types": "^15.5.8",
-    "remark-parse": "^2.0.1",
-    "unified": "^5.0.0"
+    "remark-parse": "^3.0.0",
+    "unified": "^6.1.2"
   },
   "peerDependencies": {
     "react": ">= 0.14.0"

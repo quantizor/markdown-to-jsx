@@ -591,11 +591,11 @@ export function compiler(markdown, {overrides = {}} = {}) {
                          }`);
     }
 
-    const remarkAST = unified().use(parser).parse(markdown, {
+    const remarkAST = unified().data('settings', {
         footnotes: true,
         gfm: true,
         position: false,
-    });
+    }).use(parser).parse(markdown);
 
     const extracted = extractDefinitionsFromASTTree(remarkAST, astToJSX);
 
