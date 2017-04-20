@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import compiler from './index';
+import Markdown from './index';
 
 class TryItLive extends React.PureComponent {
     state = {markdown: document.getElementById('sample-content').textContent.trim()}
@@ -26,9 +26,9 @@ class TryItLive extends React.PureComponent {
                         onChange={this.updateState}
                         value={this.state.markdown} />
 
-                    <div className='content-compiled'>
-                        {compiler(this.state.markdown)}
-                    </div>
+                    <Markdown className='content-compiled'>
+                        {this.state.markdown}
+                    </Markdown>
                 </section>
             </main>
         );
