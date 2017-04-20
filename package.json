@@ -30,7 +30,7 @@
     "browserify": "^14.1.0",
     "budo": "^9.2.0",
     "bundle-collapser": "^1.2.1",
-    "codecov": "^1.0.1",
+    "codecov": "^2.1.0",
     "jest-cli": "^19.0.2",
     "react": "^15.5.4",
     "react-dom": "^15.5.4",
