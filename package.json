@@ -1,7 +1,7 @@
 {
   "name": "markdown-to-jsx",
   "description": "Interprets markdown text and outputs a JSX equivalent.",
-  "homepage": "http://yaycmyk.com/markdown-to-jsx/",
+  "homepage": "http://probablyup.github.io/markdown-to-jsx",
   "license": "MIT",
   "version": "5.1.0",
   "engines": {
@@ -13,7 +13,7 @@
     "jsx",
     "remark"
   ],
-  "author": "Evan Scott <probablyup@gmail.com> (http://yaycmyk.com)",
+  "author": "Evan Scott <probablyup@gmail.com>",
   "repository": "probablyup/markdown-to-jsx",
   "bugs": "https://github.com/probablyup/markdown-to-jsx/issues",
   "main": "index.es5.js",
