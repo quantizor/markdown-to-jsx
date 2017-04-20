@@ -55,7 +55,7 @@
     ]
   },
   "scripts": {
-    "prepublish": "npm run es5",
+    "prepublishOnly": "npm run es5",
     "es5": "babel index.js --out-file index.es5.js",
     "site:css": "stylus -u autoprefixer-stylus site.styl -o docs/css/style.css",
     "site:css:release": "npm run site:css -- -c",
