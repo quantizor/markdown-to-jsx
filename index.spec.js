@@ -554,6 +554,15 @@ describe('markdown-to-jsx', () => {
                 expect($element.children[0].children[0].tagName).toBe('STRONG');
                 expect($element.children[0].children[0].textContent).toBe('code');
             });
+
+            it('handles self-closing html inside parsable html (regression)', () => {
+                const element = render(compiler('<a href="https://opencollective.com/react-dropzone/sponsor/0/website" target="_blank"><img src="https://opencollective.com/react-dropzone/sponsor/0/avatar.svg"></a>'));
+                const $element = dom(element);
+
+                expect($element.tagName).toBe('P');
+                expect($element.children[0].tagName).toBe('A');
+                expect($element.children[0].children[0].tagName).toBe('IMG');
+            });
         });
 
         describe('horizontal rules', () => {
