@@ -16,6 +16,12 @@
   "author": "Evan Scott <probablyup@gmail.com>",
   "repository": "probablyup/markdown-to-jsx",
   "bugs": "https://github.com/probablyup/markdown-to-jsx/issues",
+  "files": [
+    "index.js",
+    "index.es5.js",
+    "LICENSE",
+    "README.md"
+  ],
   "main": "index.es5.js",
   "jsnext:main": "index.js",
   "module": "index.js",
