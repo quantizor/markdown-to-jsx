@@ -31,6 +31,7 @@
     "budo": "^9.2.0",
     "bundle-collapser": "^1.2.1",
     "codecov": "^2.1.0",
+    "in-publish": "^2.0.0",
     "jest-cli": "^19.0.2",
     "react": "^15.5.4",
     "react-dom": "^15.5.4",
@@ -55,7 +56,7 @@
     ]
   },
   "scripts": {
-    "prepublishOnly": "npm run es5",
+    "prepublish": "in-publish && npm run es5 || not-in-publish",
     "es5": "babel index.js --out-file index.es5.js",
     "site:css": "stylus -u autoprefixer-stylus site.styl -o docs/css/style.css",
     "site:css:release": "npm run site:css -- -c",
