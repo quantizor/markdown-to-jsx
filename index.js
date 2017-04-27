@@ -323,16 +323,16 @@ function attributeValueToJSXPropValue(key, value) {
     return value;
 }
 
+function isCoalesceableHTML(html) {
+    // ignore block-level elements
+    // ignore self-closing or non-content-bearing elements
+    return html.match(BLOCK_ELEMENT_REGEX) || html.match(SELF_CLOSING_ELEMENT_REGEX) ? false : true;
+}
+
 function coalesceInlineHTML(ast) {
     function coalescer(node, index, siblings) {
         if (node.type === 'html') {
-            // ignore block-level elements
-            if (BLOCK_ELEMENT_REGEX.test(node.value)) {
-                return;
-            }
-
-            // ignore self-closing or non-content-bearing elements
-            if (SELF_CLOSING_ELEMENT_REGEX.test(node.value)) {
+            if (!isCoalesceableHTML(node.value)) {
                 return;
             }
 
@@ -347,7 +347,8 @@ function coalesceInlineHTML(ast) {
 
             // where's the end tag?
             while (end === undefined && i < siblings.length) {
-                if (siblings[i].type !== 'html') {
+                if (    siblings[i].type !== 'html'
+                    || (siblings[i].type === 'html' && !isCoalesceableHTML(siblings[i].value))) {
                     i += 1;
                     continue;
                 }
@@ -398,7 +399,7 @@ function coalesceInlineHTML(ast) {
         }
     };
 
-    return ast.children.forEach(coalescer);
+    ast.children.forEach(coalescer);
 }
 
 export function compiler(markdown, {overrides = {}} = {}) {
@@ -543,6 +544,11 @@ export function compiler(markdown, {overrides = {}} = {}) {
 
         let props = {key, ...ast.props};
 
+        if (Array.isArray(ast.children) && ast.children.length === 1 && ast.children[0].type === 'html') {
+            props.dangerouslySetInnerHTML = {__html: ast.children[0].value};
+            ast.children = null;
+        }
+
         const override = overrides[htmlNodeType];
         if (override) {
             if (override.component) {
@@ -607,8 +613,7 @@ export function compiler(markdown, {overrides = {}} = {}) {
     let jsx = astToJSX(remarkAST);
 
     // discard the root <div> node if there is only one valid initial child
-    // generally this is a paragraph
-    if (jsx.props.children.length === 1) {
+    if (jsx.props.children && jsx.props.children.length === 1) {
         jsx = jsx.props.children[0];
     }
 
