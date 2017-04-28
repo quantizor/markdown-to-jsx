@@ -2,5 +2,6 @@ node_modules/
 .git/
 .DS_Store
 coverage/
-index.es5.js
+index.cjs.js
+index.esm.js
 npm-debug.log
