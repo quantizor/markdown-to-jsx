@@ -41,15 +41,15 @@
     "codecov": "^2.1.0",
     "in-publish": "^2.0.0",
     "jest-cli": "^19.0.2",
-    "react": "^15.5.4",
-    "react-dom": "^15.5.4",
+    "react": "^15.6.1",
+    "react-dom": "^15.6.1",
     "stylus": "^0.54.5",
     "uglify-js": "^2.7.3",
     "watchify": "^3.7.0"
   },
   "dependencies": {
     "lodash.get": "^4.4.2",
-    "prop-types": "^15.5.8",
+    "prop-types": "^15.5.10",
     "remark-parse": "^3.0.1",
     "unified": "^6.1.5"
   },
