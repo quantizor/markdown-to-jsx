@@ -27,25 +27,26 @@
   "jsnext:main": "index.esm.js",
   "module": "index.esm.js",
   "devDependencies": {
-    "autoprefixer-stylus": "^0.13.0",
     "babel-cli": "^6.14.0",
     "babel-jest": "^19.0.0",
+    "babel-loader": "^7.1.1",
+    "babel-plugin-styled-components": "^1.1.7",
     "babel-preset-es2015": "^6.14.0",
     "babel-preset-es2015-native-modules": "^6.9.4",
     "babel-preset-react": "^6.11.1",
     "babel-preset-stage-2": "^6.13.0",
-    "babelify": "^7.3.0",
-    "browserify": "^14.1.0",
-    "budo": "^9.2.0",
-    "bundle-collapser": "^1.2.1",
     "codecov": "^2.1.0",
     "in-publish": "^2.0.0",
     "jest-cli": "^19.0.2",
+    "polished": "^1.3.0",
+    "preact": "^8.2.1",
+    "preact-compat": "^3.16.0",
     "react": "^15.6.1",
     "react-dom": "^15.6.1",
-    "stylus": "^0.54.5",
+    "styled-components": "^2.1.1",
     "uglify-js": "^2.7.3",
-    "watchify": "^3.7.0"
+    "webpack": "^3.3.0",
+    "webpack-dev-server": "^2.6.1"
   },
   "dependencies": {
     "lodash.get": "^4.4.2",
@@ -66,14 +67,8 @@
   "scripts": {
     "prepublish": "in-publish && npm run build || not-in-publish",
     "build": "babel index.js --out-file index.cjs.js && babel index.js --no-babelrc --out-file index.esm.js --presets=es2015-native-modules,react,stage-2",
-    "site:css": "stylus -u autoprefixer-stylus site.styl -o docs/css/style.css",
-    "site:css:release": "npm run site:css -- -c",
-    "site:css:watch": "npm run site:css -- -w -m -l --sourcemap-inline",
-    "site:js": "browserify site.js -t babelify -p bundle-collapser/plugin",
-    "site:js:release": "NODE_ENV=production npm run -s site:js | uglifyjs -mc drop_console --screw-ie8 -o docs/js/bundle.js",
-    "site:js:watch": "budo site.js:js/bundle.js -d docs -H 0.0.0.0 --colors --live --open --pushstate --iw -- -t babelify",
-    "site:release": "npm run site:css:release && npm run site:js:release",
-    "start": "sh scripts/parallelize.sh \"npm run site:css:watch\" \"npm run site:js:watch\"",
+    "release": "webpack --config ./webpack.release.config.babel.js -p --display-optimization-bailout",
+    "start": "webpack-dev-server --hot --inline --open",
     "test": "jest --verbose"
   }
 }
