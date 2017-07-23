@@ -32,7 +32,6 @@
     "babel-loader": "^7.1.1",
     "babel-plugin-styled-components": "^1.1.7",
     "babel-preset-es2015": "^6.14.0",
-    "babel-preset-es2015-native-modules": "^6.9.4",
     "babel-preset-react": "^6.11.1",
     "babel-preset-stage-2": "^6.13.0",
     "codecov": "^2.1.0",
@@ -66,7 +65,7 @@
   },
   "scripts": {
     "prepublish": "in-publish && npm run build || not-in-publish",
-    "build": "babel index.js --out-file index.cjs.js && babel index.js --no-babelrc --out-file index.esm.js --presets=es2015-native-modules,react,stage-2",
+    "build": "babel index.js --out-file index.cjs.js && BABEL_ENV=esm babel index.js --out-file index.esm.js",
     "release": "webpack --config ./webpack.release.config.babel.js -p --display-optimization-bailout",
     "start": "webpack-dev-server --hot --inline --open",
     "test": "jest --verbose"

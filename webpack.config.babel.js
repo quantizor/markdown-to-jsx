@@ -19,10 +19,10 @@ export default {
             use: {
                 loader: 'babel-loader',
                 options: {
+                    babelrc: false,
                     plugins: [
                         "styled-components",
                     ],
-
                     presets: [
                         ["es2015", {
                             "loose": true,
