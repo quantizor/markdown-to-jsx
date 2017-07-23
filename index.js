@@ -336,6 +336,9 @@ function coalesceInlineHTML(ast) {
         if (node.type === 'html') {
             if (!isCoalesceableHTML(node.value)) {
                 return;
+            } else if (node.value.indexOf('<!--') !== -1) {
+                // throw out HTML comments
+                siblings.splice(index, 1);
             }
 
             // are there more html nodes directly after? if so, fold them into the current node

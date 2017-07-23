@@ -563,6 +563,16 @@ describe('markdown-to-jsx', () => {
                 expect($element.children[0].tagName).toBe('A');
                 expect($element.children[0].children[0].tagName).toBe('IMG');
             });
+
+            it('throws out HTML comments', () => {
+                const element = render(compiler('Foo\n<!-- blah -->'));
+                const $element = dom(element);
+
+                // block level elements are currently wrapped with a <div> due to dangerouslySetInnerHTML
+                expect($element.tagName).toBe('P');
+                expect($element.childNodes).toHaveLength(1);
+                expect($element.childNodes[0].textContent).toBe('Foo');
+            });
         });
 
         describe('horizontal rules', () => {
