@@ -20,7 +20,7 @@ injectGlobal`
     #root,
     main {
         margin: 0;
-        overflow: hidden;
+        min-height: 600px;
         height: 100%;
     }
 
