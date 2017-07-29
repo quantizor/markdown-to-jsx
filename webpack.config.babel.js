@@ -1,5 +1,4 @@
 import path from 'path';
-import webpack from 'webpack';
 
 export default {
     devtool: 'inline-source-map',
@@ -35,9 +34,7 @@ export default {
             },
         }],
     },
-    plugins: [
-        new webpack.optimize.ModuleConcatenationPlugin(),
-    ],
+    plugins: [],
     resolve: {
         alias: {
             'react': 'preact-compat',
