@@ -31,6 +31,7 @@
     "babel-jest": "^20.0.3",
     "babel-loader": "^7.1.1",
     "babel-plugin-styled-components": "^1.1.7",
+    "babel-plugin-transform-react-remove-prop-types": "^0.4.6",
     "babel-preset-es2015": "^6.14.0",
     "babel-preset-react": "^6.11.1",
     "babel-preset-stage-2": "^6.13.0",
@@ -44,13 +45,13 @@
     "react-dom": "^15.6.1",
     "styled-components": "^2.1.1",
     "uglify-js": "^2.7.3",
-    "webpack": "^3.3.0",
+    "webpack": "^3.4.1",
     "webpack-dev-server": "^2.6.1"
   },
   "dependencies": {
     "lodash.get": "^4.4.2",
     "prop-types": "^15.5.10",
-    "remark-parse": "^3.0.1",
+    "remark-parse": "^4.0.0",
     "unified": "^6.1.5"
   },
   "peerDependencies": {
