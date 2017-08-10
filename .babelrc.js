@@ -1,11 +1,13 @@
-const plugins = [];
+const plugins = [
+    'emotion',
+];
 
 if (process.env.NODE_ENV === 'production') {
-	plugins.push('transform-react-remove-prop-types');
+    plugins.push('transform-react-remove-prop-types');
 }
 
 module.exports = {
-	plugins,
+    plugins,
     presets: [
         process.env.BABEL_ENV === 'esm' ? [
             'es2015', {
@@ -15,4 +17,4 @@ module.exports = {
         'react',
         'stage-2',
     ],
-}
+};

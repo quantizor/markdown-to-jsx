@@ -5,3 +5,5 @@ coverage/
 index.cjs.js
 index.esm.js
 npm-debug.log
+package-lock.json
+npm-shrinkwrap.json

@@ -6,7 +6,7 @@ const dom = ReactDOM.findDOMNode;
 
 describe('markdown-to-jsx', () => {
     const root = document.body.appendChild(document.createElement('div'));
-    const render = jsx => ReactDOM.render(jsx, root);
+    function render (jsx) { return ReactDOM.render(jsx, root); }
 
     afterEach(() => ReactDOM.unmountComponentAtNode(root));
 
@@ -23,13 +23,6 @@ describe('markdown-to-jsx', () => {
             expect(() => compiler(true)).toThrow();
         });
 
-        it('should discard the root <div> wrapper if there is only one root child', () => {
-            const element = render(compiler('Hello.'));
-            const $element = dom(element);
-
-            expect($element.tagName.toLowerCase()).toBe('p');
-        });
-
         it('should handle a basic string', () => {
             const element = render(compiler('Hello.'));
             const $element = dom(element);
@@ -37,68 +30,56 @@ describe('markdown-to-jsx', () => {
             expect($element.textContent).toBe('Hello.');
         });
 
-        it('should not introduce an intermediate wrapper for basic strings', () => {
-            const element = render(compiler('Hello.'));
-            const $element = dom(element);
-
-            expect($element.childNodes.length).toBe(1);
-            expect($element.childNodes[0].nodeType).toBe(3); // TEXT_NODE
-        });
-
         describe('inline textual elements', () => {
             it('should handle emphasized text', () => {
-                const element = render(compiler('_Hello._'));
+                const element = render(compiler('*Hello.*'));
                 const $element = dom(element);
 
-                const text = $element.querySelector('em');
-                expect(text).not.toBe(null);
-                expect(text.childNodes.length).toBe(1);
-                expect(text.childNodes[0].nodeType).toBe(3); // TEXT_NODE
-                expect(text.textContent).toBe('Hello.');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle double-emphasized text', () => {
-                const element = render(compiler('__Hello.__'));
+                const element = render(compiler('**Hello.**'));
                 const $element = dom(element);
-                const text = $element.querySelector('strong');
 
-                expect(text).not.toBe(null);
-                expect(text.childNodes.length).toBe(1);
-                expect(text.childNodes[0].nodeType).toBe(3); // TEXT_NODE
-                expect(text.textContent).toBe('Hello.');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle triple-emphasized text', () => {
+                const element = render(compiler('***Hello.***'));
+                const $element = dom(element);
+
+                expect($element.outerHTML).toMatchSnapshot();
+            });
+
+            it('should handle the alternate form of bold/italic', () => {
                 const element = render(compiler('___Hello.___'));
                 const $element = dom(element);
-                const text = $element.querySelector('strong');
 
-                expect(text).not.toBe(null);
-                expect(text.childNodes.length).toBe(1);
-                expect(text.childNodes[0].tagName).toBe('EM');
-                expect(text.childNodes[0].childNodes[0].nodeType).toBe(3); // TEXT_NODE
-                expect(text.childNodes[0].childNodes[0].textContent).toBe('Hello.');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle deleted text', () => {
                 const element = render(compiler('~~Hello.~~'));
                 const $element = dom(element);
-                const text = $element.querySelector('del');
 
-                expect(text).not.toBe(null);
-                expect(text.childNodes.length).toBe(1);
-                expect(text.childNodes[0].nodeType).toBe(3); // TEXT_NODE
-                expect(text.textContent).toBe('Hello.');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle escaped text', () => {
-                const element = render(compiler('Hello.\_\_'));
+                const element = render(compiler('Hello.\\_\\_foo\\_\\_'));
                 const $element = dom(element);
 
-                expect($element).not.toBe(null);
-                expect($element.childNodes.length).toBe(1);
-                expect($element.childNodes[0].nodeType).toBe(3); // TEXT_NODE
-                expect($element.textContent).toBe('Hello.__');
+                expect($element.outerHTML).toMatchSnapshot();
+            });
+        });
+
+        describe('misc block level elements', () => {
+            it('should handle blockquotes', () => {
+                const element = render(compiler('> Something important, perhaps?'));
+                const $element = dom(element);
+
+                expect($element.outerHTML).toMatchSnapshot();
             });
         });
 
@@ -107,54 +88,56 @@ describe('markdown-to-jsx', () => {
                 const element = render(compiler('# Hello World'));
                 const $element = dom(element);
 
-                expect($element).not.toBe(null);
-                expect($element.tagName.toLowerCase()).toBe('h1');
-                expect($element.textContent).toBe('Hello World');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle level 2 properly', () => {
                 const element = render(compiler('## Hello World'));
                 const $element = dom(element);
 
-                expect($element).not.toBe(null);
-                expect($element.tagName.toLowerCase()).toBe('h2');
-                expect($element.textContent).toBe('Hello World');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle level 3 properly', () => {
                 const element = render(compiler('### Hello World'));
                 const $element = dom(element);
 
-                expect($element).not.toBe(null);
-                expect($element.tagName.toLowerCase()).toBe('h3');
-                expect($element.textContent).toBe('Hello World');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle level 4 properly', () => {
                 const element = render(compiler('#### Hello World'));
                 const $element = dom(element);
 
-                expect($element).not.toBe(null);
-                expect($element.tagName.toLowerCase()).toBe('h4');
-                expect($element.textContent).toBe('Hello World');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle level 5 properly', () => {
                 const element = render(compiler('##### Hello World'));
                 const $element = dom(element);
 
-                expect($element).not.toBe(null);
-                expect($element.tagName.toLowerCase()).toBe('h5');
-                expect($element.textContent).toBe('Hello World');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle level 6 properly', () => {
                 const element = render(compiler('###### Hello World'));
                 const $element = dom(element);
 
-                expect($element).not.toBe(null);
-                expect($element.tagName.toLowerCase()).toBe('h6');
-                expect($element.textContent).toBe('Hello World');
+                expect($element.outerHTML).toMatchSnapshot();
+            });
+
+            it('should handle setext level 1 style', () => {
+                const element = render(compiler('Hello World\n===========\n\nsomething'));
+                const $element = dom(element);
+
+                expect($element.outerHTML).toMatchSnapshot();
+            });
+
+            it('should handle setext level 2 style', () => {
+                const element = render(compiler('Hello World\n-----------\n\nsomething'));
+                const $element = dom(element);
+
+                expect($element.outerHTML).toMatchSnapshot();
             });
         });
 
@@ -162,34 +145,22 @@ describe('markdown-to-jsx', () => {
             it('should handle a basic image', () => {
                 const element = render(compiler('![](/xyz.png)'));
                 const $element = dom(element);
-                const image = $element.querySelector('img');
 
-                expect(image).not.toBe(null);
-                expect(image.getAttribute('alt')).toBe(null);
-                expect(image.getAttribute('title')).toBe(null);
-                expect(image.src).toBe('/xyz.png');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle an image with alt text', () => {
                 const element = render(compiler('![test](/xyz.png)'));
                 const $element = dom(element);
-                const image = $element.querySelector('img');
 
-                expect(image).not.toBe(null);
-                expect(image.getAttribute('alt')).toBe('test');
-                expect(image.getAttribute('title')).toBe(null);
-                expect(image.src).toBe('/xyz.png');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle an image with title', () => {
                 const element = render(compiler('![test](/xyz.png "foo")'));
                 const $element = dom(element);
-                const image = $element.querySelector('img');
 
-                expect(image).not.toBe(null);
-                expect(image.getAttribute('alt')).toBe('test');
-                expect(image.getAttribute('title')).toBe('foo');
-                expect(image.src).toBe('/xyz.png');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle an image reference', () => {
@@ -199,13 +170,8 @@ describe('markdown-to-jsx', () => {
                 ].join('\n')));
 
                 const $element = dom(element);
-                const image = $element.querySelector('img');
 
-                expect(image).not.toBe(null);
-                /* bug in mdast: https://github.com/wooorm/mdast/issues/103 */
-                expect(image.getAttribute('alt')).toBe(null);
-                expect(image.getAttribute('title')).toBe(null);
-                expect(image.src).toBe('/xyz.png');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle an image reference with alt text', () => {
@@ -215,12 +181,8 @@ describe('markdown-to-jsx', () => {
                 ].join('\n')));
 
                 const $element = dom(element);
-                const image = $element.querySelector('img');
 
-                expect(image).not.toBe(null);
-                expect(image.getAttribute('alt')).toBe('test');
-                expect(image.getAttribute('title')).toBe(null);
-                expect(image.src).toBe('/xyz.png');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle an image reference with title', () => {
@@ -230,12 +192,8 @@ describe('markdown-to-jsx', () => {
                 ].join('\n')));
 
                 const $element = dom(element);
-                const image = $element.querySelector('img');
 
-                expect(image).not.toBe(null);
-                expect(image.getAttribute('alt')).toBe('test');
-                expect(image.getAttribute('title')).toBe('foo');
-                expect(image.src).toBe('/xyz.png');
+                expect($element.outerHTML).toMatchSnapshot();
             });
         });
 
@@ -243,23 +201,15 @@ describe('markdown-to-jsx', () => {
             it('should handle a basic link', () => {
                 const element = render(compiler('[foo](/xyz.png)'));
                 const $element = dom(element);
-                const link = $element.querySelector('a');
 
-                expect(link).not.toBe(null);
-                expect(link.textContent).toBe('foo');
-                expect(link.getAttribute('title')).toBe(null);
-                expect(link.getAttribute('href')).toBe('/xyz.png');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle a link with title', () => {
                 const element = render(compiler('[foo](/xyz.png "bar")'));
                 const $element = dom(element);
-                const link = $element.querySelector('a');
 
-                expect(link).not.toBe(null);
-                expect(link.textContent).toBe('foo');
-                expect(link.getAttribute('title')).toBe('bar');
-                expect(link.getAttribute('href')).toBe('/xyz.png');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle a link reference', () => {
@@ -269,12 +219,8 @@ describe('markdown-to-jsx', () => {
                 ].join('\n')));
 
                 const $element = dom(element);
-                const link = $element.querySelector('a');
 
-                expect(link).not.toBe(null);
-                expect(link.textContent).toBe('foo');
-                expect(link.getAttribute('title')).toBe(null);
-                expect(link.getAttribute('href')).toBe('/xyz.png');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle a link reference with title', () => {
@@ -284,12 +230,50 @@ describe('markdown-to-jsx', () => {
                 ].join('\n')));
 
                 const $element = dom(element);
-                const link = $element.querySelector('a');
 
-                expect(link).not.toBe(null);
-                expect(link.textContent).toBe('foo');
-                expect(link.getAttribute('title')).toBe('bar');
-                expect(link.getAttribute('href')).toBe('/xyz.png');
+                expect($element.outerHTML).toMatchSnapshot();
+            });
+
+            it('should handle autolink style', () => {
+                const element = render(compiler('<https://google.com>'));
+                const $element = dom(element);
+
+                expect($element.outerHTML).toMatchSnapshot();
+            });
+
+            it('should handle a mailto autolink', () => {
+                const element = render(compiler('<mailto:probablyup@gmail.com>'));
+                const $element = dom(element);
+
+                expect($element.outerHTML).toMatchSnapshot();
+            });
+
+            it('should an email autolink and add a mailto: prefix', () => {
+                const element = render(compiler('<probablyup@gmail.com>'));
+                const $element = dom(element);
+
+                expect($element.outerHTML).toMatchSnapshot();
+            });
+
+            it('should automatically link found URLs', () => {
+                const element = render(compiler('https://google.com'));
+                const $element = dom(element);
+
+                expect($element.outerHTML).toMatchSnapshot();
+            });
+
+            it('should sanitize links containing JS expressions', () => {
+                const element = render(compiler('[foo](javascript:doSomethingBad)'));
+                const $element = dom(element);
+
+                expect($element.outerHTML).toMatchSnapshot();
+            });
+
+            it('should sanitize links containing invalid characters', () => {
+                const element = render(compiler('[foo](https://google.com/%AF)'));
+                const $element = dom(element);
+
+                expect($element.outerHTML).toMatchSnapshot();
             });
         });
 
@@ -303,14 +287,7 @@ describe('markdown-to-jsx', () => {
 
                 const $element = dom(element);
 
-                expect($element).not.toBe(null);
-                expect($element.children.length).toBe(3);
-                expect($element.children[0].textContent).toBe('xyz');
-                expect($element.children[0].childNodes[0].nodeType).toBe(3); // TEXT_NODE
-                expect($element.children[1].textContent).toBe('abc');
-                expect($element.children[1].childNodes[0].nodeType).toBe(3); // TEXT_NODE
-                expect($element.children[2].textContent).toBe('foo');
-                expect($element.children[2].childNodes[0].nodeType).toBe(3); // TEXT_NODE
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle a loose list', () => {
@@ -324,15 +301,7 @@ describe('markdown-to-jsx', () => {
 
                 const $element = dom(element);
 
-                expect($element).not.toBe(null);
-                expect($element.tagName.toLowerCase()).toBe('ul');
-                expect($element.children.length).toBe(3);
-                expect($element.children[0].textContent).toBe('xyz');
-                expect($element.children[0].children[0].tagName.toLowerCase()).toBe('p');
-                expect($element.children[1].textContent).toBe('abc');
-                expect($element.children[1].children[0].tagName.toLowerCase()).toBe('p');
-                expect($element.children[2].textContent).toBe('foo');
-                expect($element.children[2].children[0].tagName.toLowerCase()).toBe('p');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle an ordered list', () => {
@@ -344,12 +313,7 @@ describe('markdown-to-jsx', () => {
 
                 const $element = dom(element);
 
-                expect($element).not.toBe(null);
-                expect($element.tagName.toLowerCase()).toBe('ol');
-                expect($element.children.length).toBe(3);
-                expect($element.children[0].textContent).toBe('xyz');
-                expect($element.children[1].textContent).toBe('abc');
-                expect($element.children[2].textContent).toBe('foo');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle an ordered list with a specific start index', () => {
@@ -361,8 +325,7 @@ describe('markdown-to-jsx', () => {
 
                 const $element = dom(element);
 
-                expect($element).not.toBe(null);
-                expect($element.getAttribute('start')).toBe('2');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle a nested list', () => {
@@ -374,12 +337,7 @@ describe('markdown-to-jsx', () => {
 
                 const $element = dom(element);
 
-                expect($element).not.toBe(null);
-                expect($element.children.length).toBe(2);
-                expect($element.children[0].children[0].textContent).toBe('xyz');
-                expect($element.children[0].children[1].tagName.toLowerCase()).toBe('ul');
-                expect($element.children[0].children[1].children[0].textContent).toBe('abc');
-                expect($element.children[1].textContent).toBe('foo');
+                expect($element.outerHTML).toMatchSnapshot();
             });
         });
 
@@ -389,9 +347,8 @@ describe('markdown-to-jsx', () => {
                 const $element = dom(element);
                 const checkbox = $element.querySelector('ul li input');
 
-                expect(checkbox).not.toBe(null);
+                expect($element.outerHTML).toMatchSnapshot();
                 expect(checkbox.checked).toBe(false);
-                expect(checkbox.parentNode.textContent).toBe('foo');
             });
 
             it('should handle checked items', () => {
@@ -399,9 +356,8 @@ describe('markdown-to-jsx', () => {
                 const $element = dom(element);
                 const checkbox = $element.querySelector('ul li input');
 
-                expect(checkbox).not.toBe(null);
+                expect($element.outerHTML).toMatchSnapshot();
                 expect(checkbox.checked).toBe(true);
-                expect(checkbox.parentNode.textContent).toBe('foo');
             });
 
             it('should mark the checkboxes as readonly', () => {
@@ -424,40 +380,21 @@ describe('markdown-to-jsx', () => {
                 ].join('\n')));
 
                 const $element = dom(element);
-                const thead = $element.querySelector('thead tr');
-                const row = $element.querySelector('tbody tr');
 
-                expect($element).not.toBe(null);
-                expect($element.tagName.toLowerCase()).toBe('table');
-                expect(thead).not.toBe(null);
-                expect(thead.children.length).toBe(2);
-                expect(thead.children[0].tagName.toLowerCase()).toBe('th');
-                expect(row).not.toBe(null);
-                expect(row.children.length).toBe(2);
-                expect(row.children[0].tagName.toLowerCase()).toBe('td');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle a table with aligned columns', () => {
                 const element = render(compiler([
-                    'foo|bar',
-                    '--:|---',
-                    '1  |2',
+                    'foo|bar|baz',
+                    '--:|:---:|:--',
+                    '1|2|3',
                     '',
                 ].join('\n')));
 
                 const $element = dom(element);
-                const thead = $element.querySelector('thead tr');
-                const row = $element.querySelector('tbody tr');
 
-                expect($element).not.toBe(null);
-                expect(thead).not.toBe(null);
-                expect(thead.children.length).toBe(2);
-                expect(thead.children[0].tagName.toLowerCase()).toBe('th');
-                expect(thead.children[0].style.textAlign).toBe('right');
-                expect(row).not.toBe(null);
-                expect(row.children.length).toBe(2);
-                expect(row.children[0].tagName.toLowerCase()).toBe('td');
-                expect(row.children[0].style.textAlign).toBe('right');
+                expect($element.outerHTML).toMatchSnapshot();
             });
         });
 
@@ -466,112 +403,70 @@ describe('markdown-to-jsx', () => {
                 const element = render(compiler('<dd>Hello</dd>'));
                 const $element = dom(element);
 
-                // block level elements are currently wrapped with a <div> due to dangerouslySetInnerHTML
-                expect($element.tagName).toBe('DIV');
-
-                expect($element.children[0].tagName).toBe('DD');
-                expect($element.children[0].textContent).toBe('Hello');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('processes markdown within inline HTML', () => {
                 const element = render(compiler('<time>**Hello**</time>'));
                 const $element = dom(element);
 
-                // inline elements are always wrapped in a paragraph context
-                expect($element.tagName).toBe('P');
-
-                expect($element.children[0].tagName).toBe('TIME');
-                expect($element.children[0].children[0].tagName).toBe('STRONG');
-                expect($element.children[0].children[0].textContent).toBe('Hello');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('processes markdown within nested inline HTML', () => {
                 const element = render(compiler('<time><span>**Hello**</span></time>'));
                 const $element = dom(element);
 
-                // inline elements are always wrapped in a paragraph context
-                expect($element.tagName).toBe('P');
-
-                expect($element.children[0].tagName).toBe('TIME');
-                expect($element.children[0].children[0].tagName).toBe('SPAN');
-                expect($element.children[0].children[0].children[0].tagName).toBe('STRONG');
-                expect($element.children[0].children[0].children[0].textContent).toBe('Hello');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('processes attributes within inline HTML', () => {
                 const element = render(compiler('<time data-foo="bar">Hello</time>'));
                 const $element = dom(element);
 
-                // inline elements are always wrapped in a paragraph context
-                expect($element.tagName).toBe('P');
-
-                expect($element.children[0].tagName).toBe('TIME');
-                expect($element.children[0].getAttribute('data-foo')).toBe('bar');
-                expect($element.children[0].textContent).toBe('Hello');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('processes attributes that need JSX massaging within inline HTML', () => {
                 const element = render(compiler('<span tabindex="0">Hello</span>'));
                 const $element = dom(element);
 
-                // inline elements are always wrapped in a paragraph context
-                expect($element.tagName).toBe('P');
-
-                expect($element.children[0].tagName).toBe('SPAN');
-                expect($element.children[0].hasAttribute('tabindex')).toBe(true);
-                expect($element.children[0].textContent).toBe('Hello');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('processes inline HTML with inline styles', () => {
                 const element = render(compiler('<span style="color: red; position: top; margin-right: 10px">Hello</span>'));
                 const $element = dom(element);
 
-                // inline elements are always wrapped in a paragraph context
-                expect($element.tagName).toBe('P');
-
-                expect($element.children[0].tagName).toBe('SPAN');
-                expect($element.children[0].style.color).toBe('red');
-                expect($element.children[0].style.marginRight).toBe('10px');
-                expect($element.children[0].style.position).toBe('top');
-                expect($element.children[0].textContent).toBe('Hello');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
-            xit('processes markdown within block-level arbitrary HTML', () => {
+            it('processes markdown within block-level arbitrary HTML', () => {
                 const element = render(compiler('<p>**Hello**</p>'));
                 const $element = dom(element);
 
-                expect($element.tagName).toBe('P');
-                expect($element.children[0].tagName).toBe('STRONG');
-                expect($element.children[0].textContent).toBe('Hello');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('renders inline <code> tags', () => {
                 const element = render(compiler('Text and <code>**code**</code>'));
                 const $element = dom(element);
 
-                expect($element.tagName).toBe('P');
-                expect($element.children[0].tagName).toBe('CODE');
-                expect($element.children[0].children[0].tagName).toBe('STRONG');
-                expect($element.children[0].children[0].textContent).toBe('code');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('handles self-closing html inside parsable html (regression)', () => {
                 const element = render(compiler('<a href="https://opencollective.com/react-dropzone/sponsor/0/website" target="_blank"><img src="https://opencollective.com/react-dropzone/sponsor/0/avatar.svg"></a>'));
                 const $element = dom(element);
 
-                expect($element.tagName).toBe('P');
-                expect($element.children[0].tagName).toBe('A');
-                expect($element.children[0].children[0].tagName).toBe('IMG');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('throws out HTML comments', () => {
                 const element = render(compiler('Foo\n<!-- blah -->'));
                 const $element = dom(element);
 
-                // block level elements are currently wrapped with a <div> due to dangerouslySetInnerHTML
-                expect($element.tagName).toBe('P');
-                expect($element.childNodes).toHaveLength(1);
-                expect($element.childNodes[0].textContent).toBe('Foo');
+                expect($element.outerHTML).toMatchSnapshot();
             });
         });
 
@@ -609,11 +504,17 @@ describe('markdown-to-jsx', () => {
 
                 const $element = dom(element);
 
-                expect($element).not.toBe(null);
-                expect($element.tagName.toLowerCase()).toBe('pre');
-                expect($element.children[0].tagName).toBe('CODE');
-                expect($element.children[0].classList.contains('lang-js')).toBe(true);
-                expect($element.children[0].textContent).toBe('foo');
+                expect($element.outerHTML).toMatchSnapshot();
+            });
+        });
+
+        describe('indented code blocks', () => {
+            it('should be handled', () => {
+                const element = render(compiler('    foo\n\n'));
+
+                const $element = dom(element);
+
+                expect($element.outerHTML).toMatchSnapshot();
             });
         });
 
@@ -621,11 +522,8 @@ describe('markdown-to-jsx', () => {
             it('should be handled', () => {
                 const element = render(compiler('`foo`'));
                 const $element = dom(element);
-                const code = $element.querySelector('code');
 
-                expect(code).not.toBe(null);
-                expect(code.childNodes[0].nodeType).toBe(3); // TEXT_NODE
-                expect(code.textContent).toBe('foo');
+                expect($element.outerHTML).toMatchSnapshot();
             });
         });
 
@@ -639,15 +537,7 @@ describe('markdown-to-jsx', () => {
 
                 const $element = dom(element);
 
-                const text = $element.children[0].textContent;
-                const footnoteLink = $element.querySelector('a');
-
-                expect(text).toBe('fooabc bar');
-
-                expect(footnoteLink).not.toBe(null);
-                expect(footnoteLink.textContent).toBe('abc');
-                expect(footnoteLink.getAttribute('href')).toBe('#abc');
-                expect(footnoteLink.children[0].tagName).toBe('SUP');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should inject the definitions in a footer at the end of the root', () => {
@@ -658,13 +548,8 @@ describe('markdown-to-jsx', () => {
                 ].join('\n')));
 
                 const $element = dom(element);
-                const definitions = $element.children[1];
 
-                expect(definitions).not.toBe(null);
-                expect(definitions.tagName).toBe('FOOTER');
-                expect(definitions.children[0].tagName).toBe('DIV');
-                expect(definitions.children[0].id).toBe('abc');
-                expect(definitions.children[0].textContent).toBe('[abc]: Baz baz');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should handle single word footnote definitions', () => {
@@ -675,20 +560,15 @@ describe('markdown-to-jsx', () => {
                 ].join('\n')));
 
                 const $element = dom(element);
-                const definitions = $element.children[1];
 
-                expect(definitions).not.toBe(null);
-                expect(definitions.tagName).toBe('FOOTER');
-                expect(definitions.children[0].tagName).toBe('DIV');
-                expect(definitions.children[0].id).toBe('abc');
-                expect(definitions.children[0].textContent).toBe('[abc]: Baz');
+                expect($element.outerHTML).toMatchSnapshot();
             });
         });
 
         describe('overrides', () => {
             it('should substitute the appropriate JSX tag if given a component', () => {
                 class FakeParagraph extends React.Component {
-                    render() {
+                    render () {
                         return (
                             <p className='foo'>{this.props.children}</p>
                         );
@@ -696,7 +576,7 @@ describe('markdown-to-jsx', () => {
                 }
 
                 const element = render(
-                    compiler('Hello.', {overrides: {p: {component: FakeParagraph}}})
+                    compiler('Hello.\n\n', {overrides: {p: {component: FakeParagraph}}})
                 );
 
                 const $element = dom(element);
@@ -707,7 +587,7 @@ describe('markdown-to-jsx', () => {
 
             it('should add props to the appropriate JSX tag if supplied', () => {
                 const element = render(
-                    compiler('Hello.', {overrides: {p: {props: {className: 'abc'}}}})
+                    compiler('Hello.\n\n', {overrides: {p: {props: {className: 'abc'}}}})
                 );
 
                 const $element = dom(element);
@@ -723,34 +603,30 @@ describe('markdown-to-jsx', () => {
                         foo
                         \`\`\`
                     `, {
-                        overrides: {
-                            code: {
-                                props: {
-                                    'data-foo': 'bar',
+                            overrides: {
+                                code: {
+                                    props: {
+                                        'data-foo': 'bar',
+                                    },
                                 },
-                            },
 
-                            pre: {
-                                props: {
-                                    className: 'abc',
+                                pre: {
+                                    props: {
+                                        className: 'abc',
+                                    },
                                 },
                             },
-                        },
-                    })
+                        })
                 );
 
                 const $element = dom(element);
 
-                expect($element.tagName).toBe('PRE');
-                expect($element.className).toBe('abc');
-                expect($element.textContent).toContain('foo');
-                expect($element.children[0].tagName).toBe('CODE');
-                expect($element.children[0].getAttribute('data-foo')).toBe('bar');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should substitute pre & code tags if supplied with an override component', () => {
                 class OverridenPre extends React.Component {
-                    render() {
+                    render () {
                         const {children, ...props} = this.props;
 
                         return (
@@ -760,7 +636,7 @@ describe('markdown-to-jsx', () => {
                 }
 
                 class OverridenCode extends React.Component {
-                    render() {
+                    render () {
                         const {children, ...props} = this.props;
 
                         return (
@@ -775,84 +651,71 @@ describe('markdown-to-jsx', () => {
                         foo
                         \`\`\`
                     `, {
-                        overrides: {
-                            code: {
-                                component: OverridenCode,
-                                props: {
-                                    'data-foo': 'bar',
+                            overrides: {
+                                code: {
+                                    component: OverridenCode,
+                                    props: {
+                                        'data-foo': 'bar',
+                                    },
                                 },
-                            },
 
-                            pre: {
-                                component: OverridenPre,
-                                props: {
-                                    className: 'abc',
+                                pre: {
+                                    component: OverridenPre,
+                                    props: {
+                                        className: 'abc',
+                                    },
                                 },
                             },
-                        },
-                    })
+                        })
                 );
 
                 const $element = dom(element);
 
-                expect($element.tagName).toBe('PRE');
-                expect($element.className).toBe('abc');
-                expect($element.getAttribute('data-bar')).toBe('baz');
-                expect($element.textContent).toContain('foo');
-                expect($element.children[0].tagName).toBe('CODE');
-                expect($element.children[0].getAttribute('data-foo')).toBe('bar');
-                expect($element.children[0].getAttribute('data-baz')).toBe('fizz');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should be able to override gfm task list items', () => {
                 const element = render(compiler('- [ ] foo', {overrides: {li: {props: {className: 'foo'}}}}));
                 const $element = dom(element).querySelector('li');
 
-                expect($element).not.toBe(null);
-                expect($element.className).toContain('foo');
+                expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should be able to override gfm task list item checkboxes', () => {
                 const element = render(compiler('- [ ] foo', {overrides: {input: {props: {className: 'foo'}}}}));
                 const $element = dom(element).querySelector('input');
 
-                expect($element).not.toBe(null);
-                expect($element.className).toContain('foo');
+                expect($element.outerHTML).toMatchSnapshot();
             });
         });
     });
 
     describe('component', () => {
         it('accepts markdown content', () => {
-            render(<Markdown>_Hello._</Markdown>);
+            const element = render(<Markdown>_Hello._</Markdown>);
+            const $element = dom(element);
 
-            const $element = root.querySelector('em');
-
-            expect($element).not.toBe(null);
-            expect($element.childNodes.length).toBe(1);
-            expect($element.childNodes[0].nodeType).toBe(3); // TEXT_NODE
-            expect($element.textContent).toBe('Hello.');
+            expect($element.outerHTML).toMatchSnapshot();
         });
 
         it('accepts options', () => {
             class FakeParagraph extends React.Component {
-                render() {
+                render () {
                     return (
                         <p className='foo'>{this.props.children}</p>
                     );
                 }
             }
 
-            render(
+            const element = render(
                 <Markdown options={{overrides: {p: {component: FakeParagraph}}}}>
                     _Hello._
                 </Markdown>
             );
 
-            const $element = root.querySelector('p');
+            const $element = dom(element);
 
-            expect($element.className).toBe('foo');
-            expect($element.textContent).toBe('Hello.');
+            expect($element.outerHTML).toMatchSnapshot();
         });
     });
 });

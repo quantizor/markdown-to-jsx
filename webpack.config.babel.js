@@ -1,16 +1,12 @@
 import path from 'path';
 
 export default {
-    devtool: 'inline-source-map',
     devServer: {
         compress: true,
         contentBase: path.resolve(__dirname, 'docs'),
     },
+    devtool: 'inline-source-map',
     entry: path.resolve(__dirname, 'site.js'),
-    output: {
-        filename: 'bundle.js',
-        path: path.resolve(__dirname, 'docs'),
-    },
     module: {
         rules: [{
             exclude: /(node_modules)/,
@@ -20,19 +16,23 @@ export default {
                 options: {
                     babelrc: false,
                     plugins: [
-                        "styled-components",
+                        'emotion',
                     ],
                     presets: [
-                        ["es2015", {
-                            "loose": true,
-                            "modules": false,
+                        ['es2015', {
+                            'loose': true,
+                            'modules': false,
                         }],
-                        "react",
-                        "stage-2",
+                        'react',
+                        'stage-2',
                     ],
-                }
+                },
             },
         }],
+    },
+    output: {
+        filename: 'bundle.js',
+        path: path.resolve(__dirname, 'docs'),
     },
     plugins: [],
     resolve: {
@@ -41,4 +41,4 @@ export default {
             'react-dom': 'preact-compat',
         },
     },
-}
+};

@@ -2,15 +2,19 @@
 
 [![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) ![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg) [![codecov](https://codecov.io/gh/probablyup/markdown-to-jsx/branch/master/graph/badge.svg)](https://codecov.io/gh/probablyup/markdown-to-jsx) ![downloads](https://img.shields.io/npm/dm/markdown-to-jsx.svg)
 
-Enables the safe parsing of markdown into proper React JSX objects, so you don't need to use a pattern like `dangerouslySetInnerHTML` and potentially open your application up to security issues.
+`markdown-to-jsx` uses a fork of [simple-markdown](https://github.com/Khan/simple-markdown) as its parsing engine and extends it in a number of ways to make your life easier. Notably, this package offers the following additional benefits:
 
-The only exception is arbitrary block-level HTML in the markdown (considered a markdown antipattern), which will still use the unsafe method.
+  - Arbitrary HTML is supported and parsed into the appropriate JSX representation
+    without `dangerouslySetInnerHTML`
 
-Uses [remark-parse](https://github.com/wooorm/remark-parse) under the hood to parse markdown into a consistent AST format. The following [remark](https://github.com/wooorm/remark) settings are set by `markdown-to-jsx`:
+  - Any HTML tags rendered by the compiler and/or `<Markdown>` component can be overridden to include additional
+    props or even a different HTML representation entirely.
 
-- footnotes: true
-- gfm: true
-- position: false
+  - GFM task list support.
+
+  - Fenced code blocks with [highlight.js](https://highlightjs.org/) support.
+
+All this clocks in at around 5 kB gzipped, which is a fraction of the size of most other React markdown components.
 
 Requires React >= 0.14.
 
@@ -25,13 +29,11 @@ import Markdown from 'markdown-to-jsx';
 import React from 'react';
 import {render} from 'react-dom';
 
-const markdown = `
-# Hello world!
-`.trim();
+const markdown = `# Hello world!`.trim();
 
 render((
     <Markdown>
-        {markdown}
+        # Hello world!
     </Markdown>
 ), document.body);
 
@@ -42,7 +44,7 @@ render((
  */
 ```
 
-\* __NOTE: JSX does not natively preserve newlines in multiline text, which is why the example above is inside an ES6 template literal. In general, writing markdown directly in JSX is discouraged and it's a better idea to keep your content in separate .md files and require them, perhaps using webpack's [raw-loader](https://github.com/webpack-contrib/raw-loader).__
+\* __NOTE: JSX does not natively preserve newlines in multiline text. In general, writing markdown directly in JSX is discouraged and it's a better idea to keep your content in separate .md files and require them, perhaps using webpack's [raw-loader](https://github.com/webpack-contrib/raw-loader).__
 
 Override a particular HTML tag's output:
 
