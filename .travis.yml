@@ -25,4 +25,6 @@ after_install:
 
 script:
   - npm test -- --coverage
+  - npm run build
+  - npm run size
   - codecov

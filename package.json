@@ -43,6 +43,7 @@
     "preact-compat": "^3.16.0",
     "react": "^15.6.1",
     "react-dom": "^15.6.1",
+    "size-limit": "^0.13.1",
     "styled-components": "^2.1.1",
     "uglify-js": "^2.7.3",
     "webpack": "^3.4.1",
@@ -69,6 +70,11 @@
     "build": "babel index.js --out-file index.cjs.js && BABEL_ENV=esm babel index.js --out-file index.esm.js",
     "release": "webpack --config ./webpack.release.config.babel.js -p --display-optimization-bailout",
     "start": "webpack-dev-server --hot --inline --open",
-    "test": "jest --verbose"
-  }
+    "test": "jest --verbose",
+    "size": "size-limit"
+  },
+  "size-limit": [{
+    "path": "index.cjs.js",
+    "limit": "37 KB"
+  }]
 }
