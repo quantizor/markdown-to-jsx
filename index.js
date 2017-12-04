@@ -1230,11 +1230,7 @@ export function compiler (markdown, {overrides = {}} = {}) {
 
     let jsx;
     if (arr.length > 1) {
-        jsx = (
-            <div>
-                {arr}
-            </div>
-        );
+        jsx = inline ? <p>{arr}</p> : <div>{arr}</div>;
     } else if (arr.length === 1) {
         jsx = arr[0];
 

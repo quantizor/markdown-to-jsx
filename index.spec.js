@@ -30,6 +30,20 @@ describe('markdown-to-jsx', () => {
             expect($element.textContent).toBe('Hello.');
         });
 
+        it('wraps multiple block element returns in a div to avoid invalid nesting errors', () => {
+            const element = render(compiler('# Boop\n\n## Blep'));
+            const $element = dom(element);
+
+            expect($element.outerHTML).toMatchSnapshot();
+        });
+
+        it('wraps solely inline elements in a paragraph, rather than a div', () => {
+            const element = render(compiler('Hello. _Beautiful_ day isn\'t it?'));
+            const $element = dom(element);
+
+            expect($element.outerHTML).toMatchSnapshot();
+        });
+
         describe('inline textual elements', () => {
             it('should handle emphasized text', () => {
                 const element = render(compiler('*Hello.*'));
