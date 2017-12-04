@@ -864,6 +864,37 @@ exports[`markdown-to-jsx compiler lists should handle an ordered list with a spe
 
 `;
 
+exports[`markdown-to-jsx compiler lists should not add an extra wrapper around a list 1`] = `
+
+<ul data-reactroot>
+  <li>
+    <!-- react-text: 3 -->
+    xyz
+    <!-- /react-text -->
+    <ol start="1">
+      <li>
+        <!-- react-text: 6 -->
+        abc
+        <!-- /react-text -->
+        <ul>
+          <li>
+            <!-- react-text: 9 -->
+            def
+            <!-- /react-text -->
+          </li>
+        </ul>
+      </li>
+    </ol>
+  </li>
+  <li>
+    <!-- react-text: 11 -->
+    foo
+    <!-- /react-text -->
+  </li>
+</ul>
+
+`;
+
 exports[`markdown-to-jsx compiler misc block level elements should handle blockquotes 1`] = `
 
 <blockquote data-reactroot>

@@ -103,6 +103,7 @@ const TEXT_EMPHASIZED_R = /^[*_]{1}([\s\S]+?)[*_]{1}(?!\*|_)/;
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/;
 const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Za-z\s\u00c0-\uffff]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/;
 const TEXT_STRIKETHROUGHED_R = /^~~(?=\S)([\s\S]*?\S)~~/;
+const TRIM_NEWLINES_R = /(^\n+|\n+$)/g;
 const UNESCAPE_URL_R = /\\([^0-9A-Za-z\s])/g;
 
 // recognize a `*` `-`, `+`, `1.`, `2.`... list bullet
@@ -1230,7 +1231,9 @@ export function compiler (markdown, options) {
      */
     const inline = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/g.test(markdown) === false;
 
-    const arr = emitter(parser(inline ? markdown : `${markdown}\n\n`, { inline }));
+    const arr = emitter(
+        parser(inline ? markdown : `${markdown.replace(TRIM_NEWLINES_R, '')}\n\n`, { inline })
+    );
 
     let jsx;
     if (arr.length > 1) {

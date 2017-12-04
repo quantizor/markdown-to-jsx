@@ -313,6 +313,19 @@ describe('markdown-to-jsx', () => {
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('should not add an extra wrapper around a list', () => {
+                render(compiler([
+                    '',
+                    '- xyz',
+                    '  1. abc',
+                    '    - def',
+                    '- foo',
+                    '',
+                ].join('\n')));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('GFM task lists', () => {
@@ -540,25 +553,25 @@ describe('markdown-to-jsx', () => {
 
             it('should add props to pre & code tags if supplied', () => {
                 render(
-                    compiler(`
-                        \`\`\`
-                        foo
-                        \`\`\`
-                    `, {
-                            overrides: {
-                                code: {
-                                    props: {
-                                        'data-foo': 'bar',
-                                    },
-                                },
-
-                                pre: {
-                                    props: {
-                                        className: 'abc',
-                                    },
+                    compiler([
+                        '```',
+                        'foo',
+                        '```',
+                    ].join('\n'), {
+                        overrides: {
+                            code: {
+                                props: {
+                                    'data-foo': 'bar',
                                 },
                             },
-                        })
+
+                            pre: {
+                                props: {
+                                    className: 'abc',
+                                },
+                            },
+                        },
+                    })
                 );
 
                 expect(root.innerHTML).toMatchSnapshot();
@@ -586,27 +599,27 @@ describe('markdown-to-jsx', () => {
                 }
 
                 render(
-                    compiler(`
-                        \`\`\`
-                        foo
-                        \`\`\`
-                    `, {
-                            overrides: {
-                                code: {
-                                    component: OverridenCode,
-                                    props: {
-                                        'data-foo': 'bar',
-                                    },
-                                },
-
-                                pre: {
-                                    component: OverridenPre,
-                                    props: {
-                                        className: 'abc',
-                                    },
+                    compiler([
+                        '```',
+                        'foo',
+                        '```',
+                    ].join('\n'), {
+                        overrides: {
+                            code: {
+                                component: OverridenCode,
+                                props: {
+                                    'data-foo': 'bar',
                                 },
                             },
-                        })
+
+                            pre: {
+                                component: OverridenPre,
+                                props: {
+                                    className: 'abc',
+                                },
+                            },
+                        },
+                    })
                 );
 
                 expect(root.innerHTML).toMatchSnapshot();
