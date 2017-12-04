@@ -477,6 +477,24 @@ function ruleOutput (rules) {
     };
 }
 
+function cx (...str) {
+    return str.filter(Boolean).join(' ');
+}
+
+function get (src, path, fb) {
+    let ptr = src;
+    const frags = path.split('.');
+
+    while (frags.length) {
+        ptr = ptr[frags[0]];
+
+        if (ptr === undefined) break;
+        else frags.shift();
+    }
+
+    return ptr || fb;
+}
+
 /**
  * anything that must scan the tree before everything else
  */
@@ -505,10 +523,12 @@ const PARSE_PRIORITY_MIN = 5;
 export function compiler (markdown, {overrides = {}} = {}) {
     // eslint-disable-next-line no-unused-vars
     function h (tag, props, ...children) {
+        const overrideProps = get(overrides, `${tag}.props`, {});
         return React.createElement(
-            overrides[tag] && overrides[tag].component || tag, {
-                ...(overrides[tag] && overrides[tag].props),
+            get(overrides, `${tag}.component`, tag), {
+                ...overrideProps,
                 ...props,
+                className: cx(props && props.className, overrideProps.className) || undefined,
             }, ...children
         );
     }
