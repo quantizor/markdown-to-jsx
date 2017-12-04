@@ -440,6 +440,12 @@ exports[`markdown-to-jsx compiler headings should handle setext level 2 style 1`
 
 `;
 
+exports[`markdown-to-jsx compiler horizontal rules should be handled 1`] = `
+
+<hr data-reactroot>
+
+`;
+
 exports[`markdown-to-jsx compiler images should handle a basic image 1`] = `
 
 <img data-reactroot

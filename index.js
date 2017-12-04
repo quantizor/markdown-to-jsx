@@ -520,12 +520,15 @@ const PARSE_PRIORITY_LOW = 4;
  */
 const PARSE_PRIORITY_MIN = 5;
 
-export function compiler (markdown, {overrides = {}} = {}) {
+export function compiler (markdown, options) {
+    options = options || {};
+    options.overrides = options.overrides || {};
+
     // eslint-disable-next-line no-unused-vars
     function h (tag, props, ...children) {
-        const overrideProps = get(overrides, `${tag}.props`, {});
+        const overrideProps = get(options.overrides, `${tag}.props`, {});
         return React.createElement(
-            get(overrides, `${tag}.component`, tag), {
+            get(options.overrides, `${tag}.component`, tag), {
                 ...overrideProps,
                 ...props,
                 className: cx(props && props.className, overrideProps.className) || undefined,
@@ -540,7 +543,7 @@ export function compiler (markdown, {overrides = {}} = {}) {
                              a string`);
         }
 
-        if (getType.call(overrides) !== '[object Object]') {
+        if (getType.call(options.overrides) !== '[object Object]') {
             throw new Error(`markdown-to-jsx: options.overrides (second argument property) must be
                              undefined or an object literal with shape:
                              {
@@ -1266,13 +1269,12 @@ export function compiler (markdown, {overrides = {}} = {}) {
  *
  * @return {ReactElement} the compiled JSX
  */
-export default class Markdown extends React.PureComponent {
-    static propTypes = {
-        children: PropTypes.string.isRequired,
-        options: PropTypes.object,
-    };
 
-    render () {
-        return compiler(this.props.children, this.props.options);
-    }
+export default function Markdown (props) {
+    return compiler(props.children, props.options);
 }
+
+Markdown.propTypes = {
+    children: PropTypes.string.isRequired,
+    options: PropTypes.object,
+};
