@@ -346,6 +346,23 @@ exports[`markdown-to-jsx compiler footnotes should inject the definitions in a f
 
 `;
 
+exports[`markdown-to-jsx compiler headings should handle consecutive headings without a padding newline 1`] = `
+
+<div data-reactroot>
+  <h1>
+    <!-- react-text: 3 -->
+    Hello World
+    <!-- /react-text -->
+  </h1>
+  <h2>
+    <!-- react-text: 5 -->
+    And again
+    <!-- /react-text -->
+  </h2>
+</div>
+
+`;
+
 exports[`markdown-to-jsx compiler headings should handle level 1 properly 1`] = `
 
 <h1 data-reactroot>

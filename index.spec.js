@@ -133,6 +133,12 @@ describe('markdown-to-jsx', () => {
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('should handle consecutive headings without a padding newline', () => {
+                render(compiler('# Hello World\n## And again'));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('images', () => {
