@@ -54,7 +54,6 @@
     "webpack-dev-server": "^2.6.1"
   },
   "dependencies": {
-    "lodash.get": "^4.4.2",
     "prop-types": "^15.5.10",
     "unquote": "^1.1.0"
   },
