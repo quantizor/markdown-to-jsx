@@ -739,6 +739,37 @@ exports[`markdown-to-jsx compiler lists should handle a loose list 1`] = `
 
 `;
 
+exports[`markdown-to-jsx compiler lists should handle a mixed nested list 1`] = `
+
+<ul data-reactroot>
+  <li>
+    <!-- react-text: 3 -->
+    xyz
+    <!-- /react-text -->
+    <ol start="1">
+      <li>
+        <!-- react-text: 6 -->
+        abc
+        <!-- /react-text -->
+        <ul>
+          <li>
+            <!-- react-text: 9 -->
+            def
+            <!-- /react-text -->
+          </li>
+        </ul>
+      </li>
+    </ol>
+  </li>
+  <li>
+    <!-- react-text: 11 -->
+    foo
+    <!-- /react-text -->
+  </li>
+</ul>
+
+`;
+
 exports[`markdown-to-jsx compiler lists should handle a nested list 1`] = `
 
 <ul data-reactroot>

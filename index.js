@@ -101,7 +101,7 @@ const TABLE_ROW_SPLIT = / *\| */;
 const TEXT_BOLD_R = /^[*_]{2}([\s\S]+?)[*_]{2}(?!\*|_)/;
 const TEXT_EMPHASIZED_R = /^[*_]{1}([\s\S]+?)[*_]{1}(?!\*|_)/;
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/;
-const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Za-z\s\u00c0-\uffff]|\n\n| {2,}\n|\w+:\S|$)/;
+const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Za-z\s\u00c0-\uffff]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/;
 const TEXT_STRIKETHROUGHED_R = /^~~(?=\S)([\s\S]*?\S)~~/;
 const UNESCAPE_URL_R = /\\([^0-9A-Za-z\s])/g;
 
@@ -123,7 +123,7 @@ const LIST_ITEM_PREFIX_R = new RegExp('^' + LIST_ITEM_PREFIX);
 const LIST_ITEM_R = new RegExp(
     LIST_ITEM_PREFIX +
     '[^\\n]*(?:\\n' +
-    '(?!\\1' + LIST_BULLET + ' )[^\\n]*)*(\n|$)',
+    '(?!\\1' + LIST_BULLET + ' )[^\\n]*)*(\\n|$)',
     'gm'
 );
 
@@ -131,11 +131,11 @@ const LIST_ITEM_R = new RegExp(
 // we leave the newlines at the end
 const LIST_R = new RegExp(
     '^( *)(' + LIST_BULLET + ') ' +
-    '[\\s\\S]+?(?:\n{2,}(?! )' +
+    '[\\s\\S]+?(?:\\n{2,}(?! )' +
     '(?!\\1' + LIST_BULLET + ' )\\n*' +
     // the \\s*$ here is so that we can parse the inside of nested
     // lists, where our content might end before we receive two `\n`s
-    '|\\s*\n*$)'
+    '|\\s*\\n*$)'
 );
 
 const LINK_INSIDE = '(?:\\[[^\\]]*\\]|[^\\[\\]]|\\](?=[^\\[]*\\]))*';
@@ -938,6 +938,7 @@ export function compiler (markdown, options) {
                 let itemContent = items.map(function (item, i) {
                     // We need to see how far indented this item is:
                     let space = LIST_ITEM_PREFIX_R.exec(item)[0].length;
+
                     // And then we construct a regex to "unindent" the subsequent
                     // lines of the items by that amount:
                     let spaceRegex = new RegExp('^ {1,' + space + '}', 'gm');
