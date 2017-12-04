@@ -215,7 +215,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within neste
 
 exports[`markdown-to-jsx compiler arbitrary HTML renders inline <code> tags 1`] = `
 
-<div data-reactroot>
+<p data-reactroot>
   <!-- react-text: 2 -->
   Text and
   <!-- /react-text -->
@@ -226,7 +226,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML renders inline <code> tags 1`] 
       <!-- /react-text -->
     </strong>
   </code>
-</div>
+</p>
 
 `;
 
@@ -885,6 +885,41 @@ exports[`markdown-to-jsx compiler overrides should substitute pre & code tags if
     foo
   </code>
 </pre>
+
+`;
+
+exports[`markdown-to-jsx compiler wraps multiple block element returns in a div to avoid invalid nesting errors 1`] = `
+
+<div data-reactroot>
+  <h1>
+    <!-- react-text: 3 -->
+    Boop
+    <!-- /react-text -->
+  </h1>
+  <h2>
+    <!-- react-text: 5 -->
+    Blep
+    <!-- /react-text -->
+  </h2>
+</div>
+
+`;
+
+exports[`markdown-to-jsx compiler wraps solely inline elements in a paragraph, rather than a div 1`] = `
+
+<p data-reactroot>
+  <!-- react-text: 2 -->
+  Hello.
+  <!-- /react-text -->
+  <em>
+    <!-- react-text: 4 -->
+    Beautiful
+    <!-- /react-text -->
+  </em>
+  <!-- react-text: 5 -->
+  day isn't it?
+  <!-- /react-text -->
+</p>
 
 `;
 
