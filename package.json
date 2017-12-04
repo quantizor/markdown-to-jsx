@@ -80,7 +80,7 @@
   "size-limit": [
     {
       "path": "index.cjs.js",
-      "limit": "5.25 kB"
+      "limit": "5 kB"
     }
   ],
   "jest": {
