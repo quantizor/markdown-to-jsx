@@ -18,7 +18,9 @@
   "files": [
     "index.js",
     "index.cjs.js",
+    "index.js.js.map",
     "index.esm.js",
+    "index.esm.js.map",
     "LICENSE",
     "README.md"
   ],
@@ -70,7 +72,7 @@
   "scripts": {
     "prepublish": "in-publish && npm run build || not-in-publish",
     "lint": "eslint index.js index.spec.js site.js",
-    "build": "babel index.js --out-file index.cjs.js && BABEL_ENV=esm babel index.js --out-file index.esm.js",
+    "build": "babel index.js --out-file index.cjs.js --source-maps && BABEL_ENV=esm babel index.js --out-file index.esm.js --source-maps",
     "release": "webpack --config ./webpack.config.prod.babel.js -p --display-optimization-bailout",
     "release:debug": "webpack --config ./webpack.config.babel.js --display-optimization-bailout",
     "start": "webpack-dev-server --hot --inline --open",
