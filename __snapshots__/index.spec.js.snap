@@ -505,7 +505,7 @@ exports[`markdown-to-jsx compiler images should handle an image with title 1`] =
 exports[`markdown-to-jsx compiler indented code blocks should be handled 1`] = `
 
 <pre data-reactroot>
-  <code class>
+  <code>
     foo
   </code>
 </pre>
@@ -844,9 +844,7 @@ exports[`markdown-to-jsx compiler overrides should add props to pre & code tags 
 <pre data-reactroot
      class="abc"
 >
-  <code data-foo="bar"
-        class
-  >
+  <code data-foo="bar">
     foo
   </code>
 </pre>
@@ -882,7 +880,6 @@ exports[`markdown-to-jsx compiler overrides should substitute pre & code tags if
      data-bar="baz"
 >
   <code data-foo="bar"
-        class
         data-baz="fizz"
   >
     foo
@@ -908,5 +905,15 @@ exports[`markdown-to-jsx component accepts options 1`] = `
   Hello.
   <!-- /react-text -->
 </em>
+
+`;
+
+exports[`markdown-to-jsx component merges className overrides, rather than overwriting 1`] = `
+
+<pre data-reactroot>
+  <code class="lang-js foo">
+    foo
+  </code>
+</pre>
 
 `;

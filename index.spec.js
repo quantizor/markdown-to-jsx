@@ -717,5 +717,23 @@ describe('markdown-to-jsx', () => {
 
             expect($element.outerHTML).toMatchSnapshot();
         });
+
+        it('merges className overrides, rather than overwriting', () => {
+            const code = [
+                '```js',
+                'foo',
+                '```',
+            ].join('\n');
+
+            const element = render(
+                <Markdown options={{overrides: {code: {props: {className: 'foo'}}}}}>
+                    {code}
+                </Markdown>
+            );
+
+            const $element = dom(element);
+
+            expect($element.outerHTML).toMatchSnapshot();
+        });
     });
 });
