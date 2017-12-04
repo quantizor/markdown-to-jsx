@@ -5,8 +5,7 @@ const releaseConfig = Object.assign({}, config);
 
 releaseConfig.devtool = 'none';
 releaseConfig.plugins.push(
-	new webpack.optimize.ModuleConcatenationPlugin(),
-    new webpack.optimize.UglifyJsPlugin(),
+    new webpack.optimize.ModuleConcatenationPlugin(),
 );
 
 export default releaseConfig;

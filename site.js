@@ -1,8 +1,8 @@
 import { darken, lighten, rgba } from 'polished';
+import { injectGlobal } from 'preact-emotion';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import styled, { injectGlobal } from 'styled-components';
-import Markdown from './index';
+import Markdown from './';
 
 const COLOR_ACCENT = '#77667D';
 const COLOR_BODY = '#444';
@@ -144,17 +144,21 @@ class TryItLive extends React.PureComponent {
 
     updateState = (e) => this.setState({markdown: e.target.value})
 
-    render() {
+    render () {
         return (
             <main>
                 <header>
-                    <a target='_blank' href='https://github.com/yaycmyk/markdown-to-jsx' title='Check out the markdown-to-jsx source code'>
+                    <a
+                        target='_blank'
+                        href='https://github.com/yaycmyk/markdown-to-jsx'
+                        title='Check out the markdown-to-jsx source code'
+                        rel='noopener noreferrer'>
                         <img src='./images/logo.svg' alt='markdown-to-jsx logo' />
                     </a>
 
                     <p className='description'><code>markdown-to-jsx</code> is a no-fuss compiler that takes Github-flavored Markdown (GFM)<br /> and forms it into renderable React content without the need for <code>dangerouslySetInnerHTML</code>.</p>
 
-                    <p className='learn-more'>See the <a target='_blank' href='https://github.com/yaycmyk/markdown-to-jsx/blob/master/README.md'>project README</a> for installation &amp; usage.</p>
+                    <p className='learn-more'>See the <a target='_blank' href='https://github.com/yaycmyk/markdown-to-jsx/blob/master/README.md' rel='noopener noreferrer'>project README</a> for installation &amp; usage.</p>
                 </header>
 
                 <section className='content'>

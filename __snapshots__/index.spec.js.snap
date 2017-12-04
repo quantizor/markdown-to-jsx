@@ -1,0 +1,912 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`markdown-to-jsx compiler GFM tables should handle a basic table 1`] = `
+
+<table data-reactroot>
+  <thead>
+    <tr>
+      <th scope="col">
+        <!-- react-text: 5 -->
+        foo
+        <!-- /react-text -->
+      </th>
+      <th scope="col">
+        <!-- react-text: 7 -->
+        bar
+        <!-- /react-text -->
+      </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <!-- react-text: 11 -->
+        1
+        <!-- /react-text -->
+      </td>
+      <td>
+        <!-- react-text: 13 -->
+        2
+        <!-- /react-text -->
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+`;
+
+exports[`markdown-to-jsx compiler GFM tables should handle a table with aligned columns 1`] = `
+
+<table data-reactroot>
+  <thead>
+    <tr>
+      <th scope="col"
+          style="text-align: right;"
+      >
+        <!-- react-text: 5 -->
+        foo
+        <!-- /react-text -->
+      </th>
+      <th scope="col"
+          style="text-align: center;"
+      >
+        <!-- react-text: 7 -->
+        bar
+        <!-- /react-text -->
+      </th>
+      <th scope="col"
+          style="text-align: left;"
+      >
+        <!-- react-text: 9 -->
+        baz
+        <!-- /react-text -->
+      </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: right;">
+        <!-- react-text: 13 -->
+        1
+        <!-- /react-text -->
+      </td>
+      <td style="text-align: center;">
+        <!-- react-text: 15 -->
+        2
+        <!-- /react-text -->
+      </td>
+      <td style="text-align: left;">
+        <!-- react-text: 17 -->
+        3
+        <!-- /react-text -->
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+`;
+
+exports[`markdown-to-jsx compiler GFM task lists should handle checked items 1`] = `
+
+<ul data-reactroot>
+  <li>
+    <input type="checkbox"
+           readonly
+    >
+    <!-- react-text: 4 -->
+    foo
+    <!-- /react-text -->
+  </li>
+</ul>
+
+`;
+
+exports[`markdown-to-jsx compiler GFM task lists should handle unchecked items 1`] = `
+
+<ul data-reactroot>
+  <li>
+    <input type="checkbox"
+           readonly
+    >
+    <!-- react-text: 4 -->
+    foo
+    <!-- /react-text -->
+  </li>
+</ul>
+
+`;
+
+exports[`markdown-to-jsx compiler arbitrary HTML handles self-closing html inside parsable html (regression) 1`] = `
+
+<a data-reactroot
+   href="https://opencollective.com/react-dropzone/sponsor/0/website"
+   target="_blank"
+>
+  <img src="https://opencollective.com/react-dropzone/sponsor/0/avatar.svg">
+</a>
+
+`;
+
+exports[`markdown-to-jsx compiler arbitrary HTML preserves the HTML given 1`] = `
+
+<dd data-reactroot>
+  <!-- react-text: 2 -->
+  Hello
+  <!-- /react-text -->
+</dd>
+
+`;
+
+exports[`markdown-to-jsx compiler arbitrary HTML processes attributes that need JSX massaging within inline HTML 1`] = `
+
+<span data-reactroot
+      tabindex="0"
+>
+  <!-- react-text: 2 -->
+  Hello
+  <!-- /react-text -->
+</span>
+
+`;
+
+exports[`markdown-to-jsx compiler arbitrary HTML processes attributes within inline HTML 1`] = `
+
+<time data-reactroot
+      data-foo="bar"
+>
+  <!-- react-text: 2 -->
+  Hello
+  <!-- /react-text -->
+</time>
+
+`;
+
+exports[`markdown-to-jsx compiler arbitrary HTML processes inline HTML with inline styles 1`] = `
+
+<span data-reactroot
+      style="color: red; position: top; margin-right: 10px;"
+>
+  <!-- react-text: 2 -->
+  Hello
+  <!-- /react-text -->
+</span>
+
+`;
+
+exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within block-level arbitrary HTML 1`] = `
+
+<p data-reactroot>
+  <strong>
+    <!-- react-text: 3 -->
+    Hello
+    <!-- /react-text -->
+  </strong>
+</p>
+
+`;
+
+exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within inline HTML 1`] = `
+
+<time data-reactroot>
+  <strong>
+    <!-- react-text: 3 -->
+    Hello
+    <!-- /react-text -->
+  </strong>
+</time>
+
+`;
+
+exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within nested inline HTML 1`] = `
+
+<time data-reactroot>
+  <span>
+    <strong>
+      <!-- react-text: 4 -->
+      Hello
+      <!-- /react-text -->
+    </strong>
+  </span>
+  <!-- react-text: 5 -->
+  <!-- /react-text -->
+</time>
+
+`;
+
+exports[`markdown-to-jsx compiler arbitrary HTML renders inline <code> tags 1`] = `
+
+<div data-reactroot>
+  <!-- react-text: 2 -->
+  Text and
+  <!-- /react-text -->
+  <code>
+    <strong>
+      <!-- react-text: 5 -->
+      code
+      <!-- /react-text -->
+    </strong>
+  </code>
+</div>
+
+`;
+
+exports[`markdown-to-jsx compiler arbitrary HTML throws out HTML comments 1`] = `
+
+<p data-reactroot>
+  <!-- react-text: 2 -->
+  Foo
+  <!-- /react-text -->
+</p>
+
+`;
+
+exports[`markdown-to-jsx compiler fenced code blocks should be handled 1`] = `
+
+<pre data-reactroot>
+  <code class="lang-js">
+    foo
+  </code>
+</pre>
+
+`;
+
+exports[`markdown-to-jsx compiler footnotes should handle conversion of references into links 1`] = `
+
+<div data-reactroot>
+  <p>
+    <!-- react-text: 3 -->
+    foo
+    <!-- /react-text -->
+    <a href="#abc">
+      <sup>
+        abc
+      </sup>
+    </a>
+    <!-- react-text: 6 -->
+    bar
+    <!-- /react-text -->
+  </p>
+  <!-- react-text: 7 -->
+  <!-- /react-text -->
+  <footer>
+    <div id="abc">
+      <!-- react-text: 10 -->
+      abc
+      <!-- /react-text -->
+      <!-- react-text: 11 -->
+      : Baz baz
+      <!-- /react-text -->
+    </div>
+  </footer>
+</div>
+
+`;
+
+exports[`markdown-to-jsx compiler footnotes should handle single word footnote definitions 1`] = `
+
+<div data-reactroot>
+  <p>
+    <!-- react-text: 3 -->
+    foo
+    <!-- /react-text -->
+    <a href="#abc">
+      <sup>
+        abc
+      </sup>
+    </a>
+    <!-- react-text: 6 -->
+    bar
+    <!-- /react-text -->
+  </p>
+  <!-- react-text: 7 -->
+  <!-- /react-text -->
+  <footer>
+    <div id="abc">
+      <!-- react-text: 10 -->
+      abc
+      <!-- /react-text -->
+      <!-- react-text: 11 -->
+      : Baz
+      <!-- /react-text -->
+    </div>
+  </footer>
+</div>
+
+`;
+
+exports[`markdown-to-jsx compiler footnotes should inject the definitions in a footer at the end of the root 1`] = `
+
+<div data-reactroot>
+  <p>
+    <!-- react-text: 3 -->
+    foo
+    <!-- /react-text -->
+    <a href="#abc">
+      <sup>
+        abc
+      </sup>
+    </a>
+    <!-- react-text: 6 -->
+    bar
+    <!-- /react-text -->
+  </p>
+  <!-- react-text: 7 -->
+  <!-- /react-text -->
+  <footer>
+    <div id="abc">
+      <!-- react-text: 10 -->
+      abc
+      <!-- /react-text -->
+      <!-- react-text: 11 -->
+      : Baz baz
+      <!-- /react-text -->
+    </div>
+  </footer>
+</div>
+
+`;
+
+exports[`markdown-to-jsx compiler headings should handle level 1 properly 1`] = `
+
+<h1 data-reactroot>
+  <!-- react-text: 2 -->
+  Hello World
+  <!-- /react-text -->
+</h1>
+
+`;
+
+exports[`markdown-to-jsx compiler headings should handle level 2 properly 1`] = `
+
+<h2 data-reactroot>
+  <!-- react-text: 2 -->
+  Hello World
+  <!-- /react-text -->
+</h2>
+
+`;
+
+exports[`markdown-to-jsx compiler headings should handle level 3 properly 1`] = `
+
+<h3 data-reactroot>
+  <!-- react-text: 2 -->
+  Hello World
+  <!-- /react-text -->
+</h3>
+
+`;
+
+exports[`markdown-to-jsx compiler headings should handle level 4 properly 1`] = `
+
+<h4 data-reactroot>
+  <!-- react-text: 2 -->
+  Hello World
+  <!-- /react-text -->
+</h4>
+
+`;
+
+exports[`markdown-to-jsx compiler headings should handle level 5 properly 1`] = `
+
+<h5 data-reactroot>
+  <!-- react-text: 2 -->
+  Hello World
+  <!-- /react-text -->
+</h5>
+
+`;
+
+exports[`markdown-to-jsx compiler headings should handle level 6 properly 1`] = `
+
+<h6 data-reactroot>
+  <!-- react-text: 2 -->
+  Hello World
+  <!-- /react-text -->
+</h6>
+
+`;
+
+exports[`markdown-to-jsx compiler headings should handle setext level 1 style 1`] = `
+
+<div data-reactroot>
+  <h1>
+    <!-- react-text: 3 -->
+    Hello World
+    <!-- /react-text -->
+  </h1>
+  <p>
+    <!-- react-text: 5 -->
+    something
+    <!-- /react-text -->
+  </p>
+</div>
+
+`;
+
+exports[`markdown-to-jsx compiler headings should handle setext level 2 style 1`] = `
+
+<div data-reactroot>
+  <h2>
+    <!-- react-text: 3 -->
+    Hello World
+    <!-- /react-text -->
+  </h2>
+  <p>
+    <!-- react-text: 5 -->
+    something
+    <!-- /react-text -->
+  </p>
+</div>
+
+`;
+
+exports[`markdown-to-jsx compiler images should handle a basic image 1`] = `
+
+<img data-reactroot
+     src="/xyz.png"
+>
+
+`;
+
+exports[`markdown-to-jsx compiler images should handle an image reference 1`] = `
+
+<p data-reactroot>
+  <img src="/xyz.png">
+  <!-- react-text: 3 -->
+  <!-- /react-text -->
+</p>
+
+`;
+
+exports[`markdown-to-jsx compiler images should handle an image reference with alt text 1`] = `
+
+<p data-reactroot>
+  <img alt="test"
+       src="/xyz.png"
+  >
+  <!-- react-text: 3 -->
+  <!-- /react-text -->
+</p>
+
+`;
+
+exports[`markdown-to-jsx compiler images should handle an image reference with title 1`] = `
+
+<p data-reactroot>
+  <img alt="test"
+       src="/xyz.png"
+       title="foo"
+  >
+  <!-- react-text: 3 -->
+  <!-- /react-text -->
+</p>
+
+`;
+
+exports[`markdown-to-jsx compiler images should handle an image with alt text 1`] = `
+
+<img data-reactroot
+     alt="test"
+     src="/xyz.png"
+>
+
+`;
+
+exports[`markdown-to-jsx compiler images should handle an image with title 1`] = `
+
+<img data-reactroot
+     alt="test"
+     title="foo"
+     src="/xyz.png"
+>
+
+`;
+
+exports[`markdown-to-jsx compiler indented code blocks should be handled 1`] = `
+
+<pre data-reactroot>
+  <code class>
+    foo
+  </code>
+</pre>
+
+`;
+
+exports[`markdown-to-jsx compiler inline code blocks should be handled 1`] = `
+
+<code data-reactroot>
+  foo
+</code>
+
+`;
+
+exports[`markdown-to-jsx compiler inline textual elements should handle deleted text 1`] = `
+
+<del data-reactroot>
+  <!-- react-text: 2 -->
+  Hello.
+  <!-- /react-text -->
+</del>
+
+`;
+
+exports[`markdown-to-jsx compiler inline textual elements should handle double-emphasized text 1`] = `
+
+<strong data-reactroot>
+  <!-- react-text: 2 -->
+  Hello.
+  <!-- /react-text -->
+</strong>
+
+`;
+
+exports[`markdown-to-jsx compiler inline textual elements should handle emphasized text 1`] = `
+
+<em data-reactroot>
+  <!-- react-text: 2 -->
+  Hello.
+  <!-- /react-text -->
+</em>
+
+`;
+
+exports[`markdown-to-jsx compiler inline textual elements should handle escaped text 1`] = `
+
+<span data-reactroot>
+  Hello.__foo__
+</span>
+
+`;
+
+exports[`markdown-to-jsx compiler inline textual elements should handle the alternate form of bold/italic 1`] = `
+
+<strong data-reactroot>
+  <em>
+    <!-- react-text: 3 -->
+    Hello.
+    <!-- /react-text -->
+  </em>
+</strong>
+
+`;
+
+exports[`markdown-to-jsx compiler inline textual elements should handle triple-emphasized text 1`] = `
+
+<strong data-reactroot>
+  <em>
+    <!-- react-text: 3 -->
+    Hello.
+    <!-- /react-text -->
+  </em>
+</strong>
+
+`;
+
+exports[`markdown-to-jsx compiler links should an email autolink and add a mailto: prefix 1`] = `
+
+<a data-reactroot
+   href="mailto:probablyup@gmail.com"
+>
+  <!-- react-text: 2 -->
+  probablyup@gmail.com
+  <!-- /react-text -->
+</a>
+
+`;
+
+exports[`markdown-to-jsx compiler links should automatically link found URLs 1`] = `
+
+<a data-reactroot
+   href="https://google.com"
+>
+  <!-- react-text: 2 -->
+  https://google.com
+  <!-- /react-text -->
+</a>
+
+`;
+
+exports[`markdown-to-jsx compiler links should handle a basic link 1`] = `
+
+<a data-reactroot
+   href="/xyz.png"
+>
+  <!-- react-text: 2 -->
+  foo
+  <!-- /react-text -->
+</a>
+
+`;
+
+exports[`markdown-to-jsx compiler links should handle a link reference 1`] = `
+
+<p data-reactroot>
+  <a href="/xyz.png">
+    <!-- react-text: 3 -->
+    foo
+    <!-- /react-text -->
+  </a>
+  <!-- react-text: 4 -->
+  <!-- /react-text -->
+</p>
+
+`;
+
+exports[`markdown-to-jsx compiler links should handle a link reference with title 1`] = `
+
+<p data-reactroot>
+  <a href="/xyz.png"
+     title="bar"
+  >
+    <!-- react-text: 3 -->
+    foo
+    <!-- /react-text -->
+  </a>
+  <!-- react-text: 4 -->
+  <!-- /react-text -->
+</p>
+
+`;
+
+exports[`markdown-to-jsx compiler links should handle a link with title 1`] = `
+
+<a data-reactroot
+   href="/xyz.png"
+   title="bar"
+>
+  <!-- react-text: 2 -->
+  foo
+  <!-- /react-text -->
+</a>
+
+`;
+
+exports[`markdown-to-jsx compiler links should handle a mailto autolink 1`] = `
+
+<a data-reactroot
+   href="mailto:probablyup@gmail.com"
+>
+  <!-- react-text: 2 -->
+  probablyup@gmail.com
+  <!-- /react-text -->
+</a>
+
+`;
+
+exports[`markdown-to-jsx compiler links should handle autolink style 1`] = `
+
+<a data-reactroot
+   href="https://google.com"
+>
+  <!-- react-text: 2 -->
+  https://google.com
+  <!-- /react-text -->
+</a>
+
+`;
+
+exports[`markdown-to-jsx compiler links should sanitize links containing JS expressions 1`] = `
+
+<a data-reactroot>
+  <!-- react-text: 2 -->
+  foo
+  <!-- /react-text -->
+</a>
+
+`;
+
+exports[`markdown-to-jsx compiler links should sanitize links containing invalid characters 1`] = `
+
+<a data-reactroot>
+  <!-- react-text: 2 -->
+  foo
+  <!-- /react-text -->
+</a>
+
+`;
+
+exports[`markdown-to-jsx compiler lists should handle a loose list 1`] = `
+
+<ul data-reactroot>
+  <li>
+    <p>
+      <!-- react-text: 4 -->
+      xyz
+      <!-- /react-text -->
+    </p>
+  </li>
+  <li>
+    <p>
+      <!-- react-text: 7 -->
+      abc
+      <!-- /react-text -->
+    </p>
+  </li>
+  <li>
+    <p>
+      <!-- react-text: 10 -->
+      foo
+      <!-- /react-text -->
+    </p>
+  </li>
+</ul>
+
+`;
+
+exports[`markdown-to-jsx compiler lists should handle a nested list 1`] = `
+
+<ul data-reactroot>
+  <li>
+    <!-- react-text: 3 -->
+    xyz
+    <!-- /react-text -->
+    <ul>
+      <li>
+        <!-- react-text: 6 -->
+        abc
+        <!-- /react-text -->
+      </li>
+    </ul>
+  </li>
+  <li>
+    <!-- react-text: 8 -->
+    foo
+    <!-- /react-text -->
+  </li>
+</ul>
+
+`;
+
+exports[`markdown-to-jsx compiler lists should handle a tight list 1`] = `
+
+<ul data-reactroot>
+  <li>
+    <!-- react-text: 3 -->
+    xyz
+    <!-- /react-text -->
+  </li>
+  <li>
+    <!-- react-text: 5 -->
+    abc
+    <!-- /react-text -->
+  </li>
+  <li>
+    <!-- react-text: 7 -->
+    foo
+    <!-- /react-text -->
+  </li>
+</ul>
+
+`;
+
+exports[`markdown-to-jsx compiler lists should handle an ordered list 1`] = `
+
+<ol data-reactroot
+    start="1"
+>
+  <li>
+    <!-- react-text: 3 -->
+    xyz
+    <!-- /react-text -->
+  </li>
+  <li>
+    <!-- react-text: 5 -->
+    abc
+    <!-- /react-text -->
+  </li>
+  <li>
+    <!-- react-text: 7 -->
+    foo
+    <!-- /react-text -->
+  </li>
+</ol>
+
+`;
+
+exports[`markdown-to-jsx compiler lists should handle an ordered list with a specific start index 1`] = `
+
+<ol data-reactroot
+    start="2"
+>
+  <li>
+    <!-- react-text: 3 -->
+    xyz
+    <!-- /react-text -->
+  </li>
+  <li>
+    <!-- react-text: 5 -->
+    abc
+    <!-- /react-text -->
+  </li>
+  <li>
+    <!-- react-text: 7 -->
+    foo
+    <!-- /react-text -->
+  </li>
+</ol>
+
+`;
+
+exports[`markdown-to-jsx compiler misc block level elements should handle blockquotes 1`] = `
+
+<blockquote data-reactroot>
+  <p>
+    <!-- react-text: 3 -->
+    Something important, perhaps?
+    <!-- /react-text -->
+  </p>
+</blockquote>
+
+`;
+
+exports[`markdown-to-jsx compiler overrides should add props to pre & code tags if supplied 1`] = `
+
+<pre data-reactroot
+     class="abc"
+>
+  <code data-foo="bar"
+        class
+  >
+    foo
+  </code>
+</pre>
+
+`;
+
+exports[`markdown-to-jsx compiler overrides should be able to override gfm task list item checkboxes 1`] = `
+
+<input type="checkbox"
+       class="foo"
+       readonly
+>
+
+`;
+
+exports[`markdown-to-jsx compiler overrides should be able to override gfm task list items 1`] = `
+
+<li class="foo">
+  <input type="checkbox"
+         readonly
+  >
+  <!-- react-text: 4 -->
+  foo
+  <!-- /react-text -->
+</li>
+
+`;
+
+exports[`markdown-to-jsx compiler overrides should substitute pre & code tags if supplied with an override component 1`] = `
+
+<pre data-reactroot
+     class="abc"
+     data-bar="baz"
+>
+  <code data-foo="bar"
+        class
+        data-baz="fizz"
+  >
+    foo
+  </code>
+</pre>
+
+`;
+
+exports[`markdown-to-jsx component accepts markdown content 1`] = `
+
+<em data-reactroot>
+  <!-- react-text: 2 -->
+  Hello.
+  <!-- /react-text -->
+</em>
+
+`;
+
+exports[`markdown-to-jsx component accepts options 1`] = `
+
+<em data-reactroot>
+  <!-- react-text: 2 -->
+  Hello.
+  <!-- /react-text -->
+</em>
+
+`;

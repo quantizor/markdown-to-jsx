@@ -3,15 +3,14 @@
   "description": "Interprets markdown text and outputs a JSX equivalent.",
   "homepage": "http://probablyup.github.io/markdown-to-jsx",
   "license": "MIT",
-  "version": "5.4.2",
+  "version": "6.0.0",
   "engines": {
     "node": ">= 4"
   },
   "keywords": [
     "markdown",
     "react",
-    "jsx",
-    "remark"
+    "jsx"
   ],
   "author": "Evan Scott <probablyup@gmail.com>",
   "repository": "probablyup/markdown-to-jsx",
@@ -28,23 +27,28 @@
   "module": "index.esm.js",
   "devDependencies": {
     "babel-cli": "^6.14.0",
+    "babel-eslint": "^8.0.3",
     "babel-jest": "^20.0.3",
     "babel-loader": "^7.1.1",
-    "babel-plugin-styled-components": "^1.1.7",
+    "babel-plugin-emotion": "^8.0.11",
     "babel-plugin-transform-react-remove-prop-types": "^0.4.6",
     "babel-preset-es2015": "^6.14.0",
     "babel-preset-react": "^6.11.1",
     "babel-preset-stage-2": "^6.13.0",
     "codecov": "^2.1.0",
+    "emotion": "^8.0.11",
+    "eslint": "^4.12.1",
+    "eslint-plugin-react": "^7.5.1",
     "in-publish": "^2.0.0",
     "jest": "^20.0.4",
+    "jest-serializer-html": "^4.0.1",
     "polished": "^1.3.0",
     "preact": "^8.2.1",
     "preact-compat": "^3.16.0",
+    "preact-emotion": "^8.0.11",
     "react": "^15.6.1",
     "react-dom": "^15.6.1",
     "size-limit": "^0.13.1",
-    "styled-components": "^2.1.1",
     "uglify-js": "^2.7.3",
     "webpack": "^3.4.1",
     "webpack-dev-server": "^2.6.1"
@@ -52,8 +56,7 @@
   "dependencies": {
     "lodash.get": "^4.4.2",
     "prop-types": "^15.5.10",
-    "remark-parse": "^4.0.0",
-    "unified": "^6.1.5"
+    "unquote": "^1.1.0"
   },
   "peerDependencies": {
     "react": ">= 0.14.0"
@@ -67,14 +70,23 @@
   },
   "scripts": {
     "prepublish": "in-publish && npm run build || not-in-publish",
+    "lint": "eslint index.js index.spec.js site.js",
     "build": "babel index.js --out-file index.cjs.js && BABEL_ENV=esm babel index.js --out-file index.esm.js",
-    "release": "webpack --config ./webpack.release.config.babel.js -p --display-optimization-bailout",
+    "release": "webpack --config ./webpack.config.prod.babel.js -p --display-optimization-bailout",
+    "release:debug": "webpack --config ./webpack.config.babel.js --display-optimization-bailout",
     "start": "webpack-dev-server --hot --inline --open",
     "test": "jest --verbose",
     "size": "size-limit"
   },
-  "size-limit": [{
-    "path": "index.cjs.js",
-    "limit": "37 KB"
-  }]
+  "size-limit": [
+    {
+      "path": "index.cjs.js",
+      "limit": "5.25 kB"
+    }
+  ],
+  "jest": {
+    "snapshotSerializers": [
+      "jest-serializer-html"
+    ]
+  }
 }
