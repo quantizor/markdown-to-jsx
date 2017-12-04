@@ -3,7 +3,7 @@
   "description": "Interprets markdown text and outputs a JSX equivalent.",
   "homepage": "http://probablyup.github.io/markdown-to-jsx",
   "license": "MIT",
-  "version": "6.0.2",
+  "version": "6.0.3",
   "engines": {
     "node": ">= 4"
   },
