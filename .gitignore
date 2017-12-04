@@ -8,3 +8,4 @@ npm-debug.log
 package-lock.json
 npm-shrinkwrap.json
 yarn-error.log
+*.js.map

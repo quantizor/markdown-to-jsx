@@ -302,6 +302,17 @@ describe('markdown-to-jsx', () => {
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('should handle a mixed nested list', () => {
+                render(compiler([
+                    '- xyz',
+                    '  1. abc',
+                    '    - def',
+                    '- foo',
+                ].join('\n')));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('GFM task lists', () => {
