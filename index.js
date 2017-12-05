@@ -77,9 +77,9 @@ const FORMFEED_R = /\f/g;
 const GFM_TASK_R = /^\s*?\[(x|\s)\]/;
 const HEADING_R = /^ *(#{1,6}) *([^\n]+?) *#* *\n+/;
 const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/;
-const HTML_BLOCK_ELEMENT_R = /^<(.*)\s?(.*?)>(.*?)<\/\1>/;
+const HTML_BLOCK_ELEMENT_R = /^ *<([^ >]*) ?([^>]*)>((?:.|(?!\n *<\1)\n)*)<\/\1>\n*/;
 const HTML_COMMENT_R = /^<!--.*?-->/;
-const HTML_SELF_CLOSING_ELEMENT_R = /^<([^\s]*)\s?(.*?)>(.*?)(?!<\/\1>)/;
+const HTML_SELF_CLOSING_ELEMENT_R = /^<([^\s]*)\s?(.*?)>(.*?)/;
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/;
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/;
 const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/;
@@ -759,7 +759,7 @@ export function compiler (markdown, options) {
                      * if another html block is detected within, parse as block,
                      * otherwise parse as inline to pick up any further markdown
                      */
-                    content: parseFunc(parse, capture[3], state),
+                    content: parseFunc(parse, capture[3].trim(), state),
 
                     tag: capture[1],
                 };

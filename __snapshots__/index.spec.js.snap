@@ -116,6 +116,60 @@ exports[`markdown-to-jsx compiler GFM task lists should handle unchecked items 1
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML block HTML regression test 1`] = `
+
+<ul data-reactroot
+    id="ProjectSubmenu"
+>
+  <li>
+    <a href="/projects/markdown/"
+       title="Markdown Project Page"
+    >
+      <!-- react-text: 4 -->
+      Main
+      <!-- /react-text -->
+    </a>
+  </li>
+  <li>
+    <a href="/projects/markdown/basics"
+       title="Markdown Basics"
+    >
+      <!-- react-text: 7 -->
+      Basics
+      <!-- /react-text -->
+    </a>
+  </li>
+  <li>
+    <a class="selected"
+       title="Markdown Syntax Documentation"
+    >
+      <!-- react-text: 10 -->
+      Syntax
+      <!-- /react-text -->
+    </a>
+  </li>
+  <li>
+    <a href="/projects/markdown/license"
+       title="Pricing and License Information"
+    >
+      <!-- react-text: 13 -->
+      License
+      <!-- /react-text -->
+    </a>
+  </li>
+  <li>
+    <a href="/projects/markdown/dingus"
+       title="Online Markdown Web Form"
+    >
+      <!-- react-text: 16 -->
+      Dingus
+      <!-- /react-text -->
+    </a>
+  </li>
+</ul>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML handles self-closing html inside parsable html (regression) 1`] = `
 
 <a data-reactroot
@@ -207,8 +261,6 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within neste
       <!-- /react-text -->
     </strong>
   </span>
-  <!-- react-text: 5 -->
-  <!-- /react-text -->
 </time>
 
 `;
