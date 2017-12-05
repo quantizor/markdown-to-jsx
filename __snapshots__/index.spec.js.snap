@@ -398,6 +398,2319 @@ exports[`markdown-to-jsx compiler footnotes should inject the definitions in a f
 
 `;
 
+exports[`markdown-to-jsx compiler handles a hollistic example 1`] = `
+
+<div data-reactroot>
+  <h1>
+    <!-- react-text: 3 -->
+    Markdown: Syntax
+    <!-- /react-text -->
+  </h1>
+  <ul id="ProjectSubmenu">
+    <li>
+      <a href="/projects/markdown/"
+         title="Markdown Project Page"
+      >
+        <!-- react-text: 7 -->
+        Main
+        <!-- /react-text -->
+      </a>
+    </li>
+    <li>
+      <a href="/projects/markdown/basics"
+         title="Markdown Basics"
+      >
+        <!-- react-text: 10 -->
+        Basics
+        <!-- /react-text -->
+      </a>
+    </li>
+    <li>
+      <a class="selected"
+         title="Markdown Syntax Documentation"
+      >
+        <!-- react-text: 13 -->
+        Syntax
+        <!-- /react-text -->
+      </a>
+    </li>
+    <li>
+      <a href="/projects/markdown/license"
+         title="Pricing and License Information"
+      >
+        <!-- react-text: 16 -->
+        License
+        <!-- /react-text -->
+      </a>
+    </li>
+    <li>
+      <a href="/projects/markdown/dingus"
+         title="Online Markdown Web Form"
+      >
+        <!-- react-text: 19 -->
+        Dingus
+        <!-- /react-text -->
+      </a>
+    </li>
+  </ul>
+  <ul>
+    <li>
+      <a href="#overview">
+        <!-- react-text: 23 -->
+        Overview
+        <!-- /react-text -->
+      </a>
+      <!-- react-text: 24 -->
+      <!-- /react-text -->
+      <ul>
+        <li>
+          <a href="#philosophy">
+            <!-- react-text: 28 -->
+            Philosophy
+            <!-- /react-text -->
+          </a>
+        </li>
+        <li>
+          <a href="#html">
+            <!-- react-text: 31 -->
+            Inline HTML
+            <!-- /react-text -->
+          </a>
+        </li>
+        <li>
+          <a href="#autoescape">
+            <!-- react-text: 34 -->
+            Automatic Escaping for Special Characters
+            <!-- /react-text -->
+          </a>
+        </li>
+      </ul>
+    </li>
+    <li>
+      <a href="#block">
+        <!-- react-text: 37 -->
+        Block Elements
+        <!-- /react-text -->
+      </a>
+      <!-- react-text: 38 -->
+      <!-- /react-text -->
+      <ul>
+        <li>
+          <a href="#p">
+            <!-- react-text: 42 -->
+            Paragraphs and Line Breaks
+            <!-- /react-text -->
+          </a>
+        </li>
+        <li>
+          <a href="#header">
+            <!-- react-text: 45 -->
+            Headers
+            <!-- /react-text -->
+          </a>
+        </li>
+        <li>
+          <a href="#blockquote">
+            <!-- react-text: 48 -->
+            Blockquotes
+            <!-- /react-text -->
+          </a>
+        </li>
+        <li>
+          <a href="#list">
+            <!-- react-text: 51 -->
+            Lists
+            <!-- /react-text -->
+          </a>
+        </li>
+        <li>
+          <a href="#precode">
+            <!-- react-text: 54 -->
+            Code Blocks
+            <!-- /react-text -->
+          </a>
+        </li>
+        <li>
+          <a href="#hr">
+            <!-- react-text: 57 -->
+            Horizontal Rules
+            <!-- /react-text -->
+          </a>
+        </li>
+      </ul>
+    </li>
+    <li>
+      <a href="#span">
+        <!-- react-text: 60 -->
+        Span Elements
+        <!-- /react-text -->
+      </a>
+      <!-- react-text: 61 -->
+      <!-- /react-text -->
+      <ul>
+        <li>
+          <a href="#link">
+            <!-- react-text: 65 -->
+            Links
+            <!-- /react-text -->
+          </a>
+        </li>
+        <li>
+          <a href="#em">
+            <!-- react-text: 68 -->
+            Emphasis
+            <!-- /react-text -->
+          </a>
+        </li>
+        <li>
+          <a href="#code">
+            <!-- react-text: 71 -->
+            Code
+            <!-- /react-text -->
+          </a>
+        </li>
+        <li>
+          <a href="#img">
+            <!-- react-text: 74 -->
+            Images
+            <!-- /react-text -->
+          </a>
+        </li>
+      </ul>
+    </li>
+    <li>
+      <a href="#misc">
+        <!-- react-text: 77 -->
+        Miscellaneous
+        <!-- /react-text -->
+      </a>
+      <!-- react-text: 78 -->
+      <!-- /react-text -->
+      <ul>
+        <li>
+          <a href="#backslash">
+            <!-- react-text: 82 -->
+            Backslash Escapes
+            <!-- /react-text -->
+          </a>
+        </li>
+        <li>
+          <a href="#autolink">
+            <!-- react-text: 85 -->
+            Automatic Links
+            <!-- /react-text -->
+          </a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+  <p>
+    <strong>
+      <!-- react-text: 88 -->
+      Note:
+      <!-- /react-text -->
+    </strong>
+    <!-- react-text: 89 -->
+    This document is itself written using Markdown; you
+can
+    <!-- /react-text -->
+    <a href="/projects/markdown/syntax.text">
+      <!-- react-text: 91 -->
+      see the source for it by adding '.text' to the URL
+      <!-- /react-text -->
+    </a>
+    <!-- react-text: 92 -->
+    .
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 94 -->
+    <!-- /react-text -->
+  </p>
+  <hr>
+  <h2 id="overview">
+    <!-- react-text: 97 -->
+    Overview
+    <!-- /react-text -->
+  </h2>
+  <h3 id="philosophy">
+    <!-- react-text: 99 -->
+    Philosophy
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 101 -->
+    Markdown is intended to be as easy-to-read and easy-to-write as is feasible.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 103 -->
+    Readability, however, is emphasized above all else. A Markdown-formatted
+document should be publishable as-is, as plain text, without looking
+like it's been marked up with tags or formatting instructions. While
+Markdown's syntax has been influenced by several existing text-to-HTML
+filters -- including
+    <!-- /react-text -->
+    <a href="http://docutils.sourceforge.net/mirror/setext.html">
+      <!-- react-text: 105 -->
+      Setext
+      <!-- /react-text -->
+    </a>
+    <!-- react-text: 106 -->
+    ,
+    <!-- /react-text -->
+    <a href="http://www.aaronsw.com/2002/atx/">
+      <!-- react-text: 108 -->
+      atx
+      <!-- /react-text -->
+    </a>
+    <!-- react-text: 109 -->
+    ,
+    <!-- /react-text -->
+    <a href="http://textism.com/tools/textile/">
+      <!-- react-text: 111 -->
+      Textile
+      <!-- /react-text -->
+    </a>
+    <!-- react-text: 112 -->
+    ,
+    <!-- /react-text -->
+    <a href="http://docutils.sourceforge.net/rst.html">
+      <!-- react-text: 114 -->
+      reStructuredText
+      <!-- /react-text -->
+    </a>
+    <!-- react-text: 115 -->
+    ,
+    <!-- /react-text -->
+    <a href="http://www.triptico.com/software/grutatxt.html">
+      <!-- react-text: 117 -->
+      Grutatext
+      <!-- /react-text -->
+    </a>
+    <!-- react-text: 118 -->
+    , and
+    <!-- /react-text -->
+    <a href="http://ettext.taint.org/doc/">
+      <!-- react-text: 120 -->
+      EtText
+      <!-- /react-text -->
+    </a>
+    <!-- react-text: 121 -->
+    -- the single biggest source of
+inspiration for Markdown's syntax is the format of plain text email.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 123 -->
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 125 -->
+    To this end, Markdown's syntax is comprised entirely of punctuation
+characters, which punctuation characters have been carefully chosen so
+as to look like what they mean. E.g., asterisks around a word actually
+look like *emphasis*. Markdown lists look like, well, lists. Even
+blockquotes look like quoted passages of text, assuming you've ever
+used email.
+    <!-- /react-text -->
+  </p>
+  <h3 id="html">
+    <!-- react-text: 127 -->
+    Inline HTML
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 129 -->
+    Markdown's syntax is intended for one purpose: to be used as a
+format for
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 131 -->
+      writing
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 132 -->
+    for the web.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 134 -->
+    Markdown is not a replacement for HTML, or even close to it. Its
+syntax is very small, corresponding only to a very small subset of
+HTML tags. The idea is
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 136 -->
+      not
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 137 -->
+    to create a syntax that makes it easier
+to insert HTML tags. In my opinion, HTML tags are already easy to
+insert. The idea for Markdown is to make it easy to read, write, and
+edit prose. HTML is a
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 139 -->
+      publishing
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 140 -->
+    format; Markdown is a
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 142 -->
+      writing
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 143 -->
+    format. Thus, Markdown's formatting syntax only addresses issues that
+can be conveyed in plain text.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 145 -->
+    For any markup that is not covered by Markdown's syntax, you simply
+use HTML itself. There's no need to preface it or delimit it to
+indicate that you're switching from Markdown to HTML; you just use
+the tags.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 147 -->
+    The only restrictions are that block-level HTML elements -- e.g.
+    <!-- /react-text -->
+    <code>
+      &lt;div&gt;
+    </code>
+    <!-- react-text: 149 -->
+    ,
+    <!-- /react-text -->
+    <code>
+      &lt;table&gt;
+    </code>
+    <!-- react-text: 151 -->
+    ,
+    <!-- /react-text -->
+    <code>
+      &lt;pre&gt;
+    </code>
+    <!-- react-text: 153 -->
+    ,
+    <!-- /react-text -->
+    <code>
+      &lt;p&gt;
+    </code>
+    <!-- react-text: 155 -->
+    , etc. -- must be separated from surrounding
+content by blank lines, and the start and end tags of the block should
+not be indented with tabs or spaces. Markdown is smart enough not
+to add extra (unwanted)
+    <!-- /react-text -->
+    <code>
+      &lt;p&gt;
+    </code>
+    <!-- react-text: 157 -->
+    tags around HTML block-level tags.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 159 -->
+    For example, to add an HTML table to a Markdown article:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      This is a regular paragraph.
+
+&lt;table&gt;
+    &lt;tr&gt;
+        &lt;td&gt;Foo&lt;/td&gt;
+    &lt;/tr&gt;
+&lt;/table&gt;
+
+This is another regular paragraph.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 163 -->
+    Note that Markdown formatting syntax is not processed within block-level
+HTML tags. E.g., you can't use Markdown-style
+    <!-- /react-text -->
+    <code>
+      *emphasis*
+    </code>
+    <!-- react-text: 165 -->
+    inside an
+HTML block.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 167 -->
+    Span-level HTML tags -- e.g.
+    <!-- /react-text -->
+    <code>
+      &lt;span&gt;
+    </code>
+    <!-- react-text: 169 -->
+    ,
+    <!-- /react-text -->
+    <code>
+      &lt;cite&gt;
+    </code>
+    <!-- react-text: 171 -->
+    , or
+    <!-- /react-text -->
+    <code>
+      &lt;del&gt;
+    </code>
+    <!-- react-text: 173 -->
+    -- can be
+used anywhere in a Markdown paragraph, list item, or header. If you
+want, you can even use HTML tags instead of Markdown formatting; e.g. if
+you'd prefer to use HTML
+    <!-- /react-text -->
+    <code>
+      &lt;a&gt;
+    </code>
+    <!-- react-text: 175 -->
+    or
+    <!-- /react-text -->
+    <code>
+      &lt;img&gt;
+    </code>
+    <!-- react-text: 177 -->
+    tags instead of Markdown's
+link or image syntax, go right ahead.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 179 -->
+    Unlike block-level HTML tags, Markdown syntax
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 181 -->
+      is
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 182 -->
+    processed within
+span-level tags.
+    <!-- /react-text -->
+  </p>
+  <h3 id="autoescape">
+    <!-- react-text: 184 -->
+    Automatic Escaping for Special Characters
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 186 -->
+    In HTML, there are two characters that demand special treatment:
+    <!-- /react-text -->
+    <code>
+      &lt;
+    </code>
+    <!-- react-text: 188 -->
+    and
+    <!-- /react-text -->
+    <code>
+      &amp;
+    </code>
+    <!-- react-text: 190 -->
+    . Left angle brackets are used to start tags; ampersands are
+used to denote HTML entities. If you want to use them as literal
+characters, you must escape them as entities, e.g.
+    <!-- /react-text -->
+    <code>
+      &amp;lt;
+    </code>
+    <!-- react-text: 192 -->
+    , and
+    <!-- /react-text -->
+    <code>
+      &amp;amp;
+    </code>
+    <!-- react-text: 194 -->
+    .
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 196 -->
+    Ampersands in particular are bedeviling for web writers. If you want to
+write about 'AT&amp;T', you need to write '
+    <!-- /react-text -->
+    <code>
+      AT&amp;amp;T
+    </code>
+    <!-- react-text: 198 -->
+    '. You even need to
+escape ampersands within URLs. Thus, if you want to link to:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      http://images.google.com/images?num=30&amp;q=larry+bird
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 202 -->
+    you need to encode the URL as:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      http://images.google.com/images?num=30&amp;amp;q=larry+bird
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 206 -->
+    in your anchor tag
+    <!-- /react-text -->
+    <code>
+      href
+    </code>
+    <!-- react-text: 208 -->
+    attribute. Needless to say, this is easy to
+forget, and is probably the single most common source of HTML validation
+errors in otherwise well-marked-up web sites.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 210 -->
+    Markdown allows you to use these characters naturally, taking care of
+all the necessary escaping for you. If you use an ampersand as part of
+an HTML entity, it remains unchanged; otherwise it will be translated
+into
+    <!-- /react-text -->
+    <code>
+      &amp;amp;
+    </code>
+    <!-- react-text: 212 -->
+    .
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 214 -->
+    So, if you want to include a copyright symbol in your article, you can write:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &amp;copy;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 218 -->
+    and Markdown will leave it alone. But if you write:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      AT&amp;T
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 222 -->
+    Markdown will translate it to:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      AT&amp;amp;T
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 226 -->
+    Similarly, because Markdown supports
+    <!-- /react-text -->
+    <a href="#html">
+      <!-- react-text: 228 -->
+      inline HTML
+      <!-- /react-text -->
+    </a>
+    <!-- react-text: 229 -->
+    , if you use
+angle brackets as delimiters for HTML tags, Markdown will treat them as
+such. But if you write:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      4 &lt; 5
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 233 -->
+    Markdown will translate it to:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      4 &amp;lt; 5
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 237 -->
+    However, inside Markdown code spans and blocks, angle brackets and
+ampersands are
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 239 -->
+      always
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 240 -->
+    encoded automatically. This makes it easy to use
+Markdown to write about HTML code. (As opposed to raw HTML, which is a
+terrible format for writing about HTML syntax, because every single
+    <!-- /react-text -->
+    <code>
+      &lt;
+    </code>
+    <!-- react-text: 242 -->
+    and
+    <!-- /react-text -->
+    <code>
+      &amp;
+    </code>
+    <!-- react-text: 244 -->
+    in your example code needs to be escaped.)
+    <!-- /react-text -->
+  </p>
+  <hr>
+  <h2 id="block">
+    <!-- react-text: 247 -->
+    Block Elements
+    <!-- /react-text -->
+  </h2>
+  <h3 id="p">
+    <!-- react-text: 249 -->
+    Paragraphs and Line Breaks
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 251 -->
+    A paragraph is simply one or more consecutive lines of text, separated
+by one or more blank lines. (A blank line is any line that looks like a
+blank line -- a line containing nothing but spaces or tabs is considered
+blank.) Normal paragraphs should not be indented with spaces or tabs.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 253 -->
+    The implication of the "one or more consecutive lines of text" rule is
+that Markdown supports "hard-wrapped" text paragraphs. This differs
+significantly from most other text-to-HTML formatters (including Movable
+Type's "Convert Line Breaks" option) which translate every line break
+character in a paragraph into a
+    <!-- /react-text -->
+    <code>
+      &lt;br /&gt;
+    </code>
+    <!-- react-text: 255 -->
+    tag.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 257 -->
+    When you
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 259 -->
+      do
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 260 -->
+    want to insert a
+    <!-- /react-text -->
+    <code>
+      &lt;br /&gt;
+    </code>
+    <!-- react-text: 262 -->
+    break tag using Markdown, you
+end a line with two or more spaces, then type return.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 264 -->
+    Yes, this takes a tad more effort to create a
+    <!-- /react-text -->
+    <code>
+      &lt;br /&gt;
+    </code>
+    <!-- react-text: 266 -->
+    , but a simplistic
+"every line break is a
+    <!-- /react-text -->
+    <code>
+      &lt;br /&gt;
+    </code>
+    <!-- react-text: 268 -->
+    " rule wouldn't work for Markdown.
+Markdown's email-style
+    <!-- /react-text -->
+    <a href="#blockquote">
+      <!-- react-text: 270 -->
+      blockquoting
+      <!-- /react-text -->
+    </a>
+    <!-- react-text: 271 -->
+    and multi-paragraph
+    <!-- /react-text -->
+    <a href="#list">
+      <!-- react-text: 273 -->
+      list items
+      <!-- /react-text -->
+    </a>
+    <!-- react-text: 274 -->
+    work best -- and look better -- when you format them with hard breaks.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 276 -->
+    <!-- /react-text -->
+  </p>
+  <h3 id="header">
+    <!-- react-text: 278 -->
+    Headers
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 280 -->
+    Markdown supports two styles of headers,
+    <!-- /react-text -->
+    <a href="http://docutils.sourceforge.net/mirror/setext.html">
+      <!-- react-text: 282 -->
+      Setext
+      <!-- /react-text -->
+    </a>
+    <!-- react-text: 283 -->
+    and
+    <!-- /react-text -->
+    <a href="http://www.aaronsw.com/2002/atx/">
+      <!-- react-text: 285 -->
+      atx
+      <!-- /react-text -->
+    </a>
+    <!-- react-text: 286 -->
+    .
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 288 -->
+    Setext-style headers are "underlined" using equal signs (for first-level
+headers) and dashes (for second-level headers). For example:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      This is an H1
+=============
+
+This is an H2
+-------------
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 292 -->
+    Any number of underlining
+    <!-- /react-text -->
+    <code>
+      =
+    </code>
+    <!-- react-text: 294 -->
+    's or
+    <!-- /react-text -->
+    <code>
+      -
+    </code>
+    <!-- react-text: 296 -->
+    's will work.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 298 -->
+    Atx-style headers use 1-6 hash characters at the start of the line,
+corresponding to header levels 1-6. For example:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      # This is an H1
+
+## This is an H2
+
+###### This is an H6
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 302 -->
+    Optionally, you may "close" atx-style headers. This is purely
+cosmetic -- you can use this if you think it looks better. The
+closing hashes don't even need to match the number of hashes
+used to open the header. (The number of opening hashes
+determines the header level.) :
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      # This is an H1 #
+
+## This is an H2 ##
+
+### This is an H3 ######
+    </code>
+  </pre>
+  <h3 id="blockquote">
+    <!-- react-text: 306 -->
+    Blockquotes
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 308 -->
+    Markdown uses email-style
+    <!-- /react-text -->
+    <code>
+      &gt;
+    </code>
+    <!-- react-text: 310 -->
+    characters for blockquoting. If you're
+familiar with quoting passages of text in an email message, then you
+know how to create a blockquote in Markdown. It looks best if you hard
+wrap the text and put a
+    <!-- /react-text -->
+    <code>
+      &gt;
+    </code>
+    <!-- react-text: 312 -->
+    before every line:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &gt; This is a blockquote with two paragraphs. Lorem ipsum dolor sit amet,
+&gt; consectetuer adipiscing elit. Aliquam hendrerit mi posuere lectus.
+&gt; Vestibulum enim wisi, viverra nec, fringilla in, laoreet vitae, risus.
+&gt;
+&gt; Donec sit amet nisl. Aliquam semper ipsum sit amet velit. Suspendisse
+&gt; id sem consectetuer libero luctus adipiscing.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 316 -->
+    Markdown allows you to be lazy and only put the
+    <!-- /react-text -->
+    <code>
+      &gt;
+    </code>
+    <!-- react-text: 318 -->
+    before the first
+line of a hard-wrapped paragraph:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &gt; This is a blockquote with two paragraphs. Lorem ipsum dolor sit amet,
+consectetuer adipiscing elit. Aliquam hendrerit mi posuere lectus.
+Vestibulum enim wisi, viverra nec, fringilla in, laoreet vitae, risus.
+
+&gt; Donec sit amet nisl. Aliquam semper ipsum sit amet velit. Suspendisse
+id sem consectetuer libero luctus adipiscing.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 322 -->
+    Blockquotes can be nested (i.e. a blockquote-in-a-blockquote) by
+adding additional levels of
+    <!-- /react-text -->
+    <code>
+      &gt;
+    </code>
+    <!-- react-text: 324 -->
+    :
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &gt; This is the first level of quoting.
+&gt;
+&gt; &gt; This is nested blockquote.
+&gt;
+&gt; Back to the first level.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 328 -->
+    Blockquotes can contain other Markdown elements, including headers, lists,
+and code blocks:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &gt; ## This is a header.
+&gt;
+&gt; 1.   This is the first list item.
+&gt; 2.   This is the second list item.
+&gt;
+&gt; Here's some example code:
+&gt;
+&gt;     return shell_exec("echo $input | $markdown_script");
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 332 -->
+    Any decent text editor should make email-style quoting easy. For
+example, with BBEdit, you can make a selection and choose Increase
+Quote Level from the Text menu.
+    <!-- /react-text -->
+  </p>
+  <h3 id="list">
+    <!-- react-text: 334 -->
+    Lists
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 336 -->
+    Markdown supports ordered (numbered) and unordered (bulleted) lists.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 338 -->
+    Unordered lists use asterisks, pluses, and hyphens -- interchangably
+-- as list markers:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      *   Red
+*   Green
+*   Blue
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 342 -->
+    is equivalent to:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      +   Red
++   Green
++   Blue
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 346 -->
+    and:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      -   Red
+-   Green
+-   Blue
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 350 -->
+    Ordered lists use numbers followed by periods:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      1.  Bird
+2.  McHale
+3.  Parish
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 354 -->
+    It's important to note that the actual numbers you use to mark the
+list have no effect on the HTML output Markdown produces. The HTML
+Markdown produces from the above list is:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;ol&gt;
+&lt;li&gt;Bird&lt;/li&gt;
+&lt;li&gt;McHale&lt;/li&gt;
+&lt;li&gt;Parish&lt;/li&gt;
+&lt;/ol&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 358 -->
+    If you instead wrote the list in Markdown like this:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      1.  Bird
+1.  McHale
+1.  Parish
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 362 -->
+    or even:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      3. Bird
+1. McHale
+8. Parish
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 366 -->
+    you'd get the exact same HTML output. The point is, if you want to,
+you can use ordinal numbers in your ordered Markdown lists, so that
+the numbers in your source match the numbers in your published HTML.
+But if you want to be lazy, you don't have to.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 368 -->
+    If you do use lazy list numbering, however, you should still start the
+list with the number 1. At some point in the future, Markdown may support
+starting ordered lists at an arbitrary number.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 370 -->
+    List markers typically start at the left margin, but may be indented by
+up to three spaces. List markers must be followed by one or more spaces
+or a tab.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 372 -->
+    To make lists look nice, you can wrap items with hanging indents:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      *   Lorem ipsum dolor sit amet, consectetuer adipiscing elit.
+    Aliquam hendrerit mi posuere lectus. Vestibulum enim wisi,
+    viverra nec, fringilla in, laoreet vitae, risus.
+*   Donec sit amet nisl. Aliquam semper ipsum sit amet velit.
+    Suspendisse id sem consectetuer libero luctus adipiscing.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 376 -->
+    But if you want to be lazy, you don't have to:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      *   Lorem ipsum dolor sit amet, consectetuer adipiscing elit.
+Aliquam hendrerit mi posuere lectus. Vestibulum enim wisi,
+viverra nec, fringilla in, laoreet vitae, risus.
+*   Donec sit amet nisl. Aliquam semper ipsum sit amet velit.
+Suspendisse id sem consectetuer libero luctus adipiscing.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 380 -->
+    If list items are separated by blank lines, Markdown will wrap the
+items in
+    <!-- /react-text -->
+    <code>
+      &lt;p&gt;
+    </code>
+    <!-- react-text: 382 -->
+    tags in the HTML output. For example, this input:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      *   Bird
+*   Magic
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 386 -->
+    will turn into:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;ul&gt;
+&lt;li&gt;Bird&lt;/li&gt;
+&lt;li&gt;Magic&lt;/li&gt;
+&lt;/ul&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 390 -->
+    But this:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      *   Bird
+
+*   Magic
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 394 -->
+    will turn into:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;ul&gt;
+&lt;li&gt;&lt;p&gt;Bird&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;Magic&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 398 -->
+    List items may consist of multiple paragraphs. Each subsequent
+paragraph in a list item must be indented by either 4 spaces
+or one tab:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      1.  This is a list item with two paragraphs. Lorem ipsum dolor
+    sit amet, consectetuer adipiscing elit. Aliquam hendrerit
+    mi posuere lectus.
+
+    Vestibulum enim wisi, viverra nec, fringilla in, laoreet
+    vitae, risus. Donec sit amet nisl. Aliquam semper ipsum
+    sit amet velit.
+
+2.  Suspendisse id sem consectetuer libero luctus adipiscing.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 402 -->
+    It looks nice if you indent every line of the subsequent
+paragraphs, but here again, Markdown will allow you to be
+lazy:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      *   This is a list item with two paragraphs.
+
+    This is the second paragraph in the list item. You're
+only required to indent the first line. Lorem ipsum dolor
+sit amet, consectetuer adipiscing elit.
+
+*   Another item in the same list.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 406 -->
+    To put a blockquote within a list item, the blockquote's
+    <!-- /react-text -->
+    <code>
+      &gt;
+    </code>
+    <!-- react-text: 408 -->
+    delimiters need to be indented:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      *   A list item with a blockquote:
+
+    &gt; This is a blockquote
+    &gt; inside a list item.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 412 -->
+    To put a code block within a list item, the code block needs
+to be indented
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 414 -->
+      twice
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 415 -->
+    -- 8 spaces or two tabs:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      *   A list item with a code block:
+
+        &lt;code goes here&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 419 -->
+    It's worth noting that it's possible to trigger an ordered list by
+accident, by writing something like this:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      1986. What a great season.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 423 -->
+    In other words, a
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 425 -->
+      number-period-space
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 426 -->
+    sequence at the beginning of a
+line. To avoid this, you can backslash-escape the period:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      1986\\. What a great season.
+    </code>
+  </pre>
+  <h3 id="precode">
+    <!-- react-text: 430 -->
+    Code Blocks
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 432 -->
+    Pre-formatted code blocks are used for writing about programming or
+markup source code. Rather than forming normal paragraphs, the lines
+of a code block are interpreted literally. Markdown wraps a code block
+in both
+    <!-- /react-text -->
+    <code>
+      &lt;pre&gt;
+    </code>
+    <!-- react-text: 434 -->
+    and
+    <!-- /react-text -->
+    <code>
+      &lt;code&gt;
+    </code>
+    <!-- react-text: 436 -->
+    tags.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 438 -->
+    To produce a code block in Markdown, simply indent every line of the
+block by at least 4 spaces or 1 tab. For example, given this input:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      This is a normal paragraph:
+
+    This is a code block.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 442 -->
+    Markdown will generate:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;p&gt;This is a normal paragraph:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;This is a code block.
+&lt;/code&gt;&lt;/pre&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 446 -->
+    One level of indentation -- 4 spaces or 1 tab -- is removed from each
+line of the code block. For example, this:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      Here is an example of AppleScript:
+
+    tell application "Foo"
+        beep
+    end tell
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 450 -->
+    will turn into:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;p&gt;Here is an example of AppleScript:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;tell application "Foo"
+    beep
+end tell
+&lt;/code&gt;&lt;/pre&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 454 -->
+    A code block continues until it reaches a line that is not indented
+(or the end of the article).
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 456 -->
+    Within a code block, ampersands (
+    <!-- /react-text -->
+    <code>
+      &amp;
+    </code>
+    <!-- react-text: 458 -->
+    ) and angle brackets (
+    <!-- /react-text -->
+    <code>
+      &lt;
+    </code>
+    <!-- react-text: 460 -->
+    and
+    <!-- /react-text -->
+    <code>
+      &gt;
+    </code>
+    <!-- react-text: 462 -->
+    )
+are automatically converted into HTML entities. This makes it very
+easy to include example HTML source code using Markdown -- just paste
+it and indent it, and Markdown will handle the hassle of encoding the
+ampersands and angle brackets. For example, this:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;div class="footer"&gt;
+        &amp;copy; 2004 Foo Corporation
+    &lt;/div&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 466 -->
+    will turn into:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;pre&gt;&lt;code&gt;&amp;lt;div class="footer"&amp;gt;
+    &amp;amp;copy; 2004 Foo Corporation
+&amp;lt;/div&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 470 -->
+    Regular Markdown syntax is not processed within code blocks. E.g.,
+asterisks are just literal asterisks within a code block. This means
+it's also easy to use Markdown to write about Markdown's own syntax.
+    <!-- /react-text -->
+  </p>
+  <h3 id="hr">
+    <!-- react-text: 472 -->
+    Horizontal Rules
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 474 -->
+    You can produce a horizontal rule tag (
+    <!-- /react-text -->
+    <code>
+      &lt;hr /&gt;
+    </code>
+    <!-- react-text: 476 -->
+    ) by placing three or
+more hyphens, asterisks, or underscores on a line by themselves. If you
+wish, you may use spaces between the hyphens or asterisks. Each of the
+following lines will produce a horizontal rule:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      * * *
+
+***
+
+*****
+
+- - -
+
+---------------------------------------
+    </code>
+  </pre>
+  <hr>
+  <h2 id="span">
+    <!-- react-text: 481 -->
+    Span Elements
+    <!-- /react-text -->
+  </h2>
+  <h3 id="link">
+    <!-- react-text: 483 -->
+    Links
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 485 -->
+    Markdown supports two style of links:
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 487 -->
+      inline
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 488 -->
+    and
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 490 -->
+      reference
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 491 -->
+    .
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 493 -->
+    In both styles, the link text is delimited by [square brackets].
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 495 -->
+    To create an inline link, use a set of regular parentheses immediately
+after the link text's closing square bracket. Inside the parentheses,
+put the URL where you want the link to point, along with an
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 497 -->
+      optional
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 498 -->
+    title for the link, surrounded in quotes. For example:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      This is [an example](http://example.com/ "Title") inline link.
+
+[This link](http://example.net/) has no title attribute.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 502 -->
+    Will produce:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;p&gt;This is &lt;a href="http://example.com/" title="Title"&gt;
+an example&lt;/a&gt; inline link.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href="http://example.net/"&gt;This link&lt;/a&gt; has no
+title attribute.&lt;/p&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 506 -->
+    If you're referring to a local resource on the same server, you can
+use relative paths:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      See my [About](/about/) page for details.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 510 -->
+    Reference-style links use a second set of square brackets, inside
+which you place a label of your choosing to identify the link:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      This is [an example][id] reference-style link.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 514 -->
+    You can optionally use a space to separate the sets of brackets:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      This is [an example] [id] reference-style link.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 518 -->
+    Then, anywhere in the document, you define your link label like this,
+on a line by itself:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      [id]: http://example.com/  "Optional Title Here"
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 522 -->
+    That is:
+    <!-- /react-text -->
+  </p>
+  <ul>
+    <li>
+      <!-- react-text: 525 -->
+      Square brackets containing the link identifier (optionally
+indented from the left margin using up to three spaces);
+      <!-- /react-text -->
+    </li>
+    <li>
+      <!-- react-text: 527 -->
+      followed by a colon;
+      <!-- /react-text -->
+    </li>
+    <li>
+      <!-- react-text: 529 -->
+      followed by one or more spaces (or tabs);
+      <!-- /react-text -->
+    </li>
+    <li>
+      <!-- react-text: 531 -->
+      followed by the URL for the link;
+      <!-- /react-text -->
+    </li>
+    <li>
+      <!-- react-text: 533 -->
+      optionally followed by a title attribute for the link, enclosed
+in double or single quotes, or enclosed in parentheses.
+      <!-- /react-text -->
+    </li>
+  </ul>
+  <p>
+    <!-- react-text: 535 -->
+    The following three link definitions are equivalent:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      [foo]: http://example.com/  "Optional Title Here"
+[foo]: http://example.com/  'Optional Title Here'
+[foo]: http://example.com/  (Optional Title Here)
+    </code>
+  </pre>
+  <p>
+    <strong>
+      <!-- react-text: 540 -->
+      Note:
+      <!-- /react-text -->
+    </strong>
+    <!-- react-text: 541 -->
+    There is a known bug in Markdown.pl 1.0.1 which prevents
+single quotes from being used to delimit link titles.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 543 -->
+    The link URL may, optionally, be surrounded by angle brackets:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      [id]: &lt;http://example.com/&gt;  "Optional Title Here"
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 547 -->
+    You can put the title attribute on the next line and use extra spaces
+or tabs for padding, which tends to look better with longer URLs:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      [id]: http://example.com/longish/path/to/resource/here
+    "Optional Title Here"
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 551 -->
+    Link definitions are only used for creating links during Markdown
+processing, and are stripped from your document in the HTML output.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 553 -->
+    Link definition names may consist of letters, numbers, spaces, and
+punctuation -- but they are
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 555 -->
+      not
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 556 -->
+    case sensitive. E.g. these two
+links:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      [link text][a]
+[link text][A]
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 560 -->
+    are equivalent.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 562 -->
+    The
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 564 -->
+      implicit link name
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 565 -->
+    shortcut allows you to omit the name of the
+link, in which case the link text itself is used as the name.
+Just use an empty set of square brackets -- e.g., to link the word
+"Google" to the google.com web site, you could simply write:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      [Google][]
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 569 -->
+    And then define the link:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      [Google]: http://google.com/
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 573 -->
+    Because link names may contain spaces, this shortcut even works for
+multiple words in the link text:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      Visit [Daring Fireball][] for more information.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 577 -->
+    And then define the link:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      [Daring Fireball]: http://daringfireball.net/
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 581 -->
+    Link definitions can be placed anywhere in your Markdown document. I
+tend to put them immediately after each paragraph in which they're
+used, but if you want, you can put them all at the end of your
+document, sort of like footnotes.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 583 -->
+    Here's an example of reference links in action:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      I get 10 times more traffic from [Google] [1] than from
+[Yahoo] [2] or [MSN] [3].
+
+  [1]: http://google.com/        "Google"
+  [2]: http://search.yahoo.com/  "Yahoo Search"
+  [3]: http://search.msn.com/    "MSN Search"
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 587 -->
+    Using the implicit link name shortcut, you could instead write:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      I get 10 times more traffic from [Google][] than from
+[Yahoo][] or [MSN][].
+
+  [google]: http://google.com/        "Google"
+  [yahoo]:  http://search.yahoo.com/  "Yahoo Search"
+  [msn]:    http://search.msn.com/    "MSN Search"
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 591 -->
+    Both of the above examples will produce the following HTML output:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;p&gt;I get 10 times more traffic from &lt;a href="http://google.com/"
+title="Google"&gt;Google&lt;/a&gt; than from
+&lt;a href="http://search.yahoo.com/" title="Yahoo Search"&gt;Yahoo&lt;/a&gt;
+or &lt;a href="http://search.msn.com/" title="MSN Search"&gt;MSN&lt;/a&gt;.&lt;/p&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 595 -->
+    For comparison, here is the same paragraph written using
+Markdown's inline link style:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      I get 10 times more traffic from [Google](http://google.com/ "Google")
+than from [Yahoo](http://search.yahoo.com/ "Yahoo Search") or
+[MSN](http://search.msn.com/ "MSN Search").
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 599 -->
+    The point of reference-style links is not that they're easier to
+write. The point is that with reference-style links, your document
+source is vastly more readable. Compare the above examples: using
+reference-style links, the paragraph itself is only 81 characters
+long; with inline-style links, it's 176 characters; and as raw HTML,
+it's 234 characters. In the raw HTML, there's more markup than there
+is text.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 601 -->
+    With Markdown's reference-style links, a source document much more
+closely resembles the final output, as rendered in a browser. By
+allowing you to move the markup-related metadata out of the paragraph,
+you can add links without interrupting the narrative flow of your
+prose.
+    <!-- /react-text -->
+  </p>
+  <h3 id="em">
+    <!-- react-text: 603 -->
+    Emphasis
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 605 -->
+    Markdown treats asterisks (
+    <!-- /react-text -->
+    <code>
+      *
+    </code>
+    <!-- react-text: 607 -->
+    ) and underscores (
+    <!-- /react-text -->
+    <code>
+      _
+    </code>
+    <!-- react-text: 609 -->
+    ) as indicators of
+emphasis. Text wrapped with one
+    <!-- /react-text -->
+    <code>
+      *
+    </code>
+    <!-- react-text: 611 -->
+    or
+    <!-- /react-text -->
+    <code>
+      _
+    </code>
+    <!-- react-text: 613 -->
+    will be wrapped with an
+HTML
+    <!-- /react-text -->
+    <code>
+      &lt;em&gt;
+    </code>
+    <!-- react-text: 615 -->
+    tag; double
+    <!-- /react-text -->
+    <code>
+      *
+    </code>
+    <!-- react-text: 617 -->
+    's or
+    <!-- /react-text -->
+    <code>
+      _
+    </code>
+    <!-- react-text: 619 -->
+    's will be wrapped with an HTML
+    <!-- /react-text -->
+    <code>
+      &lt;strong&gt;
+    </code>
+    <!-- react-text: 621 -->
+    tag. E.g., this input:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      *single asterisks*
+
+_single underscores_
+
+**double asterisks**
+
+__double underscores__
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 625 -->
+    will produce:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;em&gt;single asterisks&lt;/em&gt;
+
+&lt;em&gt;single underscores&lt;/em&gt;
+
+&lt;strong&gt;double asterisks&lt;/strong&gt;
+
+&lt;strong&gt;double underscores&lt;/strong&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 629 -->
+    You can use whichever style you prefer; the lone restriction is that
+the same character must be used to open and close an emphasis span.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 631 -->
+    Emphasis can be used in the middle of a word:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      un*frigging*believable
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 635 -->
+    But if you surround an
+    <!-- /react-text -->
+    <code>
+      *
+    </code>
+    <!-- react-text: 637 -->
+    or
+    <!-- /react-text -->
+    <code>
+      _
+    </code>
+    <!-- react-text: 639 -->
+    with spaces, it'll be treated as a
+literal asterisk or underscore.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 641 -->
+    To produce a literal asterisk or underscore at a position where it
+would otherwise be used as an emphasis delimiter, you can backslash
+escape it:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      \\*this text is surrounded by literal asterisks\\*
+    </code>
+  </pre>
+  <h3 id="code">
+    <!-- react-text: 645 -->
+    Code
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 647 -->
+    To indicate a span of code, wrap it with backtick quotes (
+    <!-- /react-text -->
+    <code>
+      \`
+    </code>
+    <!-- react-text: 649 -->
+    ).
+Unlike a pre-formatted code block, a code span indicates code within a
+normal paragraph. For example:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      Use the \`printf()\` function.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 653 -->
+    will produce:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;p&gt;Use the &lt;code&gt;printf()&lt;/code&gt; function.&lt;/p&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 657 -->
+    To include a literal backtick character within a code span, you can use
+multiple backticks as the opening and closing delimiters:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      \`\`There is a literal backtick (\`) here.\`\`
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 661 -->
+    which will produce this:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;p&gt;&lt;code&gt;There is a literal backtick (\`) here.&lt;/code&gt;&lt;/p&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 665 -->
+    The backtick delimiters surrounding a code span may include spaces --
+one after the opening, one before the closing. This allows you to place
+literal backtick characters at the beginning or end of a code span:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      A single backtick in a code span: \`\` \` \`\`
+
+A backtick-delimited string in a code span: \`\` \`foo\` \`\`
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 669 -->
+    will produce:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;p&gt;A single backtick in a code span: &lt;code&gt;\`&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;A backtick-delimited string in a code span: &lt;code&gt;\`foo\`&lt;/code&gt;&lt;/p&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 673 -->
+    With a code span, ampersands and angle brackets are encoded as HTML
+entities automatically, which makes it easy to include example HTML
+tags. Markdown will turn this:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      Please don't use any \`&lt;blink&gt;\` tags.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 677 -->
+    into:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;p&gt;Please don't use any &lt;code&gt;&amp;lt;blink&amp;gt;&lt;/code&gt; tags.&lt;/p&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 681 -->
+    You can write this:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      \`&amp;#8212;\` is the decimal-encoded equivalent of \`&amp;mdash;\`.
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 685 -->
+    to produce:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;p&gt;&lt;code&gt;&amp;amp;#8212;&lt;/code&gt; is the decimal-encoded
+equivalent of &lt;code&gt;&amp;amp;mdash;&lt;/code&gt;.&lt;/p&gt;
+    </code>
+  </pre>
+  <h3 id="img">
+    <!-- react-text: 689 -->
+    Images
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 691 -->
+    Admittedly, it's fairly difficult to devise a "natural" syntax for
+placing images into a plain text document format.
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 693 -->
+    Markdown uses an image syntax that is intended to resemble the syntax
+for links, allowing for two styles:
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 695 -->
+      inline
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 696 -->
+    and
+    <!-- /react-text -->
+    <em>
+      <!-- react-text: 698 -->
+      reference
+      <!-- /react-text -->
+    </em>
+    <!-- react-text: 699 -->
+    .
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 701 -->
+    Inline image syntax looks like this:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      ![Alt text](/path/to/img.jpg)
+
+![Alt text](/path/to/img.jpg "Optional title")
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 705 -->
+    That is:
+    <!-- /react-text -->
+  </p>
+  <ul>
+    <li>
+      <!-- react-text: 708 -->
+      An exclamation mark:
+      <!-- /react-text -->
+      <code>
+        !
+      </code>
+      <!-- react-text: 710 -->
+      ;
+      <!-- /react-text -->
+    </li>
+    <li>
+      <!-- react-text: 712 -->
+      followed by a set of square brackets, containing the
+      <!-- /react-text -->
+      <code>
+        alt
+      </code>
+      <!-- react-text: 714 -->
+      attribute text for the image;
+      <!-- /react-text -->
+    </li>
+    <li>
+      <!-- react-text: 716 -->
+      followed by a set of parentheses, containing the URL or path to
+the image, and an optional
+      <!-- /react-text -->
+      <code>
+        title
+      </code>
+      <!-- react-text: 718 -->
+      attribute enclosed in double
+or single quotes.
+      <!-- /react-text -->
+    </li>
+  </ul>
+  <p>
+    <!-- react-text: 720 -->
+    Reference-style image syntax looks like this:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      ![Alt text][id]
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 724 -->
+    Where "id" is the name of a defined image reference. Image references
+are defined using syntax identical to link references:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      [id]: url/to/image  "Optional title attribute"
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 728 -->
+    As of this writing, Markdown has no syntax for specifying the
+dimensions of an image; if this is important to you, you can simply
+use regular HTML
+    <!-- /react-text -->
+    <code>
+      &lt;img&gt;
+    </code>
+    <!-- react-text: 730 -->
+    tags.
+    <!-- /react-text -->
+  </p>
+  <hr>
+  <h2 id="misc">
+    <!-- react-text: 733 -->
+    Miscellaneous
+    <!-- /react-text -->
+  </h2>
+  <h3 id="autolink">
+    <!-- react-text: 735 -->
+    Automatic Links
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 737 -->
+    Markdown supports a shortcut style for creating "automatic" links for URLs and email addresses: simply surround the URL or email address with angle brackets. What this means is that if you want to show the actual text of a URL or email address, and also have it be a clickable link, you can do this:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;http://example.com/&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 741 -->
+    Markdown will turn this into:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;a href="http://example.com/"&gt;http://example.com/&lt;/a&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 745 -->
+    Automatic links for email addresses work similarly, except that
+Markdown will also perform a bit of randomized decimal and hex
+entity-encoding to help obscure your address from address-harvesting
+spambots. For example, Markdown will turn this:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;address@example.com&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 749 -->
+    into something like this:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      &lt;a href="&amp;#x6D;&amp;#x61;i&amp;#x6C;&amp;#x74;&amp;#x6F;:&amp;#x61;&amp;#x64;&amp;#x64;&amp;#x72;&amp;#x65;
+&amp;#115;&amp;#115;&amp;#64;&amp;#101;&amp;#120;&amp;#x61;&amp;#109;&amp;#x70;&amp;#x6C;e&amp;#x2E;&amp;#99;&amp;#111;
+&amp;#109;"&gt;&amp;#x61;&amp;#x64;&amp;#x64;&amp;#x72;&amp;#x65;&amp;#115;&amp;#115;&amp;#64;&amp;#101;&amp;#120;&amp;#x61;
+&amp;#109;&amp;#x70;&amp;#x6C;e&amp;#x2E;&amp;#99;&amp;#111;&amp;#109;&lt;/a&gt;
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 753 -->
+    which will render in a browser as a clickable link to "address@example.com".
+    <!-- /react-text -->
+  </p>
+  <p>
+    <!-- react-text: 755 -->
+    (This sort of entity-encoding trick will indeed fool many, if not
+most, address-harvesting bots, but it definitely won't fool all of
+them. It's better than nothing, but an address published in this way
+will probably eventually start receiving spam.)
+    <!-- /react-text -->
+  </p>
+  <h3 id="backslash">
+    <!-- react-text: 757 -->
+    Backslash Escapes
+    <!-- /react-text -->
+  </h3>
+  <p>
+    <!-- react-text: 759 -->
+    Markdown allows you to use backslash escapes to generate literal
+characters which would otherwise have special meaning in Markdown's
+formatting syntax. For example, if you wanted to surround a word
+with literal asterisks (instead of an HTML
+    <!-- /react-text -->
+    <code>
+      &lt;em&gt;
+    </code>
+    <!-- react-text: 761 -->
+    tag), you can use
+backslashes before the asterisks, like this:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      \\*literal asterisks\\*
+    </code>
+  </pre>
+  <p>
+    <!-- react-text: 765 -->
+    Markdown provides backslash escapes for the following characters:
+    <!-- /react-text -->
+  </p>
+  <pre>
+    <code>
+      \\   backslash
+\`   backtick
+*   asterisk
+_   underscore
+{}  curly braces
+[]  square brackets
+()  parentheses
+#   hash mark
++    plus sign
+-    minus sign (hyphen)
+.   dot
+!   exclamation mark
+    </code>
+  </pre>
+</div>
+
+`;
+
 exports[`markdown-to-jsx compiler headings should handle consecutive headings without a padding newline 1`] = `
 
 <div data-reactroot>
