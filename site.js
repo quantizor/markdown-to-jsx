@@ -21,7 +21,6 @@ injectGlobal`
     main {
         margin: 0;
         min-height: 600px;
-        height: 100%;
     }
 
     html {
@@ -92,7 +91,8 @@ injectGlobal`
     main {
         display: flex;
         flex-direction: column;
-        padding: 3em;
+        padding: 0 3em;
+        margin: 3em 0 0;
     }
 
     header {
@@ -120,14 +120,18 @@ injectGlobal`
         overflow: auto;
         overflow-x: hidden;
         margin-left: 1em;
+        max-height: 100vh;
     }
 
     .content-raw {
         border-color: ${COLOR_ACCENT};
         border-radius: 2px;
+        position: sticky;
+        top: 0;
         font-family: 'Source Code Pro', Consolas, Monaco, monospace;
         font-size: inherit;
         margin-right: 1em;
+        max-height: 100vh;
     }
 
     .description {
