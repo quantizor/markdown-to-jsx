@@ -1,6 +1,7 @@
 import Markdown, {compiler} from './index';
 import React from 'react';
 import ReactDOM from 'react-dom';
+import fs from 'fs';
 
 describe('markdown-to-jsx', () => {
     const root = document.body.appendChild(document.createElement('div'));
@@ -35,6 +36,13 @@ describe('markdown-to-jsx', () => {
 
         it('wraps solely inline elements in a paragraph, rather than a div', () => {
             render(compiler('Hello. _Beautiful_ day isn\'t it?'));
+
+            expect(root.innerHTML).toMatchSnapshot();
+        });
+
+        it('handles a hollistic example', () => {
+            const md = fs.readFileSync(__dirname + '/fixture.md', 'utf8');
+            render(compiler(md));
 
             expect(root.innerHTML).toMatchSnapshot();
         });
