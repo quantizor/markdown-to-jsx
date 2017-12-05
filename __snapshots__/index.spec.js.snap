@@ -457,9 +457,15 @@ exports[`markdown-to-jsx compiler headings should handle setext level 2 style 1`
 
 `;
 
-exports[`markdown-to-jsx compiler horizontal rules should be handled 1`] = `
+exports[`markdown-to-jsx compiler horizontal rules should handle the various syntaxes 1`] = `
 
-<hr data-reactroot>
+<div data-reactroot>
+  <hr>
+  <hr>
+  <hr>
+  <hr>
+  <hr>
+</div>
 
 `;
 
