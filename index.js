@@ -65,7 +65,7 @@ const BLOCK_END_R = /\n{2,}$/;
 const BLOCKQUOTE_R = /^( *>[^\n]+(\n[^\n]+)*\n*)+\n{2,}/;
 const BLOCKQUOTE_TRIM_LEFT_MULTILINE_R = /^ *> ?/gm;
 const BREAK_LINE_R = /^ {2,}\n/;
-const BREAK_THEMATIC_R = /^( *[-*_]){3,} *(?:\n *)+\n/;
+const BREAK_THEMATIC_R = /^(?:( *[-*_]) *){3,}(?:\n *)+\n/;
 const CODE_BLOCK_FENCED_R = /^\s*(`{3,}|~{3,}) *(\S+)? *\n([\s\S]+?)\s*\1 *(?:\n *)+\n/;
 const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)+\n/;
 const CODE_INLINE_R = /^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)/;
@@ -781,7 +781,6 @@ export function compiler (markdown, options) {
         },
 
         htmlSelfClosing: {
-
             /**
              * find the first matching end tag and process the interior
              */

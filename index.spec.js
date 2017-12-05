@@ -447,11 +447,31 @@ describe('markdown-to-jsx', () => {
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('block HTML regression test', () => {
+                render(compiler(`
+<ul id="ProjectSubmenu">
+    <li><a href="/projects/markdown/" title="Markdown Project Page">Main</a></li>
+    <li><a href="/projects/markdown/basics" title="Markdown Basics">Basics</a></li>
+    <li><a class="selected" title="Markdown Syntax Documentation">Syntax</a></li>
+    <li><a href="/projects/markdown/license" title="Pricing and License Information">License</a></li>
+    <li><a href="/projects/markdown/dingus" title="Online Markdown Web Form">Dingus</a></li>
+</ul>
+`));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('horizontal rules', () => {
-            it('should be handled', () => {
-                render(compiler('---'));
+            it('should handle the various syntaxes', () => {
+                render(compiler([
+                    '* * *',
+                    '***',
+                    '*****',
+                    '- - -',
+                    '---------------------------------------',
+                ].join('\n\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
