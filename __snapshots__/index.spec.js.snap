@@ -661,6 +661,20 @@ exports[`markdown-to-jsx compiler links should handle a link reference 1`] = `
 
 `;
 
+exports[`markdown-to-jsx compiler links should handle a link reference with a space 1`] = `
+
+<p data-reactroot>
+  <a href="/xyz.png">
+    <!-- react-text: 3 -->
+    foo
+    <!-- /react-text -->
+  </a>
+  <!-- react-text: 4 -->
+  <!-- /react-text -->
+</p>
+
+`;
+
 exports[`markdown-to-jsx compiler links should handle a link reference with title 1`] = `
 
 <p data-reactroot>

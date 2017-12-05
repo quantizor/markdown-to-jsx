@@ -210,6 +210,15 @@ describe('markdown-to-jsx', () => {
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
+            it('should handle a link reference with a space', () => {
+                render(compiler([
+                    '[foo] [1]',
+                    '[1]: /xyz.png',
+                ].join('\n')));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
             it('should handle a link reference with title', () => {
                 render(compiler([
                     '[foo][1]',
