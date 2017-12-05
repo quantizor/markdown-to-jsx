@@ -1,4 +1,4 @@
-import { darken, lighten, rgba } from 'polished';
+import { lighten, rgba } from 'polished';
 import styled, { css, injectGlobal } from 'preact-emotion';
 import React from 'react';
 import ReactDOM from 'react-dom';
@@ -32,11 +32,11 @@ class TryItLive extends React.PureComponent {
 
                 <Content>
                     <Textarea
-                        onChange={this.updateState}
+                        onInput={this.updateState}
                         value={this.state.markdown} />
 
                     <Compiled>
-                        <Markdown className='content-compiled'>
+                        <Markdown options={options}>
                             {this.state.markdown}
                         </Markdown>
                     </Compiled>
@@ -46,8 +46,18 @@ class TryItLive extends React.PureComponent {
     }
 }
 
-const COLOR_ACCENT = '#77667D';
+const COLOR_ACCENT = 'rgba(0, 0, 0, 0.5)';
 const COLOR_BODY = '#444';
+
+const spectrum = [
+    '253, 128, 129',
+    '253, 178, 131',
+    '254, 232, 134',
+];
+
+const bands = spectrum.length;
+const width = 100 / bands;
+const transparent = spectrum.map((band, index) => `rgba(${band}, ${index === 0 ? 0.5 : 0.5 / index}) ${index * width * .8}%`).join(', ') + ', transparent 100%';
 
 injectGlobal`
     *,
@@ -66,6 +76,8 @@ injectGlobal`
     }
 
     html {
+        background: linear-gradient(to bottom, ${transparent}) no-repeat;
+        background-size: 100% 100vh;
         color: ${COLOR_BODY};
         font-family: 'Source Sans Pro', Helvetica Neue, Helvetica, sans-serif;
         font-size: 14px;
@@ -111,13 +123,13 @@ injectGlobal`
 
         &:hover,
         &:focus {
-            color: ${darken(0.5, COLOR_ACCENT)};
+            color: ${rgba(COLOR_ACCENT, 0.75)};
         }
     }
 
     code {
-        background: ${rgba(COLOR_ACCENT, 0.2)};
-        border: 1px solid ${rgba(COLOR_ACCENT, 0.3)};
+        background: ${rgba(COLOR_ACCENT, 0.05)};
+        border: 1px solid ${rgba(COLOR_ACCENT, 0.1)};
         border-radius: 2px;
         display: inline-block;
         padding: 0 2px;
@@ -184,5 +196,39 @@ const Compiled = styled.div`
     overflow-x: hidden;
     margin-left: 1em;
 `;
+
+const ShinyButton = styled.button`
+    background: #444;
+    color: #DDD;
+    cursor: pointer;
+    font: inherit;
+    transition: background 200ms ease;
+
+    &:hover,
+    &:focus {
+        background: #222;
+    }
+
+    &:active {
+        background: #000;
+    }
+`;
+
+function MyComponent (props) {
+    return (
+        <ShinyButton
+            {...props}
+            onClick={function () { alert('Look ma, I\'m a real component!'); }}
+        />
+    );
+}
+
+const options = {
+    overrides: {
+        MyComponent: {
+            component: MyComponent,
+        },
+    },
+};
 
 ReactDOM.render(<TryItLive />, document.getElementById('root'));
