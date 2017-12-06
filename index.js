@@ -77,7 +77,7 @@ const FORMFEED_R = /\f/g;
 const GFM_TASK_R = /^\s*?\[(x|\s)\]/;
 const HEADING_R = /^ *(#{1,6}) *([^\n]+?) *#* *\n+/;
 const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/;
-const HTML_BLOCK_ELEMENT_R = /^ *<([^ >]*) ?([^>]*)>((?:.|(?!\n *<\1)\n)*)<\/\1>\n*/;
+const HTML_BLOCK_ELEMENT_R = /^ *<([^ >]*) ?([^>]*)>((?:.|(?!\n *<\1)\n)*?)<\/\1>\n*/;
 const HTML_COMMENT_R = /^<!--.*?-->/;
 const HTML_SELF_CLOSING_ELEMENT_R = /^<([^\s]*)\s?(.*?)>(.*?)/;
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/;

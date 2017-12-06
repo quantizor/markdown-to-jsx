@@ -423,6 +423,12 @@ describe('markdown-to-jsx', () => {
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
+            it('processes markdown within nested inline HTML where childen appear more than once', () => {
+                render(compiler('<dl><dt>foo</dt><dd>bar</dd><dt>baz</dt><dd>qux</dd></dl>'));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
             it('processes attributes within inline HTML', () => {
                 render(compiler('<time data-foo="bar">Hello</time>'));
 

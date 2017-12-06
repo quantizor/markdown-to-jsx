@@ -265,6 +265,33 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within neste
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within nested inline HTML where childen appear more than once 1`] = `
+
+<dl data-reactroot>
+  <dt>
+    <!-- react-text: 3 -->
+    foo
+    <!-- /react-text -->
+  </dt>
+  <dd>
+    <!-- react-text: 5 -->
+    bar
+    <!-- /react-text -->
+  </dd>
+  <dt>
+    <!-- react-text: 7 -->
+    baz
+    <!-- /react-text -->
+  </dt>
+  <dd>
+    <!-- react-text: 9 -->
+    qux
+    <!-- /react-text -->
+  </dd>
+</dl>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML renders inline <code> tags 1`] = `
 
 <p data-reactroot>
