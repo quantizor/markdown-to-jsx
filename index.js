@@ -496,6 +496,14 @@ function get (src, path, fb) {
     return ptr || fb;
 }
 
+function getTag (tag, overrides) {
+    const override = get(overrides, tag);
+    return typeof override === 'function'
+        ? override
+        : get(overrides, `${tag}.component`, tag)
+    ;
+}
+
 /**
  * anything that must scan the tree before everything else
  */
@@ -528,13 +536,11 @@ export function compiler (markdown, options) {
     // eslint-disable-next-line no-unused-vars
     function h (tag, props, ...children) {
         const overrideProps = get(options.overrides, `${tag}.props`, {});
-        return React.createElement(
-            get(options.overrides, `${tag}.component`, tag), {
-                ...overrideProps,
-                ...props,
-                className: cx(props && props.className, overrideProps.className) || undefined,
-            }, ...children
-        );
+        return React.createElement(getTag(tag, options.overrides), {
+            ...overrideProps,
+            ...props,
+            className: cx(props && props.className, overrideProps.className) || undefined,
+        }, ...children);
     }
 
     /* istanbul ignore next */

@@ -591,6 +591,23 @@ describe('markdown-to-jsx', () => {
                 expect(root.children[0].textContent).toBe('Hello.');
             });
 
+            it('should accept an override shorthand if props do not need to be overidden', () => {
+                class FakeParagraph extends React.Component {
+                    render () {
+                        return (
+                            <p className='foo'>{this.props.children}</p>
+                        );
+                    }
+                }
+
+                render(
+                    compiler('Hello.\n\n', {overrides: {p: FakeParagraph}})
+                );
+
+                expect(root.children[0].className).toBe('foo');
+                expect(root.children[0].textContent).toBe('Hello.');
+            });
+
             it('should add props to the appropriate JSX tag if supplied', () => {
                 render(
                     compiler('Hello.\n\n', {overrides: {p: {props: {className: 'abc'}}}})
