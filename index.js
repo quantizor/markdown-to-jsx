@@ -89,6 +89,7 @@ const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/;
 const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/;
 const LIST_ITEM_END_R = / *\n+$/;
 const LIST_LOOKBEHIND_R = /^$|\n *$/;
+const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi;
 const NP_TABLE_R = /^ *(\S.*\|.*)\n *([-:]+ *\|[-| :]*)\n((?:.*\|.*(?:\n|$))*)\n*/;
 const NPTABLE_CELLS_TRIM = /\n$/;
 const PARAGRAPH_R = /^((?:[^\n]|\n(?! *\n))+)(?:\n *)+\n/;
@@ -216,7 +217,7 @@ function normalizeAttributeKey (key) {
     const hyphenIndex = key.indexOf('-');
 
     if (hyphenIndex !== -1 && key.match(HTML_CUSTOM_ATTR_R) === null) {
-        key = key.replace(/-([a-z])?/gi, function (_, letter) { return letter.toUpperCase(); });
+        key = key.replace(CAPTURE_LETTER_AFTER_HYPHEN, function (_, letter) { return letter.toUpperCase(); });
     }
 
     return key;
@@ -371,43 +372,31 @@ function parserFor (rules) {
 
 // Creates a match function for an inline scoped element from a regex
 function inlineRegex (regex) {
-    function match (source, state) {
+    return function match (source, state) {
         if (state.inline) {
             return regex.exec(source);
         } else {
             return null;
         }
-    }
-
-    match.regex = regex;
-
-    return match;
+    };
 }
 
 // Creates a match function for a block scoped element from a regex
 function blockRegex (regex) {
-    function match (source, state) {
+    return function match (source, state) {
         if (state.inline) {
             return null;
         } else {
             return regex.exec(source);
         }
-    }
-
-    match.regex = regex;
-
-    return match;
+    };
 }
 
 // Creates a match function from a regex, ignoring block/inline scope
 function anyScopeRegex (regex) {
-    function match (source/*, state*/) {
+    return function match (source/*, state*/) {
         return regex.exec(source);
-    }
-
-    match.regex = regex;
-
-    return match;
+    };
 }
 
 function reactFor (outputFunc) {
