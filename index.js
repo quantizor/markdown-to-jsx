@@ -12,7 +12,6 @@ const getType = Object.prototype.toString;
 
 /** TODO: Drop for React 16? */
 const ATTRIBUTE_TO_JSX_PROP_MAP = {
-    'accept-charset': 'acceptCharset',
     'accesskey': 'accessKey',
     'allowfullscreen': 'allowFullScreen',
     'allowtransparency': 'allowTransparency',
@@ -37,7 +36,6 @@ const ATTRIBUTE_TO_JSX_PROP_MAP = {
     'formtarget': 'formTarget',
     'frameborder': 'frameBorder',
     'hreflang': 'hrefLang',
-    'http-equiv': 'httpEquiv',
     'inputmode': 'inputMode',
     'keyparams': 'keyParams',
     'keytype': 'keyType',
@@ -79,6 +77,12 @@ const HEADING_R = /^ *(#{1,6}) *([^\n]+?) *#* *\n+/;
 const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/;
 const HTML_BLOCK_ELEMENT_R = /^ *<([^ >]*) ?([^>]*)>((?:.|(?!\n *<\1)\n)*?)<\/\1>\n*/;
 const HTML_COMMENT_R = /^<!--.*?-->/;
+
+/**
+ * borrowed from React 15(https://github.com/facebook/react/blob/894d20744cba99383ffd847dbd5b6e0800355a5c/src/renderers/dom/shared/HTMLDOMPropertyConfig.js)
+ */
+const HTML_CUSTOM_ATTR_R = /^(data|aria)-[a-z_][a-z\d_.-]*$/;
+
 const HTML_SELF_CLOSING_ELEMENT_R = /^<([^\s]*)\s?(.*?)>(.*?)/;
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/;
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/;
@@ -207,6 +211,17 @@ function parseTable (capture, parse, state) {
     };
 }
 
+/** TODO: remove for react 16 */
+function normalizeAttributeKey (key) {
+    const hyphenIndex = key.indexOf('-');
+
+    if (hyphenIndex !== -1 && key.match(HTML_CUSTOM_ATTR_R) === null) {
+        key = key.replace(/-([a-z])?/gi, function (_, letter) { return letter.toUpperCase(); });
+    }
+
+    return key;
+}
+
 function attributeValueToJSXPropValue (key, value) {
     if (key === 'style') {
         return value.split(/;\s?/).reduce(function (styles, kvPair) {
@@ -235,10 +250,10 @@ function attrStringToMap (str) {
 
     return attributes ? attributes.reduce(function (map, raw) {
         const tuple = raw.split('=');
-        const key = tuple[0];
-        const value = tuple[1];
+        const key = normalizeAttributeKey(tuple[0]);
+        const value = unquote(tuple[1]);
 
-        map[ATTRIBUTE_TO_JSX_PROP_MAP[key] || key] = attributeValueToJSXPropValue(key, unquote(value));
+        map[ATTRIBUTE_TO_JSX_PROP_MAP[key] || key] = attributeValueToJSXPropValue(key, value);
 
         return map;
     }, {}) : undefined;
