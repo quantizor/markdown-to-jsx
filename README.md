@@ -10,6 +10,7 @@
         - [Override Any HTML Tag's Representation](#override-any-html-tags-representation)
         - [Rendering Arbitrary React Components](#rendering-arbitrary-react-components)
     - [Using The Compiler Directly](#using-the-compiler-directly)
+    - [Changelog](#changelog)
 
 <!-- /TOC -->
 
@@ -175,5 +176,9 @@ It accepts the following arguments:
 ```js
 compiler(markdown: string, options: object?)
 ```
+
+## Changelog
+
+See [Github Releases](https://github.com/probablyup/markdown-to-jsx/releases).
 
 MIT
