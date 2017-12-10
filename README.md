@@ -107,6 +107,16 @@ render((
  */
 ```
 
+If you only wish to provide a component override, a simplified syntax is available:
+
+```js
+{
+    overrides: {
+        h1: MyParagraph,
+    },
+}
+```
+
 Depending on the type of element, there are some props that must be preserved to ensure the markdown is converted as intended. They are:
 
 - `a`: `title`, `href`
