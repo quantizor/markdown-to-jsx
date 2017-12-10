@@ -12,7 +12,6 @@ const getType = Object.prototype.toString;
 
 /** TODO: Drop for React 16? */
 const ATTRIBUTE_TO_JSX_PROP_MAP = {
-    'accept-charset': 'acceptCharset',
     'accesskey': 'accessKey',
     'allowfullscreen': 'allowFullScreen',
     'allowtransparency': 'allowTransparency',
@@ -37,7 +36,6 @@ const ATTRIBUTE_TO_JSX_PROP_MAP = {
     'formtarget': 'formTarget',
     'frameborder': 'frameBorder',
     'hreflang': 'hrefLang',
-    'http-equiv': 'httpEquiv',
     'inputmode': 'inputMode',
     'keyparams': 'keyParams',
     'keytype': 'keyType',
@@ -79,12 +77,19 @@ const HEADING_R = /^ *(#{1,6}) *([^\n]+?) *#* *\n+/;
 const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/;
 const HTML_BLOCK_ELEMENT_R = /^ *<([^ >]*) ?([^>]*)>((?:.|(?!\n *<\1)\n)*?)<\/\1>\n*/;
 const HTML_COMMENT_R = /^<!--.*?-->/;
+
+/**
+ * borrowed from React 15(https://github.com/facebook/react/blob/894d20744cba99383ffd847dbd5b6e0800355a5c/src/renderers/dom/shared/HTMLDOMPropertyConfig.js)
+ */
+const HTML_CUSTOM_ATTR_R = /^(data|aria)-[a-z_][a-z\d_.-]*$/;
+
 const HTML_SELF_CLOSING_ELEMENT_R = /^<([^\s]*)\s?(.*?)>(.*?)/;
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/;
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/;
 const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/;
 const LIST_ITEM_END_R = / *\n+$/;
 const LIST_LOOKBEHIND_R = /^$|\n *$/;
+const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi;
 const NP_TABLE_R = /^ *(\S.*\|.*)\n *([-:]+ *\|[-| :]*)\n((?:.*\|.*(?:\n|$))*)\n*/;
 const NPTABLE_CELLS_TRIM = /\n$/;
 const PARAGRAPH_R = /^((?:[^\n]|\n(?! *\n))+)(?:\n *)+\n/;
@@ -157,22 +162,20 @@ function parseTableAlignCapture (alignCapture) {
         return 'center';
     } else if (TABLE_LEFT_ALIGN.test(alignCapture)) {
         return 'left';
-    } else {
-        return null;
     }
+
+    return null;
 }
 
 function parseTableHeader (capture, parse, state) {
-    let headerText = capture[1]
+    const headerText = capture[1]
         .replace(TABLE_HEADER_TRIM, '')
         .split(TABLE_ROW_SPLIT);
-    return headerText.map(function (text) {
-        return parse(text, state);
-    });
+    return headerText.map(function (text) { return parse(text, state); });
 }
 
 function parseTableAlign (capture/*, parse, state*/) {
-    let alignText = capture[2]
+    const alignText = capture[2]
         .replace(TABLE_ALIGN_TRIM, '')
         .split(TABLE_ROW_SPLIT);
 
@@ -180,13 +183,12 @@ function parseTableAlign (capture/*, parse, state*/) {
 }
 
 function parseTableCells (capture, parse, state) {
-    let rowsText = capture[3]
+    const rowsText = capture[3]
         .replace(NPTABLE_CELLS_TRIM, '')
         .split('\n');
 
     return rowsText.map(function (rowText) {
-        let cellText = rowText.split(TABLE_ROW_SPLIT);
-        return cellText.map(function (text) {
+        return rowText.split(TABLE_ROW_SPLIT).map(function (text) {
             return parse(text, state);
         });
     });
@@ -194,9 +196,9 @@ function parseTableCells (capture, parse, state) {
 
 function parseTable (capture, parse, state) {
     state.inline = true;
-    let header = parseTableHeader(capture, parse, state);
-    let align = parseTableAlign(capture, parse, state);
-    let cells = parseTableCells(capture, parse, state);
+    const header = parseTableHeader(capture, parse, state);
+    const align = parseTableAlign(capture, parse, state);
+    const cells = parseTableCells(capture, parse, state);
     state.inline = false;
 
     return {
@@ -205,6 +207,23 @@ function parseTable (capture, parse, state) {
         header: header,
         type: 'table',
     };
+}
+
+function getTableStyle (node, colIndex) {
+    return node.align[colIndex] == null ? {} : {
+        textAlign: node.align[colIndex],
+    };
+}
+
+/** TODO: remove for react 16 */
+function normalizeAttributeKey (key) {
+    const hyphenIndex = key.indexOf('-');
+
+    if (hyphenIndex !== -1 && key.match(HTML_CUSTOM_ATTR_R) === null) {
+        key = key.replace(CAPTURE_LETTER_AFTER_HYPHEN, function (_, letter) { return letter.toUpperCase(); });
+    }
+
+    return key;
 }
 
 function attributeValueToJSXPropValue (key, value) {
@@ -235,10 +254,10 @@ function attrStringToMap (str) {
 
     return attributes ? attributes.reduce(function (map, raw) {
         const tuple = raw.split('=');
-        const key = tuple[0];
-        const value = tuple[1];
+        const key = normalizeAttributeKey(tuple[0]);
+        const value = unquote(tuple[1]);
 
-        map[ATTRIBUTE_TO_JSX_PROP_MAP[key] || key] = attributeValueToJSXPropValue(key, unquote(value));
+        map[ATTRIBUTE_TO_JSX_PROP_MAP[key] || key] = attributeValueToJSXPropValue(key, value);
 
         return map;
     }, {}) : undefined;
@@ -285,7 +304,7 @@ function parserFor (rules) {
                 && typeof console !== 'undefined'
             ) {
                 console.warn(
-                    'simple-markdown: Invalid order for rule `' + type + '`: ' +
+                    'markdown-to-jsx: Invalid order for rule `' + type + '`: ' +
                     order
                 );
             }
@@ -356,43 +375,31 @@ function parserFor (rules) {
 
 // Creates a match function for an inline scoped element from a regex
 function inlineRegex (regex) {
-    function match (source, state) {
+    return function match (source, state) {
         if (state.inline) {
             return regex.exec(source);
         } else {
             return null;
         }
-    }
-
-    match.regex = regex;
-
-    return match;
+    };
 }
 
 // Creates a match function for a block scoped element from a regex
 function blockRegex (regex) {
-    function match (source, state) {
+    return function match (source, state) {
         if (state.inline) {
             return null;
         } else {
             return regex.exec(source);
         }
-    }
-
-    match.regex = regex;
-
-    return match;
+    };
 }
 
 // Creates a match function from a regex, ignoring block/inline scope
 function anyScopeRegex (regex) {
-    function match (source/*, state*/) {
+    return function match (source/*, state*/) {
         return regex.exec(source);
-    }
-
-    match.regex = regex;
-
-    return match;
+    };
 }
 
 function reactFor (outputFunc) {
@@ -806,12 +813,11 @@ export function compiler (markdown, options) {
             match: inlineRegex(IMAGE_R),
             order: PARSE_PRIORITY_HIGH,
             parse (capture/*, parse, state*/) {
-                let image = {
+                return {
                     alt: capture[1],
                     target: unescapeUrl(capture[2]),
                     title: capture[3],
                 };
-                return image;
             },
             react (node, output, state) {
                 return (
@@ -829,12 +835,11 @@ export function compiler (markdown, options) {
             match: inlineRegex(LINK_R),
             order: PARSE_PRIORITY_LOW,
             parse (capture, parse, state) {
-                let link ={
+                return {
                     content: parse(capture[1], state),
                     target: unescapeUrl(capture[2]),
                     title: capture[3],
                 };
-                return link;
             },
             react (node, output, state) {
                 return (
@@ -914,8 +919,8 @@ export function compiler (markdown, options) {
                 // lists can be inline, because they might be inside another list,
                 // in which case we can parse with inline scope, but need to allow
                 // nested lists inside this inline scope.
-                let isStartOfLine = LIST_LOOKBEHIND_R.test(prevCapture);
-                let isListBlock = state._list || !state.inline;
+                const isStartOfLine = LIST_LOOKBEHIND_R.test(prevCapture);
+                const isListBlock = state._list || !state.inline;
 
                 if (isStartOfLine && isListBlock) {
                     return LIST_R.exec(source);
@@ -925,26 +930,26 @@ export function compiler (markdown, options) {
             },
             order: PARSE_PRIORITY_HIGH,
             parse (capture, parse, state) {
-                let bullet = capture[2];
-                let ordered = bullet.length > 1;
-                let start = ordered ? +bullet : undefined;
-                let items = capture[0]
+                const bullet = capture[2];
+                const ordered = bullet.length > 1;
+                const start = ordered ? +bullet : undefined;
+                const items = capture[0]
                     // recognize the end of a paragraph block inside a list item:
                     // two or more newlines at end end of the item
                     .replace(BLOCK_END_R, '\n')
                     .match(LIST_ITEM_R);
 
                 let lastItemWasAParagraph = false;
-                let itemContent = items.map(function (item, i) {
+                const itemContent = items.map(function (item, i) {
                     // We need to see how far indented this item is:
-                    let space = LIST_ITEM_PREFIX_R.exec(item)[0].length;
+                    const space = LIST_ITEM_PREFIX_R.exec(item)[0].length;
 
                     // And then we construct a regex to "unindent" the subsequent
                     // lines of the items by that amount:
-                    let spaceRegex = new RegExp('^ {1,' + space + '}', 'gm');
+                    const spaceRegex = new RegExp('^ {1,' + space + '}', 'gm');
 
                     // Before processing the item, we need a couple things
-                    let content = item
+                    const content = item
                         // remove indents on trailing lines:
                         .replace(spaceRegex, '')
                         // remove the bullet:
@@ -957,8 +962,8 @@ export function compiler (markdown, options) {
                     //  * as is this
                     //
                     //  * as is this
-                    let isLastItem = (i === items.length - 1);
-                    let containsBlocks = content.indexOf('\n\n') !== -1;
+                    const isLastItem = (i === items.length - 1);
+                    const containsBlocks = content.indexOf('\n\n') !== -1;
 
                     // Any element in a list is a block if it contains multiple
                     // newlines. The last element in the list can also be a block
@@ -966,15 +971,15 @@ export function compiler (markdown, options) {
                     // because non-last items in the list can end with \n\n, but
                     // the last item can't, so we just "inherit" this property
                     // from our previous element).
-                    let thisItemIsAParagraph = containsBlocks ||
+                    const thisItemIsAParagraph = containsBlocks ||
                             (isLastItem && lastItemWasAParagraph);
                     lastItemWasAParagraph = thisItemIsAParagraph;
 
                     // backup our state for restoration afterwards. We're going to
                     // want to set state._list to true, and state.inline depending
                     // on our list's looseness.
-                    let oldStateInline = state.inline;
-                    let oldStateList = state._list;
+                    const oldStateInline = state.inline;
+                    const oldStateList = state._list;
                     state._list = true;
 
                     // Parse inline if we're in a tight list, or block if we're in
@@ -988,11 +993,12 @@ export function compiler (markdown, options) {
                         adjustedContent = content.replace(LIST_ITEM_END_R, '');
                     }
 
-                    let result = parse(adjustedContent, state);
+                    const result = parse(adjustedContent, state);
 
                     // Restore our state before returning
                     state.inline = oldStateInline;
                     state._list = oldStateList;
+
                     return result;
                 });
 
@@ -1101,12 +1107,6 @@ export function compiler (markdown, options) {
             order: PARSE_PRIORITY_HIGH,
             parse: parseTable,
             react (node, output, state) {
-                function getStyle (colIndex) {
-                    return node.align[colIndex] == null ? {} : {
-                        textAlign: node.align[colIndex],
-                    };
-                }
-
                 return (
                     <table key={state.key}>
                         <thead>
@@ -1115,7 +1115,7 @@ export function compiler (markdown, options) {
                                     return (
                                         <th
                                             key={i}
-                                            style={getStyle(i)}
+                                            style={getTableStyle(node, i)}
                                             scope="col"
                                         >
                                             {output(content, state)}
@@ -1131,7 +1131,7 @@ export function compiler (markdown, options) {
                                     <tr key={i}>
                                         {row.map(function generateTableCell (content, c) {
                                             return (
-                                                <td key={c} style={getStyle(c)}>
+                                                <td key={c} style={getTableStyle(node, c)}>
                                                     {output(content, state)}
                                                 </td>
                                             );

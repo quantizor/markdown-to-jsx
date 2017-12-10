@@ -484,6 +484,12 @@ describe('markdown-to-jsx', () => {
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('handles svg', () => {
+                render(compiler(fs.readFileSync(__dirname + '/docs/images/logo.svg', 'utf8')));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('horizontal rules', () => {
