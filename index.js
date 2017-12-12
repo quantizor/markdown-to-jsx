@@ -4,11 +4,8 @@
  * from Khan Academy. Thank you Khan devs for making such an awesome and extensible
  * parsing infra... without it, half of the optimizations here wouldn't be feasible. 🙏🏼
  */
-import PropTypes from 'prop-types';
-import React from 'react';
-import unquote from 'unquote';
-
-const getType = Object.prototype.toString;
+const React = require('react');
+const unquote = require('unquote');
 
 /** TODO: Drop for React 16? */
 const ATTRIBUTE_TO_JSX_PROP_MAP = {
@@ -57,7 +54,7 @@ const ATTRIBUTE_TO_JSX_PROP_MAP = {
 };
 
 /** TODO: Write explainers for each of these */
-const ATTR_EXTRACTOR_R = /([-A-Za-z0-9_]+)(?:\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|([^>\s]+)))?/g;
+const ATTR_EXTRACTOR_R = /([-A-Z0-9_]+)(?:\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|([^>\s]+)))?/gi;
 const AUTOLINK_MAILTO_CHECK_R = /mailto:/i;
 const BLOCK_END_R = /\n{2,}$/;
 const BLOCKQUOTE_R = /^( *>[^\n]+(\n[^\n]+)*\n*)+\n{2,}/;
@@ -106,10 +103,10 @@ const TABLE_ROW_SPLIT = / *\| */;
 const TEXT_BOLD_R = /^[*_]{2}([\s\S]+?)[*_]{2}(?!\*|_)/;
 const TEXT_EMPHASIZED_R = /^[*_]{1}([\s\S]+?)[*_]{1}(?!\*|_)/;
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/;
-const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Za-z\s\u00c0-\uffff]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/;
+const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i;
 const TEXT_STRIKETHROUGHED_R = /^~~(?=\S)([\s\S]*?\S)~~/;
 const TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R = /(^\n+|(\n|\s)+$)/g;
-const UNESCAPE_URL_R = /\\([^0-9A-Za-z\s])/g;
+const UNESCAPE_URL_R = /\\([^0-9A-Z\s])/gi;
 
 // recognize a `*` `-`, `+`, `1.`, `2.`... list bullet
 const LIST_BULLET = '(?:[*+-]|\\d+\\.)';
@@ -171,6 +168,7 @@ function parseTableHeader (capture, parse, state) {
     const headerText = capture[1]
         .replace(TABLE_HEADER_TRIM, '')
         .split(TABLE_ROW_SPLIT);
+
     return headerText.map(function (text) { return parse(text, state); });
 }
 
@@ -263,11 +261,12 @@ function attrStringToMap (str) {
     }, {}) : undefined;
 }
 
-// Turn various crazy whitespace into easy to process things
-function preprocess (source) {
-    return source.replace(CR_NEWLINE_R, '\n')
+function normalizeWhitespace (source) {
+    return source
+        .replace(CR_NEWLINE_R, '\n')
         .replace(FORMFEED_R, '')
-        .replace(TAB_R, '    ');
+        .replace(TAB_R, '    ')
+    ;
 }
 
 /**
@@ -338,14 +337,14 @@ function parserFor (rules) {
         while (source) {
             let i = 0;
             while (i < ruleList.length) {
-                let ruleType = ruleList[i];
-                let rule = rules[ruleType];
-                let capture = rule.match(source, state, prevCapture);
+                const ruleType = ruleList[i];
+                const rule = rules[ruleType];
+                const capture = rule.match(source, state, prevCapture);
 
                 if (capture) {
-                    let currCaptureString = capture[0];
+                    const currCaptureString = capture[0];
                     source = source.substring(currCaptureString.length);
-                    let parsed = rule.parse(capture, nestedParse, state);
+                    const parsed = rule.parse(capture, nestedParse, state);
 
                     // We also let rules override the default type of
                     // their parsed node if they would like to, so that
@@ -369,7 +368,7 @@ function parserFor (rules) {
     }
 
     return function outerParse (source, state) {
-        return nestedParse(preprocess(source), state);
+        return nestedParse(normalizeWhitespace(source), state);
     };
 }
 
@@ -406,37 +405,44 @@ function reactFor (outputFunc) {
     return function nestedReactOutput (ast, state) {
         state = state || {};
         if (Array.isArray(ast)) {
-            let oldKey = state.key;
-            let result = [];
+            const oldKey = state.key;
+            const result = [];
 
             // map nestedOutput over the ast, except group any text
             // nodes together into a single string output.
             let lastWasString = false;
+
             for (let i = 0; i < ast.length; i++) {
                 state.key = i;
-                let nodeOut = nestedReactOutput(ast[i], state);
-                let isString = (typeof nodeOut === 'string');
+
+                const nodeOut = nestedReactOutput(ast[i], state);
+                const isString = typeof nodeOut === 'string';
+
                 if (isString && lastWasString) {
                     result[result.length - 1] += nodeOut;
                 } else {
                     result.push(nodeOut);
                 }
+
                 lastWasString = isString;
             }
 
             state.key = oldKey;
+
             return result;
-        } else {
-            return outputFunc(ast, nestedReactOutput, state);
         }
+
+        return outputFunc(ast, nestedReactOutput, state);
     };
 }
 
 function sanitizeUrl (url) {
     try {
-        let prot = decodeURIComponent(url)
-            .replace(/[^A-Za-z0-9/:]/g, '')
-            .toLowerCase();
+        const prot = decodeURIComponent(url)
+            .replace(/[^A-Z0-9/:]/gi, '')
+            .toLowerCase()
+        ;
+
         if (prot.indexOf('javascript:') === 0) {
             return null;
         }
@@ -458,9 +464,9 @@ function unescapeUrl (rawUrlString) {
 // set to true. Useful for block elements; not generally necessary
 // to be used by inline elements (where state.inline is already true.
 function parseInline (parse, content, state) {
-    let isCurrentlyInline = state.inline || false;
+    const isCurrentlyInline = state.inline || false;
     state.inline = true;
-    let result = parse(content, state);
+    const result = parse(content, state);
     state.inline = isCurrentlyInline;
     return result;
 }
@@ -485,8 +491,8 @@ function ruleOutput (rules) {
     };
 }
 
-function cx (...str) {
-    return str.filter(Boolean).join(' ');
+function cx () {
+    return Array.prototype.slice.call(arguments).filter(Boolean).join(' ');
 }
 
 function get (src, path, fb) {
@@ -557,7 +563,7 @@ export function compiler (markdown, options) {
                              a string`);
         }
 
-        if (getType.call(options.overrides) !== '[object Object]') {
+        if (Object.prototype.toString.call(options.overrides) !== '[object Object]') {
             throw new Error(`markdown-to-jsx: options.overrides (second argument property) must be
                              undefined or an object literal with shape:
                              {
@@ -1288,7 +1294,11 @@ export default function Markdown (props) {
     return compiler(props.children, props.options);
 }
 
-Markdown.propTypes = {
-    children: PropTypes.string.isRequired,
-    options: PropTypes.object,
-};
+if (process.env.NODE_ENV !== 'production') {
+    const PropTypes = require('prop-types');
+
+    Markdown.propTypes = {
+        children: PropTypes.string.isRequired,
+        options: PropTypes.object,
+    };
+}
