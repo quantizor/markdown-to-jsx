@@ -170,6 +170,60 @@ exports[`markdown-to-jsx compiler arbitrary HTML block HTML regression test 1`] 
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML handles nested HTML blocks of the same type (regression) 1`] = `
+
+<table data-reactroot>
+  <tbody>
+    <tr>
+      <td>
+        <!-- react-text: 5 -->
+        Time
+        <!-- /react-text -->
+      </td>
+      <td>
+        <!-- react-text: 7 -->
+        Payment Criteria
+        <!-- /react-text -->
+      </td>
+      <td>
+        <!-- react-text: 9 -->
+        Payment
+        <!-- /react-text -->
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <!-- react-text: 12 -->
+        Office Visit
+        <!-- /react-text -->
+      </td>
+      <td>
+        <ul>
+          <li>
+            <!-- react-text: 16 -->
+            Complete full visit and enroll
+            <!-- /react-text -->
+            <ul>
+              <li>
+                <!-- react-text: 19 -->
+                Enrolling is fun!
+                <!-- /react-text -->
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </td>
+      <td>
+        <!-- react-text: 21 -->
+        $20
+        <!-- /react-text -->
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML handles self-closing html inside parsable html (regression) 1`] = `
 
 <a data-reactroot
