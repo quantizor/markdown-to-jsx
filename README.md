@@ -9,6 +9,7 @@
     - [Usage](#usage)
         - [Override Any HTML Tag's Representation](#override-any-html-tags-representation)
         - [Rendering Arbitrary React Components](#rendering-arbitrary-react-components)
+        - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
     - [Using The Compiler Directly](#using-the-compiler-directly)
     - [Changelog](#changelog)
 
@@ -162,6 +163,17 @@ render((
         }} />
 ), document.body);
 ```
+
+### Getting the smallest possible bundle size
+
+Many development conveniences are placed behind `process.env.NODE_ENV !== "production"` conditionals. When bundling your app, it's a good idea to replace these code snippets such that a minifier (like uglify) can sweep them away and leave a smaller overall bundle.
+
+Here are instructions for some of the popular bundlers:
+
+- [webpack](https://webpack.js.org/guides/production/#specify-the-environment)
+- [browserify plugin](https://github.com/hughsk/envify)
+- [parcel](https://parceljs.org/production.html)
+- [fuse-box](http://fuse-box.org/plugins/replace-plugin#notes)
 
 ## Using The Compiler Directly
 
