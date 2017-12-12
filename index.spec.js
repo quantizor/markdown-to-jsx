@@ -490,6 +490,36 @@ describe('markdown-to-jsx', () => {
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('handles nested HTML blocks of the same type (regression)', () => {
+                render(compiler(`
+<table>
+    <tbody>
+      <tr>
+        <td>Time</td>
+        <td>Payment Criteria</td>
+        <td>Payment</td>
+      </tr>
+      <tr>
+        <td>Office Visit </td>
+        <td>
+          <ul>
+            <li>
+              Complete full visit and enroll
+              <ul>
+                <li>Enrolling is fun!</li>
+              </ul>
+            </li>
+          </ul>
+        </td>
+        <td>$20</td>
+      </tr>
+    </tbody>
+</table>
+                `));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('horizontal rules', () => {

@@ -75,7 +75,7 @@ const FORMFEED_R = /\f/g;
 const GFM_TASK_R = /^\s*?\[(x|\s)\]/;
 const HEADING_R = /^ *(#{1,6}) *([^\n]+?) *#* *\n+/;
 const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/;
-const HTML_BLOCK_ELEMENT_R = /^ *<([^ >]*) ?([^>]*)>((?:.|(?!\n *<\1)\n)*?)<\/\1>\n*/;
+const HTML_BLOCK_ELEMENT_R = /^ *<([^ >/]*) ?([^>]*)>((?:[\s\S]*?(?:<\1[^>]*>[\s\S]*?<\/\1>)*[\s\S]*?)*?)<\/\1>\n*/;
 const HTML_COMMENT_R = /^<!--.*?-->/;
 
 /**
@@ -108,7 +108,7 @@ const TEXT_EMPHASIZED_R = /^[*_]{1}([\s\S]+?)[*_]{1}(?!\*|_)/;
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/;
 const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Za-z\s\u00c0-\uffff]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/;
 const TEXT_STRIKETHROUGHED_R = /^~~(?=\S)([\s\S]*?\S)~~/;
-const TRIM_NEWLINES_R = /(^\n+|\n+$)/g;
+const TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R = /(^\n+|(\n|\s)+$)/g;
 const UNESCAPE_URL_R = /\\([^0-9A-Za-z\s])/g;
 
 // recognize a `*` `-`, `+`, `1.`, `2.`... list bullet
@@ -1237,7 +1237,12 @@ export function compiler (markdown, options) {
     const inline = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/g.test(markdown) === false;
 
     const arr = emitter(
-        parser(inline ? markdown : `${markdown.replace(TRIM_NEWLINES_R, '')}\n\n`, { inline })
+        parser(
+            inline
+                ? markdown
+                : `${markdown.replace(TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R, '')}\n\n`
+            , { inline }
+        )
     );
 
     let jsx;
