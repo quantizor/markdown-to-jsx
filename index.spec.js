@@ -386,7 +386,6 @@ describe('markdown-to-jsx', () => {
                     'foo|bar',
                     '---|---',
                     '1  |2',
-                    '',
                 ].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
@@ -397,7 +396,16 @@ describe('markdown-to-jsx', () => {
                     'foo|bar|baz',
                     '--:|:---:|:--',
                     '1|2|3',
-                    '',
+                ].join('\n')));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('should handle the other syntax for tables', () => {
+                render(compiler([
+                    '| Foo | Bar |',
+                    '| --- | --- |',
+                    '| 1   | 2   |',
                 ].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();

@@ -86,6 +86,43 @@ exports[`markdown-to-jsx compiler GFM tables should handle a table with aligned 
 
 `;
 
+exports[`markdown-to-jsx compiler GFM tables should handle the other syntax for tables 1`] = `
+
+<table data-reactroot>
+  <thead>
+    <tr>
+      <th scope="col">
+        <!-- react-text: 5 -->
+        Foo
+        <!-- /react-text -->
+      </th>
+      <th scope="col">
+        <!-- react-text: 7 -->
+        Bar
+        <!-- /react-text -->
+      </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <!-- react-text: 11 -->
+        1
+        <!-- /react-text -->
+      </td>
+      <td>
+        <!-- react-text: 13 -->
+        2
+        <!-- /react-text -->
+      </td>
+      <td>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+`;
+
 exports[`markdown-to-jsx compiler GFM task lists should handle checked items 1`] = `
 
 <ul data-reactroot>

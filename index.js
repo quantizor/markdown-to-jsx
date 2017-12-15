@@ -87,7 +87,7 @@ const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/;
 const LIST_ITEM_END_R = / *\n+$/;
 const LIST_LOOKBEHIND_R = /^$|\n *$/;
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi;
-const NP_TABLE_R = /^ *(\S.*\|.*)\n *([-:]+ *\|[-| :]*)\n((?:.*\|.*(?:\n|$))*)\n*/;
+const NP_TABLE_R = /^ *\|? *(.*\|.*)\n *\|? *([-:]+ *\|[-| :]*)\n *\|?((?:.*\|.*(?:\n|$))*)\n*/;
 const NPTABLE_CELLS_TRIM = /\n$/;
 const PARAGRAPH_R = /^((?:[^\n]|\n(?! *\n))+)(?:\n *)+\n/;
 const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s*(\S+)\s*("([^"]*)")?/;
@@ -1238,7 +1238,7 @@ export function compiler (markdown, options) {
 
     /**
      * should not contain any block-level markdown like newlines, lists, headings,
-     * thematic breaks, blockquotes, etc
+     * thematic breaks, blockquotes, tables, etc
      */
     const inline = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/g.test(markdown) === false;
 
