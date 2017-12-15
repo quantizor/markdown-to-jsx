@@ -1,15 +1,16 @@
-# Markdown to JSX Compiler
+# Markdown Component for React, Preact + Friends
 
 [![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) ![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg) [![codecov](https://codecov.io/gh/probablyup/markdown-to-jsx/branch/master/graph/badge.svg)](https://codecov.io/gh/probablyup/markdown-to-jsx) ![downloads](https://img.shields.io/npm/dm/markdown-to-jsx.svg)
 
 <!-- TOC -->
 
-- [Markdown to JSX Compiler](#markdown-to-jsx-compiler)
+- [Markdown Component for React, Preact + Friends](#markdown-component-for-react-preact--friends)
     - [Installation](#installation)
     - [Usage](#usage)
         - [Override Any HTML Tag's Representation](#override-any-html-tags-representation)
         - [Rendering Arbitrary React Components](#rendering-arbitrary-react-components)
         - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
+        - [Usage with Preact](#usage-with-preact)
     - [Using The Compiler Directly](#using-the-compiler-directly)
     - [Changelog](#changelog)
 
@@ -174,6 +175,10 @@ Here are instructions for some of the popular bundlers:
 - [browserify plugin](https://github.com/hughsk/envify)
 - [parcel](https://parceljs.org/production.html)
 - [fuse-box](http://fuse-box.org/plugins/replace-plugin#notes)
+
+### Usage with Preact
+
+Everything will work just fine! Simply [Alias `react` to `preact-compat`](https://github.com/developit/preact-compat#usage-with-webpack) like you probably already are doing.
 
 ## Using The Compiler Directly
 
