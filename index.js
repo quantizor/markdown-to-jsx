@@ -1253,7 +1253,7 @@ export function compiler (markdown, options) {
 
     let jsx;
     if (arr.length > 1) {
-        jsx = inline ? <p>{arr}</p> : <div>{arr}</div>;
+        jsx = inline ? <span>{arr}</span> : <div>{arr}</div>;
     } else if (arr.length === 1) {
         jsx = arr[0];
 

@@ -401,7 +401,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within neste
 
 exports[`markdown-to-jsx compiler arbitrary HTML renders inline <code> tags 1`] = `
 
-<p data-reactroot>
+<span data-reactroot>
   <!-- react-text: 2 -->
   Text and
   <!-- /react-text -->
@@ -412,7 +412,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML renders inline <code> tags 1`] 
       <!-- /react-text -->
     </strong>
   </code>
-</p>
+</span>
 
 `;
 
@@ -3509,9 +3509,9 @@ exports[`markdown-to-jsx compiler wraps multiple block element returns in a div 
 
 `;
 
-exports[`markdown-to-jsx compiler wraps solely inline elements in a paragraph, rather than a div 1`] = `
+exports[`markdown-to-jsx compiler wraps solely inline elements in a span, rather than a div 1`] = `
 
-<p data-reactroot>
+<span data-reactroot>
   <!-- react-text: 2 -->
   Hello.
   <!-- /react-text -->
@@ -3523,7 +3523,7 @@ exports[`markdown-to-jsx compiler wraps solely inline elements in a paragraph, r
   <!-- react-text: 5 -->
   day isn't it?
   <!-- /react-text -->
-</p>
+</span>
 
 `;
 
