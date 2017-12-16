@@ -34,7 +34,7 @@ describe('markdown-to-jsx', () => {
             expect(root.innerHTML).toMatchSnapshot();
         });
 
-        it('wraps solely inline elements in a paragraph, rather than a div', () => {
+        it('wraps solely inline elements in a span, rather than a div', () => {
             render(compiler('Hello. _Beautiful_ day isn\'t it?'));
 
             expect(root.innerHTML).toMatchSnapshot();
