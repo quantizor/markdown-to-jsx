@@ -617,6 +617,22 @@ describe('markdown-to-jsx', () => {
             });
         });
 
+        describe('options.forceBlock', () => {
+            it('treats given markdown as block-context', () => {
+                render(compiler('Hello. _Beautiful_ day isn\'t it?', { forceBlock: true }));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+        });
+
+        describe('options.forceInline', () => {
+            it('treats given markdown as inline-context, passing through any block-level markdown syntax', () => {
+                render(compiler('# You got it babe!', { forceInline: true }));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+        });
+
         describe('overrides', () => {
             it('should substitute the appropriate JSX tag if given a component', () => {
                 class FakeParagraph extends React.Component {

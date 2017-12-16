@@ -3443,6 +3443,32 @@ exports[`markdown-to-jsx compiler misc block level elements should handle blockq
 
 `;
 
+exports[`markdown-to-jsx compiler options.forceBlock treats given markdown as block-context 1`] = `
+
+<p data-reactroot>
+  <!-- react-text: 2 -->
+  Hello.
+  <!-- /react-text -->
+  <em>
+    <!-- react-text: 4 -->
+    Beautiful
+    <!-- /react-text -->
+  </em>
+  <!-- react-text: 5 -->
+  day isn't it?
+  <!-- /react-text -->
+</p>
+
+`;
+
+exports[`markdown-to-jsx compiler options.forceInline treats given markdown as inline-context, passing through any block-level markdown syntax 1`] = `
+
+<span data-reactroot>
+  # You got it babe!
+</span>
+
+`;
+
 exports[`markdown-to-jsx compiler overrides should add props to pre & code tags if supplied 1`] = `
 
 <pre data-reactroot

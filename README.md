@@ -7,6 +7,7 @@
 - [Markdown Component for React, Preact + Friends](#markdown-component-for-react-preact--friends)
     - [Installation](#installation)
     - [Usage](#usage)
+        - [Parsing Options](#parsing-options)
         - [Override Any HTML Tag's Representation](#override-any-html-tags-representation)
         - [Rendering Arbitrary React Components](#rendering-arbitrary-react-components)
         - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
@@ -71,6 +72,52 @@ render((
 ```
 
 \* __NOTE: JSX does not natively preserve newlines in multiline text. In general, writing markdown directly in JSX is discouraged and it's a better idea to keep your content in separate .md files and require them, perhaps using webpack's [raw-loader](https://github.com/webpack-contrib/raw-loader).__
+
+### Parsing Options
+
+By default, the compiler will try to make an intelligent guess about the content passed and wrap it in a `<div>`, `<p>`, or `<span>` as needed to satisfy the "inline"-ness of the markdown. For instance, this string would be considered "inline":
+
+```md
+Hello. _Beautiful_ day isn't it?
+```
+
+But this string would be considered "block" due to the existence of a header tag, which is a block-level HTML element:
+
+```md
+# Whaddup?
+```
+
+However, if you really want all input strings to be treated as "block" layout, simply pass `options.forceBlock = true` like this:
+
+```jsx
+<Markdown options={{ forceBlock: true }}>
+    Hello there old chap!
+</Markdown>
+
+// or
+
+compiler('Hello there old chap!', { forceBlock: true });
+
+// renders
+
+<p>Hello there old chap!</p>
+```
+
+The inverse is also available by passing `options.forceInline = true`:
+
+```jsx
+<Markdown options={{ forceInline: true }}>
+    # You got it babe!
+</Markdown>
+
+// or
+
+compiler('# You got it babe!', { forceInline: true });
+
+// renders
+
+<span># You got it babe!</span>
+```
 
 ### Override Any HTML Tag's Representation
 

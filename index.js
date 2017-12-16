@@ -1236,11 +1236,17 @@ export function compiler (markdown, options) {
     const parser = parserFor(rules);
     const emitter = reactFor(ruleOutput(rules));
 
-    /**
-     * should not contain any block-level markdown like newlines, lists, headings,
-     * thematic breaks, blockquotes, tables, etc
-     */
-    const inline = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/g.test(markdown) === false;
+    let inline = false;
+
+    if (options.forceInline) {
+        inline = true;
+    } else if (!options.forceBlock) {
+        /**
+        * should not contain any block-level markdown like newlines, lists, headings,
+        * thematic breaks, blockquotes, tables, etc
+        */
+        inline = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/g.test(markdown) === false;
+    }
 
     const arr = emitter(
         parser(
