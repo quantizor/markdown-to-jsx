@@ -3547,6 +3547,13 @@ exports[`markdown-to-jsx component accepts options 1`] = `
 
 `;
 
+exports[`markdown-to-jsx component handles a no-children scenario 1`] = `
+
+<span data-reactroot>
+</span>
+
+`;
+
 exports[`markdown-to-jsx component merges className overrides, rather than overwriting 1`] = `
 
 <pre data-reactroot>

@@ -1261,6 +1261,9 @@ export function compiler (markdown, options) {
         if (typeof jsx === 'string') {
             jsx = <span>{jsx}</span>;
         }
+    } else {
+        // TODO: return null for React 16
+        jsx = <span />;
     }
 
     if (footnotes.length) {
