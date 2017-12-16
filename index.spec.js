@@ -758,6 +758,12 @@ describe('markdown-to-jsx', () => {
             expect(root.innerHTML).toMatchSnapshot();
         });
 
+        it('handles a no-children scenario', () => {
+            render(<Markdown>{''}</Markdown>);
+
+            expect(root.innerHTML).toMatchSnapshot();
+        });
+
         it('accepts options', () => {
             class FakeParagraph extends React.Component {
                 render () {
