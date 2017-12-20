@@ -528,6 +528,26 @@ describe('markdown-to-jsx', () => {
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('regression test for #136', () => {
+                render(compiler(`
+$25
+  <br>
+  <br>
+  <br>$50
+  <br>
+  <br>
+  <br>$50
+  <br>
+  <br>
+  <br>$50
+  <br>
+  <br>
+  <br>
+                `));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('horizontal rules', () => {

@@ -72,7 +72,31 @@ const FORMFEED_R = /\f/g;
 const GFM_TASK_R = /^\s*?\[(x|\s)\]/;
 const HEADING_R = /^ *(#{1,6}) *([^\n]+?) *#* *\n+/;
 const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/;
-const HTML_BLOCK_ELEMENT_R = /^ *<([^ >/]*) ?([^>]*)>((?:[\s\S]*?(?:<\1[^>]*>[\s\S]*?<\/\1>)*[\s\S]*?)*?)<\/\1>\n*/;
+
+/**
+ * Explanation:
+ *
+ * 1. Look for a starting tag, preceeded by any amount of spaces
+ *    ^ *<
+ *
+ * 2. Capture the tag name (capture 1)
+ *    ([^ >/]+)
+ *
+ * 3. Ignore a space after the starting tag and capture the attribute portion of the tag (capture 2)
+ *     ?([^>]*)\/{0}>
+ *
+ * 4. Ensure a matching closing tag is present in the rest of the input string
+ *    (?=[\s\S]*<\/\1>)
+ *
+ * 5. Capture everything until the matching closing tag -- this might include additional pairs
+ *    of the same tag type found in step 2 (capture 3)
+ *    ((?:[\s\S]*?(?:<\1[^>]*>[\s\S]*?<\/\1>)*[\s\S]*?)*?)<\/\1>
+ *
+ * 6. Capture excess newlines afterward
+ *    \n*
+ */
+const HTML_BLOCK_ELEMENT_R = /^ *<([^ >/]+) ?([^>]*)\/{0}>(?=[\s\S]*<\/\1>)((?:[\s\S]*?(?:<\1[^>]*>[\s\S]*?<\/\1>)*[\s\S]*?)*?)<\/\1>\n*/;
+
 const HTML_COMMENT_R = /^<!--.*?-->/;
 
 /**
@@ -80,7 +104,7 @@ const HTML_COMMENT_R = /^<!--.*?-->/;
  */
 const HTML_CUSTOM_ATTR_R = /^(data|aria)-[a-z_][a-z\d_.-]*$/;
 
-const HTML_SELF_CLOSING_ELEMENT_R = /^<([^\s]*)\s?(.*?)>(.*?)/;
+const HTML_SELF_CLOSING_ELEMENT_R = /^ *<([^/\s]+) ?(.*?)>(?!<\/\1>)\s*/;
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/;
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/;
 const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/;
@@ -803,7 +827,7 @@ export function compiler (markdown, options) {
             /**
              * find the first matching end tag and process the interior
              */
-            match: inlineRegex(HTML_SELF_CLOSING_ELEMENT_R),
+            match: anyScopeRegex(HTML_SELF_CLOSING_ELEMENT_R),
             order: PARSE_PRIORITY_HIGH,
             parse (capture/*, parse, state*/) {
                 return {
@@ -1232,6 +1256,15 @@ export function compiler (markdown, options) {
             },
         },
     };
+
+    // Object.keys(rules).forEach(key => {
+    //     let parse = rules[key].parse;
+
+    //     rules[key].parse = (...args) => {
+    //         console.log(key, args[0]);
+    //         return parse(...args);
+    //     };
+    // });
 
     const parser = parserFor(rules);
     const emitter = reactFor(ruleOutput(rules));

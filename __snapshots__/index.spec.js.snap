@@ -399,6 +399,37 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within neste
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML regression test for #136 1`] = `
+
+<p data-reactroot>
+  <!-- react-text: 2 -->
+  $25
+  <!-- /react-text -->
+  <br>
+  <br>
+  <br>
+  <!-- react-text: 6 -->
+  $50
+  <!-- /react-text -->
+  <br>
+  <br>
+  <br>
+  <!-- react-text: 10 -->
+  $50
+  <!-- /react-text -->
+  <br>
+  <br>
+  <br>
+  <!-- react-text: 14 -->
+  $50
+  <!-- /react-text -->
+  <br>
+  <br>
+  <br>
+</p>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML renders inline <code> tags 1`] = `
 
 <span data-reactroot>
