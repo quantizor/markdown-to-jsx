@@ -116,6 +116,86 @@ exports[`markdown-to-jsx compiler GFM tables should handle the other syntax for 
         <!-- /react-text -->
       </td>
     </tr>
+    <tr>
+      <td>
+        <!-- react-text: 16 -->
+        3
+        <!-- /react-text -->
+      </td>
+      <td>
+        <!-- react-text: 18 -->
+        4
+        <!-- /react-text -->
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+`;
+
+exports[`markdown-to-jsx compiler GFM tables should handle the other syntax for tables with alignment 1`] = `
+
+<table data-reactroot>
+  <thead>
+    <tr>
+      <th scope="col"
+          style="text-align: right;"
+      >
+        <!-- react-text: 5 -->
+        Foo
+        <!-- /react-text -->
+      </th>
+      <th scope="col"
+          style="text-align: center;"
+      >
+        <!-- react-text: 7 -->
+        Bar
+        <!-- /react-text -->
+      </th>
+      <th scope="col"
+          style="text-align: left;"
+      >
+        <!-- react-text: 9 -->
+        Baz
+        <!-- /react-text -->
+      </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: right;">
+        <!-- react-text: 13 -->
+        1
+        <!-- /react-text -->
+      </td>
+      <td style="text-align: center;">
+        <!-- react-text: 15 -->
+        2
+        <!-- /react-text -->
+      </td>
+      <td style="text-align: left;">
+        <!-- react-text: 17 -->
+        3
+        <!-- /react-text -->
+      </td>
+    </tr>
+    <tr>
+      <td style="text-align: right;">
+        <!-- react-text: 20 -->
+        4
+        <!-- /react-text -->
+      </td>
+      <td style="text-align: center;">
+        <!-- react-text: 22 -->
+        5
+        <!-- /react-text -->
+      </td>
+      <td style="text-align: left;">
+        <!-- react-text: 24 -->
+        6
+        <!-- /react-text -->
+      </td>
+    </tr>
   </tbody>
 </table>
 

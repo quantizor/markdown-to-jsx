@@ -406,6 +406,18 @@ describe('markdown-to-jsx', () => {
                     '| Foo | Bar |',
                     '| --- | --- |',
                     '| 1   | 2   |',
+                    '| 3   | 4   |',
+                ].join('\n')));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('should handle the other syntax for tables with alignment', () => {
+                render(compiler([
+                    '| Foo | Bar | Baz |',
+                    '| --: | :-: | :-- |',
+                    '| 1   | 2   | 3   |',
+                    '| 4   | 5   | 6   |',
                 ].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
