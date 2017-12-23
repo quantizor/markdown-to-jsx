@@ -111,16 +111,14 @@ const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/;
 const LIST_ITEM_END_R = / *\n+$/;
 const LIST_LOOKBEHIND_R = /^$|\n *$/;
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi;
-const NP_TABLE_R = /^ *\|? *(.*\|.*)\n *\|? *([-:]+ *\|[-| :]*)\n *\|?((?:.*\|.*(?:\n|$))*)\n*/;
-const NPTABLE_CELLS_TRIM = /\n$/;
+const NP_TABLE_R = /^(.*\|?.*)\n *(\|? *[-:]+ *\|[-| :]*)\n((?: *\|?.*(?:\| *|\n|$))*)\n*/;
 const PARAGRAPH_R = /^((?:[^\n]|\n(?! *\n))+)(?:\n *)+\n/;
 const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s*(\S+)\s*("([^"]*)")?/;
 const REFERENCE_IMAGE_R = /^!\[([^\]]*)\] ?\[([^\]]*)\]/;
 const REFERENCE_LINK_R = /^\[([^\]]*)\] ?\[([^\]]*)\]/;
 const TAB_R = /\t/g;
-const TABLE_ALIGN_TRIM = /^ *|\| *$/g;
+const TABLE_TRIM_PIPES = /(^ *\||\| *$)/g;
 const TABLE_CENTER_ALIGN = /^ *:-+: *$/;
-const TABLE_HEADER_TRIM = /^ *| *\| *$/g;
 const TABLE_LEFT_ALIGN = /^ *:-+ *$/;
 const TABLE_RIGHT_ALIGN = /^ *-+: *$/;
 const TABLE_ROW_SPLIT = / *\| */;
@@ -190,7 +188,8 @@ function parseTableAlignCapture (alignCapture) {
 
 function parseTableHeader (capture, parse, state) {
     const headerText = capture[1]
-        .replace(TABLE_HEADER_TRIM, '')
+        .replace(TABLE_TRIM_PIPES, '')
+        .trim()
         .split(TABLE_ROW_SPLIT);
 
     return headerText.map(function (text) { return parse(text, state); });
@@ -198,7 +197,8 @@ function parseTableHeader (capture, parse, state) {
 
 function parseTableAlign (capture/*, parse, state*/) {
     const alignText = capture[2]
-        .replace(TABLE_ALIGN_TRIM, '')
+        .replace(TABLE_TRIM_PIPES, '')
+        .trim()
         .split(TABLE_ROW_SPLIT);
 
     return alignText.map(parseTableAlignCapture);
@@ -206,12 +206,13 @@ function parseTableAlign (capture/*, parse, state*/) {
 
 function parseTableCells (capture, parse, state) {
     const rowsText = capture[3]
-        .replace(NPTABLE_CELLS_TRIM, '')
+        .replace(TABLE_TRIM_PIPES, '')
+        .trim()
         .split('\n');
 
     return rowsText.map(function (rowText) {
-        return rowText.split(TABLE_ROW_SPLIT).map(function (text) {
-            return parse(text, state);
+        return rowText.replace(TABLE_TRIM_PIPES, '').split(TABLE_ROW_SPLIT).map(function (text) {
+            return parse(text.trim(), state);
         });
     });
 }

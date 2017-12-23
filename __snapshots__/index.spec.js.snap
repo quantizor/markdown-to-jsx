@@ -115,8 +115,6 @@ exports[`markdown-to-jsx compiler GFM tables should handle the other syntax for 
         2
         <!-- /react-text -->
       </td>
-      <td>
-      </td>
     </tr>
   </tbody>
 </table>
