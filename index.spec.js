@@ -422,6 +422,19 @@ describe('markdown-to-jsx', () => {
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('should handle other content after a table', () => {
+                render(compiler([
+                    '| Foo | Bar | Baz |',
+                    '| --: | :-: | :-- |',
+                    '| 1   | 2   | 3   |',
+                    '| 4   | 5   | 6   |',
+                    '',
+                    'Foo',
+                ].join('\n')));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('arbitrary HTML', () => {
