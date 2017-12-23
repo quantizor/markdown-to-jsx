@@ -15,22 +15,22 @@ class TryItLive extends React.PureComponent {
                 <Header>
                     <a
                         target='_blank'
-                        href='https://github.com/yaycmyk/markdown-to-jsx'
+                        href='https://github.com/probablyup/markdown-to-jsx'
                         title='Check out the markdown-to-jsx source code'
                         rel='noopener noreferrer'>
                         <img src='./images/logo.svg' alt='markdown-to-jsx logo' />
                     </a>
 
                     <Description>
-                        <code>markdown-to-jsx</code> is a no-fuss compiler that takes Github-flavored Markdown (GFM)<br /> and forms it into renderable React content without the need for <code>dangerouslySetInnerHTML</code>.
+                        <h1><code>markdown-to-jsx</code> is an easy-to-use markdown component that takes Github-flavored Markdown (GFM) and makes native JSX without dangerous hacks.&nbsp;</h1><h2>It&apos;s lightweight, customizable, and happily supports React-like libraries.</h2>
                     </Description>
 
                     <LearnMore>
-                        See the <a target='_blank' href='https://github.com/yaycmyk/markdown-to-jsx/blob/master/README.md' rel='noopener noreferrer'>project README</a> for installation &amp; usage.
+                        See the <a target='_blank' href='https://github.com/probablyup/markdown-to-jsx/blob/master/README.md' rel='noopener noreferrer'>project README</a> for detailed installation &amp; usage instructions.
                     </LearnMore>
                 </Header>
 
-                <Content>
+                <Demo>
                     <Textarea
                         onInput={this.updateState}
                         value={this.state.markdown} />
@@ -40,7 +40,7 @@ class TryItLive extends React.PureComponent {
                             {this.state.markdown}
                         </Markdown>
                     </Compiled>
-                </Content>
+                </Demo>
             </main>
         );
     }
@@ -72,7 +72,7 @@ injectGlobal`
     #root,
     main {
         margin: 0;
-        min-height: 600px;
+        min-height: 100vh;
     }
 
     html {
@@ -90,7 +90,7 @@ injectGlobal`
     h4,
     h5,
     h6 {
-        margin: 0 0 1em;
+        margin: 0 0 1rem;
     }
 
     h1 {
@@ -129,8 +129,6 @@ injectGlobal`
 
     code {
         background: ${rgba(COLOR_ACCENT, 0.05)};
-        border: 1px solid ${rgba(COLOR_ACCENT, 0.1)};
-        border-radius: 2px;
         display: inline-block;
         padding: 0 2px;
     }
@@ -145,8 +143,12 @@ injectGlobal`
     main {
         display: flex;
         flex-direction: column;
-        padding: 0 3em;
-        margin: 3em 0 0;
+        padding: 3rem 1.5rem 0;
+        margin: 0;
+
+        @media all and (min-width: 1024px) {
+            padding: 3rem;
+        }
     }
 `;
 
@@ -162,10 +164,30 @@ const Header = styled.header`
 
 const Description = styled.p`
     font-size: 18px;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 60vw;
+
+    h1,
+    h2 {
+        font: inherit;
+    }
+
+    @media all and (max-width: 500px) {
+        max-width: none;
+    }
+
+    @media all and (max-width: 1023px) {
+        h1,
+        h2 {
+            display: block;
+            margin-bottom: 1.5rem;
+        }
+    }
 `;
 
 const LearnMore = styled.p`
-    color: ${lighten(0.3, COLOR_BODY)};
+    color: ${lighten(0.2, COLOR_BODY)};
 `;
 
 const sharedCss = css`
@@ -173,28 +195,44 @@ const sharedCss = css`
     padding: 1em;
 `;
 
-const Content = styled.section`
+const Demo = styled.section`
     display: flex;
     flex-grow: 1;
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+
+    @media all and (min-width: 1024px) {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    @media all and (max-width: 500px) {
+        flex-direction: column;
+    }
 `;
 
 const Textarea = styled.textarea`
     ${sharedCss};
-    border-color: ${COLOR_ACCENT};
-    border-radius: 2px;
+    background: ${rgba(COLOR_ACCENT, .05)};
+    border: 0;
     position: sticky;
     top: 0;
     font-family: 'Source Code Pro', Consolas, Monaco, monospace;
     font-size: inherit;
-    margin-right: 1em;
     max-height: 100vh;
+
+    @media all and (max-width: 500px) {
+        height: 300px;
+        position: relative;
+    }
 `;
 
 const Compiled = styled.div`
     ${sharedCss};
+    padding-left: 2rem;
+    padding-right: 1rem;
     overflow: auto;
     overflow-x: hidden;
-    margin-left: 1em;
 `;
 
 const ShinyButton = styled.button`
