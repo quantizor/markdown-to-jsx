@@ -273,8 +273,8 @@ function attributeValueToJSXPropValue (key, value) {
 
         }, {});
     } else if (isInterpolation(value)) {
-        // at this time, only string interpolations are supported
-        return unquote(value.slice(1, value.length - 1));
+        // return as a string and let the consumer decide what to do with it
+        return value.slice(1, value.length - 1);
     }
 
     return value;
