@@ -104,7 +104,7 @@ const HTML_COMMENT_R = /^<!--.*?-->/;
  */
 const HTML_CUSTOM_ATTR_R = /^(data|aria)-[a-z_][a-z\d_.-]*$/;
 
-const HTML_SELF_CLOSING_ELEMENT_R = /^ *<([^/\s]+) ?(.*?)>(?!<\/\1>)\s*/;
+const HTML_SELF_CLOSING_ELEMENT_R = /^ *<([\w:]+)\s*([\s\S]*?)>(?!<\/\1>)\s*/;
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/;
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/;
 const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/;

@@ -306,6 +306,15 @@ exports[`markdown-to-jsx compiler GFM task lists should handle unchecked items 1
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML #140 self-closing HTML with indentation 1`] = `
+
+<div data-reactroot
+     class="datepicker"
+>
+</div>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML block HTML regression test 1`] = `
 
 <ul data-reactroot

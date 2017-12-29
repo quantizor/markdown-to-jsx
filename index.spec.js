@@ -573,6 +573,19 @@ $25
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('#140 self-closing HTML with indentation', () => {
+                function DatePicker () { return <div className="datepicker" />; }
+
+                render(compiler([
+                    '<DatePicker ',
+                    '    biasTowardDateTime="2017-12-05T07:39:36.091Z"',
+                    '    timezone="UTC+5"',
+                    '/>',
+                ].join('\n'), { overrides: { DatePicker }}));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('horizontal rules', () => {
