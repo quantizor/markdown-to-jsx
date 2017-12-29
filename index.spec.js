@@ -601,6 +601,29 @@ $25
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('handles jsx inside jsx interpolations', () => {
+                function InterpolationTest ({ component, component2, component3, component4 }) {
+                    return (
+                        <div>{component} and {component2} and {component3} and {component4}</div>
+                    );
+                }
+
+                function Inner ({ children, ...props }) {
+                    return <div {...props} className="inner">{children}</div>;
+                }
+
+                render(compiler([
+                    '<InterpolationTest ',
+                    '    component={<Inner children="bah" />}',
+                    '    component2={<Inner>blah</Inner>}',
+                    '    component3={<Inner disabled />}',
+                    '    component4={<Inner disabled={false} />}',
+                    '/>',
+                ].join('\n'), { overrides: { Inner, InterpolationTest }}));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('horizontal rules', () => {
