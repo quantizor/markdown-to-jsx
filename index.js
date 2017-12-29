@@ -54,7 +54,7 @@ const ATTRIBUTE_TO_JSX_PROP_MAP = {
 };
 
 /** TODO: Write explainers for each of these */
-const ATTR_EXTRACTOR_R = /([-A-Z0-9_]+)(?:\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|([^>\s]+)))?/gi;
+const ATTR_EXTRACTOR_R = /([-A-Z0-9_:]+)(?:\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|(?:\{((?:\\.|{[^}]*?}|[^}])*)\})))?/gi;
 const AUTOLINK_MAILTO_CHECK_R = /mailto:/i;
 const BLOCK_END_R = /\n{2,}$/;
 const BLOCKQUOTE_R = /^( *>[^\n]+(\n[^\n]+)*\n*)+\n{2,}/;
@@ -104,7 +104,7 @@ const HTML_COMMENT_R = /^<!--.*?-->/;
  */
 const HTML_CUSTOM_ATTR_R = /^(data|aria)-[a-z_][a-z\d_.-]*$/;
 
-const HTML_SELF_CLOSING_ELEMENT_R = /^ *<([\w:]+)\s*([\s\S]*?)>(?!<\/\1>)\s*/;
+const HTML_SELF_CLOSING_ELEMENT_R = /^ *<([\w:]+)\s*((?:<.*?>|[^>])*)>(?!<\/\1>)\s*/;
 const INTERPOLATION_R = /^\{.*\}$/;
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/;
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/;
@@ -272,26 +272,19 @@ function attributeValueToJSXPropValue (key, value) {
             return styles;
 
         }, {});
+
     } else if (isInterpolation(value)) {
         // return as a string and let the consumer decide what to do with it
-        return value.slice(1, value.length - 1);
+        value = value.slice(1, value.length - 1);
+    }
+
+    if (value === 'true') {
+        return true;
+    } else if (value === 'false') {
+        return false;
     }
 
     return value;
-}
-
-function attrStringToMap (str) {
-    const attributes = str.match(ATTR_EXTRACTOR_R);
-
-    return attributes ? attributes.reduce(function (map, raw) {
-        const tuple = raw.split('=');
-        const key = normalizeAttributeKey(tuple[0]);
-        const value = unquote(tuple[1]);
-
-        map[ATTRIBUTE_TO_JSX_PROP_MAP[key] || key] = attributeValueToJSXPropValue(key, value);
-
-        return map;
-    }, {}) : undefined;
 }
 
 function normalizeWhitespace (source) {
@@ -587,6 +580,75 @@ export function compiler (markdown, options) {
             ...props,
             className: cx(props && props.className, overrideProps.className) || undefined,
         }, ...children);
+    }
+
+    function compile (input) {
+        let inline = false;
+
+        if (options.forceInline) {
+            inline = true;
+        } else if (!options.forceBlock) {
+            /**
+            * should not contain any block-level markdown like newlines, lists, headings,
+            * thematic breaks, blockquotes, tables, etc
+            */
+            inline = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/g.test(input) === false;
+        }
+
+        const arr = emitter(
+            parser(
+                inline
+                    ? input
+                    : `${input.replace(TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R, '')}\n\n`
+                , { inline }
+            )
+        );
+
+        let jsx;
+        if (arr.length > 1) {
+            jsx = inline ? <span>{arr}</span> : <div>{arr}</div>;
+        } else if (arr.length === 1) {
+            jsx = arr[0];
+
+            // TODO: remove this for React 16
+            if (typeof jsx === 'string') {
+                jsx = <span>{jsx}</span>;
+            }
+        } else {
+            // TODO: return null for React 16
+            jsx = <span />;
+        }
+
+        return jsx;
+    }
+
+    function attrStringToMap (str) {
+        const attributes = str.match(ATTR_EXTRACTOR_R);
+
+        return attributes ? attributes.reduce(function (map, raw, index) {
+            const delimiterIdx = raw.indexOf('=');
+
+            if (delimiterIdx !== -1) {
+                const key = normalizeAttributeKey(raw.slice(0, delimiterIdx));
+                const value = unquote(raw.slice(delimiterIdx + 1));
+
+                const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key;
+                const normalizedValue = map[mappedKey] = attributeValueToJSXPropValue(key, value);
+
+                if (
+                    HTML_BLOCK_ELEMENT_R.test(normalizedValue)
+                    || HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue)
+                ) {
+                    map[mappedKey] = React.cloneElement(
+                        compile(normalizedValue.trim()), { key: index }
+                    );
+                }
+            } else {
+                map[ATTRIBUTE_TO_JSX_PROP_MAP[raw] || raw] = true;
+            }
+
+            return map;
+        }, {}) : undefined;
     }
 
     /* istanbul ignore next */
@@ -1278,41 +1340,7 @@ export function compiler (markdown, options) {
     const parser = parserFor(rules);
     const emitter = reactFor(ruleOutput(rules));
 
-    let inline = false;
-
-    if (options.forceInline) {
-        inline = true;
-    } else if (!options.forceBlock) {
-        /**
-        * should not contain any block-level markdown like newlines, lists, headings,
-        * thematic breaks, blockquotes, tables, etc
-        */
-        inline = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/g.test(markdown) === false;
-    }
-
-    const arr = emitter(
-        parser(
-            inline
-                ? markdown
-                : `${markdown.replace(TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R, '')}\n\n`
-            , { inline }
-        )
-    );
-
-    let jsx;
-    if (arr.length > 1) {
-        jsx = inline ? <span>{arr}</span> : <div>{arr}</div>;
-    } else if (arr.length === 1) {
-        jsx = arr[0];
-
-        // TODO: remove this for React 16
-        if (typeof jsx === 'string') {
-            jsx = <span>{jsx}</span>;
-        }
-    } else {
-        // TODO: return null for React 16
-        jsx = <span />;
-    }
+    const jsx = compile(markdown);
 
     if (footnotes.length) {
         jsx.props.children.push(

@@ -385,6 +385,36 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles jsx attribute interpola
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML handles jsx inside jsx interpolations 1`] = `
+
+<div data-reactroot>
+  <div class="inner">
+    bah
+  </div>
+  <!-- react-text: 3 -->
+  and
+  <!-- /react-text -->
+  <div class="inner">
+    <!-- react-text: 5 -->
+    blah
+    <!-- /react-text -->
+  </div>
+  <!-- react-text: 6 -->
+  and
+  <!-- /react-text -->
+  <div disabled
+       class="inner"
+  >
+  </div>
+  <!-- react-text: 8 -->
+  and
+  <!-- /react-text -->
+  <div class="inner">
+  </div>
+</div>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML handles nested HTML blocks of the same type (regression) 1`] = `
 
 <table data-reactroot>
