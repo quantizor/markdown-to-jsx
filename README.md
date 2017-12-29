@@ -212,6 +212,90 @@ render((
 ), document.body);
 ```
 
+`markdown-to-jsx` also handles JSX interpolation syntax, but in a minimal way to not introduce a potential attack vector. Interpolations are sent to the component as their raw string, which the consumer can then `eval()` or process as desired to their security needs.
+
+In the following case, `DatePicker` could simply run `parseInt()` on the passed `startTime` for example:
+
+```jsx
+import Markdown from 'markdown-to-jsx';
+import React from 'react';
+import {render} from 'react-dom';
+
+import DatePicker from './date-picker';
+
+const md = `
+# DatePicker
+
+The DatePicker works by supplying a date to bias towards,
+as well as a default timezone.
+
+<DatePicker
+  biasTowardDateTime="2017-12-05T07:39:36.091Z"
+  timezone="UTC+5"
+  startTime={1514579720511}
+/>
+`;
+
+render((
+    <Markdown
+        children={md}
+        options={{
+            overrides: {
+                DatePicker: {
+                    component: DatePicker,
+                },
+            },
+        }} />
+), document.body);
+```
+
+Another possibility is to use something like [recompose's `withProps()` HOC](https://github.com/acdlite/recompose/blob/master/docs/API.md#withprops) to create various pregenerated scenarios and then reference them by name in the markdown:
+
+```jsx
+import Markdown from 'markdown-to-jsx';
+import React from 'react';
+import {render} from 'react-dom';
+import withProps from 'recompose/withProps';
+
+import DatePicker from './date-picker';
+
+const DecemberDatePicker = withProps({
+    range: {
+        start: new Date('2017-12-01'),
+        end: new Date('2017-12-31'),
+    },
+    timezone: 'UTC+5',
+})(DatePicker);
+
+const md = `
+# DatePicker
+
+The DatePicker works by supplying a date to bias towards,
+as well as a default timezone.
+
+<DatePicker
+  biasTowardDateTime="2017-12-05T07:39:36.091Z"
+  timezone="UTC+5"
+  startTime={1514579720511}
+/>
+
+Here's an example of a DatePicker pre-set to only the month of December:
+
+<DecemberDatePicker />
+`;
+
+render((
+    <Markdown
+        children={md}
+        options={{
+            overrides: {
+                DatePicker,
+                DecemberDatePicker,
+            },
+        }} />
+), document.body);
+```
+
 ### Getting the smallest possible bundle size
 
 Many development conveniences are placed behind `process.env.NODE_ENV !== "production"` conditionals. When bundling your app, it's a good idea to replace these code snippets such that a minifier (like uglify) can sweep them away and leave a smaller overall bundle.
