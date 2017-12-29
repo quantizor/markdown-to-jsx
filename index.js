@@ -105,6 +105,7 @@ const HTML_COMMENT_R = /^<!--.*?-->/;
 const HTML_CUSTOM_ATTR_R = /^(data|aria)-[a-z_][a-z\d_.-]*$/;
 
 const HTML_SELF_CLOSING_ELEMENT_R = /^ *<([\w:]+)\s*([\s\S]*?)>(?!<\/\1>)\s*/;
+const INTERPOLATION_R = /^\{.*\}$/;
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/;
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/;
 const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/;
@@ -249,6 +250,10 @@ function normalizeAttributeKey (key) {
     return key;
 }
 
+function isInterpolation (value) {
+    return INTERPOLATION_R.test(value);
+}
+
 function attributeValueToJSXPropValue (key, value) {
     if (key === 'style') {
         return value.split(/;\s?/).reduce(function (styles, kvPair) {
@@ -267,6 +272,9 @@ function attributeValueToJSXPropValue (key, value) {
             return styles;
 
         }, {});
+    } else if (isInterpolation(value)) {
+        // at this time, only string interpolations are supported
+        return unquote(value.slice(1, value.length - 1));
     }
 
     return value;

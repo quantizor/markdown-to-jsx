@@ -369,6 +369,22 @@ exports[`markdown-to-jsx compiler arbitrary HTML block HTML regression test 1`] 
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML handles jsx attribute interpolation as a string 1`] = `
+
+<div data-reactroot>
+  <!-- react-text: 2 -->
+  1514579720511
+  <!-- /react-text -->
+  <!-- react-text: 3 -->
+  to
+  <!-- /react-text -->
+  <!-- react-text: 4 -->
+  1514579720512
+  <!-- /react-text -->
+</div>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML handles nested HTML blocks of the same type (regression) 1`] = `
 
 <table data-reactroot>

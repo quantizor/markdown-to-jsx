@@ -586,6 +586,21 @@ $25
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('handles jsx attribute interpolation as a string', () => {
+                function DatePicker ({ endTime, startTime }) {
+                    return <div>{startTime} to {endTime}</div>;
+                }
+
+                render(compiler([
+                    '<DatePicker ',
+                    '    startTime={1514579720511}',
+                    '    endTime={"1514579720512"}',
+                    '/>',
+                ].join('\n'), { overrides: { DatePicker }}));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('horizontal rules', () => {
