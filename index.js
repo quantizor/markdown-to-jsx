@@ -53,8 +53,42 @@ const ATTRIBUTE_TO_JSX_PROP_MAP = {
     'usemap': 'useMap',
 };
 
-/** TODO: Write explainers for each of these */
+/**
+ * the attribute extractor regex looks for a valid attribute name,
+ * followed by an equal sign (whitespace around the equal sign is allowed), followed
+ * by one of the following:
+ *
+ * 1. a single quote-bounded string, e.g. 'foo'
+ * 2. a double quote-bounded string, e.g. "bar"
+ * 3. an interpolation, e.g. {something}
+ *
+ * JSX can be be interpolated into itself and is passed through the compiler using
+ * the same options and setup as the current run.
+ *
+ * <Something children={<SomeOtherThing />} />
+ *                      ==================
+ *                              ↳ children: [<SomeOtherThing />]
+ *
+ * Otherwise, interpolations are handled as strings or simple booleans
+ * unless HTML syntax is detected.
+ *
+ * <Something color={green} disabled={true} />
+ *                   =====            ====
+ *                     ↓                ↳ disabled: true
+ *                     ↳ color: "green"
+ *
+ * Numbers are not parsed at this time due to complexities around int, float,
+ * and the upcoming bigint functionality that would make handling it unwieldy.
+ * Parse the string in your component as desired.
+ *
+ * <Something someBigNumber={123456789123456789} />
+ *                           ==================
+ *                                   ↳ someBigNumber: "123456789123456789"
+ */
 const ATTR_EXTRACTOR_R = /([-A-Z0-9_:]+)(?:\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|(?:\{((?:\\.|{[^}]*?}|[^}])*)\})))?/gi;
+
+/** TODO: Write explainers for each of these */
+
 const AUTOLINK_MAILTO_CHECK_R = /mailto:/i;
 const BLOCK_END_R = /\n{2,}$/;
 const BLOCKQUOTE_R = /^( *>[^\n]+(\n[^\n]+)*\n*)+\n{2,}/;
