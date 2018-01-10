@@ -4,8 +4,8 @@
  * from Khan Academy. Thank you Khan devs for making such an awesome and extensible
  * parsing infra... without it, half of the optimizations here wouldn't be feasible. 🙏🏼
  */
-const React = require('react');
-const unquote = require('unquote');
+import React from 'react';
+import unquote from 'unquote';
 
 /** TODO: Drop for React 16? */
 const ATTRIBUTE_TO_JSX_PROP_MAP = {
