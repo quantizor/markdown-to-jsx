@@ -75,6 +75,7 @@ render((
 
 ### Parsing Options
 
+#### options.forceBlock
 By default, the compiler will try to make an intelligent guess about the content passed and wrap it in a `<div>`, `<p>`, or `<span>` as needed to satisfy the "inline"-ness of the markdown. For instance, this string would be considered "inline":
 
 ```md
@@ -103,6 +104,7 @@ compiler('Hello there old chap!', { forceBlock: true });
 <p>Hello there old chap!</p>
 ```
 
+#### options.forceInline
 The inverse is also available by passing `options.forceInline = true`:
 
 ```jsx
@@ -119,7 +121,7 @@ compiler('# You got it babe!', { forceInline: true });
 <span># You got it babe!</span>
 ```
 
-### Override Any HTML Tag's Representation
+#### options.overrides - Override Any HTML Tag's Representation
 
 Pass the `options.overrides` prop to the compiler or `<Markdown>` component to seamlessly revise the rendered representation of any HTML tag. You can choose to change the component itself, add/change props, or both.
 
@@ -177,7 +179,7 @@ Depending on the type of element, there are some props that must be preserved to
 
 Any conflicts between passed `props` and the specific properties above will be resolved in favor of `markdown-to-jsx`'s code.
 
-### Rendering Arbitrary React Components
+### options.overrides - Rendering Arbitrary React Components
 
 One of the most interesting use cases enabled by the HTML syntax processing in `markdown-to-jsx` is the ability to use any kind of element, even ones that aren't real HTML tags like React component classes.
 
