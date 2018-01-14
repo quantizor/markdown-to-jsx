@@ -342,9 +342,9 @@ import { render } from 'react-dom';
 const md = `
 # Custom code block
 
-\`\`\`html
+`` `html
 <h1>Hey!</h1>
-\`\`\`
+`` `
 `;
 
 render(
