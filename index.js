@@ -1358,7 +1358,7 @@ export function compiler(markdown, options) {
   Object.keys(options.react).forEach(key => {
     const original = rules[key];
 
-    if (!original) {
+    if (!original || !original.react) {
       return;
     }
 
