@@ -10,8 +10,8 @@
         - [Parsing Options](#parsing-options)
         - [Override Any HTML Tag's Representation](#override-any-html-tags-representation)
         - [Rendering Arbitrary React Components](#rendering-arbitrary-react-components)
-        - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
-        - [Usage with Preact](#usage-with-preact)
+    - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
+    - [Usage with Preact](#usage-with-preact)
     - [Using The Compiler Directly](#using-the-compiler-directly)
     - [Changelog](#changelog)
 
