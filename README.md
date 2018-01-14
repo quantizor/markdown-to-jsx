@@ -8,6 +8,8 @@
     - [Installation](#installation)
     - [Usage](#usage)
     - [Parsing Options](#parsing-options)
+        - [forceBlock](#optionsforceblock)
+        - [forceInline](#optionsforceinline)
         - [Override Any HTML Tag's Representation](#override-any-html-tags-representation)
         - [Rendering Arbitrary React Components](#rendering-arbitrary-react-components)
     - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
