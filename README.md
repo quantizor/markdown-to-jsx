@@ -12,7 +12,7 @@
             - [options.forceInline](#optionsforceinline)
             - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
             - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
-            - [options.rules - Rendering custom React components for Markdown rules](#optionsrules---rendering-custom-react-components-for-markdown-rules)
+            - [options.react - Rendering custom React components for Markdown rules](#optionsreact---rendering-custom-react-components-for-markdown-rules)
 - [TODO: Fix](#todo-fix)
         - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
         - [Usage with Preact](#usage-with-preact)
@@ -305,44 +305,71 @@ render(
 );
 ```
 
-#### options.rules - Rendering custom React components for Markdown rules
+#### options.react - Rendering custom React components for Markdown rules
 
 # TODO: Fix
 
-While `options.overrides` allows you to override the individual components output, `options.rules` gives you complete flexibility to return whatever React component you want for each kind of Markdown type (`text`, `codeBlock`...). All the rules are defined on the [`RULES`](index.js#621) constant and are exported as `rules`. If you wanted to see what rules are available, you can do:
+While `options.overrrides` allows you to override the output for individual HTML components, `options.react` gives you complete flexibility to return any React component you want for each Markdown rule (`text`, `codeBlock`...). This is useful if you're trying to add custom syntatical sugar to some Markdown type. All the rules are defined on the [`compiler` function](index.js#743), and you can take a look at what arguments the `react()` method expects. For example, the `codeBlock` rule is:
 
 ```jsx
-import { rules } from 'markdown-to-jsx';
+{
+    match: blockRegex(CODE_BLOCK_R),
+    order: PARSE_PRIORITY_MAX,
+    parse(capture /*, parse, state*/) {
+        let content = capture[0].replace(/^ {4}/gm, '').replace(/\n+$/, '');
+        return {
+            content: content,
+            lang: undefined
+        };
+    },
 
-function printRules() {
-  console.log(Object.keys(rules));
+    react(node, output, state) {
+        return (
+            <pre key={state.key}>
+                <code className={node.lang ? `lang-${node.lang}` : ''}>
+                    {node.content}
+                </code>
+            </pre>
+        );
+    }
 }
 ```
 
-markdown-to-jsx expects the following props on each rule:
+As you can see, the `react` function expects the `node.lang` and `node.content` variables to be set. To override it, we would pass the following:
 
-```javascript
-{
-    // A RegEx to match the Markdown
-    match: blockRegex(/^(?: {4}[^\n]+\n*)+(?:\n *)+\n/),
-    // The parse priority
-    order: PARSE_PRIORITY_MAX, // = 1
-    // How to parse the element, output will be passed to the `react` method
-    parse(capture, parse, state) {
-      return {
-        content: 'blah'
-      };
-    },
-    // Returns the React component representation of this Markdown rule
-    react(node, output, state) {
-      return (
-        <p key={state.key}>This is my awesome component: {node.content}</p>
-      );
-    }
-  },
+```jsx
+import Markdown from 'markdown-to-jsx';
+import React from 'react';
+import { render } from 'react-dom';
+
+const md = `
+# Custom code block
+
+\`\`\`html
+<h1>Hey!</h1>
+\`\`\`
+`;
+
+render(
+  <Markdown
+    children={md}
+    options={{
+      react: {
+        codeBlock(node, output, state) {
+          return (
+            <pre key={state.key} className="myAwesomeCodeBlock">
+              <code className={node.lang ? `lang-${node.lang}` : ''}>
+                {node.content}
+              </code>
+            </pre>
+          );
+        }
+      }
+    }}
+  />,
+  document.body
+);
 ```
-
-You may use this function to return custom component objects on the server-side which need to be hydrated by the client (with `react-dom/server`).
 
 ### Getting the smallest possible bundle size
 
