@@ -1354,6 +1354,17 @@ export function compiler(markdown, options) {
     }
   };
 
+  // Overwrite default react functions with options
+  Object.keys(options.react).forEach(key => {
+    const original = rules[key];
+
+    if (!original) {
+      return;
+    }
+
+    original.react = options.react[key];
+  });
+
   // Object.keys(rules).forEach(key => {
   //     let parse = rules[key].parse;
 
