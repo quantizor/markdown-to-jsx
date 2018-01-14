@@ -13,7 +13,6 @@
             - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
             - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
             - [options.react - Rendering custom React components for Markdown rules](#optionsreact---rendering-custom-react-components-for-markdown-rules)
-- [TODO: Fix](#todo-fix)
         - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
         - [Usage with Preact](#usage-with-preact)
     - [Using The Compiler Directly](#using-the-compiler-directly)
@@ -306,8 +305,6 @@ render(
 ```
 
 #### options.react - Rendering custom React components for Markdown rules
-
-# TODO: Fix
 
 While `options.overrrides` allows you to override the output for individual HTML components, `options.react` gives you complete flexibility to return any React component you want for each Markdown rule (`text`, `codeBlock`...). This is useful if you're trying to add custom syntatical sugar to some Markdown type. All the rules are defined on the [`compiler` function](index.js#743), and you can take a look at what arguments the `react()` method expects. For example, the `codeBlock` rule is:
 
