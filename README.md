@@ -7,11 +7,14 @@
 - [Markdown Component for React, Preact + Friends](#markdown-component-for-react-preact--friends)
     - [Installation](#installation)
     - [Usage](#usage)
-        - [Parsing Options](#parsing-options)
-        - [Override Any HTML Tag's Representation](#override-any-html-tags-representation)
-        - [Rendering Arbitrary React Components](#rendering-arbitrary-react-components)
-        - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
-        - [Usage with Preact](#usage-with-preact)
+    - [Parsing Options](#parsing-options)
+        - [forceBlock](#optionsforceblock)
+        - [forceInline](#optionsforceinline)
+        - [overrides](#optionsoverrides)
+            - [Override Any HTML Tag's Representation](#override-any-html-tags-representation)
+            - [Rendering Arbitrary React Components](#rendering-arbitrary-react-components)
+    - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
+    - [Usage with Preact](#usage-with-preact)
     - [Using The Compiler Directly](#using-the-compiler-directly)
     - [Changelog](#changelog)
 
@@ -73,9 +76,9 @@ render((
 
 \* __NOTE: JSX does not natively preserve newlines in multiline text. In general, writing markdown directly in JSX is discouraged and it's a better idea to keep your content in separate .md files and require them, perhaps using webpack's [raw-loader](https://github.com/webpack-contrib/raw-loader).__
 
-### Parsing Options
+## Parsing Options
 
-#### options.forceBlock
+### options.forceBlock
 By default, the compiler will try to make an intelligent guess about the content passed and wrap it in a `<div>`, `<p>`, or `<span>` as needed to satisfy the "inline"-ness of the markdown. For instance, this string would be considered "inline":
 
 ```md
@@ -104,7 +107,7 @@ compiler('Hello there old chap!', { forceBlock: true });
 <p>Hello there old chap!</p>
 ```
 
-#### options.forceInline
+### options.forceInline
 The inverse is also available by passing `options.forceInline = true`:
 
 ```jsx
@@ -121,7 +124,9 @@ compiler('# You got it babe!', { forceInline: true });
 <span># You got it babe!</span>
 ```
 
-#### options.overrides - Override Any HTML Tag's Representation
+### options.overrides
+
+#### Override Any HTML Tag's Representation
 
 Pass the `options.overrides` prop to the compiler or `<Markdown>` component to seamlessly revise the rendered representation of any HTML tag. You can choose to change the component itself, add/change props, or both.
 
@@ -179,7 +184,7 @@ Depending on the type of element, there are some props that must be preserved to
 
 Any conflicts between passed `props` and the specific properties above will be resolved in favor of `markdown-to-jsx`'s code.
 
-#### options.overrides - Rendering Arbitrary React Components
+#### Rendering Arbitrary React Components
 
 One of the most interesting use cases enabled by the HTML syntax processing in `markdown-to-jsx` is the ability to use any kind of element, even ones that aren't real HTML tags like React component classes.
 
@@ -298,7 +303,7 @@ render((
 ), document.body);
 ```
 
-### Getting the smallest possible bundle size
+## Getting the smallest possible bundle size
 
 Many development conveniences are placed behind `process.env.NODE_ENV !== "production"` conditionals. When bundling your app, it's a good idea to replace these code snippets such that a minifier (like uglify) can sweep them away and leave a smaller overall bundle.
 
@@ -309,7 +314,7 @@ Here are instructions for some of the popular bundlers:
 - [parcel](https://parceljs.org/production.html)
 - [fuse-box](http://fuse-box.org/plugins/replace-plugin#notes)
 
-### Usage with Preact
+## Usage with Preact
 
 Everything will work just fine! Simply [Alias `react` to `preact-compat`](https://github.com/developit/preact-compat#usage-with-webpack) like you probably already are doing.
 
