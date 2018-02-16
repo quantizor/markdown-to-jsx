@@ -326,7 +326,7 @@ render((
                 );
             }
         }} />
-))
+), document.body);
 ```
 
 ### Getting the smallest possible bundle size
