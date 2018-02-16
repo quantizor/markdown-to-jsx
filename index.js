@@ -606,10 +606,13 @@ export function compiler (markdown, options) {
     options = options || {};
     options.overrides = options.overrides || {};
 
+    const createElementFn = options.createElement || React.createElement;
+
     // eslint-disable-next-line no-unused-vars
     function h (tag, props, ...children) {
         const overrideProps = get(options.overrides, `${tag}.props`, {});
-        return React.createElement(getTag(tag, options.overrides), {
+
+        return createElementFn(getTag(tag, options.overrides), {
             ...overrideProps,
             ...props,
             className: cx(props && props.className, overrideProps.className) || undefined,
