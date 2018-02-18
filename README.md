@@ -58,8 +58,6 @@ import Markdown from 'markdown-to-jsx';
 import React from 'react';
 import {render} from 'react-dom';
 
-const markdown = `# Hello world!`.trim();
-
 render((
     <Markdown>
         # Hello world!
