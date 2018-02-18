@@ -51,29 +51,25 @@ yarn add markdown-to-jsx
 
 `markdown-to-jsx` exports a React component by default for easy JSX composition:
 
-ES6-style usage\*:
-
 ```jsx
 import Markdown from 'markdown-to-jsx';
 import React from 'react';
 import {render} from 'react-dom';
 
-const markdown = `# Hello world!`.trim();
-
 render((
-    <Markdown>
-        # Hello world!
-    </Markdown>
+    <Markdown>{`
+
+# Hello world!
+
+    `}</Markdown>
 ), document.body);
-
-/*
-    renders:
-
-    <h1>Hello world!</h1>
- */
 ```
 
-\* __NOTE: JSX does not natively preserve newlines in multiline text. In general, writing markdown directly in JSX is discouraged and it's a better idea to keep your content in separate .md files and require them, perhaps using webpack's [raw-loader](https://github.com/webpack-contrib/raw-loader).__
+renders
+
+```html
+<h1>Hello world!</h1>
+```
 
 ### Parsing Options
 
