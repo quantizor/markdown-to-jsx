@@ -89,9 +89,9 @@ But this string would be considered "block" due to the existence of a header tag
 However, if you really want all input strings to be treated as "block" layout, simply pass `options.forceBlock = true` like this:
 
 ```jsx
-<Markdown options={{ forceBlock: true }}>
-    Hello there old chap!
-</Markdown>
+<Markdown options={{ forceBlock: true }}>{`
+Hello there old chap!
+`}</Markdown>
 
 // or
 
@@ -106,9 +106,9 @@ compiler('Hello there old chap!', { forceBlock: true });
 The inverse is also available by passing `options.forceInline = true`:
 
 ```jsx
-<Markdown options={{ forceInline: true }}>
-    # You got it babe!
-</Markdown>
+<Markdown options={{ forceInline: true }}>{`
+# You got it babe!
+`}</Markdown>
 
 // or
 
@@ -142,9 +142,9 @@ render((
                     },
                 },
             },
-        }}>
-        # Hello world!
-    </Markdown>
+        }}>{`
+# Hello world!
+    `}</Markdown>
 ), document.body);
 
 /*
