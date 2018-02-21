@@ -40,7 +40,7 @@ describe('markdown-to-jsx', () => {
             expect(root.innerHTML).toMatchSnapshot();
         });
 
-        it('handles a hollistic example', () => {
+        it('handles a holistic example', () => {
             const md = fs.readFileSync(__dirname + '/fixture.md', 'utf8');
             render(compiler(md));
 
@@ -482,6 +482,12 @@ describe('markdown-to-jsx', () => {
 
             it('processes markdown within block-level arbitrary HTML', () => {
                 render(compiler('<p>**Hello**</p>'));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('processes markdown within block-level arbitrary HTML (regression)', () => {
+                render(compiler('<div style="float: right">\n# Hello\n</div>'));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
