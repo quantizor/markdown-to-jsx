@@ -71,6 +71,8 @@ renders
 <h1>Hello world!</h1>
 ```
 
+**NOTE: JSX without template literals does not natively preserve newlines in multiline text. It's a good idea to keep your content in .md files and require them, perhaps using webpack's [raw-loader](https://github.com/webpack-contrib/raw-loader).**
+
 ### Parsing Options
 
 #### options.forceBlock
