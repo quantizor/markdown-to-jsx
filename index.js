@@ -100,6 +100,7 @@ const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)+\n/;
 const CODE_INLINE_R = /^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)/;
 const CONSECUTIVE_NEWLINE_R = /^(?:\n *)*\n/;
 const CR_NEWLINE_R = /\r\n?/g;
+const DETECT_BLOCK_SYNTAX = /(^[-*] |^#+|^ {2,}|^-{2,}|^> )/m;
 const FOOTNOTE_R = /^\[\^(.*)\](:.*)\n/;
 const FOOTNOTE_REFERENCE_R = /^\[\^(.*)\]/;
 const FORMFEED_R = /\f/g;
@@ -151,6 +152,7 @@ const PARAGRAPH_R = /^((?:[^\n]|\n(?! *\n))+)(?:\n *)+\n/;
 const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s*(\S+)\s*("([^"]*)")?/;
 const REFERENCE_IMAGE_R = /^!\[([^\]]*)\] ?\[([^\]]*)\]/;
 const REFERENCE_LINK_R = /^\[([^\]]*)\] ?\[([^\]]*)\]/;
+const SHOULD_RENDER_AS_BLOCK_R = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/;
 const TAB_R = /\t/g;
 const TABLE_TRIM_PIPES = /(^ *\||\| *$)/g;
 const TABLE_CENTER_ALIGN = /^ *:-+: *$/;
@@ -163,6 +165,14 @@ const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/;
 const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i;
 const TEXT_STRIKETHROUGHED_R = /^~~(?=\S)([\s\S]*?\S)~~/;
 const TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R = /(^\n+|(\n|\s)+$)/g;
+
+/**
+ * Indented-style code blocks cannot be used inside arbitrary HTML at this time because
+ * it's not clear if the indentation is intentional or just there from how the composer
+ * laid things out.
+ */
+const TRIM_HTML = /^\s*| {4,}|\s*$/g;
+
 const UNESCAPE_URL_R = /\\([^0-9A-Z\s])/gi;
 
 // recognize a `*` `-`, `+`, `1.`, `2.`... list bullet
@@ -629,7 +639,7 @@ export function compiler (markdown, options) {
             * should not contain any block-level markdown like newlines, lists, headings,
             * thematic breaks, blockquotes, tables, etc
             */
-            inline = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/g.test(input) === false;
+            inline = SHOULD_RENDER_AS_BLOCK_R.test(input) === false;
         }
 
         const arr = emitter(
@@ -902,7 +912,9 @@ export function compiler (markdown, options) {
             match: anyScopeRegex(HTML_BLOCK_ELEMENT_R),
             order: PARSE_PRIORITY_HIGH,
             parse (capture, parse, state) {
-                const parseFunc = capture[3].match(HTML_BLOCK_ELEMENT_R) ? parseBlock : parseInline;
+                const parseFunc = (
+                    capture[3].match(HTML_BLOCK_ELEMENT_R) || DETECT_BLOCK_SYNTAX.test(capture[3])
+                ) ? parseBlock : parseInline;
 
                 return {
                     attrs: attrStringToMap(capture[2]),
@@ -910,7 +922,7 @@ export function compiler (markdown, options) {
                      * if another html block is detected within, parse as block,
                      * otherwise parse as inline to pick up any further markdown
                      */
-                    content: parseFunc(parse, capture[3].trim(), state),
+                    content: parseFunc(parse, capture[3].replace(TRIM_HTML, ''), state),
 
                     tag: capture[1],
                 };

@@ -542,6 +542,20 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes inline HTML with inli
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within block-level arbitrary HTML (regression) 1`] = `
+
+<div data-reactroot
+     style="float: right;"
+>
+  <h1>
+    <!-- react-text: 3 -->
+    Hello
+    <!-- /react-text -->
+  </h1>
+</div>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within block-level arbitrary HTML 1`] = `
 
 <p data-reactroot>
@@ -771,7 +785,7 @@ exports[`markdown-to-jsx compiler footnotes should inject the definitions in a f
 
 `;
 
-exports[`markdown-to-jsx compiler handles a hollistic example 1`] = `
+exports[`markdown-to-jsx compiler handles a holistic example 1`] = `
 
 <div data-reactroot>
   <h1>
