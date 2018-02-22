@@ -733,9 +733,9 @@ $25
             it('should render a <custom> element if render function overrides the element type', () => {
                 render(
                     compiler('Hello', {
-                        createElement(type, props, children) {
+                        createElement (type, props, children) {
                             return React.createElement('custom', props, children);
-                        }
+                        },
                     })
                 );
 
@@ -747,26 +747,26 @@ $25
             it('should render an empty <div> element', () => {
                 render(
                     compiler('Hello', {
-                        createElement() {
-                            return React.createElement('div')
-                        }
+                        createElement () {
+                            return React.createElement('div');
+                        },
                     })
                 );
 
                 expect(root.children[0].innerHTML).toBe('');
                 expect(root.children[0].children.length).toBe(0);
-            })
+            });
 
             it('should throw error if render function returns null', () => {
                 expect(() => {
                     render(
                         compiler('Hello', {
-                            createElement: () => null
+                            createElement: () => null,
                         })
                     );
                 }).toThrow(/Invalid component element/);
-            })
-        })
+            });
+        });
 
         describe('overrides', () => {
             it('should substitute the appropriate JSX tag if given a component', () => {
