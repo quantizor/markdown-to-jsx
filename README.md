@@ -303,7 +303,7 @@ render((
 
 #### options.createElement - Custom React.createElement behavior
 
-Sometimes, you might want to override the `React.createElement` default behavior to hook into the rendering process before the JSX gets sent to `React.renderToString`. This might be useful to add extra children or modify some props based on runtime conditions. The function mirrors the `React.createElement` function, so the params are [`type, [props], [...children]`](https://reactjs.org/docs/react-api.html#createelement):
+Sometimes, you might want to override the `React.createElement` default behavior to hook into the rendering process before the JSX gets rendered. This might be useful to add extra children or modify some props based on runtime conditions. The function mirrors the `React.createElement` function, so the params are [`type, [props], [...children]`](https://reactjs.org/docs/react-api.html#createelement):
 
 ```javascript
 import Markdown from 'markdown-to-jsx';
