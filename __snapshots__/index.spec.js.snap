@@ -415,6 +415,21 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles jsx inside jsx interpol
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML handles malformed HTML 1`] = `
+
+<div data-reactroot>
+  <g>
+  </g>
+  <g>
+    <path fill="#ffffff">
+    </path>
+  </g>
+  <path fill="#ffffff">
+  </path>
+</div>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML handles nested HTML blocks of the same type (regression) 1`] = `
 
 <table data-reactroot>
