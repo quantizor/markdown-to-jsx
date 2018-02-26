@@ -630,6 +630,18 @@ $25
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('handles malformed HTML', () => {
+                render(compiler([
+                    '<g>',
+                    '<g>',
+                    '<path fill="#ffffff"/>',
+                    '</g>',
+                    '<path fill="#ffffff"/>',
+                ].join('\n')));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('horizontal rules', () => {
