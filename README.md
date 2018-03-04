@@ -4,7 +4,7 @@
 
 <!-- TOC -->
 
-- [Markdown Component for React, Preact + Friends](#markdown-component-for-react-preact--friends)
+- [Markdown Component for React, Preact + Friends](#markdown-component-for-react-preact-friends)
     - [Installation](#installation)
     - [Usage](#usage)
         - [Parsing Options](#parsing-options)
@@ -12,6 +12,7 @@
             - [options.forceInline](#optionsforceinline)
             - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
             - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
+            - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
         - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
         - [Usage with Preact](#usage-with-preact)
     - [Using The Compiler Directly](#using-the-compiler-directly)
@@ -296,6 +297,34 @@ render((
                 DatePicker,
                 DecemberDatePicker,
             },
+        }} />
+), document.body);
+```
+
+#### options.createElement - Custom React.createElement behavior
+
+Sometimes, you might want to override the `React.createElement` default behavior to hook into the rendering process before the JSX gets rendered. This might be useful to add extra children or modify some props based on runtime conditions. The function mirrors the `React.createElement` function, so the params are [`type, [props], [...children]`](https://reactjs.org/docs/react-api.html#createelement):
+
+```javascript
+import Markdown from 'markdown-to-jsx';
+import React from 'react';
+import {render} from 'react-dom';
+
+const md = `
+# Hello world
+`;
+
+render((
+    <Markdown
+        children={md}
+        options={{
+            createElement(type, props, children) {
+                return (
+                    <div className='parent'>
+                        {React.createElement(type, props, children)}
+                    </div>
+                );
+            }
         }} />
 ), document.body);
 ```

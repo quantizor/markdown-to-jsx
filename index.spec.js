@@ -729,6 +729,45 @@ $25
             });
         });
 
+        describe('options.createElement', () => {
+            it('should render a <custom> element if render function overrides the element type', () => {
+                render(
+                    compiler('Hello', {
+                        createElement (type, props, children) {
+                            return React.createElement('custom', props, children);
+                        },
+                    })
+                );
+
+                // The tag name is always in the upper-case form.
+                // https://developer.mozilla.org/en-US/docs/Web/API/Element/tagName
+                expect(root.children[0].tagName).toBe('CUSTOM');
+            });
+
+            it('should render an empty <div> element', () => {
+                render(
+                    compiler('Hello', {
+                        createElement () {
+                            return React.createElement('div');
+                        },
+                    })
+                );
+
+                expect(root.children[0].innerHTML).toBe('');
+                expect(root.children[0].children.length).toBe(0);
+            });
+
+            it('should throw error if render function returns null', () => {
+                expect(() => {
+                    render(
+                        compiler('Hello', {
+                            createElement: () => null,
+                        })
+                    );
+                }).toThrow(/Invalid component element/);
+            });
+        });
+
         describe('overrides', () => {
             it('should substitute the appropriate JSX tag if given a component', () => {
                 class FakeParagraph extends React.Component {
