@@ -672,7 +672,7 @@ export function compiler (markdown, options) {
     function attrStringToMap (str) {
         const attributes = str.match(ATTR_EXTRACTOR_R);
 
-        const out = attributes ? attributes.reduce(function (map, raw, index) {
+        return attributes ? attributes.reduce(function (map, raw, index) {
             const delimiterIdx = raw.indexOf('=');
 
             if (delimiterIdx !== -1) {
@@ -696,8 +696,6 @@ export function compiler (markdown, options) {
 
             return map;
         }, {}) : undefined;
-
-        return out
     }
 
     /* istanbul ignore next */
