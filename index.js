@@ -676,8 +676,8 @@ export function compiler (markdown, options) {
             const delimiterIdx = raw.indexOf('=');
 
             if (delimiterIdx !== -1) {
-                const key = normalizeAttributeKey(raw.slice(0, delimiterIdx));
-                const value = unquote(raw.slice(delimiterIdx + 1));
+                const key = normalizeAttributeKey(raw.slice(0, delimiterIdx)).trim();
+                const value = unquote(raw.slice(delimiterIdx + 1).trim());
 
                 const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key;
                 const normalizedValue = map[mappedKey] = attributeValueToJSXPropValue(key, value);
