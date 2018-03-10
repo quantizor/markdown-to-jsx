@@ -694,6 +694,21 @@ exports[`markdown-to-jsx compiler arbitrary HTML throws out HTML comments 1`] = 
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML allows whitespace between attribute and value 1`] = `
+
+<div data-reactroot
+     class="foo"
+     id="baz"
+     style="background: red;"
+>
+  <!-- react-text: 2 -->
+  Bar
+  <!-- /react-text -->
+</div>
+
+`;
+
+
 exports[`markdown-to-jsx compiler fenced code blocks should be handled 1`] = `
 
 <pre data-reactroot>

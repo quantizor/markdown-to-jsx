@@ -672,12 +672,12 @@ export function compiler (markdown, options) {
     function attrStringToMap (str) {
         const attributes = str.match(ATTR_EXTRACTOR_R);
 
-        return attributes ? attributes.reduce(function (map, raw, index) {
+        const out = attributes ? attributes.reduce(function (map, raw, index) {
             const delimiterIdx = raw.indexOf('=');
 
             if (delimiterIdx !== -1) {
-                const key = normalizeAttributeKey(raw.slice(0, delimiterIdx));
-                const value = unquote(raw.slice(delimiterIdx + 1));
+                const key = normalizeAttributeKey(raw.slice(0, delimiterIdx)).trim();
+                const value = unquote(raw.slice(delimiterIdx + 1).trim());
 
                 const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key;
                 const normalizedValue = map[mappedKey] = attributeValueToJSXPropValue(key, value);
@@ -696,6 +696,8 @@ export function compiler (markdown, options) {
 
             return map;
         }, {}) : undefined;
+
+        return out
     }
 
     /* istanbul ignore next */

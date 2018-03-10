@@ -642,6 +642,17 @@ $25
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('allows whitespace between attribute and value', () => {
+                render(compiler([
+                    '<div class = "foo" style= "background:red;" id ="baz">',
+                    'Bar',
+                    '</div>'
+                    ].join('\n')))
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
         });
 
         describe('horizontal rules', () => {
