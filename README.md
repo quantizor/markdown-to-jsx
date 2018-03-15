@@ -1,6 +1,6 @@
 # Markdown Component for React, Preact + Friends
 
-[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) ![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg) [![codecov](https://codecov.io/gh/probablyup/markdown-to-jsx/branch/master/graph/badge.svg)](https://codecov.io/gh/probablyup/markdown-to-jsx) ![downloads](https://img.shields.io/npm/dm/markdown-to-jsx.svg)
+[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) ![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg) [![codecov](https://codecov.io/gh/probablyup/markdown-to-jsx/branch/master/graph/badge.svg)](https://codecov.io/gh/probablyup/markdown-to-jsx) [![downloads](https://img.shields.io/npm/dm/markdown-to-jsx.svg)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
 
 <!-- TOC -->
 
