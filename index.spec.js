@@ -271,6 +271,12 @@ describe('markdown-to-jsx', () => {
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('should handle a link with a URL in the text', () => {
+                render(compiler('[https://www.google.com *heck yeah*](http://www.google.com)'));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('lists', () => {
@@ -647,8 +653,8 @@ $25
                 render(compiler([
                     '<div class = "foo" style= "background:red;" id ="baz">',
                     'Bar',
-                    '</div>'
-                    ].join('\n')))
+                    '</div>',
+                ].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });

@@ -315,6 +315,20 @@ exports[`markdown-to-jsx compiler arbitrary HTML #140 self-closing HTML with ind
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML allows whitespace between attribute and value 1`] = `
+
+<div data-reactroot
+     class="foo"
+     id="baz"
+     style="background: red;"
+>
+  <!-- react-text: 2 -->
+  Bar
+  <!-- /react-text -->
+</div>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML block HTML regression test 1`] = `
 
 <ul data-reactroot
@@ -693,21 +707,6 @@ exports[`markdown-to-jsx compiler arbitrary HTML throws out HTML comments 1`] = 
 </p>
 
 `;
-
-exports[`markdown-to-jsx compiler arbitrary HTML allows whitespace between attribute and value 1`] = `
-
-<div data-reactroot
-     class="foo"
-     id="baz"
-     style="background: red;"
->
-  <!-- react-text: 2 -->
-  Bar
-  <!-- /react-text -->
-</div>
-
-`;
-
 
 exports[`markdown-to-jsx compiler fenced code blocks should be handled 1`] = `
 
@@ -3470,6 +3469,23 @@ exports[`markdown-to-jsx compiler links should handle a link reference with titl
   <!-- react-text: 4 -->
   <!-- /react-text -->
 </p>
+
+`;
+
+exports[`markdown-to-jsx compiler links should handle a link with a URL in the text 1`] = `
+
+<a data-reactroot
+   href="http://www.google.com"
+>
+  <!-- react-text: 2 -->
+  https://www.google.com
+  <!-- /react-text -->
+  <em>
+    <!-- react-text: 4 -->
+    heck yeah
+    <!-- /react-text -->
+  </em>
+</a>
 
 `;
 

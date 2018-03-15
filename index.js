@@ -442,7 +442,7 @@ function parserFor (rules) {
     };
 }
 
-// Creates a match function for an inline scoped element from a regex
+// Creates a match function for an inline scoped or simple element from a regex
 function inlineRegex (regex) {
     return function match (source, state) {
         if (state.inline) {
@@ -453,10 +453,21 @@ function inlineRegex (regex) {
     };
 }
 
+// basically any inline element except links
+function simpleInlineRegex (regex) {
+    return function match (source, state) {
+        if (state.inline || state.simple) {
+            return regex.exec(source);
+        } else {
+            return null;
+        }
+    };
+}
+
 // Creates a match function for a block scoped element from a regex
 function blockRegex (regex) {
     return function match (source, state) {
-        if (state.inline) {
+        if (state.inline || state.simple) {
             return null;
         } else {
             return regex.exec(source);
@@ -530,14 +541,31 @@ function unescapeUrl (rawUrlString) {
     return rawUrlString.replace(UNESCAPE_URL_R, '$1');
 }
 
-// Parse some content with the parser `parse`, with state.inline
-// set to true. Useful for block elements; not generally necessary
-// to be used by inline elements (where state.inline is already true.
+/**
+ * Everything inline, including links.
+ */
 function parseInline (parse, content, state) {
     const isCurrentlyInline = state.inline || false;
+    const isCurrentlySimple = state.simple || false;
     state.inline = true;
+    state.simple = true;
     const result = parse(content, state);
     state.inline = isCurrentlyInline;
+    state.simple = isCurrentlySimple;
+    return result;
+}
+
+/**
+ * Anything inline that isn't a link.
+ */
+function parseSimpleInline (parse, content, state) {
+    const isCurrentlyInline = state.inline || false;
+    const isCurrentlySimple = state.simple || false;
+    state.inline = false;
+    state.simple = true;
+    const result = parse(content, state);
+    state.inline = isCurrentlyInline;
+    state.simple = isCurrentlySimple;
     return result;
 }
 
@@ -801,7 +829,7 @@ export function compiler (markdown, options) {
         },
 
         codeInline: {
-            match: inlineRegex(CODE_INLINE_R),
+            match: simpleInlineRegex(CODE_INLINE_R),
             order: PARSE_PRIORITY_LOW,
             parse (capture/*, parse, state*/) {
                 return {
@@ -966,7 +994,7 @@ export function compiler (markdown, options) {
         },
 
         image: {
-            match: inlineRegex(IMAGE_R),
+            match: simpleInlineRegex(IMAGE_R),
             order: PARSE_PRIORITY_HIGH,
             parse (capture/*, parse, state*/) {
                 return {
@@ -988,11 +1016,11 @@ export function compiler (markdown, options) {
         },
 
         link: {
-            match: inlineRegex(LINK_R),
+            match: inlineRegex(LINK_R, false),
             order: PARSE_PRIORITY_LOW,
             parse (capture, parse, state) {
                 return {
-                    content: parse(capture[1], state),
+                    content: parseSimpleInline(parse, capture[1], state),
                     target: unescapeUrl(capture[2]),
                     title: capture[3],
                 };
@@ -1216,7 +1244,7 @@ export function compiler (markdown, options) {
         },
 
         refImage: {
-            match: inlineRegex(REFERENCE_IMAGE_R),
+            match: simpleInlineRegex(REFERENCE_IMAGE_R),
             order: PARSE_PRIORITY_MAX,
             parse (capture) {
                 return {
@@ -1306,7 +1334,7 @@ export function compiler (markdown, options) {
             // double newlines, or double-space-newlines
             // We break on any symbol characters so that this grammar
             // is easy to extend without needing to modify this regex
-            match: inlineRegex(TEXT_PLAIN_R),
+            match: simpleInlineRegex(TEXT_PLAIN_R),
             order: PARSE_PRIORITY_MIN,
             parse (capture/*, parse, state*/) {
                 return {
@@ -1319,7 +1347,7 @@ export function compiler (markdown, options) {
         },
 
         textBolded: {
-            match: inlineRegex(TEXT_BOLD_R),
+            match: simpleInlineRegex(TEXT_BOLD_R),
             order: PARSE_PRIORITY_MED,
             parse: parseCaptureInline,
             react (node, output, state) {
@@ -1332,7 +1360,7 @@ export function compiler (markdown, options) {
         },
 
         textEmphasized: {
-            match: inlineRegex(TEXT_EMPHASIZED_R),
+            match: simpleInlineRegex(TEXT_EMPHASIZED_R),
             order: PARSE_PRIORITY_LOW,
             parse (capture, parse, state) {
                 return {
@@ -1353,7 +1381,7 @@ export function compiler (markdown, options) {
             // backslashes used in plain text still get rendered. But allowing
             // escaping anything else provides a very flexible escape mechanism,
             // regardless of how this grammar is extended.
-            match: inlineRegex(TEXT_ESCAPED_R),
+            match: simpleInlineRegex(TEXT_ESCAPED_R),
             order: PARSE_PRIORITY_HIGH,
             parse (capture/*, parse, state*/) {
                 return {
@@ -1364,7 +1392,7 @@ export function compiler (markdown, options) {
         },
 
         textStrikethroughed: {
-            match: inlineRegex(TEXT_STRIKETHROUGHED_R),
+            match: simpleInlineRegex(TEXT_STRIKETHROUGHED_R),
             order: PARSE_PRIORITY_LOW,
             parse: parseCaptureInline,
             react (node, output, state) {
