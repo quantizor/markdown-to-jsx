@@ -4,7 +4,7 @@
 
 <!-- TOC -->
 
-- [Markdown Component for React, Preact + Friends](#markdown-component-for-react-preact-friends)
+- [Markdown Component for React, Preact + Friends](#markdown-component-for-react-preact--friends)
     - [Installation](#installation)
     - [Usage](#usage)
         - [Parsing Options](#parsing-options)
@@ -58,8 +58,6 @@ ES6-style usage\*:
 import Markdown from 'markdown-to-jsx';
 import React from 'react';
 import {render} from 'react-dom';
-
-const markdown = `# Hello world!`.trim();
 
 render((
     <Markdown>
