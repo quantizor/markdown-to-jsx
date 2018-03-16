@@ -7,6 +7,7 @@ export default {
     },
     devtool: 'inline-source-map',
     entry: path.resolve(__dirname, 'site.js'),
+    mode: 'development',
     module: {
         rules: [{
             exclude: /(node_modules)/,
