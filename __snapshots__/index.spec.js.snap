@@ -6,28 +6,20 @@ exports[`markdown-to-jsx compiler GFM tables should handle a basic table 1`] = `
   <thead>
     <tr>
       <th scope="col">
-        <!-- react-text: 5 -->
         foo
-        <!-- /react-text -->
       </th>
       <th scope="col">
-        <!-- react-text: 7 -->
         bar
-        <!-- /react-text -->
       </th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>
-        <!-- react-text: 11 -->
         1
-        <!-- /react-text -->
       </td>
       <td>
-        <!-- react-text: 13 -->
         2
-        <!-- /react-text -->
       </td>
     </tr>
   </tbody>
@@ -43,42 +35,30 @@ exports[`markdown-to-jsx compiler GFM tables should handle a table with aligned 
       <th scope="col"
           style="text-align: right;"
       >
-        <!-- react-text: 5 -->
         foo
-        <!-- /react-text -->
       </th>
       <th scope="col"
           style="text-align: center;"
       >
-        <!-- react-text: 7 -->
         bar
-        <!-- /react-text -->
       </th>
       <th scope="col"
           style="text-align: left;"
       >
-        <!-- react-text: 9 -->
         baz
-        <!-- /react-text -->
       </th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td style="text-align: right;">
-        <!-- react-text: 13 -->
         1
-        <!-- /react-text -->
       </td>
       <td style="text-align: center;">
-        <!-- react-text: 15 -->
         2
-        <!-- /react-text -->
       </td>
       <td style="text-align: left;">
-        <!-- react-text: 17 -->
         3
-        <!-- /react-text -->
       </td>
     </tr>
   </tbody>
@@ -95,67 +75,47 @@ exports[`markdown-to-jsx compiler GFM tables should handle other content after a
         <th scope="col"
             style="text-align: right;"
         >
-          <!-- react-text: 6 -->
           Foo
-          <!-- /react-text -->
         </th>
         <th scope="col"
             style="text-align: center;"
         >
-          <!-- react-text: 8 -->
           Bar
-          <!-- /react-text -->
         </th>
         <th scope="col"
             style="text-align: left;"
         >
-          <!-- react-text: 10 -->
           Baz
-          <!-- /react-text -->
         </th>
       </tr>
     </thead>
     <tbody>
       <tr>
         <td style="text-align: right;">
-          <!-- react-text: 14 -->
           1
-          <!-- /react-text -->
         </td>
         <td style="text-align: center;">
-          <!-- react-text: 16 -->
           2
-          <!-- /react-text -->
         </td>
         <td style="text-align: left;">
-          <!-- react-text: 18 -->
           3
-          <!-- /react-text -->
         </td>
       </tr>
       <tr>
         <td style="text-align: right;">
-          <!-- react-text: 21 -->
           4
-          <!-- /react-text -->
         </td>
         <td style="text-align: center;">
-          <!-- react-text: 23 -->
           5
-          <!-- /react-text -->
         </td>
         <td style="text-align: left;">
-          <!-- react-text: 25 -->
           6
-          <!-- /react-text -->
         </td>
       </tr>
     </tbody>
   </table>
   <p>
-    <!-- react-text: 27 -->
     Foo
-    <!-- /react-text -->
   </p>
 </div>
 
@@ -167,40 +127,28 @@ exports[`markdown-to-jsx compiler GFM tables should handle the other syntax for 
   <thead>
     <tr>
       <th scope="col">
-        <!-- react-text: 5 -->
         Foo
-        <!-- /react-text -->
       </th>
       <th scope="col">
-        <!-- react-text: 7 -->
         Bar
-        <!-- /react-text -->
       </th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>
-        <!-- react-text: 11 -->
         1
-        <!-- /react-text -->
       </td>
       <td>
-        <!-- react-text: 13 -->
         2
-        <!-- /react-text -->
       </td>
     </tr>
     <tr>
       <td>
-        <!-- react-text: 16 -->
         3
-        <!-- /react-text -->
       </td>
       <td>
-        <!-- react-text: 18 -->
         4
-        <!-- /react-text -->
       </td>
     </tr>
   </tbody>
@@ -216,59 +164,41 @@ exports[`markdown-to-jsx compiler GFM tables should handle the other syntax for 
       <th scope="col"
           style="text-align: right;"
       >
-        <!-- react-text: 5 -->
         Foo
-        <!-- /react-text -->
       </th>
       <th scope="col"
           style="text-align: center;"
       >
-        <!-- react-text: 7 -->
         Bar
-        <!-- /react-text -->
       </th>
       <th scope="col"
           style="text-align: left;"
       >
-        <!-- react-text: 9 -->
         Baz
-        <!-- /react-text -->
       </th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td style="text-align: right;">
-        <!-- react-text: 13 -->
         1
-        <!-- /react-text -->
       </td>
       <td style="text-align: center;">
-        <!-- react-text: 15 -->
         2
-        <!-- /react-text -->
       </td>
       <td style="text-align: left;">
-        <!-- react-text: 17 -->
         3
-        <!-- /react-text -->
       </td>
     </tr>
     <tr>
       <td style="text-align: right;">
-        <!-- react-text: 20 -->
         4
-        <!-- /react-text -->
       </td>
       <td style="text-align: center;">
-        <!-- react-text: 22 -->
         5
-        <!-- /react-text -->
       </td>
       <td style="text-align: left;">
-        <!-- react-text: 24 -->
         6
-        <!-- /react-text -->
       </td>
     </tr>
   </tbody>
@@ -283,9 +213,7 @@ exports[`markdown-to-jsx compiler GFM task lists should handle checked items 1`]
     <input type="checkbox"
            readonly
     >
-    <!-- react-text: 4 -->
     foo
-    <!-- /react-text -->
   </li>
 </ul>
 
@@ -298,9 +226,7 @@ exports[`markdown-to-jsx compiler GFM task lists should handle unchecked items 1
     <input type="checkbox"
            readonly
     >
-    <!-- react-text: 4 -->
     foo
-    <!-- /react-text -->
   </li>
 </ul>
 
@@ -322,9 +248,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML allows whitespace between attri
      id="baz"
      style="background: red;"
 >
-  <!-- react-text: 2 -->
   Bar
-  <!-- /react-text -->
 </div>
 
 `;
@@ -338,45 +262,35 @@ exports[`markdown-to-jsx compiler arbitrary HTML block HTML regression test 1`] 
     <a href="/projects/markdown/"
        title="Markdown Project Page"
     >
-      <!-- react-text: 4 -->
       Main
-      <!-- /react-text -->
     </a>
   </li>
   <li>
     <a href="/projects/markdown/basics"
        title="Markdown Basics"
     >
-      <!-- react-text: 7 -->
       Basics
-      <!-- /react-text -->
     </a>
   </li>
   <li>
     <a class="selected"
        title="Markdown Syntax Documentation"
     >
-      <!-- react-text: 10 -->
       Syntax
-      <!-- /react-text -->
     </a>
   </li>
   <li>
     <a href="/projects/markdown/license"
        title="Pricing and License Information"
     >
-      <!-- react-text: 13 -->
       License
-      <!-- /react-text -->
     </a>
   </li>
   <li>
     <a href="/projects/markdown/dingus"
        title="Online Markdown Web Form"
     >
-      <!-- react-text: 16 -->
       Dingus
-      <!-- /react-text -->
     </a>
   </li>
 </ul>
@@ -386,15 +300,9 @@ exports[`markdown-to-jsx compiler arbitrary HTML block HTML regression test 1`] 
 exports[`markdown-to-jsx compiler arbitrary HTML handles jsx attribute interpolation as a string 1`] = `
 
 <div data-reactroot>
-  <!-- react-text: 2 -->
   1514579720511
-  <!-- /react-text -->
-  <!-- react-text: 3 -->
   to
-  <!-- /react-text -->
-  <!-- react-text: 4 -->
   "1514579720512"
-  <!-- /react-text -->
 </div>
 
 `;
@@ -405,24 +313,16 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles jsx inside jsx interpol
   <div class="inner">
     bah
   </div>
-  <!-- react-text: 3 -->
   and
-  <!-- /react-text -->
   <div class="inner">
-    <!-- react-text: 5 -->
     blah
-    <!-- /react-text -->
   </div>
-  <!-- react-text: 6 -->
   and
-  <!-- /react-text -->
   <div disabled
        class="inner"
   >
   </div>
-  <!-- react-text: 8 -->
   and
-  <!-- /react-text -->
   <div class="inner">
   </div>
 </div>
@@ -450,47 +350,33 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles nested HTML blocks of t
   <tbody>
     <tr>
       <td>
-        <!-- react-text: 5 -->
         Time
-        <!-- /react-text -->
       </td>
       <td>
-        <!-- react-text: 7 -->
         Payment Criteria
-        <!-- /react-text -->
       </td>
       <td>
-        <!-- react-text: 9 -->
         Payment
-        <!-- /react-text -->
       </td>
     </tr>
     <tr>
       <td>
-        <!-- react-text: 12 -->
         Office Visit
-        <!-- /react-text -->
       </td>
       <td>
         <ul>
           <li>
-            <!-- react-text: 16 -->
             Complete full visit and enroll
-            <!-- /react-text -->
             <ul>
               <li>
-                <!-- react-text: 19 -->
                 Enrolling is fun!
-                <!-- /react-text -->
               </li>
             </ul>
           </li>
         </ul>
       </td>
       <td>
-        <!-- react-text: 21 -->
         $20
-        <!-- /react-text -->
       </td>
     </tr>
   </tbody>
@@ -528,9 +414,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles svg 1`] = `
 exports[`markdown-to-jsx compiler arbitrary HTML preserves the HTML given 1`] = `
 
 <dd data-reactroot>
-  <!-- react-text: 2 -->
   Hello
-  <!-- /react-text -->
 </dd>
 
 `;
@@ -540,9 +424,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes attributes that need 
 <span data-reactroot
       tabindex="0"
 >
-  <!-- react-text: 2 -->
   Hello
-  <!-- /react-text -->
 </span>
 
 `;
@@ -552,9 +434,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes attributes within inl
 <time data-reactroot
       data-foo="bar"
 >
-  <!-- react-text: 2 -->
   Hello
-  <!-- /react-text -->
 </time>
 
 `;
@@ -564,9 +444,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes inline HTML with inli
 <span data-reactroot
       style="color: red; position: top; margin-right: 10px;"
 >
-  <!-- react-text: 2 -->
   Hello
-  <!-- /react-text -->
 </span>
 
 `;
@@ -577,9 +455,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within block
      style="float: right;"
 >
   <h1>
-    <!-- react-text: 3 -->
     Hello
-    <!-- /react-text -->
   </h1>
 </div>
 
@@ -589,9 +465,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within block
 
 <p data-reactroot>
   <strong>
-    <!-- react-text: 3 -->
     Hello
-    <!-- /react-text -->
   </strong>
 </p>
 
@@ -601,9 +475,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within inlin
 
 <time data-reactroot>
   <strong>
-    <!-- react-text: 3 -->
     Hello
-    <!-- /react-text -->
   </strong>
 </time>
 
@@ -614,9 +486,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within neste
 <time data-reactroot>
   <span>
     <strong>
-      <!-- react-text: 4 -->
       Hello
-      <!-- /react-text -->
     </strong>
   </span>
 </time>
@@ -627,24 +497,16 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within neste
 
 <dl data-reactroot>
   <dt>
-    <!-- react-text: 3 -->
     foo
-    <!-- /react-text -->
   </dt>
   <dd>
-    <!-- react-text: 5 -->
     bar
-    <!-- /react-text -->
   </dd>
   <dt>
-    <!-- react-text: 7 -->
     baz
-    <!-- /react-text -->
   </dt>
   <dd>
-    <!-- react-text: 9 -->
     qux
-    <!-- /react-text -->
   </dd>
 </dl>
 
@@ -653,27 +515,19 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within neste
 exports[`markdown-to-jsx compiler arbitrary HTML regression test for #136 1`] = `
 
 <p data-reactroot>
-  <!-- react-text: 2 -->
   $25
-  <!-- /react-text -->
   <br>
   <br>
   <br>
-  <!-- react-text: 6 -->
   $50
-  <!-- /react-text -->
   <br>
   <br>
   <br>
-  <!-- react-text: 10 -->
   $50
-  <!-- /react-text -->
   <br>
   <br>
   <br>
-  <!-- react-text: 14 -->
   $50
-  <!-- /react-text -->
   <br>
   <br>
   <br>
@@ -684,14 +538,10 @@ exports[`markdown-to-jsx compiler arbitrary HTML regression test for #136 1`] = 
 exports[`markdown-to-jsx compiler arbitrary HTML renders inline <code> tags 1`] = `
 
 <span data-reactroot>
-  <!-- react-text: 2 -->
   Text and
-  <!-- /react-text -->
   <code>
     <strong>
-      <!-- react-text: 5 -->
       code
-      <!-- /react-text -->
     </strong>
   </code>
 </span>
@@ -701,9 +551,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML renders inline <code> tags 1`] 
 exports[`markdown-to-jsx compiler arbitrary HTML throws out HTML comments 1`] = `
 
 <p data-reactroot>
-  <!-- react-text: 2 -->
   Foo
-  <!-- /react-text -->
 </p>
 
 `;
@@ -722,28 +570,18 @@ exports[`markdown-to-jsx compiler footnotes should handle conversion of referenc
 
 <div data-reactroot>
   <p>
-    <!-- react-text: 3 -->
     foo
-    <!-- /react-text -->
     <a href="#abc">
       <sup>
         abc
       </sup>
     </a>
-    <!-- react-text: 6 -->
     bar
-    <!-- /react-text -->
   </p>
-  <!-- react-text: 7 -->
-  <!-- /react-text -->
   <footer>
     <div id="abc">
-      <!-- react-text: 10 -->
       abc
-      <!-- /react-text -->
-      <!-- react-text: 11 -->
       : Baz baz
-      <!-- /react-text -->
     </div>
   </footer>
 </div>
@@ -754,28 +592,18 @@ exports[`markdown-to-jsx compiler footnotes should handle single word footnote d
 
 <div data-reactroot>
   <p>
-    <!-- react-text: 3 -->
     foo
-    <!-- /react-text -->
     <a href="#abc">
       <sup>
         abc
       </sup>
     </a>
-    <!-- react-text: 6 -->
     bar
-    <!-- /react-text -->
   </p>
-  <!-- react-text: 7 -->
-  <!-- /react-text -->
   <footer>
     <div id="abc">
-      <!-- react-text: 10 -->
       abc
-      <!-- /react-text -->
-      <!-- react-text: 11 -->
       : Baz
-      <!-- /react-text -->
     </div>
   </footer>
 </div>
@@ -786,28 +614,18 @@ exports[`markdown-to-jsx compiler footnotes should inject the definitions in a f
 
 <div data-reactroot>
   <p>
-    <!-- react-text: 3 -->
     foo
-    <!-- /react-text -->
     <a href="#abc">
       <sup>
         abc
       </sup>
     </a>
-    <!-- react-text: 6 -->
     bar
-    <!-- /react-text -->
   </p>
-  <!-- react-text: 7 -->
-  <!-- /react-text -->
   <footer>
     <div id="abc">
-      <!-- react-text: 10 -->
       abc
-      <!-- /react-text -->
-      <!-- react-text: 11 -->
       : Baz baz
-      <!-- /react-text -->
     </div>
   </footer>
 </div>
@@ -818,203 +636,145 @@ exports[`markdown-to-jsx compiler handles a holistic example 1`] = `
 
 <div data-reactroot>
   <h1>
-    <!-- react-text: 3 -->
     Markdown: Syntax
-    <!-- /react-text -->
   </h1>
   <ul id="ProjectSubmenu">
     <li>
       <a href="/projects/markdown/"
          title="Markdown Project Page"
       >
-        <!-- react-text: 7 -->
         Main
-        <!-- /react-text -->
       </a>
     </li>
     <li>
       <a href="/projects/markdown/basics"
          title="Markdown Basics"
       >
-        <!-- react-text: 10 -->
         Basics
-        <!-- /react-text -->
       </a>
     </li>
     <li>
       <a class="selected"
          title="Markdown Syntax Documentation"
       >
-        <!-- react-text: 13 -->
         Syntax
-        <!-- /react-text -->
       </a>
     </li>
     <li>
       <a href="/projects/markdown/license"
          title="Pricing and License Information"
       >
-        <!-- react-text: 16 -->
         License
-        <!-- /react-text -->
       </a>
     </li>
     <li>
       <a href="/projects/markdown/dingus"
          title="Online Markdown Web Form"
       >
-        <!-- react-text: 19 -->
         Dingus
-        <!-- /react-text -->
       </a>
     </li>
   </ul>
   <ul>
     <li>
       <a href="#overview">
-        <!-- react-text: 23 -->
         Overview
-        <!-- /react-text -->
       </a>
-      <!-- react-text: 24 -->
-      <!-- /react-text -->
       <ul>
         <li>
           <a href="#philosophy">
-            <!-- react-text: 28 -->
             Philosophy
-            <!-- /react-text -->
           </a>
         </li>
         <li>
           <a href="#html">
-            <!-- react-text: 31 -->
             Inline HTML
-            <!-- /react-text -->
           </a>
         </li>
         <li>
           <a href="#autoescape">
-            <!-- react-text: 34 -->
             Automatic Escaping for Special Characters
-            <!-- /react-text -->
           </a>
         </li>
       </ul>
     </li>
     <li>
       <a href="#block">
-        <!-- react-text: 37 -->
         Block Elements
-        <!-- /react-text -->
       </a>
-      <!-- react-text: 38 -->
-      <!-- /react-text -->
       <ul>
         <li>
           <a href="#p">
-            <!-- react-text: 42 -->
             Paragraphs and Line Breaks
-            <!-- /react-text -->
           </a>
         </li>
         <li>
           <a href="#header">
-            <!-- react-text: 45 -->
             Headers
-            <!-- /react-text -->
           </a>
         </li>
         <li>
           <a href="#blockquote">
-            <!-- react-text: 48 -->
             Blockquotes
-            <!-- /react-text -->
           </a>
         </li>
         <li>
           <a href="#list">
-            <!-- react-text: 51 -->
             Lists
-            <!-- /react-text -->
           </a>
         </li>
         <li>
           <a href="#precode">
-            <!-- react-text: 54 -->
             Code Blocks
-            <!-- /react-text -->
           </a>
         </li>
         <li>
           <a href="#hr">
-            <!-- react-text: 57 -->
             Horizontal Rules
-            <!-- /react-text -->
           </a>
         </li>
       </ul>
     </li>
     <li>
       <a href="#span">
-        <!-- react-text: 60 -->
         Span Elements
-        <!-- /react-text -->
       </a>
-      <!-- react-text: 61 -->
-      <!-- /react-text -->
       <ul>
         <li>
           <a href="#link">
-            <!-- react-text: 65 -->
             Links
-            <!-- /react-text -->
           </a>
         </li>
         <li>
           <a href="#em">
-            <!-- react-text: 68 -->
             Emphasis
-            <!-- /react-text -->
           </a>
         </li>
         <li>
           <a href="#code">
-            <!-- react-text: 71 -->
             Code
-            <!-- /react-text -->
           </a>
         </li>
         <li>
           <a href="#img">
-            <!-- react-text: 74 -->
             Images
-            <!-- /react-text -->
           </a>
         </li>
       </ul>
     </li>
     <li>
       <a href="#misc">
-        <!-- react-text: 77 -->
         Miscellaneous
-        <!-- /react-text -->
       </a>
-      <!-- react-text: 78 -->
-      <!-- /react-text -->
       <ul>
         <li>
           <a href="#backslash">
-            <!-- react-text: 82 -->
             Backslash Escapes
-            <!-- /react-text -->
           </a>
         </li>
         <li>
           <a href="#autolink">
-            <!-- react-text: 85 -->
             Automatic Links
-            <!-- /react-text -->
           </a>
         </li>
       </ul>
@@ -1022,219 +782,135 @@ exports[`markdown-to-jsx compiler handles a holistic example 1`] = `
   </ul>
   <p>
     <strong>
-      <!-- react-text: 88 -->
       Note:
-      <!-- /react-text -->
     </strong>
-    <!-- react-text: 89 -->
     This document is itself written using Markdown; you
 can
-    <!-- /react-text -->
     <a href="/projects/markdown/syntax.text">
-      <!-- react-text: 91 -->
       see the source for it by adding '.text' to the URL
-      <!-- /react-text -->
     </a>
-    <!-- react-text: 92 -->
     .
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 94 -->
-    <!-- /react-text -->
   </p>
   <hr>
   <h2 id="overview">
-    <!-- react-text: 97 -->
     Overview
-    <!-- /react-text -->
   </h2>
   <h3 id="philosophy">
-    <!-- react-text: 99 -->
     Philosophy
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 101 -->
     Markdown is intended to be as easy-to-read and easy-to-write as is feasible.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 103 -->
     Readability, however, is emphasized above all else. A Markdown-formatted
 document should be publishable as-is, as plain text, without looking
 like it's been marked up with tags or formatting instructions. While
 Markdown's syntax has been influenced by several existing text-to-HTML
 filters -- including
-    <!-- /react-text -->
     <a href="http://docutils.sourceforge.net/mirror/setext.html">
-      <!-- react-text: 105 -->
       Setext
-      <!-- /react-text -->
     </a>
-    <!-- react-text: 106 -->
     ,
-    <!-- /react-text -->
     <a href="http://www.aaronsw.com/2002/atx/">
-      <!-- react-text: 108 -->
       atx
-      <!-- /react-text -->
     </a>
-    <!-- react-text: 109 -->
     ,
-    <!-- /react-text -->
     <a href="http://textism.com/tools/textile/">
-      <!-- react-text: 111 -->
       Textile
-      <!-- /react-text -->
     </a>
-    <!-- react-text: 112 -->
     ,
-    <!-- /react-text -->
     <a href="http://docutils.sourceforge.net/rst.html">
-      <!-- react-text: 114 -->
       reStructuredText
-      <!-- /react-text -->
     </a>
-    <!-- react-text: 115 -->
     ,
-    <!-- /react-text -->
     <a href="http://www.triptico.com/software/grutatxt.html">
-      <!-- react-text: 117 -->
       Grutatext
-      <!-- /react-text -->
     </a>
-    <!-- react-text: 118 -->
     , and
-    <!-- /react-text -->
     <a href="http://ettext.taint.org/doc/">
-      <!-- react-text: 120 -->
       EtText
-      <!-- /react-text -->
     </a>
-    <!-- react-text: 121 -->
     -- the single biggest source of
 inspiration for Markdown's syntax is the format of plain text email.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 123 -->
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 125 -->
     To this end, Markdown's syntax is comprised entirely of punctuation
 characters, which punctuation characters have been carefully chosen so
 as to look like what they mean. E.g., asterisks around a word actually
 look like *emphasis*. Markdown lists look like, well, lists. Even
 blockquotes look like quoted passages of text, assuming you've ever
 used email.
-    <!-- /react-text -->
   </p>
   <h3 id="html">
-    <!-- react-text: 127 -->
     Inline HTML
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 129 -->
     Markdown's syntax is intended for one purpose: to be used as a
 format for
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 131 -->
       writing
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 132 -->
     for the web.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 134 -->
     Markdown is not a replacement for HTML, or even close to it. Its
 syntax is very small, corresponding only to a very small subset of
 HTML tags. The idea is
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 136 -->
       not
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 137 -->
     to create a syntax that makes it easier
 to insert HTML tags. In my opinion, HTML tags are already easy to
 insert. The idea for Markdown is to make it easy to read, write, and
 edit prose. HTML is a
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 139 -->
       publishing
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 140 -->
     format; Markdown is a
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 142 -->
       writing
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 143 -->
     format. Thus, Markdown's formatting syntax only addresses issues that
 can be conveyed in plain text.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 145 -->
     For any markup that is not covered by Markdown's syntax, you simply
 use HTML itself. There's no need to preface it or delimit it to
 indicate that you're switching from Markdown to HTML; you just use
 the tags.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 147 -->
     The only restrictions are that block-level HTML elements -- e.g.
-    <!-- /react-text -->
     <code>
       &lt;div&gt;
     </code>
-    <!-- react-text: 149 -->
     ,
-    <!-- /react-text -->
     <code>
       &lt;table&gt;
     </code>
-    <!-- react-text: 151 -->
     ,
-    <!-- /react-text -->
     <code>
       &lt;pre&gt;
     </code>
-    <!-- react-text: 153 -->
     ,
-    <!-- /react-text -->
     <code>
       &lt;p&gt;
     </code>
-    <!-- react-text: 155 -->
     , etc. -- must be separated from surrounding
 content by blank lines, and the start and end tags of the block should
 not be indented with tabs or spaces. Markdown is smart enough not
 to add extra (unwanted)
-    <!-- /react-text -->
     <code>
       &lt;p&gt;
     </code>
-    <!-- react-text: 157 -->
     tags around HTML block-level tags.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 159 -->
     For example, to add an HTML table to a Markdown article:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1250,119 +926,81 @@ This is another regular paragraph.
     </code>
   </pre>
   <p>
-    <!-- react-text: 163 -->
     Note that Markdown formatting syntax is not processed within block-level
 HTML tags. E.g., you can't use Markdown-style
-    <!-- /react-text -->
     <code>
       *emphasis*
     </code>
-    <!-- react-text: 165 -->
     inside an
 HTML block.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 167 -->
     Span-level HTML tags -- e.g.
-    <!-- /react-text -->
     <code>
       &lt;span&gt;
     </code>
-    <!-- react-text: 169 -->
     ,
-    <!-- /react-text -->
     <code>
       &lt;cite&gt;
     </code>
-    <!-- react-text: 171 -->
     , or
-    <!-- /react-text -->
     <code>
       &lt;del&gt;
     </code>
-    <!-- react-text: 173 -->
     -- can be
 used anywhere in a Markdown paragraph, list item, or header. If you
 want, you can even use HTML tags instead of Markdown formatting; e.g. if
 you'd prefer to use HTML
-    <!-- /react-text -->
     <code>
       &lt;a&gt;
     </code>
-    <!-- react-text: 175 -->
     or
-    <!-- /react-text -->
     <code>
       &lt;img&gt;
     </code>
-    <!-- react-text: 177 -->
     tags instead of Markdown's
 link or image syntax, go right ahead.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 179 -->
     Unlike block-level HTML tags, Markdown syntax
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 181 -->
       is
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 182 -->
     processed within
 span-level tags.
-    <!-- /react-text -->
   </p>
   <h3 id="autoescape">
-    <!-- react-text: 184 -->
     Automatic Escaping for Special Characters
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 186 -->
     In HTML, there are two characters that demand special treatment:
-    <!-- /react-text -->
     <code>
       &lt;
     </code>
-    <!-- react-text: 188 -->
     and
-    <!-- /react-text -->
     <code>
       &amp;
     </code>
-    <!-- react-text: 190 -->
     . Left angle brackets are used to start tags; ampersands are
 used to denote HTML entities. If you want to use them as literal
 characters, you must escape them as entities, e.g.
-    <!-- /react-text -->
     <code>
       &amp;lt;
     </code>
-    <!-- react-text: 192 -->
     , and
-    <!-- /react-text -->
     <code>
       &amp;amp;
     </code>
-    <!-- react-text: 194 -->
     .
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 196 -->
     Ampersands in particular are bedeviling for web writers. If you want to
 write about 'AT&amp;T', you need to write '
-    <!-- /react-text -->
     <code>
       AT&amp;amp;T
     </code>
-    <!-- react-text: 198 -->
     '. You even need to
 escape ampersands within URLs. Thus, if you want to link to:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1370,9 +1008,7 @@ escape ampersands within URLs. Thus, if you want to link to:
     </code>
   </pre>
   <p>
-    <!-- react-text: 202 -->
     you need to encode the URL as:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1380,36 +1016,26 @@ escape ampersands within URLs. Thus, if you want to link to:
     </code>
   </pre>
   <p>
-    <!-- react-text: 206 -->
     in your anchor tag
-    <!-- /react-text -->
     <code>
       href
     </code>
-    <!-- react-text: 208 -->
     attribute. Needless to say, this is easy to
 forget, and is probably the single most common source of HTML validation
 errors in otherwise well-marked-up web sites.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 210 -->
     Markdown allows you to use these characters naturally, taking care of
 all the necessary escaping for you. If you use an ampersand as part of
 an HTML entity, it remains unchanged; otherwise it will be translated
 into
-    <!-- /react-text -->
     <code>
       &amp;amp;
     </code>
-    <!-- react-text: 212 -->
     .
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 214 -->
     So, if you want to include a copyright symbol in your article, you can write:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1417,9 +1043,7 @@ into
     </code>
   </pre>
   <p>
-    <!-- react-text: 218 -->
     and Markdown will leave it alone. But if you write:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1427,9 +1051,7 @@ into
     </code>
   </pre>
   <p>
-    <!-- react-text: 222 -->
     Markdown will translate it to:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1437,19 +1059,13 @@ into
     </code>
   </pre>
   <p>
-    <!-- react-text: 226 -->
     Similarly, because Markdown supports
-    <!-- /react-text -->
     <a href="#html">
-      <!-- react-text: 228 -->
       inline HTML
-      <!-- /react-text -->
     </a>
-    <!-- react-text: 229 -->
     , if you use
 angle brackets as delimiters for HTML tags, Markdown will treat them as
 such. But if you write:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1457,9 +1073,7 @@ such. But if you write:
     </code>
   </pre>
   <p>
-    <!-- react-text: 233 -->
     Markdown will translate it to:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1467,157 +1081,99 @@ such. But if you write:
     </code>
   </pre>
   <p>
-    <!-- react-text: 237 -->
     However, inside Markdown code spans and blocks, angle brackets and
 ampersands are
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 239 -->
       always
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 240 -->
     encoded automatically. This makes it easy to use
 Markdown to write about HTML code. (As opposed to raw HTML, which is a
 terrible format for writing about HTML syntax, because every single
-    <!-- /react-text -->
     <code>
       &lt;
     </code>
-    <!-- react-text: 242 -->
     and
-    <!-- /react-text -->
     <code>
       &amp;
     </code>
-    <!-- react-text: 244 -->
     in your example code needs to be escaped.)
-    <!-- /react-text -->
   </p>
   <hr>
   <h2 id="block">
-    <!-- react-text: 247 -->
     Block Elements
-    <!-- /react-text -->
   </h2>
   <h3 id="p">
-    <!-- react-text: 249 -->
     Paragraphs and Line Breaks
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 251 -->
     A paragraph is simply one or more consecutive lines of text, separated
 by one or more blank lines. (A blank line is any line that looks like a
 blank line -- a line containing nothing but spaces or tabs is considered
 blank.) Normal paragraphs should not be indented with spaces or tabs.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 253 -->
     The implication of the "one or more consecutive lines of text" rule is
 that Markdown supports "hard-wrapped" text paragraphs. This differs
 significantly from most other text-to-HTML formatters (including Movable
 Type's "Convert Line Breaks" option) which translate every line break
 character in a paragraph into a
-    <!-- /react-text -->
     <code>
       &lt;br /&gt;
     </code>
-    <!-- react-text: 255 -->
     tag.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 257 -->
     When you
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 259 -->
       do
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 260 -->
     want to insert a
-    <!-- /react-text -->
     <code>
       &lt;br /&gt;
     </code>
-    <!-- react-text: 262 -->
     break tag using Markdown, you
 end a line with two or more spaces, then type return.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 264 -->
     Yes, this takes a tad more effort to create a
-    <!-- /react-text -->
     <code>
       &lt;br /&gt;
     </code>
-    <!-- react-text: 266 -->
     , but a simplistic
 "every line break is a
-    <!-- /react-text -->
     <code>
       &lt;br /&gt;
     </code>
-    <!-- react-text: 268 -->
     " rule wouldn't work for Markdown.
 Markdown's email-style
-    <!-- /react-text -->
     <a href="#blockquote">
-      <!-- react-text: 270 -->
       blockquoting
-      <!-- /react-text -->
     </a>
-    <!-- react-text: 271 -->
     and multi-paragraph
-    <!-- /react-text -->
     <a href="#list">
-      <!-- react-text: 273 -->
       list items
-      <!-- /react-text -->
     </a>
-    <!-- react-text: 274 -->
     work best -- and look better -- when you format them with hard breaks.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 276 -->
-    <!-- /react-text -->
   </p>
   <h3 id="header">
-    <!-- react-text: 278 -->
     Headers
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 280 -->
     Markdown supports two styles of headers,
-    <!-- /react-text -->
     <a href="http://docutils.sourceforge.net/mirror/setext.html">
-      <!-- react-text: 282 -->
       Setext
-      <!-- /react-text -->
     </a>
-    <!-- react-text: 283 -->
     and
-    <!-- /react-text -->
     <a href="http://www.aaronsw.com/2002/atx/">
-      <!-- react-text: 285 -->
       atx
-      <!-- /react-text -->
     </a>
-    <!-- react-text: 286 -->
     .
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 288 -->
     Setext-style headers are "underlined" using equal signs (for first-level
 headers) and dashes (for second-level headers). For example:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1629,27 +1185,19 @@ This is an H2
     </code>
   </pre>
   <p>
-    <!-- react-text: 292 -->
     Any number of underlining
-    <!-- /react-text -->
     <code>
       =
     </code>
-    <!-- react-text: 294 -->
     's or
-    <!-- /react-text -->
     <code>
       -
     </code>
-    <!-- react-text: 296 -->
     's will work.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 298 -->
     Atx-style headers use 1-6 hash characters at the start of the line,
 corresponding to header levels 1-6. For example:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1661,13 +1209,11 @@ corresponding to header levels 1-6. For example:
     </code>
   </pre>
   <p>
-    <!-- react-text: 302 -->
     Optionally, you may "close" atx-style headers. This is purely
 cosmetic -- you can use this if you think it looks better. The
 closing hashes don't even need to match the number of hashes
 used to open the header. (The number of opening hashes
 determines the header level.) :
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1679,29 +1225,21 @@ determines the header level.) :
     </code>
   </pre>
   <h3 id="blockquote">
-    <!-- react-text: 306 -->
     Blockquotes
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 308 -->
     Markdown uses email-style
-    <!-- /react-text -->
     <code>
       &gt;
     </code>
-    <!-- react-text: 310 -->
     characters for blockquoting. If you're
 familiar with quoting passages of text in an email message, then you
 know how to create a blockquote in Markdown. It looks best if you hard
 wrap the text and put a
-    <!-- /react-text -->
     <code>
       &gt;
     </code>
-    <!-- react-text: 312 -->
     before every line:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1714,16 +1252,12 @@ wrap the text and put a
     </code>
   </pre>
   <p>
-    <!-- react-text: 316 -->
     Markdown allows you to be lazy and only put the
-    <!-- /react-text -->
     <code>
       &gt;
     </code>
-    <!-- react-text: 318 -->
     before the first
 line of a hard-wrapped paragraph:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1736,16 +1270,12 @@ id sem consectetuer libero luctus adipiscing.
     </code>
   </pre>
   <p>
-    <!-- react-text: 322 -->
     Blockquotes can be nested (i.e. a blockquote-in-a-blockquote) by
 adding additional levels of
-    <!-- /react-text -->
     <code>
       &gt;
     </code>
-    <!-- react-text: 324 -->
     :
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1757,10 +1287,8 @@ adding additional levels of
     </code>
   </pre>
   <p>
-    <!-- react-text: 328 -->
     Blockquotes can contain other Markdown elements, including headers, lists,
 and code blocks:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1775,27 +1303,19 @@ and code blocks:
     </code>
   </pre>
   <p>
-    <!-- react-text: 332 -->
     Any decent text editor should make email-style quoting easy. For
 example, with BBEdit, you can make a selection and choose Increase
 Quote Level from the Text menu.
-    <!-- /react-text -->
   </p>
   <h3 id="list">
-    <!-- react-text: 334 -->
     Lists
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 336 -->
     Markdown supports ordered (numbered) and unordered (bulleted) lists.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 338 -->
     Unordered lists use asterisks, pluses, and hyphens -- interchangably
 -- as list markers:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1805,9 +1325,7 @@ Quote Level from the Text menu.
     </code>
   </pre>
   <p>
-    <!-- react-text: 342 -->
     is equivalent to:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1817,9 +1335,7 @@ Quote Level from the Text menu.
     </code>
   </pre>
   <p>
-    <!-- react-text: 346 -->
     and:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1829,9 +1345,7 @@ Quote Level from the Text menu.
     </code>
   </pre>
   <p>
-    <!-- react-text: 350 -->
     Ordered lists use numbers followed by periods:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1841,11 +1355,9 @@ Quote Level from the Text menu.
     </code>
   </pre>
   <p>
-    <!-- react-text: 354 -->
     It's important to note that the actual numbers you use to mark the
 list have no effect on the HTML output Markdown produces. The HTML
 Markdown produces from the above list is:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1857,9 +1369,7 @@ Markdown produces from the above list is:
     </code>
   </pre>
   <p>
-    <!-- react-text: 358 -->
     If you instead wrote the list in Markdown like this:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1869,9 +1379,7 @@ Markdown produces from the above list is:
     </code>
   </pre>
   <p>
-    <!-- react-text: 362 -->
     or even:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1881,31 +1389,23 @@ Markdown produces from the above list is:
     </code>
   </pre>
   <p>
-    <!-- react-text: 366 -->
     you'd get the exact same HTML output. The point is, if you want to,
 you can use ordinal numbers in your ordered Markdown lists, so that
 the numbers in your source match the numbers in your published HTML.
 But if you want to be lazy, you don't have to.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 368 -->
     If you do use lazy list numbering, however, you should still start the
 list with the number 1. At some point in the future, Markdown may support
 starting ordered lists at an arbitrary number.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 370 -->
     List markers typically start at the left margin, but may be indented by
 up to three spaces. List markers must be followed by one or more spaces
 or a tab.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 372 -->
     To make lists look nice, you can wrap items with hanging indents:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1917,9 +1417,7 @@ or a tab.
     </code>
   </pre>
   <p>
-    <!-- react-text: 376 -->
     But if you want to be lazy, you don't have to:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1931,16 +1429,12 @@ Suspendisse id sem consectetuer libero luctus adipiscing.
     </code>
   </pre>
   <p>
-    <!-- react-text: 380 -->
     If list items are separated by blank lines, Markdown will wrap the
 items in
-    <!-- /react-text -->
     <code>
       &lt;p&gt;
     </code>
-    <!-- react-text: 382 -->
     tags in the HTML output. For example, this input:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1949,9 +1443,7 @@ items in
     </code>
   </pre>
   <p>
-    <!-- react-text: 386 -->
     will turn into:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1962,9 +1454,7 @@ items in
     </code>
   </pre>
   <p>
-    <!-- react-text: 390 -->
     But this:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1974,9 +1464,7 @@ items in
     </code>
   </pre>
   <p>
-    <!-- react-text: 394 -->
     will turn into:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -1987,11 +1475,9 @@ items in
     </code>
   </pre>
   <p>
-    <!-- react-text: 398 -->
     List items may consist of multiple paragraphs. Each subsequent
 paragraph in a list item must be indented by either 4 spaces
 or one tab:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2007,11 +1493,9 @@ or one tab:
     </code>
   </pre>
   <p>
-    <!-- react-text: 402 -->
     It looks nice if you indent every line of the subsequent
 paragraphs, but here again, Markdown will allow you to be
 lazy:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2025,15 +1509,11 @@ sit amet, consectetuer adipiscing elit.
     </code>
   </pre>
   <p>
-    <!-- react-text: 406 -->
     To put a blockquote within a list item, the blockquote's
-    <!-- /react-text -->
     <code>
       &gt;
     </code>
-    <!-- react-text: 408 -->
     delimiters need to be indented:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2044,18 +1524,12 @@ sit amet, consectetuer adipiscing elit.
     </code>
   </pre>
   <p>
-    <!-- react-text: 412 -->
     To put a code block within a list item, the code block needs
 to be indented
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 414 -->
       twice
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 415 -->
     -- 8 spaces or two tabs:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2065,10 +1539,8 @@ to be indented
     </code>
   </pre>
   <p>
-    <!-- react-text: 419 -->
     It's worth noting that it's possible to trigger an ordered list by
 accident, by writing something like this:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2076,18 +1548,12 @@ accident, by writing something like this:
     </code>
   </pre>
   <p>
-    <!-- react-text: 423 -->
     In other words, a
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 425 -->
       number-period-space
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 426 -->
     sequence at the beginning of a
 line. To avoid this, you can backslash-escape the period:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2095,35 +1561,25 @@ line. To avoid this, you can backslash-escape the period:
     </code>
   </pre>
   <h3 id="precode">
-    <!-- react-text: 430 -->
     Code Blocks
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 432 -->
     Pre-formatted code blocks are used for writing about programming or
 markup source code. Rather than forming normal paragraphs, the lines
 of a code block are interpreted literally. Markdown wraps a code block
 in both
-    <!-- /react-text -->
     <code>
       &lt;pre&gt;
     </code>
-    <!-- react-text: 434 -->
     and
-    <!-- /react-text -->
     <code>
       &lt;code&gt;
     </code>
-    <!-- react-text: 436 -->
     tags.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 438 -->
     To produce a code block in Markdown, simply indent every line of the
 block by at least 4 spaces or 1 tab. For example, given this input:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2133,9 +1589,7 @@ block by at least 4 spaces or 1 tab. For example, given this input:
     </code>
   </pre>
   <p>
-    <!-- react-text: 442 -->
     Markdown will generate:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2146,10 +1600,8 @@ block by at least 4 spaces or 1 tab. For example, given this input:
     </code>
   </pre>
   <p>
-    <!-- react-text: 446 -->
     One level of indentation -- 4 spaces or 1 tab -- is removed from each
 line of the code block. For example, this:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2161,9 +1613,7 @@ line of the code block. For example, this:
     </code>
   </pre>
   <p>
-    <!-- react-text: 450 -->
     will turn into:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2176,37 +1626,27 @@ end tell
     </code>
   </pre>
   <p>
-    <!-- react-text: 454 -->
     A code block continues until it reaches a line that is not indented
 (or the end of the article).
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 456 -->
     Within a code block, ampersands (
-    <!-- /react-text -->
     <code>
       &amp;
     </code>
-    <!-- react-text: 458 -->
     ) and angle brackets (
-    <!-- /react-text -->
     <code>
       &lt;
     </code>
-    <!-- react-text: 460 -->
     and
-    <!-- /react-text -->
     <code>
       &gt;
     </code>
-    <!-- react-text: 462 -->
     )
 are automatically converted into HTML entities. This makes it very
 easy to include example HTML source code using Markdown -- just paste
 it and indent it, and Markdown will handle the hassle of encoding the
 ampersands and angle brackets. For example, this:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2216,9 +1656,7 @@ ampersands and angle brackets. For example, this:
     </code>
   </pre>
   <p>
-    <!-- react-text: 466 -->
     will turn into:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2229,30 +1667,22 @@ ampersands and angle brackets. For example, this:
     </code>
   </pre>
   <p>
-    <!-- react-text: 470 -->
     Regular Markdown syntax is not processed within code blocks. E.g.,
 asterisks are just literal asterisks within a code block. This means
 it's also easy to use Markdown to write about Markdown's own syntax.
-    <!-- /react-text -->
   </p>
   <h3 id="hr">
-    <!-- react-text: 472 -->
     Horizontal Rules
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 474 -->
     You can produce a horizontal rule tag (
-    <!-- /react-text -->
     <code>
       &lt;hr /&gt;
     </code>
-    <!-- react-text: 476 -->
     ) by placing three or
 more hyphens, asterisks, or underscores on a line by themselves. If you
 wish, you may use spaces between the hyphens or asterisks. Each of the
 following lines will produce a horizontal rule:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2269,55 +1699,33 @@ following lines will produce a horizontal rule:
   </pre>
   <hr>
   <h2 id="span">
-    <!-- react-text: 481 -->
     Span Elements
-    <!-- /react-text -->
   </h2>
   <h3 id="link">
-    <!-- react-text: 483 -->
     Links
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 485 -->
     Markdown supports two style of links:
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 487 -->
       inline
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 488 -->
     and
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 490 -->
       reference
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 491 -->
     .
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 493 -->
     In both styles, the link text is delimited by [square brackets].
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 495 -->
     To create an inline link, use a set of regular parentheses immediately
 after the link text's closing square bracket. Inside the parentheses,
 put the URL where you want the link to point, along with an
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 497 -->
       optional
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 498 -->
     title for the link, surrounded in quotes. For example:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2327,9 +1735,7 @@ put the URL where you want the link to point, along with an
     </code>
   </pre>
   <p>
-    <!-- react-text: 502 -->
     Will produce:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2341,10 +1747,8 @@ title attribute.&lt;/p&gt;
     </code>
   </pre>
   <p>
-    <!-- react-text: 506 -->
     If you're referring to a local resource on the same server, you can
 use relative paths:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2352,10 +1756,8 @@ use relative paths:
     </code>
   </pre>
   <p>
-    <!-- react-text: 510 -->
     Reference-style links use a second set of square brackets, inside
 which you place a label of your choosing to identify the link:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2363,9 +1765,7 @@ which you place a label of your choosing to identify the link:
     </code>
   </pre>
   <p>
-    <!-- react-text: 514 -->
     You can optionally use a space to separate the sets of brackets:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2373,10 +1773,8 @@ which you place a label of your choosing to identify the link:
     </code>
   </pre>
   <p>
-    <!-- react-text: 518 -->
     Then, anywhere in the document, you define your link label like this,
 on a line by itself:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2384,43 +1782,29 @@ on a line by itself:
     </code>
   </pre>
   <p>
-    <!-- react-text: 522 -->
     That is:
-    <!-- /react-text -->
   </p>
   <ul>
     <li>
-      <!-- react-text: 525 -->
       Square brackets containing the link identifier (optionally
 indented from the left margin using up to three spaces);
-      <!-- /react-text -->
     </li>
     <li>
-      <!-- react-text: 527 -->
       followed by a colon;
-      <!-- /react-text -->
     </li>
     <li>
-      <!-- react-text: 529 -->
       followed by one or more spaces (or tabs);
-      <!-- /react-text -->
     </li>
     <li>
-      <!-- react-text: 531 -->
       followed by the URL for the link;
-      <!-- /react-text -->
     </li>
     <li>
-      <!-- react-text: 533 -->
       optionally followed by a title attribute for the link, enclosed
 in double or single quotes, or enclosed in parentheses.
-      <!-- /react-text -->
     </li>
   </ul>
   <p>
-    <!-- react-text: 535 -->
     The following three link definitions are equivalent:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2431,19 +1815,13 @@ in double or single quotes, or enclosed in parentheses.
   </pre>
   <p>
     <strong>
-      <!-- react-text: 540 -->
       Note:
-      <!-- /react-text -->
     </strong>
-    <!-- react-text: 541 -->
     There is a known bug in Markdown.pl 1.0.1 which prevents
 single quotes from being used to delimit link titles.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 543 -->
     The link URL may, optionally, be surrounded by angle brackets:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2451,10 +1829,8 @@ single quotes from being used to delimit link titles.
     </code>
   </pre>
   <p>
-    <!-- react-text: 547 -->
     You can put the title attribute on the next line and use extra spaces
 or tabs for padding, which tends to look better with longer URLs:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2463,25 +1839,17 @@ or tabs for padding, which tends to look better with longer URLs:
     </code>
   </pre>
   <p>
-    <!-- react-text: 551 -->
     Link definitions are only used for creating links during Markdown
 processing, and are stripped from your document in the HTML output.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 553 -->
     Link definition names may consist of letters, numbers, spaces, and
 punctuation -- but they are
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 555 -->
       not
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 556 -->
     case sensitive. E.g. these two
 links:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2490,25 +1858,17 @@ links:
     </code>
   </pre>
   <p>
-    <!-- react-text: 560 -->
     are equivalent.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 562 -->
     The
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 564 -->
       implicit link name
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 565 -->
     shortcut allows you to omit the name of the
 link, in which case the link text itself is used as the name.
 Just use an empty set of square brackets -- e.g., to link the word
 "Google" to the google.com web site, you could simply write:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2516,9 +1876,7 @@ Just use an empty set of square brackets -- e.g., to link the word
     </code>
   </pre>
   <p>
-    <!-- react-text: 569 -->
     And then define the link:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2526,10 +1884,8 @@ Just use an empty set of square brackets -- e.g., to link the word
     </code>
   </pre>
   <p>
-    <!-- react-text: 573 -->
     Because link names may contain spaces, this shortcut even works for
 multiple words in the link text:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2537,9 +1893,7 @@ multiple words in the link text:
     </code>
   </pre>
   <p>
-    <!-- react-text: 577 -->
     And then define the link:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2547,17 +1901,13 @@ multiple words in the link text:
     </code>
   </pre>
   <p>
-    <!-- react-text: 581 -->
     Link definitions can be placed anywhere in your Markdown document. I
 tend to put them immediately after each paragraph in which they're
 used, but if you want, you can put them all at the end of your
 document, sort of like footnotes.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 583 -->
     Here's an example of reference links in action:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2570,9 +1920,7 @@ document, sort of like footnotes.
     </code>
   </pre>
   <p>
-    <!-- react-text: 587 -->
     Using the implicit link name shortcut, you could instead write:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2585,9 +1933,7 @@ document, sort of like footnotes.
     </code>
   </pre>
   <p>
-    <!-- react-text: 591 -->
     Both of the above examples will produce the following HTML output:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2598,10 +1944,8 @@ or &lt;a href="http://search.msn.com/" title="MSN Search"&gt;MSN&lt;/a&gt;.&lt;/
     </code>
   </pre>
   <p>
-    <!-- react-text: 595 -->
     For comparison, here is the same paragraph written using
 Markdown's inline link style:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2611,7 +1955,6 @@ than from [Yahoo](http://search.yahoo.com/ "Yahoo Search") or
     </code>
   </pre>
   <p>
-    <!-- react-text: 599 -->
     The point of reference-style links is not that they're easier to
 write. The point is that with reference-style links, your document
 source is vastly more readable. Compare the above examples: using
@@ -2619,76 +1962,53 @@ reference-style links, the paragraph itself is only 81 characters
 long; with inline-style links, it's 176 characters; and as raw HTML,
 it's 234 characters. In the raw HTML, there's more markup than there
 is text.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 601 -->
     With Markdown's reference-style links, a source document much more
 closely resembles the final output, as rendered in a browser. By
 allowing you to move the markup-related metadata out of the paragraph,
 you can add links without interrupting the narrative flow of your
 prose.
-    <!-- /react-text -->
   </p>
   <h3 id="em">
-    <!-- react-text: 603 -->
     Emphasis
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 605 -->
     Markdown treats asterisks (
-    <!-- /react-text -->
     <code>
       *
     </code>
-    <!-- react-text: 607 -->
     ) and underscores (
-    <!-- /react-text -->
     <code>
       _
     </code>
-    <!-- react-text: 609 -->
     ) as indicators of
 emphasis. Text wrapped with one
-    <!-- /react-text -->
     <code>
       *
     </code>
-    <!-- react-text: 611 -->
     or
-    <!-- /react-text -->
     <code>
       _
     </code>
-    <!-- react-text: 613 -->
     will be wrapped with an
 HTML
-    <!-- /react-text -->
     <code>
       &lt;em&gt;
     </code>
-    <!-- react-text: 615 -->
     tag; double
-    <!-- /react-text -->
     <code>
       *
     </code>
-    <!-- react-text: 617 -->
     's or
-    <!-- /react-text -->
     <code>
       _
     </code>
-    <!-- react-text: 619 -->
     's will be wrapped with an HTML
-    <!-- /react-text -->
     <code>
       &lt;strong&gt;
     </code>
-    <!-- react-text: 621 -->
     tag. E.g., this input:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2702,9 +2022,7 @@ __double underscores__
     </code>
   </pre>
   <p>
-    <!-- react-text: 625 -->
     will produce:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2718,15 +2036,11 @@ __double underscores__
     </code>
   </pre>
   <p>
-    <!-- react-text: 629 -->
     You can use whichever style you prefer; the lone restriction is that
 the same character must be used to open and close an emphasis span.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 631 -->
     Emphasis can be used in the middle of a word:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2734,29 +2048,21 @@ the same character must be used to open and close an emphasis span.
     </code>
   </pre>
   <p>
-    <!-- react-text: 635 -->
     But if you surround an
-    <!-- /react-text -->
     <code>
       *
     </code>
-    <!-- react-text: 637 -->
     or
-    <!-- /react-text -->
     <code>
       _
     </code>
-    <!-- react-text: 639 -->
     with spaces, it'll be treated as a
 literal asterisk or underscore.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 641 -->
     To produce a literal asterisk or underscore at a position where it
 would otherwise be used as an emphasis delimiter, you can backslash
 escape it:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2764,22 +2070,16 @@ escape it:
     </code>
   </pre>
   <h3 id="code">
-    <!-- react-text: 645 -->
     Code
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 647 -->
     To indicate a span of code, wrap it with backtick quotes (
-    <!-- /react-text -->
     <code>
       \`
     </code>
-    <!-- react-text: 649 -->
     ).
 Unlike a pre-formatted code block, a code span indicates code within a
 normal paragraph. For example:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2787,9 +2087,7 @@ normal paragraph. For example:
     </code>
   </pre>
   <p>
-    <!-- react-text: 653 -->
     will produce:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2797,10 +2095,8 @@ normal paragraph. For example:
     </code>
   </pre>
   <p>
-    <!-- react-text: 657 -->
     To include a literal backtick character within a code span, you can use
 multiple backticks as the opening and closing delimiters:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2808,9 +2104,7 @@ multiple backticks as the opening and closing delimiters:
     </code>
   </pre>
   <p>
-    <!-- react-text: 661 -->
     which will produce this:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2818,11 +2112,9 @@ multiple backticks as the opening and closing delimiters:
     </code>
   </pre>
   <p>
-    <!-- react-text: 665 -->
     The backtick delimiters surrounding a code span may include spaces --
 one after the opening, one before the closing. This allows you to place
 literal backtick characters at the beginning or end of a code span:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2832,9 +2124,7 @@ A backtick-delimited string in a code span: \`\` \`foo\` \`\`
     </code>
   </pre>
   <p>
-    <!-- react-text: 669 -->
     will produce:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2844,11 +2134,9 @@ A backtick-delimited string in a code span: \`\` \`foo\` \`\`
     </code>
   </pre>
   <p>
-    <!-- react-text: 673 -->
     With a code span, ampersands and angle brackets are encoded as HTML
 entities automatically, which makes it easy to include example HTML
 tags. Markdown will turn this:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2856,9 +2144,7 @@ tags. Markdown will turn this:
     </code>
   </pre>
   <p>
-    <!-- react-text: 677 -->
     into:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2866,9 +2152,7 @@ tags. Markdown will turn this:
     </code>
   </pre>
   <p>
-    <!-- react-text: 681 -->
     You can write this:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2876,9 +2160,7 @@ tags. Markdown will turn this:
     </code>
   </pre>
   <p>
-    <!-- react-text: 685 -->
     to produce:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2887,42 +2169,26 @@ equivalent of &lt;code&gt;&amp;amp;mdash;&lt;/code&gt;.&lt;/p&gt;
     </code>
   </pre>
   <h3 id="img">
-    <!-- react-text: 689 -->
     Images
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 691 -->
     Admittedly, it's fairly difficult to devise a "natural" syntax for
 placing images into a plain text document format.
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 693 -->
     Markdown uses an image syntax that is intended to resemble the syntax
 for links, allowing for two styles:
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 695 -->
       inline
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 696 -->
     and
-    <!-- /react-text -->
     <em>
-      <!-- react-text: 698 -->
       reference
-      <!-- /react-text -->
     </em>
-    <!-- react-text: 699 -->
     .
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 701 -->
     Inline image syntax looks like this:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2932,51 +2198,35 @@ for links, allowing for two styles:
     </code>
   </pre>
   <p>
-    <!-- react-text: 705 -->
     That is:
-    <!-- /react-text -->
   </p>
   <ul>
     <li>
-      <!-- react-text: 708 -->
       An exclamation mark:
-      <!-- /react-text -->
       <code>
         !
       </code>
-      <!-- react-text: 710 -->
       ;
-      <!-- /react-text -->
     </li>
     <li>
-      <!-- react-text: 712 -->
       followed by a set of square brackets, containing the
-      <!-- /react-text -->
       <code>
         alt
       </code>
-      <!-- react-text: 714 -->
       attribute text for the image;
-      <!-- /react-text -->
     </li>
     <li>
-      <!-- react-text: 716 -->
       followed by a set of parentheses, containing the URL or path to
 the image, and an optional
-      <!-- /react-text -->
       <code>
         title
       </code>
-      <!-- react-text: 718 -->
       attribute enclosed in double
 or single quotes.
-      <!-- /react-text -->
     </li>
   </ul>
   <p>
-    <!-- react-text: 720 -->
     Reference-style image syntax looks like this:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2984,10 +2234,8 @@ or single quotes.
     </code>
   </pre>
   <p>
-    <!-- react-text: 724 -->
     Where "id" is the name of a defined image reference. Image references
 are defined using syntax identical to link references:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -2995,33 +2243,23 @@ are defined using syntax identical to link references:
     </code>
   </pre>
   <p>
-    <!-- react-text: 728 -->
     As of this writing, Markdown has no syntax for specifying the
 dimensions of an image; if this is important to you, you can simply
 use regular HTML
-    <!-- /react-text -->
     <code>
       &lt;img&gt;
     </code>
-    <!-- react-text: 730 -->
     tags.
-    <!-- /react-text -->
   </p>
   <hr>
   <h2 id="misc">
-    <!-- react-text: 733 -->
     Miscellaneous
-    <!-- /react-text -->
   </h2>
   <h3 id="autolink">
-    <!-- react-text: 735 -->
     Automatic Links
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 737 -->
     Markdown supports a shortcut style for creating "automatic" links for URLs and email addresses: simply surround the URL or email address with angle brackets. What this means is that if you want to show the actual text of a URL or email address, and also have it be a clickable link, you can do this:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -3029,9 +2267,7 @@ use regular HTML
     </code>
   </pre>
   <p>
-    <!-- react-text: 741 -->
     Markdown will turn this into:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -3039,12 +2275,10 @@ use regular HTML
     </code>
   </pre>
   <p>
-    <!-- react-text: 745 -->
     Automatic links for email addresses work similarly, except that
 Markdown will also perform a bit of randomized decimal and hex
 entity-encoding to help obscure your address from address-harvesting
 spambots. For example, Markdown will turn this:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -3052,9 +2286,7 @@ spambots. For example, Markdown will turn this:
     </code>
   </pre>
   <p>
-    <!-- react-text: 749 -->
     into something like this:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -3065,37 +2297,27 @@ spambots. For example, Markdown will turn this:
     </code>
   </pre>
   <p>
-    <!-- react-text: 753 -->
     which will render in a browser as a clickable link to "address@example.com".
-    <!-- /react-text -->
   </p>
   <p>
-    <!-- react-text: 755 -->
     (This sort of entity-encoding trick will indeed fool many, if not
 most, address-harvesting bots, but it definitely won't fool all of
 them. It's better than nothing, but an address published in this way
 will probably eventually start receiving spam.)
-    <!-- /react-text -->
   </p>
   <h3 id="backslash">
-    <!-- react-text: 757 -->
     Backslash Escapes
-    <!-- /react-text -->
   </h3>
   <p>
-    <!-- react-text: 759 -->
     Markdown allows you to use backslash escapes to generate literal
 characters which would otherwise have special meaning in Markdown's
 formatting syntax. For example, if you wanted to surround a word
 with literal asterisks (instead of an HTML
-    <!-- /react-text -->
     <code>
       &lt;em&gt;
     </code>
-    <!-- react-text: 761 -->
     tag), you can use
 backslashes before the asterisks, like this:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -3103,9 +2325,7 @@ backslashes before the asterisks, like this:
     </code>
   </pre>
   <p>
-    <!-- react-text: 765 -->
     Markdown provides backslash escapes for the following characters:
-    <!-- /react-text -->
   </p>
   <pre>
     <code>
@@ -3131,14 +2351,10 @@ exports[`markdown-to-jsx compiler headings should handle consecutive headings wi
 
 <div data-reactroot>
   <h1>
-    <!-- react-text: 3 -->
     Hello World
-    <!-- /react-text -->
   </h1>
   <h2>
-    <!-- react-text: 5 -->
     And again
-    <!-- /react-text -->
   </h2>
 </div>
 
@@ -3147,9 +2363,7 @@ exports[`markdown-to-jsx compiler headings should handle consecutive headings wi
 exports[`markdown-to-jsx compiler headings should handle level 1 properly 1`] = `
 
 <h1 data-reactroot>
-  <!-- react-text: 2 -->
   Hello World
-  <!-- /react-text -->
 </h1>
 
 `;
@@ -3157,9 +2371,7 @@ exports[`markdown-to-jsx compiler headings should handle level 1 properly 1`] = 
 exports[`markdown-to-jsx compiler headings should handle level 2 properly 1`] = `
 
 <h2 data-reactroot>
-  <!-- react-text: 2 -->
   Hello World
-  <!-- /react-text -->
 </h2>
 
 `;
@@ -3167,9 +2379,7 @@ exports[`markdown-to-jsx compiler headings should handle level 2 properly 1`] = 
 exports[`markdown-to-jsx compiler headings should handle level 3 properly 1`] = `
 
 <h3 data-reactroot>
-  <!-- react-text: 2 -->
   Hello World
-  <!-- /react-text -->
 </h3>
 
 `;
@@ -3177,9 +2387,7 @@ exports[`markdown-to-jsx compiler headings should handle level 3 properly 1`] = 
 exports[`markdown-to-jsx compiler headings should handle level 4 properly 1`] = `
 
 <h4 data-reactroot>
-  <!-- react-text: 2 -->
   Hello World
-  <!-- /react-text -->
 </h4>
 
 `;
@@ -3187,9 +2395,7 @@ exports[`markdown-to-jsx compiler headings should handle level 4 properly 1`] = 
 exports[`markdown-to-jsx compiler headings should handle level 5 properly 1`] = `
 
 <h5 data-reactroot>
-  <!-- react-text: 2 -->
   Hello World
-  <!-- /react-text -->
 </h5>
 
 `;
@@ -3197,9 +2403,7 @@ exports[`markdown-to-jsx compiler headings should handle level 5 properly 1`] = 
 exports[`markdown-to-jsx compiler headings should handle level 6 properly 1`] = `
 
 <h6 data-reactroot>
-  <!-- react-text: 2 -->
   Hello World
-  <!-- /react-text -->
 </h6>
 
 `;
@@ -3208,14 +2412,10 @@ exports[`markdown-to-jsx compiler headings should handle setext level 1 style 1`
 
 <div data-reactroot>
   <h1>
-    <!-- react-text: 3 -->
     Hello World
-    <!-- /react-text -->
   </h1>
   <p>
-    <!-- react-text: 5 -->
     something
-    <!-- /react-text -->
   </p>
 </div>
 
@@ -3225,14 +2425,10 @@ exports[`markdown-to-jsx compiler headings should handle setext level 2 style 1`
 
 <div data-reactroot>
   <h2>
-    <!-- react-text: 3 -->
     Hello World
-    <!-- /react-text -->
   </h2>
   <p>
-    <!-- react-text: 5 -->
     something
-    <!-- /react-text -->
   </p>
 </div>
 
@@ -3262,8 +2458,6 @@ exports[`markdown-to-jsx compiler images should handle an image reference 1`] = 
 
 <p data-reactroot>
   <img src="/xyz.png">
-  <!-- react-text: 3 -->
-  <!-- /react-text -->
 </p>
 
 `;
@@ -3274,8 +2468,6 @@ exports[`markdown-to-jsx compiler images should handle an image reference with a
   <img alt="test"
        src="/xyz.png"
   >
-  <!-- react-text: 3 -->
-  <!-- /react-text -->
 </p>
 
 `;
@@ -3287,8 +2479,6 @@ exports[`markdown-to-jsx compiler images should handle an image reference with t
        src="/xyz.png"
        title="foo"
   >
-  <!-- react-text: 3 -->
-  <!-- /react-text -->
 </p>
 
 `;
@@ -3333,9 +2523,7 @@ exports[`markdown-to-jsx compiler inline code blocks should be handled 1`] = `
 exports[`markdown-to-jsx compiler inline textual elements should handle deleted text 1`] = `
 
 <del data-reactroot>
-  <!-- react-text: 2 -->
   Hello.
-  <!-- /react-text -->
 </del>
 
 `;
@@ -3343,9 +2531,7 @@ exports[`markdown-to-jsx compiler inline textual elements should handle deleted 
 exports[`markdown-to-jsx compiler inline textual elements should handle double-emphasized text 1`] = `
 
 <strong data-reactroot>
-  <!-- react-text: 2 -->
   Hello.
-  <!-- /react-text -->
 </strong>
 
 `;
@@ -3353,9 +2539,7 @@ exports[`markdown-to-jsx compiler inline textual elements should handle double-e
 exports[`markdown-to-jsx compiler inline textual elements should handle emphasized text 1`] = `
 
 <em data-reactroot>
-  <!-- react-text: 2 -->
   Hello.
-  <!-- /react-text -->
 </em>
 
 `;
@@ -3372,9 +2556,7 @@ exports[`markdown-to-jsx compiler inline textual elements should handle the alte
 
 <strong data-reactroot>
   <em>
-    <!-- react-text: 3 -->
     Hello.
-    <!-- /react-text -->
   </em>
 </strong>
 
@@ -3384,9 +2566,7 @@ exports[`markdown-to-jsx compiler inline textual elements should handle triple-e
 
 <strong data-reactroot>
   <em>
-    <!-- react-text: 3 -->
     Hello.
-    <!-- /react-text -->
   </em>
 </strong>
 
@@ -3397,9 +2577,7 @@ exports[`markdown-to-jsx compiler links should an email autolink and add a mailt
 <a data-reactroot
    href="mailto:probablyup@gmail.com"
 >
-  <!-- react-text: 2 -->
   probablyup@gmail.com
-  <!-- /react-text -->
 </a>
 
 `;
@@ -3409,9 +2587,7 @@ exports[`markdown-to-jsx compiler links should automatically link found URLs 1`]
 <a data-reactroot
    href="https://google.com"
 >
-  <!-- react-text: 2 -->
   https://google.com
-  <!-- /react-text -->
 </a>
 
 `;
@@ -3421,9 +2597,7 @@ exports[`markdown-to-jsx compiler links should handle a basic link 1`] = `
 <a data-reactroot
    href="/xyz.png"
 >
-  <!-- react-text: 2 -->
   foo
-  <!-- /react-text -->
 </a>
 
 `;
@@ -3432,12 +2606,8 @@ exports[`markdown-to-jsx compiler links should handle a link reference 1`] = `
 
 <p data-reactroot>
   <a href="/xyz.png">
-    <!-- react-text: 3 -->
     foo
-    <!-- /react-text -->
   </a>
-  <!-- react-text: 4 -->
-  <!-- /react-text -->
 </p>
 
 `;
@@ -3446,12 +2616,8 @@ exports[`markdown-to-jsx compiler links should handle a link reference with a sp
 
 <p data-reactroot>
   <a href="/xyz.png">
-    <!-- react-text: 3 -->
     foo
-    <!-- /react-text -->
   </a>
-  <!-- react-text: 4 -->
-  <!-- /react-text -->
 </p>
 
 `;
@@ -3462,12 +2628,8 @@ exports[`markdown-to-jsx compiler links should handle a link reference with titl
   <a href="/xyz.png"
      title="bar"
   >
-    <!-- react-text: 3 -->
     foo
-    <!-- /react-text -->
   </a>
-  <!-- react-text: 4 -->
-  <!-- /react-text -->
 </p>
 
 `;
@@ -3477,13 +2639,9 @@ exports[`markdown-to-jsx compiler links should handle a link with a URL in the t
 <a data-reactroot
    href="http://www.google.com"
 >
-  <!-- react-text: 2 -->
   https://www.google.com
-  <!-- /react-text -->
   <em>
-    <!-- react-text: 4 -->
     heck yeah
-    <!-- /react-text -->
   </em>
 </a>
 
@@ -3495,9 +2653,7 @@ exports[`markdown-to-jsx compiler links should handle a link with title 1`] = `
    href="/xyz.png"
    title="bar"
 >
-  <!-- react-text: 2 -->
   foo
-  <!-- /react-text -->
 </a>
 
 `;
@@ -3507,9 +2663,7 @@ exports[`markdown-to-jsx compiler links should handle a mailto autolink 1`] = `
 <a data-reactroot
    href="mailto:probablyup@gmail.com"
 >
-  <!-- react-text: 2 -->
   probablyup@gmail.com
-  <!-- /react-text -->
 </a>
 
 `;
@@ -3519,9 +2673,7 @@ exports[`markdown-to-jsx compiler links should handle autolink style 1`] = `
 <a data-reactroot
    href="https://google.com"
 >
-  <!-- react-text: 2 -->
   https://google.com
-  <!-- /react-text -->
 </a>
 
 `;
@@ -3529,9 +2681,7 @@ exports[`markdown-to-jsx compiler links should handle autolink style 1`] = `
 exports[`markdown-to-jsx compiler links should sanitize links containing JS expressions 1`] = `
 
 <a data-reactroot>
-  <!-- react-text: 2 -->
   foo
-  <!-- /react-text -->
 </a>
 
 `;
@@ -3539,9 +2689,7 @@ exports[`markdown-to-jsx compiler links should sanitize links containing JS expr
 exports[`markdown-to-jsx compiler links should sanitize links containing invalid characters 1`] = `
 
 <a data-reactroot>
-  <!-- react-text: 2 -->
   foo
-  <!-- /react-text -->
 </a>
 
 `;
@@ -3551,23 +2699,17 @@ exports[`markdown-to-jsx compiler lists should handle a loose list 1`] = `
 <ul data-reactroot>
   <li>
     <p>
-      <!-- react-text: 4 -->
       xyz
-      <!-- /react-text -->
     </p>
   </li>
   <li>
     <p>
-      <!-- react-text: 7 -->
       abc
-      <!-- /react-text -->
     </p>
   </li>
   <li>
     <p>
-      <!-- react-text: 10 -->
       foo
-      <!-- /react-text -->
     </p>
   </li>
 </ul>
@@ -3578,28 +2720,20 @@ exports[`markdown-to-jsx compiler lists should handle a mixed nested list 1`] = 
 
 <ul data-reactroot>
   <li>
-    <!-- react-text: 3 -->
     xyz
-    <!-- /react-text -->
     <ol start="1">
       <li>
-        <!-- react-text: 6 -->
         abc
-        <!-- /react-text -->
         <ul>
           <li>
-            <!-- react-text: 9 -->
             def
-            <!-- /react-text -->
           </li>
         </ul>
       </li>
     </ol>
   </li>
   <li>
-    <!-- react-text: 11 -->
     foo
-    <!-- /react-text -->
   </li>
 </ul>
 
@@ -3609,21 +2743,15 @@ exports[`markdown-to-jsx compiler lists should handle a nested list 1`] = `
 
 <ul data-reactroot>
   <li>
-    <!-- react-text: 3 -->
     xyz
-    <!-- /react-text -->
     <ul>
       <li>
-        <!-- react-text: 6 -->
         abc
-        <!-- /react-text -->
       </li>
     </ul>
   </li>
   <li>
-    <!-- react-text: 8 -->
     foo
-    <!-- /react-text -->
   </li>
 </ul>
 
@@ -3633,19 +2761,13 @@ exports[`markdown-to-jsx compiler lists should handle a tight list 1`] = `
 
 <ul data-reactroot>
   <li>
-    <!-- react-text: 3 -->
     xyz
-    <!-- /react-text -->
   </li>
   <li>
-    <!-- react-text: 5 -->
     abc
-    <!-- /react-text -->
   </li>
   <li>
-    <!-- react-text: 7 -->
     foo
-    <!-- /react-text -->
   </li>
 </ul>
 
@@ -3657,19 +2779,13 @@ exports[`markdown-to-jsx compiler lists should handle an ordered list 1`] = `
     start="1"
 >
   <li>
-    <!-- react-text: 3 -->
     xyz
-    <!-- /react-text -->
   </li>
   <li>
-    <!-- react-text: 5 -->
     abc
-    <!-- /react-text -->
   </li>
   <li>
-    <!-- react-text: 7 -->
     foo
-    <!-- /react-text -->
   </li>
 </ol>
 
@@ -3681,19 +2797,13 @@ exports[`markdown-to-jsx compiler lists should handle an ordered list with a spe
     start="2"
 >
   <li>
-    <!-- react-text: 3 -->
     xyz
-    <!-- /react-text -->
   </li>
   <li>
-    <!-- react-text: 5 -->
     abc
-    <!-- /react-text -->
   </li>
   <li>
-    <!-- react-text: 7 -->
     foo
-    <!-- /react-text -->
   </li>
 </ol>
 
@@ -3703,28 +2813,20 @@ exports[`markdown-to-jsx compiler lists should not add an extra wrapper around a
 
 <ul data-reactroot>
   <li>
-    <!-- react-text: 3 -->
     xyz
-    <!-- /react-text -->
     <ol start="1">
       <li>
-        <!-- react-text: 6 -->
         abc
-        <!-- /react-text -->
         <ul>
           <li>
-            <!-- react-text: 9 -->
             def
-            <!-- /react-text -->
           </li>
         </ul>
       </li>
     </ol>
   </li>
   <li>
-    <!-- react-text: 11 -->
     foo
-    <!-- /react-text -->
   </li>
 </ul>
 
@@ -3734,9 +2836,7 @@ exports[`markdown-to-jsx compiler misc block level elements should handle blockq
 
 <blockquote data-reactroot>
   <p>
-    <!-- react-text: 3 -->
     Something important, perhaps?
-    <!-- /react-text -->
   </p>
 </blockquote>
 
@@ -3745,17 +2845,11 @@ exports[`markdown-to-jsx compiler misc block level elements should handle blockq
 exports[`markdown-to-jsx compiler options.forceBlock treats given markdown as block-context 1`] = `
 
 <p data-reactroot>
-  <!-- react-text: 2 -->
   Hello.
-  <!-- /react-text -->
   <em>
-    <!-- react-text: 4 -->
     Beautiful
-    <!-- /react-text -->
   </em>
-  <!-- react-text: 5 -->
   day isn't it?
-  <!-- /react-text -->
 </p>
 
 `;
@@ -3795,9 +2889,7 @@ exports[`markdown-to-jsx compiler overrides should be able to override gfm task 
   <input type="checkbox"
          readonly
   >
-  <!-- react-text: 4 -->
   foo
-  <!-- /react-text -->
 </li>
 
 `;
@@ -3821,14 +2913,10 @@ exports[`markdown-to-jsx compiler wraps multiple block element returns in a div 
 
 <div data-reactroot>
   <h1>
-    <!-- react-text: 3 -->
     Boop
-    <!-- /react-text -->
   </h1>
   <h2>
-    <!-- react-text: 5 -->
     Blep
-    <!-- /react-text -->
   </h2>
 </div>
 
@@ -3837,17 +2925,11 @@ exports[`markdown-to-jsx compiler wraps multiple block element returns in a div 
 exports[`markdown-to-jsx compiler wraps solely inline elements in a span, rather than a div 1`] = `
 
 <span data-reactroot>
-  <!-- react-text: 2 -->
   Hello.
-  <!-- /react-text -->
   <em>
-    <!-- react-text: 4 -->
     Beautiful
-    <!-- /react-text -->
   </em>
-  <!-- react-text: 5 -->
   day isn't it?
-  <!-- /react-text -->
 </span>
 
 `;
@@ -3855,9 +2937,7 @@ exports[`markdown-to-jsx compiler wraps solely inline elements in a span, rather
 exports[`markdown-to-jsx component accepts markdown content 1`] = `
 
 <em data-reactroot>
-  <!-- react-text: 2 -->
   Hello.
-  <!-- /react-text -->
 </em>
 
 `;
@@ -3865,9 +2945,7 @@ exports[`markdown-to-jsx component accepts markdown content 1`] = `
 exports[`markdown-to-jsx component accepts options 1`] = `
 
 <em data-reactroot>
-  <!-- react-text: 2 -->
   Hello.
-  <!-- /react-text -->
 </em>
 
 `;

@@ -44,7 +44,7 @@
     "eslint-plugin-react": "^7.5.1",
     "in-publish": "^2.0.0",
     "jest": "^20.0.4",
-    "jest-serializer-html": "^4.0.1",
+    "jest-serializer-html": "^5.0.0",
     "polished": "^1.3.0",
     "preact": "^8.2.1",
     "preact-compat": "^3.16.0",

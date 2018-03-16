@@ -2338,9 +2338,9 @@ diff@^3.3.1, diff@^3.5.0:
   version "3.5.0"
   resolved "https://registry.yarnpkg.com/diff/-/diff-3.5.0.tgz#800c0dd1e0a8bfbc95835c202ad220fe317e5a12"
 
-diffable-html@^2.0.0:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/diffable-html/-/diffable-html-2.1.0.tgz#0d4c2de115ac58f904aab1b72e6649cefca5f025"
+diffable-html@^3.0.0:
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/diffable-html/-/diffable-html-3.0.0.tgz#3766be8bcf6e90e061bdc321e04e14fc0630853f"
   dependencies:
     htmlparser2 "^3.9.2"
 
@@ -2408,8 +2408,8 @@ domhandler@^2.3.0:
     domelementtype "1"
 
 domutils@^1.5.1:
-  version "1.6.2"
-  resolved "https://registry.yarnpkg.com/domutils/-/domutils-1.6.2.tgz#1958cc0b4c9426e9ed367fb1c8e854891b0fa3ff"
+  version "1.7.0"
+  resolved "https://registry.yarnpkg.com/domutils/-/domutils-1.7.0.tgz#56ea341e834e06e6748af7a1cb25da67ea9f8c2a"
   dependencies:
     dom-serializer "0"
     domelementtype "1"
@@ -4352,11 +4352,11 @@ jest-runtime@^20.0.4:
     strip-bom "3.0.0"
     yargs "^7.0.2"
 
-jest-serializer-html@^4.0.1:
-  version "4.0.1"
-  resolved "https://registry.yarnpkg.com/jest-serializer-html/-/jest-serializer-html-4.0.1.tgz#f9e04022add07b8e03da5ad305581f1004d8f7e8"
+jest-serializer-html@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/jest-serializer-html/-/jest-serializer-html-5.0.0.tgz#6848c4d8fb0f6c6dcb1e26a05e46d66c7ff9edb9"
   dependencies:
-    diffable-html "^2.0.0"
+    diffable-html "^3.0.0"
 
 jest-snapshot@^20.0.3:
   version "20.0.3"
@@ -6228,7 +6228,7 @@ read-pkg@^3.0.0:
     normalize-package-data "^2.3.2"
     path-type "^3.0.0"
 
-"readable-stream@1 || 2", readable-stream@^2.0.0, readable-stream@^2.0.1, readable-stream@^2.0.2, readable-stream@^2.0.4, readable-stream@^2.0.6, readable-stream@^2.1.4, readable-stream@^2.1.5, readable-stream@^2.2.2, readable-stream@^2.2.6, readable-stream@^2.2.9, readable-stream@^2.3.3:
+"readable-stream@1 || 2", readable-stream@^2.0.0, readable-stream@^2.0.1, readable-stream@^2.0.4, readable-stream@^2.0.6, readable-stream@^2.1.4, readable-stream@^2.1.5, readable-stream@^2.2.2, readable-stream@^2.2.6, readable-stream@^2.2.9, readable-stream@^2.3.3:
   version "2.3.3"
   resolved "https://registry.yarnpkg.com/readable-stream/-/readable-stream-2.3.3.tgz#368f2512d79f9d46fdfc71349ae7878bbc1eb95c"
   dependencies:
@@ -6240,7 +6240,7 @@ read-pkg@^3.0.0:
     string_decoder "~1.0.3"
     util-deprecate "~1.0.1"
 
-readable-stream@^2.3.5:
+readable-stream@^2.0.2, readable-stream@^2.3.5:
   version "2.3.5"
   resolved "https://registry.yarnpkg.com/readable-stream/-/readable-stream-2.3.5.tgz#b4f85003a938cbb6ecbce2a124fb1012bd1a838d"
   dependencies:
