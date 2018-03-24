@@ -145,7 +145,7 @@ const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/;
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/;
 const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/;
 const LIST_ITEM_END_R = / *\n+$/;
-const LIST_LOOKBEHIND_R = /^$|\n *$/;
+const LIST_LOOKBEHIND_R = /(?:^|\n)( *)$/;
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi;
 const NP_TABLE_R = /^(.*\|?.*)\n *(\|? *[-:]+ *\|[-| :]*)\n((?:.*\|.*\n)*)\n?/;
 const PARAGRAPH_R = /^((?:[^\n]|\n(?! *\n))+)(?:\n *)+\n/;
@@ -1103,10 +1103,12 @@ export function compiler (markdown, options) {
                 // lists can be inline, because they might be inside another list,
                 // in which case we can parse with inline scope, but need to allow
                 // nested lists inside this inline scope.
-                const isStartOfLine = LIST_LOOKBEHIND_R.test(prevCapture);
+                const isStartOfLine = LIST_LOOKBEHIND_R.exec(prevCapture);
                 const isListBlock = state._list || !state.inline;
 
                 if (isStartOfLine && isListBlock) {
+                    source = isStartOfLine[1] + source;
+
                     return LIST_R.exec(source);
                 } else {
                     return null;
@@ -1125,12 +1127,12 @@ export function compiler (markdown, options) {
 
                 let lastItemWasAParagraph = false;
                 const itemContent = items.map(function (item, i) {
-                    // We need to see how far indented this item is:
+                    // We need to see how far indented the item is:
                     const space = LIST_ITEM_PREFIX_R.exec(item)[0].length;
 
                     // And then we construct a regex to "unindent" the subsequent
                     // lines of the items by that amount:
-                    const spaceRegex = new RegExp('^ {1,' + space + '}', 'gm');
+                    const spaceRegex = new RegExp('^ {' + space + '}', 'gm');
 
                     // Before processing the item, we need a couple things
                     const content = item

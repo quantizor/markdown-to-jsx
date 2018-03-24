@@ -2809,6 +2809,89 @@ exports[`markdown-to-jsx compiler lists should handle an ordered list with a spe
 
 `;
 
+exports[`markdown-to-jsx compiler lists should handle link trees 1`] = `
+
+<ul data-reactroot>
+  <li>
+    <a href="#buttermilk">
+      buttermilk
+    </a>
+    <ul>
+      <li>
+        <a href="#installation">
+          installation
+        </a>
+      </li>
+      <li>
+        <a href="#usage">
+          usage
+        </a>
+        <ul>
+          <li>
+            <a href="#configuration">
+              configuration
+            </a>
+          </li>
+          <li>
+            <a href="#components">
+              components
+            </a>
+            <ul>
+              <li>
+                <a href="#router">
+                  <code>
+                    &lt;Router&gt;
+                  </code>
+                </a>
+              </li>
+              <li>
+                <a href="#routingstate">
+                  <code>
+                    &lt;RoutingState&gt;
+                  </code>
+                </a>
+              </li>
+              <li>
+                <a href="#link">
+                  <code>
+                    &lt;Link&gt;
+                  </code>
+                </a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#utilities">
+              utilities
+            </a>
+            <ul>
+              <li>
+                <a href="#routeurl-string-addnewhistoryentry-boolean--true">
+                  <code>
+                    route(url: String, addNewHistoryEntry: Boolean = true)
+                  </code>
+                </a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#holistic-example">
+              holistic example
+            </a>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <a href="#goals">
+          goals
+        </a>
+      </li>
+    </ul>
+  </li>
+</ul>
+
+`;
+
 exports[`markdown-to-jsx compiler lists should not add an extra wrapper around a list 1`] = `
 
 <ul data-reactroot>
