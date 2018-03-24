@@ -355,6 +355,25 @@ describe('markdown-to-jsx', () => {
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('should handle link trees', () => {
+                render(compiler(`
+- [buttermilk](#buttermilk)
+    - [installation](#installation)
+    - [usage](#usage)
+        - [configuration](#configuration)
+        - [components](#components)
+            - [\`<Router>\`](#router)
+            - [\`<RoutingState>\`](#routingstate)
+            - [\`<Link>\`](#link)
+        - [utilities](#utilities)
+            - [\`route(url: String, addNewHistoryEntry: Boolean = true)\`](#routeurl-string-addnewhistoryentry-boolean--true)
+        - [holistic example](#holistic-example)
+    - [goals](#goals)
+                `));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('GFM task lists', () => {
