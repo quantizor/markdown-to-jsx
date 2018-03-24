@@ -10,13 +10,12 @@ language: node_js
 node_js:
   - 6
   - 8
-  - stable
 
 os: linux
 
 env:
-  - TARGET_REACT_VERSION=0.14
   - TARGET_REACT_VERSION=15
+  - TARGET_REACT_VERSION=16
 
 after_install:
   - npm uninstall react react-dom

@@ -1152,7 +1152,7 @@ export function compiler (markdown, options) {
 
                     // And then we construct a regex to "unindent" the subsequent
                     // lines of the items by that amount:
-                    const spaceRegex = new RegExp('^ {' + space + '}', 'gm');
+                    const spaceRegex = new RegExp('^ {1,' + space + '}', 'gm');
 
                     // Before processing the item, we need a couple things
                     const content = item
