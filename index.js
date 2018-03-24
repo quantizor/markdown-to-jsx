@@ -219,6 +219,25 @@ const IMAGE_R = new RegExp(
     '^!\\[(' + LINK_INSIDE + ')\\]\\(' + LINK_HREF_AND_TITLE + '\\)'
 );
 
+// based on https://stackoverflow.com/a/18123682/1141611
+// not complete, but probably good enough
+function slugify (str) {
+    return str
+        .replace(/[ÀÁÂÃÄÅàáâãäåæÆ]/g,'a')
+        .replace(/[çÇ]/g,'c')
+        .replace(/[ðÐ]/g,'d')
+        .replace(/[ÈÉÊËéèêë]/g,'e')
+        .replace(/[ÏïÎîÍíÌì]/g,'i')
+        .replace(/[Ññ]/g,'n')
+        .replace(/[øØœŒÕõÔôÓóÒò]/g,'o')
+        .replace(/[ÜüÛûÚúÙù]/g,'u')
+        .replace(/[ŸÿÝý]/g,'y')
+        .replace(/[^a-z0-9- ]/gi,'')
+        .replace(/ /gi,'-')
+        .toLowerCase()
+    ;
+}
+
 function parseTableAlignCapture (alignCapture) {
     if (TABLE_RIGHT_ALIGN.test(alignCapture)) {
         return 'right';
@@ -908,13 +927,14 @@ export function compiler (markdown, options) {
             parse (capture, parse, state) {
                 return {
                     content: parseInline(parse, capture[2], state),
+                    id: slugify(capture[2]),
                     level: capture[1].length,
                 };
             },
             react (node, output, state) {
                 const Tag = `h${node.level}`;
                 return (
-                    <Tag key={state.key}>
+                    <Tag id={node.id} key={state.key}>
                         {output(node.content, state)}
                     </Tag>
                 );
