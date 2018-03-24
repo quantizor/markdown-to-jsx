@@ -454,7 +454,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within block
 <div data-reactroot
      style="float: right;"
 >
-  <h1>
+  <h1 id="hello">
     Hello
   </h1>
 </div>
@@ -2350,10 +2350,10 @@ _   underscore
 exports[`markdown-to-jsx compiler headings should handle consecutive headings without a padding newline 1`] = `
 
 <div data-reactroot>
-  <h1>
+  <h1 id="hello-world">
     Hello World
   </h1>
-  <h2>
+  <h2 id="and-again">
     And again
   </h2>
 </div>
@@ -2362,7 +2362,9 @@ exports[`markdown-to-jsx compiler headings should handle consecutive headings wi
 
 exports[`markdown-to-jsx compiler headings should handle level 1 properly 1`] = `
 
-<h1 data-reactroot>
+<h1 data-reactroot
+    id="hello-world"
+>
   Hello World
 </h1>
 
@@ -2370,7 +2372,9 @@ exports[`markdown-to-jsx compiler headings should handle level 1 properly 1`] = 
 
 exports[`markdown-to-jsx compiler headings should handle level 2 properly 1`] = `
 
-<h2 data-reactroot>
+<h2 data-reactroot
+    id="hello-world"
+>
   Hello World
 </h2>
 
@@ -2378,7 +2382,9 @@ exports[`markdown-to-jsx compiler headings should handle level 2 properly 1`] = 
 
 exports[`markdown-to-jsx compiler headings should handle level 3 properly 1`] = `
 
-<h3 data-reactroot>
+<h3 data-reactroot
+    id="hello-world"
+>
   Hello World
 </h3>
 
@@ -2386,7 +2392,9 @@ exports[`markdown-to-jsx compiler headings should handle level 3 properly 1`] = 
 
 exports[`markdown-to-jsx compiler headings should handle level 4 properly 1`] = `
 
-<h4 data-reactroot>
+<h4 data-reactroot
+    id="hello-world"
+>
   Hello World
 </h4>
 
@@ -2394,7 +2402,9 @@ exports[`markdown-to-jsx compiler headings should handle level 4 properly 1`] = 
 
 exports[`markdown-to-jsx compiler headings should handle level 5 properly 1`] = `
 
-<h5 data-reactroot>
+<h5 data-reactroot
+    id="hello-world"
+>
   Hello World
 </h5>
 
@@ -2402,7 +2412,9 @@ exports[`markdown-to-jsx compiler headings should handle level 5 properly 1`] = 
 
 exports[`markdown-to-jsx compiler headings should handle level 6 properly 1`] = `
 
-<h6 data-reactroot>
+<h6 data-reactroot
+    id="hello-world"
+>
   Hello World
 </h6>
 
@@ -2995,10 +3007,10 @@ exports[`markdown-to-jsx compiler overrides should substitute pre & code tags if
 exports[`markdown-to-jsx compiler wraps multiple block element returns in a div to avoid invalid nesting errors 1`] = `
 
 <div data-reactroot>
-  <h1>
+  <h1 id="boop">
     Boop
   </h1>
-  <h2>
+  <h2 id="blep">
     Blep
   </h2>
 </div>
