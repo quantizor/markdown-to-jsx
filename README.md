@@ -77,7 +77,7 @@ render((
 
 #### options.forceInline
 
-Sometimes you just want to parse markdown inside a basic container without block-level syntaxes. Perhaps to allow some really simple user inputted link tags, bolding, etc. `options.forceInline = true` enforces an inline-only syntax mode to handle these use cases.
+Sometimes you just want to parse markdown inside a basic container without block-level syntaxes, perhaps to allow some really simple user inputted link tags, bolding, etc. `options.forceInline = true` enforces an inline-only syntax mode to handle these use cases.
 
 ```jsx
 <Markdown options={{ forceInline: true }}>
@@ -91,6 +91,9 @@ compiler('# You got it babe!', { forceInline: true });
 // renders
 
 <span># You got it babe!</span>
+
+// note that the heading syntax (#) is considered a block-level
+// markdown construct and is left as-is in inline mode
 ```
 
 #### options.overrides - Override Any HTML Tag's Representation
