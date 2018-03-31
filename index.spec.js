@@ -34,7 +34,7 @@ describe('markdown-to-jsx', () => {
             expect(root.innerHTML).toMatchSnapshot();
         });
 
-        it('wraps solely inline elements in a span, rather than a div', () => {
+        it('wraps solely inline elements in a p, rather than a div', () => {
             render(compiler('Hello. _Beautiful_ day isn\'t it?'));
 
             expect(root.innerHTML).toMatchSnapshot();
@@ -762,14 +762,6 @@ $25
                     '',
                     '[^abc]: Baz',
                 ].join('\n')));
-
-                expect(root.innerHTML).toMatchSnapshot();
-            });
-        });
-
-        describe('options.forceBlock', () => {
-            it('treats given markdown as block-context', () => {
-                render(compiler('Hello. _Beautiful_ day isn\'t it?', { forceBlock: true }));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });

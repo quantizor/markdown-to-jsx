@@ -8,7 +8,6 @@
     - [Installation](#installation)
     - [Usage](#usage)
         - [Parsing Options](#parsing-options)
-            - [options.forceBlock](#optionsforceblock)
             - [options.forceInline](#optionsforceinline)
             - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
             - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
@@ -76,37 +75,9 @@ render((
 
 ### Parsing Options
 
-#### options.forceBlock
-By default, the compiler will try to make an intelligent guess about the content passed and wrap it in a `<div>`, `<p>`, or `<span>` as needed to satisfy the "inline"-ness of the markdown. For instance, this string would be considered "inline":
-
-```md
-Hello. _Beautiful_ day isn't it?
-```
-
-But this string would be considered "block" due to the existence of a header tag, which is a block-level HTML element:
-
-```md
-# Whaddup?
-```
-
-However, if you really want all input strings to be treated as "block" layout, simply pass `options.forceBlock = true` like this:
-
-```jsx
-<Markdown options={{ forceBlock: true }}>
-    Hello there old chap!
-</Markdown>
-
-// or
-
-compiler('Hello there old chap!', { forceBlock: true });
-
-// renders
-
-<p>Hello there old chap!</p>
-```
-
 #### options.forceInline
-The inverse is also available by passing `options.forceInline = true`:
+
+Sometimes you just want to parse markdown inside a basic container without block-level syntaxes. Perhaps to allow some really simple user inputted link tags, bolding, etc. `options.forceInline = true` enforces an inline-only syntax mode to handle these use cases.
 
 ```jsx
 <Markdown options={{ forceInline: true }}>

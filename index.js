@@ -677,17 +677,7 @@ export function compiler (markdown, options) {
     }
 
     function compile (input) {
-        let inline = false;
-
-        if (options.forceInline) {
-            inline = true;
-        } else if (!options.forceBlock) {
-            /**
-            * should not contain any block-level markdown like newlines, lists, headings,
-            * thematic breaks, blockquotes, tables, etc
-            */
-            inline = SHOULD_RENDER_AS_BLOCK_R.test(input) === false;
-        }
+        const inline = !!options.forceInline;
 
         const arr = emitter(
             parser(
@@ -1060,7 +1050,7 @@ export function compiler (markdown, options) {
 
         // https://daringfireball.net/projects/markdown/syntax#autolink
         linkAngleBraceStyleDetector: {
-            match: inlineRegex(LINK_AUTOLINK_R),
+            match: anyScopeRegex(LINK_AUTOLINK_R),
             order: PARSE_PRIORITY_MAX,
             parse (capture/*, parse, state*/) {
                 return {
@@ -1091,7 +1081,7 @@ export function compiler (markdown, options) {
         },
 
         linkMailtoDetector: {
-            match: inlineRegex(LINK_AUTOLINK_MAILTO_R),
+            match: anyScopeRegex(LINK_AUTOLINK_MAILTO_R),
             order: PARSE_PRIORITY_MAX,
             parse (capture/*, parse, state*/) {
                 let address = capture[1];
