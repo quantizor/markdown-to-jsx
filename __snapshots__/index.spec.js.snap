@@ -297,6 +297,32 @@ exports[`markdown-to-jsx compiler arbitrary HTML block HTML regression test 1`] 
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML handles a heading inside HTML 1`] = `
+
+<span data-reactroot>
+  "
+  <span>
+    <h1 id="foo">
+      foo
+    </h1>
+  </span>
+  "
+</span>
+
+`;
+
+exports[`markdown-to-jsx compiler arbitrary HTML handles a raw hashtag inside HTML 1`] = `
+
+<span data-reactroot>
+  "
+  <span>
+    #
+  </span>
+  "
+</span>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML handles jsx attribute interpolation as a string 1`] = `
 
 <div data-reactroot>

@@ -678,6 +678,21 @@ $25
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
+            it('handles a raw hashtag inside HTML', () => {
+                render(compiler([
+                    '"<span>#</span>"',
+                ].join('\n')));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('handles a heading inside HTML', () => {
+                render(compiler([
+                    '"<span># foo</span>"',
+                ].join('\n')));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('horizontal rules', () => {
