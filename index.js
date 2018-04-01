@@ -100,7 +100,7 @@ const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)+\n/;
 const CODE_INLINE_R = /^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)/;
 const CONSECUTIVE_NEWLINE_R = /^(?:\n *)*\n/;
 const CR_NEWLINE_R = /\r\n?/g;
-const DETECT_BLOCK_SYNTAX = /(^[-*] |^#+|^ {2,}|^-{2,}|^> )/m;
+const DETECT_BLOCK_SYNTAX = /(^[-*] |^#+ ?\w|^ {2,}|^-{2,}|^> )/m;
 const FOOTNOTE_R = /^\[\^(.*)\](:.*)\n/;
 const FOOTNOTE_REFERENCE_R = /^\[\^(.*)\]/;
 const FORMFEED_R = /\f/g;
@@ -1356,7 +1356,7 @@ export function compiler (markdown, options) {
             // double newlines, or double-space-newlines
             // We break on any symbol characters so that this grammar
             // is easy to extend without needing to modify this regex
-            match: simpleInlineRegex(TEXT_PLAIN_R),
+            match: anyScopeRegex(TEXT_PLAIN_R),
             order: PARSE_PRIORITY_MIN,
             parse (capture/*, parse, state*/) {
                 return {
