@@ -297,6 +297,24 @@ exports[`markdown-to-jsx compiler arbitrary HTML block HTML regression test 1`] 
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML does not parse the inside of <script> blocks 1`] = `
+
+<script data-reactroot>
+  new Date();
+</script>
+
+`;
+
+exports[`markdown-to-jsx compiler arbitrary HTML does not parse the inside of <style> blocks 1`] = `
+
+<style data-reactroot>
+  .bar {
+    color: red;
+  }
+</style>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML handles a heading inside HTML 1`] = `
 
 <span data-reactroot>
