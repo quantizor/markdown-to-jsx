@@ -53,6 +53,8 @@ const ATTRIBUTE_TO_JSX_PROP_MAP = {
     'usemap': 'useMap',
 };
 
+const DO_NOT_PROCESS_HTML_ELEMENTS = ['style', 'script'];
+
 /**
  * the attribute extractor regex looks for a valid attribute name,
  * followed by an equal sign (whitespace around the equal sign is allowed), followed
@@ -970,7 +972,9 @@ export function compiler (markdown, options) {
                      * if another html block is detected within, parse as block,
                      * otherwise parse as inline to pick up any further markdown
                      */
-                    content: parseFunc(parse, capture[3].replace(TRIM_HTML, ''), state),
+                    content: DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(capture[1]) !== -1
+                        ? capture[3]
+                        : parseFunc(parse, capture[3].replace(TRIM_HTML, ''), state),
 
                     tag: capture[1],
                 };
@@ -978,7 +982,7 @@ export function compiler (markdown, options) {
             react (node, output, state) {
                 return (
                     <node.tag key={state.key} {...node.attrs}>
-                        {output(node.content, state)}
+                        {DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(node.tag) !== -1 ? node.content : output(node.content, state)}
                     </node.tag>
                 );
             },

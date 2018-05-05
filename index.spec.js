@@ -693,6 +693,28 @@ $25
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('does not parse the inside of <style> blocks', () => {
+                render(compiler([
+                    '<style>',
+                    '  .bar {',
+                    '    color: red;',
+                    '  }',
+                    '</style>',
+                ].join('\n')));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('does not parse the inside of <script> blocks', () => {
+                render(compiler([
+                    '<script>',
+                    '  new Date();',
+                    '</script>',
+                ].join('\n')));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('horizontal rules', () => {
