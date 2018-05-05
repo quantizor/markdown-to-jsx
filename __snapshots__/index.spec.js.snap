@@ -3087,3 +3087,14 @@ exports[`markdown-to-jsx component merges className overrides, rather than overw
 </pre>
 
 `;
+
+exports[`markdown-to-jsx component passes along any additional props to the rendered wrapper element 1`] = `
+
+<h1 data-reactroot
+    id="hello"
+    class="foo"
+>
+  Hello
+</h1>
+
+`;
