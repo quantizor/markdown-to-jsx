@@ -1039,5 +1039,15 @@ $25
 
             expect(root.innerHTML).toMatchSnapshot();
         });
+
+        it('passes along any additional props to the rendered wrapper element', () => {
+            render(
+                <Markdown className="foo">
+                    # Hello
+                </Markdown>
+            );
+
+            expect(root.innerHTML).toMatchSnapshot();
+        });
     });
 });

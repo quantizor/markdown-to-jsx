@@ -1472,8 +1472,8 @@ export function compiler (markdown, options) {
  * @return {ReactElement} the compiled JSX
  */
 
-export default function Markdown (props) {
-    return compiler(props.children, props.options);
+export default function Markdown ({ children, options, ...props }) {
+    return React.cloneElement(compiler(children, options), props);
 }
 
 if (process.env.NODE_ENV !== 'production') {
