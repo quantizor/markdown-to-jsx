@@ -132,7 +132,7 @@ const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/;
  * 6. Capture excess newlines afterward
  *    \n*
  */
-const HTML_BLOCK_ELEMENT_R = /^ *<([^ >/]+) ?([^>]*)\/{0}>\s*((?:<\1>[\s\S]*<\/\1>|(?!<\1)[\s\S])*)<\/\1>\n*/;
+const HTML_BLOCK_ELEMENT_R = /^ *<([^ >/]+) ?([^>]*)\/{0}>\s*((?:<\1>[\s\S]*?<\/\1>|(?!<\1)[\s\S])*?)<\/\1>\n*/;
 
 const HTML_COMMENT_R = /^<!--.*?-->/;
 
