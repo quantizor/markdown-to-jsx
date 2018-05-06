@@ -1,7 +1,7 @@
 {
   "name": "markdown-to-jsx",
-  "description": "Interprets markdown text and outputs a JSX equivalent.",
-  "homepage": "http://probablyup.github.io/markdown-to-jsx",
+  "description": "Convert markdown to JSX with ease for React and React-like projects. Super lightweight and highly configurable.",
+  "homepage": "https://probablyup.github.io/markdown-to-jsx",
   "license": "MIT",
   "version": "6.6.2",
   "engines": {
@@ -9,8 +9,11 @@
   },
   "keywords": [
     "markdown",
+    "markdown converter",
     "react",
-    "jsx"
+    "preact",
+    "jsx",
+    "html"
   ],
   "author": "Evan Scott <probablyup@gmail.com>",
   "repository": "probablyup/markdown-to-jsx",
