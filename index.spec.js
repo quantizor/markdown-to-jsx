@@ -605,6 +605,43 @@ $25
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
+            it('regression test for #170', () => {
+                render(
+                    compiler(
+                        `<table>
+<tbody>
+<tr>
+  <td>a</td>
+  <td>b</td>
+  <td>c</td>
+</tr>
+<tr>
+  <td>left</td>
+  <td>
+    <p>Start of table</p>
+    <ul>
+      <li>List 1</li>
+      <li>
+        <ul>
+          <li>Nested List 1</li>
+        </ul>
+      </li>
+      <li>
+        <ul>
+        <li>list 2</li>
+        </ul>
+      </li>
+    </ul>
+  </td>
+  <td>right</td>
+</tr>
+</tbody>
+</table>`           )
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
             it('#140 self-closing HTML with indentation', () => {
                 function DatePicker () { return <div className="datepicker" />; }
 
