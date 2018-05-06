@@ -212,6 +212,7 @@ exports[`markdown-to-jsx compiler GFM task lists should handle checked items 1`]
   <li>
     <input type="checkbox"
            readonly
+           value="on"
     >
     foo
   </li>
@@ -225,6 +226,7 @@ exports[`markdown-to-jsx compiler GFM task lists should handle unchecked items 1
   <li>
     <input type="checkbox"
            readonly
+           value="on"
     >
     foo
   </li>
@@ -3070,6 +3072,7 @@ exports[`markdown-to-jsx compiler overrides should be able to override gfm task 
 <input type="checkbox"
        class="foo"
        readonly
+       value="on"
 >
 
 `;
@@ -3079,6 +3082,7 @@ exports[`markdown-to-jsx compiler overrides should be able to override gfm task 
 <li class="foo">
   <input type="checkbox"
          readonly
+         value="on"
   >
   foo
 </li>
