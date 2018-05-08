@@ -71,7 +71,17 @@ render((
  */
 ```
 
-\* __NOTE: JSX does not natively preserve newlines in multiline text. In general, writing markdown directly in JSX is discouraged and it's a better idea to keep your content in separate .md files and require them, perhaps using webpack's [raw-loader](https://github.com/webpack-contrib/raw-loader).__
+__NOTE: JSX does not natively preserve newlines in multiline text. In general, writing markdown directly in JSX is discouraged and it's a better idea to keep your content in separate .md files and require them, perhaps using webpack's [raw-loader](https://github.com/webpack-contrib/raw-loader).__
+
+That being said, you can also achieve preserved, multiline text in JSX by using a template literal:
+
+```jsx
+<Markdown>{`
+    # Hello world!
+
+    Here's some arbitrary text.
+`}</Markdown>
+```
 
 ### Parsing Options
 
