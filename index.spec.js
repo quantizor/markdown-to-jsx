@@ -752,6 +752,16 @@ $25
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('handles nested tags of the same type with attributes', () => {
+                render(compiler([
+                    '<div id="foo">',
+                    '  <div id="bar">Baz</div>',
+                    '</div>',
+                ].join('\n')));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('horizontal rules', () => {
