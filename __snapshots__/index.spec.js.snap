@@ -430,6 +430,18 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles nested HTML blocks of t
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML handles nested tags of the same type with attributes 1`] = `
+
+<div data-reactroot
+     id="foo"
+>
+  <div id="bar">
+    Baz
+  </div>
+</div>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML handles self-closing html inside parsable html (regression) 1`] = `
 
 <a data-reactroot
