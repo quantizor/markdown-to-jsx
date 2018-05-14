@@ -2457,6 +2457,16 @@ _   underscore
 
 `;
 
+exports[`markdown-to-jsx compiler headings adds an "id" attribute to headings for deeplinking purposes 1`] = `
+
+<h1 data-reactroot
+    id="this-is-a-very-complicated-header"
+>
+  This is~ a very' complicated&gt; header!
+</h1>
+
+`;
+
 exports[`markdown-to-jsx compiler headings should handle consecutive headings without a padding newline 1`] = `
 
 <div data-reactroot>

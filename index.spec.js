@@ -147,6 +147,12 @@ describe('markdown-to-jsx', () => {
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('adds an "id" attribute to headings for deeplinking purposes', () => {
+                render(compiler('# This is~ a very\' complicated> header!'));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('images', () => {
