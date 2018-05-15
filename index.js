@@ -221,7 +221,6 @@ const IMAGE_R = new RegExp(
     '^!\\[(' + LINK_INSIDE + ')\\]\\(' + LINK_HREF_AND_TITLE + '\\)'
 );
 
-const ENCODED_CHARS = /%(\w){2}/g;
 const ENCODED_SPACE_CHARS = /(%20|%E3%80%80)+/g;
 
 // based on https://stackoverflow.com/a/18123682/1141611
@@ -244,7 +243,6 @@ function slugify (str) {
         .replace(/[^a-z0-9-%+]/gi,'')
         .replace(/\+/gi,'-')
         .toLowerCase()
-        .replace(ENCODED_CHARS, match => match.toUpperCase())
     ;
 
 }
