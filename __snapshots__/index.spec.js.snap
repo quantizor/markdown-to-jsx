@@ -2457,6 +2457,16 @@ _   underscore
 
 `;
 
+exports[`markdown-to-jsx compiler headings adds an "id" attribute to headings for deeplinking purposes 1`] = `
+
+<h1 data-reactroot
+    id="this-is-a-very-complicated%3e-header"
+>
+  This is~ a very' complicated&gt; header!
+</h1>
+
+`;
+
 exports[`markdown-to-jsx compiler headings should handle consecutive headings without a padding newline 1`] = `
 
 <div data-reactroot>
@@ -2527,16 +2537,6 @@ exports[`markdown-to-jsx compiler headings should handle level 6 properly 1`] = 
 >
   Hello World
 </h6>
-
-`;
-
-exports[`markdown-to-jsx compiler headings should handle mix of alphanumeric and non-alphanumeric characters 1`] = `
-
-<h1 data-reactroot
-    id="%e3%81%93%e3%82%93%e3%81%ab%e3%81%a1%e3%81%af%e4%b8%96%e7%95%8c-hello-world-123"
->
-  こんにちは世界  hello  world　123
-</h1>
 
 `;
 
