@@ -9,7 +9,7 @@ if (process.env.NODE_ENV === 'production') {
 module.exports = {
     plugins,
     presets: [
-        ['es2015', {
+        ['env', {
             loose: true,
             modules: process.env.BABEL_ENV === 'esm' ? false : 'commonjs',
         }],
