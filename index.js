@@ -221,10 +221,12 @@ const IMAGE_R = new RegExp(
     '^!\\[(' + LINK_INSIDE + ')\\]\\(' + LINK_HREF_AND_TITLE + '\\)'
 );
 
+const ENCODED_SPACE_CHARS = /(%20|%E3%80%80)+/g;
+
 // based on https://stackoverflow.com/a/18123682/1141611
 // not complete, but probably good enough
 function slugify (str) {
-    return str
+    const s =  str
         .replace(/[ÀÁÂÃÄÅàáâãäåæÆ]/g,'a')
         .replace(/[çÇ]/g,'c')
         .replace(/[ðÐ]/g,'d')
@@ -234,10 +236,15 @@ function slugify (str) {
         .replace(/[øØœŒÕõÔôÓóÒò]/g,'o')
         .replace(/[ÜüÛûÚúÙù]/g,'u')
         .replace(/[ŸÿÝý]/g,'y')
-        .replace(/[^a-z0-9- ]/gi,'')
-        .replace(/ /gi,'-')
+    ;
+
+    return encodeURIComponent(s)
+        .replace(ENCODED_SPACE_CHARS, '+')
+        .replace(/[^a-z0-9-%+]/gi,'')
+        .replace(/\+/gi,'-')
         .toLowerCase()
     ;
+
 }
 
 function parseTableAlignCapture (alignCapture) {

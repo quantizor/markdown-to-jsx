@@ -153,6 +153,16 @@ describe('markdown-to-jsx', () => {
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('should handle non-alphanumeric characters', () => {
+                render(compiler('# こんにちは世界'));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('should handle mix of alphanumeric and non-alphanumeric characters', () => {
+                render(compiler('# こんにちは世界  hello  world　123'));
+            });
         });
 
         describe('images', () => {
