@@ -67,13 +67,6 @@
   "peerDependencies": {
     "react": ">= 0.14.0"
   },
-  "babel": {
-    "presets": [
-      "es2015",
-      "react",
-      "stage-2"
-    ]
-  },
   "scripts": {
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
     "lint": "eslint index.js index.spec.js site.js",
