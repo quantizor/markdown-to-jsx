@@ -154,7 +154,6 @@ const PARAGRAPH_R = /^((?:[^\n]|\n(?! *\n))+)(?:\n *)+\n/;
 const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s*(\S+)\s*("([^"]*)")?/;
 const REFERENCE_IMAGE_R = /^!\[([^\]]*)\] ?\[([^\]]*)\]/;
 const REFERENCE_LINK_R = /^\[([^\]]*)\] ?\[([^\]]*)\]/;
-const SHOULD_RENDER_AS_BLOCK_R = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/;
 const TAB_R = /\t/g;
 const TABLE_TRIM_PIPES = /(^ *\||\| *$)/g;
 const TABLE_CENTER_ALIGN = /^ *:-+: *$/;
@@ -679,17 +678,7 @@ export function compiler (markdown, options) {
     }
 
     function compile (input) {
-        let inline = false;
-
-        if (options.forceInline) {
-            inline = true;
-        } else if (!options.forceBlock) {
-            /**
-            * should not contain any block-level markdown like newlines, lists, headings,
-            * thematic breaks, blockquotes, tables, etc
-            */
-            inline = SHOULD_RENDER_AS_BLOCK_R.test(input) === false;
-        }
+        const inline = !!options.forceInline;
 
         const arr = emitter(
             parser(
@@ -1064,7 +1053,7 @@ export function compiler (markdown, options) {
 
         // https://daringfireball.net/projects/markdown/syntax#autolink
         linkAngleBraceStyleDetector: {
-            match: inlineRegex(LINK_AUTOLINK_R),
+            match: anyScopeRegex(LINK_AUTOLINK_R),
             order: PARSE_PRIORITY_MAX,
             parse (capture/*, parse, state*/) {
                 return {
@@ -1095,7 +1084,7 @@ export function compiler (markdown, options) {
         },
 
         linkMailtoDetector: {
-            match: inlineRegex(LINK_AUTOLINK_MAILTO_R),
+            match: anyScopeRegex(LINK_AUTOLINK_MAILTO_R),
             order: PARSE_PRIORITY_MAX,
             parse (capture/*, parse, state*/) {
                 let address = capture[1];

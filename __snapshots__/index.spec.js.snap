@@ -647,14 +647,14 @@ exports[`markdown-to-jsx compiler arbitrary HTML regression test for #170 1`] = 
 
 exports[`markdown-to-jsx compiler arbitrary HTML renders inline <code> tags 1`] = `
 
-<span data-reactroot>
+<p data-reactroot>
   Text and
   <code>
     <strong>
       code
     </strong>
   </code>
-</span>
+</p>
 
 `;
 
@@ -2580,9 +2580,9 @@ exports[`markdown-to-jsx compiler horizontal rules should handle the various syn
 
 exports[`markdown-to-jsx compiler images should handle a basic image 1`] = `
 
-<img data-reactroot
-     src="/xyz.png"
->
+<p data-reactroot>
+  <img src="/xyz.png">
+</p>
 
 `;
 
@@ -2617,20 +2617,22 @@ exports[`markdown-to-jsx compiler images should handle an image reference with t
 
 exports[`markdown-to-jsx compiler images should handle an image with alt text 1`] = `
 
-<img data-reactroot
-     alt="test"
-     src="/xyz.png"
->
+<p data-reactroot>
+  <img alt="test"
+       src="/xyz.png"
+  >
+</p>
 
 `;
 
 exports[`markdown-to-jsx compiler images should handle an image with title 1`] = `
 
-<img data-reactroot
-     alt="test"
-     title="foo"
-     src="/xyz.png"
->
+<p data-reactroot>
+  <img alt="test"
+       title="foo"
+       src="/xyz.png"
+  >
+</p>
 
 `;
 
@@ -2646,91 +2648,103 @@ exports[`markdown-to-jsx compiler indented code blocks should be handled 1`] = `
 
 exports[`markdown-to-jsx compiler inline code blocks should be handled 1`] = `
 
-<code data-reactroot>
-  foo
-</code>
+<p data-reactroot>
+  <code>
+    foo
+  </code>
+</p>
 
 `;
 
 exports[`markdown-to-jsx compiler inline textual elements should handle deleted text 1`] = `
 
-<del data-reactroot>
-  Hello.
-</del>
+<p data-reactroot>
+  <del>
+    Hello.
+  </del>
+</p>
 
 `;
 
 exports[`markdown-to-jsx compiler inline textual elements should handle double-emphasized text 1`] = `
 
-<strong data-reactroot>
-  Hello.
-</strong>
+<p data-reactroot>
+  <strong>
+    Hello.
+  </strong>
+</p>
 
 `;
 
 exports[`markdown-to-jsx compiler inline textual elements should handle emphasized text 1`] = `
 
-<em data-reactroot>
-  Hello.
-</em>
+<p data-reactroot>
+  <em>
+    Hello.
+  </em>
+</p>
 
 `;
 
 exports[`markdown-to-jsx compiler inline textual elements should handle escaped text 1`] = `
 
-<span data-reactroot>
+<p data-reactroot>
   Hello.__foo__
-</span>
+</p>
 
 `;
 
 exports[`markdown-to-jsx compiler inline textual elements should handle the alternate form of bold/italic 1`] = `
 
-<strong data-reactroot>
-  <em>
-    Hello.
-  </em>
-</strong>
+<p data-reactroot>
+  <strong>
+    <em>
+      Hello.
+    </em>
+  </strong>
+</p>
 
 `;
 
 exports[`markdown-to-jsx compiler inline textual elements should handle triple-emphasized text 1`] = `
 
-<strong data-reactroot>
-  <em>
-    Hello.
-  </em>
-</strong>
+<p data-reactroot>
+  <strong>
+    <em>
+      Hello.
+    </em>
+  </strong>
+</p>
 
 `;
 
 exports[`markdown-to-jsx compiler links should an email autolink and add a mailto: prefix 1`] = `
 
-<a data-reactroot
-   href="mailto:probablyup@gmail.com"
->
-  probablyup@gmail.com
-</a>
+<div data-reactroot>
+  <a href="mailto:probablyup@gmail.com">
+    probablyup@gmail.com
+  </a>
+</div>
 
 `;
 
 exports[`markdown-to-jsx compiler links should automatically link found URLs 1`] = `
 
-<a data-reactroot
-   href="https://google.com"
->
-  https://google.com
-</a>
+<p data-reactroot>
+  <a href="https://google.com">
+    https://google.com
+  </a>
+</p>
 
 `;
 
 exports[`markdown-to-jsx compiler links should handle a basic link 1`] = `
 
-<a data-reactroot
-   href="/xyz.png"
->
-  foo
-</a>
+<p data-reactroot>
+  <a href="/xyz.png">
+    foo
+  </a>
+</p>
 
 `;
 
@@ -2768,61 +2782,66 @@ exports[`markdown-to-jsx compiler links should handle a link reference with titl
 
 exports[`markdown-to-jsx compiler links should handle a link with a URL in the text 1`] = `
 
-<a data-reactroot
-   href="http://www.google.com"
->
-  https://www.google.com
-  <em>
-    heck yeah
-  </em>
-</a>
+<p data-reactroot>
+  <a href="http://www.google.com">
+    https://www.google.com
+    <em>
+      heck yeah
+    </em>
+  </a>
+</p>
 
 `;
 
 exports[`markdown-to-jsx compiler links should handle a link with title 1`] = `
 
-<a data-reactroot
-   href="/xyz.png"
-   title="bar"
->
-  foo
-</a>
+<p data-reactroot>
+  <a href="/xyz.png"
+     title="bar"
+  >
+    foo
+  </a>
+</p>
 
 `;
 
 exports[`markdown-to-jsx compiler links should handle a mailto autolink 1`] = `
 
-<a data-reactroot
-   href="mailto:probablyup@gmail.com"
->
-  probablyup@gmail.com
-</a>
+<div data-reactroot>
+  <a href="mailto:probablyup@gmail.com">
+    probablyup@gmail.com
+  </a>
+</div>
 
 `;
 
 exports[`markdown-to-jsx compiler links should handle autolink style 1`] = `
 
-<a data-reactroot
-   href="https://google.com"
->
-  https://google.com
-</a>
+<div data-reactroot>
+  <a href="https://google.com">
+    https://google.com
+  </a>
+</div>
 
 `;
 
 exports[`markdown-to-jsx compiler links should sanitize links containing JS expressions 1`] = `
 
-<a data-reactroot>
-  foo
-</a>
+<p data-reactroot>
+  <a>
+    foo
+  </a>
+</p>
 
 `;
 
 exports[`markdown-to-jsx compiler links should sanitize links containing invalid characters 1`] = `
 
-<a data-reactroot>
-  foo
-</a>
+<p data-reactroot>
+  <a>
+    foo
+  </a>
+</p>
 
 `;
 
@@ -3057,18 +3076,6 @@ exports[`markdown-to-jsx compiler misc block level elements should handle blockq
 
 `;
 
-exports[`markdown-to-jsx compiler options.forceBlock treats given markdown as block-context 1`] = `
-
-<p data-reactroot>
-  Hello.
-  <em>
-    Beautiful
-  </em>
-  day isn't it?
-</p>
-
-`;
-
 exports[`markdown-to-jsx compiler options.forceInline treats given markdown as inline-context, passing through any block-level markdown syntax 1`] = `
 
 <span data-reactroot>
@@ -3139,31 +3146,37 @@ exports[`markdown-to-jsx compiler wraps multiple block element returns in a div 
 
 `;
 
-exports[`markdown-to-jsx compiler wraps solely inline elements in a span, rather than a div 1`] = `
+exports[`markdown-to-jsx compiler wraps solely inline elements in a p, rather than a div 1`] = `
 
-<span data-reactroot>
+<p data-reactroot>
   Hello.
   <em>
     Beautiful
   </em>
   day isn't it?
-</span>
+</p>
 
 `;
 
 exports[`markdown-to-jsx component accepts markdown content 1`] = `
 
-<em data-reactroot>
-  Hello.
-</em>
+<p data-reactroot>
+  <em>
+    Hello.
+  </em>
+</p>
 
 `;
 
 exports[`markdown-to-jsx component accepts options 1`] = `
 
-<em data-reactroot>
-  Hello.
-</em>
+<p data-reactroot
+   class="foo"
+>
+  <em>
+    Hello.
+  </em>
+</p>
 
 `;
 
