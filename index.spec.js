@@ -1,11 +1,13 @@
-import Markdown, {compiler} from './index';
+import Markdown, { compiler } from './index';
 import React from 'react';
 import ReactDOM from 'react-dom';
 import fs from 'fs';
 
 describe('markdown-to-jsx', () => {
     const root = document.body.appendChild(document.createElement('div'));
-    function render (jsx) { return ReactDOM.render(jsx, root); }
+    function render (jsx) {
+        return ReactDOM.render(jsx, root);
+    }
 
     afterEach(() => ReactDOM.unmountComponentAtNode(root));
 
@@ -175,28 +177,19 @@ describe('markdown-to-jsx', () => {
             });
 
             it('should handle an image reference', () => {
-                render(compiler([
-                    '![][1]',
-                    '[1]: /xyz.png',
-                ].join('\n')));
+                render(compiler(['![][1]', '[1]: /xyz.png'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle an image reference with alt text', () => {
-                render(compiler([
-                    '![test][1]',
-                    '[1]: /xyz.png',
-                ].join('\n')));
+                render(compiler(['![test][1]', '[1]: /xyz.png'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle an image reference with title', () => {
-                render(compiler([
-                    '![test][1]',
-                    '[1]: /xyz.png "foo"',
-                ].join('\n')));
+                render(compiler(['![test][1]', '[1]: /xyz.png "foo"'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -216,28 +209,19 @@ describe('markdown-to-jsx', () => {
             });
 
             it('should handle a link reference', () => {
-                render(compiler([
-                    '[foo][1]',
-                    '[1]: /xyz.png',
-                ].join('\n')));
+                render(compiler(['[foo][1]', '[1]: /xyz.png'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle a link reference with a space', () => {
-                render(compiler([
-                    '[foo] [1]',
-                    '[1]: /xyz.png',
-                ].join('\n')));
+                render(compiler(['[foo] [1]', '[1]: /xyz.png'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle a link reference with title', () => {
-                render(compiler([
-                    '[foo][1]',
-                    '[1]: /xyz.png "bar"',
-                ].join('\n')));
+                render(compiler(['[foo][1]', '[1]: /xyz.png "bar"'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -279,7 +263,11 @@ describe('markdown-to-jsx', () => {
             });
 
             it('should handle a link with a URL in the text', () => {
-                render(compiler('[https://www.google.com *heck yeah*](http://www.google.com)'));
+                render(
+                    compiler(
+                        '[https://www.google.com *heck yeah*](http://www.google.com)'
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -287,83 +275,56 @@ describe('markdown-to-jsx', () => {
 
         describe('lists', () => {
             it('should handle a tight list', () => {
-                render(compiler([
-                    '- xyz',
-                    '- abc',
-                    '- foo',
-                ].join('\n')));
+                render(compiler(['- xyz', '- abc', '- foo'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle a loose list', () => {
-                render(compiler([
-                    '- xyz',
-                    '',
-                    '- abc',
-                    '',
-                    '- foo',
-                ].join('\n')));
+                render(compiler(['- xyz', '', '- abc', '', '- foo'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle an ordered list', () => {
-                render(compiler([
-                    '1. xyz',
-                    '1. abc',
-                    '1. foo',
-                ].join('\n')));
+                render(compiler(['1. xyz', '1. abc', '1. foo'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle an ordered list with a specific start index', () => {
-                render(compiler([
-                    '2. xyz',
-                    '3. abc',
-                    '4. foo',
-                ].join('\n')));
+                render(compiler(['2. xyz', '3. abc', '4. foo'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle a nested list', () => {
-                render(compiler([
-                    '- xyz',
-                    '  - abc',
-                    '- foo',
-                ].join('\n')));
+                render(compiler(['- xyz', '  - abc', '- foo'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle a mixed nested list', () => {
-                render(compiler([
-                    '- xyz',
-                    '  1. abc',
-                    '    - def',
-                    '- foo',
-                ].join('\n')));
+                render(
+                    compiler(['- xyz', '  1. abc', '    - def', '- foo'].join('\n'))
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should not add an extra wrapper around a list', () => {
-                render(compiler([
-                    '',
-                    '- xyz',
-                    '  1. abc',
-                    '    - def',
-                    '- foo',
-                    '',
-                ].join('\n')));
+                render(
+                    compiler(
+                        ['', '- xyz', '  1. abc', '    - def', '- foo', ''].join('\n')
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle link trees', () => {
-                render(compiler(`
+                render(
+                    compiler(`
 - [buttermilk](#buttermilk)
     - [installation](#installation)
     - [usage](#usage)
@@ -376,7 +337,8 @@ describe('markdown-to-jsx', () => {
             - [\`route(url: String, addNewHistoryEntry: Boolean = true)\`](#routeurl-string-addnewhistoryentry-boolean--true)
         - [holistic example](#holistic-example)
     - [goals](#goals)
-                `));
+                `)
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -413,56 +375,60 @@ describe('markdown-to-jsx', () => {
 
         describe('GFM tables', () => {
             it('should handle a basic table', () => {
-                render(compiler([
-                    'foo|bar',
-                    '---|---',
-                    '1  |2',
-                ].join('\n')));
+                render(compiler(['foo|bar', '---|---', '1  |2'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle a table with aligned columns', () => {
-                render(compiler([
-                    'foo|bar|baz',
-                    '--:|:---:|:--',
-                    '1|2|3',
-                ].join('\n')));
+                render(compiler(['foo|bar|baz', '--:|:---:|:--', '1|2|3'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle the other syntax for tables', () => {
-                render(compiler([
-                    '| Foo | Bar |',
-                    '| --- | --- |',
-                    '| 1   | 2   |',
-                    '| 3   | 4   |',
-                ].join('\n')));
+                render(
+                    compiler(
+                        [
+                            '| Foo | Bar |',
+                            '| --- | --- |',
+                            '| 1   | 2   |',
+                            '| 3   | 4   |',
+                        ].join('\n')
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle the other syntax for tables with alignment', () => {
-                render(compiler([
-                    '| Foo | Bar | Baz |',
-                    '| --: | :-: | :-- |',
-                    '| 1   | 2   | 3   |',
-                    '| 4   | 5   | 6   |',
-                ].join('\n')));
+                render(
+                    compiler(
+                        [
+                            '| Foo | Bar | Baz |',
+                            '| --: | :-: | :-- |',
+                            '| 1   | 2   | 3   |',
+                            '| 4   | 5   | 6   |',
+                        ].join('\n')
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle other content after a table', () => {
-                render(compiler([
-                    '| Foo | Bar | Baz |',
-                    '| --: | :-: | :-- |',
-                    '| 1   | 2   | 3   |',
-                    '| 4   | 5   | 6   |',
-                    '',
-                    'Foo',
-                ].join('\n')));
+                render(
+                    compiler(
+                        [
+                            '| Foo | Bar | Baz |',
+                            '| --: | :-: | :-- |',
+                            '| 1   | 2   | 3   |',
+                            '| 4   | 5   | 6   |',
+                            '',
+                            'Foo',
+                        ].join('\n')
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -488,7 +454,9 @@ describe('markdown-to-jsx', () => {
             });
 
             it('processes markdown within nested inline HTML where childen appear more than once', () => {
-                render(compiler('<dl><dt>foo</dt><dd>bar</dd><dt>baz</dt><dd>qux</dd></dl>'));
+                render(
+                    compiler('<dl><dt>foo</dt><dd>bar</dd><dt>baz</dt><dd>qux</dd></dl>')
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -506,7 +474,11 @@ describe('markdown-to-jsx', () => {
             });
 
             it('processes inline HTML with inline styles', () => {
-                render(compiler('<span style="color: red; position: top; margin-right: 10px">Hello</span>'));
+                render(
+                    compiler(
+                        '<span style="color: red; position: top; margin-right: 10px">Hello</span>'
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -530,7 +502,11 @@ describe('markdown-to-jsx', () => {
             });
 
             it('handles self-closing html inside parsable html (regression)', () => {
-                render(compiler('<a href="https://opencollective.com/react-dropzone/sponsor/0/website" target="_blank"><img src="https://opencollective.com/react-dropzone/sponsor/0/avatar.svg"></a>'));
+                render(
+                    compiler(
+                        '<a href="https://opencollective.com/react-dropzone/sponsor/0/website" target="_blank"><img src="https://opencollective.com/react-dropzone/sponsor/0/avatar.svg"></a>'
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -542,7 +518,8 @@ describe('markdown-to-jsx', () => {
             });
 
             it('block HTML regression test', () => {
-                render(compiler(`
+                render(
+                    compiler(`
 <ul id="ProjectSubmenu">
     <li><a href="/projects/markdown/" title="Markdown Project Page">Main</a></li>
     <li><a href="/projects/markdown/basics" title="Markdown Basics">Basics</a></li>
@@ -550,19 +527,23 @@ describe('markdown-to-jsx', () => {
     <li><a href="/projects/markdown/license" title="Pricing and License Information">License</a></li>
     <li><a href="/projects/markdown/dingus" title="Online Markdown Web Form">Dingus</a></li>
 </ul>
-`));
+`)
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('handles svg', () => {
-                render(compiler(fs.readFileSync(__dirname + '/docs/images/logo.svg', 'utf8')));
+                render(
+                    compiler(fs.readFileSync(__dirname + '/docs/images/logo.svg', 'utf8'))
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('handles nested HTML blocks of the same type (regression)', () => {
-                render(compiler(`
+                render(
+                    compiler(`
 <table>
     <tbody>
       <tr>
@@ -586,13 +567,15 @@ describe('markdown-to-jsx', () => {
       </tr>
     </tbody>
 </table>
-                `));
+                `)
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('regression test for #136', () => {
-                render(compiler(`
+                render(
+                    compiler(`
 $25
   <br>
   <br>
@@ -606,7 +589,8 @@ $25
   <br>
   <br>
   <br>
-                `));
+                `)
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -642,129 +626,168 @@ $25
   <td>right</td>
 </tr>
 </tbody>
-</table>`           )
+</table>`
+                    )
                 );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('#140 self-closing HTML with indentation', () => {
-                function DatePicker () { return <div className="datepicker" />; }
+                function DatePicker () {
+                    return <div className="datepicker" />;
+                }
 
-                render(compiler([
-                    '<DatePicker ',
-                    '    biasTowardDateTime="2017-12-05T07:39:36.091Z"',
-                    '    timezone="UTC+5"',
-                    '/>',
-                ].join('\n'), { overrides: { DatePicker }}));
+                render(
+                    compiler(
+                        [
+                            '<DatePicker ',
+                            '    biasTowardDateTime="2017-12-05T07:39:36.091Z"',
+                            '    timezone="UTC+5"',
+                            '/>',
+                        ].join('\n'),
+                        { overrides: { DatePicker } }
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('handles jsx attribute interpolation as a string', () => {
                 function DatePicker ({ endTime, startTime }) {
-                    return <div>{startTime} to {endTime}</div>;
+                    return (
+                        <div>
+                            {startTime} to {endTime}
+                        </div>
+                    );
                 }
 
-                render(compiler([
-                    '<DatePicker ',
-                    '    startTime={1514579720511}',
-                    '    endTime={"1514579720512"}',
-                    '/>',
-                ].join('\n'), { overrides: { DatePicker }}));
+                render(
+                    compiler(
+                        [
+                            '<DatePicker ',
+                            '    startTime={1514579720511}',
+                            '    endTime={"1514579720512"}',
+                            '/>',
+                        ].join('\n'),
+                        { overrides: { DatePicker } }
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('handles jsx inside jsx interpolations', () => {
-                function InterpolationTest ({ component, component2, component3, component4 }) {
+                function InterpolationTest ({
+                    component,
+                    component2,
+                    component3,
+                    component4,
+                }) {
                     return (
-                        <div>{component} and {component2} and {component3} and {component4}</div>
+                        <div>
+                            {component} and {component2} and {component3} and {component4}
+                        </div>
                     );
                 }
 
                 function Inner ({ children, ...props }) {
-                    return <div {...props} className="inner">{children}</div>;
+                    return (
+                        <div {...props} className="inner">
+                            {children}
+                        </div>
+                    );
                 }
 
-                render(compiler([
-                    '<InterpolationTest ',
-                    '    component={<Inner children="bah" />}',
-                    '    component2={<Inner>blah</Inner>}',
-                    '    component3={<Inner disabled />}',
-                    '    component4={<Inner disabled={false} />}',
-                    '/>',
-                ].join('\n'), { overrides: { Inner, InterpolationTest }}));
+                render(
+                    compiler(
+                        [
+                            '<InterpolationTest ',
+                            '    component={<Inner children="bah" />}',
+                            '    component2={<Inner>blah</Inner>}',
+                            '    component3={<Inner disabled />}',
+                            '    component4={<Inner disabled={false} />}',
+                            '/>',
+                        ].join('\n'),
+                        { overrides: { Inner, InterpolationTest } }
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('handles malformed HTML', () => {
-                render(compiler([
-                    '<g>',
-                    '<g>',
-                    '<path fill="#ffffff"/>',
-                    '</g>',
-                    '<path fill="#ffffff"/>',
-                ].join('\n')));
+                render(
+                    compiler(
+                        [
+                            '<g>',
+                            '<g>',
+                            '<path fill="#ffffff"/>',
+                            '</g>',
+                            '<path fill="#ffffff"/>',
+                        ].join('\n')
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('allows whitespace between attribute and value', () => {
-                render(compiler([
-                    '<div class = "foo" style= "background:red;" id ="baz">',
-                    'Bar',
-                    '</div>',
-                ].join('\n')));
+                render(
+                    compiler(
+                        [
+                            '<div class = "foo" style= "background:red;" id ="baz">',
+                            'Bar',
+                            '</div>',
+                        ].join('\n')
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('handles a raw hashtag inside HTML', () => {
-                render(compiler([
-                    '"<span>#</span>"',
-                ].join('\n')));
+                render(compiler(['"<span>#</span>"'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('handles a heading inside HTML', () => {
-                render(compiler([
-                    '"<span># foo</span>"',
-                ].join('\n')));
+                render(compiler(['"<span># foo</span>"'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('does not parse the inside of <style> blocks', () => {
-                render(compiler([
-                    '<style>',
-                    '  .bar {',
-                    '    color: red;',
-                    '  }',
-                    '</style>',
-                ].join('\n')));
+                render(
+                    compiler(
+                        ['<style>', '  .bar {', '    color: red;', '  }', '</style>'].join(
+                            '\n'
+                        )
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('does not parse the inside of <script> blocks', () => {
-                render(compiler([
-                    '<script>',
-                    '  new Date();',
-                    '</script>',
-                ].join('\n')));
+                render(compiler(['<script>', '  new Date();', '</script>'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('handles nested tags of the same type with attributes', () => {
-                render(compiler([
-                    '<div id="foo">',
-                    '  <div id="bar">Baz</div>',
-                    '</div>',
-                ].join('\n')));
+                render(
+                    compiler(
+                        ['<div id="foo">', '  <div id="bar">Baz</div>', '</div>'].join('\n')
+                    )
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('#180 handles invalid character error with angle brackets', () => {
+                render(compiler('1<2 or 2>1'));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -772,13 +795,17 @@ $25
 
         describe('horizontal rules', () => {
             it('should handle the various syntaxes', () => {
-                render(compiler([
-                    '* * *',
-                    '***',
-                    '*****',
-                    '- - -',
-                    '---------------------------------------',
-                ].join('\n\n')));
+                render(
+                    compiler(
+                        [
+                            '* * *',
+                            '***',
+                            '*****',
+                            '- - -',
+                            '---------------------------------------',
+                        ].join('\n\n')
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -786,10 +813,7 @@ $25
 
         describe('line breaks', () => {
             it('should be added for 2-space sequences', () => {
-                render(compiler([
-                    'hello  ',
-                    'there',
-                ].join('\n')));
+                render(compiler(['hello  ', 'there'].join('\n')));
 
                 const lineBreak = root.querySelector('br');
 
@@ -799,11 +823,7 @@ $25
 
         describe('fenced code blocks', () => {
             it('should be handled', () => {
-                render(compiler([
-                    '```js',
-                    'foo',
-                    '```',
-                ].join('\n')));
+                render(compiler(['```js', 'foo', '```'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -827,31 +847,19 @@ $25
 
         describe('footnotes', () => {
             it('should handle conversion of references into links', () => {
-                render(compiler([
-                    'foo[^abc] bar',
-                    '',
-                    '[^abc]: Baz baz',
-                ].join('\n')));
+                render(compiler(['foo[^abc] bar', '', '[^abc]: Baz baz'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should inject the definitions in a footer at the end of the root', () => {
-                render(compiler([
-                    'foo[^abc] bar',
-                    '',
-                    '[^abc]: Baz baz',
-                ].join('\n')));
+                render(compiler(['foo[^abc] bar', '', '[^abc]: Baz baz'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle single word footnote definitions', () => {
-                render(compiler([
-                    'foo[^abc] bar',
-                    '',
-                    '[^abc]: Baz',
-                ].join('\n')));
+                render(compiler(['foo[^abc] bar', '', '[^abc]: Baz'].join('\n')));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -859,7 +867,9 @@ $25
 
         describe('options.forceBlock', () => {
             it('treats given markdown as block-context', () => {
-                render(compiler('Hello. _Beautiful_ day isn\'t it?', { forceBlock: true }));
+                render(
+                    compiler('Hello. _Beautiful_ day isn\'t it?', { forceBlock: true })
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -916,14 +926,14 @@ $25
             it('should substitute the appropriate JSX tag if given a component', () => {
                 class FakeParagraph extends React.Component {
                     render () {
-                        return (
-                            <p className='foo'>{this.props.children}</p>
-                        );
+                        return <p className="foo">{this.props.children}</p>;
                     }
                 }
 
                 render(
-                    compiler('Hello.\n\n', {overrides: {p: {component: FakeParagraph}}})
+                    compiler('Hello.\n\n', {
+                        overrides: { p: { component: FakeParagraph } },
+                    })
                 );
 
                 expect(root.children[0].className).toBe('foo');
@@ -933,15 +943,11 @@ $25
             it('should accept an override shorthand if props do not need to be overidden', () => {
                 class FakeParagraph extends React.Component {
                     render () {
-                        return (
-                            <p className='foo'>{this.props.children}</p>
-                        );
+                        return <p className="foo">{this.props.children}</p>;
                     }
                 }
 
-                render(
-                    compiler('Hello.\n\n', {overrides: {p: FakeParagraph}})
-                );
+                render(compiler('Hello.\n\n', { overrides: { p: FakeParagraph } }));
 
                 expect(root.children[0].className).toBe('foo');
                 expect(root.children[0].textContent).toBe('Hello.');
@@ -949,7 +955,9 @@ $25
 
             it('should add props to the appropriate JSX tag if supplied', () => {
                 render(
-                    compiler('Hello.\n\n', {overrides: {p: {props: {className: 'abc'}}}})
+                    compiler('Hello.\n\n', {
+                        overrides: { p: { props: { className: 'abc' } } },
+                    })
                 );
 
                 expect(root.children[0].className).toBe('abc');
@@ -958,11 +966,7 @@ $25
 
             it('should add props to pre & code tags if supplied', () => {
                 render(
-                    compiler([
-                        '```',
-                        'foo',
-                        '```',
-                    ].join('\n'), {
+                    compiler(['```', 'foo', '```'].join('\n'), {
                         overrides: {
                             code: {
                                 props: {
@@ -985,30 +989,30 @@ $25
             it('should substitute pre & code tags if supplied with an override component', () => {
                 class OverridenPre extends React.Component {
                     render () {
-                        const {children, ...props} = this.props;
+                        const { children, ...props } = this.props;
 
                         return (
-                            <pre {...props} data-bar='baz'>{children}</pre>
+                            <pre {...props} data-bar="baz">
+                                {children}
+                            </pre>
                         );
                     }
                 }
 
                 class OverridenCode extends React.Component {
                     render () {
-                        const {children, ...props} = this.props;
+                        const { children, ...props } = this.props;
 
                         return (
-                            <code {...props} data-baz='fizz'>{children}</code>
+                            <code {...props} data-baz="fizz">
+                                {children}
+                            </code>
                         );
                     }
                 }
 
                 render(
-                    compiler([
-                        '```',
-                        'foo',
-                        '```',
-                    ].join('\n'), {
+                    compiler(['```', 'foo', '```'].join('\n'), {
                         overrides: {
                             code: {
                                 component: OverridenCode,
@@ -1031,14 +1035,22 @@ $25
             });
 
             it('should be able to override gfm task list items', () => {
-                render(compiler('- [ ] foo', {overrides: {li: {props: {className: 'foo'}}}}));
+                render(
+                    compiler('- [ ] foo', {
+                        overrides: { li: { props: { className: 'foo' } } },
+                    })
+                );
                 const $element = root.querySelector('li');
 
                 expect($element.outerHTML).toMatchSnapshot();
             });
 
             it('should be able to override gfm task list item checkboxes', () => {
-                render(compiler('- [ ] foo', {overrides: {input: {props: {className: 'foo'}}}}));
+                render(
+                    compiler('- [ ] foo', {
+                        overrides: { input: { props: { className: 'foo' } } },
+                    })
+                );
                 const $element = root.querySelector('input');
 
                 expect($element.outerHTML).toMatchSnapshot();
@@ -1062,15 +1074,13 @@ $25
         it('accepts options', () => {
             class FakeParagraph extends React.Component {
                 render () {
-                    return (
-                        <p className='foo'>{this.props.children}</p>
-                    );
+                    return <p className="foo">{this.props.children}</p>;
                 }
             }
 
             render(
-                <Markdown options={{overrides: {p: {component: FakeParagraph}}}}>
-                    _Hello._
+                <Markdown options={{ overrides: { p: { component: FakeParagraph } } }}>
+          _Hello._
                 </Markdown>
             );
 
@@ -1078,14 +1088,12 @@ $25
         });
 
         it('merges className overrides, rather than overwriting', () => {
-            const code = [
-                '```js',
-                'foo',
-                '```',
-            ].join('\n');
+            const code = ['```js', 'foo', '```'].join('\n');
 
             render(
-                <Markdown options={{overrides: {code: {props: {className: 'foo'}}}}}>
+                <Markdown
+                    options={{ overrides: { code: { props: { className: 'foo' } } } }}
+                >
                     {code}
                 </Markdown>
             );
@@ -1094,11 +1102,7 @@ $25
         });
 
         it('passes along any additional props to the rendered wrapper element', () => {
-            render(
-                <Markdown className="foo">
-                    # Hello
-                </Markdown>
-            );
+            render(<Markdown className="foo"># Hello</Markdown>);
 
             expect(root.innerHTML).toMatchSnapshot();
         });
