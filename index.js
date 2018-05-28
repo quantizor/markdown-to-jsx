@@ -173,7 +173,7 @@ const TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R = /(^\n+|(\n|\s)+$)/g;
  * it's not clear if the indentation is intentional or just there from how the composer
  * laid things out.
  */
-const TRIM_HTML = /^\s*| {4,}|\s*$/g;
+const TRIM_HTML = /^\s*| {4,}|\s*$/gm;
 
 const UNESCAPE_URL_R = /\\([^0-9A-Z\s])/gi;
 
@@ -194,10 +194,10 @@ const LIST_ITEM_PREFIX_R = new RegExp('^' + LIST_ITEM_PREFIX);
 //  * but this is not part of the same item
 const LIST_ITEM_R = new RegExp(
     LIST_ITEM_PREFIX +
-    '[^\\n]*(?:\\n' +
-    '(?!\\1' +
-    LIST_BULLET +
-    ' )[^\\n]*)*(\\n|$)',
+        '[^\\n]*(?:\\n' +
+        '(?!\\1' +
+        LIST_BULLET +
+        ' )[^\\n]*)*(\\n|$)',
     'gm'
 );
 
@@ -205,20 +205,20 @@ const LIST_ITEM_R = new RegExp(
 // we leave the newlines at the end
 const LIST_R = new RegExp(
     '^( *)(' +
-    LIST_BULLET +
-    ') ' +
-    '[\\s\\S]+?(?:\\n{2,}(?! )' +
-    '(?!\\1' +
-    LIST_BULLET +
-    ' )\\n*' +
-    // the \\s*$ here is so that we can parse the inside of nested
-    // lists, where our content might end before we receive two `\n`s
-    '|\\s*\\n*$)'
+        LIST_BULLET +
+        ') ' +
+        '[\\s\\S]+?(?:\\n{2,}(?! )' +
+        '(?!\\1' +
+        LIST_BULLET +
+        ' )\\n*' +
+        // the \\s*$ here is so that we can parse the inside of nested
+        // lists, where our content might end before we receive two `\n`s
+        '|\\s*\\n*$)'
 );
 
 const LINK_INSIDE = '(?:\\[[^\\]]*\\]|[^\\[\\]]|\\](?=[^\\[]*\\]))*';
 const LINK_HREF_AND_TITLE =
-  '\\s*<?((?:[^\\s\\\\]|\\\\.)*?)>?(?:\\s+[\'"]([\\s\\S]*?)[\'"])?\\s*';
+    '\\s*<?((?:[^\\s\\\\]|\\\\.)*?)>?(?:\\s+[\'"]([\\s\\S]*?)[\'"])?\\s*';
 
 const LINK_R = new RegExp(
     '^\\[(' + LINK_INSIDE + ')\\]\\(' + LINK_HREF_AND_TITLE + '\\)'
@@ -230,7 +230,7 @@ const IMAGE_R = new RegExp(
 
 // based on https://stackoverflow.com/a/18123682/1141611
 // not complete, but probably good enough
-function slugify (str) {
+function slugify(str) {
     return str
         .replace(/[ÀÁÂÃÄÅàáâãäåæÆ]/g, 'a')
         .replace(/[çÇ]/g, 'c')
@@ -246,7 +246,7 @@ function slugify (str) {
         .toLowerCase();
 }
 
-function parseTableAlignCapture (alignCapture) {
+function parseTableAlignCapture(alignCapture) {
     if (TABLE_RIGHT_ALIGN.test(alignCapture)) {
         return 'right';
     } else if (TABLE_CENTER_ALIGN.test(alignCapture)) {
@@ -258,18 +258,18 @@ function parseTableAlignCapture (alignCapture) {
     return null;
 }
 
-function parseTableHeader (capture, parse, state) {
+function parseTableHeader(capture, parse, state) {
     const headerText = capture[1]
         .replace(TABLE_TRIM_PIPES, '')
         .trim()
         .split(TABLE_ROW_SPLIT);
 
-    return headerText.map(function (text) {
+    return headerText.map(function(text) {
         return parse(text, state);
     });
 }
 
-function parseTableAlign (capture /*, parse, state*/) {
+function parseTableAlign(capture /*, parse, state*/) {
     const alignText = capture[2]
         .replace(TABLE_TRIM_PIPES, '')
         .trim()
@@ -278,23 +278,23 @@ function parseTableAlign (capture /*, parse, state*/) {
     return alignText.map(parseTableAlignCapture);
 }
 
-function parseTableCells (capture, parse, state) {
+function parseTableCells(capture, parse, state) {
     const rowsText = capture[3]
         .replace(TABLE_TRIM_PIPES, '')
         .trim()
         .split('\n');
 
-    return rowsText.map(function (rowText) {
+    return rowsText.map(function(rowText) {
         return rowText
             .replace(TABLE_TRIM_PIPES, '')
             .split(TABLE_ROW_SPLIT)
-            .map(function (text) {
+            .map(function(text) {
                 return parse(text.trim(), state);
             });
     });
 }
 
-function parseTable (capture, parse, state) {
+function parseTable(capture, parse, state) {
     state.inline = true;
     const header = parseTableHeader(capture, parse, state);
     const align = parseTableAlign(capture, parse, state);
@@ -309,20 +309,20 @@ function parseTable (capture, parse, state) {
     };
 }
 
-function getTableStyle (node, colIndex) {
+function getTableStyle(node, colIndex) {
     return node.align[colIndex] == null
         ? {}
         : {
-            textAlign: node.align[colIndex],
-        };
+              textAlign: node.align[colIndex],
+          };
 }
 
 /** TODO: remove for react 16 */
-function normalizeAttributeKey (key) {
+function normalizeAttributeKey(key) {
     const hyphenIndex = key.indexOf('-');
 
     if (hyphenIndex !== -1 && key.match(HTML_CUSTOM_ATTR_R) === null) {
-        key = key.replace(CAPTURE_LETTER_AFTER_HYPHEN, function (_, letter) {
+        key = key.replace(CAPTURE_LETTER_AFTER_HYPHEN, function(_, letter) {
             return letter.toUpperCase();
         });
     }
@@ -330,18 +330,20 @@ function normalizeAttributeKey (key) {
     return key;
 }
 
-function isInterpolation (value) {
+function isInterpolation(value) {
     return INTERPOLATION_R.test(value);
 }
 
-function attributeValueToJSXPropValue (key, value) {
+function attributeValueToJSXPropValue(key, value) {
     if (key === 'style') {
-        return value.split(/;\s?/).reduce(function (styles, kvPair) {
+        return value.split(/;\s?/).reduce(function(styles, kvPair) {
             const key = kvPair.slice(0, kvPair.indexOf(':'));
 
             // snake-case to camelCase
             // also handles PascalCasing vendor prefixes
-            const camelCasedKey = key.replace(/(-[a-z])/g, function toUpper (substr) {
+            const camelCasedKey = key.replace(/(-[a-z])/g, function toUpper(
+                substr
+            ) {
                 return substr[1].toUpperCase();
             });
 
@@ -351,7 +353,7 @@ function attributeValueToJSXPropValue (key, value) {
             return styles;
         }, {});
     } else if (isInterpolation(value)) {
-    // return as a string and let the consumer decide what to do with it
+        // return as a string and let the consumer decide what to do with it
         value = value.slice(1, value.length - 1);
     }
 
@@ -364,7 +366,7 @@ function attributeValueToJSXPropValue (key, value) {
     return value;
 }
 
-function normalizeWhitespace (source) {
+function normalizeWhitespace(source) {
     return source
         .replace(CR_NEWLINE_R, '\n')
         .replace(FORMFEED_R, '')
@@ -390,28 +392,31 @@ function normalizeWhitespace (source) {
  *     some nesting is. For an example use-case, see passage-ref
  *     parsing in src/widgets/passage/passage-markdown.jsx
  */
-function parserFor (rules) {
+function parserFor(rules) {
     // Sorts rules in order of increasing order, then
     // ascending rule name in case of ties.
     let ruleList = Object.keys(rules);
 
     /* istanbul ignore next */
     if (process.env.NODE_ENV !== 'production') {
-        ruleList.forEach(function (type) {
+        ruleList.forEach(function(type) {
             let order = rules[type].order;
             if (
                 process.env.NODE_ENV !== 'production' &&
-        (typeof order !== 'number' || !isFinite(order)) &&
-        typeof console !== 'undefined'
+                (typeof order !== 'number' || !isFinite(order)) &&
+                typeof console !== 'undefined'
             ) {
                 console.warn(
-                    'markdown-to-jsx: Invalid order for rule `' + type + '`: ' + order
+                    'markdown-to-jsx: Invalid order for rule `' +
+                        type +
+                        '`: ' +
+                        order
                 );
             }
         });
     }
 
-    ruleList.sort(function (typeA, typeB) {
+    ruleList.sort(function(typeA, typeB) {
         let orderA = rules[typeA].order;
         let orderB = rules[typeB].order;
 
@@ -427,7 +432,7 @@ function parserFor (rules) {
         return 1;
     });
 
-    function nestedParse (source, state) {
+    function nestedParse(source, state) {
         let result = [];
 
         // We store the previous capture so that match functions can
@@ -468,14 +473,14 @@ function parserFor (rules) {
         return result;
     }
 
-    return function outerParse (source, state) {
+    return function outerParse(source, state) {
         return nestedParse(normalizeWhitespace(source), state);
     };
 }
 
 // Creates a match function for an inline scoped or simple element from a regex
-function inlineRegex (regex) {
-    return function match (source, state) {
+function inlineRegex(regex) {
+    return function match(source, state) {
         if (state.inline) {
             return regex.exec(source);
         } else {
@@ -485,8 +490,8 @@ function inlineRegex (regex) {
 }
 
 // basically any inline element except links
-function simpleInlineRegex (regex) {
-    return function match (source, state) {
+function simpleInlineRegex(regex) {
+    return function match(source, state) {
         if (state.inline || state.simple) {
             return regex.exec(source);
         } else {
@@ -496,8 +501,8 @@ function simpleInlineRegex (regex) {
 }
 
 // Creates a match function for a block scoped element from a regex
-function blockRegex (regex) {
-    return function match (source, state) {
+function blockRegex(regex) {
+    return function match(source, state) {
         if (state.inline || state.simple) {
             return null;
         } else {
@@ -507,14 +512,14 @@ function blockRegex (regex) {
 }
 
 // Creates a match function from a regex, ignoring block/inline scope
-function anyScopeRegex (regex) {
-    return function match (source /*, state*/) {
+function anyScopeRegex(regex) {
+    return function match(source /*, state*/) {
         return regex.exec(source);
     };
 }
 
-function reactFor (outputFunc) {
-    return function nestedReactOutput (ast, state) {
+function reactFor(outputFunc) {
+    return function nestedReactOutput(ast, state) {
         state = state || {};
         if (Array.isArray(ast)) {
             const oldKey = state.key;
@@ -548,7 +553,7 @@ function reactFor (outputFunc) {
     };
 }
 
-function sanitizeUrl (url) {
+function sanitizeUrl(url) {
     try {
         const prot = decodeURIComponent(url)
             .replace(/[^A-Z0-9/:]/gi, '')
@@ -558,23 +563,23 @@ function sanitizeUrl (url) {
             return null;
         }
     } catch (e) {
-    // decodeURIComponent sometimes throws a URIError
-    // See `decodeURIComponent('a%AFc');`
-    // http://stackoverflow.com/questions/9064536/javascript-decodeuricomponent-malformed-uri-exception
+        // decodeURIComponent sometimes throws a URIError
+        // See `decodeURIComponent('a%AFc');`
+        // http://stackoverflow.com/questions/9064536/javascript-decodeuricomponent-malformed-uri-exception
         return null;
     }
 
     return url;
 }
 
-function unescapeUrl (rawUrlString) {
+function unescapeUrl(rawUrlString) {
     return rawUrlString.replace(UNESCAPE_URL_R, '$1');
 }
 
 /**
  * Everything inline, including links.
  */
-function parseInline (parse, content, state) {
+function parseInline(parse, content, state) {
     const isCurrentlyInline = state.inline || false;
     const isCurrentlySimple = state.simple || false;
     state.inline = true;
@@ -588,7 +593,7 @@ function parseInline (parse, content, state) {
 /**
  * Anything inline that isn't a link.
  */
-function parseSimpleInline (parse, content, state) {
+function parseSimpleInline(parse, content, state) {
     const isCurrentlyInline = state.inline || false;
     const isCurrentlySimple = state.simple || false;
     state.inline = false;
@@ -599,38 +604,38 @@ function parseSimpleInline (parse, content, state) {
     return result;
 }
 
-function parseBlock (parse, content, state) {
+function parseBlock(parse, content, state) {
     state.inline = false;
     return parse(content + '\n\n', state);
 }
 
-function parseCaptureInline (capture, parse, state) {
+function parseCaptureInline(capture, parse, state) {
     return {
         content: parseInline(parse, capture[1], state),
     };
 }
 
-function captureNothing () {
+function captureNothing() {
     return {};
 }
-function renderNothing () {
+function renderNothing() {
     return null;
 }
 
-function ruleOutput (rules) {
-    return function nestedRuleOutput (ast, outputFunc, state) {
+function ruleOutput(rules) {
+    return function nestedRuleOutput(ast, outputFunc, state) {
         return rules[ast.type].react(ast, outputFunc, state);
     };
 }
 
-function cx () {
+function cx() {
     return Array.prototype.slice
         .call(arguments)
         .filter(Boolean)
         .join(' ');
 }
 
-function get (src, path, fb) {
+function get(src, path, fb) {
     let ptr = src;
     const frags = path.split('.');
 
@@ -644,7 +649,7 @@ function get (src, path, fb) {
     return ptr || fb;
 }
 
-function getTag (tag, overrides) {
+function getTag(tag, overrides) {
     const override = get(overrides, tag);
     return typeof override === 'function'
         ? override
@@ -676,14 +681,14 @@ const PARSE_PRIORITY_LOW = 4;
  */
 const PARSE_PRIORITY_MIN = 5;
 
-export function compiler (markdown, options) {
+export function compiler(markdown, options) {
     options = options || {};
     options.overrides = options.overrides || {};
 
     const createElementFn = options.createElement || React.createElement;
 
     // eslint-disable-next-line no-unused-vars
-    function h (tag, props, ...children) {
+    function h(tag, props, ...children) {
         const overrideProps = get(options.overrides, `${tag}.props`, {});
 
         return createElementFn(
@@ -692,22 +697,23 @@ export function compiler (markdown, options) {
                 ...overrideProps,
                 ...props,
                 className:
-          cx(props && props.className, overrideProps.className) || undefined,
+                    cx(props && props.className, overrideProps.className) ||
+                    undefined,
             },
             ...children
         );
     }
 
-    function compile (input) {
+    function compile(input) {
         let inline = false;
 
         if (options.forceInline) {
             inline = true;
         } else if (!options.forceBlock) {
             /**
-       * should not contain any block-level markdown like newlines, lists, headings,
-       * thematic breaks, blockquotes, tables, etc
-       */
+             * should not contain any block-level markdown like newlines, lists, headings,
+             * thematic breaks, blockquotes, tables, etc
+             */
             inline = SHOULD_RENDER_AS_BLOCK_R.test(input) === false;
         }
 
@@ -715,7 +721,10 @@ export function compiler (markdown, options) {
             parser(
                 inline
                     ? input
-                    : `${input.replace(TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R, '')}\n\n`,
+                    : `${input.replace(
+                          TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R,
+                          ''
+                      )}\n\n`,
                 { inline }
             )
         );
@@ -738,39 +747,39 @@ export function compiler (markdown, options) {
         return jsx;
     }
 
-    function attrStringToMap (str) {
+    function attrStringToMap(str) {
         const attributes = str.match(ATTR_EXTRACTOR_R);
 
         return attributes
-            ? attributes.reduce(function (map, raw, index) {
-                const delimiterIdx = raw.indexOf('=');
+            ? attributes.reduce(function(map, raw, index) {
+                  const delimiterIdx = raw.indexOf('=');
 
-                if (delimiterIdx !== -1) {
-                    const key = normalizeAttributeKey(
-                        raw.slice(0, delimiterIdx)
-                    ).trim();
-                    const value = unquote(raw.slice(delimiterIdx + 1).trim());
+                  if (delimiterIdx !== -1) {
+                      const key = normalizeAttributeKey(
+                          raw.slice(0, delimiterIdx)
+                      ).trim();
+                      const value = unquote(raw.slice(delimiterIdx + 1).trim());
 
-                    const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key;
-                    const normalizedValue = (map[
-                        mappedKey
-                    ] = attributeValueToJSXPropValue(key, value));
+                      const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key;
+                      const normalizedValue = (map[
+                          mappedKey
+                      ] = attributeValueToJSXPropValue(key, value));
 
-                    if (
-                        HTML_BLOCK_ELEMENT_R.test(normalizedValue) ||
-              HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue)
-                    ) {
-                        map[mappedKey] = React.cloneElement(
-                            compile(normalizedValue.trim()),
-                            { key: index }
-                        );
-                    }
-                } else {
-                    map[ATTRIBUTE_TO_JSX_PROP_MAP[raw] || raw] = true;
-                }
+                      if (
+                          HTML_BLOCK_ELEMENT_R.test(normalizedValue) ||
+                          HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue)
+                      ) {
+                          map[mappedKey] = React.cloneElement(
+                              compile(normalizedValue.trim()),
+                              { key: index }
+                          );
+                      }
+                  } else {
+                      map[ATTRIBUTE_TO_JSX_PROP_MAP[raw] || raw] = true;
+                  }
 
-                return map;
-            }, {})
+                  return map;
+              }, {})
             : undefined;
     }
 
@@ -782,7 +791,8 @@ export function compiler (markdown, options) {
         }
 
         if (
-            Object.prototype.toString.call(options.overrides) !== '[object Object]'
+            Object.prototype.toString.call(options.overrides) !==
+            '[object Object]'
         ) {
             throw new Error(`markdown-to-jsx: options.overrides (second argument property) must be
                              undefined or an object literal with shape:
@@ -799,24 +809,29 @@ export function compiler (markdown, options) {
     const refs = {};
 
     /**
-   * each rule's react() output function goes through our custom h() JSX pragma;
-   * this allows the override functionality to be automatically applied
-   */
+     * each rule's react() output function goes through our custom h() JSX pragma;
+     * this allows the override functionality to be automatically applied
+     */
     const rules = {
         blockQuote: {
             match: blockRegex(BLOCKQUOTE_R),
             order: PARSE_PRIORITY_HIGH,
-            parse (capture, parse, state) {
+            parse(capture, parse, state) {
                 return {
                     content: parse(
-                        capture[0].replace(BLOCKQUOTE_TRIM_LEFT_MULTILINE_R, ''),
+                        capture[0].replace(
+                            BLOCKQUOTE_TRIM_LEFT_MULTILINE_R,
+                            ''
+                        ),
                         state
                     ),
                 };
             },
-            react (node, output, state) {
+            react(node, output, state) {
                 return (
-                    <blockquote key={state.key}>{output(node.content, state)}</blockquote>
+                    <blockquote key={state.key}>
+                        {output(node.content, state)}
+                    </blockquote>
                 );
             },
         },
@@ -825,7 +840,7 @@ export function compiler (markdown, options) {
             match: anyScopeRegex(BREAK_LINE_R),
             order: PARSE_PRIORITY_HIGH,
             parse: captureNothing,
-            react (_, __, state) {
+            react(_, __, state) {
                 return <br key={state.key} />;
             },
         },
@@ -834,7 +849,7 @@ export function compiler (markdown, options) {
             match: blockRegex(BREAK_THEMATIC_R),
             order: PARSE_PRIORITY_HIGH,
             parse: captureNothing,
-            react (_, __, state) {
+            react(_, __, state) {
                 return <hr key={state.key} />;
             },
         },
@@ -842,15 +857,17 @@ export function compiler (markdown, options) {
         codeBlock: {
             match: blockRegex(CODE_BLOCK_R),
             order: PARSE_PRIORITY_MAX,
-            parse (capture /*, parse, state*/) {
-                let content = capture[0].replace(/^ {4}/gm, '').replace(/\n+$/, '');
+            parse(capture /*, parse, state*/) {
+                let content = capture[0]
+                    .replace(/^ {4}/gm, '')
+                    .replace(/\n+$/, '');
                 return {
                     content: content,
                     lang: undefined,
                 };
             },
 
-            react (node, output, state) {
+            react(node, output, state) {
                 return (
                     <pre key={state.key}>
                         <code className={node.lang ? `lang-${node.lang}` : ''}>
@@ -864,7 +881,7 @@ export function compiler (markdown, options) {
         codeFenced: {
             match: blockRegex(CODE_BLOCK_FENCED_R),
             order: PARSE_PRIORITY_MAX,
-            parse (capture /*, parse, state*/) {
+            parse(capture /*, parse, state*/) {
                 return {
                     content: capture[3],
                     lang: capture[2] || undefined,
@@ -876,23 +893,23 @@ export function compiler (markdown, options) {
         codeInline: {
             match: simpleInlineRegex(CODE_INLINE_R),
             order: PARSE_PRIORITY_LOW,
-            parse (capture /*, parse, state*/) {
+            parse(capture /*, parse, state*/) {
                 return {
                     content: capture[2],
                 };
             },
-            react (node, output, state) {
+            react(node, output, state) {
                 return <code key={state.key}>{node.content}</code>;
             },
         },
 
         /**
-     * footnotes are emitted at the end of compilation in a special <footer> block
-     */
+         * footnotes are emitted at the end of compilation in a special <footer> block
+         */
         footnote: {
             match: blockRegex(FOOTNOTE_R),
             order: PARSE_PRIORITY_MAX,
-            parse (capture /*, parse, state*/) {
+            parse(capture /*, parse, state*/) {
                 footnotes.push({
                     footnote: capture[2],
                     identifier: capture[1],
@@ -906,13 +923,13 @@ export function compiler (markdown, options) {
         footnoteReference: {
             match: inlineRegex(FOOTNOTE_REFERENCE_R),
             order: PARSE_PRIORITY_HIGH,
-            parse (capture /*, parse*/) {
+            parse(capture /*, parse*/) {
                 return {
                     content: capture[1],
                     target: `#${capture[1]}`,
                 };
             },
-            react (node, output, state) {
+            react(node, output, state) {
                 return (
                     <a key={state.key} href={sanitizeUrl(node.target)}>
                         <sup key={state.key}>{node.content}</sup>
@@ -924,12 +941,12 @@ export function compiler (markdown, options) {
         gfmTask: {
             match: inlineRegex(GFM_TASK_R),
             order: PARSE_PRIORITY_HIGH,
-            parse (capture /*, parse, state*/) {
+            parse(capture /*, parse, state*/) {
                 return {
                     completed: capture[1].toLowerCase() === 'x',
                 };
             },
-            react (node, output, state) {
+            react(node, output, state) {
                 return (
                     <input
                         checked={node.completed}
@@ -944,14 +961,14 @@ export function compiler (markdown, options) {
         heading: {
             match: blockRegex(HEADING_R),
             order: PARSE_PRIORITY_HIGH,
-            parse (capture, parse, state) {
+            parse(capture, parse, state) {
                 return {
                     content: parseInline(parse, capture[2], state),
                     id: slugify(capture[2]),
                     level: capture[1].length,
                 };
             },
-            react (node, output, state) {
+            react(node, output, state) {
                 const Tag = `h${node.level}`;
                 return (
                     <Tag id={node.id} key={state.key}>
@@ -964,7 +981,7 @@ export function compiler (markdown, options) {
         headingSetext: {
             match: blockRegex(HEADING_SETEXT_R),
             order: PARSE_PRIORITY_MAX,
-            parse (capture, parse, state) {
+            parse(capture, parse, state) {
                 return {
                     content: parseInline(parse, capture[1], state),
                     level: capture[2] === '=' ? 1 : 2,
@@ -975,35 +992,38 @@ export function compiler (markdown, options) {
 
         htmlBlock: {
             /**
-       * find the first matching end tag and process the interior
-       */
+             * find the first matching end tag and process the interior
+             */
             match: anyScopeRegex(HTML_BLOCK_ELEMENT_R),
             order: PARSE_PRIORITY_HIGH,
-            parse (capture, parse, state) {
-                const parseFunc =
-          capture[3].match(HTML_BLOCK_ELEMENT_R) ||
-          DETECT_BLOCK_SYNTAX.test(capture[3])
-              ? parseBlock
-              : parseInline;
+            parse(capture, parse, state) {
+                const trimmed = capture[3].replace(TRIM_HTML, '');
+                const parseFunc = DETECT_BLOCK_SYNTAX.test(trimmed)
+                    ? parseBlock
+                    : parseInline;
+
+                const noInnerParse =
+                    DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(capture[1]) !== -1;
 
                 return {
                     attrs: attrStringToMap(capture[2]),
                     /**
-           * if another html block is detected within, parse as block,
-           * otherwise parse as inline to pick up any further markdown
-           */
-                    content:
-            DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(capture[1]) !== -1
-                ? capture[3]
-                : parseFunc(parse, capture[3].replace(TRIM_HTML, ''), state),
+                     * if another html block is detected within, parse as block,
+                     * otherwise parse as inline to pick up any further markdown
+                     */
+                    content: noInnerParse
+                        ? capture[3]
+                        : parseFunc(parse, trimmed, state),
+
+                    noInnerParse,
 
                     tag: capture[1],
                 };
             },
-            react (node, output, state) {
+            react(node, output, state) {
                 return (
                     <node.tag key={state.key} {...node.attrs}>
-                        {DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(node.tag) !== -1
+                        {node.noInnerParse
                             ? node.content
                             : output(node.content, state)}
                     </node.tag>
@@ -1014,7 +1034,7 @@ export function compiler (markdown, options) {
         htmlComment: {
             match: anyScopeRegex(HTML_COMMENT_R),
             order: PARSE_PRIORITY_HIGH,
-            parse () {
+            parse() {
                 return {};
             },
             react: renderNothing,
@@ -1022,17 +1042,17 @@ export function compiler (markdown, options) {
 
         htmlSelfClosing: {
             /**
-       * find the first matching end tag and process the interior
-       */
+             * find the first matching end tag and process the interior
+             */
             match: anyScopeRegex(HTML_SELF_CLOSING_ELEMENT_R),
             order: PARSE_PRIORITY_HIGH,
-            parse (capture /*, parse, state*/) {
+            parse(capture /*, parse, state*/) {
                 return {
                     attrs: attrStringToMap(capture[2]),
                     tag: capture[1],
                 };
             },
-            react (node, output, state) {
+            react(node, output, state) {
                 return <node.tag {...node.attrs} key={state.key} />;
             },
         },
@@ -1040,14 +1060,14 @@ export function compiler (markdown, options) {
         image: {
             match: simpleInlineRegex(IMAGE_R),
             order: PARSE_PRIORITY_HIGH,
-            parse (capture /*, parse, state*/) {
+            parse(capture /*, parse, state*/) {
                 return {
                     alt: capture[1],
                     target: unescapeUrl(capture[2]),
                     title: capture[3],
                 };
             },
-            react (node, output, state) {
+            react(node, output, state) {
                 return (
                     <img
                         key={state.key}
@@ -1062,16 +1082,20 @@ export function compiler (markdown, options) {
         link: {
             match: inlineRegex(LINK_R, false),
             order: PARSE_PRIORITY_LOW,
-            parse (capture, parse, state) {
+            parse(capture, parse, state) {
                 return {
                     content: parseSimpleInline(parse, capture[1], state),
                     target: unescapeUrl(capture[2]),
                     title: capture[3],
                 };
             },
-            react (node, output, state) {
+            react(node, output, state) {
                 return (
-                    <a key={state.key} href={sanitizeUrl(node.target)} title={node.title}>
+                    <a
+                        key={state.key}
+                        href={sanitizeUrl(node.target)}
+                        title={node.title}
+                    >
                         {output(node.content, state)}
                     </a>
                 );
@@ -1082,7 +1106,7 @@ export function compiler (markdown, options) {
         linkAngleBraceStyleDetector: {
             match: inlineRegex(LINK_AUTOLINK_R),
             order: PARSE_PRIORITY_MAX,
-            parse (capture /*, parse, state*/) {
+            parse(capture /*, parse, state*/) {
                 return {
                     content: [
                         {
@@ -1099,7 +1123,7 @@ export function compiler (markdown, options) {
         linkBareUrlDetector: {
             match: inlineRegex(LINK_AUTOLINK_BARE_URL_R),
             order: PARSE_PRIORITY_MAX,
-            parse (capture /*, parse, state*/) {
+            parse(capture /*, parse, state*/) {
                 return {
                     content: [
                         {
@@ -1117,7 +1141,7 @@ export function compiler (markdown, options) {
         linkMailtoDetector: {
             match: inlineRegex(LINK_AUTOLINK_MAILTO_R),
             order: PARSE_PRIORITY_MAX,
-            parse (capture /*, parse, state*/) {
+            parse(capture /*, parse, state*/) {
                 let address = capture[1];
                 let target = capture[1];
 
@@ -1140,7 +1164,7 @@ export function compiler (markdown, options) {
         },
 
         list: {
-            match (source, state, prevCapture) {
+            match(source, state, prevCapture) {
                 // We only want to break into a list if we are at the start of a
                 // line. This is to avoid parsing "hi * there" with "* there"
                 // becoming a part of a list.
@@ -1161,18 +1185,18 @@ export function compiler (markdown, options) {
                 }
             },
             order: PARSE_PRIORITY_HIGH,
-            parse (capture, parse, state) {
+            parse(capture, parse, state) {
                 const bullet = capture[2];
                 const ordered = bullet.length > 1;
                 const start = ordered ? +bullet : undefined;
                 const items = capture[0]
-                // recognize the end of a paragraph block inside a list item:
-                // two or more newlines at end end of the item
+                    // recognize the end of a paragraph block inside a list item:
+                    // two or more newlines at end end of the item
                     .replace(BLOCK_END_R, '\n')
                     .match(LIST_ITEM_R);
 
                 let lastItemWasAParagraph = false;
-                const itemContent = items.map(function (item, i) {
+                const itemContent = items.map(function(item, i) {
                     // We need to see how far indented the item is:
                     const space = LIST_ITEM_PREFIX_R.exec(item)[0].length;
 
@@ -1182,9 +1206,9 @@ export function compiler (markdown, options) {
 
                     // Before processing the item, we need a couple things
                     const content = item
-                    // remove indents on trailing lines:
+                        // remove indents on trailing lines:
                         .replace(spaceRegex, '')
-                    // remove the bullet:
+                        // remove the bullet:
                         .replace(LIST_ITEM_PREFIX_R, '');
 
                     // Handling "loose" lists, like:
@@ -1204,7 +1228,7 @@ export function compiler (markdown, options) {
                     // the last item can't, so we just "inherit" this property
                     // from our previous element).
                     const thisItemIsAParagraph =
-            containsBlocks || (isLastItem && lastItemWasAParagraph);
+                        containsBlocks || (isLastItem && lastItemWasAParagraph);
                     lastItemWasAParagraph = thisItemIsAParagraph;
 
                     // backup our state for restoration afterwards. We're going to
@@ -1219,7 +1243,10 @@ export function compiler (markdown, options) {
                     let adjustedContent;
                     if (thisItemIsAParagraph) {
                         state.inline = false;
-                        adjustedContent = content.replace(LIST_ITEM_END_R, '\n\n');
+                        adjustedContent = content.replace(
+                            LIST_ITEM_END_R,
+                            '\n\n'
+                        );
                     } else {
                         state.inline = true;
                         adjustedContent = content.replace(LIST_ITEM_END_R, '');
@@ -1240,12 +1267,12 @@ export function compiler (markdown, options) {
                     start: start,
                 };
             },
-            react (node, output, state) {
+            react(node, output, state) {
                 const Tag = node.ordered ? 'ol' : 'ul';
 
                 return (
                     <Tag key={state.key} start={node.start}>
-                        {node.items.map(function generateListItem (item, i) {
+                        {node.items.map(function generateListItem(item, i) {
                             return <li key={i}>{output(item, state)}</li>;
                         })}
                     </Tag>
@@ -1257,7 +1284,7 @@ export function compiler (markdown, options) {
             match: blockRegex(CONSECUTIVE_NEWLINE_R),
             order: PARSE_PRIORITY_LOW,
             parse: captureNothing,
-            react (/*node, output, state*/) {
+            react(/*node, output, state*/) {
                 return '\n';
             },
         },
@@ -1266,7 +1293,7 @@ export function compiler (markdown, options) {
             match: blockRegex(PARAGRAPH_R),
             order: PARSE_PRIORITY_LOW,
             parse: parseCaptureInline,
-            react (node, output, state) {
+            react(node, output, state) {
                 return <p key={state.key}>{output(node.content, state)}</p>;
             },
         },
@@ -1274,7 +1301,7 @@ export function compiler (markdown, options) {
         ref: {
             match: inlineRegex(REFERENCE_IMAGE_OR_LINK),
             order: PARSE_PRIORITY_MAX,
-            parse (capture /*, parse*/) {
+            parse(capture /*, parse*/) {
                 refs[capture[1]] = {
                     target: capture[2],
                     title: capture[4],
@@ -1288,13 +1315,13 @@ export function compiler (markdown, options) {
         refImage: {
             match: simpleInlineRegex(REFERENCE_IMAGE_R),
             order: PARSE_PRIORITY_MAX,
-            parse (capture) {
+            parse(capture) {
                 return {
                     alt: capture[1] || undefined,
                     ref: capture[2],
                 };
             },
-            react (node, output, state) {
+            react(node, output, state) {
                 return (
                     <img
                         key={state.key}
@@ -1309,13 +1336,13 @@ export function compiler (markdown, options) {
         refLink: {
             match: inlineRegex(REFERENCE_LINK_R),
             order: PARSE_PRIORITY_MAX,
-            parse (capture, parse, state) {
+            parse(capture, parse, state) {
                 return {
                     content: parse(capture[1], state),
                     ref: capture[2],
                 };
             },
-            react (node, output, state) {
+            react(node, output, state) {
                 return (
                     <a
                         key={state.key}
@@ -1332,14 +1359,21 @@ export function compiler (markdown, options) {
             match: blockRegex(NP_TABLE_R),
             order: PARSE_PRIORITY_HIGH,
             parse: parseTable,
-            react (node, output, state) {
+            react(node, output, state) {
                 return (
                     <table key={state.key}>
                         <thead>
                             <tr>
-                                {node.header.map(function generateHeaderCell (content, i) {
+                                {node.header.map(function generateHeaderCell(
+                                    content,
+                                    i
+                                ) {
                                     return (
-                                        <th key={i} style={getTableStyle(node, i)} scope="col">
+                                        <th
+                                            key={i}
+                                            style={getTableStyle(node, i)}
+                                            scope="col"
+                                        >
                                             {output(content, state)}
                                         </th>
                                     );
@@ -1348,12 +1382,21 @@ export function compiler (markdown, options) {
                         </thead>
 
                         <tbody>
-                            {node.cells.map(function generateTableRow (row, i) {
+                            {node.cells.map(function generateTableRow(row, i) {
                                 return (
                                     <tr key={i}>
-                                        {row.map(function generateTableCell (content, c) {
+                                        {row.map(function generateTableCell(
+                                            content,
+                                            c
+                                        ) {
                                             return (
-                                                <td key={c} style={getTableStyle(node, c)}>
+                                                <td
+                                                    key={c}
+                                                    style={getTableStyle(
+                                                        node,
+                                                        c
+                                                    )}
+                                                >
                                                     {output(content, state)}
                                                 </td>
                                             );
@@ -1374,12 +1417,12 @@ export function compiler (markdown, options) {
             // is easy to extend without needing to modify this regex
             match: anyScopeRegex(TEXT_PLAIN_R),
             order: PARSE_PRIORITY_MIN,
-            parse (capture /*, parse, state*/) {
+            parse(capture /*, parse, state*/) {
                 return {
                     content: capture[0],
                 };
             },
-            react (node /*, output, state*/) {
+            react(node /*, output, state*/) {
                 return node.content;
             },
         },
@@ -1388,20 +1431,24 @@ export function compiler (markdown, options) {
             match: simpleInlineRegex(TEXT_BOLD_R),
             order: PARSE_PRIORITY_MED,
             parse: parseCaptureInline,
-            react (node, output, state) {
-                return <strong key={state.key}>{output(node.content, state)}</strong>;
+            react(node, output, state) {
+                return (
+                    <strong key={state.key}>
+                        {output(node.content, state)}
+                    </strong>
+                );
             },
         },
 
         textEmphasized: {
             match: simpleInlineRegex(TEXT_EMPHASIZED_R),
             order: PARSE_PRIORITY_LOW,
-            parse (capture, parse, state) {
+            parse(capture, parse, state) {
                 return {
                     content: parse(capture[2] || capture[1], state),
                 };
             },
-            react (node, output, state) {
+            react(node, output, state) {
                 return <em key={state.key}>{output(node.content, state)}</em>;
             },
         },
@@ -1413,7 +1460,7 @@ export function compiler (markdown, options) {
             // regardless of how this grammar is extended.
             match: simpleInlineRegex(TEXT_ESCAPED_R),
             order: PARSE_PRIORITY_HIGH,
-            parse (capture /*, parse, state*/) {
+            parse(capture /*, parse, state*/) {
                 return {
                     content: capture[1],
                     type: 'text',
@@ -1425,7 +1472,7 @@ export function compiler (markdown, options) {
             match: simpleInlineRegex(TEXT_STRIKETHROUGHED_R),
             order: PARSE_PRIORITY_LOW,
             parse: parseCaptureInline,
-            react (node, output, state) {
+            react(node, output, state) {
                 return <del key={state.key}>{output(node.content, state)}</del>;
             },
         },
@@ -1448,7 +1495,7 @@ export function compiler (markdown, options) {
     if (footnotes.length) {
         jsx.props.children.push(
             <footer>
-                {footnotes.map(function createFootnote (def) {
+                {footnotes.map(function createFootnote(def) {
                     return (
                         <div id={def.identifier} key={def.identifier}>
                             {def.identifier}
@@ -1473,7 +1520,7 @@ export function compiler (markdown, options) {
  * @return {ReactElement} the compiled JSX
  */
 
-export default function Markdown ({ children, options, ...props }) {
+export default function Markdown({ children, options, ...props }) {
     return React.cloneElement(compiler(children, options), props);
 }
 
