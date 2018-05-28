@@ -243,6 +243,14 @@ exports[`markdown-to-jsx compiler arbitrary HTML #140 self-closing HTML with ind
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML #180 handles invalid character error with angle brackets 1`] = `
+
+<span data-reactroot>
+  1&lt;2 or 2&gt;1
+</span>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML allows whitespace between attribute and value 1`] = `
 
 <div data-reactroot
