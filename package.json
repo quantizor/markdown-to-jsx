@@ -44,6 +44,7 @@
     "codecov": "^3.0.1",
     "emotion": "^9.1.2",
     "eslint": "^4.12.1",
+    "eslint-config-prettier": "^2.9.0",
     "eslint-plugin-react": "^7.5.1",
     "in-publish": "^2.0.0",
     "jest": "^22.4.3",
