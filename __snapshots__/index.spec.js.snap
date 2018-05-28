@@ -251,6 +251,17 @@ exports[`markdown-to-jsx compiler arbitrary HTML #180 handles invalid character 
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML #181 handling of figure blocks 1`] = `
+
+<figure data-reactroot>
+  <img src="//placehold.it/300x200">
+  <figcaption>
+    This is a placeholder image
+  </figcaption>
+</figure>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML allows whitespace between attribute and value 1`] = `
 
 <div data-reactroot

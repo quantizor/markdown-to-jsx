@@ -5,7 +5,7 @@ import fs from 'fs';
 
 describe('markdown-to-jsx', () => {
     const root = document.body.appendChild(document.createElement('div'));
-    function render (jsx) {
+    function render(jsx) {
         return ReactDOM.render(jsx, root);
     }
 
@@ -37,7 +37,7 @@ describe('markdown-to-jsx', () => {
         });
 
         it('wraps solely inline elements in a span, rather than a div', () => {
-            render(compiler('Hello. _Beautiful_ day isn\'t it?'));
+            render(compiler("Hello. _Beautiful_ day isn't it?"));
 
             expect(root.innerHTML).toMatchSnapshot();
         });
@@ -151,7 +151,7 @@ describe('markdown-to-jsx', () => {
             });
 
             it('adds an "id" attribute to headings for deeplinking purposes', () => {
-                render(compiler('# This is~ a very\' complicated> header!'));
+                render(compiler("# This is~ a very' complicated> header!"));
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -189,7 +189,9 @@ describe('markdown-to-jsx', () => {
             });
 
             it('should handle an image reference with title', () => {
-                render(compiler(['![test][1]', '[1]: /xyz.png "foo"'].join('\n')));
+                render(
+                    compiler(['![test][1]', '[1]: /xyz.png "foo"'].join('\n'))
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -221,7 +223,9 @@ describe('markdown-to-jsx', () => {
             });
 
             it('should handle a link reference with title', () => {
-                render(compiler(['[foo][1]', '[1]: /xyz.png "bar"'].join('\n')));
+                render(
+                    compiler(['[foo][1]', '[1]: /xyz.png "bar"'].join('\n'))
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -281,7 +285,9 @@ describe('markdown-to-jsx', () => {
             });
 
             it('should handle a loose list', () => {
-                render(compiler(['- xyz', '', '- abc', '', '- foo'].join('\n')));
+                render(
+                    compiler(['- xyz', '', '- abc', '', '- foo'].join('\n'))
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -306,7 +312,9 @@ describe('markdown-to-jsx', () => {
 
             it('should handle a mixed nested list', () => {
                 render(
-                    compiler(['- xyz', '  1. abc', '    - def', '- foo'].join('\n'))
+                    compiler(
+                        ['- xyz', '  1. abc', '    - def', '- foo'].join('\n')
+                    )
                 );
 
                 expect(root.innerHTML).toMatchSnapshot();
@@ -315,7 +323,14 @@ describe('markdown-to-jsx', () => {
             it('should not add an extra wrapper around a list', () => {
                 render(
                     compiler(
-                        ['', '- xyz', '  1. abc', '    - def', '- foo', ''].join('\n')
+                        [
+                            '',
+                            '- xyz',
+                            '  1. abc',
+                            '    - def',
+                            '- foo',
+                            '',
+                        ].join('\n')
                     )
                 );
 
@@ -381,7 +396,11 @@ describe('markdown-to-jsx', () => {
             });
 
             it('should handle a table with aligned columns', () => {
-                render(compiler(['foo|bar|baz', '--:|:---:|:--', '1|2|3'].join('\n')));
+                render(
+                    compiler(
+                        ['foo|bar|baz', '--:|:---:|:--', '1|2|3'].join('\n')
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -455,7 +474,9 @@ describe('markdown-to-jsx', () => {
 
             it('processes markdown within nested inline HTML where childen appear more than once', () => {
                 render(
-                    compiler('<dl><dt>foo</dt><dd>bar</dd><dt>baz</dt><dd>qux</dd></dl>')
+                    compiler(
+                        '<dl><dt>foo</dt><dd>bar</dd><dt>baz</dt><dd>qux</dd></dl>'
+                    )
                 );
 
                 expect(root.innerHTML).toMatchSnapshot();
@@ -535,7 +556,12 @@ describe('markdown-to-jsx', () => {
 
             it('handles svg', () => {
                 render(
-                    compiler(fs.readFileSync(__dirname + '/docs/images/logo.svg', 'utf8'))
+                    compiler(
+                        fs.readFileSync(
+                            __dirname + '/docs/images/logo.svg',
+                            'utf8'
+                        )
+                    )
                 );
 
                 expect(root.innerHTML).toMatchSnapshot();
@@ -634,7 +660,7 @@ $25
             });
 
             it('#140 self-closing HTML with indentation', () => {
-                function DatePicker () {
+                function DatePicker() {
                     return <div className="datepicker" />;
                 }
 
@@ -654,7 +680,7 @@ $25
             });
 
             it('handles jsx attribute interpolation as a string', () => {
-                function DatePicker ({ endTime, startTime }) {
+                function DatePicker({ endTime, startTime }) {
                     return (
                         <div>
                             {startTime} to {endTime}
@@ -678,7 +704,7 @@ $25
             });
 
             it('handles jsx inside jsx interpolations', () => {
-                function InterpolationTest ({
+                function InterpolationTest({
                     component,
                     component2,
                     component3,
@@ -686,12 +712,13 @@ $25
                 }) {
                     return (
                         <div>
-                            {component} and {component2} and {component3} and {component4}
+                            {component} and {component2} and {component3} and{' '}
+                            {component4}
                         </div>
                     );
                 }
 
-                function Inner ({ children, ...props }) {
+                function Inner({ children, ...props }) {
                     return (
                         <div {...props} className="inner">
                             {children}
@@ -761,9 +788,13 @@ $25
             it('does not parse the inside of <style> blocks', () => {
                 render(
                     compiler(
-                        ['<style>', '  .bar {', '    color: red;', '  }', '</style>'].join(
-                            '\n'
-                        )
+                        [
+                            '<style>',
+                            '  .bar {',
+                            '    color: red;',
+                            '  }',
+                            '</style>',
+                        ].join('\n')
                     )
                 );
 
@@ -771,7 +802,11 @@ $25
             });
 
             it('does not parse the inside of <script> blocks', () => {
-                render(compiler(['<script>', '  new Date();', '</script>'].join('\n')));
+                render(
+                    compiler(
+                        ['<script>', '  new Date();', '</script>'].join('\n')
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -779,7 +814,11 @@ $25
             it('handles nested tags of the same type with attributes', () => {
                 render(
                     compiler(
-                        ['<div id="foo">', '  <div id="bar">Baz</div>', '</div>'].join('\n')
+                        [
+                            '<div id="foo">',
+                            '  <div id="bar">Baz</div>',
+                            '</div>',
+                        ].join('\n')
                     )
                 );
 
@@ -788,6 +827,21 @@ $25
 
             it('#180 handles invalid character error with angle brackets', () => {
                 render(compiler('1<2 or 2>1'));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('#181 handling of figure blocks', () => {
+                render(
+                    compiler(
+                        `
+<figure>
+  ![](//placehold.it/300x200)
+  <figcaption>This is a placeholder image</figcaption>
+</figure>
+                `.trim()
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -847,19 +901,29 @@ $25
 
         describe('footnotes', () => {
             it('should handle conversion of references into links', () => {
-                render(compiler(['foo[^abc] bar', '', '[^abc]: Baz baz'].join('\n')));
+                render(
+                    compiler(
+                        ['foo[^abc] bar', '', '[^abc]: Baz baz'].join('\n')
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should inject the definitions in a footer at the end of the root', () => {
-                render(compiler(['foo[^abc] bar', '', '[^abc]: Baz baz'].join('\n')));
+                render(
+                    compiler(
+                        ['foo[^abc] bar', '', '[^abc]: Baz baz'].join('\n')
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
             it('should handle single word footnote definitions', () => {
-                render(compiler(['foo[^abc] bar', '', '[^abc]: Baz'].join('\n')));
+                render(
+                    compiler(['foo[^abc] bar', '', '[^abc]: Baz'].join('\n'))
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -868,7 +932,9 @@ $25
         describe('options.forceBlock', () => {
             it('treats given markdown as block-context', () => {
                 render(
-                    compiler('Hello. _Beautiful_ day isn\'t it?', { forceBlock: true })
+                    compiler("Hello. _Beautiful_ day isn't it?", {
+                        forceBlock: true,
+                    })
                 );
 
                 expect(root.innerHTML).toMatchSnapshot();
@@ -887,8 +953,12 @@ $25
             it('should render a <custom> element if render function overrides the element type', () => {
                 render(
                     compiler('Hello', {
-                        createElement (type, props, children) {
-                            return React.createElement('custom', props, children);
+                        createElement(type, props, children) {
+                            return React.createElement(
+                                'custom',
+                                props,
+                                children
+                            );
                         },
                     })
                 );
@@ -901,7 +971,7 @@ $25
             it('should render an empty <div> element', () => {
                 render(
                     compiler('Hello', {
-                        createElement () {
+                        createElement() {
                             return React.createElement('div');
                         },
                     })
@@ -925,7 +995,7 @@ $25
         describe('overrides', () => {
             it('should substitute the appropriate JSX tag if given a component', () => {
                 class FakeParagraph extends React.Component {
-                    render () {
+                    render() {
                         return <p className="foo">{this.props.children}</p>;
                     }
                 }
@@ -942,12 +1012,14 @@ $25
 
             it('should accept an override shorthand if props do not need to be overidden', () => {
                 class FakeParagraph extends React.Component {
-                    render () {
+                    render() {
                         return <p className="foo">{this.props.children}</p>;
                     }
                 }
 
-                render(compiler('Hello.\n\n', { overrides: { p: FakeParagraph } }));
+                render(
+                    compiler('Hello.\n\n', { overrides: { p: FakeParagraph } })
+                );
 
                 expect(root.children[0].className).toBe('foo');
                 expect(root.children[0].textContent).toBe('Hello.');
@@ -988,7 +1060,7 @@ $25
 
             it('should substitute pre & code tags if supplied with an override component', () => {
                 class OverridenPre extends React.Component {
-                    render () {
+                    render() {
                         const { children, ...props } = this.props;
 
                         return (
@@ -1000,7 +1072,7 @@ $25
                 }
 
                 class OverridenCode extends React.Component {
-                    render () {
+                    render() {
                         const { children, ...props } = this.props;
 
                         return (
@@ -1073,14 +1145,16 @@ $25
 
         it('accepts options', () => {
             class FakeParagraph extends React.Component {
-                render () {
+                render() {
                     return <p className="foo">{this.props.children}</p>;
                 }
             }
 
             render(
-                <Markdown options={{ overrides: { p: { component: FakeParagraph } } }}>
-          _Hello._
+                <Markdown
+                    options={{ overrides: { p: { component: FakeParagraph } } }}
+                >
+                    _Hello._
                 </Markdown>
             );
 
@@ -1092,7 +1166,9 @@ $25
 
             render(
                 <Markdown
-                    options={{ overrides: { code: { props: { className: 'foo' } } } }}
+                    options={{
+                        overrides: { code: { props: { className: 'foo' } } },
+                    }}
                 >
                     {code}
                 </Markdown>
