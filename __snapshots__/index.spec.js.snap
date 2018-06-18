@@ -277,6 +277,36 @@ exports[`markdown-to-jsx compiler arbitrary HTML #185 handles block syntax MD + 
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML #185 misc regression test 1`] = `
+
+<details data-reactroot>
+  <summary>
+    View collapsed content
+  </summary>
+  <h1 id="title-h1">
+    Title h1
+  </h1>
+  <h2 id="title-h2">
+    Title h2
+  </h2>
+  <p>
+    Text content
+  </p>
+  <ul>
+    <li>
+      list 1
+    </li>
+    <li>
+      list 2
+    </li>
+    <li>
+      list 3
+    </li>
+  </ul>
+</details>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML allows whitespace between attribute and value 1`] = `
 
 <div data-reactroot
