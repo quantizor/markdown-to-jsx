@@ -4,19 +4,23 @@
 
 <!-- TOC -->
 
-- [Markdown Component for React, Preact + Friends](#markdown-component-for-react-preact--friends)
-    - [Installation](#installation)
-    - [Usage](#usage)
-        - [Parsing Options](#parsing-options)
-            - [options.forceBlock](#optionsforceblock)
-            - [options.forceInline](#optionsforceinline)
-            - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
-            - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
-            - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
-        - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
-        - [Usage with Preact](#usage-with-preact)
-    - [Using The Compiler Directly](#using-the-compiler-directly)
-    - [Changelog](#changelog)
+-   [Markdown Component for React, Preact + Friends](#markdown-component-for-react-preact--friends)
+    -   [Installation](#installation)
+    -   [Usage](#usage)
+        -   [Parsing Options](#parsing-options)
+            -   [options.forceBlock](#optionsforceblock)
+            -   [options.forceInline](#optionsforceinline)
+            -   [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
+            -   [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
+            -   [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
+        -   [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
+        -   [Usage with Preact](#usage-with-preact)
+    -   [Gotchas](#gotchas)
+        -   [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
+            -   [Code blocks](#code-blocks)
+            -   [Nested lists](#nested-lists)
+    -   [Using The Compiler Directly](#using-the-compiler-directly)
+    -   [Changelog](#changelog)
 
 <!-- /TOC -->
 
@@ -24,15 +28,15 @@
 
 `markdown-to-jsx` uses a fork of [simple-markdown](https://github.com/Khan/simple-markdown) as its parsing engine and extends it in a number of ways to make your life easier. Notably, this package offers the following additional benefits:
 
-  - Arbitrary HTML is supported and parsed into the appropriate JSX representation
+-   Arbitrary HTML is supported and parsed into the appropriate JSX representation
     without `dangerouslySetInnerHTML`
 
-  - Any HTML tags rendered by the compiler and/or `<Markdown>` component can be overridden to include additional
+-   Any HTML tags rendered by the compiler and/or `<Markdown>` component can be overridden to include additional
     props or even a different HTML representation entirely.
 
-  - GFM task list support.
+-   GFM task list support.
 
-  - Fenced code blocks with [highlight.js](https://highlightjs.org/) support.
+-   Fenced code blocks with [highlight.js](https://highlightjs.org/) support.
 
 All this clocks in at around 5 kB gzipped, which is a fraction of the size of most other React markdown components.
 
@@ -57,13 +61,9 @@ ES6-style usage\*:
 ```jsx
 import Markdown from 'markdown-to-jsx';
 import React from 'react';
-import {render} from 'react-dom';
+import { render } from 'react-dom';
 
-render((
-    <Markdown>
-        # Hello world!
-    </Markdown>
-), document.body);
+render(<Markdown># Hello world!</Markdown>, document.body);
 
 /*
     renders:
@@ -72,11 +72,12 @@ render((
  */
 ```
 
-\* __NOTE: JSX does not natively preserve newlines in multiline text. In general, writing markdown directly in JSX is discouraged and it's a better idea to keep your content in separate .md files and require them, perhaps using webpack's [raw-loader](https://github.com/webpack-contrib/raw-loader).__
+\* **NOTE: JSX does not natively preserve newlines in multiline text. In general, writing markdown directly in JSX is discouraged and it's a better idea to keep your content in separate .md files and require them, perhaps using webpack's [raw-loader](https://github.com/webpack-contrib/raw-loader).**
 
 ### Parsing Options
 
 #### options.forceBlock
+
 By default, the compiler will try to make an intelligent guess about the content passed and wrap it in a `<div>`, `<p>`, or `<span>` as needed to satisfy the "inline"-ness of the markdown. For instance, this string would be considered "inline":
 
 ```md
@@ -92,9 +93,7 @@ But this string would be considered "block" due to the existence of a header tag
 However, if you really want all input strings to be treated as "block" layout, simply pass `options.forceBlock = true` like this:
 
 ```jsx
-<Markdown options={{ forceBlock: true }}>
-    Hello there old chap!
-</Markdown>
+<Markdown options={{ forceBlock: true }}>Hello there old chap!</Markdown>;
 
 // or
 
@@ -102,16 +101,15 @@ compiler('Hello there old chap!', { forceBlock: true });
 
 // renders
 
-<p>Hello there old chap!</p>
+<p>Hello there old chap!</p>;
 ```
 
 #### options.forceInline
+
 The inverse is also available by passing `options.forceInline = true`:
 
 ```jsx
-<Markdown options={{ forceInline: true }}>
-    # You got it babe!
-</Markdown>
+<Markdown options={{ forceInline: true }}># You got it babe!</Markdown>;
 
 // or
 
@@ -119,7 +117,7 @@ compiler('# You got it babe!', { forceInline: true });
 
 // renders
 
-<span># You got it babe!</span>
+<span># You got it babe!</span>;
 ```
 
 #### options.overrides - Override Any HTML Tag's Representation
@@ -129,12 +127,14 @@ Pass the `options.overrides` prop to the compiler or `<Markdown>` component to s
 ```jsx
 import Markdown from 'markdown-to-jsx';
 import React from 'react';
-import {render} from 'react-dom';
+import { render } from 'react-dom';
 
 // surprise, it's a div instead!
-const MyParagraph = ({children, ...props}) => (<div {...props}>{children}</div>);
+const MyParagraph = ({ children, ...props }) => (
+    <div {...props}>{children}</div>
+);
 
-render((
+render(
     <Markdown
         options={{
             overrides: {
@@ -145,10 +145,12 @@ render((
                     },
                 },
             },
-        }}>
+        }}
+    >
         # Hello world!
-    </Markdown>
-), document.body);
+    </Markdown>,
+    document.body
+);
 
 /*
     renders:
@@ -171,12 +173,12 @@ If you only wish to provide a component override, a simplified syntax is availab
 
 Depending on the type of element, there are some props that must be preserved to ensure the markdown is converted as intended. They are:
 
-- `a`: `title`, `href`
-- `img`: `title`, `alt`, `src`
-- `input[type="checkbox"]`: `checked`, `readonly` (specifically, the one rendered by a GFM task list)
-- `ol`: `start`
-- `td`: `style`
-- `th`: `style`
+-   `a`: `title`, `href`
+-   `img`: `title`, `alt`, `src`
+-   `input[type="checkbox"]`: `checked`, `readonly` (specifically, the one rendered by a GFM task list)
+-   `ol`: `start`
+-   `td`: `style`
+-   `th`: `style`
 
 Any conflicts between passed `props` and the specific properties above will be resolved in favor of `markdown-to-jsx`'s code.
 
@@ -189,7 +191,7 @@ By adding an override for the components you plan to use in markdown documents, 
 ```jsx
 import Markdown from 'markdown-to-jsx';
 import React from 'react';
-import {render} from 'react-dom';
+import { render } from 'react-dom';
 
 import DatePicker from './date-picker';
 
@@ -202,7 +204,7 @@ as well as a default timezone.
 <DatePicker biasTowardDateTime="2017-12-05T07:39:36.091Z" timezone="UTC+5" />
 `;
 
-render((
+render(
     <Markdown
         children={md}
         options={{
@@ -211,8 +213,10 @@ render((
                     component: DatePicker,
                 },
             },
-        }} />
-), document.body);
+        }}
+    />,
+    document.body
+);
 ```
 
 `markdown-to-jsx` also handles JSX interpolation syntax, but in a minimal way to not introduce a potential attack vector. Interpolations are sent to the component as their raw string, which the consumer can then `eval()` or process as desired to their security needs.
@@ -222,7 +226,7 @@ In the following case, `DatePicker` could simply run `parseInt()` on the passed 
 ```jsx
 import Markdown from 'markdown-to-jsx';
 import React from 'react';
-import {render} from 'react-dom';
+import { render } from 'react-dom';
 
 import DatePicker from './date-picker';
 
@@ -239,7 +243,7 @@ as well as a default timezone.
 />
 `;
 
-render((
+render(
     <Markdown
         children={md}
         options={{
@@ -248,8 +252,10 @@ render((
                     component: DatePicker,
                 },
             },
-        }} />
-), document.body);
+        }}
+    />,
+    document.body
+);
 ```
 
 Another possibility is to use something like [recompose's `withProps()` HOC](https://github.com/acdlite/recompose/blob/master/docs/API.md#withprops) to create various pregenerated scenarios and then reference them by name in the markdown:
@@ -257,7 +263,7 @@ Another possibility is to use something like [recompose's `withProps()` HOC](htt
 ```jsx
 import Markdown from 'markdown-to-jsx';
 import React from 'react';
-import {render} from 'react-dom';
+import { render } from 'react-dom';
 import withProps from 'recompose/withProps';
 
 import DatePicker from './date-picker';
@@ -287,7 +293,7 @@ Here's an example of a DatePicker pre-set to only the month of December:
 <DecemberDatePicker />
 `;
 
-render((
+render(
     <Markdown
         children={md}
         options={{
@@ -295,8 +301,10 @@ render((
                 DatePicker,
                 DecemberDatePicker,
             },
-        }} />
-), document.body);
+        }}
+    />,
+    document.body
+);
 ```
 
 #### options.createElement - Custom React.createElement behavior
@@ -306,25 +314,27 @@ Sometimes, you might want to override the `React.createElement` default behavior
 ```javascript
 import Markdown from 'markdown-to-jsx';
 import React from 'react';
-import {render} from 'react-dom';
+import { render } from 'react-dom';
 
 const md = `
 # Hello world
 `;
 
-render((
+render(
     <Markdown
         children={md}
         options={{
             createElement(type, props, children) {
                 return (
-                    <div className='parent'>
+                    <div className="parent">
                         {React.createElement(type, props, children)}
                     </div>
                 );
-            }
-        }} />
-), document.body);
+            },
+        }}
+    />,
+    document.body
+);
 ```
 
 ### Getting the smallest possible bundle size
@@ -333,23 +343,75 @@ Many development conveniences are placed behind `process.env.NODE_ENV !== "produ
 
 Here are instructions for some of the popular bundlers:
 
-- [webpack](https://webpack.js.org/guides/production/#specify-the-environment)
-- [browserify plugin](https://github.com/hughsk/envify)
-- [parcel](https://parceljs.org/production.html)
-- [fuse-box](http://fuse-box.org/plugins/replace-plugin#notes)
+-   [webpack](https://webpack.js.org/guides/production/#specify-the-environment)
+-   [browserify plugin](https://github.com/hughsk/envify)
+-   [parcel](https://parceljs.org/production.html)
+-   [fuse-box](http://fuse-box.org/plugins/replace-plugin#notes)
 
 ### Usage with Preact
 
 Everything will work just fine! Simply [Alias `react` to `preact-compat`](https://github.com/developit/preact-compat#usage-with-webpack) like you probably already are doing.
+
+## Gotchas
+
+### Significant indentation inside arbitrary HTML
+
+People usually write HTML like this:
+
+```html
+<div>
+    Hey, how are you?
+</div>
+```
+
+Note the leading spaces before the inner content. This sort of thing unfortunately clashes with existing markdown syntaxes since 4 spaces === a code block and other similar collisions.
+
+To get around this, `markdown-to-jsx` strips leading and trailing whitespace inside of arbitrary HTML within markdown. This means that certain syntaxes that use significant whitespace won't work in this edge case.
+
+> NOTE! These syntaxes work just fine when you aren't writing arbitrary HTML wrappers inside your markdown. This is very much an edge case of an edge case. 🙃
+
+#### Code blocks
+
+✅
+
+```md
+<div>
+\`\`\`js
+var some = code();
+\`\`\`
+</div>
+```
+
+⛔️
+
+```md
+<div>
+    var some = code();
+</div>
+```
+
+#### Nested lists
+
+This won't work at all at the moment. Trying to figure out a solution that will coexist peacefully with all the syntax permutations.
+
+⛔️
+
+```md
+<div>
+* something
+  * something related
+* something else
+</div>
+```
 
 ## Using The Compiler Directly
 
 If desired, the compiler function is a "named" export on the `markdown-to-jsx` module:
 
 ```jsx
-import {compiler} from 'markdown-to-jsx';
+import { compiler } from 'markdown-to-jsx';
 import React from 'react';
-import {render} from 'react-dom';
+import { render } from 'react-dom';
 
 render(compiler('# Hello world!'), document.body);
 
