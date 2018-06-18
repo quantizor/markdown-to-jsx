@@ -845,6 +845,24 @@ $25
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('#185 handles block syntax MD + HTML inside HTML', () => {
+                render(
+                    compiler(
+                        `
+<details>
+  <summary>Solution</summary>
+
+  \`\`\`jsx
+  import styled from 'styled-components';
+  \`\`\`
+</details>
+                        `.trim()
+                    )
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('horizontal rules', () => {
