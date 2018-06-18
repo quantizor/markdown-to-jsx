@@ -262,6 +262,21 @@ exports[`markdown-to-jsx compiler arbitrary HTML #181 handling of figure blocks 
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML #185 handles block syntax MD + HTML inside HTML 1`] = `
+
+<details data-reactroot>
+  <summary>
+    Solution
+  </summary>
+  <pre>
+    <code class="lang-jsx">
+      import styled from 'styled-components';
+    </code>
+  </pre>
+</details>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML allows whitespace between attribute and value 1`] = `
 
 <div data-reactroot
