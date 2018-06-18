@@ -169,9 +169,13 @@ const TEXT_STRIKETHROUGHED_R = /^~~(?=\S)([\s\S]*?\S)~~/;
 const TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R = /(^\n+|(\n|\s)+$)/g;
 
 /**
- * Indented-style code blocks cannot be used inside arbitrary HTML at this time because
+ * Indentation-significant syntaxes cannot be used inside arbitrary HTML at this time because
  * it's not clear if the indentation is intentional or just there from how the composer
  * laid things out.
+ *
+ * For code blocks, use fenced blocks instead (```).
+ *
+ * There's more detail on this in the README.
  */
 const TRIM_HTML = /^[ \t]*|[ \t]*$/gm;
 
