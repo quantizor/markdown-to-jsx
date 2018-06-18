@@ -863,6 +863,32 @@ $25
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('#185 misc regression test', () => {
+                render(
+                    compiler(
+                        `
+<details>
+<summary>View collapsed content</summary>
+
+# Title h1
+
+## Title h2
+
+Text content
+
+* list 1
+* list 2
+* list 3
+
+
+</details>
+                        `.trim()
+                    )
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('horizontal rules', () => {
