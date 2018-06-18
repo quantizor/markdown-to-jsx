@@ -173,7 +173,7 @@ const TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R = /(^\n+|(\n|\s)+$)/g;
  * it's not clear if the indentation is intentional or just there from how the composer
  * laid things out.
  */
-const TRIM_HTML = /^[ \t]*| {4,}$/gm;
+const TRIM_HTML = /^[ \t]*|[ \t]*$/gm;
 
 const UNESCAPE_URL_R = /\\([^0-9A-Z\s])/gi;
 
