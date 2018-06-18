@@ -376,9 +376,9 @@ To get around this, `markdown-to-jsx` strips leading and trailing whitespace ins
 
 ```md
 <div>
-\`\`\`js
+`​`​`js
 var some = code();
-\`\`\`
+`​`​`
 </div>
 ```
 
