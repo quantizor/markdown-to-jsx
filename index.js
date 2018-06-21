@@ -161,8 +161,8 @@ const TABLE_CENTER_ALIGN = /^ *:-+: *$/;
 const TABLE_LEFT_ALIGN = /^ *:-+ *$/;
 const TABLE_RIGHT_ALIGN = /^ *-+: *$/;
 const TABLE_ROW_SPLIT = / *\| */;
-const TEXT_BOLD_R = /^[*_]{2}([\s\S]+?)[*_]{2}(?!\*|_)/;
-const TEXT_EMPHASIZED_R = /^[*_]{1}([\s\S]+?)[*_]{1}(?!\*|_)/;
+const TEXT_BOLD_R = /^([*_])([*_])([\s\S]+?)\2\1(?!\*|_)/;
+const TEXT_EMPHASIZED_R = /^([*_]){1}([\s\S]+?)\1(?!\*|_)/;
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/;
 const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i;
 const TEXT_STRIKETHROUGHED_R = /^~~(?=\S)([\s\S]*?\S)~~/;
@@ -1434,7 +1434,14 @@ export function compiler(markdown, options) {
         textBolded: {
             match: simpleInlineRegex(TEXT_BOLD_R),
             order: PARSE_PRIORITY_MED,
-            parse: parseCaptureInline,
+            parse(capture, parse, state) {
+                return {
+                    // capture[1] -> first * or _
+                    // capture[2] -> second * or _
+                    // capture[3] -> inner content
+                    content: parse(capture[3], state),
+                };
+            },
             react(node, output, state) {
                 return (
                     <strong key={state.key}>
@@ -1449,7 +1456,9 @@ export function compiler(markdown, options) {
             order: PARSE_PRIORITY_LOW,
             parse(capture, parse, state) {
                 return {
-                    content: parse(capture[2] || capture[1], state),
+                    // capture[1] -> opening * or _
+                    // capture[2] -> inner content
+                    content: parse(capture[2], state),
                 };
             },
             react(node, output, state) {
