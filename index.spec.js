@@ -275,6 +275,26 @@ describe('markdown-to-jsx', () => {
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('regression test for #188, mismatched syntaxes triggered the wrong result', () => {
+                render(
+                    compiler(
+                        '*This should render as normal text, not emphasized._'
+                    )
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('regression test for #188, link inside emphasis with underscore', () => {
+                render(
+                    compiler(
+                        '*This is emphasized text with [a link](https://example.com/asdf_asdf.pdf), and another [link](https://example.com).*'
+                    )
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('lists', () => {

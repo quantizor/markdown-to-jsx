@@ -2768,6 +2768,30 @@ exports[`markdown-to-jsx compiler inline textual elements should handle triple-e
 
 `;
 
+exports[`markdown-to-jsx compiler links regression test for #188, link inside emphasis with underscore 1`] = `
+
+<em data-reactroot>
+  This is emphasized text with
+  <a href="https://example.com/asdf_asdf.pdf">
+    a link
+  </a>
+  , and another
+  <a href="https://example.com">
+    link
+  </a>
+  .
+</em>
+
+`;
+
+exports[`markdown-to-jsx compiler links regression test for #188, mismatched syntaxes triggered the wrong result 1`] = `
+
+<span data-reactroot>
+  *This should render as normal text, not emphasized._
+</span>
+
+`;
+
 exports[`markdown-to-jsx compiler links should an email autolink and add a mailto: prefix 1`] = `
 
 <a data-reactroot
