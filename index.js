@@ -161,11 +161,26 @@ const TABLE_CENTER_ALIGN = /^ *:-+: *$/;
 const TABLE_LEFT_ALIGN = /^ *:-+ *$/;
 const TABLE_RIGHT_ALIGN = /^ *-+: *$/;
 const TABLE_ROW_SPLIT = / *\| */;
-const TEXT_BOLD_R = /^([*_])([*_])([\s\S]+?)\2\1(?!\*|_)/;
-const TEXT_EMPHASIZED_R = /^([*_]){1}([\s\S]+?)\1(?!\*|_)/;
+
+/**
+ * (delimiter regex)((?:.*?([`~]).*?\3.*?)*|(?:.*?[\[(<].*?[\])>].*?)*|.+?)
+ *
+ * detects other inline syntaxes and ignores them; this helps alleviate issues like
+ * **Foo `**` baz**
+ *
+ * Where the ** inside the backticks would be detected as the end of the bolding.
+ */
+
+/**
+ * Bolding requires the same character to be used twice, so we do a detect for which
+ * one is in use, then double-check it's used a second time and then twice at the end.
+ */
+const TEXT_BOLD_R = /^([*_])\1((?:(?:.*?([`~]).*?\3.*?)*|(?:.*?[\[(<].*?[\])>].*?)*|.+?)\1?)\1{2}/;
+const TEXT_EMPHASIZED_R = /^([*_])((?:.*?([`~]).*?\3.*?)*|(?:.*?[\[(<].*?[\])>].*?)*|.+?)\1/;
+const TEXT_STRIKETHROUGHED_R = /^~~((?:.*?([`~]).*?\2.*?)*|(?:.*?[\[(<].*?[\])>].*?)*|.+?)~~/;
+
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/;
 const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i;
-const TEXT_STRIKETHROUGHED_R = /^~~(?=\S)([\s\S]*?\S)~~/;
 const TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R = /(^\n+|(\n|\s)+$)/g;
 
 /**
@@ -1436,10 +1451,9 @@ export function compiler(markdown, options) {
             order: PARSE_PRIORITY_MED,
             parse(capture, parse, state) {
                 return {
-                    // capture[1] -> first * or _
-                    // capture[2] -> second * or _
-                    // capture[3] -> inner content
-                    content: parse(capture[3], state),
+                    // capture[1] -> the syntax control character
+                    // capture[2] -> inner content
+                    content: parse(capture[2], state),
                 };
             },
             react(node, output, state) {
