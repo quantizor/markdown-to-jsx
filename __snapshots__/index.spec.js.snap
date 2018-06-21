@@ -2716,10 +2716,113 @@ exports[`markdown-to-jsx compiler inline code blocks should be handled 1`] = `
 
 `;
 
+exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax inside inline syntax 1`] = `
+
+<em data-reactroot>
+  This should not misinterpret the asterisk
+  <span>
+    *
+  </span>
+  in the HTML.
+</em>
+
+`;
+
+exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax inside inline syntax 2`] = `
+
+<em data-reactroot>
+  This should not misinterpret the asterisk
+  <a href="x">
+    *
+  </a>
+  in the anchor text.
+</em>
+
+`;
+
+exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax inside inline syntax 3`] = `
+
+<em data-reactroot>
+  This should not misinterpret the asterisk
+  <a href="x*">
+    foo
+  </a>
+  in the link href.
+</em>
+
+`;
+
+exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax inside inline syntax 4`] = `
+
+<em data-reactroot>
+  This should not misinterpret the asterisk
+  <del>
+    *
+  </del>
+  in the strikethrough.
+</em>
+
+`;
+
+exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax inside inline syntax 5`] = `
+
+<em data-reactroot>
+  This should not misinterpret the asterisk
+  <code>
+    *
+  </code>
+  in the backticks.
+</em>
+
+`;
+
+exports[`markdown-to-jsx compiler inline textual elements regression test for #188, mismatched syntaxes triggered the wrong result 1`] = `
+
+<span data-reactroot>
+  *This should render as normal text, not emphasized._
+</span>
+
+`;
+
+exports[`markdown-to-jsx compiler inline textual elements should handle block deleted text containing other syntax with a tilde 1`] = `
+
+<div data-reactroot>
+  <p>
+    <del>
+      Foo
+      <code>
+        ~~bar
+      </code>
+      baz.
+    </del>
+  </p>
+  <p>
+    Foo
+    <del>
+      bar
+    </del>
+    .
+  </p>
+</div>
+
+`;
+
 exports[`markdown-to-jsx compiler inline textual elements should handle deleted text 1`] = `
 
 <del data-reactroot>
   Hello.
+</del>
+
+`;
+
+exports[`markdown-to-jsx compiler inline textual elements should handle deleted text containing other syntax with a tilde 1`] = `
+
+<del data-reactroot>
+  Foo
+  <code>
+    ~~bar
+  </code>
+  baz.
 </del>
 
 `;
@@ -2768,7 +2871,43 @@ exports[`markdown-to-jsx compiler inline textual elements should handle triple-e
 
 `;
 
-exports[`markdown-to-jsx compiler links regression test for #188, link inside emphasis with underscore 1`] = `
+exports[`markdown-to-jsx compiler inline textual elements should handle triple-emphasized text with mixed syntax 1/2 1`] = `
+
+<strong data-reactroot>
+  <em>
+    Hello.
+  </em>
+</strong>
+
+`;
+
+exports[`markdown-to-jsx compiler inline textual elements should handle triple-emphasized text with mixed syntax 2/2 1`] = `
+
+<em data-reactroot>
+  <strong>
+    Hello.
+  </strong>
+</em>
+
+`;
+
+exports[`markdown-to-jsx compiler links regression test for #188, link inside underscore bolding with underscore 1`] = `
+
+<strong data-reactroot>
+  This is emphasized text with
+  <a href="https://example.com/asdf__asdf.pdf">
+    a link
+  </a>
+  , and another
+  <a href="https://example.com">
+    link
+  </a>
+  .
+</strong>
+
+`;
+
+exports[`markdown-to-jsx compiler links regression test for #188, link inside underscore emphasis with underscore 1`] = `
 
 <em data-reactroot>
   This is emphasized text with
@@ -2781,14 +2920,6 @@ exports[`markdown-to-jsx compiler links regression test for #188, link inside em
   </a>
   .
 </em>
-
-`;
-
-exports[`markdown-to-jsx compiler links regression test for #188, mismatched syntaxes triggered the wrong result 1`] = `
-
-<span data-reactroot>
-  *This should render as normal text, not emphasized._
-</span>
 
 `;
 

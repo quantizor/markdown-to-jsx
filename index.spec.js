@@ -68,6 +68,18 @@ describe('markdown-to-jsx', () => {
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
+            it('should handle triple-emphasized text with mixed syntax 1/2', () => {
+                render(compiler('**_Hello._**'));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('should handle triple-emphasized text with mixed syntax 2/2', () => {
+                render(compiler('_**Hello.**_'));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
             it('should handle the alternate form of bold/italic', () => {
                 render(compiler('___Hello.___'));
 
@@ -80,8 +92,72 @@ describe('markdown-to-jsx', () => {
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
+            it('should handle deleted text containing other syntax with a tilde', () => {
+                render(compiler('~~Foo `~~bar` baz.~~'));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('should handle block deleted text containing other syntax with a tilde', () => {
+                render(compiler('~~Foo `~~bar` baz.~~\n\nFoo ~~bar~~.'));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
             it('should handle escaped text', () => {
                 render(compiler('Hello.\\_\\_foo\\_\\_'));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('regression test for #188, mismatched syntaxes triggered the wrong result', () => {
+                render(
+                    compiler(
+                        '*This should render as normal text, not emphasized._'
+                    )
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('ignore similar syntax inside inline syntax', () => {
+                render(
+                    compiler(
+                        '*This should not misinterpret the asterisk <span>*</span> in the HTML.*'
+                    )
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+
+                render(
+                    compiler(
+                        '*This should not misinterpret the asterisk [*](x) in the anchor text.*'
+                    )
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+
+                render(
+                    compiler(
+                        '*This should not misinterpret the asterisk [foo](x*) in the link href.*'
+                    )
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+
+                render(
+                    compiler(
+                        '*This should not misinterpret the asterisk ~~*~~ in the strikethrough.*'
+                    )
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+
+                render(
+                    compiler(
+                        '*This should not misinterpret the asterisk `*` in the backticks.*'
+                    )
+                );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
@@ -276,20 +352,20 @@ describe('markdown-to-jsx', () => {
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
-            it('regression test for #188, mismatched syntaxes triggered the wrong result', () => {
+            it('regression test for #188, link inside underscore emphasis with underscore', () => {
                 render(
                     compiler(
-                        '*This should render as normal text, not emphasized._'
+                        '_This is emphasized text with [a link](https://example.com/asdf_asdf.pdf), and another [link](https://example.com)._'
                     )
                 );
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
-            it('regression test for #188, link inside emphasis with underscore', () => {
+            it('regression test for #188, link inside underscore bolding with underscore', () => {
                 render(
                     compiler(
-                        '*This is emphasized text with [a link](https://example.com/asdf_asdf.pdf), and another [link](https://example.com).*'
+                        '__This is emphasized text with [a link](https://example.com/asdf__asdf.pdf), and another [link](https://example.com).__'
                     )
                 );
 
