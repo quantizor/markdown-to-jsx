@@ -1505,14 +1505,37 @@ export function compiler(markdown, options) {
         },
     };
 
-    // Object.keys(rules).forEach(key => {
-    //     let parse = rules[key].parse;
+    Object.keys(rules).forEach(key => {
+        let { match, parse } = rules[key];
 
-    //     rules[key].parse = (...args) => {
-    //         console.log(key, args[0]);
-    //         return parse(...args);
-    //     };
-    // });
+        rules[key].match = (...args) => {
+            const start = performance.now();
+            const result = match(...args);
+            const delta = performance.now() - start;
+
+            if (delta > 5)
+                console.warn(
+                    `Slow match for ${key}: ${delta.toFixed(3)}ms, input: ${
+                        args[0]
+                    }`
+                );
+
+            return result;
+        };
+
+        rules[key].parse = (...args) => {
+            const start = performance.now();
+            const result = parse(...args);
+            const delta = performance.now() - start;
+
+            if (delta > 5)
+                console.warn(`Slow parse for ${key}: ${delta.toFixed(3)}ms`);
+
+            console.log(`${key}:parse`, `${delta.toFixed(3)}ms`, args[0]);
+
+            return result;
+        };
+    });
 
     const parser = parserFor(rules);
     const emitter = reactFor(ruleOutput(rules));
