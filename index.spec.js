@@ -49,6 +49,16 @@ describe('markdown-to-jsx', () => {
             expect(root.innerHTML).toMatchSnapshot();
         });
 
+        it('#190 perf regression', () => {
+            render(
+                compiler(
+                    'Lorum *ipsum*: <a href="" style="float: right"><small>foo</small></a><span style="float: right"><small>&nbsp;</small></span><a href="" style="float: right"><small>bar</small></a>'
+                )
+            );
+
+            expect(root.innerHTML).toMatchSnapshot();
+        });
+
         describe('inline textual elements', () => {
             it('should handle emphasized text', () => {
                 render(compiler('*Hello.*'));
