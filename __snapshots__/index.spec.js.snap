@@ -1,5 +1,36 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`markdown-to-jsx compiler #190 perf regression 1`] = `
+
+<span data-reactroot>
+  Lorum
+  <em>
+    ipsum
+  </em>
+  :
+  <a href
+     style="float: right;"
+  >
+    <small>
+      foo
+    </small>
+  </a>
+  <span style="float: right;">
+    <small>
+      &amp;nbsp;
+    </small>
+  </span>
+  <a href
+     style="float: right;"
+  >
+    <small>
+      bar
+    </small>
+  </a>
+</span>
+
+`;
+
 exports[`markdown-to-jsx compiler GFM tables should handle a basic table 1`] = `
 
 <table data-reactroot>
