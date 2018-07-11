@@ -1,32 +1,34 @@
-# Markdown Component for React, Preact + Friends
+# markdown-to-jsx
+
+The most lightweight, customizable React markdown component.
 
 [![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) [![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg)](https://travis-ci.org/probablyup/markdown-to-jsx) [![codecov](https://codecov.io/gh/probablyup/markdown-to-jsx/branch/master/graph/badge.svg)](https://codecov.io/gh/probablyup/markdown-to-jsx) [![downloads](https://img.shields.io/npm/dm/markdown-to-jsx.svg)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
 
 <!-- TOC -->
 
--   [Markdown Component for React, Preact + Friends](#markdown-component-for-react-preact--friends)
-    -   [Installation](#installation)
-    -   [Usage](#usage)
-        -   [Parsing Options](#parsing-options)
-            -   [options.forceBlock](#optionsforceblock)
-            -   [options.forceInline](#optionsforceinline)
-            -   [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
-            -   [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
-            -   [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
-        -   [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
-        -   [Usage with Preact](#usage-with-preact)
-    -   [Gotchas](#gotchas)
-        -   [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
-            -   [Code blocks](#code-blocks)
-            -   [Nested lists](#nested-lists)
-    -   [Using The Compiler Directly](#using-the-compiler-directly)
-    -   [Changelog](#changelog)
+-   [Installation](#installation)
+-   [Usage](#usage)
+    -   [Parsing Options](#parsing-options)
+        -   [options.forceBlock](#optionsforceblock)
+        -   [options.forceInline](#optionsforceinline)
+        -   [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
+        -   [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
+        -   [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
+    -   [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
+    -   [Usage with Preact](#usage-with-preact)
+-   [Gotchas](#gotchas)
+    -   [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
+        -   [Code blocks](#code-blocks)
+        -   [Nested lists](#nested-lists)
+-   [Using The Compiler Directly](#using-the-compiler-directly)
+-   [Changelog](#changelog)
+-   [Donate](#donate)
 
 <!-- /TOC -->
 
 ---
 
-`markdown-to-jsx` uses a fork of [simple-markdown](https://github.com/Khan/simple-markdown) as its parsing engine and extends it in a number of ways to make your life easier. Notably, this package offers the following additional benefits:
+`markdown-to-jsx` uses a heavily-modified fork of [simple-markdown](https://github.com/Khan/simple-markdown) as its parsing engine and extends it in a number of ways to make your life easier. Notably, this package offers the following additional benefits:
 
 -   Arbitrary HTML is supported and parsed into the appropriate JSX representation
     without `dangerouslySetInnerHTML`
@@ -44,12 +46,10 @@ Requires React >= 0.14.
 
 ## Installation
 
-```shell
-# if you use npm
-npm i markdown-to-jsx
+Install `markdown-to-jsx` with your favorite package manager.
 
-# if you use yarn
-yarn add markdown-to-jsx
+```shell
+npm i markdown-to-jsx
 ```
 
 ## Usage
@@ -431,5 +431,9 @@ compiler(markdown: string, options: object?)
 ## Changelog
 
 See [Github Releases](https://github.com/probablyup/markdown-to-jsx/releases).
+
+## Donate
+
+Like this library? It's developed entirely on a volunteer basis; chip in a few bucks if you can at the [OpenCollective](https://opencollective.com/markdown-to-jsx). 
 
 MIT
