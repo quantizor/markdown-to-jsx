@@ -441,8 +441,6 @@ See [Github Releases](https://github.com/probablyup/markdown-to-jsx/releases).
 
 Like this library? It's developed entirely on a volunteer basis; chip in a few bucks if you can at the [OpenCollective](https://opencollective.com/markdown-to-jsx).
 
-MIT
-
 ## Credits
 
 ### Contributors
@@ -470,3 +468,5 @@ Support this project by becoming a sponsor. Your logo will show up here with a l
 <a href="https://opencollective.com/markdown-to-jsx/sponsor/7/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/7/avatar.svg"></a>
 <a href="https://opencollective.com/markdown-to-jsx/sponsor/8/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/8/avatar.svg"></a>
 <a href="https://opencollective.com/markdown-to-jsx/sponsor/9/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/9/avatar.svg"></a>
+
+MIT
