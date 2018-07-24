@@ -1,9 +1,9 @@
-# markdown-to-jsx
+**markdown-to-jsx**
 
 The most lightweight, customizable React markdown component.
 
 [![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) [![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg)](https://travis-ci.org/probablyup/markdown-to-jsx) [![codecov](https://codecov.io/gh/probablyup/markdown-to-jsx/branch/master/graph/badge.svg)](https://codecov.io/gh/probablyup/markdown-to-jsx) [![downloads](https://img.shields.io/npm/dm/markdown-to-jsx.svg)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
-[![Backers on Open Collective](https://opencollective.com/markdown-to-jsx/backers/badge.svg)](#backers) [![Sponsors on Open Collective](https://opencollective.com/markdown-to-jsx/sponsors/badge.svg)](#sponsors) 
+[![Backers on Open Collective](https://opencollective.com/markdown-to-jsx/backers/badge.svg)](#backers) [![Sponsors on Open Collective](https://opencollective.com/markdown-to-jsx/sponsors/badge.svg)](#sponsors)
 
 <!-- TOC -->
 
@@ -24,6 +24,10 @@ The most lightweight, customizable React markdown component.
 -   [Using The Compiler Directly](#using-the-compiler-directly)
 -   [Changelog](#changelog)
 -   [Donate](#donate)
+-   [Credits](#credits)
+    -   [Contributors](#contributors)
+    -   [Backers](#backers)
+    -   [Sponsors](#sponsors)
 
 <!-- /TOC -->
 
@@ -435,9 +439,10 @@ See [Github Releases](https://github.com/probablyup/markdown-to-jsx/releases).
 
 ## Donate
 
-Like this library? It's developed entirely on a volunteer basis; chip in a few bucks if you can at the [OpenCollective](https://opencollective.com/markdown-to-jsx). 
+Like this library? It's developed entirely on a volunteer basis; chip in a few bucks if you can at the [OpenCollective](https://opencollective.com/markdown-to-jsx).
 
 MIT
+
 ## Credits
 
 ### Contributors
@@ -445,13 +450,11 @@ MIT
 This project exists thanks to all the people who contribute. [[Contribute](CONTRIBUTING.md)].
 <a href="graphs/contributors"><img src="https://opencollective.com/markdown-to-jsx/contributors.svg?width=890&button=false" /></a>
 
-
 ### Backers
 
 Thank you to all our backers! 🙏 [[Become a backer](https://opencollective.com/markdown-to-jsx#backer)]
 
 <a href="https://opencollective.com/markdown-to-jsx#backers" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/backers.svg?width=890"></a>
-
 
 ### Sponsors
 
@@ -467,5 +470,3 @@ Support this project by becoming a sponsor. Your logo will show up here with a l
 <a href="https://opencollective.com/markdown-to-jsx/sponsor/7/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/7/avatar.svg"></a>
 <a href="https://opencollective.com/markdown-to-jsx/sponsor/8/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/8/avatar.svg"></a>
 <a href="https://opencollective.com/markdown-to-jsx/sponsor/9/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/9/avatar.svg"></a>
-
-

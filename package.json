@@ -62,7 +62,6 @@
     "webpack-dev-server": "^3.1.1"
   },
   "dependencies": {
-    "opencollective": "^1.0.3",
     "prop-types": "^15.5.10",
     "unquote": "^1.1.0"
   },
@@ -77,8 +76,7 @@
     "release:debug": "webpack --config ./webpack.config.babel.js --display-optimization-bailout",
     "start": "webpack-dev-server --hot --inline --open",
     "test": "jest --verbose",
-    "size": "size-limit",
-    "postinstall": "opencollective postinstall"
+    "size": "size-limit"
   },
   "size-limit": [
     {
