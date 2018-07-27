@@ -125,6 +125,42 @@ compiler('# You got it babe!', { forceInline: true });
 <span># You got it babe!</span>;
 ```
 
+#### options.slugify
+
+By default, we use this function to generate id from headings:
+
+```js
+function slugify(str) {
+    return str
+        .replace(/[ÀÁÂÃÄÅàáâãäåæÆ]/g, 'a')
+        .replace(/[çÇ]/g, 'c')
+        .replace(/[ðÐ]/g, 'd')
+        .replace(/[ÈÉÊËéèêë]/g, 'e')
+        .replace(/[ÏïÎîÍíÌì]/g, 'i')
+        .replace(/[Ññ]/g, 'n')
+        .replace(/[øØœŒÕõÔôÓóÒò]/g, 'o')
+        .replace(/[ÜüÛûÚúÙù]/g, 'u')
+        .replace(/[ŸÿÝý]/g, 'y')
+        .replace(/[^a-z0-9- ]/gi, '')
+        .replace(/ /gi, '-')
+        .toLowerCase();
+}
+```
+
+You can override this by passing a function to `options.slugify`. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
+
+```jsx
+<Markdown options={{ slugify: str => str }}># 中文</Markdown>;
+
+// or
+
+compiler('# 中文', { slugify: str => str });
+
+// renders:
+
+<h1 id="中文">中文</h1>
+```
+
 #### options.overrides - Override Any HTML Tag's Representation
 
 Pass the `options.overrides` prop to the compiler or `<Markdown>` component to seamlessly revise the rendered representation of any HTML tag. You can choose to change the component itself, add/change props, or both.

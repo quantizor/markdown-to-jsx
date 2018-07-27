@@ -1142,6 +1142,26 @@ Text content
             });
         });
 
+        describe('options.slugify', () => {
+            it('should use a custom slugify function rather than the default if set and valid', () => {
+                render(compiler('# 中文', { slugify: str => str }));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('should use the default function if unset', () => {
+                render(compiler('# 中文'));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('should use the default function if invalid', () => {
+                render(compiler('# 中文', { slugify: 'invalid' }));
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+        });
+
         describe('overrides', () => {
             it('should substitute the appropriate JSX tag if given a component', () => {
                 class FakeParagraph extends React.Component {
