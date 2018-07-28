@@ -1155,10 +1155,10 @@ Text content
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
-            it('should use the default function if invalid', () => {
-                render(compiler('# 中文', { slugify: 'invalid' }));
-
-                expect(root.innerHTML).toMatchSnapshot();
+            it('should throw error if invalid', () => {
+                expect(() => {
+                    render(compiler('# 中文', { slugify: 'invalid' }));
+                }).toThrow(/options\.slugify is not a function/);
             });
         });
 

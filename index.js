@@ -712,8 +712,7 @@ const PARSE_PRIORITY_MIN = 5;
 export function compiler(markdown, options) {
     options = options || {};
     options.overrides = options.overrides || {};
-    options.slugify = typeof options.slugify === 'function' ?
-        options.slugify : slugify;
+    options.slugify = options.slugify || slugify;
 
     const createElementFn = options.createElement || React.createElement;
 
