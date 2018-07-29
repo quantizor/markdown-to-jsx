@@ -3327,6 +3327,26 @@ exports[`markdown-to-jsx compiler options.forceInline treats given markdown as i
 
 `;
 
+exports[`markdown-to-jsx compiler options.slugify should use a custom slugify function rather than the default if set and valid 1`] = `
+
+<h1 data-reactroot
+    id="中文"
+>
+  中文
+</h1>
+
+`;
+
+exports[`markdown-to-jsx compiler options.slugify should use the default function if unset 1`] = `
+
+<h1 data-reactroot
+    id
+>
+  中文
+</h1>
+
+`;
+
 exports[`markdown-to-jsx compiler overrides should add props to pre & code tags if supplied 1`] = `
 
 <pre data-reactroot
