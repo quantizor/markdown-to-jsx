@@ -127,27 +127,7 @@ compiler('# You got it babe!', { forceInline: true });
 
 #### options.slugify
 
-By default, we use this function to generate id from headings:
-
-```js
-function slugify(str) {
-    return str
-        .replace(/[ÀÁÂÃÄÅàáâãäåæÆ]/g, 'a')
-        .replace(/[çÇ]/g, 'c')
-        .replace(/[ðÐ]/g, 'd')
-        .replace(/[ÈÉÊËéèêë]/g, 'e')
-        .replace(/[ÏïÎîÍíÌì]/g, 'i')
-        .replace(/[Ññ]/g, 'n')
-        .replace(/[øØœŒÕõÔôÓóÒò]/g, 'o')
-        .replace(/[ÜüÛûÚúÙù]/g, 'u')
-        .replace(/[ŸÿÝý]/g, 'y')
-        .replace(/[^a-z0-9- ]/gi, '')
-        .replace(/ /gi, '-')
-        .toLowerCase();
-}
-```
-
-You can override this by passing a function to `options.slugify`. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
+By default, a [lightweight deburring function](https://github.com/probablyup/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate a HTML id from headings. You can override this by passing a function to `options.slugify`. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
 
 ```jsx
 <Markdown options={{ slugify: str => str }}># 中文</Markdown>;
