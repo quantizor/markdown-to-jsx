@@ -7,28 +7,27 @@ The most lightweight, customizable React markdown component.
 
 <!-- TOC -->
 
--   [Installation](#installation)
--   [Usage](#usage)
-    -   [Parsing Options](#parsing-options)
-        -   [options.forceBlock](#optionsforceblock)
-        -   [options.forceInline](#optionsforceinline)
-        -   [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
-        -   [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
-        -   [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
-        -   [options.slugify](#optionsslugify)
-    -   [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
-    -   [Usage with Preact](#usage-with-preact)
--   [Gotchas](#gotchas)
-    -   [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
-        -   [Code blocks](#code-blocks)
-        -   [Nested lists](#nested-lists)
--   [Using The Compiler Directly](#using-the-compiler-directly)
--   [Changelog](#changelog)
--   [Donate](#donate)
--   [Credits](#credits)
-    -   [Contributors](#contributors)
-    -   [Backers](#backers)
-    -   [Sponsors](#sponsors)
+- [Installation](#installation)
+- [Usage](#usage)
+    - [Parsing Options](#parsing-options)
+        - [options.forceBlock](#optionsforceblock)
+        - [options.forceInline](#optionsforceinline)
+        - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
+        - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
+        - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
+        - [options.slugify](#optionsslugify)
+    - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
+    - [Usage with Preact](#usage-with-preact)
+- [Gotchas](#gotchas)
+    - [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
+        - [Code blocks](#code-blocks)
+- [Using The Compiler Directly](#using-the-compiler-directly)
+- [Changelog](#changelog)
+- [Donate](#donate)
+- [Credits](#credits)
+    - [Contributors](#contributors)
+    - [Backers](#backers)
+    - [Sponsors](#sponsors)
 
 <!-- /TOC -->
 
@@ -388,21 +387,21 @@ People usually write HTML like this:
 
 Note the leading spaces before the inner content. This sort of thing unfortunately clashes with existing markdown syntaxes since 4 spaces === a code block and other similar collisions.
 
-To get around this, `markdown-to-jsx` strips leading and trailing whitespace inside of arbitrary HTML within markdown. This means that certain syntaxes that use significant whitespace won't work in this edge case.
+To get around this, `markdown-to-jsx` left-trims approximately as much whitespace as the first line inside the HTML block. So for example:
+
+```html
+<div>
+  # Hello
+
+  How are you?
+</div>
+```
+
+The two leading spaces in front of "# Hello" would be left-trimmed from all lines inside the HTML block. In the event that there are varying amounts of indentation, only the amount of the first line is trimmed.
 
 > NOTE! These syntaxes work just fine when you aren't writing arbitrary HTML wrappers inside your markdown. This is very much an edge case of an edge case. 🙃
 
 #### Code blocks
-
-✅
-
-```md
-<div>
-`​`​`js
-var some = code();
-`​`​`
-</div>
-```
 
 ⛔️
 
@@ -412,17 +411,13 @@ var some = code();
 </div>
 ```
 
-#### Nested lists
-
-This won't work at all at the moment. Trying to figure out a solution that will coexist peacefully with all the syntax permutations.
-
-⛔️
+✅
 
 ```md
 <div>
-* something
-  * something related
-* something else
+```js
+var some = code();
+```
 </div>
 ```
 

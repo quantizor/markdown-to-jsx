@@ -338,6 +338,38 @@ exports[`markdown-to-jsx compiler arbitrary HTML #185 misc regression test 1`] =
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML #207 handles tables inside HTML 1`] = `
+
+<details data-reactroot>
+  <summary>
+    Click here
+  </summary>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">
+          Heading 1
+        </th>
+        <th scope="col">
+          Heading 2
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          Foo
+        </td>
+        <td>
+          Bar
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</details>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML allows whitespace between attribute and value 1`] = `
 
 <div data-reactroot
@@ -561,6 +593,40 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles svg 1`] = `
   >
   </path>
 </svg>
+
+`;
+
+exports[`markdown-to-jsx compiler arbitrary HTML multiline left-trims by the same amount as the first line 1`] = `
+
+<div data-reactroot>
+  <pre>
+    <code class="lang-kotlin">
+      fun main() {
+    print("Hello world")
+}
+    </code>
+  </pre>
+</div>
+
+`;
+
+exports[`markdown-to-jsx compiler arbitrary HTML nested lists work inside html 1`] = `
+
+<div data-reactroot>
+  <ul>
+    <li>
+      hi
+    </li>
+    <li>
+      hello
+      <ul>
+        <li>
+          how are you?
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
 
 `;
 

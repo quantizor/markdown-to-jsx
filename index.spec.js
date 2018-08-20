@@ -970,6 +970,24 @@ $25
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
+            it('#207 handles tables inside HTML', () => {
+                render(
+                    compiler(`
+<details>
+<summary>Click here</summary>
+
+| Heading 1 | Heading 2 |
+| --------- | --------- |
+| Foo       | Bar       |
+
+</details>
+                    `)
+                )
+
+                // expect('').toMatchSnapshot();
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
             it('#185 misc regression test', () => {
                 render(
                     compiler(
@@ -991,6 +1009,36 @@ Text content
 </details>
                         `.trim()
                     )
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('multiline left-trims by the same amount as the first line', () => {
+                render(
+                    compiler(`
+<div>
+  \`\`\`kotlin
+  fun main() {
+      print("Hello world")
+  }
+  \`\`\`
+</div>
+                    `)
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('nested lists work inside html', () => {
+                render(
+                    compiler(`
+<div>
+    * hi
+    * hello
+      * how are you?
+</div>
+                    `)
                 );
 
                 expect(root.innerHTML).toMatchSnapshot();

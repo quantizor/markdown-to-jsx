@@ -97,17 +97,16 @@ const BLOCKQUOTE_R = /^( *>[^\n]+(\n[^\n]+)*\n*)+\n{2,}/;
 const BLOCKQUOTE_TRIM_LEFT_MULTILINE_R = /^ *> ?/gm;
 const BREAK_LINE_R = /^ {2,}\n/;
 const BREAK_THEMATIC_R = /^(?:( *[-*_]) *){3,}(?:\n *)+\n/;
-const CODE_BLOCK_FENCED_R = /^\s*(`{3,}|~{3,}) *(\S+)? *\n([\s\S]+?)\s*\1 *(?:\n *)+\n/;
-const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)+\n/;
+const CODE_BLOCK_FENCED_R = /^\s*(`{3,}|~{3,}) *(\S+)? *\n([\s\S]+?)\s*\1 *(?:\n *)+\n?/;
+const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)+\n?/;
 const CODE_INLINE_R = /^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)/;
 const CONSECUTIVE_NEWLINE_R = /^(?:\n *)*\n/;
 const CR_NEWLINE_R = /\r\n?/g;
-const DETECT_BLOCK_SYNTAX = /(^[-*] |^#+ ?\w|^ {2,}|^-{2,}|^> |^`{3})/m;
 const FOOTNOTE_R = /^\[\^(.*)\](:.*)\n/;
 const FOOTNOTE_REFERENCE_R = /^\[\^(.*)\]/;
 const FORMFEED_R = /\f/g;
 const GFM_TASK_R = /^\s*?\[(x|\s)\]/;
-const HEADING_R = /^ *(#{1,6}) *([^\n]+?) *#* *\n+/;
+const HEADING_R = /^ *(#{1,6}) *([^\n]+)\n{0,2}/;
 const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/;
 
 /**
@@ -132,7 +131,7 @@ const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/;
  * 6. Capture excess newlines afterward
  *    \n*
  */
-const HTML_BLOCK_ELEMENT_R = /^ *<([A-Za-z][^ >/]*) ?([^>]*)\/{0}>\s*((?:<\1[^>]*?>[\s\S]*?<\/\1>|(?!<\1)[\s\S])*?)<\/\1>\n*/;
+const HTML_BLOCK_ELEMENT_R = /^ *<([A-Za-z][^ >/]*) ?([^>]*)\/{0}>\n?(\s*(?:<\1[^>]*?>[\s\S]*?<\/\1>|(?!<\1)[\s\S])*?)<\/\1>\n*/;
 
 const HTML_COMMENT_R = /^<!--.*?-->/;
 
@@ -192,16 +191,7 @@ const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/;
 const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i;
 const TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R = /(^\n+|(\n|\s)+$)/g;
 
-/**
- * Indentation-significant syntaxes cannot be used inside arbitrary HTML at this time because
- * it's not clear if the indentation is intentional or just there from how the composer
- * laid things out.
- *
- * For code blocks, use fenced blocks instead (```).
- *
- * There's more detail on this in the README.
- */
-const TRIM_HTML = /^[ \t]*|[ \t]*$/gm;
+const HTML_LEFT_TRIM_AMOUNT_R = /^(\s*)/
 
 const UNESCAPE_URL_R = /\\([^0-9A-Z\s])/gi;
 
@@ -255,6 +245,24 @@ const LINK_R = new RegExp(
 const IMAGE_R = new RegExp(
     '^!\\[(' + LINK_INSIDE + ')\\]\\(' + LINK_HREF_AND_TITLE + '\\)'
 );
+
+const BLOCK_SYNTAXES = [
+    BLOCKQUOTE_R,
+    CODE_BLOCK_R,
+    CODE_BLOCK_FENCED_R,
+    HEADING_R,
+    HEADING_SETEXT_R,
+    HTML_BLOCK_ELEMENT_R,
+    HTML_COMMENT_R,
+    HTML_SELF_CLOSING_ELEMENT_R,
+    LIST_ITEM_R,
+    LIST_R,
+    NP_TABLE_R,
+];
+
+function containsBlockSyntax (input) {
+    return BLOCK_SYNTAXES.some(r => r.test(input))
+}
 
 // based on https://stackoverflow.com/a/18123682/1141611
 // not complete, but probably good enough
@@ -1026,8 +1034,11 @@ export function compiler(markdown, options) {
             match: anyScopeRegex(HTML_BLOCK_ELEMENT_R),
             order: PARSE_PRIORITY_HIGH,
             parse(capture, parse, state) {
-                const trimmed = capture[3].replace(TRIM_HTML, '');
-                const parseFunc = DETECT_BLOCK_SYNTAX.test(trimmed)
+                const [, whitespace] = capture[3].match(HTML_LEFT_TRIM_AMOUNT_R)
+                const trimmer = new RegExp(`^${whitespace}`, 'gm')
+                const trimmed = capture[3].replace(trimmer, '');
+
+                const parseFunc = containsBlockSyntax(trimmed)
                     ? parseBlock
                     : parseInline;
 
