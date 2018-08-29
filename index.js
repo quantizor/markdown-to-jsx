@@ -140,7 +140,7 @@ const HTML_COMMENT_R = /^<!--.*?-->/;
  */
 const HTML_CUSTOM_ATTR_R = /^(data|aria|x)-[a-z_][a-z\d_.-]*$/;
 
-const HTML_SELF_CLOSING_ELEMENT_R = /^ *<([A-Za-z][\w:]*)\s*((?:<.*?>|[^>])*)>(?!<\/\1>)\s*/;
+const HTML_SELF_CLOSING_ELEMENT_R = /^ *<([A-Za-z][\w:]*)(?:\s+((?:<.*?>|[^>])*))?>(?!<\/\1>)\s*/;
 const INTERPOLATION_R = /^\{.*\}$/;
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/;
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/;
@@ -1088,7 +1088,7 @@ export function compiler(markdown, options) {
             order: PARSE_PRIORITY_HIGH,
             parse(capture /*, parse, state*/) {
                 return {
-                    attrs: attrStringToMap(capture[2]),
+                    attrs: attrStringToMap(capture[2] || ''),
                     tag: capture[1],
                 };
             },

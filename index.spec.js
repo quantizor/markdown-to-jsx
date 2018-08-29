@@ -322,6 +322,30 @@ describe('markdown-to-jsx', () => {
                 expect(root.innerHTML).toMatchSnapshot();
             });
 
+            it('should handle autolinks after a paragraph (regression)', () => {
+                render(
+                    compiler(`
+**autolink** style
+
+<https://google.com>
+                    `)
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
+            it('should handle mailto autolinks after a paragraph', () => {
+                render(
+                    compiler(`
+**autolink** style
+
+<mailto:probablyup@gmail.com>
+                    `)
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
+
             it('should handle a mailto autolink', () => {
                 render(compiler('<mailto:probablyup@gmail.com>'));
 

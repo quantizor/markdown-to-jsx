@@ -3126,6 +3126,42 @@ exports[`markdown-to-jsx compiler links should handle autolink style 1`] = `
 
 `;
 
+exports[`markdown-to-jsx compiler links should handle autolinks after a paragraph (regression) 1`] = `
+
+<div data-reactroot>
+  <p>
+    <strong>
+      autolink
+    </strong>
+    style
+  </p>
+  <p>
+    <a href="https://google.com">
+      https://google.com
+    </a>
+  </p>
+</div>
+
+`;
+
+exports[`markdown-to-jsx compiler links should handle mailto autolinks after a paragraph 1`] = `
+
+<div data-reactroot>
+  <p>
+    <strong>
+      autolink
+    </strong>
+    style
+  </p>
+  <p>
+    <a href="mailto:probablyup@gmail.com">
+      probablyup@gmail.com
+    </a>
+  </p>
+</div>
+
+`;
+
 exports[`markdown-to-jsx compiler links should sanitize links containing JS expressions 1`] = `
 
 <a data-reactroot>
