@@ -1067,6 +1067,22 @@ Text content
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('#214 nested paragraphs work inside html', () => {
+                render(
+                    compiler(
+                        [
+                            '<div>',
+                            'Hello',
+                            '',
+                            'World',
+                            '</div>',
+                        ].join('\n')
+                    )
+                );
+
+                expect(root.innerHTML).toMatchSnapshot();
+            });
         });
 
         describe('horizontal rules', () => {

@@ -370,6 +370,19 @@ exports[`markdown-to-jsx compiler arbitrary HTML #207 handles tables inside HTML
 
 `;
 
+exports[`markdown-to-jsx compiler arbitrary HTML #214 nested paragraphs work inside html 1`] = `
+
+<div data-reactroot>
+  <p>
+    Hello
+  </p>
+  <p>
+    World
+  </p>
+</div>
+
+`;
+
 exports[`markdown-to-jsx compiler arbitrary HTML allows whitespace between attribute and value 1`] = `
 
 <div data-reactroot

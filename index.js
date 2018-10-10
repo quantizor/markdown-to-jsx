@@ -258,6 +258,7 @@ const BLOCK_SYNTAXES = [
     LIST_ITEM_R,
     LIST_R,
     NP_TABLE_R,
+    PARAGRAPH_R
 ];
 
 function containsBlockSyntax (input) {
