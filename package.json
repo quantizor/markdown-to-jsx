@@ -71,6 +71,7 @@
   "scripts": {
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
     "lint": "eslint index.js index.spec.js site.js",
+    "prepare": "npm run build",
     "build": "babel index.js --out-file index.cjs.js --source-maps && BABEL_ENV=esm babel index.js --out-file index.esm.js --source-maps",
     "release": "webpack --config ./webpack.config.prod.babel.js -p --display-optimization-bailout",
     "release:debug": "webpack --config ./webpack.config.babel.js --display-optimization-bailout",
