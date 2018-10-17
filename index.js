@@ -1037,7 +1037,8 @@ export function compiler(markdown, options) {
             parse(capture, parse, state) {
                 const [, whitespace] = capture[3].match(HTML_LEFT_TRIM_AMOUNT_R)
                 const trimmer = new RegExp(`^${whitespace}`, 'gm')
-                const trimmed = capture[3].replace(trimmer, '');
+                const trimmed = (options.doNotLeftTrimInHTML) ? capture[3]
+                    : capture[3].replace(trimmer, '');
 
                 const parseFunc = containsBlockSyntax(trimmed)
                     ? parseBlock
