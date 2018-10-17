@@ -358,6 +358,28 @@ compiler('# 中文', { slugify: str => str });
 <h1 id="中文">中文</h1>
 ```
 
+#### options.doNotLeftTrimInHTML
+
+By default, markdown-to-jsx left-trims whitespace of lines inside an HTML block. Please see _Significant indentation inside arbitrary HTML_ below for more context. This left-trimming can be disabled by setting this option to `true`.
+
+```jsx
+const md = `
+# Hello world
+
+There are several<ins> ways</ins><del> methods</del> to change the way that markdown-to-jsx works.
+`;
+
+render(
+    <Markdown
+        children={md}
+        options={{
+            doNotLeftTrimInHTML: true
+        }}
+    />,
+    document.body
+);
+```
+
 ### Getting the smallest possible bundle size
 
 Many development conveniences are placed behind `process.env.NODE_ENV !== "production"` conditionals. When bundling your app, it's a good idea to replace these code snippets such that a minifier (like uglify) can sweep them away and leave a smaller overall bundle.
@@ -387,7 +409,7 @@ People usually write HTML like this:
 
 Note the leading spaces before the inner content. This sort of thing unfortunately clashes with existing markdown syntaxes since 4 spaces === a code block and other similar collisions.
 
-To get around this, `markdown-to-jsx` left-trims approximately as much whitespace as the first line inside the HTML block. So for example:
+To get around this, by default, `markdown-to-jsx` left-trims approximately as much whitespace as the first line inside the HTML block. So for example:
 
 ```html
 <div>
@@ -398,6 +420,8 @@ To get around this, `markdown-to-jsx` left-trims approximately as much whitespac
 ```
 
 The two leading spaces in front of "# Hello" would be left-trimmed from all lines inside the HTML block. In the event that there are varying amounts of indentation, only the amount of the first line is trimmed.
+
+> NOTE! This whitespace left-trimming can be turned off with the option `doNotLeftTrimInHTML`. Please be warned that you are responsible for your own left-trimming inside of HTML blocks if you enable this option.
 
 > NOTE! These syntaxes work just fine when you aren't writing arbitrary HTML wrappers inside your markdown. This is very much an edge case of an edge case. 🙃
 
