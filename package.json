@@ -42,7 +42,7 @@
     "codecov": "^3.0.1",
     "emotion": "^9.1.2",
     "eslint": "^4.12.1",
-    "eslint-config-prettier": "^2.9.0",
+    "eslint-config-prettier": "^3.1.0",
     "eslint-plugin-react": "^7.5.1",
     "in-publish": "^2.0.0",
     "jest": "^23.6.0",
@@ -70,7 +70,7 @@
   },
   "scripts": {
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
-    "lint": "eslint index.js site.js",
+    "lint": "eslint .",
     "prebuild": "rimraf dist && mkdirp dist",
     "build": "NODE_ENV=production babel index.js --out-file dist/cjs.js --source-maps && NODE_ENV=production BABEL_ENV=esm babel index.js --out-file dist/esm.js --source-maps",
     "release": "webpack --config ./webpack.config.prod.babel.js -p --display-optimization-bailout",
