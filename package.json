@@ -55,6 +55,7 @@
     "preact-emotion": "^9.1.2",
     "react": "^15.6.1",
     "react-dom": "^15.6.1",
+    "react-is": "^16.5.2",
     "size-limit": "^0.17.0",
     "uglify-js": "^3.3.15",
     "webpack": "^4.1.1",
@@ -63,11 +64,11 @@
   },
   "dependencies": {
     "prop-types": "^15.5.10",
-    "react-is": "^16.5.2",
     "unquote": "^1.1.0"
   },
   "peerDependencies": {
-    "react": ">= 0.14.0"
+    "react": ">= 0.14.0",
+    "react-is": ">= 16.0.0"
   },
   "scripts": {
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
