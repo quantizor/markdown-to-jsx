@@ -171,6 +171,18 @@ describe('markdown-to-jsx', () => {
 
                 expect(root.innerHTML).toMatchSnapshot();
             });
+
+            it('replaces common HTML character codes with unicode equivalents so React will render correctly', () => {
+                render(compiler('Foo &nbsp; bar&amp;baz.'));
+
+                expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<span data-reactroot>
+  Foo &nbsp; bar&amp;baz.
+</span>
+
+`);
+            });
         });
 
         describe('misc block level elements', () => {
@@ -1006,7 +1018,7 @@ $25
 
 </details>
                     `)
-                )
+                );
 
                 // expect('').toMatchSnapshot();
                 expect(root.innerHTML).toMatchSnapshot();
@@ -1071,13 +1083,7 @@ Text content
             it('#214 nested paragraphs work inside html', () => {
                 render(
                     compiler(
-                        [
-                            '<div>',
-                            'Hello',
-                            '',
-                            'World',
-                            '</div>',
-                        ].join('\n')
+                        ['<div>', 'Hello', '', 'World', '</div>'].join('\n')
                     )
                 );
 

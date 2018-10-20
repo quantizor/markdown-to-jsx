@@ -17,7 +17,7 @@ exports[`markdown-to-jsx compiler #190 perf regression 1`] = `
   </a>
   <span style="float: right;">
     <small>
-      &amp;nbsp;
+      &nbsp;
     </small>
   </span>
   <a href

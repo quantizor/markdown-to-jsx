@@ -53,6 +53,15 @@ const ATTRIBUTE_TO_JSX_PROP_MAP = {
     usemap: 'useMap',
 };
 
+const namedCodesToUnicode = {
+    amp: '\u0026',
+    apos: '\u0027',
+    gt: '\u003e',
+    lt: '\u003c',
+    nbsp: '\u00a0',
+    quot: '\u201c',
+};
+
 const DO_NOT_PROCESS_HTML_ELEMENTS = ['style', 'script'];
 
 /**
@@ -133,6 +142,8 @@ const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/;
  */
 const HTML_BLOCK_ELEMENT_R = /^ *<([A-Za-z][^ >/]*) ?([^>]*)\/{0}>\n?(\s*(?:<\1[^>]*?>[\s\S]*?<\/\1>|(?!<\1)[\s\S])*?)<\/\1>\n*/;
 
+const HTML_CHAR_CODE_R = /&([a-z]+);/g;
+
 const HTML_COMMENT_R = /^<!--.*?-->/;
 
 /**
@@ -188,7 +199,7 @@ const TEXT_EMPHASIZED_R = /^([*_])((?:[^`~()\[\]<>]*?|(?:.*?([`~]).*?\3.*?)*|(?:
 const TEXT_STRIKETHROUGHED_R = /^~~((?:.*?([`~]).*?\2.*?)*|(?:.*?<.*?>.*?)*|.+?)~~/;
 
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/;
-const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i;
+const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff&;.]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i;
 const TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R = /(^\n+|(\n|\s)+$)/g;
 
 const HTML_LEFT_TRIM_AMOUNT_R = /^([ \t]*)/
@@ -258,11 +269,11 @@ const BLOCK_SYNTAXES = [
     LIST_ITEM_R,
     LIST_R,
     NP_TABLE_R,
-    PARAGRAPH_R
+    PARAGRAPH_R,
 ];
 
-function containsBlockSyntax (input) {
-    return BLOCK_SYNTAXES.some(r => r.test(input))
+function containsBlockSyntax(input) {
+    return BLOCK_SYNTAXES.some(r => r.test(input));
 }
 
 // based on https://stackoverflow.com/a/18123682/1141611
@@ -1460,7 +1471,15 @@ export function compiler(markdown, options) {
             order: PARSE_PRIORITY_MIN,
             parse(capture /*, parse, state*/) {
                 return {
-                    content: capture[0],
+                    // nbsp -> unicode equivalent for named chars
+                    content: capture[0].replace(
+                        HTML_CHAR_CODE_R,
+                        (full, inner) => {
+                            return namedCodesToUnicode[inner]
+                                ? namedCodesToUnicode[inner]
+                                : full;
+                        }
+                    ),
                 };
             },
             react(node /*, output, state*/) {
