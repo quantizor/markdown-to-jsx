@@ -3,6 +3,7 @@ branches:
     - master
 
 cache:
+  yarn: true
   directories:
     - 'node_modules'
 
@@ -18,14 +19,16 @@ env:
   - TARGET_REACT_VERSION=15
   - TARGET_REACT_VERSION=16
 
+install: yarn --frozen-lockfile
+
 after_install:
-  - npm uninstall react react-dom
-  - npm install react@$(echo $TARGET_REACT_VERSION)
-  - npm install react-dom@$(echo $TARGET_REACT_VERSION)
+  - yarn remove react react-dom
+  - yarn add react@$(echo $TARGET_REACT_VERSION)
+  - yarn add react-dom@$(echo $TARGET_REACT_VERSION)
 
 script:
-  - npm test -- --coverage
-  - npm run lint
-  - npm run build
-  - npm run size
+  - yarn test -- --coverage
+  - yarn lint
+  - yarn build
+  - yarn size
   - codecov
