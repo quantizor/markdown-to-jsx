@@ -6,6 +6,7 @@
  */
 import React from 'react';
 import unquote from 'unquote';
+import { isValidElementType } from "react-is";
 
 /** TODO: Drop for React 16? */
 const ATTRIBUTE_TO_JSX_PROP_MAP = {
@@ -688,7 +689,7 @@ function get(src, path, fb) {
 
 function getTag(tag, overrides) {
     const override = get(overrides, tag);
-    return typeof override === 'function'
+    return isValidElementType(override)
         ? override
         : get(overrides, `${tag}.component`, tag);
 }
