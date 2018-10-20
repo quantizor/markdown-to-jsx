@@ -1,15 +1,16 @@
 branches:
-  only: master
+  only:
+    - master
 
 cache:
   directories:
-    - "node_modules"
+    - 'node_modules'
 
 language: node_js
 
 node_js:
-  - 6
-  - 8
+  - '8'
+  - '10'
 
 os: linux
 
@@ -24,6 +25,7 @@ after_install:
 
 script:
   - npm test -- --coverage
+  - npm run lint
   - npm run build
   - npm run size
   - codecov
