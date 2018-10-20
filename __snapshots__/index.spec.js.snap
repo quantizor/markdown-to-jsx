@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`markdown-to-jsx compiler #190 perf regression 1`] = `
+exports[`compiler #190 perf regression 1`] = `
 
 <span data-reactroot>
   Lorum
@@ -31,7 +31,7 @@ exports[`markdown-to-jsx compiler #190 perf regression 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler GFM tables should handle a basic table 1`] = `
+exports[`compiler GFM tables should handle a basic table 1`] = `
 
 <table data-reactroot>
   <thead>
@@ -58,7 +58,7 @@ exports[`markdown-to-jsx compiler GFM tables should handle a basic table 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler GFM tables should handle a table with aligned columns 1`] = `
+exports[`compiler GFM tables should handle a table with aligned columns 1`] = `
 
 <table data-reactroot>
   <thead>
@@ -97,7 +97,7 @@ exports[`markdown-to-jsx compiler GFM tables should handle a table with aligned 
 
 `;
 
-exports[`markdown-to-jsx compiler GFM tables should handle other content after a table 1`] = `
+exports[`compiler GFM tables should handle other content after a table 1`] = `
 
 <div data-reactroot>
   <table>
@@ -152,7 +152,7 @@ exports[`markdown-to-jsx compiler GFM tables should handle other content after a
 
 `;
 
-exports[`markdown-to-jsx compiler GFM tables should handle the other syntax for tables 1`] = `
+exports[`compiler GFM tables should handle the other syntax for tables 1`] = `
 
 <table data-reactroot>
   <thead>
@@ -187,7 +187,7 @@ exports[`markdown-to-jsx compiler GFM tables should handle the other syntax for 
 
 `;
 
-exports[`markdown-to-jsx compiler GFM tables should handle the other syntax for tables with alignment 1`] = `
+exports[`compiler GFM tables should handle the other syntax for tables with alignment 1`] = `
 
 <table data-reactroot>
   <thead>
@@ -237,7 +237,7 @@ exports[`markdown-to-jsx compiler GFM tables should handle the other syntax for 
 
 `;
 
-exports[`markdown-to-jsx compiler GFM task lists should handle checked items 1`] = `
+exports[`compiler GFM task lists should handle checked items 1`] = `
 
 <ul data-reactroot>
   <li>
@@ -251,7 +251,7 @@ exports[`markdown-to-jsx compiler GFM task lists should handle checked items 1`]
 
 `;
 
-exports[`markdown-to-jsx compiler GFM task lists should handle unchecked items 1`] = `
+exports[`compiler GFM task lists should handle unchecked items 1`] = `
 
 <ul data-reactroot>
   <li>
@@ -265,7 +265,7 @@ exports[`markdown-to-jsx compiler GFM task lists should handle unchecked items 1
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML #140 self-closing HTML with indentation 1`] = `
+exports[`compiler arbitrary HTML #140 self-closing HTML with indentation 1`] = `
 
 <div data-reactroot
      class="datepicker"
@@ -274,7 +274,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML #140 self-closing HTML with ind
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML #180 handles invalid character error with angle brackets 1`] = `
+exports[`compiler arbitrary HTML #180 handles invalid character error with angle brackets 1`] = `
 
 <span data-reactroot>
   1&lt;2 or 2&gt;1
@@ -282,7 +282,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML #180 handles invalid character 
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML #181 handling of figure blocks 1`] = `
+exports[`compiler arbitrary HTML #181 handling of figure blocks 1`] = `
 
 <figure data-reactroot>
   <img src="//placehold.it/300x200">
@@ -293,7 +293,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML #181 handling of figure blocks 
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML #185 handles block syntax MD + HTML inside HTML 1`] = `
+exports[`compiler arbitrary HTML #185 handles block syntax MD + HTML inside HTML 1`] = `
 
 <details data-reactroot>
   <summary>
@@ -308,7 +308,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML #185 handles block syntax MD + 
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML #185 misc regression test 1`] = `
+exports[`compiler arbitrary HTML #185 misc regression test 1`] = `
 
 <details data-reactroot>
   <summary>
@@ -338,7 +338,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML #185 misc regression test 1`] =
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML #207 handles tables inside HTML 1`] = `
+exports[`compiler arbitrary HTML #207 handles tables inside HTML 1`] = `
 
 <details data-reactroot>
   <summary>
@@ -370,7 +370,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML #207 handles tables inside HTML
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML #214 nested paragraphs work inside html 1`] = `
+exports[`compiler arbitrary HTML #214 nested paragraphs work inside html 1`] = `
 
 <div data-reactroot>
   <p>
@@ -383,7 +383,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML #214 nested paragraphs work ins
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML allows whitespace between attribute and value 1`] = `
+exports[`compiler arbitrary HTML allows whitespace between attribute and value 1`] = `
 
 <div data-reactroot
      class="foo"
@@ -395,7 +395,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML allows whitespace between attri
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML block HTML regression test 1`] = `
+exports[`compiler arbitrary HTML block HTML regression test 1`] = `
 
 <ul data-reactroot
     id="ProjectSubmenu"
@@ -439,7 +439,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML block HTML regression test 1`] 
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML does not parse the inside of <script> blocks 1`] = `
+exports[`compiler arbitrary HTML does not parse the inside of <script> blocks 1`] = `
 
 <script data-reactroot>
   new Date();
@@ -447,7 +447,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML does not parse the inside of <s
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML does not parse the inside of <style> blocks 1`] = `
+exports[`compiler arbitrary HTML does not parse the inside of <style> blocks 1`] = `
 
 <style data-reactroot>
   .bar {
@@ -457,7 +457,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML does not parse the inside of <s
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML handles a heading inside HTML 1`] = `
+exports[`compiler arbitrary HTML handles a heading inside HTML 1`] = `
 
 <span data-reactroot>
   "
@@ -471,7 +471,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles a heading inside HTML 1
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML handles a raw hashtag inside HTML 1`] = `
+exports[`compiler arbitrary HTML handles a raw hashtag inside HTML 1`] = `
 
 <span data-reactroot>
   "
@@ -483,7 +483,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles a raw hashtag inside HT
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML handles jsx attribute interpolation as a string 1`] = `
+exports[`compiler arbitrary HTML handles jsx attribute interpolation as a string 1`] = `
 
 <div data-reactroot>
   1514579720511
@@ -493,7 +493,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles jsx attribute interpola
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML handles jsx inside jsx interpolations 1`] = `
+exports[`compiler arbitrary HTML handles jsx inside jsx interpolations 1`] = `
 
 <div data-reactroot>
   <div class="inner">
@@ -515,7 +515,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles jsx inside jsx interpol
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML handles malformed HTML 1`] = `
+exports[`compiler arbitrary HTML handles malformed HTML 1`] = `
 
 <div data-reactroot>
   <g>
@@ -530,7 +530,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles malformed HTML 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML handles nested HTML blocks of the same type (regression) 1`] = `
+exports[`compiler arbitrary HTML handles nested HTML blocks of the same type (regression) 1`] = `
 
 <table data-reactroot>
   <tbody>
@@ -570,7 +570,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles nested HTML blocks of t
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML handles nested tags of the same type with attributes 1`] = `
+exports[`compiler arbitrary HTML handles nested tags of the same type with attributes 1`] = `
 
 <div data-reactroot
      id="foo"
@@ -582,7 +582,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles nested tags of the same
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML handles self-closing html inside parsable html (regression) 1`] = `
+exports[`compiler arbitrary HTML handles self-closing html inside parsable html (regression) 1`] = `
 
 <a data-reactroot
    href="https://opencollective.com/react-dropzone/sponsor/0/website"
@@ -593,7 +593,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles self-closing html insid
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML handles svg 1`] = `
+exports[`compiler arbitrary HTML handles svg 1`] = `
 
 <svg data-reactroot
      width="246"
@@ -609,7 +609,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML handles svg 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML multiline left-trims by the same amount as the first line 1`] = `
+exports[`compiler arbitrary HTML multiline left-trims by the same amount as the first line 1`] = `
 
 <div data-reactroot>
   <pre>
@@ -623,7 +623,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML multiline left-trims by the sam
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML nested lists work inside html 1`] = `
+exports[`compiler arbitrary HTML nested lists work inside html 1`] = `
 
 <div data-reactroot>
   <ul>
@@ -643,7 +643,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML nested lists work inside html 1
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML preserves the HTML given 1`] = `
+exports[`compiler arbitrary HTML preserves the HTML given 1`] = `
 
 <dd data-reactroot>
   Hello
@@ -651,7 +651,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML preserves the HTML given 1`] = 
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML processes attributes that need JSX massaging within inline HTML 1`] = `
+exports[`compiler arbitrary HTML processes attributes that need JSX massaging within inline HTML 1`] = `
 
 <span data-reactroot
       tabindex="0"
@@ -661,7 +661,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes attributes that need 
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML processes attributes within inline HTML 1`] = `
+exports[`compiler arbitrary HTML processes attributes within inline HTML 1`] = `
 
 <time data-reactroot
       data-foo="bar"
@@ -671,7 +671,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes attributes within inl
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML processes inline HTML with inline styles 1`] = `
+exports[`compiler arbitrary HTML processes inline HTML with inline styles 1`] = `
 
 <span data-reactroot
       style="color: red; position: top; margin-right: 10px;"
@@ -681,7 +681,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes inline HTML with inli
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within block-level arbitrary HTML (regression) 1`] = `
+exports[`compiler arbitrary HTML processes markdown within block-level arbitrary HTML (regression) 1`] = `
 
 <div data-reactroot
      style="float: right;"
@@ -693,7 +693,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within block
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within block-level arbitrary HTML 1`] = `
+exports[`compiler arbitrary HTML processes markdown within block-level arbitrary HTML 1`] = `
 
 <p data-reactroot>
   <strong>
@@ -703,7 +703,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within block
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within inline HTML 1`] = `
+exports[`compiler arbitrary HTML processes markdown within inline HTML 1`] = `
 
 <time data-reactroot>
   <strong>
@@ -713,7 +713,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within inlin
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within nested inline HTML 1`] = `
+exports[`compiler arbitrary HTML processes markdown within nested inline HTML 1`] = `
 
 <time data-reactroot>
   <span>
@@ -725,7 +725,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within neste
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within nested inline HTML where childen appear more than once 1`] = `
+exports[`compiler arbitrary HTML processes markdown within nested inline HTML where childen appear more than once 1`] = `
 
 <dl data-reactroot>
   <dt>
@@ -744,7 +744,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML processes markdown within neste
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML regression test for #136 1`] = `
+exports[`compiler arbitrary HTML regression test for #136 1`] = `
 
 <p data-reactroot>
   $25
@@ -767,7 +767,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML regression test for #136 1`] = 
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML regression test for #170 1`] = `
+exports[`compiler arbitrary HTML regression test for #170 1`] = `
 
 <table data-reactroot>
   <tbody>
@@ -819,7 +819,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML regression test for #170 1`] = 
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML renders inline <code> tags 1`] = `
+exports[`compiler arbitrary HTML renders inline <code> tags 1`] = `
 
 <span data-reactroot>
   Text and
@@ -832,7 +832,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML renders inline <code> tags 1`] 
 
 `;
 
-exports[`markdown-to-jsx compiler arbitrary HTML throws out HTML comments 1`] = `
+exports[`compiler arbitrary HTML throws out HTML comments 1`] = `
 
 <p data-reactroot>
   Foo
@@ -840,7 +840,7 @@ exports[`markdown-to-jsx compiler arbitrary HTML throws out HTML comments 1`] = 
 
 `;
 
-exports[`markdown-to-jsx compiler fenced code blocks should be handled 1`] = `
+exports[`compiler fenced code blocks should be handled 1`] = `
 
 <pre data-reactroot>
   <code class="lang-js">
@@ -850,7 +850,7 @@ exports[`markdown-to-jsx compiler fenced code blocks should be handled 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler footnotes should handle conversion of references into links 1`] = `
+exports[`compiler footnotes should handle conversion of references into links 1`] = `
 
 <div data-reactroot>
   <p>
@@ -872,7 +872,7 @@ exports[`markdown-to-jsx compiler footnotes should handle conversion of referenc
 
 `;
 
-exports[`markdown-to-jsx compiler footnotes should handle single word footnote definitions 1`] = `
+exports[`compiler footnotes should handle single word footnote definitions 1`] = `
 
 <div data-reactroot>
   <p>
@@ -894,7 +894,7 @@ exports[`markdown-to-jsx compiler footnotes should handle single word footnote d
 
 `;
 
-exports[`markdown-to-jsx compiler footnotes should inject the definitions in a footer at the end of the root 1`] = `
+exports[`compiler footnotes should inject the definitions in a footer at the end of the root 1`] = `
 
 <div data-reactroot>
   <p>
@@ -916,7 +916,7 @@ exports[`markdown-to-jsx compiler footnotes should inject the definitions in a f
 
 `;
 
-exports[`markdown-to-jsx compiler handles a holistic example 1`] = `
+exports[`compiler handles a holistic example 1`] = `
 
 <div data-reactroot>
   <h1>
@@ -2631,7 +2631,7 @@ _   underscore
 
 `;
 
-exports[`markdown-to-jsx compiler headings adds an "id" attribute to headings for deeplinking purposes 1`] = `
+exports[`compiler headings adds an "id" attribute to headings for deeplinking purposes 1`] = `
 
 <h1 data-reactroot
     id="this-is-a-very-complicated-header"
@@ -2641,7 +2641,7 @@ exports[`markdown-to-jsx compiler headings adds an "id" attribute to headings fo
 
 `;
 
-exports[`markdown-to-jsx compiler headings should handle consecutive headings without a padding newline 1`] = `
+exports[`compiler headings should handle consecutive headings without a padding newline 1`] = `
 
 <div data-reactroot>
   <h1 id="hello-world">
@@ -2654,7 +2654,7 @@ exports[`markdown-to-jsx compiler headings should handle consecutive headings wi
 
 `;
 
-exports[`markdown-to-jsx compiler headings should handle level 1 properly 1`] = `
+exports[`compiler headings should handle level 1 properly 1`] = `
 
 <h1 data-reactroot
     id="hello-world"
@@ -2664,7 +2664,7 @@ exports[`markdown-to-jsx compiler headings should handle level 1 properly 1`] = 
 
 `;
 
-exports[`markdown-to-jsx compiler headings should handle level 2 properly 1`] = `
+exports[`compiler headings should handle level 2 properly 1`] = `
 
 <h2 data-reactroot
     id="hello-world"
@@ -2674,7 +2674,7 @@ exports[`markdown-to-jsx compiler headings should handle level 2 properly 1`] = 
 
 `;
 
-exports[`markdown-to-jsx compiler headings should handle level 3 properly 1`] = `
+exports[`compiler headings should handle level 3 properly 1`] = `
 
 <h3 data-reactroot
     id="hello-world"
@@ -2684,7 +2684,7 @@ exports[`markdown-to-jsx compiler headings should handle level 3 properly 1`] = 
 
 `;
 
-exports[`markdown-to-jsx compiler headings should handle level 4 properly 1`] = `
+exports[`compiler headings should handle level 4 properly 1`] = `
 
 <h4 data-reactroot
     id="hello-world"
@@ -2694,7 +2694,7 @@ exports[`markdown-to-jsx compiler headings should handle level 4 properly 1`] = 
 
 `;
 
-exports[`markdown-to-jsx compiler headings should handle level 5 properly 1`] = `
+exports[`compiler headings should handle level 5 properly 1`] = `
 
 <h5 data-reactroot
     id="hello-world"
@@ -2704,7 +2704,7 @@ exports[`markdown-to-jsx compiler headings should handle level 5 properly 1`] = 
 
 `;
 
-exports[`markdown-to-jsx compiler headings should handle level 6 properly 1`] = `
+exports[`compiler headings should handle level 6 properly 1`] = `
 
 <h6 data-reactroot
     id="hello-world"
@@ -2714,7 +2714,7 @@ exports[`markdown-to-jsx compiler headings should handle level 6 properly 1`] = 
 
 `;
 
-exports[`markdown-to-jsx compiler headings should handle setext level 1 style 1`] = `
+exports[`compiler headings should handle setext level 1 style 1`] = `
 
 <div data-reactroot>
   <h1>
@@ -2727,7 +2727,7 @@ exports[`markdown-to-jsx compiler headings should handle setext level 1 style 1`
 
 `;
 
-exports[`markdown-to-jsx compiler headings should handle setext level 2 style 1`] = `
+exports[`compiler headings should handle setext level 2 style 1`] = `
 
 <div data-reactroot>
   <h2>
@@ -2740,7 +2740,7 @@ exports[`markdown-to-jsx compiler headings should handle setext level 2 style 1`
 
 `;
 
-exports[`markdown-to-jsx compiler horizontal rules should handle the various syntaxes 1`] = `
+exports[`compiler horizontal rules should handle the various syntaxes 1`] = `
 
 <div data-reactroot>
   <hr>
@@ -2752,7 +2752,7 @@ exports[`markdown-to-jsx compiler horizontal rules should handle the various syn
 
 `;
 
-exports[`markdown-to-jsx compiler images should handle a basic image 1`] = `
+exports[`compiler images should handle a basic image 1`] = `
 
 <img data-reactroot
      src="/xyz.png"
@@ -2760,7 +2760,7 @@ exports[`markdown-to-jsx compiler images should handle a basic image 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler images should handle an image reference 1`] = `
+exports[`compiler images should handle an image reference 1`] = `
 
 <p data-reactroot>
   <img src="/xyz.png">
@@ -2768,7 +2768,7 @@ exports[`markdown-to-jsx compiler images should handle an image reference 1`] = 
 
 `;
 
-exports[`markdown-to-jsx compiler images should handle an image reference with alt text 1`] = `
+exports[`compiler images should handle an image reference with alt text 1`] = `
 
 <p data-reactroot>
   <img alt="test"
@@ -2778,7 +2778,7 @@ exports[`markdown-to-jsx compiler images should handle an image reference with a
 
 `;
 
-exports[`markdown-to-jsx compiler images should handle an image reference with title 1`] = `
+exports[`compiler images should handle an image reference with title 1`] = `
 
 <p data-reactroot>
   <img alt="test"
@@ -2789,7 +2789,7 @@ exports[`markdown-to-jsx compiler images should handle an image reference with t
 
 `;
 
-exports[`markdown-to-jsx compiler images should handle an image with alt text 1`] = `
+exports[`compiler images should handle an image with alt text 1`] = `
 
 <img data-reactroot
      alt="test"
@@ -2798,7 +2798,7 @@ exports[`markdown-to-jsx compiler images should handle an image with alt text 1`
 
 `;
 
-exports[`markdown-to-jsx compiler images should handle an image with title 1`] = `
+exports[`compiler images should handle an image with title 1`] = `
 
 <img data-reactroot
      alt="test"
@@ -2808,7 +2808,7 @@ exports[`markdown-to-jsx compiler images should handle an image with title 1`] =
 
 `;
 
-exports[`markdown-to-jsx compiler indented code blocks should be handled 1`] = `
+exports[`compiler indented code blocks should be handled 1`] = `
 
 <pre data-reactroot>
   <code>
@@ -2818,7 +2818,7 @@ exports[`markdown-to-jsx compiler indented code blocks should be handled 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler inline code blocks should be handled 1`] = `
+exports[`compiler inline code blocks should be handled 1`] = `
 
 <code data-reactroot>
   foo
@@ -2826,7 +2826,7 @@ exports[`markdown-to-jsx compiler inline code blocks should be handled 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax inside inline syntax 1`] = `
+exports[`compiler inline textual elements ignore similar syntax inside inline syntax 1`] = `
 
 <em data-reactroot>
   This should not misinterpret the asterisk
@@ -2838,7 +2838,7 @@ exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax 
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax inside inline syntax 2`] = `
+exports[`compiler inline textual elements ignore similar syntax inside inline syntax 2`] = `
 
 <em data-reactroot>
   This should not misinterpret the asterisk
@@ -2850,7 +2850,7 @@ exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax 
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax inside inline syntax 3`] = `
+exports[`compiler inline textual elements ignore similar syntax inside inline syntax 3`] = `
 
 <em data-reactroot>
   This should not misinterpret the asterisk
@@ -2862,7 +2862,7 @@ exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax 
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax inside inline syntax 4`] = `
+exports[`compiler inline textual elements ignore similar syntax inside inline syntax 4`] = `
 
 <em data-reactroot>
   This should not misinterpret the asterisk
@@ -2874,7 +2874,7 @@ exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax 
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax inside inline syntax 5`] = `
+exports[`compiler inline textual elements ignore similar syntax inside inline syntax 5`] = `
 
 <em data-reactroot>
   This should not misinterpret the asterisk
@@ -2886,7 +2886,7 @@ exports[`markdown-to-jsx compiler inline textual elements ignore similar syntax 
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements regression test for #188, mismatched syntaxes triggered the wrong result 1`] = `
+exports[`compiler inline textual elements regression test for #188, mismatched syntaxes triggered the wrong result 1`] = `
 
 <span data-reactroot>
   *This should render as normal text, not emphasized._
@@ -2894,7 +2894,7 @@ exports[`markdown-to-jsx compiler inline textual elements regression test for #1
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements should handle block deleted text containing other syntax with a tilde 1`] = `
+exports[`compiler inline textual elements should handle block deleted text containing other syntax with a tilde 1`] = `
 
 <div data-reactroot>
   <p>
@@ -2917,7 +2917,7 @@ exports[`markdown-to-jsx compiler inline textual elements should handle block de
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements should handle deleted text 1`] = `
+exports[`compiler inline textual elements should handle deleted text 1`] = `
 
 <del data-reactroot>
   Hello.
@@ -2925,7 +2925,7 @@ exports[`markdown-to-jsx compiler inline textual elements should handle deleted 
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements should handle deleted text containing other syntax with a tilde 1`] = `
+exports[`compiler inline textual elements should handle deleted text containing other syntax with a tilde 1`] = `
 
 <del data-reactroot>
   Foo
@@ -2937,7 +2937,7 @@ exports[`markdown-to-jsx compiler inline textual elements should handle deleted 
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements should handle double-emphasized text 1`] = `
+exports[`compiler inline textual elements should handle double-emphasized text 1`] = `
 
 <strong data-reactroot>
   Hello.
@@ -2945,7 +2945,7 @@ exports[`markdown-to-jsx compiler inline textual elements should handle double-e
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements should handle emphasized text 1`] = `
+exports[`compiler inline textual elements should handle emphasized text 1`] = `
 
 <em data-reactroot>
   Hello.
@@ -2953,7 +2953,7 @@ exports[`markdown-to-jsx compiler inline textual elements should handle emphasiz
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements should handle escaped text 1`] = `
+exports[`compiler inline textual elements should handle escaped text 1`] = `
 
 <span data-reactroot>
   Hello.__foo__
@@ -2961,7 +2961,7 @@ exports[`markdown-to-jsx compiler inline textual elements should handle escaped 
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements should handle the alternate form of bold/italic 1`] = `
+exports[`compiler inline textual elements should handle the alternate form of bold/italic 1`] = `
 
 <strong data-reactroot>
   <em>
@@ -2971,7 +2971,7 @@ exports[`markdown-to-jsx compiler inline textual elements should handle the alte
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements should handle triple-emphasized text 1`] = `
+exports[`compiler inline textual elements should handle triple-emphasized text 1`] = `
 
 <strong data-reactroot>
   <em>
@@ -2981,7 +2981,7 @@ exports[`markdown-to-jsx compiler inline textual elements should handle triple-e
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements should handle triple-emphasized text with mixed syntax 1/2 1`] = `
+exports[`compiler inline textual elements should handle triple-emphasized text with mixed syntax 1/2 1`] = `
 
 <strong data-reactroot>
   <em>
@@ -2991,7 +2991,7 @@ exports[`markdown-to-jsx compiler inline textual elements should handle triple-e
 
 `;
 
-exports[`markdown-to-jsx compiler inline textual elements should handle triple-emphasized text with mixed syntax 2/2 1`] = `
+exports[`compiler inline textual elements should handle triple-emphasized text with mixed syntax 2/2 1`] = `
 
 <em data-reactroot>
   <strong>
@@ -3001,7 +3001,7 @@ exports[`markdown-to-jsx compiler inline textual elements should handle triple-e
 
 `;
 
-exports[`markdown-to-jsx compiler links regression test for #188, link inside underscore bolding with underscore 1`] = `
+exports[`compiler links regression test for #188, link inside underscore bolding with underscore 1`] = `
 
 <strong data-reactroot>
   This is emphasized text with
@@ -3017,7 +3017,7 @@ exports[`markdown-to-jsx compiler links regression test for #188, link inside un
 
 `;
 
-exports[`markdown-to-jsx compiler links regression test for #188, link inside underscore emphasis with underscore 1`] = `
+exports[`compiler links regression test for #188, link inside underscore emphasis with underscore 1`] = `
 
 <em data-reactroot>
   This is emphasized text with
@@ -3033,7 +3033,7 @@ exports[`markdown-to-jsx compiler links regression test for #188, link inside un
 
 `;
 
-exports[`markdown-to-jsx compiler links should an email autolink and add a mailto: prefix 1`] = `
+exports[`compiler links should an email autolink and add a mailto: prefix 1`] = `
 
 <a data-reactroot
    href="mailto:probablyup@gmail.com"
@@ -3043,7 +3043,7 @@ exports[`markdown-to-jsx compiler links should an email autolink and add a mailt
 
 `;
 
-exports[`markdown-to-jsx compiler links should automatically link found URLs 1`] = `
+exports[`compiler links should automatically link found URLs 1`] = `
 
 <a data-reactroot
    href="https://google.com"
@@ -3053,7 +3053,7 @@ exports[`markdown-to-jsx compiler links should automatically link found URLs 1`]
 
 `;
 
-exports[`markdown-to-jsx compiler links should handle a basic link 1`] = `
+exports[`compiler links should handle a basic link 1`] = `
 
 <a data-reactroot
    href="/xyz.png"
@@ -3063,7 +3063,7 @@ exports[`markdown-to-jsx compiler links should handle a basic link 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler links should handle a link reference 1`] = `
+exports[`compiler links should handle a link reference 1`] = `
 
 <p data-reactroot>
   <a href="/xyz.png">
@@ -3073,7 +3073,7 @@ exports[`markdown-to-jsx compiler links should handle a link reference 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler links should handle a link reference with a space 1`] = `
+exports[`compiler links should handle a link reference with a space 1`] = `
 
 <p data-reactroot>
   <a href="/xyz.png">
@@ -3083,7 +3083,7 @@ exports[`markdown-to-jsx compiler links should handle a link reference with a sp
 
 `;
 
-exports[`markdown-to-jsx compiler links should handle a link reference with title 1`] = `
+exports[`compiler links should handle a link reference with title 1`] = `
 
 <p data-reactroot>
   <a href="/xyz.png"
@@ -3095,7 +3095,7 @@ exports[`markdown-to-jsx compiler links should handle a link reference with titl
 
 `;
 
-exports[`markdown-to-jsx compiler links should handle a link with a URL in the text 1`] = `
+exports[`compiler links should handle a link with a URL in the text 1`] = `
 
 <a data-reactroot
    href="http://www.google.com"
@@ -3108,7 +3108,7 @@ exports[`markdown-to-jsx compiler links should handle a link with a URL in the t
 
 `;
 
-exports[`markdown-to-jsx compiler links should handle a link with title 1`] = `
+exports[`compiler links should handle a link with title 1`] = `
 
 <a data-reactroot
    href="/xyz.png"
@@ -3119,7 +3119,7 @@ exports[`markdown-to-jsx compiler links should handle a link with title 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler links should handle a mailto autolink 1`] = `
+exports[`compiler links should handle a mailto autolink 1`] = `
 
 <a data-reactroot
    href="mailto:probablyup@gmail.com"
@@ -3129,7 +3129,7 @@ exports[`markdown-to-jsx compiler links should handle a mailto autolink 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler links should handle autolink style 1`] = `
+exports[`compiler links should handle autolink style 1`] = `
 
 <a data-reactroot
    href="https://google.com"
@@ -3139,7 +3139,7 @@ exports[`markdown-to-jsx compiler links should handle autolink style 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler links should handle autolinks after a paragraph (regression) 1`] = `
+exports[`compiler links should handle autolinks after a paragraph (regression) 1`] = `
 
 <div data-reactroot>
   <p>
@@ -3157,7 +3157,7 @@ exports[`markdown-to-jsx compiler links should handle autolinks after a paragrap
 
 `;
 
-exports[`markdown-to-jsx compiler links should handle mailto autolinks after a paragraph 1`] = `
+exports[`compiler links should handle mailto autolinks after a paragraph 1`] = `
 
 <div data-reactroot>
   <p>
@@ -3175,7 +3175,7 @@ exports[`markdown-to-jsx compiler links should handle mailto autolinks after a p
 
 `;
 
-exports[`markdown-to-jsx compiler links should sanitize links containing JS expressions 1`] = `
+exports[`compiler links should sanitize links containing JS expressions 1`] = `
 
 <a data-reactroot>
   foo
@@ -3183,7 +3183,7 @@ exports[`markdown-to-jsx compiler links should sanitize links containing JS expr
 
 `;
 
-exports[`markdown-to-jsx compiler links should sanitize links containing invalid characters 1`] = `
+exports[`compiler links should sanitize links containing invalid characters 1`] = `
 
 <a data-reactroot>
   foo
@@ -3191,7 +3191,7 @@ exports[`markdown-to-jsx compiler links should sanitize links containing invalid
 
 `;
 
-exports[`markdown-to-jsx compiler lists should handle a loose list 1`] = `
+exports[`compiler lists should handle a loose list 1`] = `
 
 <ul data-reactroot>
   <li>
@@ -3213,7 +3213,7 @@ exports[`markdown-to-jsx compiler lists should handle a loose list 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler lists should handle a mixed nested list 1`] = `
+exports[`compiler lists should handle a mixed nested list 1`] = `
 
 <ul data-reactroot>
   <li>
@@ -3236,7 +3236,7 @@ exports[`markdown-to-jsx compiler lists should handle a mixed nested list 1`] = 
 
 `;
 
-exports[`markdown-to-jsx compiler lists should handle a nested list 1`] = `
+exports[`compiler lists should handle a nested list 1`] = `
 
 <ul data-reactroot>
   <li>
@@ -3254,7 +3254,7 @@ exports[`markdown-to-jsx compiler lists should handle a nested list 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler lists should handle a tight list 1`] = `
+exports[`compiler lists should handle a tight list 1`] = `
 
 <ul data-reactroot>
   <li>
@@ -3270,7 +3270,7 @@ exports[`markdown-to-jsx compiler lists should handle a tight list 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler lists should handle an ordered list 1`] = `
+exports[`compiler lists should handle an ordered list 1`] = `
 
 <ol data-reactroot
     start="1"
@@ -3288,7 +3288,7 @@ exports[`markdown-to-jsx compiler lists should handle an ordered list 1`] = `
 
 `;
 
-exports[`markdown-to-jsx compiler lists should handle an ordered list with a specific start index 1`] = `
+exports[`compiler lists should handle an ordered list with a specific start index 1`] = `
 
 <ol data-reactroot
     start="2"
@@ -3306,90 +3306,88 @@ exports[`markdown-to-jsx compiler lists should handle an ordered list with a spe
 
 `;
 
-exports[`markdown-to-jsx compiler lists should handle link trees 1`] = `
+exports[`compiler lists should handle link trees 1`] = `
 
 <ul data-reactroot>
   <li>
     <a href="#buttermilk">
       buttermilk
     </a>
+  </li>
+  <li>
+    <a href="#installation">
+      installation
+    </a>
+  </li>
+  <li>
+    <a href="#usage">
+      usage
+    </a>
     <ul>
       <li>
-        <a href="#installation">
-          installation
+        <a href="#configuration">
+          configuration
         </a>
       </li>
       <li>
-        <a href="#usage">
-          usage
+        <a href="#components">
+          components
         </a>
         <ul>
           <li>
-            <a href="#configuration">
-              configuration
+            <a href="#router">
+              <code>
+                &lt;Router&gt;
+              </code>
             </a>
           </li>
           <li>
-            <a href="#components">
-              components
+            <a href="#routingstate">
+              <code>
+                &lt;RoutingState&gt;
+              </code>
             </a>
-            <ul>
-              <li>
-                <a href="#router">
-                  <code>
-                    &lt;Router&gt;
-                  </code>
-                </a>
-              </li>
-              <li>
-                <a href="#routingstate">
-                  <code>
-                    &lt;RoutingState&gt;
-                  </code>
-                </a>
-              </li>
-              <li>
-                <a href="#link">
-                  <code>
-                    &lt;Link&gt;
-                  </code>
-                </a>
-              </li>
-            </ul>
           </li>
           <li>
-            <a href="#utilities">
-              utilities
-            </a>
-            <ul>
-              <li>
-                <a href="#routeurl-string-addnewhistoryentry-boolean--true">
-                  <code>
-                    route(url: String, addNewHistoryEntry: Boolean = true)
-                  </code>
-                </a>
-              </li>
-            </ul>
-          </li>
-          <li>
-            <a href="#holistic-example">
-              holistic example
+            <a href="#link">
+              <code>
+                &lt;Link&gt;
+              </code>
             </a>
           </li>
         </ul>
       </li>
       <li>
-        <a href="#goals">
-          goals
+        <a href="#utilities">
+          utilities
+        </a>
+        <ul>
+          <li>
+            <a href="#routeurl-string-addnewhistoryentry-boolean--true">
+              <code>
+                route(url: String, addNewHistoryEntry: Boolean = true)
+              </code>
+            </a>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <a href="#holistic-example">
+          holistic example
         </a>
       </li>
     </ul>
+  </li>
+  <li>
+    <a href="#goals">
+      goals
+    </a>
   </li>
 </ul>
 
 `;
 
-exports[`markdown-to-jsx compiler lists should not add an extra wrapper around a list 1`] = `
+exports[`compiler lists should not add an extra wrapper around a list 1`] = `
 
 <ul data-reactroot>
   <li>
@@ -3412,7 +3410,7 @@ exports[`markdown-to-jsx compiler lists should not add an extra wrapper around a
 
 `;
 
-exports[`markdown-to-jsx compiler misc block level elements should handle blockquotes 1`] = `
+exports[`compiler misc block level elements should handle blockquotes 1`] = `
 
 <blockquote data-reactroot>
   <p>
@@ -3422,7 +3420,7 @@ exports[`markdown-to-jsx compiler misc block level elements should handle blockq
 
 `;
 
-exports[`markdown-to-jsx compiler options.forceBlock treats given markdown as block-context 1`] = `
+exports[`compiler options.forceBlock treats given markdown as block-context 1`] = `
 
 <p data-reactroot>
   Hello.
@@ -3434,7 +3432,7 @@ exports[`markdown-to-jsx compiler options.forceBlock treats given markdown as bl
 
 `;
 
-exports[`markdown-to-jsx compiler options.forceInline treats given markdown as inline-context, passing through any block-level markdown syntax 1`] = `
+exports[`compiler options.forceInline treats given markdown as inline-context, passing through any block-level markdown syntax 1`] = `
 
 <span data-reactroot>
   # You got it babe!
@@ -3442,7 +3440,7 @@ exports[`markdown-to-jsx compiler options.forceInline treats given markdown as i
 
 `;
 
-exports[`markdown-to-jsx compiler options.slugify should use a custom slugify function rather than the default if set and valid 1`] = `
+exports[`compiler options.slugify should use a custom slugify function rather than the default if set and valid 1`] = `
 
 <h1 data-reactroot
     id="中文"
@@ -3452,7 +3450,7 @@ exports[`markdown-to-jsx compiler options.slugify should use a custom slugify fu
 
 `;
 
-exports[`markdown-to-jsx compiler options.slugify should use the default function if unset 1`] = `
+exports[`compiler options.slugify should use the default function if unset 1`] = `
 
 <h1 data-reactroot
     id
@@ -3462,7 +3460,7 @@ exports[`markdown-to-jsx compiler options.slugify should use the default functio
 
 `;
 
-exports[`markdown-to-jsx compiler overrides should add props to pre & code tags if supplied 1`] = `
+exports[`compiler overrides should add props to pre & code tags if supplied 1`] = `
 
 <pre data-reactroot
      class="abc"
@@ -3474,7 +3472,7 @@ exports[`markdown-to-jsx compiler overrides should add props to pre & code tags 
 
 `;
 
-exports[`markdown-to-jsx compiler overrides should be able to override gfm task list item checkboxes 1`] = `
+exports[`compiler overrides should be able to override gfm task list item checkboxes 1`] = `
 
 <input type="checkbox"
        class="foo"
@@ -3484,7 +3482,7 @@ exports[`markdown-to-jsx compiler overrides should be able to override gfm task 
 
 `;
 
-exports[`markdown-to-jsx compiler overrides should be able to override gfm task list items 1`] = `
+exports[`compiler overrides should be able to override gfm task list items 1`] = `
 
 <li class="foo">
   <input type="checkbox"
@@ -3496,7 +3494,7 @@ exports[`markdown-to-jsx compiler overrides should be able to override gfm task 
 
 `;
 
-exports[`markdown-to-jsx compiler overrides should substitute pre & code tags if supplied with an override component 1`] = `
+exports[`compiler overrides should substitute pre & code tags if supplied with an override component 1`] = `
 
 <pre data-reactroot
      class="abc"
@@ -3511,7 +3509,7 @@ exports[`markdown-to-jsx compiler overrides should substitute pre & code tags if
 
 `;
 
-exports[`markdown-to-jsx compiler wraps multiple block element returns in a div to avoid invalid nesting errors 1`] = `
+exports[`compiler wraps multiple block element returns in a div to avoid invalid nesting errors 1`] = `
 
 <div data-reactroot>
   <h1 id="boop">
@@ -3524,7 +3522,7 @@ exports[`markdown-to-jsx compiler wraps multiple block element returns in a div 
 
 `;
 
-exports[`markdown-to-jsx compiler wraps solely inline elements in a span, rather than a div 1`] = `
+exports[`compiler wraps solely inline elements in a span, rather than a div 1`] = `
 
 <span data-reactroot>
   Hello.
@@ -3536,7 +3534,7 @@ exports[`markdown-to-jsx compiler wraps solely inline elements in a span, rather
 
 `;
 
-exports[`markdown-to-jsx component accepts markdown content 1`] = `
+exports[`component accepts markdown content 1`] = `
 
 <em data-reactroot>
   Hello.
@@ -3544,7 +3542,7 @@ exports[`markdown-to-jsx component accepts markdown content 1`] = `
 
 `;
 
-exports[`markdown-to-jsx component accepts options 1`] = `
+exports[`component accepts options 1`] = `
 
 <em data-reactroot>
   Hello.
@@ -3552,14 +3550,14 @@ exports[`markdown-to-jsx component accepts options 1`] = `
 
 `;
 
-exports[`markdown-to-jsx component handles a no-children scenario 1`] = `
+exports[`component handles a no-children scenario 1`] = `
 
 <span data-reactroot>
 </span>
 
 `;
 
-exports[`markdown-to-jsx component merges className overrides, rather than overwriting 1`] = `
+exports[`component merges className overrides, rather than overwriting 1`] = `
 
 <pre data-reactroot>
   <code class="lang-js foo">
@@ -3569,7 +3567,7 @@ exports[`markdown-to-jsx component merges className overrides, rather than overw
 
 `;
 
-exports[`markdown-to-jsx component passes along any additional props to the rendered wrapper element 1`] = `
+exports[`component passes along any additional props to the rendered wrapper element 1`] = `
 
 <h1 data-reactroot
     id="hello"
