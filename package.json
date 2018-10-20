@@ -20,16 +20,13 @@
   "bugs": "https://github.com/probablyup/markdown-to-jsx/issues",
   "files": [
     "index.js",
-    "index.cjs.js",
-    "index.js.js.map",
-    "index.esm.js",
-    "index.esm.js.map",
+    "dist",
     "LICENSE",
     "README.md"
   ],
-  "main": "index.cjs.js",
-  "jsnext:main": "index.esm.js",
-  "module": "index.esm.js",
+  "main": "dist/cjs.js",
+  "jsnext:main": "dist/esm.js",
+  "module": "dist/esm.js",
   "devDependencies": {
     "babel-cli": "^6.14.0",
     "babel-core": "^6.26.0",
@@ -49,12 +46,14 @@
     "in-publish": "^2.0.0",
     "jest": "^23.6.0",
     "jest-serializer-html": "^5.0.0",
+    "mkdirp": "^0.5.1",
     "polished": "^1.3.0",
     "preact": "^8.2.1",
     "preact-compat": "^3.16.0",
     "preact-emotion": "^9.1.2",
     "react": "^15.6.1",
     "react-dom": "^15.6.1",
+    "rimraf": "^2.6.2",
     "size-limit": "^0.17.0",
     "uglify-js": "^3.3.15",
     "webpack": "^4.1.1",
@@ -70,8 +69,9 @@
   },
   "scripts": {
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
-    "lint": "eslint index.js index.spec.js site.js",
-    "build": "babel index.js --out-file index.cjs.js --source-maps && BABEL_ENV=esm babel index.js --out-file index.esm.js --source-maps",
+    "lint": "eslint index.js site.js",
+    "prebuild": "rimraf dist && mkdirp dist",
+    "build": "babel index.js --out-file dist/cjs.js --source-maps && BABEL_ENV=esm babel index.js --out-file dist/esm.js --source-maps",
     "release": "webpack --config ./webpack.config.prod.babel.js -p --display-optimization-bailout",
     "release:debug": "webpack --config ./webpack.config.babel.js --display-optimization-bailout",
     "start": "webpack-dev-server --hot --inline --open",
@@ -80,7 +80,7 @@
   },
   "size-limit": [
     {
-      "path": "index.cjs.js",
+      "path": "dist/cjs.js",
       "limit": "5 kB"
     }
   ],
