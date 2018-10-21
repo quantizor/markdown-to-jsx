@@ -1291,10 +1291,10 @@ describe('GFM tables', () => {
 <table data-reactroot>
   <thead>
     <tr>
-      <th scope="col">
+      <th>
         foo
       </th>
-      <th scope="col">
+      <th>
         bar
       </th>
     </tr>
@@ -1322,19 +1322,13 @@ describe('GFM tables', () => {
 <table data-reactroot>
   <thead>
     <tr>
-      <th scope="col"
-          style="text-align: right;"
-      >
+      <th style="text-align: right;">
         foo
       </th>
-      <th scope="col"
-          style="text-align: center;"
-      >
+      <th style="text-align: center;">
         bar
       </th>
-      <th scope="col"
-          style="text-align: left;"
-      >
+      <th style="text-align: left;">
         baz
       </th>
     </tr>
@@ -1374,10 +1368,10 @@ describe('GFM tables', () => {
 <table data-reactroot>
   <thead>
     <tr>
-      <th scope="col">
+      <th>
         Foo
       </th>
-      <th scope="col">
+      <th>
         Bar
       </th>
     </tr>
@@ -1422,19 +1416,13 @@ describe('GFM tables', () => {
 <table data-reactroot>
   <thead>
     <tr>
-      <th scope="col"
-          style="text-align: right;"
-      >
+      <th style="text-align: right;">
         Foo
       </th>
-      <th scope="col"
-          style="text-align: center;"
-      >
+      <th style="text-align: center;">
         Bar
       </th>
-      <th scope="col"
-          style="text-align: left;"
-      >
+      <th style="text-align: left;">
         Baz
       </th>
     </tr>
@@ -1488,19 +1476,13 @@ describe('GFM tables', () => {
   <table>
     <thead>
       <tr>
-        <th scope="col"
-            style="text-align: right;"
-        >
+        <th style="text-align: right;">
           Foo
         </th>
-        <th scope="col"
-            style="text-align: center;"
-        >
+        <th style="text-align: center;">
           Bar
         </th>
-        <th scope="col"
-            style="text-align: left;"
-        >
+        <th style="text-align: left;">
           Baz
         </th>
       </tr>
@@ -2358,10 +2340,10 @@ import styled from 'styled-components';
   <table>
     <thead>
       <tr>
-        <th scope="col">
+        <th>
           Heading 1
         </th>
-        <th scope="col">
+        <th>
           Heading 2
         </th>
       </tr>

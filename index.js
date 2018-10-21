@@ -384,10 +384,6 @@ function normalizeAttributeKey(key) {
   return key;
 }
 
-function isInterpolation(value) {
-  return INTERPOLATION_R.test(value);
-}
-
 function attributeValueToJSXPropValue(key, value) {
   if (key === 'style') {
     return value.split(/;\s?/).reduce(function(styles, kvPair) {
@@ -395,16 +391,16 @@ function attributeValueToJSXPropValue(key, value) {
 
       // snake-case to camelCase
       // also handles PascalCasing vendor prefixes
-      const camelCasedKey = key.replace(/(-[a-z])/g, function toUpper(substr) {
-        return substr[1].toUpperCase();
-      });
+      const camelCasedKey = key.replace(/(-[a-z])/g, substr =>
+        substr[1].toUpperCase()
+      );
 
       // key.length + 1 to skip over the colon
       styles[camelCasedKey] = kvPair.slice(key.length + 1).trim();
 
       return styles;
     }, {});
-  } else if (isInterpolation(value)) {
+  } else if (value.match(INTERPOLATION_R)) {
     // return as a string and let the consumer decide what to do with it
     value = value.slice(1, value.length - 1);
   }
@@ -455,8 +451,7 @@ function parserFor(rules) {
       let order = rules[type].order;
       if (
         process.env.NODE_ENV !== 'production' &&
-        (typeof order !== 'number' || !isFinite(order)) &&
-        typeof console !== 'undefined'
+        (typeof order !== 'number' || !isFinite(order))
       ) {
         console.warn(
           'markdown-to-jsx: Invalid order for rule `' + type + '`: ' + order
@@ -1409,7 +1404,7 @@ export function compiler(markdown, options) {
               <tr>
                 {node.header.map(function generateHeaderCell(content, i) {
                   return (
-                    <th key={i} style={getTableStyle(node, i)} scope="col">
+                    <th key={i} style={getTableStyle(node, i)}>
                       {output(content, state)}
                     </th>
                   );
