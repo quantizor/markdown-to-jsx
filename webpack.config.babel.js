@@ -17,7 +17,7 @@ export default {
           loader: 'babel-loader',
           options: {
             babelrc: false,
-            plugins: ['emotion'],
+            plugins: ['emotion', 'transform-react-remove-prop-types'],
             presets: [
               [
                 'env',
