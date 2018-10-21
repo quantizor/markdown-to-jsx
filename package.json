@@ -73,7 +73,7 @@
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
     "lint": "eslint .",
     "prebuild": "rimraf dist && mkdirp dist",
-    "build": "NODE_ENV=production babel index.js --out-file dist/cjs.js --source-maps && NODE_ENV=production BABEL_ENV=esm babel index.js --out-file dist/esm.js --source-maps",
+    "build": "NODE_ENV=production babel index.js --out-file dist/cjs.js --source-maps --no-comments && NODE_ENV=production BABEL_ENV=esm babel index.js --out-file dist/esm.js --source-maps --no-comments",
     "release": "webpack --config ./webpack.config.prod.babel.js -p --display-optimization-bailout",
     "release:debug": "webpack --config ./webpack.config.babel.js --display-optimization-bailout",
     "start": "webpack-dev-server --hot --inline --open",
