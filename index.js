@@ -151,7 +151,7 @@ const HTML_COMMENT_R = /^<!--.*?-->/;
  */
 const HTML_CUSTOM_ATTR_R = /^(data|aria|x)-[a-z_][a-z\d_.-]*$/;
 
-const HTML_SELF_CLOSING_ELEMENT_R = /^ *<([A-Za-z][\w:]*)(?:\s+((?:<.*?>|[^>])*))?>(?!<\/\1>)\s*/;
+const HTML_SELF_CLOSING_ELEMENT_R = /^ *<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*))?\/?>(?!<\/\1>)(\s*\n)?/i;
 const INTERPOLATION_R = /^\{.*\}$/;
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/;
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/;
@@ -1436,12 +1436,13 @@ export function compiler(markdown, options) {
       order: PARSE_PRIORITY_MIN,
       parse(capture /*, parse, state*/) {
         return {
-          // nbsp -> unicode equivalent for named chars
-          content: capture[0].replace(HTML_CHAR_CODE_R, (full, inner) => {
-            return namedCodesToUnicode[inner]
-              ? namedCodesToUnicode[inner]
-              : full;
-          }),
+          content: capture[0]
+            // nbsp -> unicode equivalent for named chars
+            .replace(HTML_CHAR_CODE_R, (full, inner) => {
+              return namedCodesToUnicode[inner]
+                ? namedCodesToUnicode[inner]
+                : full;
+            }),
         };
       },
       react(node /*, output, state*/) {

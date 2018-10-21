@@ -2473,6 +2473,23 @@ fun main() {
 
 `);
   });
+
+  it('does not consume trailing whitespace if there is no newline', () => {
+    const Foo = () => <span>Hello</span>;
+
+    render(compiler('<Foo/> World!', { overrides: { Foo } }));
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<span data-reactroot>
+  <span>
+    Hello
+  </span>
+  World!
+</span>
+
+`);
+  });
 });
 
 describe('horizontal rules', () => {
