@@ -802,6 +802,8 @@ describe('links', () => {
   });
 
   it('should sanitize links containing JS expressions', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+
     render(compiler('[foo](javascript:doSomethingBad)'));
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
@@ -811,9 +813,45 @@ describe('links', () => {
 </a>
 
 `);
+
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('should sanitize links containing encoded JS expressions', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    render(compiler('[foo](javascript%3AdoSomethingBad)'));
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<a data-reactroot>
+  foo
+</a>
+
+`);
+
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('should sanitize links containing padded JS expressions', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    render(compiler('[foo](  javascript%3AdoSomethingBad)'));
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<a data-reactroot>
+  foo
+</a>
+
+`);
+
+    expect(console.warn).toHaveBeenCalled();
   });
 
   it('should sanitize links containing invalid characters', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+
     render(compiler('[foo](https://google.com/%AF)'));
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
@@ -823,6 +861,7 @@ describe('links', () => {
 </a>
 
 `);
+    expect(console.warn).toHaveBeenCalled();
   });
 
   it('should handle a link with a URL in the text', () => {

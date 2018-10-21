@@ -604,14 +604,26 @@ function reactFor(outputFunc) {
 
 function sanitizeUrl(url) {
   try {
-    const prot = decodeURIComponent(url)
-      .replace(/[^A-Z0-9/:]/gi, '')
-      .toLowerCase();
+    const decoded = decodeURIComponent(url);
 
-    if (prot.indexOf('javascript:') === 0) {
+    if (decoded.match(/^\s*javascript:/i)) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(
+          'Anchor URL contains an unsafe JavaScript expression, it will not be rendered.',
+          decoded
+        );
+      }
+
       return null;
     }
   } catch (e) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        'Anchor URL could not be decoded due to malformed syntax or characters, it will not be rendered.',
+        url
+      );
+    }
+
     // decodeURIComponent sometimes throws a URIError
     // See `decodeURIComponent('a%AFc');`
     // http://stackoverflow.com/questions/9064536/javascript-decodeuricomponent-malformed-uri-exception
@@ -667,6 +679,7 @@ function parseCaptureInline(capture, parse, state) {
 function captureNothing() {
   return {};
 }
+
 function renderNothing() {
   return null;
 }
@@ -677,11 +690,8 @@ function ruleOutput(rules) {
   };
 }
 
-function cx() {
-  return Array.prototype.slice
-    .call(arguments)
-    .filter(Boolean)
-    .join(' ');
+function cx(...args) {
+  return args.filter(Boolean).join(' ');
 }
 
 function get(src, path, fb) {
