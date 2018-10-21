@@ -239,7 +239,9 @@ const LIST_R = new RegExp(
     '[\\s\\S]+?(?:\\n{2,}(?! )' +
     '(?!\\1' +
     LIST_BULLET +
-    ' )\\n*' +
+    ' (?!' +
+    LIST_BULLET +
+    ' ))\\n*' +
     // the \\s*$ here is so that we can parse the inside of nested
     // lists, where our content might end before we receive two `\n`s
     '|\\s*\\n*$)'

@@ -1161,6 +1161,33 @@ describe('lists', () => {
 
 `);
   });
+
+  it('handles horizontal rules after lists', () => {
+    render(
+      compiler(`
+-   one
+-   two
+
+* * *
+      `)
+    );
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<div data-reactroot>
+  <ul>
+    <li>
+      one
+    </li>
+    <li>
+      two
+    </li>
+  </ul>
+  <hr>
+</div>
+
+`);
+  });
 });
 
 describe('GFM task lists', () => {
