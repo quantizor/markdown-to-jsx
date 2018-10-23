@@ -12,6 +12,6 @@ module.exports = {
     ],
     'react',
     'stage-2',
-    prod && 'minify',
+    prod && ['minify', { flipComparisons: false }],
   ].filter(Boolean),
 };
