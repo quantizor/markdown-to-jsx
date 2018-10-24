@@ -274,10 +274,6 @@ const BLOCK_SYNTAXES = [
   PARAGRAPH_R,
 ];
 
-function isPlainObject(input) {
-  return typeof input === 'object' && input.constructor === Object;
-}
-
 function containsBlockSyntax(input) {
   return BLOCK_SYNTAXES.some(r => r.test(input));
 }
@@ -708,9 +704,9 @@ function getTag(tag, overrides) {
 
   if (!override) return tag;
 
-  return isPlainObject(override)
-    ? get(overrides, `${tag}.component`, tag)
-    : override;
+  return typeof override === 'function' || (typeof override === 'object' && 'render' in override)
+    ? override
+    : get(overrides, `${tag}.component`, tag);
 }
 
 /**
