@@ -2675,6 +2675,17 @@ describe('footnotes', () => {
 
 `);
   });
+
+  it('should not blow up if footnote syntax is seen but no matching footnote was found', () => {
+    expect(() => render(compiler('[one] [two]'))).not.toThrow();
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<span data-reactroot>
+  [one] [two]
+</span>
+
+`);
+  });
 });
 
 describe('options.forceBlock', () => {

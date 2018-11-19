@@ -164,6 +164,7 @@ const PARAGRAPH_R = /^((?:[^\n]|\n(?! *\n))+)(?:\n *)+\n/;
 const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s*(\S+)\s*("([^"]*)")?/;
 const REFERENCE_IMAGE_R = /^!\[([^\]]*)\] ?\[([^\]]*)\]/;
 const REFERENCE_LINK_R = /^\[([^\]]*)\] ?\[([^\]]*)\]/;
+const SQUARE_BRACKETS_R = /(\[|\])/g;
 const SHOULD_RENDER_AS_BLOCK_R = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/;
 const TAB_R = /\t/g;
 const TABLE_TRIM_PIPES = /(^ *\||\| *$)/g;
@@ -1373,11 +1374,12 @@ export function compiler(markdown, options) {
       parse(capture, parse, state) {
         return {
           content: parse(capture[1], state),
+          fallbackContent: parse(capture[0].replace(SQUARE_BRACKETS_R, '\\$1'), state),
           ref: capture[2],
         };
       },
       react(node, output, state) {
-        return (
+        return refs[node.ref] ? (
           <a
             key={state.key}
             href={sanitizeUrl(refs[node.ref].target)}
@@ -1385,7 +1387,7 @@ export function compiler(markdown, options) {
           >
             {output(node.content, state)}
           </a>
-        );
+        ) : <span>{output(node.fallbackContent, state)}</span>;
       },
     },
 
