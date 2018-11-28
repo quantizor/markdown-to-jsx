@@ -173,34 +173,12 @@ const TABLE_LEFT_ALIGN = /^ *:-+ *$/;
 const TABLE_RIGHT_ALIGN = /^ *-+: *$/;
 const TABLE_ROW_SPLIT = / *\| */;
 
-/**
- * (delimiter regex)((?:.*?([`~]).*?\3.*?)*|(?:.*?[\[(<].*?[\])>].*?)*|.+?)
- *
- * detects other inline syntaxes and ignores them; this helps alleviate issues like
- * **Foo `**` baz**
- *
- * Where the ** inside the backticks would be detected as the end of the bolding.
- */
-
-/**
- * Bolding requires the same character to be used twice, so we do a detect for which
- * one is in use, then double-check it's used a second time and then twice at the end.
- *
- * Bits of the mega regex:
- *
- * |[^`~()\[\]<>]*?             ignore normal stuff
- * |(?:.*?([`~]).*?\3.*?)*      ignore stuff in backticks & tildes
- * |(?:.*?\([^)]*?\).*?)*       ignore stuff in parens
- * |(?:.*?\[[^\]]*?\].*?)*      ignore stuff in square brackets
- * |(?:.*?<.*?>.*?)*            ignore stuff in angle brackets
- *
- */
-const TEXT_BOLD_R = /^([*_])\1((?:[^`~()[\]<>]*?|(?:.*?([`~]).*?\3.*?)*|(?:.*?\([^)]*?\).*?)*|(?:.*?\[[^\]]*?\].*?)*|(?:.*?<.*?>.*?)*|[^\1]*?)\1?)\1{2}/;
-const TEXT_EMPHASIZED_R = /^([*_])((?:[^`~()[\]<>]*?|(?:.*?([`~]).*?\3.*?)*|(?:.*?\([^)]*?\).*?)*|(?:.*?\[[^\]]*?\].*?)*|(?:.*?<.*?>.*?)*|[^\1]*?))\1/;
-const TEXT_STRIKETHROUGHED_R = /^~~((?:.*?([`~]).*?\2.*?)*|(?:.*?<.*?>.*?)*|.+?)~~/;
+const TEXT_BOLD_R = /^([*_])\1((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1\1(?!\1)/;
+const TEXT_EMPHASIZED_R = /^([*_])((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1(?!\1)/;
+const TEXT_STRIKETHROUGHED_R = /^~~((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.)*?)~~/;
 
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/;
-const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff&;.]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i;
+const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff&;.()'"]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i;
 const TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R = /(^\n+|(\n|\s)+$)/g;
 
 const HTML_LEFT_TRIM_AMOUNT_R = /^([ \t]*)/;
