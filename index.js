@@ -760,17 +760,17 @@ export function compiler(markdown, options) {
 
     let jsx;
     if (arr.length > 1) {
-      jsx = inline ? <span>{arr}</span> : <div>{arr}</div>;
+      jsx = inline ? <span key="outer">{arr}</span> : <div key="outer">{arr}</div>;
     } else if (arr.length === 1) {
       jsx = arr[0];
 
       // TODO: remove this for React 16
       if (typeof jsx === 'string') {
-        jsx = <span>{jsx}</span>;
+        jsx = <span key="outer">{jsx}</span>;
       }
     } else {
       // TODO: return null for React 16
-      jsx = <span />;
+      jsx = <span key="outer" />;
     }
 
     return jsx;
@@ -1365,7 +1365,7 @@ export function compiler(markdown, options) {
           >
             {output(node.content, state)}
           </a>
-        ) : <span>{output(node.fallbackContent, state)}</span>;
+        ) : <span key={state.key}>{output(node.fallbackContent, state)}</span>;
       },
     },
 
@@ -1525,7 +1525,7 @@ export function compiler(markdown, options) {
 
   if (footnotes.length) {
     jsx.props.children.push(
-      <footer>
+      <footer key="footer">
         {footnotes.map(function createFootnote(def) {
           return (
             <div id={def.identifier} key={def.identifier}>
