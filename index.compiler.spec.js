@@ -2984,8 +2984,8 @@ describe('overrides', () => {
     expect($element.outerHTML).toMatchInlineSnapshot(`
 
 <input type="checkbox"
-       class="foo"
        readonly
+       class="foo"
        value="on"
 >
 

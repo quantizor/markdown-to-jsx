@@ -727,8 +727,8 @@ export function compiler(markdown, options) {
     return createElementFn(
       getTag(tag, options.overrides),
       {
-        ...overrideProps,
         ...props,
+        ...overrideProps,
         className:
           cx(props && props.className, overrideProps.className) || undefined,
       },
