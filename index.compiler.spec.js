@@ -2833,12 +2833,30 @@ describe('overrides', () => {
   it('should add props to the appropriate JSX tag if supplied', () => {
     render(
       compiler('Hello.\n\n', {
-        overrides: { p: { props: { className: 'abc' } } },
+        overrides: { p: { props: { className: 'abc', title: 'foo' } } },
       })
     );
 
     expect(root.children[0].className).toBe('abc');
     expect(root.children[0].textContent).toBe('Hello.');
+    expect(root.children[0].title).toBe('foo');
+  });
+
+  it('should override the title property when parsing a link', () => {
+    class FakeLink extends React.Component {
+      render() {
+        const {title, children} = this.props
+        return <a title={title}>{children}</a>
+      }
+    }
+
+    render(
+      compiler('[link](https://example.org)', {
+        overrides: { a: {component: FakeLink,  props: { title: 'foo' } } },
+      })
+    );
+
+    expect(root.children[0].title).toBe('foo');
   });
 
   it('should add props to pre & code tags if supplied', () => {
@@ -2966,8 +2984,8 @@ describe('overrides', () => {
     expect($element.outerHTML).toMatchInlineSnapshot(`
 
 <input type="checkbox"
-       class="foo"
        readonly
+       class="foo"
        value="on"
 >
 
