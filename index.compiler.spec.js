@@ -101,6 +101,114 @@ it('#190 perf regression', () => {
 `);
 });
 
+it('#234 perf regression', () => {
+  render(
+    compiler(
+      `<br /><b>1</b><b>2</b><b>3</b><b>4</b><b>5</b><b>6</b><b>7</b><b>8</b><b>9</b><b>10</b>
+<b>1</b><b>2</b><b>3</b><b>4</b><b>5</b><b>6</b><b>7</b><b>8</b><b>9</b><b>20</b>
+<b>1</b><b>2</b><b>3</b><b>4</b><b>5</b><b>6</b><b>7</b><b>8</b><b>9</b><b>30</b>`
+    )
+  );
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<div data-reactroot>
+  <br>
+  <b>
+    1
+  </b>
+  <b>
+    2
+  </b>
+  <b>
+    3
+  </b>
+  <b>
+    4
+  </b>
+  <b>
+    5
+  </b>
+  <b>
+    6
+  </b>
+  <b>
+    7
+  </b>
+  <b>
+    8
+  </b>
+  <b>
+    9
+  </b>
+  <b>
+    10
+  </b>
+  <b>
+    1
+  </b>
+  <b>
+    2
+  </b>
+  <b>
+    3
+  </b>
+  <b>
+    4
+  </b>
+  <b>
+    5
+  </b>
+  <b>
+    6
+  </b>
+  <b>
+    7
+  </b>
+  <b>
+    8
+  </b>
+  <b>
+    9
+  </b>
+  <b>
+    20
+  </b>
+  <b>
+    1
+  </b>
+  <b>
+    2
+  </b>
+  <b>
+    3
+  </b>
+  <b>
+    4
+  </b>
+  <b>
+    5
+  </b>
+  <b>
+    6
+  </b>
+  <b>
+    7
+  </b>
+  <b>
+    8
+  </b>
+  <b>
+    9
+  </b>
+  <b>
+    30
+  </b>
+</div>
+
+`);
+});
+
 describe('inline textual elements', () => {
   it('should handle emphasized text', () => {
     render(compiler('*Hello.*'));
@@ -2845,14 +2953,14 @@ describe('overrides', () => {
   it('should override the title property when parsing a link', () => {
     class FakeLink extends React.Component {
       render() {
-        const {title, children} = this.props
-        return <a title={title}>{children}</a>
+        const { title, children } = this.props;
+        return <a title={title}>{children}</a>;
       }
     }
 
     render(
       compiler('[link](https://example.org)', {
-        overrides: { a: {component: FakeLink,  props: { title: 'foo' } } },
+        overrides: { a: { component: FakeLink, props: { title: 'foo' } } },
       })
     );
 
