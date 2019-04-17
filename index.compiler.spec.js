@@ -1564,6 +1564,61 @@ describe('GFM tables', () => {
 `);
   });
 
+  it('#241 should not ignore the first cell when its contents is empty', () => {
+    render(
+        compiler(
+            [
+              '| Foo | Bar | Baz |',
+              '| --- | --- | --- |',
+              '|   | 2   | 3   |',
+              '|   | 5   | 6   |',
+            ].join('\n')
+        )
+    );
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<table data-reactroot>
+  <thead>
+    <tr>
+      <th>
+        Foo
+      </th>
+      <th>
+        Bar
+      </th>
+      <th>
+        Baz
+      </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+      </td>
+      <td>
+        2
+      </td>
+      <td>
+        3
+      </td>
+    </tr>
+    <tr>
+      <td>
+      </td>
+      <td>
+        5
+      </td>
+      <td>
+        6
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+`);
+  });
+
   it('should handle other content after a table', () => {
     render(
       compiler(
