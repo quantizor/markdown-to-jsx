@@ -309,7 +309,6 @@ function parseTableAlign(capture /*, parse, state*/) {
 
 function parseTableCells(capture, parse, state) {
   const rowsText = capture[3]
-    .replace(TABLE_TRIM_PIPES, '')
     .trim()
     .split('\n');
 
