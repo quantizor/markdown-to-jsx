@@ -1025,8 +1025,9 @@ export function compiler(markdown, options) {
           ? parseBlock
           : parseInline;
 
+        const tag = capture[1].toLowerCase();
         const noInnerParse =
-          DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(capture[1]) !== -1;
+          DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(tag) !== -1;
 
         return {
           attrs: attrStringToMap(capture[2]),
@@ -1038,7 +1039,7 @@ export function compiler(markdown, options) {
 
           noInnerParse,
 
-          tag: capture[1],
+          tag
         };
       },
       react(node, output, state) {
