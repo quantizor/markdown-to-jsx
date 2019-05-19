@@ -62,6 +62,21 @@ it('wraps solely inline elements in a span, rather than a div', () => {
 `);
 });
 
+it('wraps solely begining or ending inline elements together with following paragraph', () => {
+  render(compiler("#Hey\n<ins>Insertion before text</ins> followed by some text"));
+
+console.log(root.innerHTML);
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<div data-reactroot>
+  <h1>Hey</h1>
+  <p><ins>Insertion before text</ins> followed by some text</p>
+</div>
+
+`);
+});
+
 it('#190 perf regression', () => {
   render(
     compiler(
