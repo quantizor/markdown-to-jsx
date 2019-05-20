@@ -257,7 +257,7 @@ function containsBlockSyntax(input) {
   return BLOCK_SYNTAXES.some(r => r.test(input));
 }
 
-const SIMPLE_TAGNAMES = [];  // Not currently used
+// const SIMPLE_TAGNAMES = [];  // Not currently used
 
 const INLINE_TAGNAMES = [  // This is a list of tag wich by wrapped by arounding paragraph. Does not apply to HTML element already wrapped.
   'abbr',
