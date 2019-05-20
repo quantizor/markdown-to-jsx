@@ -257,6 +257,33 @@ function containsBlockSyntax(input) {
   return BLOCK_SYNTAXES.some(r => r.test(input));
 }
 
+const SIMPLE_TAGNAMES = [];  // Not currently used
+
+const INLINE_TAGNAMES = [  // This is a list of tag wich by wrapped by arounding paragraph. Does not apply to HTML element already wrapped.
+  'abbr',
+  'cite',
+  'code',
+  'del',
+  'em',
+  'i',
+  'ins',
+  'kbd',
+  'q',
+  's',
+  'samp',
+  'strong',
+  'sub',
+  'sup',
+  'u'
+];
+
+function isInlineElement(inputTagName) {
+  return INLINE_TAGNAMES.some(tagName => tagName == inputTagName);
+}
+// function isSimpleElement(inputTagName) {  // Not currently used
+//   return SIMPLE_TAGNAMES.some(tagName => tagName == inputTagName);
+// }
+
 // based on https://stackoverflow.com/a/18123682/1141611
 // not complete, but probably good enough
 function slugify(str) {
@@ -533,6 +560,20 @@ function blockRegex(regex) {
 function anyScopeRegex(regex) {
   return function match(source /*, state*/) {
     return regex.exec(source);
+  };
+}
+
+// Creates a match function for a HTML is scope dependant element from a regex
+function htmlDependantScopeRegex(regex) {
+  return function match(source, state) {
+    const capture = regex.exec(source);
+    if (capture) {
+      const isInline = isInlineElement(capture[1]);
+      // const isSimple = isSimpleElement(capture[1]);  // Not currently used
+      if (isInline && !state.inline) return null;
+      // if (isSimple && !state.simple) return null;  // Not currently used
+    }
+    return capture;
   };
 }
 
@@ -1014,7 +1055,7 @@ export function compiler(markdown, options) {
       /**
        * find the first matching end tag and process the interior
        */
-      match: anyScopeRegex(HTML_BLOCK_ELEMENT_R),
+      match: htmlDependantScopeRegex(HTML_BLOCK_ELEMENT_R),
       order: PARSE_PRIORITY_HIGH,
       parse(capture, parse, state) {
         const [, whitespace] = capture[3].match(HTML_LEFT_TRIM_AMOUNT_R);
@@ -1063,7 +1104,7 @@ export function compiler(markdown, options) {
       /**
        * find the first matching end tag and process the interior
        */
-      match: anyScopeRegex(HTML_SELF_CLOSING_ELEMENT_R),
+      match: htmlDependantScopeRegex(HTML_SELF_CLOSING_ELEMENT_R),
       order: PARSE_PRIORITY_HIGH,
       parse(capture /*, parse, state*/) {
         return {
