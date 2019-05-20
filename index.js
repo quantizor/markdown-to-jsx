@@ -762,14 +762,8 @@ export function compiler(markdown, options) {
       jsx = inline ? <span key="outer">{arr}</span> : <div key="outer">{arr}</div>;
     } else if (arr.length === 1) {
       jsx = arr[0];
-
-      // TODO: remove this for React 16
-      if (typeof jsx === 'string') {
-        jsx = <span key="outer">{jsx}</span>;
-      }
     } else {
-      // TODO: return null for React 16
-      jsx = <span key="outer" />;
+      return null;
     }
 
     return jsx;
