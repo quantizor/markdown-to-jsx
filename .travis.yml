@@ -1,34 +1,6 @@
-branches:
-  only:
-    - master
-
-cache:
-  yarn: true
-  directories:
-    - 'node_modules'
-
 language: node_js
-
 node_js:
-  - '8'
-  - '10'
-
-os: linux
-
-env:
-  - TARGET_REACT_VERSION=15
-  - TARGET_REACT_VERSION=16
-
-install: yarn --frozen-lockfile
-
-after_install:
-  - yarn remove react react-dom
-  - yarn add react@$(echo $TARGET_REACT_VERSION)
-  - yarn add react-dom@$(echo $TARGET_REACT_VERSION)
-
-script:
-  - yarn test -- --coverage
-  - yarn lint
-  - yarn build
-  - yarn size
-  - codecov
+  - node
+cache: yarn
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

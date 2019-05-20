@@ -1,4 +1,0 @@
-coverage/**
-docs/**
-dist/**
-**/*.spec.js

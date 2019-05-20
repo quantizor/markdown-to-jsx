@@ -2,32 +2,34 @@
 
 The most lightweight, customizable React markdown component.
 
-[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) [![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg)](https://travis-ci.org/probablyup/markdown-to-jsx) [![codecov](https://codecov.io/gh/probablyup/markdown-to-jsx/branch/master/graph/badge.svg)](https://codecov.io/gh/probablyup/markdown-to-jsx) [![downloads](https://img.shields.io/npm/dm/markdown-to-jsx.svg)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
-[![Backers on Open Collective](https://opencollective.com/markdown-to-jsx/backers/badge.svg)](#backers) [![Sponsors on Open Collective](https://opencollective.com/markdown-to-jsx/sponsors/badge.svg)](#sponsors)
+[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx)
+[![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg)](https://travis-ci.org/probablyup/markdown-to-jsx)
+[![codecov](https://codecov.io/gh/probablyup/markdown-to-jsx/branch/master/graph/badge.svg)](https://codecov.io/gh/probablyup/markdown-to-jsx)
+[![downloads](https://img.shields.io/npm/dm/markdown-to-jsx.svg)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
 
 <!-- TOC -->
 
 - [Installation](#installation)
 - [Usage](#usage)
-    - [Parsing Options](#parsing-options)
-        - [options.forceBlock](#optionsforceblock)
-        - [options.forceInline](#optionsforceinline)
-        - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
-        - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
-        - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
-        - [options.slugify](#optionsslugify)
-    - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
-    - [Usage with Preact](#usage-with-preact)
+  - [Parsing Options](#parsing-options)
+    - [options.forceBlock](#optionsforceblock)
+    - [options.forceInline](#optionsforceinline)
+    - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
+    - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
+    - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
+    - [options.slugify](#optionsslugify)
+  - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
+  - [Usage with Preact](#usage-with-preact)
 - [Gotchas](#gotchas)
-    - [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
-        - [Code blocks](#code-blocks)
+  - [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
+    - [Code blocks](#code-blocks)
 - [Using The Compiler Directly](#using-the-compiler-directly)
 - [Changelog](#changelog)
 - [Donate](#donate)
 - [Credits](#credits)
-    - [Contributors](#contributors)
-    - [Backers](#backers)
-    - [Sponsors](#sponsors)
+  - [Contributors](#contributors)
+  - [Backers](#backers)
+  - [Sponsors](#sponsors)
 
 <!-- /TOC -->
 
@@ -35,15 +37,15 @@ The most lightweight, customizable React markdown component.
 
 `markdown-to-jsx` uses a heavily-modified fork of [simple-markdown](https://github.com/Khan/simple-markdown) as its parsing engine and extends it in a number of ways to make your life easier. Notably, this package offers the following additional benefits:
 
--   Arbitrary HTML is supported and parsed into the appropriate JSX representation
-    without `dangerouslySetInnerHTML`
+- Arbitrary HTML is supported and parsed into the appropriate JSX representation
+  without `dangerouslySetInnerHTML`
 
--   Any HTML tags rendered by the compiler and/or `<Markdown>` component can be overridden to include additional
-    props or even a different HTML representation entirely.
+- Any HTML tags rendered by the compiler and/or `<Markdown>` component can be overridden to include additional
+  props or even a different HTML representation entirely.
 
--   GFM task list support.
+- GFM task list support.
 
--   Fenced code blocks with [highlight.js](https://highlightjs.org/) support.
+- Fenced code blocks with [highlight.js](https://highlightjs.org/) support.
 
 All this clocks in at around 5 kB gzipped, which is a fraction of the size of most other React markdown components.
 
@@ -63,7 +65,7 @@ npm i markdown-to-jsx
 
 ES6-style usage\*:
 
-```jsx
+```javascript
 import Markdown from 'markdown-to-jsx';
 import React from 'react';
 import { render } from 'react-dom';
@@ -97,7 +99,7 @@ But this string would be considered "block" due to the existence of a header tag
 
 However, if you really want all input strings to be treated as "block" layout, simply pass `options.forceBlock = true` like this:
 
-```jsx
+```javascript
 <Markdown options={{ forceBlock: true }}>Hello there old chap!</Markdown>;
 
 // or
@@ -113,7 +115,7 @@ compiler('Hello there old chap!', { forceBlock: true });
 
 The inverse is also available by passing `options.forceInline = true`:
 
-```jsx
+```javascript
 <Markdown options={{ forceInline: true }}># You got it babe!</Markdown>;
 
 // or
@@ -129,32 +131,32 @@ compiler('# You got it babe!', { forceInline: true });
 
 Pass the `options.overrides` prop to the compiler or `<Markdown>` component to seamlessly revise the rendered representation of any HTML tag. You can choose to change the component itself, add/change props, or both.
 
-```jsx
+```javascript
 import Markdown from 'markdown-to-jsx';
 import React from 'react';
 import { render } from 'react-dom';
 
 // surprise, it's a div instead!
 const MyParagraph = ({ children, ...props }) => (
-    <div {...props}>{children}</div>
+  <div {...props}>{children}</div>
 );
 
 render(
-    <Markdown
-        options={{
-            overrides: {
-                h1: {
-                    component: MyParagraph,
-                    props: {
-                        className: 'foo',
-                    },
-                },
-            },
-        }}
-    >
-        # Hello world!
-    </Markdown>,
-    document.body
+  <Markdown
+    options={{
+      overrides: {
+        h1: {
+          component: MyParagraph,
+          props: {
+            className: 'foo'
+          }
+        }
+      }
+    }}
+  >
+    # Hello world!
+  </Markdown>,
+  document.body
 );
 
 /*
@@ -178,12 +180,12 @@ If you only wish to provide a component override, a simplified syntax is availab
 
 Depending on the type of element, there are some props that must be preserved to ensure the markdown is converted as intended. They are:
 
--   `a`: `title`, `href`
--   `img`: `title`, `alt`, `src`
--   `input[type="checkbox"]`: `checked`, `readonly` (specifically, the one rendered by a GFM task list)
--   `ol`: `start`
--   `td`: `style`
--   `th`: `style`
+- `a`: `title`, `href`
+- `img`: `title`, `alt`, `src`
+- `input[type="checkbox"]`: `checked`, `readonly` (specifically, the one rendered by a GFM task list)
+- `ol`: `start`
+- `td`: `style`
+- `th`: `style`
 
 Any conflicts between passed `props` and the specific properties above will be resolved in favor of `markdown-to-jsx`'s code.
 
@@ -193,7 +195,7 @@ One of the most interesting use cases enabled by the HTML syntax processing in `
 
 By adding an override for the components you plan to use in markdown documents, it's possible to dynamically render almost anything. One possible scenario could be writing documentation:
 
-```jsx
+```javascript
 import Markdown from 'markdown-to-jsx';
 import React from 'react';
 import { render } from 'react-dom';
@@ -210,17 +212,17 @@ as well as a default timezone.
 `;
 
 render(
-    <Markdown
-        children={md}
-        options={{
-            overrides: {
-                DatePicker: {
-                    component: DatePicker,
-                },
-            },
-        }}
-    />,
-    document.body
+  <Markdown
+    children={md}
+    options={{
+      overrides: {
+        DatePicker: {
+          component: DatePicker
+        }
+      }
+    }}
+  />,
+  document.body
 );
 ```
 
@@ -228,7 +230,7 @@ render(
 
 In the following case, `DatePicker` could simply run `parseInt()` on the passed `startTime` for example:
 
-```jsx
+```javascript
 import Markdown from 'markdown-to-jsx';
 import React from 'react';
 import { render } from 'react-dom';
@@ -249,23 +251,23 @@ as well as a default timezone.
 `;
 
 render(
-    <Markdown
-        children={md}
-        options={{
-            overrides: {
-                DatePicker: {
-                    component: DatePicker,
-                },
-            },
-        }}
-    />,
-    document.body
+  <Markdown
+    children={md}
+    options={{
+      overrides: {
+        DatePicker: {
+          component: DatePicker
+        }
+      }
+    }}
+  />,
+  document.body
 );
 ```
 
 Another possibility is to use something like [recompose's `withProps()` HOC](https://github.com/acdlite/recompose/blob/master/docs/API.md#withprops) to create various pregenerated scenarios and then reference them by name in the markdown:
 
-```jsx
+```javascript
 import Markdown from 'markdown-to-jsx';
 import React from 'react';
 import { render } from 'react-dom';
@@ -274,11 +276,11 @@ import withProps from 'recompose/withProps';
 import DatePicker from './date-picker';
 
 const DecemberDatePicker = withProps({
-    range: {
-        start: new Date('2017-12-01'),
-        end: new Date('2017-12-31'),
-    },
-    timezone: 'UTC+5',
+  range: {
+    start: new Date('2017-12-01'),
+    end: new Date('2017-12-31')
+  },
+  timezone: 'UTC+5'
 })(DatePicker);
 
 const md = `
@@ -299,16 +301,16 @@ Here's an example of a DatePicker pre-set to only the month of December:
 `;
 
 render(
-    <Markdown
-        children={md}
-        options={{
-            overrides: {
-                DatePicker,
-                DecemberDatePicker,
-            },
-        }}
-    />,
-    document.body
+  <Markdown
+    children={md}
+    options={{
+      overrides: {
+        DatePicker,
+        DecemberDatePicker
+      }
+    }}
+  />,
+  document.body
 );
 ```
 
@@ -326,19 +328,19 @@ const md = `
 `;
 
 render(
-    <Markdown
-        children={md}
-        options={{
-            createElement(type, props, children) {
-                return (
-                    <div className="parent">
-                        {React.createElement(type, props, children)}
-                    </div>
-                );
-            },
-        }}
-    />,
-    document.body
+  <Markdown
+    children={md}
+    options={{
+      createElement(type, props, children) {
+        return (
+          <div className="parent">
+            {React.createElement(type, props, children)}
+          </div>
+        );
+      }
+    }}
+  />,
+  document.body
 );
 ```
 
@@ -346,7 +348,7 @@ render(
 
 By default, a [lightweight deburring function](https://github.com/probablyup/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate an HTML id from headings. You can override this by passing a function to `options.slugify`. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
 
-```jsx
+```javascript
 <Markdown options={{ slugify: str => str }}># 中文</Markdown>;
 
 // or
@@ -355,7 +357,7 @@ compiler('# 中文', { slugify: str => str });
 
 // renders:
 
-<h1 id="中文">中文</h1>
+<h1 id="中文">中文</h1>;
 ```
 
 ### Getting the smallest possible bundle size
@@ -364,10 +366,10 @@ Many development conveniences are placed behind `process.env.NODE_ENV !== "produ
 
 Here are instructions for some of the popular bundlers:
 
--   [webpack](https://webpack.js.org/guides/production/#specify-the-environment)
--   [browserify plugin](https://github.com/hughsk/envify)
--   [parcel](https://parceljs.org/production.html)
--   [fuse-box](http://fuse-box.org/plugins/replace-plugin#notes)
+- [webpack](https://webpack.js.org/guides/production/#specify-the-environment)
+- [browserify plugin](https://github.com/hughsk/envify)
+- [parcel](https://parceljs.org/production.html)
+- [fuse-box](http://fuse-box.org/plugins/replace-plugin#notes)
 
 ### Usage with Preact
 
@@ -381,7 +383,7 @@ People usually write HTML like this:
 
 ```html
 <div>
-    Hey, how are you?
+  Hey, how are you?
 </div>
 ```
 
@@ -391,9 +393,7 @@ To get around this, `markdown-to-jsx` left-trims approximately as much whitespac
 
 ```html
 <div>
-  # Hello
-
-  How are you?
+  # Hello How are you?
 </div>
 ```
 
@@ -413,11 +413,12 @@ The two leading spaces in front of "# Hello" would be left-trimmed from all line
 
 ✅
 
-```md
+````md
 <div>
 ```js
 var some = code();
-```
+````
+
 </div>
 ```
 
@@ -425,7 +426,7 @@ var some = code();
 
 If desired, the compiler function is a "named" export on the `markdown-to-jsx` module:
 
-```jsx
+```javascript
 import { compiler } from 'markdown-to-jsx';
 import React from 'react';
 import { render } from 'react-dom';

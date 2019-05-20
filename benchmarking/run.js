@@ -14,7 +14,9 @@ const fixture = fs.readFileSync('./fixture.md', 'utf8');
 suite
   .addFunction('markdown-to-jsx', input => compiler(input))
   .addFunction('react-markdown', input => new ReactMarkdown({ source: input }))
-  .addFunction('simple-markdown', input => SimpleMarkdown.defaultReactOutput(SimpleMarkdown.defaultBlockParse(input)))
+  .addFunction('simple-markdown', input =>
+    SimpleMarkdown.defaultReactOutput(SimpleMarkdown.defaultBlockParse(input))
+  )
   .addFunction('markdown-it', input => mdIt.render(input))
   .addInput('simple markdown string', ['_Hello_ **world**!'])
   .addInput('large markdown string', [fixture])
@@ -23,4 +25,4 @@ suite
     console.log(suite.table.toString());
   })
   // run async
-  .run({ 'async': true });
+  .run({ async: true });
