@@ -6,7 +6,7 @@
   },
   "homepage": "https://probablyup.github.io/markdown-to-jsx",
   "license": "MIT",
-  "version": "6.9.4",
+  "version": "6.9.5",
   "engines": {
     "node": ">= 4"
   },
