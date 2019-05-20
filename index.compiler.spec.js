@@ -63,15 +63,23 @@ it('wraps solely inline elements in a span, rather than a div', () => {
 });
 
 it('wraps solely begining or ending inline elements together with following paragraph', () => {
-  render(compiler("#Hey\n<ins>Insertion before text</ins> followed by some text"));
-
-console.log(root.innerHTML);
+  render(compiler("#Hey\n<ins>Insertion before text</ins> followed by some text <del>not anymore finishing by other text</del>"));
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
 
 <div data-reactroot>
-  <h1>Hey</h1>
-  <p><ins>Insertion before text</ins> followed by some text</p>
+  <h1 id="hey">
+    Hey
+  </h1>
+  <p>
+    <ins>
+      Insertion before text
+    </ins>
+    followed by some text
+    <del>
+      not anymore finishing by other text
+    </del>
+  </p>
 </div>
 
 `);
