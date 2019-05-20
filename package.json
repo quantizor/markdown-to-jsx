@@ -1,6 +1,9 @@
 {
-  "name": "markdown-to-jsx",
+  "name": "@swiftcarrot/react-markdown",
   "description": "Convert markdown to JSX with ease for React and React-like projects. Super lightweight and highly configurable.",
+  "publishConfig": {
+    "access": "public"
+  },
   "homepage": "https://probablyup.github.io/markdown-to-jsx",
   "license": "MIT",
   "version": "6.9.4",
