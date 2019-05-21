@@ -277,11 +277,10 @@ const INLINE_TAGNAMES = [  // This is a list of tag wich by wrapped by arounding
   'u'
 ];
 
-function isInlineElement(inputTagName) {
-  return INLINE_TAGNAMES.some(tagName => tagName == inputTagName);
-}
-function hasInlineProperty(properties) {
-  return (properties && properties.match(/(" |^)inline(\/?$| )/i)) || false;
+function isInlineElement(inputTagName, propertiesString) {
+  return INLINE_TAGNAMES.some(tagName => tagName == inputTagName)
+    || (propertiesString && propertiesString.match(/(" |^)inline(\/?$| )/i))  // has the `inline` property ?
+    || false;
 }
 // function isSimpleElement(inputTagName) {  // Not currently used
 //   return SIMPLE_TAGNAMES.some(tagName => tagName == inputTagName);
@@ -571,7 +570,7 @@ function htmlDependantScopeRegex(regex) {
   return function match(source, state) {
     const capture = regex.exec(source);
     if (capture) {
-      const isInline = isInlineElement(capture[1]) || hasInlineProperty(capture[2]);
+      const isInline = isInlineElement(capture[1], capture[2]);
       // const isSimple = isSimpleElement(capture[1]);  // Not currently used
       if (isInline && !state.inline) return null;
       // if (isSimple && !state.simple) return null;  // Not currently used
