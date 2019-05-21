@@ -280,11 +280,8 @@ const INLINE_TAGNAMES = [  // This is a list of tag wich by wrapped by arounding
 function isInlineElement(inputTagName) {
   return INLINE_TAGNAMES.some(tagName => tagName == inputTagName);
 }
-function hasInlineTag(tags) {
-  if(tags) {
-    return !!tags.match(/(" |^)inline(\/?$| )/i);
-  }
-  return false;
+function hasInlineProperty(properties) {
+  return (properties && properties.match(/(" |^)inline(\/?$| )/i)) || false;
 }
 // function isSimpleElement(inputTagName) {  // Not currently used
 //   return SIMPLE_TAGNAMES.some(tagName => tagName == inputTagName);
@@ -574,7 +571,7 @@ function htmlDependantScopeRegex(regex) {
   return function match(source, state) {
     const capture = regex.exec(source);
     if (capture) {
-      const isInline = isInlineElement(capture[1]) || hasInlineTag(capture[2]);
+      const isInline = isInlineElement(capture[1]) || hasInlineProperty(capture[2]);
       // const isSimple = isSimpleElement(capture[1]);  // Not currently used
       if (isInline && !state.inline) return null;
       // if (isSimple && !state.simple) return null;  // Not currently used
