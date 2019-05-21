@@ -282,8 +282,7 @@ function isInlineElement(inputTagName) {
 }
 function hasInlineTag(tags) {
   if(tags) {
-    console.log(tags, tags.match(/("\ |^)inline(\/?$|\ )/i))
-    return !!tags.match(/("\ |^)inline(\/?$|\ )/i);
+    return !!tags.match(/(" |^)inline(\/?$| )/i);
   }
   return false;
 }

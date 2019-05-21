@@ -84,6 +84,25 @@ it('wraps solely begining or ending inline elements together with following para
 
 `);
 });
+it('wraps solely begining or ending elements together with following paragraph when inline props is set', () => {
+  render(compiler("#Hey\n<a href=\"#\" inline>Inline insertion before text</a> followed by some text"));
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<div data-reactroot>
+  <h1 id="hey">
+    Hey
+  </h1>
+  <p>
+    <a href="#">
+      Inline insertion before text
+    </a>
+    followed by some text
+  </p>
+</div>
+
+`);
+});
 
 it('#190 perf regression', () => {
   render(
