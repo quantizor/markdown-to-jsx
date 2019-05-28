@@ -719,7 +719,6 @@ export function compiler(markdown, options) {
   options.namedCodesToUnicode = options.namedCodesToUnicode 
     ? {...namedCodesToUnicode, ...options.namedCodesToUnicode}
     : namedCodesToUnicode;
-  
 
   const createElementFn = options.createElement || React.createElement;
 
