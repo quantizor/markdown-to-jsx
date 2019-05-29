@@ -2392,6 +2392,18 @@ $25
 `);
   });
 
+  it('does not parse the inside of <script> blocks with weird capitalization', () => {
+    render(compiler(['<SCRIPT>', '  new Date();', '</SCRIPT>'].join('\n')));
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<script data-reactroot>
+  new Date();
+</script>
+
+`);
+  });
+
   it('handles nested tags of the same type with attributes', () => {
     render(
       compiler(
