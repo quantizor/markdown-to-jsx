@@ -716,6 +716,9 @@ export function compiler(markdown, options) {
   options = options || {};
   options.overrides = options.overrides || {};
   options.slugify = options.slugify || slugify;
+  options.namedCodesToUnicode = options.namedCodesToUnicode 
+    ? {...namedCodesToUnicode, ...options.namedCodesToUnicode}
+    : namedCodesToUnicode;
 
   const createElementFn = options.createElement || React.createElement;
 
@@ -1420,8 +1423,8 @@ export function compiler(markdown, options) {
           content: capture[0]
             // nbsp -> unicode equivalent for named chars
             .replace(HTML_CHAR_CODE_R, (full, inner) => {
-              return namedCodesToUnicode[inner]
-                ? namedCodesToUnicode[inner]
+              return options.namedCodesToUnicode[inner]
+                ? options.namedCodesToUnicode[inner]
                 : full;
             }),
         };

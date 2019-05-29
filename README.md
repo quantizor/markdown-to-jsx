@@ -16,6 +16,7 @@ The most lightweight, customizable React markdown component.
         - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
         - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
         - [options.slugify](#optionsslugify)
+        - [options.namedCodesToUnicode](#optionsnamedcodestounicode)
     - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
     - [Usage with Preact](#usage-with-preact)
 - [Gotchas](#gotchas)
@@ -356,6 +357,37 @@ compiler('# 中文', { slugify: str => str });
 // renders:
 
 <h1 id="中文">中文</h1>
+```
+
+#### options.namedCodesToUnicode
+
+By default only a couple of named html codes are converted to unicode characters:
+
+* `&` (`&amp;`)
+* `'` (`&apos;`)
+* `>` (`&gt;`)
+* `<` (`&lt;`)
+* ` ` (`&nbsp;`)
+* `"` (`&quot;`)
+
+Some projects require to extend this map of named codes and unicode characters. To customize this list with additional html codes pass the option namedCodesToUnicode as object with the code names needed as in the example below:
+
+```jsx
+<Markdown options={{ namedCodesToUnicode: {
+    le: '\u2264',
+    ge: '\u2265',
+} }}>This text is &le; than this text.</Markdown>;
+
+// or
+
+compiler('This text is &le; than this text.', namedCodesToUnicode: {
+    le: '\u2264',
+    ge: '\u2265',
+});
+
+// renders:
+
+<p>This text is ≤ than this text.</p>
 ```
 
 ### Getting the smallest possible bundle size
