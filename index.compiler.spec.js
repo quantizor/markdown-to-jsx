@@ -2702,6 +2702,28 @@ fun main() {
 
 `);
   });
+ it('should not fail with lots of \\n in the middle of the text', () => {
+    render(
+      compiler(
+        'Text\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\ntext',
+        {
+          forceBlock: true,
+        }
+      )
+    );
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<div data-reactroot>
+  <p>
+    Text
+  </p>
+  <p>
+    text
+  </p>
+</div>
+
+`);
+  });
 });
 
 describe('horizontal rules', () => {
