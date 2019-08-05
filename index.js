@@ -167,11 +167,12 @@ const REFERENCE_LINK_R = /^\[([^\]]*)\] ?\[([^\]]*)\]/;
 const SQUARE_BRACKETS_R = /(\[|\])/g;
 const SHOULD_RENDER_AS_BLOCK_R = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/;
 const TAB_R = /\t/g;
+const TABLE_SEPARATOR_R = /^ *\| */;
 const TABLE_TRIM_PIPES = /(^ *\||\| *$)/g;
+const TABLE_CELL_END_TRIM = / *$/;
 const TABLE_CENTER_ALIGN = /^ *:-+: *$/;
 const TABLE_LEFT_ALIGN = /^ *:-+ *$/;
 const TABLE_RIGHT_ALIGN = /^ *-+: *$/;
-const TABLE_ROW_SPLIT = / *\| */;
 
 const TEXT_BOLD_R = /^([*_])\1((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1\1(?!\1)/;
 const TEXT_EMPHASIZED_R = /^([*_])((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1(?!\1)/;
@@ -287,46 +288,56 @@ function parseTableAlignCapture(alignCapture) {
   return null;
 }
 
-function parseTableHeader(capture, parse, state) {
-  const headerText = capture[1]
-    .replace(TABLE_TRIM_PIPES, '')
-    .trim()
-    .split(TABLE_ROW_SPLIT);
+function parseTableRow(source, parse, state) {
+  const prevInTable = state.inTable;
+  state.inTable = true;
+  const tableRow = parse(source.trim(), state);
+  state.inTable = prevInTable;
 
-  return headerText.map(function(text) {
-    return parse(text, state);
+  let cells = [[]];
+  tableRow.forEach(function(node, i) {
+    if (node.type === 'tableSeparator') {
+      // Filter out empty table separators at the start/end:
+        if (i !== 0 && i !== tableRow.length - 1) {
+          // Split the current row:
+          cells.push([]);
+        }
+    } else {
+      if (node.type === 'text' && (
+        tableRow[i + 1] == null ||
+        tableRow[i + 1].type === 'tableSeparator'
+      )) {
+        node.content = node.content.replace(TABLE_CELL_END_TRIM, "");
+      }
+      cells[cells.length - 1].push(node);
+    }
   });
+  return cells;
 }
 
-function parseTableAlign(capture /*, parse, state*/) {
-  const alignText = capture[2]
+function parseTableAlign(source /*, parse, state*/) {
+  const alignText = source
     .replace(TABLE_TRIM_PIPES, '')
-    .trim()
-    .split(TABLE_ROW_SPLIT);
+    .split('|');
 
   return alignText.map(parseTableAlignCapture);
 }
 
-function parseTableCells(capture, parse, state) {
-  const rowsText = capture[3]
+function parseTableCells(source, parse, state) {
+  const rowsText = source
     .trim()
     .split('\n');
 
   return rowsText.map(function(rowText) {
-    return rowText
-      .replace(TABLE_TRIM_PIPES, '')
-      .split(TABLE_ROW_SPLIT)
-      .map(function(text) {
-        return parse(text.trim(), state);
-      });
+      return parseTableRow(rowText, parse, state);
   });
 }
 
 function parseTable(capture, parse, state) {
   state.inline = true;
-  const header = parseTableHeader(capture, parse, state);
-  const align = parseTableAlign(capture, parse, state);
-  const cells = parseTableCells(capture, parse, state);
+  const header = parseTableRow(capture[1], parse, state);
+  const align = parseTableAlign(capture[2], parse, state);
+  const cells = parseTableCells(capture[3], parse, state);
   state.inline = false;
 
   return {
@@ -1411,6 +1422,21 @@ export function compiler(markdown, options) {
           </table>
         );
       },
+    },
+
+    tableSeparator: {
+      match: function(source, state) {
+        if (!state.inTable) {
+            return null;
+        }
+        return TABLE_SEPARATOR_R.exec(source);
+      },
+      order: PARSE_PRIORITY_HIGH,
+      parse: function() {
+          return { type: 'tableSeparator' };
+      },
+      // These shouldn't be reached, but in case they are, be reasonable:
+      react() { return ' | '; }
     },
 
     text: {
