@@ -1698,6 +1698,89 @@ describe('GFM tables', () => {
 
 `);
   });
+
+  it('should handle escaped pipes inside a table', () => {
+    render(
+      compiler(
+        [
+          '| \\|Attribute\\| | \\|Type\\|         |',
+          '| --------------- | ------------------ |',
+          '| pos\\|position  | "left" \\| "right" |',
+        ].join('\n')
+      )
+    );
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<table data-reactroot>
+  <thead>
+    <tr>
+      <th>
+        |Attribute|
+      </th>
+      <th>
+        |Type|
+      </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        pos|position
+      </td>
+      <td>
+        "left" | "right"
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+`);
+  });
+
+  it('should handle pipes in code inside a table', () => {
+    render(
+      compiler(
+        [
+          '| Attribute    | Type                  |',
+          '| ------------ | --------------------- |',
+          '| `position`   | `"left" | "right"`    |',
+        ].join('\n')
+      )
+    );
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<table data-reactroot>
+  <thead>
+    <tr>
+      <th>
+        Attribute
+      </th>
+      <th>
+        Type
+      </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <code>
+          position
+        </code>
+      </td>
+      <td>
+        <code>
+          "left" | "right"
+        </code>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+`);
+  });
+
 });
 
 describe('arbitrary HTML', () => {
