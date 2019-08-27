@@ -489,7 +489,7 @@ Like this library? It's developed entirely on a volunteer basis; chip in a few b
 
 ### Contributors
 
-This project exists thanks to all the people who contribute. [[Contribute](CONTRIBUTING.md)].
+This project exists thanks to all the people who contribute.
 <a href="graphs/contributors"><img src="https://opencollective.com/markdown-to-jsx/contributors.svg?width=890&button=false" /></a>
 
 ### Backers
