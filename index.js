@@ -160,7 +160,7 @@ const LIST_ITEM_END_R = / *\n+$/;
 const LIST_LOOKBEHIND_R = /(?:^|\n)( *)$/;
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi;
 const NP_TABLE_R = /^(.*\|?.*)\n *(\|? *[-:]+ *\|[-| :]*)\n((?:.*\|.*\n)*)\n?/;
-const PARAGRAPH_R = /^((?:[^\n]|\n(?! *\n))+)(?:\n *)+\n/;
+const PARAGRAPH_R = /^((?:[^\n]+\n)+?(?=\n|\s*(?:[-*+]|\d+\.)\s|#|>\s|`{3,}(?=[^`]*`{3,})))(?: *\n+|\n*)/;
 const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s*(\S+)\s*("([^"]*)")?/;
 const REFERENCE_IMAGE_R = /^!\[([^\]]*)\] ?\[([^\]]*)\]/;
 const REFERENCE_LINK_R = /^\[([^\]]*)\] ?\[([^\]]*)\]/;
@@ -729,7 +729,7 @@ export function compiler(markdown, options) {
   options = options || {};
   options.overrides = options.overrides || {};
   options.slugify = options.slugify || slugify;
-  options.namedCodesToUnicode = options.namedCodesToUnicode 
+  options.namedCodesToUnicode = options.namedCodesToUnicode
     ? {...namedCodesToUnicode, ...options.namedCodesToUnicode}
     : namedCodesToUnicode;
 
