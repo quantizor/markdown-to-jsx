@@ -1975,6 +1975,21 @@ describe('arbitrary HTML', () => {
 `);
   });
 
+  it('throws out multiline HTML comments', () => {
+    render(compiler(`Foo\n<!-- this is
+a
+multiline
+comment -->`));
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<p data-reactroot>
+  Foo
+</p>
+
+`);
+  });
+
   it('block HTML regression test', () => {
     render(
       compiler(`
