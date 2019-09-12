@@ -827,6 +827,10 @@ export function compiler(markdown, options) {
       : undefined;
   }
 
+  function stripHtmlComments(html) {
+    return html.replace(/<!--[\s\S]*?(?:-->)/g, '')
+  }
+
   /* istanbul ignore next */
   if (process.env.NODE_ENV !== 'production') {
     if (typeof markdown !== 'string') {
@@ -1552,7 +1556,7 @@ export function compiler(markdown, options) {
   const parser = parserFor(rules);
   const emitter = reactFor(ruleOutput(rules));
 
-  const jsx = compile(markdown);
+  const jsx = compile(stripHtmlComments(markdown));
 
   if (footnotes.length) {
     jsx.props.children.push(
