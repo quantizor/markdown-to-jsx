@@ -141,6 +141,8 @@ export namespace MarkdownToJSX {
      */
     overrides: Overrides
 
+    wrapper: React.ElementType,
+
     /**
      * Override normalization of non-URI-safe characters for use in generating
      * HTML IDs for anchor linking purposes.
@@ -957,26 +959,28 @@ export function compiler(
       )
     )
 
+    if (options.wrapper === null) {
+      return arr
+    }
+
+    const wrapper = options.wrapper || inline ? 'span' : 'div'
     let jsx
+
     if (arr.length > 1) {
-      jsx = inline ? (
-        <span key="outer">{arr}</span>
-      ) : (
-        <div key="outer">{arr}</div>
-      )
+      jsx = arr
     } else if (arr.length === 1) {
       jsx = arr[0]
 
       // TODO: remove this for React 16
-      if (typeof jsx === 'string') {
-        jsx = <span key="outer">{jsx}</span>
+      if (typeof jsx !== 'string') {
+        return jsx
       }
     } else {
       // TODO: return null for React 16
-      jsx = <span key="outer" />
+      jsx = null
     }
 
-    return jsx
+    return React.createElement(wrapper, { key: 'outer' }, jsx)
   }
 
   function attrStringToMap(str: string): React.Props<any> {
@@ -1777,7 +1781,7 @@ export function compiler(
   }
 
   const parser = parserFor(rules)
-  const emitter = reactFor(ruleOutput(rules))
+  const emitter: Function = reactFor(ruleOutput(rules))
 
   const jsx = compile(stripHtmlComments(markdown))
 
