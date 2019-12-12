@@ -2822,6 +2822,46 @@ fun main() {
 
 `);
   });
+
+  it('should not render html if disableParsingRawHTML is true', () => {
+    render(
+      compiler(
+          'Text with <span>html</span> inside',
+          {
+            disableParsingRawHTML: true
+          }
+      )
+    );
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<span data-reactroot>
+  Text with &lt;span&gt;html&lt;/span&gt; inside
+</span>
+
+`);
+  });
+
+  it('should render html if disableParsingRawHTML is false', () => {
+    render(
+      compiler(
+          'Text with <span>html</span> inside',
+          {
+            disableParsingRawHTML: false
+          }
+      )
+    );
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<span data-reactroot>
+  Text with
+  <span>
+    html
+  </span>
+  inside
+</span>
+
+`);
+  });
 });
 
 describe('horizontal rules', () => {

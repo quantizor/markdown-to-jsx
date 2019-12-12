@@ -1030,47 +1030,6 @@ export function compiler(markdown, options) {
       },
     },
 
-    htmlBlock: {
-      /**
-       * find the first matching end tag and process the interior
-       */
-      match: anyScopeRegex(HTML_BLOCK_ELEMENT_R),
-      order: PARSE_PRIORITY_HIGH,
-      parse(capture, parse, state) {
-        const [, whitespace] = capture[3].match(HTML_LEFT_TRIM_AMOUNT_R);
-        const trimmer = new RegExp(`^${whitespace}`, 'gm');
-        const trimmed = capture[3].replace(trimmer, '');
-
-        const parseFunc = containsBlockSyntax(trimmed)
-          ? parseBlock
-          : parseInline;
-
-        const tagName = capture[1].toLowerCase();
-        const noInnerParse =
-          DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(tagName) !== -1;
-
-        return {
-          attrs: attrStringToMap(capture[2]),
-          /**
-           * if another html block is detected within, parse as block,
-           * otherwise parse as inline to pick up any further markdown
-           */
-          content: noInnerParse ? capture[3] : parseFunc(parse, trimmed, state),
-
-          noInnerParse,
-
-          tag: noInnerParse ? tagName : capture[1]
-        };
-      },
-      react(node, output, state) {
-        return (
-          <node.tag key={state.key} {...node.attrs}>
-            {node.noInnerParse ? node.content : output(node.content, state)}
-          </node.tag>
-        );
-      },
-    },
-
     htmlComment: {
       match: anyScopeRegex(HTML_COMMENT_R),
       order: PARSE_PRIORITY_HIGH,
@@ -1078,23 +1037,6 @@ export function compiler(markdown, options) {
         return {};
       },
       react: renderNothing,
-    },
-
-    htmlSelfClosing: {
-      /**
-       * find the first matching end tag and process the interior
-       */
-      match: anyScopeRegex(HTML_SELF_CLOSING_ELEMENT_R),
-      order: PARSE_PRIORITY_HIGH,
-      parse(capture /*, parse, state*/) {
-        return {
-          attrs: attrStringToMap(capture[2] || ''),
-          tag: capture[1],
-        };
-      },
-      react(node, output, state) {
-        return <node.tag {...node.attrs} key={state.key} />;
-      },
     },
 
     image: {
@@ -1552,6 +1494,66 @@ export function compiler(markdown, options) {
   //         return result;
   //     };
   // });
+
+  if (options.disableParsingRawHTML !== true) {
+    rules.htmlBlock = {
+      /**
+       * find the first matching end tag and process the interior
+       */
+      match: anyScopeRegex(HTML_BLOCK_ELEMENT_R),
+      order: PARSE_PRIORITY_HIGH,
+      parse(capture, parse, state) {
+        const [, whitespace] = capture[3].match(HTML_LEFT_TRIM_AMOUNT_R);
+        const trimmer = new RegExp(`^${whitespace}`, 'gm');
+        const trimmed = capture[3].replace(trimmer, '');
+
+        const parseFunc = containsBlockSyntax(trimmed)
+          ? parseBlock
+          : parseInline;
+
+        const tagName = capture[1].toLowerCase();
+        const noInnerParse =
+          DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(tagName) !== -1;
+
+        return {
+          attrs: attrStringToMap(capture[2]),
+          /**
+           * if another html block is detected within, parse as block,
+           * otherwise parse as inline to pick up any further markdown
+           */
+          content: noInnerParse ? capture[3] : parseFunc(parse, trimmed, state),
+
+          noInnerParse,
+
+          tag: noInnerParse ? tagName : capture[1]
+        };
+      },
+      react(node, output, state) {
+        return (
+          <node.tag key={state.key} {...node.attrs}>
+            {node.noInnerParse ? node.content : output(node.content, state)}
+          </node.tag>
+        );
+      },
+    }
+
+    rules.htmlSelfClosing = {
+      /**
+       * find the first matching end tag and process the interior
+       */
+      match: anyScopeRegex(HTML_SELF_CLOSING_ELEMENT_R),
+      order: PARSE_PRIORITY_HIGH,
+      parse(capture /*, parse, state*/) {
+        return {
+          attrs: attrStringToMap(capture[2] || ''),
+          tag: capture[1],
+        };
+      },
+      react(node, output, state) {
+        return <node.tag {...node.attrs} key={state.key} />;
+      },
+    };
+  }
 
   const parser = parserFor(rules);
   const emitter = reactFor(ruleOutput(rules));
