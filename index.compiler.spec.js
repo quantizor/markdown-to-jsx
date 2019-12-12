@@ -3342,6 +3342,44 @@ describe('overrides', () => {
 
 `);
   });
+
+  it('should substitute the appropriate JSX tag if given a component and disableParsingRawHTML is true', () => {
+    const FakeParagraph = ({ children }) => <p className="foo">{children}</p>;
+
+    render(
+      compiler('Hello.\n\n', {
+        overrides: { p: { component: FakeParagraph } },
+        options: { disableParsingRawHTML: true }
+      })
+    );
+
+    expect(root.children[0].className).toBe('foo');
+    expect(root.children[0].textContent).toBe('Hello.');
+  });
+
+  it('should substitute the appropriate JSX tag inline if given a component and disableParsingRawHTML is true', () => {
+    const FakeSpan = ({ children }) => <span className="foo">{children}</span>;
+
+    render(
+      compiler('Hello.\n\n<FakeSpan>I am a fake span</FakeSpan>', {
+        overrides: { FakeSpan },
+        options: { disableParsingRawHTML: true }
+      })
+    );
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<div data-reactroot>
+  <p>
+    Hello.
+  </p>
+  <span class="foo">
+    I am a fake span
+  </span>
+</div>
+
+`);
+  });
 });
 
 it('handles a holistic example', () => {
