@@ -78,7 +78,7 @@ render(<Markdown># Hello world!</Markdown>, document.body);
  */
 ```
 
-\* **NOTE: JSX does not natively preserve newlines in multiline text. In general, writing markdown directly in JSX is discouraged and it's a better idea to keep your content in separate .md files and require them, perhaps using webpack's [raw-loader](https://github.com/webpack-contrib/raw-loader).**
+\* **NOTE: JSX does not natively preserve newlines in multiline text. In general, writing markdown directly in JSX is discouraged and it's a better idea to keep your content in separate .md files and require them, perhaps using webpack's [raw-loader](https://github.com/webpack-contrib/raw-loader) or [transpile-md-to-json](https://www.npmjs.com/package/transpile-md-to-json).**
 
 ### Parsing Options
 
