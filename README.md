@@ -1,3 +1,12 @@
+**Deprecated**
+I tried to solve https://github.com/probablyup/markdown-to-jsx/issues/220 : Newline was lost if last element of the line is an HTML one.
+Unfortunately, I didn't find any acceptable solution.
+
+_Possible workaround:_
+( Using https://github.com/probablyup/markdown-to-jsx )
+I personally use a (ugly) workaround on my local project: I append `*<span></span>*` after each custom html element which is at a end of line. Because the issue doesn't hit text bolded with markdown, I use this property.
+
+
 **markdown-to-jsx**
 
 The most lightweight, customizable React markdown component.
