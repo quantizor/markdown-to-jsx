@@ -2822,6 +2822,46 @@ fun main() {
 
 `);
   });
+
+  it('should not render html if disableParsingRawHTML is true', () => {
+    render(
+      compiler(
+          'Text with <span>html</span> inside',
+          {
+            disableParsingRawHTML: true
+          }
+      )
+    );
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<span data-reactroot>
+  Text with &lt;span&gt;html&lt;/span&gt; inside
+</span>
+
+`);
+  });
+
+  it('should render html if disableParsingRawHTML is false', () => {
+    render(
+      compiler(
+          'Text with <span>html</span> inside',
+          {
+            disableParsingRawHTML: false
+          }
+      )
+    );
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<span data-reactroot>
+  Text with
+  <span>
+    html
+  </span>
+  inside
+</span>
+
+`);
+  });
 });
 
 describe('horizontal rules', () => {
@@ -3299,6 +3339,44 @@ describe('overrides', () => {
        class="foo"
        value="on"
 >
+
+`);
+  });
+
+  it('should substitute the appropriate JSX tag if given a component and disableParsingRawHTML is true', () => {
+    const FakeParagraph = ({ children }) => <p className="foo">{children}</p>;
+
+    render(
+      compiler('Hello.\n\n', {
+        overrides: { p: { component: FakeParagraph } },
+        options: { disableParsingRawHTML: true }
+      })
+    );
+
+    expect(root.children[0].className).toBe('foo');
+    expect(root.children[0].textContent).toBe('Hello.');
+  });
+
+  it('should substitute the appropriate JSX tag inline if given a component and disableParsingRawHTML is true', () => {
+    const FakeSpan = ({ children }) => <span className="foo">{children}</span>;
+
+    render(
+      compiler('Hello.\n\n<FakeSpan>I am a fake span</FakeSpan>', {
+        overrides: { FakeSpan },
+        options: { disableParsingRawHTML: true }
+      })
+    );
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<div data-reactroot>
+  <p>
+    Hello.
+  </p>
+  <span class="foo">
+    I am a fake span
+  </span>
+</div>
 
 `);
   });

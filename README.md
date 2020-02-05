@@ -17,6 +17,7 @@ The most lightweight, customizable React markdown component.
         - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
         - [options.slugify](#optionsslugify)
         - [options.namedCodesToUnicode](#optionsnamedcodestounicode)
+        - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
     - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
     - [Usage with Preact](#usage-with-preact)
 - [Gotchas](#gotchas)
@@ -388,6 +389,24 @@ compiler('This text is &le; than this text.', namedCodesToUnicode: {
 // renders:
 
 <p>This text is ≤ than this text.</p>
+```
+
+#### options.disableParsingRawHTML
+
+By default, raw HTML is parsed to JSX. This behavior can be disabled with this option.
+
+```jsx
+<Markdown options={{ disableParsingRawHTML: true }}>
+    This text has <span>html</span> in it but it won't be rendered
+</Markdown>;
+
+// or
+
+compiler('This text has <span>html</span> in it but it won't be rendered', { disableParsingRawHTML: true });
+
+// renders:
+
+<span>This text has &lt;span&gt;html&lt;/span&gt; in it but it won't be rendered</span>
 ```
 
 ### Getting the smallest possible bundle size
