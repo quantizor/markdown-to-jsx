@@ -140,7 +140,9 @@ const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/;
  * 6. Capture excess newlines afterward
  *    \n*
  */
-const HTML_BLOCK_ELEMENT_R = /^ *(?!<[a-z][^ >/]* ?\/>)<([a-z][^ >/]*) ?([^>]*)\/{0}>\n?(\s*(?:<\1[^>]*?>[\s\S]*?<\/\1>|(?!<\1)[\s\S])*?)<\/\1>\n*/i;
+const HTML_TAG_S = '[a-z][^ >/]*'
+const BLOCK_ELEMENT_S = `^ *(?!<${HTML_TAG_S} ?\\/>)<(%TAG%) ?([^>]*)\\/{0}>\\n?(\\s*(?:<\\1[^>]*?>[\\s\\S]*?<\\/\\1>|(?!<\\1)[\\s\\S])*?)<\\/\\1>\n*`;
+const HTML_BLOCK_ELEMENT_R = new RegExp(BLOCK_ELEMENT_S.replace('%TAG%', HTML_TAG_S), 'i');
 
 const HTML_CHAR_CODE_R = /&([a-z]+);/g;
 
@@ -151,7 +153,8 @@ const HTML_COMMENT_R = /^<!--.*?-->/;
  */
 const HTML_CUSTOM_ATTR_R = /^(data|aria|x)-[a-z_][a-z\d_.-]*$/;
 
-const HTML_SELF_CLOSING_ELEMENT_R = /^ *<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*))?\/?>(?!<\/\1>)(\s*\n)?/i;
+const SELF_CLOSING_ELEMENT_S = '^ *<(%TAG%)(?:\\s+((?:<.*?>|[^>])*))?\\/?>(?!<\\/\\1>)(\\s*\\n)?';
+const HTML_SELF_CLOSING_ELEMENT_R = new RegExp(SELF_CLOSING_ELEMENT_S.replace('%TAG%', '[a-z][a-z0-9:]*'), 'i');
 const INTERPOLATION_R = /^\{.*\}$/;
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/;
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/;
@@ -1495,12 +1498,20 @@ export function compiler(markdown, options) {
   //     };
   // });
 
-  if (options.disableParsingRawHTML !== true) {
+  const overrideTags = options.disableParsingRawHTML && options.overrides && Object.keys(options.overrides);
+  const blockRegEx = overrideTags
+    ? new RegExp(BLOCK_ELEMENT_S.replace('%TAG%', overrideTags.join('|')), 'i')
+    : HTML_BLOCK_ELEMENT_R;
+  const selfClosingRegEx = overrideTags
+    ? new RegExp(SELF_CLOSING_ELEMENT_S.replace('%TAG%', overrideTags.join('|')), 'i')
+    : HTML_SELF_CLOSING_ELEMENT_R;
+
+  if (!options.disableParsingRawHTML || overrideTags) {
     rules.htmlBlock = {
       /**
        * find the first matching end tag and process the interior
        */
-      match: anyScopeRegex(HTML_BLOCK_ELEMENT_R),
+      match: anyScopeRegex(blockRegEx),
       order: PARSE_PRIORITY_HIGH,
       parse(capture, parse, state) {
         const [, whitespace] = capture[3].match(HTML_LEFT_TRIM_AMOUNT_R);
@@ -1541,7 +1552,7 @@ export function compiler(markdown, options) {
       /**
        * find the first matching end tag and process the interior
        */
-      match: anyScopeRegex(HTML_SELF_CLOSING_ELEMENT_R),
+      match: anyScopeRegex(selfClosingRegEx),
       order: PARSE_PRIORITY_HIGH,
       parse(capture /*, parse, state*/) {
         return {

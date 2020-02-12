@@ -3349,7 +3349,7 @@ describe('overrides', () => {
     render(
       compiler('Hello.\n\n', {
         overrides: { p: { component: FakeParagraph } },
-        options: { disableParsingRawHTML: true }
+        disableParsingRawHTML: true
       })
     );
 
@@ -3363,7 +3363,7 @@ describe('overrides', () => {
     render(
       compiler('Hello.\n\n<FakeSpan>I am a fake span</FakeSpan>', {
         overrides: { FakeSpan },
-        options: { disableParsingRawHTML: true }
+        disableParsingRawHTML: true
       })
     );
 
@@ -3377,6 +3377,60 @@ describe('overrides', () => {
     I am a fake span
   </span>
 </div>
+
+`);
+  });
+
+it('should ignore arbitrary HTML while still substituting the appropriate JSX tag if disableParsingRawHTML is true and overrides given', () => {
+  const FakeSpan = ({ children }) => <span className="foo">{children}</span>;
+
+  render(
+    compiler('Text with <span>html</span> inside.\n\nI am a <FakeSpan>fake span</FakeSpan>', {
+      overrides: { FakeSpan },
+      disableParsingRawHTML: true
+    })
+  );
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<div data-reactroot>
+  <p>
+    Text with &lt;span&gt;html&lt;/span&gt; inside.
+  </p>
+  <p>
+    I am a
+    <span class="foo">
+      fake span
+    </span>
+  </p>
+</div>
+
+`);
+  });
+
+it('should ignore nested HTML but honor nested overrides when disableParsingRawHTML is true', () => {
+  const FakeSpan = ({ children }) => <span className="foo">{children}</span>;
+  const Widget = ({ text }) => <span>{text}</span>;
+
+  render(
+    compiler('I am a <FakeSpan>fake span containing a <Widget text="thing"/> and some <span>html</span></FakeSpan>', {
+      overrides: { FakeSpan, Widget },
+      disableParsingRawHTML: true
+    })
+  );
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<span data-reactroot>
+  I am a
+  <span class="foo">
+    fake span containing a
+    <span>
+      thing
+    </span>
+    and some &lt;span&gt;html&lt;/span&gt;
+  </span>
+</span>
 
 `);
   });
