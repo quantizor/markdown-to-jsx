@@ -3416,7 +3416,7 @@ describe('overrides', () => {
     );
 
     expect(root.children[0].className).toBe('foo');
-    expect(root.children[0].textContent).toBe('Hello.');
+    expect(root.children[0].textContent.trimRight()).toBe('Hello.');
   });
 
   it('should substitute the appropriate JSX tag inline if given a component and disableParsingRawHTML is true', () => {
