@@ -818,7 +818,7 @@ export function compiler(markdown, options) {
                 { key: index }
               );
             }
-          } else {
+          } else if (raw !== 'style') {
             map[ATTRIBUTE_TO_JSX_PROP_MAP[raw] || raw] = true;
           }
 
