@@ -3,7 +3,7 @@
   "description": "Convert markdown to JSX with ease for React and React-like projects. Super lightweight and highly configurable.",
   "homepage": "https://probablyup.github.io/markdown-to-jsx",
   "license": "MIT",
-  "version": "6.11.0",
+  "version": "6.11.1",
   "engines": {
     "node": ">= 4"
   },
