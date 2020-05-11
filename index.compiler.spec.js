@@ -2975,6 +2975,41 @@ describe('footnotes', () => {
 `);
   });
 
+  it('should handle conversion of multiple references into links', () => {
+    render(compiler(['foo[^abc] bar. baz[^def]', '', '[^abc]: Baz baz', '[^def]: Def'].join('\n')));
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<div data-reactroot>
+  <p>
+    foo
+    <a href="#abc">
+      <sup>
+        abc
+      </sup>
+    </a>
+    bar. baz
+    <a href="#def">
+      <sup>
+        def
+      </sup>
+    </a>
+  </p>
+  <footer>
+    <div id="abc">
+      abc
+      : Baz baz
+    </div>
+    <div id="def">
+      def
+      : Def
+    </div>
+  </footer>
+</div>
+
+`);
+  });
+
   it('should inject the definitions in a footer at the end of the root', () => {
     render(compiler(['foo[^abc] bar', '', '[^abc]: Baz baz'].join('\n')));
 
