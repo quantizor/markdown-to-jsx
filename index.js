@@ -111,8 +111,8 @@ const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)+\n?/;
 const CODE_INLINE_R = /^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)/;
 const CONSECUTIVE_NEWLINE_R = /^(?:\n *)*\n/;
 const CR_NEWLINE_R = /\r\n?/g;
-const FOOTNOTE_R = /^\[\^(.*)\](:.*)\n/;
-const FOOTNOTE_REFERENCE_R = /^\[\^(.*)\]/;
+const FOOTNOTE_R = /^\[\^([^\]]+)](:.*)\n/;
+const FOOTNOTE_REFERENCE_R = /^\[\^([^\]]+)]/;
 const FORMFEED_R = /\f/g;
 const GFM_TASK_R = /^\s*?\[(x|\s)\]/;
 const HEADING_R = /^ *(#{1,6}) *([^\n]+)\n{0,2}/;
@@ -966,7 +966,7 @@ export function compiler(markdown, options) {
       parse(capture /*, parse*/) {
         return {
           content: capture[1],
-          target: `#${capture[1]}`,
+          target: `#${options.slugify(capture[1])}`,
         };
       },
       react(node, output, state) {
@@ -1565,7 +1565,7 @@ export function compiler(markdown, options) {
       <footer key="footer">
         {footnotes.map(function createFootnote(def) {
           return (
-            <div id={def.identifier} key={def.identifier}>
+            <div id={options.slugify(def.identifier)} key={def.identifier}>
               {def.identifier}
               {emitter(parser(def.footnote, { inline: true }))}
             </div>

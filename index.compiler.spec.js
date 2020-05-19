@@ -2975,6 +2975,67 @@ describe('footnotes', () => {
 `);
   });
 
+  it('should handle complex references', () => {
+    render(compiler(['foo[^referencé heré 123] bar', '', '[^referencé heré 123]: Baz baz'].join('\n')));
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<div data-reactroot>
+  <p>
+    foo
+    <a href="#reference-here-123">
+      <sup>
+        referencé heré 123
+      </sup>
+    </a>
+    bar
+  </p>
+  <footer>
+    <div id="reference-here-123">
+      referencé heré 123
+      : Baz baz
+    </div>
+  </footer>
+</div>
+
+`);
+  });
+
+  it('should handle conversion of multiple references into links', () => {
+    render(compiler(['foo[^abc] bar. baz[^def]', '', '[^abc]: Baz baz', '[^def]: Def'].join('\n')));
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<div data-reactroot>
+  <p>
+    foo
+    <a href="#abc">
+      <sup>
+        abc
+      </sup>
+    </a>
+    bar. baz
+    <a href="#def">
+      <sup>
+        def
+      </sup>
+    </a>
+  </p>
+  <footer>
+    <div id="abc">
+      abc
+      : Baz baz
+    </div>
+    <div id="def">
+      def
+      : Def
+    </div>
+  </footer>
+</div>
+
+`);
+  });
+
   it('should inject the definitions in a footer at the end of the root', () => {
     render(compiler(['foo[^abc] bar', '', '[^abc]: Baz baz'].join('\n')));
 
