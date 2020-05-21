@@ -90,7 +90,7 @@
   "size-limit": [
     {
       "path": "dist/cjs.js",
-      "limit": "5.28 kB"
+      "limit": "5.30 kB"
     }
   ],
   "jest": {

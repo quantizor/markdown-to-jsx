@@ -626,6 +626,68 @@ describe('headings', () => {
 `);
   });
 
+  it('should handle a paragraph before a heading', () => {
+    render(compiler('Hello\nmulti-line paragraph\n# My Heading'));
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<div data-reactroot>
+  <p>
+    Hello
+multi-line paragraph
+  </p>
+  <h1 id="my-heading">
+    My Heading
+  </h1>
+</div>
+
+`);
+  });
+
+  it('should handle a paragraph before a code block correctly', () => {
+    render(compiler('I am a paragraph\n```\ndo not break the code\n```'));
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<div data-reactroot>
+  <p>
+    I am a paragraph
+  </p>
+  <pre>
+    <code>
+      do not break the code
+    </code>
+  </pre>
+</div>
+
+`);
+  })
+
+  it('should handle paragraphs next to lists correctly', () => {
+    render(compiler('Only one line - following this text\n  - I am a list item\n  - I am too\n\nnew paragraph'));
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<div data-reactroot>
+  <p>
+    Only one line - following this text
+  </p>
+  <ul>
+    <li>
+      I am a list item
+    </li>
+    <li>
+      I am too
+    </li>
+  </ul>
+  <p>
+    new paragraph
+  </p>
+</div>
+
+`);
+  })
+
   it('adds an "id" attribute to headings for deeplinking purposes', () => {
     render(compiler("# This is~ a very' complicated> header!"));
 
@@ -3226,7 +3288,7 @@ describe('overrides', () => {
     );
 
     expect(root.children[0].className).toBe('foo');
-    expect(root.children[0].textContent).toBe('Hello.');
+    expect(root.children[0].textContent.trimRight()).toBe('Hello.');
   });
 
   it('should accept an override shorthand if props do not need to be overidden', () => {
@@ -3239,7 +3301,7 @@ describe('overrides', () => {
     render(compiler('Hello.\n\n', { overrides: { p: FakeParagraph } }));
 
     expect(root.children[0].className).toBe('foo');
-    expect(root.children[0].textContent).toBe('Hello.');
+    expect(root.children[0].textContent.trimRight()).toBe('Hello.');
   });
 
   it('should add props to the appropriate JSX tag if supplied', () => {
@@ -3250,7 +3312,7 @@ describe('overrides', () => {
     );
 
     expect(root.children[0].className).toBe('abc');
-    expect(root.children[0].textContent).toBe('Hello.');
+    expect(root.children[0].textContent.trimRight()).toBe('Hello.');
     expect(root.children[0].title).toBe('foo');
   });
 
@@ -3415,7 +3477,7 @@ describe('overrides', () => {
     );
 
     expect(root.children[0].className).toBe('foo');
-    expect(root.children[0].textContent).toBe('Hello.');
+    expect(root.children[0].textContent.trimRight()).toBe('Hello.');
   });
 
   it('should substitute the appropriate JSX tag inline if given a component and disableParsingRawHTML is true', () => {
