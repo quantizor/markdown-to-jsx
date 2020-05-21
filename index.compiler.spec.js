@@ -925,6 +925,48 @@ describe('links', () => {
     expect(console.warn).toHaveBeenCalled();
   });
 
+  it('should sanitize markdown links containing JS expressions', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    render(compiler('![foo](javascript:doSomethingBad)'));
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<img data-reactroot
+     alt="foo"
+>
+
+`);
+
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('should sanitize markdown links containing Data expressions', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    render(compiler('[foo](data:doSomethingBad)'));
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<a data-reactroot>
+  foo
+</a>
+
+`);
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('should sanitize markdown links containing VBScript expressions', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    render(compiler('[foo](vbScript:doSomethingBad)'));
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<a data-reactroot>
+  foo
+</a>
+
+`);
+    expect(console.warn).toHaveBeenCalled();
+  });
+
   it('should sanitize markdown links containing encoded JS expressions', () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {});
 
@@ -957,6 +999,60 @@ describe('links', () => {
     expect(console.warn).toHaveBeenCalled();
   });
 
+  it('should sanitize markdown links containing padded encoded vscript expressions', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    render(compiler('[foo](  VBScript%3AdoSomethingBad)'));
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<a data-reactroot>
+  foo
+</a>
+
+`);
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('should sanitize markdown images containing padded encoded vscript expressions', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    render(compiler('![foo](  VBScript%3AdoSomethingBad)'));
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<img data-reactroot
+     alt="foo"
+>
+
+`);
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('should sanitize markdown links containing padded encoded data expressions', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    render(compiler('[foo](`<data:doSomethingBad)'));
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<a data-reactroot>
+  foo
+</a>
+
+`);
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('should sanitize markdown images containing padded encoded data expressions', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    render(compiler('![foo](`<data:doSomethingBad)'));
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<img data-reactroot
+     alt="foo"
+>
+
+`);
+    expect(console.warn).toHaveBeenCalled();
+  });
+
   it('should sanitize markdown links containing invalid characters', () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {});
 
@@ -973,11 +1069,11 @@ describe('links', () => {
   });
 
   it('should sanitize html links containing JS expressions', () => {
-      jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
 
-      render(compiler('<a href="javascript:doSomethingBad">foo</a>'));
+    render(compiler('<a href="javascript:doSomethingBad">foo</a>'));
 
-      expect(root.innerHTML).toMatchInlineSnapshot(`
+    expect(root.innerHTML).toMatchInlineSnapshot(`
 
 <a data-reactroot>
   foo
@@ -985,8 +1081,53 @@ describe('links', () => {
 
 `);
 
-      expect(console.warn).toHaveBeenCalled();
-    });
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('should sanitize html links containing encoded, prefixed data expressions', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    render(compiler('<a href="<`data:doSomethingBad">foo</a>'));
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<a data-reactroot>
+  foo
+</a>
+
+`);
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('should sanitize html images containing encoded, prefixed JS expressions', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // TODO: something is off on parsing here, because this prints:
+    // console.error("Warning: Unknown prop `javascript:alert` on <img> tag"...)
+    // Which it shouldn't
+    render(compiler('<img src="`<javascript:alert>`(\'alertstr\')"'));
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<span data-reactroot>
+  <img src="true">
+  \`('alertstr')"
+</span>
+
+`);
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('should sanitize html images containing weird parsing src=s', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    render(compiler('<img src="`<src="javascript:alert(`xss`)">`'));
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+
+<span data-reactroot>
+  <img src="\`<src=">
+  \`
+</span>
+
+`);
+    expect(console.warn).toHaveBeenCalled();
+  });
 
   it('should handle a link with a URL in the text', () => {
     render(
@@ -1582,14 +1723,14 @@ describe('GFM tables', () => {
 
   it('#241 should not ignore the first cell when its contents is empty', () => {
     render(
-        compiler(
-            [
-              '| Foo | Bar | Baz |',
-              '| --- | --- | --- |',
-              '|   | 2   | 3   |',
-              '|   | 5   | 6   |',
-            ].join('\n')
-        )
+      compiler(
+        [
+          '| Foo | Bar | Baz |',
+          '| --- | --- | --- |',
+          '|   | 2   | 3   |',
+          '|   | 5   | 6   |',
+        ].join('\n')
+      )
     );
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
@@ -1780,7 +1921,6 @@ describe('GFM tables', () => {
 
 `);
   });
-
 });
 
 describe('arbitrary HTML', () => {
@@ -1976,10 +2116,12 @@ describe('arbitrary HTML', () => {
   });
 
   it('throws out multiline HTML comments', () => {
-    render(compiler(`Foo\n<!-- this is
+    render(
+      compiler(`Foo\n<!-- this is
 a
 multiline
-comment -->`));
+comment -->`)
+    );
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
 
@@ -2800,7 +2942,7 @@ fun main() {
 
 `);
   });
- it('should not fail with lots of \\n in the middle of the text', () => {
+  it('should not fail with lots of \\n in the middle of the text', () => {
     render(
       compiler(
         'Text\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\ntext',
@@ -2825,12 +2967,9 @@ fun main() {
 
   it('should not render html if disableParsingRawHTML is true', () => {
     render(
-      compiler(
-          'Text with <span>html</span> inside',
-          {
-            disableParsingRawHTML: true
-          }
-      )
+      compiler('Text with <span>html</span> inside', {
+        disableParsingRawHTML: true,
+      })
     );
     expect(root.innerHTML).toMatchInlineSnapshot(`
 
@@ -2843,12 +2982,9 @@ fun main() {
 
   it('should render html if disableParsingRawHTML is false', () => {
     render(
-      compiler(
-          'Text with <span>html</span> inside',
-          {
-            disableParsingRawHTML: false
-          }
-      )
+      compiler('Text with <span>html</span> inside', {
+        disableParsingRawHTML: false,
+      })
     );
     expect(root.innerHTML).toMatchInlineSnapshot(`
 
@@ -2976,7 +3112,15 @@ describe('footnotes', () => {
   });
 
   it('should handle complex references', () => {
-    render(compiler(['foo[^referencé heré 123] bar', '', '[^referencé heré 123]: Baz baz'].join('\n')));
+    render(
+      compiler(
+        [
+          'foo[^referencé heré 123] bar',
+          '',
+          '[^referencé heré 123]: Baz baz',
+        ].join('\n')
+      )
+    );
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
 
@@ -3002,7 +3146,13 @@ describe('footnotes', () => {
   });
 
   it('should handle conversion of multiple references into links', () => {
-    render(compiler(['foo[^abc] bar. baz[^def]', '', '[^abc]: Baz baz', '[^def]: Def'].join('\n')));
+    render(
+      compiler(
+        ['foo[^abc] bar. baz[^def]', '', '[^abc]: Baz baz', '[^def]: Def'].join(
+          '\n'
+        )
+      )
+    );
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
 
@@ -3410,7 +3560,7 @@ describe('overrides', () => {
     render(
       compiler('Hello.\n\n', {
         overrides: { p: { component: FakeParagraph } },
-        options: { disableParsingRawHTML: true }
+        options: { disableParsingRawHTML: true },
       })
     );
 
@@ -3424,7 +3574,7 @@ describe('overrides', () => {
     render(
       compiler('Hello.\n\n<FakeSpan>I am a fake span</FakeSpan>', {
         overrides: { FakeSpan },
-        options: { disableParsingRawHTML: true }
+        options: { disableParsingRawHTML: true },
       })
     );
 

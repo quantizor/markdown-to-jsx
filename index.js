@@ -586,12 +586,13 @@ function reactFor(outputFunc) {
 
 function sanitizeUrl(url) {
   try {
-    const decoded = decodeURIComponent(url);
+    const decoded = decodeURIComponent(url)
+      .replace(/[^A-Za-z0-9/:]/g, '');
 
-    if (decoded.match(/^\s*javascript:/i)) {
+    if (decoded.match(/^\s*(javascript|vbscript|data):/i)) {
       if (process.env.NODE_ENV !== 'production') {
         console.warn(
-          'Anchor URL contains an unsafe JavaScript expression, it will not be rendered.',
+          'Anchor URL contains an unsafe JavaScript/VBScript/data expression, it will not be rendered.',
           decoded
         );
       }
