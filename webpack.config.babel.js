@@ -17,7 +17,7 @@ export default {
           loader: 'babel-loader',
           options: {
             babelrc: false,
-            plugins: ['emotion', 'transform-react-remove-prop-types'],
+            plugins: ['styled-components', 'transform-react-remove-prop-types'],
             presets: [
               [
                 'env',
@@ -41,8 +41,8 @@ export default {
   plugins: [],
   resolve: {
     alias: {
-      react: 'preact-compat',
-      'react-dom': 'preact-compat',
+      react: 'preact/compat',
+      'react-dom': 'preact/compat',
     },
   },
 };

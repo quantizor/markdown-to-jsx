@@ -1,7 +1,7 @@
 const prod = process.env.NODE_ENV === 'production';
 
 module.exports = {
-  plugins: ['emotion'],
+  plugins: ['styled-components'],
   presets: [
     [
       'env',

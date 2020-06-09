@@ -15,7 +15,7 @@
     "jsx",
     "html"
   ],
-  "author": "Evan Scott <probablyup@gmail.com>",
+  "author": "Evan Jacobs <probablyup@gmail.com>",
   "repository": "probablyup/markdown-to-jsx",
   "bugs": "https://github.com/probablyup/markdown-to-jsx/issues",
   "files": [
@@ -33,7 +33,6 @@
     "babel-eslint": "^10.0.1",
     "babel-jest": "^23.6.0",
     "babel-loader": "^7.1.4",
-    "babel-plugin-emotion": "^9.2.11",
     "babel-plugin-transform-react-remove-prop-types": "^0.4.19",
     "babel-preset-env": "^1.7.0",
     "babel-preset-minify": "^0.5.0",
@@ -41,7 +40,6 @@
     "babel-preset-stage-2": "^6.13.0",
     "benchtable": "^0.1.0",
     "codecov": "^3.1.0",
-    "emotion": "^9.2.12",
     "eslint": "^5.7.0",
     "eslint-config-prettier": "^4.1.0",
     "eslint-plugin-react": "^7.11.1",
@@ -53,9 +51,7 @@
     "microtime": "^3.0.0",
     "mkdirp": "^0.5.1",
     "polished": "^3.0.3",
-    "preact": "^8.3.1",
-    "preact-compat": "^3.18.4",
-    "preact-emotion": "^9.2.12",
+    "preact": "^10.4.4",
     "prettier": "^1.14.3",
     "react": "^15.6.1",
     "react-dom": "^15.6.1",
@@ -69,7 +65,9 @@
     "webpack-dev-server": "^3.1.9"
   },
   "dependencies": {
+    "babel-plugin-styled-components": "^1.10.7",
     "prop-types": "^15.6.2",
+    "styled-components": "^5.1.1",
     "unquote": "^1.1.0"
   },
   "peerDependencies": {

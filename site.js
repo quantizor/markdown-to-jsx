@@ -1,59 +1,58 @@
 import { lighten, rgba } from 'polished';
-import styled, { css, injectGlobal } from 'preact-emotion';
 import React from 'react';
 import ReactDOM from 'react-dom';
+import styled, { createGlobalStyle, css } from 'styled-components';
 import Markdown from './';
 
-class TryItLive extends React.PureComponent {
-    state = {markdown: document.getElementById('sample-content').textContent.trim()}
+function TryItLive() {
+    const [markdown, setMarkdown] = React.useState(document.getElementById('sample-content').textContent.trim());
 
-    updateState = (e) => this.setState({markdown: e.target.value})
+    const handleInput = React.useCallback((e) => setMarkdown(e.target.value), []);
 
-    render () {
-        return (
-            <main>
-                <a css={css`background: #000; color: #FFF; text-align: center; text-decoration: none; font-size: 16px; padding: 0.5em; margin: -3rem -1.5rem 2em; position: sticky; top: 0;`} href="https://support.eji.org/give/153413/#!/donation/checkout" target="_blank">
-                    #BlackLivesMatter ✊🏿 <span css={css`text-decoration: underline;`}>Support the Equal Justice Initiative</span>
+    return (
+        <main>
+            <GlobalStyles />
+            <a css="background: #000; color: #FFF; text-align: center; text-decoration: none; font-size: 16px; padding: 0.5em; margin: -3rem -1.5rem 2em; position: sticky; top: 0;" href="https://support.eji.org/give/153413/#!/donation/checkout" rel="noopener noreferrer" target="_blank">
+                #BlackLivesMatter ✊🏿 <span css="text-decoration: underline">Support the Equal Justice Initiative</span>
+            </a>
+
+            <Header>
+                <a
+                    target='_blank'
+                    href='https://github.com/probablyup/markdown-to-jsx'
+                    title='Check out the markdown-to-jsx source code'
+                    rel='noopener noreferrer'>
+                    <img src='./images/logo.svg' alt='markdown-to-jsx logo' />
                 </a>
 
-                <Header>
-                    <a
-                        target='_blank'
-                        href='https://github.com/probablyup/markdown-to-jsx'
-                        title='Check out the markdown-to-jsx source code'
-                        rel='noopener noreferrer'>
-                        <img src='./images/logo.svg' alt='markdown-to-jsx logo' />
-                    </a>
+                <Description>
+                    <h1><code>markdown-to-jsx</code> is an easy-to-use markdown component that takes Github-flavored Markdown (GFM) and makes native JSX without dangerous hacks.&nbsp;</h1><h2>It&apos;s lightweight, customizable, and happily supports React-like libraries.</h2>
+                </Description>
 
-                    <Description>
-                        <h1><code>markdown-to-jsx</code> is an easy-to-use markdown component that takes Github-flavored Markdown (GFM) and makes native JSX without dangerous hacks.&nbsp;</h1><h2>It&apos;s lightweight, customizable, and happily supports React-like libraries.</h2>
-                    </Description>
+                <LearnMore>
+                    See the <a target='_blank' href='https://github.com/probablyup/markdown-to-jsx/blob/master/README.md' rel='noopener noreferrer'>project README</a> for detailed installation &amp; usage instructions.
+                </LearnMore>
+            </Header>
 
-                    <LearnMore>
-                        See the <a target='_blank' href='https://github.com/probablyup/markdown-to-jsx/blob/master/README.md' rel='noopener noreferrer'>project README</a> for detailed installation &amp; usage instructions.
-                    </LearnMore>
-                </Header>
+            <Demo>
+                <Textarea
+                    onInput={handleInput}
+                    value={markdown} />
 
-                <Demo>
-                    <Textarea
-                        onInput={this.updateState}
-                        value={this.state.markdown} />
-
-                    <Compiled>
-                        <Markdown options={options}>
-                            {this.state.markdown}
-                        </Markdown>
-                    </Compiled>
-                </Demo>
-            </main>
-        );
-    }
+                <Compiled>
+                    <Markdown options={options}>
+                        {markdown}
+                    </Markdown>
+                </Compiled>
+            </Demo>
+        </main>
+    )
 }
 
 const COLOR_ACCENT = 'rgba(255, 255, 255, 0.5)';
 const COLOR_BODY = '#fefefe';
 
-injectGlobal`
+const GlobalStyles = createGlobalStyle`
     *,
     *::before,
     *::after {
@@ -143,7 +142,7 @@ injectGlobal`
             padding: 3rem;
         }
     }
-`;
+`
 
 const Header = styled.header`
     flex-shrink: 0;
