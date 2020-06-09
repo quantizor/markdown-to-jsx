@@ -12,6 +12,10 @@ class TryItLive extends React.PureComponent {
     render () {
         return (
             <main>
+                <a css={css`background: #000; color: #FFF; text-align: center; text-decoration: none; font-size: 16px; padding: 0.5em; margin: -3rem -1.5rem 2em; position: sticky; top: 0;`} href="https://support.eji.org/give/153413/#!/donation/checkout" target="_blank">
+                    #BlackLivesMatter ✊🏿 <span css={css`text-decoration: underline;`}>Support the Equal Justice Initiative</span>
+                </a>
+
                 <Header>
                     <a
                         target='_blank'
@@ -46,18 +50,8 @@ class TryItLive extends React.PureComponent {
     }
 }
 
-const COLOR_ACCENT = 'rgba(0, 0, 0, 0.5)';
-const COLOR_BODY = '#444';
-
-const spectrum = [
-    '253, 128, 129',
-    '253, 178, 131',
-    '254, 232, 134',
-];
-
-const bands = spectrum.length;
-const width = 100 / bands;
-const transparent = spectrum.map((band, index) => `rgba(${band}, ${index === 0 ? 0.5 : 0.5 / index}) ${index * width * .8}%`).join(', ') + ', transparent 100%';
+const COLOR_ACCENT = 'rgba(255, 255, 255, 0.5)';
+const COLOR_BODY = '#fefefe';
 
 injectGlobal`
     *,
@@ -76,8 +70,7 @@ injectGlobal`
     }
 
     html {
-        background: linear-gradient(to bottom, ${transparent}) no-repeat;
-        background-size: 100% 100vh;
+        background: #222;
         color: ${COLOR_BODY};
         font-family: 'Source Sans Pro', Helvetica Neue, Helvetica, sans-serif;
         font-size: 14px;
@@ -110,7 +103,7 @@ injectGlobal`
     }
 
     h5 {
-        font-size 1.2rem;
+        font-size: 1.2rem;
     }
 
     h6 {
@@ -215,6 +208,7 @@ const Textarea = styled.textarea`
     ${sharedCss};
     background: ${rgba(COLOR_ACCENT, .05)};
     border: 0;
+    color: inherit;
     position: sticky;
     top: 0;
     font-family: 'Source Code Pro', Consolas, Monaco, monospace;
