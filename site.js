@@ -12,7 +12,7 @@ function TryItLive() {
     return (
         <main>
             <GlobalStyles />
-            <a css="background: #000; color: #FFF; text-align: center; text-decoration: none; font-size: 16px; padding: 0.5em; margin: -3rem -1.5rem 2em; position: sticky; top: 0;" href="https://support.eji.org/give/153413/#!/donation/checkout" rel="noopener noreferrer" target="_blank">
+            <a css="background: #000; color: #FFF; text-align: center; text-decoration: none; font-size: 16px; padding: 0.5em; margin: -3rem -3rem 2em; position: sticky; top: 0;" href="https://support.eji.org/give/153413/#!/donation/checkout" rel="noopener noreferrer" target="_blank">
                 #BlackLivesMatter ✊🏿 <span css="text-decoration: underline">Support the Equal Justice Initiative</span>
             </a>
 
