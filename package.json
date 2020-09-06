@@ -48,7 +48,7 @@
     "esm": "^3.0.84",
     "in-publish": "^2.0.0",
     "jest": "^26.4.2",
-    "jest-serializer-html": "^5.0.0",
+    "jest-serializer-html": "^7.0.0",
     "markdown-it": "^8.4.2",
     "microtime": "^3.0.0",
     "mkdirp": "^0.5.1",

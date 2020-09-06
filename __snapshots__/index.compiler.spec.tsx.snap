@@ -1,7 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`handles a holistic example 1`] = `
-
 <div data-reactroot>
   <h1>
     Markdown: Syntax
@@ -1712,5 +1711,4 @@ _   underscore
     </code>
   </pre>
 </div>
-
 `;
