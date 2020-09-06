@@ -1,4 +1,4 @@
-const prod = process.env.NODE_ENV === 'production';
+const prod = process.env.NODE_ENV === 'production'
 
 module.exports = {
   plugins: ['styled-components'],
@@ -14,4 +14,4 @@ module.exports = {
     'stage-2',
     prod && ['minify', { flipComparisons: false }],
   ].filter(Boolean),
-};
+}

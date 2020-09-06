@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "esModuleInterop": true,
+    "incremental": true,
+    "jsx": "react",
+    "outDir": "./dist",
+    "target": "es5",
+    "types": ["jest", "node", "react", "."]
+  }
+}

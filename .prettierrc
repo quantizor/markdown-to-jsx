@@ -1,10 +1,10 @@
 {
-    "semi": true,
-    "useTabs": false,
-    "tabWidth": 2,
-    "trailingComma": "es5",
-    "jsxBracketSameLine": false,
-    "arrowParens": "avoid",
-    "bracketSpacing": true,
-    "singleQuote": true
+  "semi": false,
+  "useTabs": false,
+  "tabWidth": 2,
+  "trailingComma": "es5",
+  "jsxBracketSameLine": false,
+  "arrowParens": "avoid",
+  "bracketSpacing": true,
+  "singleQuote": true
 }
