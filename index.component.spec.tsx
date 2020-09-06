@@ -1,17 +1,17 @@
-import Markdown from './index';
-import React from 'react';
-import ReactDOM from 'react-dom';
+import Markdown from './index'
+import React from 'react'
+import ReactDOM from 'react-dom'
 
-const root = document.body.appendChild(document.createElement('div'));
+const root = document.body.appendChild(document.createElement('div'))
 
 function render(jsx) {
-  return ReactDOM.render(jsx, root);
+  return ReactDOM.render(jsx, root)
 }
 
-afterEach(() => ReactDOM.unmountComponentAtNode(root));
+afterEach(() => ReactDOM.unmountComponentAtNode(root))
 
 it('accepts markdown content', () => {
-  render(<Markdown>_Hello._</Markdown>);
+  render(<Markdown>_Hello._</Markdown>)
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
 
@@ -19,24 +19,24 @@ it('accepts markdown content', () => {
   Hello.
 </em>
 
-`);
-});
+`)
+})
 
 it('handles a no-children scenario', () => {
-  render(<Markdown>{''}</Markdown>);
+  render(<Markdown>{''}</Markdown>)
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
 
 <span data-reactroot>
 </span>
 
-`);
-});
+`)
+})
 
 it('accepts options', () => {
   class FakeParagraph extends React.Component {
     render() {
-      return <p className="foo">{this.props.children}</p>;
+      return <p className="foo">{this.props.children}</p>
     }
   }
 
@@ -44,7 +44,7 @@ it('accepts options', () => {
     <Markdown options={{ overrides: { p: { component: FakeParagraph } } }}>
       _Hello._
     </Markdown>
-  );
+  )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
 
@@ -52,11 +52,11 @@ it('accepts options', () => {
   Hello.
 </em>
 
-`);
-});
+`)
+})
 
 it('merges className overrides, rather than overwriting', () => {
-  const code = ['```js', 'foo', '```'].join('\n');
+  const code = ['```js', 'foo', '```'].join('\n')
 
   render(
     <Markdown
@@ -66,7 +66,7 @@ it('merges className overrides, rather than overwriting', () => {
     >
       {code}
     </Markdown>
-  );
+  )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
 
@@ -76,11 +76,11 @@ it('merges className overrides, rather than overwriting', () => {
   </code>
 </pre>
 
-`);
-});
+`)
+})
 
 it('passes along any additional props to the rendered wrapper element', () => {
-  render(<Markdown className="foo"># Hello</Markdown>);
+  render(<Markdown className="foo"># Hello</Markdown>)
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
 
@@ -91,5 +91,5 @@ it('passes along any additional props to the rendered wrapper element', () => {
   Hello
 </h1>
 
-`);
-});
+`)
+})
