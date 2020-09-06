@@ -5,13 +5,13 @@ branches:
 cache:
   yarn: true
   directories:
-    - 'node_modules'
+    - "node_modules"
 
 language: node_js
 
 node_js:
-  - '10'
-  - '12'
+  - "10"
+  - "12"
 
 os: linux
 
@@ -28,7 +28,6 @@ after_install:
 
 script:
   - yarn test -- --coverage
-  - yarn lint
   - yarn build
   - yarn size
   - codecov
