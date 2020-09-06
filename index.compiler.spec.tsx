@@ -41,33 +41,29 @@ it('wraps multiple block element returns in a div to avoid invalid nesting error
   render(compiler('# Boop\n\n## Blep'))
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-
-            <div data-reactroot>
-              <h1 id="boop">
-                Boop
-              </h1>
-              <h2 id="blep">
-                Blep
-              </h2>
-            </div>
-
-      `)
+    <div data-reactroot>
+      <h1 id="boop">
+        Boop
+      </h1>
+      <h2 id="blep">
+        Blep
+      </h2>
+    </div>
+  `)
 })
 
 it('wraps solely inline elements in a span, rather than a div', () => {
   render(compiler("Hello. _Beautiful_ day isn't it?"))
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-
-            <span data-reactroot>
-              Hello.
-              <em>
-                Beautiful
-              </em>
-              day isn't it?
-            </span>
-
-      `)
+    <span data-reactroot>
+      Hello.
+      <em>
+        Beautiful
+      </em>
+      day isn't it?
+    </span>
+  `)
 })
 
 it('#190 perf regression', () => {
@@ -78,35 +74,33 @@ it('#190 perf regression', () => {
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-
-            <span data-reactroot>
-              Lorum
-              <em>
-                ipsum
-              </em>
-              :
-              <a href
-                 style="float: right;"
-              >
-                <small>
-                  foo
-                </small>
-              </a>
-              <span style="float: right;">
-                <small>
-                  &nbsp;
-                </small>
-              </span>
-              <a href
-                 style="float: right;"
-              >
-                <small>
-                  bar
-                </small>
-              </a>
-            </span>
-
-      `)
+    <span data-reactroot>
+      Lorum
+      <em>
+        ipsum
+      </em>
+      :
+      <a href
+         style="float: right;"
+      >
+        <small>
+          foo
+        </small>
+      </a>
+      <span style="float: right;">
+        <small>
+          &nbsp;
+        </small>
+      </span>
+      <a href
+         style="float: right;"
+      >
+        <small>
+          bar
+        </small>
+      </a>
+    </span>
+  `)
 })
 
 it('#234 perf regression', () => {
@@ -119,102 +113,100 @@ it('#234 perf regression', () => {
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-
-            <div data-reactroot>
-              <br>
-              <b>
-                1
-              </b>
-              <b>
-                2
-              </b>
-              <b>
-                3
-              </b>
-              <b>
-                4
-              </b>
-              <b>
-                5
-              </b>
-              <b>
-                6
-              </b>
-              <b>
-                7
-              </b>
-              <b>
-                8
-              </b>
-              <b>
-                9
-              </b>
-              <b>
-                10
-              </b>
-              <b>
-                1
-              </b>
-              <b>
-                2
-              </b>
-              <b>
-                3
-              </b>
-              <b>
-                4
-              </b>
-              <b>
-                5
-              </b>
-              <b>
-                6
-              </b>
-              <b>
-                7
-              </b>
-              <b>
-                8
-              </b>
-              <b>
-                9
-              </b>
-              <b>
-                20
-              </b>
-              <b>
-                1
-              </b>
-              <b>
-                2
-              </b>
-              <b>
-                3
-              </b>
-              <b>
-                4
-              </b>
-              <b>
-                5
-              </b>
-              <b>
-                6
-              </b>
-              <b>
-                7
-              </b>
-              <b>
-                8
-              </b>
-              <b>
-                9
-              </b>
-              <b>
-                30
-              </b>
-            </div>
-
-      `)
+    <div data-reactroot>
+      <br>
+      <b>
+        1
+      </b>
+      <b>
+        2
+      </b>
+      <b>
+        3
+      </b>
+      <b>
+        4
+      </b>
+      <b>
+        5
+      </b>
+      <b>
+        6
+      </b>
+      <b>
+        7
+      </b>
+      <b>
+        8
+      </b>
+      <b>
+        9
+      </b>
+      <b>
+        10
+      </b>
+      <b>
+        1
+      </b>
+      <b>
+        2
+      </b>
+      <b>
+        3
+      </b>
+      <b>
+        4
+      </b>
+      <b>
+        5
+      </b>
+      <b>
+        6
+      </b>
+      <b>
+        7
+      </b>
+      <b>
+        8
+      </b>
+      <b>
+        9
+      </b>
+      <b>
+        20
+      </b>
+      <b>
+        1
+      </b>
+      <b>
+        2
+      </b>
+      <b>
+        3
+      </b>
+      <b>
+        4
+      </b>
+      <b>
+        5
+      </b>
+      <b>
+        6
+      </b>
+      <b>
+        7
+      </b>
+      <b>
+        8
+      </b>
+      <b>
+        9
+      </b>
+      <b>
+        30
+      </b>
+    </div>
+  `)
 })
 
 describe('inline textual elements', () => {
@@ -222,159 +214,137 @@ describe('inline textual elements', () => {
     render(compiler('*Hello.*'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <em data-reactroot>
-                    Hello.
-                  </em>
-
-            `)
+      <em data-reactroot>
+        Hello.
+      </em>
+    `)
   })
 
   it('should handle double-emphasized text', () => {
     render(compiler('**Hello.**'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <strong data-reactroot>
-                    Hello.
-                  </strong>
-
-            `)
+      <strong data-reactroot>
+        Hello.
+      </strong>
+    `)
   })
 
   it('should handle triple-emphasized text', () => {
     render(compiler('***Hello.***'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <strong data-reactroot>
-                    <em>
-                      Hello.
-                    </em>
-                  </strong>
-
-            `)
+      <strong data-reactroot>
+        <em>
+          Hello.
+        </em>
+      </strong>
+    `)
   })
 
   it('should handle triple-emphasized text with mixed syntax 1/2', () => {
     render(compiler('**_Hello._**'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <strong data-reactroot>
-                    <em>
-                      Hello.
-                    </em>
-                  </strong>
-
-            `)
+      <strong data-reactroot>
+        <em>
+          Hello.
+        </em>
+      </strong>
+    `)
   })
 
   it('should handle triple-emphasized text with mixed syntax 2/2', () => {
     render(compiler('_**Hello.**_'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <em data-reactroot>
-                    <strong>
-                      Hello.
-                    </strong>
-                  </em>
-
-            `)
+      <em data-reactroot>
+        <strong>
+          Hello.
+        </strong>
+      </em>
+    `)
   })
 
   it('should handle the alternate form of bold/italic', () => {
     render(compiler('___Hello.___'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <strong data-reactroot>
-                    <em>
-                      Hello.
-                    </em>
-                  </strong>
-
-            `)
+      <strong data-reactroot>
+        <em>
+          Hello.
+        </em>
+      </strong>
+    `)
   })
 
   it('should handle deleted text', () => {
     render(compiler('~~Hello.~~'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <del data-reactroot>
-                    Hello.
-                  </del>
-
-            `)
+      <del data-reactroot>
+        Hello.
+      </del>
+    `)
   })
 
   it('should handle deleted text containing other syntax with a tilde', () => {
     render(compiler('~~Foo `~~bar` baz.~~'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <del data-reactroot>
-                    Foo
-                    <code>
-                      ~~bar
-                    </code>
-                    baz.
-                  </del>
-
-            `)
+      <del data-reactroot>
+        Foo
+        <code>
+          ~~bar
+        </code>
+        baz.
+      </del>
+    `)
   })
 
   it('should handle block deleted text containing other syntax with a tilde', () => {
     render(compiler('~~Foo `~~bar` baz.~~\n\nFoo ~~bar~~.'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <p>
-                      <del>
-                        Foo
-                        <code>
-                          ~~bar
-                        </code>
-                        baz.
-                      </del>
-                    </p>
-                    <p>
-                      Foo
-                      <del>
-                        bar
-                      </del>
-                      .
-                    </p>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <p>
+          <del>
+            Foo
+            <code>
+              ~~bar
+            </code>
+            baz.
+          </del>
+        </p>
+        <p>
+          Foo
+          <del>
+            bar
+          </del>
+          .
+        </p>
+      </div>
+    `)
   })
 
   it('should handle escaped text', () => {
     render(compiler('Hello.\\_\\_foo\\_\\_'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot>
-                    Hello.__foo__
-                  </span>
-
-            `)
+      <span data-reactroot>
+        Hello.__foo__
+      </span>
+    `)
   })
 
   it('regression test for #188, mismatched syntaxes triggered the wrong result', () => {
     render(compiler('*This should render as normal text, not emphasized._'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot>
-                    *This should render as normal text, not emphasized._
-                  </span>
-
-            `)
+      <span data-reactroot>
+        *This should render as normal text, not emphasized._
+      </span>
+    `)
   })
 
   it('ignore similar syntax inside inline syntax', () => {
@@ -385,16 +355,14 @@ describe('inline textual elements', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <em data-reactroot>
-                    This should not misinterpret the asterisk
-                    <span>
-                      *
-                    </span>
-                    in the HTML.
-                  </em>
-
-            `)
+      <em data-reactroot>
+        This should not misinterpret the asterisk
+        <span>
+          *
+        </span>
+        in the HTML.
+      </em>
+    `)
 
     render(
       compiler(
@@ -403,16 +371,14 @@ describe('inline textual elements', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <em data-reactroot>
-                    This should not misinterpret the asterisk
-                    <a href="x">
-                      *
-                    </a>
-                    in the anchor text.
-                  </em>
-
-            `)
+      <em data-reactroot>
+        This should not misinterpret the asterisk
+        <a href="x">
+          *
+        </a>
+        in the anchor text.
+      </em>
+    `)
 
     render(
       compiler(
@@ -421,16 +387,14 @@ describe('inline textual elements', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <em data-reactroot>
-                    This should not misinterpret the asterisk
-                    <a href="x*">
-                      foo
-                    </a>
-                    in the link href.
-                  </em>
-
-            `)
+      <em data-reactroot>
+        This should not misinterpret the asterisk
+        <a href="x*">
+          foo
+        </a>
+        in the link href.
+      </em>
+    `)
 
     render(
       compiler(
@@ -439,16 +403,14 @@ describe('inline textual elements', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <em data-reactroot>
-                    This should not misinterpret the asterisk
-                    <del>
-                      *
-                    </del>
-                    in the strikethrough.
-                  </em>
-
-            `)
+      <em data-reactroot>
+        This should not misinterpret the asterisk
+        <del>
+          *
+        </del>
+        in the strikethrough.
+      </em>
+    `)
 
     render(
       compiler(
@@ -457,28 +419,24 @@ describe('inline textual elements', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <em data-reactroot>
-                    This should not misinterpret the asterisk
-                    <code>
-                      *
-                    </code>
-                    in the backticks.
-                  </em>
-
-            `)
+      <em data-reactroot>
+        This should not misinterpret the asterisk
+        <code>
+          *
+        </code>
+        in the backticks.
+      </em>
+    `)
   })
 
   it('replaces common HTML character codes with unicode equivalents so React will render correctly', () => {
     render(compiler('Foo &nbsp; bar&amp;baz.'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot>
-                    Foo &nbsp; bar&amp;baz.
-                  </span>
-
-            `)
+      <span data-reactroot>
+        Foo &nbsp; bar&amp;baz.
+      </span>
+    `)
   })
 })
 
@@ -487,14 +445,12 @@ describe('misc block level elements', () => {
     render(compiler('> Something important, perhaps?'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <blockquote data-reactroot>
-                    <p>
-                      Something important, perhaps?
-                    </p>
-                  </blockquote>
-
-            `)
+      <blockquote data-reactroot>
+        <p>
+          Something important, perhaps?
+        </p>
+      </blockquote>
+    `)
   })
 })
 
@@ -503,149 +459,129 @@ describe('headings', () => {
     render(compiler('# Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <h1 data-reactroot
-                      id="hello-world"
-                  >
-                    Hello World
-                  </h1>
-
-            `)
+      <h1 data-reactroot
+          id="hello-world"
+      >
+        Hello World
+      </h1>
+    `)
   })
 
   it('should handle level 2 properly', () => {
     render(compiler('## Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <h2 data-reactroot
-                      id="hello-world"
-                  >
-                    Hello World
-                  </h2>
-
-            `)
+      <h2 data-reactroot
+          id="hello-world"
+      >
+        Hello World
+      </h2>
+    `)
   })
 
   it('should handle level 3 properly', () => {
     render(compiler('### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <h3 data-reactroot
-                      id="hello-world"
-                  >
-                    Hello World
-                  </h3>
-
-            `)
+      <h3 data-reactroot
+          id="hello-world"
+      >
+        Hello World
+      </h3>
+    `)
   })
 
   it('should handle level 4 properly', () => {
     render(compiler('#### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <h4 data-reactroot
-                      id="hello-world"
-                  >
-                    Hello World
-                  </h4>
-
-            `)
+      <h4 data-reactroot
+          id="hello-world"
+      >
+        Hello World
+      </h4>
+    `)
   })
 
   it('should handle level 5 properly', () => {
     render(compiler('##### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <h5 data-reactroot
-                      id="hello-world"
-                  >
-                    Hello World
-                  </h5>
-
-            `)
+      <h5 data-reactroot
+          id="hello-world"
+      >
+        Hello World
+      </h5>
+    `)
   })
 
   it('should handle level 6 properly', () => {
     render(compiler('###### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <h6 data-reactroot
-                      id="hello-world"
-                  >
-                    Hello World
-                  </h6>
-
-            `)
+      <h6 data-reactroot
+          id="hello-world"
+      >
+        Hello World
+      </h6>
+    `)
   })
 
   it('should handle setext level 1 style', () => {
     render(compiler('Hello World\n===========\n\nsomething'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <h1>
-                      Hello World
-                    </h1>
-                    <p>
-                      something
-                    </p>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <h1>
+          Hello World
+        </h1>
+        <p>
+          something
+        </p>
+      </div>
+    `)
   })
 
   it('should handle setext level 2 style', () => {
     render(compiler('Hello World\n-----------\n\nsomething'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <h2>
-                      Hello World
-                    </h2>
-                    <p>
-                      something
-                    </p>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <h2>
+          Hello World
+        </h2>
+        <p>
+          something
+        </p>
+      </div>
+    `)
   })
 
   it('should handle consecutive headings without a padding newline', () => {
     render(compiler('# Hello World\n## And again'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <h1 id="hello-world">
-                      Hello World
-                    </h1>
-                    <h2 id="and-again">
-                      And again
-                    </h2>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <h1 id="hello-world">
+          Hello World
+        </h1>
+        <h2 id="and-again">
+          And again
+        </h2>
+      </div>
+    `)
   })
 
   it('adds an "id" attribute to headings for deeplinking purposes', () => {
     render(compiler("# This is~ a very' complicated> header!"))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <h1 data-reactroot
-                      id="this-is-a-very-complicated-header"
-                  >
-                    This is~ a very' complicated&gt; header!
-                  </h1>
-
-            `)
+      <h1 data-reactroot
+          id="this-is-a-very-complicated-header"
+      >
+        This is~ a very' complicated&gt; header!
+      </h1>
+    `)
   })
 })
 
@@ -654,80 +590,68 @@ describe('images', () => {
     render(compiler('![](/xyz.png)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <img data-reactroot
-                       src="/xyz.png"
-                  >
-
-            `)
+      <img data-reactroot
+           src="/xyz.png"
+      >
+    `)
   })
 
   it('should handle an image with alt text', () => {
     render(compiler('![test](/xyz.png)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <img data-reactroot
-                       alt="test"
-                       src="/xyz.png"
-                  >
-
-            `)
+      <img data-reactroot
+           alt="test"
+           src="/xyz.png"
+      >
+    `)
   })
 
   it('should handle an image with title', () => {
     render(compiler('![test](/xyz.png "foo")'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <img data-reactroot
-                       alt="test"
-                       title="foo"
-                       src="/xyz.png"
-                  >
-
-            `)
+      <img data-reactroot
+           alt="test"
+           title="foo"
+           src="/xyz.png"
+      >
+    `)
   })
 
   it('should handle an image reference', () => {
     render(compiler(['![][1]', '[1]: /xyz.png'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <p data-reactroot>
-                    <img src="/xyz.png">
-                  </p>
-
-            `)
+      <p data-reactroot>
+        <img src="/xyz.png">
+      </p>
+    `)
   })
 
   it('should handle an image reference with alt text', () => {
     render(compiler(['![test][1]', '[1]: /xyz.png'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <p data-reactroot>
-                    <img alt="test"
-                         src="/xyz.png"
-                    >
-                  </p>
-
-            `)
+      <p data-reactroot>
+        <img alt="test"
+             src="/xyz.png"
+        >
+      </p>
+    `)
   })
 
   it('should handle an image reference with title', () => {
     render(compiler(['![test][1]', '[1]: /xyz.png "foo"'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <p data-reactroot>
-                    <img alt="test"
-                         src="/xyz.png"
-                         title="foo"
-                    >
-                  </p>
-
-            `)
+      <p data-reactroot>
+        <img alt="test"
+             src="/xyz.png"
+             title="foo"
+        >
+      </p>
+    `)
   })
 })
 
@@ -736,87 +660,75 @@ describe('links', () => {
     render(compiler('[foo](/xyz.png)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot
-                     href="/xyz.png"
-                  >
-                    foo
-                  </a>
-
-            `)
+      <a data-reactroot
+         href="/xyz.png"
+      >
+        foo
+      </a>
+    `)
   })
 
   it('should handle a link with title', () => {
     render(compiler('[foo](/xyz.png "bar")'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot
-                     href="/xyz.png"
-                     title="bar"
-                  >
-                    foo
-                  </a>
-
-            `)
+      <a data-reactroot
+         href="/xyz.png"
+         title="bar"
+      >
+        foo
+      </a>
+    `)
   })
 
   it('should handle a link reference', () => {
     render(compiler(['[foo][1]', '[1]: /xyz.png'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <p data-reactroot>
-                    <a href="/xyz.png">
-                      foo
-                    </a>
-                  </p>
-
-            `)
+      <p data-reactroot>
+        <a href="/xyz.png">
+          foo
+        </a>
+      </p>
+    `)
   })
 
   it('should handle a link reference with a space', () => {
     render(compiler(['[foo] [1]', '[1]: /xyz.png'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <p data-reactroot>
-                    <a href="/xyz.png">
-                      foo
-                    </a>
-                  </p>
-
-            `)
+      <p data-reactroot>
+        <a href="/xyz.png">
+          foo
+        </a>
+      </p>
+    `)
   })
 
   it('should handle a link reference with title', () => {
     render(compiler(['[foo][1]', '[1]: /xyz.png "bar"'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <p data-reactroot>
-                    <a href="/xyz.png"
-                       title="bar"
-                    >
-                      foo
-                    </a>
-                  </p>
-
-            `)
+      <p data-reactroot>
+        <a href="/xyz.png"
+           title="bar"
+        >
+          foo
+        </a>
+      </p>
+    `)
   })
 
   it('should handle autolink style', () => {
     render(compiler('<https://google.com>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot
-                     href="https://google.com"
-                  >
-                    https://google.com
-                  </a>
-
-            `)
+      <a data-reactroot
+         href="https://google.com"
+      >
+        https://google.com
+      </a>
+    `)
   })
 
   it('should handle autolinks after a paragraph (regression)', () => {
@@ -829,22 +741,20 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <p>
-                      <strong>
-                        autolink
-                      </strong>
-                      style
-                    </p>
-                    <p>
-                      <a href="https://google.com">
-                        https://google.com
-                      </a>
-                    </p>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <p>
+          <strong>
+            autolink
+          </strong>
+          style
+        </p>
+        <p>
+          <a href="https://google.com">
+            https://google.com
+          </a>
+        </p>
+      </div>
+    `)
   })
 
   it('should handle mailto autolinks after a paragraph', () => {
@@ -857,64 +767,56 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <p>
-                      <strong>
-                        autolink
-                      </strong>
-                      style
-                    </p>
-                    <p>
-                      <a href="mailto:probablyup@gmail.com">
-                        probablyup@gmail.com
-                      </a>
-                    </p>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <p>
+          <strong>
+            autolink
+          </strong>
+          style
+        </p>
+        <p>
+          <a href="mailto:probablyup@gmail.com">
+            probablyup@gmail.com
+          </a>
+        </p>
+      </div>
+    `)
   })
 
   it('should handle a mailto autolink', () => {
     render(compiler('<mailto:probablyup@gmail.com>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot
-                     href="mailto:probablyup@gmail.com"
-                  >
-                    probablyup@gmail.com
-                  </a>
-
-            `)
+      <a data-reactroot
+         href="mailto:probablyup@gmail.com"
+      >
+        probablyup@gmail.com
+      </a>
+    `)
   })
 
   it('should an email autolink and add a mailto: prefix', () => {
     render(compiler('<probablyup@gmail.com>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot
-                     href="mailto:probablyup@gmail.com"
-                  >
-                    probablyup@gmail.com
-                  </a>
-
-            `)
+      <a data-reactroot
+         href="mailto:probablyup@gmail.com"
+      >
+        probablyup@gmail.com
+      </a>
+    `)
   })
 
   it('should automatically link found URLs', () => {
     render(compiler('https://google.com'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot
-                     href="https://google.com"
-                  >
-                    https://google.com
-                  </a>
-
-            `)
+      <a data-reactroot
+         href="https://google.com"
+      >
+        https://google.com
+      </a>
+    `)
   })
 
   it('should sanitize markdown links containing JS expressions', () => {
@@ -924,12 +826,10 @@ describe('links', () => {
     render(compiler('[foo](javascript:doSomethingBad)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot>
-                    foo
-                  </a>
-
-            `)
+      <a data-reactroot>
+        foo
+      </a>
+    `)
 
     expect(console.warn).toHaveBeenCalled()
   })
@@ -941,12 +841,10 @@ describe('links', () => {
     render(compiler('![foo](javascript:doSomethingBad)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <img data-reactroot
-                       alt="foo"
-                  >
-
-            `)
+      <img data-reactroot
+           alt="foo"
+      >
+    `)
 
     expect(console.warn).toHaveBeenCalled()
   })
@@ -957,12 +855,10 @@ describe('links', () => {
 
     render(compiler('[foo](data:doSomethingBad)'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot>
-                    foo
-                  </a>
-
-            `)
+      <a data-reactroot>
+        foo
+      </a>
+    `)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -972,12 +868,10 @@ describe('links', () => {
 
     render(compiler('[foo](vbScript:doSomethingBad)'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot>
-                    foo
-                  </a>
-
-            `)
+      <a data-reactroot>
+        foo
+      </a>
+    `)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -988,12 +882,10 @@ describe('links', () => {
     render(compiler('[foo](javascript%3AdoSomethingBad)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot>
-                    foo
-                  </a>
-
-            `)
+      <a data-reactroot>
+        foo
+      </a>
+    `)
 
     expect(console.warn).toHaveBeenCalled()
   })
@@ -1005,12 +897,10 @@ describe('links', () => {
     render(compiler('[foo](  javascript%3AdoSomethingBad)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot>
-                    foo
-                  </a>
-
-            `)
+      <a data-reactroot>
+        foo
+      </a>
+    `)
 
     expect(console.warn).toHaveBeenCalled()
   })
@@ -1022,12 +912,10 @@ describe('links', () => {
     render(compiler('[foo](  VBScript%3AdoSomethingBad)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot>
-                    foo
-                  </a>
-
-            `)
+      <a data-reactroot>
+        foo
+      </a>
+    `)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -1037,12 +925,10 @@ describe('links', () => {
 
     render(compiler('![foo](  VBScript%3AdoSomethingBad)'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <img data-reactroot
-                       alt="foo"
-                  >
-
-            `)
+      <img data-reactroot
+           alt="foo"
+      >
+    `)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -1052,12 +938,10 @@ describe('links', () => {
 
     render(compiler('[foo](`<data:doSomethingBad)'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot>
-                    foo
-                  </a>
-
-            `)
+      <a data-reactroot>
+        foo
+      </a>
+    `)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -1067,12 +951,10 @@ describe('links', () => {
 
     render(compiler('![foo](`<data:doSomethingBad)'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <img data-reactroot
-                       alt="foo"
-                  >
-
-            `)
+      <img data-reactroot
+           alt="foo"
+      >
+    `)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -1083,12 +965,10 @@ describe('links', () => {
     render(compiler('[foo](https://google.com/%AF)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot>
-                    foo
-                  </a>
-
-            `)
+      <a data-reactroot>
+        foo
+      </a>
+    `)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -1099,12 +979,10 @@ describe('links', () => {
     render(compiler('<a href="javascript:doSomethingBad">foo</a>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot>
-                    foo
-                  </a>
-
-            `)
+      <a data-reactroot>
+        foo
+      </a>
+    `)
 
     expect(console.warn).toHaveBeenCalled()
   })
@@ -1115,12 +993,10 @@ describe('links', () => {
 
     render(compiler('<a href="<`data:doSomethingBad">foo</a>'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot>
-                    foo
-                  </a>
-
-            `)
+      <a data-reactroot>
+        foo
+      </a>
+    `)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -1133,13 +1009,11 @@ describe('links', () => {
     // Which it shouldn't
     render(compiler('<img src="`<javascript:alert>`(\'alertstr\')"'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot>
-                    <img src="true">
-                    \`('alertstr')"
-                  </span>
-
-            `)
+      <span data-reactroot>
+        <img src="true">
+        \`('alertstr')"
+      </span>
+    `)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -1149,13 +1023,11 @@ describe('links', () => {
 
     render(compiler('<img src="`<src="javascript:alert(`xss`)">`'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot>
-                    <img src="\`<src=">
-                    \`
-                  </span>
-
-            `)
+      <span data-reactroot>
+        <img src="\`<src=">
+        \`
+      </span>
+    `)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -1165,17 +1037,15 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot
-                     href="http://www.google.com"
-                  >
-                    https://www.google.com
-                    <em>
-                      heck yeah
-                    </em>
-                  </a>
-
-            `)
+      <a data-reactroot
+         href="http://www.google.com"
+      >
+        https://www.google.com
+        <em>
+          heck yeah
+        </em>
+      </a>
+    `)
   })
 
   it('regression test for #188, link inside underscore emphasis with underscore', () => {
@@ -1186,20 +1056,18 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <em data-reactroot>
-                    This is emphasized text with
-                    <a href="https://example.com/asdf_asdf.pdf">
-                      a link
-                    </a>
-                    , and another
-                    <a href="https://example.com">
-                      link
-                    </a>
-                    .
-                  </em>
-
-            `)
+      <em data-reactroot>
+        This is emphasized text with
+        <a href="https://example.com/asdf_asdf.pdf">
+          a link
+        </a>
+        , and another
+        <a href="https://example.com">
+          link
+        </a>
+        .
+      </em>
+    `)
   })
 
   it('regression test for #188, link inside underscore bolding with underscore', () => {
@@ -1210,20 +1078,18 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <strong data-reactroot>
-                    This is emphasized text with
-                    <a href="https://example.com/asdf__asdf.pdf">
-                      a link
-                    </a>
-                    , and another
-                    <a href="https://example.com">
-                      link
-                    </a>
-                    .
-                  </strong>
-
-            `)
+      <strong data-reactroot>
+        This is emphasized text with
+        <a href="https://example.com/asdf__asdf.pdf">
+          a link
+        </a>
+        , and another
+        <a href="https://example.com">
+          link
+        </a>
+        .
+      </strong>
+    `)
   })
 })
 
@@ -1232,139 +1098,127 @@ describe('lists', () => {
     render(compiler(['- xyz', '- abc', '- foo'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <ul data-reactroot>
-                    <li>
-                      xyz
-                    </li>
-                    <li>
-                      abc
-                    </li>
-                    <li>
-                      foo
-                    </li>
-                  </ul>
-
-            `)
+      <ul data-reactroot>
+        <li>
+          xyz
+        </li>
+        <li>
+          abc
+        </li>
+        <li>
+          foo
+        </li>
+      </ul>
+    `)
   })
 
   it('should handle a loose list', () => {
     render(compiler(['- xyz', '', '- abc', '', '- foo'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <ul data-reactroot>
-                    <li>
-                      <p>
-                        xyz
-                      </p>
-                    </li>
-                    <li>
-                      <p>
-                        abc
-                      </p>
-                    </li>
-                    <li>
-                      <p>
-                        foo
-                      </p>
-                    </li>
-                  </ul>
-
-            `)
+      <ul data-reactroot>
+        <li>
+          <p>
+            xyz
+          </p>
+        </li>
+        <li>
+          <p>
+            abc
+          </p>
+        </li>
+        <li>
+          <p>
+            foo
+          </p>
+        </li>
+      </ul>
+    `)
   })
 
   it('should handle an ordered list', () => {
     render(compiler(['1. xyz', '1. abc', '1. foo'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <ol data-reactroot
-                      start="1"
-                  >
-                    <li>
-                      xyz
-                    </li>
-                    <li>
-                      abc
-                    </li>
-                    <li>
-                      foo
-                    </li>
-                  </ol>
-
-            `)
+      <ol data-reactroot
+          start="1"
+      >
+        <li>
+          xyz
+        </li>
+        <li>
+          abc
+        </li>
+        <li>
+          foo
+        </li>
+      </ol>
+    `)
   })
 
   it('should handle an ordered list with a specific start index', () => {
     render(compiler(['2. xyz', '3. abc', '4. foo'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <ol data-reactroot
-                      start="2"
-                  >
-                    <li>
-                      xyz
-                    </li>
-                    <li>
-                      abc
-                    </li>
-                    <li>
-                      foo
-                    </li>
-                  </ol>
-
-            `)
+      <ol data-reactroot
+          start="2"
+      >
+        <li>
+          xyz
+        </li>
+        <li>
+          abc
+        </li>
+        <li>
+          foo
+        </li>
+      </ol>
+    `)
   })
 
   it('should handle a nested list', () => {
     render(compiler(['- xyz', '  - abc', '- foo'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <ul data-reactroot>
-                    <li>
-                      xyz
-                      <ul>
-                        <li>
-                          abc
-                        </li>
-                      </ul>
-                    </li>
-                    <li>
-                      foo
-                    </li>
-                  </ul>
-
-            `)
+      <ul data-reactroot>
+        <li>
+          xyz
+          <ul>
+            <li>
+              abc
+            </li>
+          </ul>
+        </li>
+        <li>
+          foo
+        </li>
+      </ul>
+    `)
   })
 
   it('should handle a mixed nested list', () => {
     render(compiler(['- xyz', '  1. abc', '    - def', '- foo'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <ul data-reactroot>
-                    <li>
-                      xyz
-                      <ol start="1">
-                        <li>
-                          abc
-                          <ul>
-                            <li>
-                              def
-                            </li>
-                          </ul>
-                        </li>
-                      </ol>
-                    </li>
-                    <li>
-                      foo
-                    </li>
-                  </ul>
-
-            `)
+      <ul data-reactroot>
+        <li>
+          xyz
+          <ol start="1">
+            <li>
+              abc
+              <ul>
+                <li>
+                  def
+                </li>
+              </ul>
+            </li>
+          </ol>
+        </li>
+        <li>
+          foo
+        </li>
+      </ul>
+    `)
   })
 
   it('should not add an extra wrapper around a list', () => {
@@ -1373,27 +1227,25 @@ describe('lists', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <ul data-reactroot>
-                    <li>
-                      xyz
-                      <ol start="1">
-                        <li>
-                          abc
-                          <ul>
-                            <li>
-                              def
-                            </li>
-                          </ul>
-                        </li>
-                      </ol>
-                    </li>
-                    <li>
-                      foo
-                    </li>
-                  </ul>
-
-            `)
+      <ul data-reactroot>
+        <li>
+          xyz
+          <ol start="1">
+            <li>
+              abc
+              <ul>
+                <li>
+                  def
+                </li>
+              </ul>
+            </li>
+          </ol>
+        </li>
+        <li>
+          foo
+        </li>
+      </ul>
+    `)
   })
 
   it('should handle link trees', () => {
@@ -1415,85 +1267,83 @@ describe('lists', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <ul data-reactroot>
-                    <li>
-                      <a href="#buttermilk">
-                        buttermilk
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#installation">
-                        installation
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#usage">
-                        usage
-                      </a>
-                      <ul>
-                        <li>
-                          <a href="#configuration">
-                            configuration
-                          </a>
-                        </li>
-                        <li>
-                          <a href="#components">
-                            components
-                          </a>
-                          <ul>
-                            <li>
-                              <a href="#router">
-                                <code>
-                                  &lt;Router&gt;
-                                </code>
-                              </a>
-                            </li>
-                            <li>
-                              <a href="#routingstate">
-                                <code>
-                                  &lt;RoutingState&gt;
-                                </code>
-                              </a>
-                            </li>
-                            <li>
-                              <a href="#link">
-                                <code>
-                                  &lt;Link&gt;
-                                </code>
-                              </a>
-                            </li>
-                          </ul>
-                        </li>
-                        <li>
-                          <a href="#utilities">
-                            utilities
-                          </a>
-                          <ul>
-                            <li>
-                              <a href="#routeurl-string-addnewhistoryentry-boolean--true">
-                                <code>
-                                  route(url: String, addNewHistoryEntry: Boolean = true)
-                                </code>
-                              </a>
-                            </li>
-                          </ul>
-                        </li>
-                        <li>
-                          <a href="#holistic-example">
-                            holistic example
-                          </a>
-                        </li>
-                      </ul>
-                    </li>
-                    <li>
-                      <a href="#goals">
-                        goals
-                      </a>
-                    </li>
-                  </ul>
-
-            `)
+      <ul data-reactroot>
+        <li>
+          <a href="#buttermilk">
+            buttermilk
+          </a>
+        </li>
+        <li>
+          <a href="#installation">
+            installation
+          </a>
+        </li>
+        <li>
+          <a href="#usage">
+            usage
+          </a>
+          <ul>
+            <li>
+              <a href="#configuration">
+                configuration
+              </a>
+            </li>
+            <li>
+              <a href="#components">
+                components
+              </a>
+              <ul>
+                <li>
+                  <a href="#router">
+                    <code>
+                      &lt;Router&gt;
+                    </code>
+                  </a>
+                </li>
+                <li>
+                  <a href="#routingstate">
+                    <code>
+                      &lt;RoutingState&gt;
+                    </code>
+                  </a>
+                </li>
+                <li>
+                  <a href="#link">
+                    <code>
+                      &lt;Link&gt;
+                    </code>
+                  </a>
+                </li>
+              </ul>
+            </li>
+            <li>
+              <a href="#utilities">
+                utilities
+              </a>
+              <ul>
+                <li>
+                  <a href="#routeurl-string-addnewhistoryentry-boolean--true">
+                    <code>
+                      route(url: String, addNewHistoryEntry: Boolean = true)
+                    </code>
+                  </a>
+                </li>
+              </ul>
+            </li>
+            <li>
+              <a href="#holistic-example">
+                holistic example
+              </a>
+            </li>
+          </ul>
+        </li>
+        <li>
+          <a href="#goals">
+            goals
+          </a>
+        </li>
+      </ul>
+    `)
   })
 
   it('handles horizontal rules after lists', () => {
@@ -1507,20 +1357,18 @@ describe('lists', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <ul>
-                      <li>
-                        one
-                      </li>
-                      <li>
-                        two
-                      </li>
-                    </ul>
-                    <hr>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <ul>
+          <li>
+            one
+          </li>
+          <li>
+            two
+          </li>
+        </ul>
+        <hr>
+      </div>
+    `)
   })
 })
 
@@ -1531,18 +1379,16 @@ describe('GFM task lists', () => {
     const checkbox = root.querySelector('ul li input') as HTMLInputElement
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <ul data-reactroot>
-                    <li>
-                      <input type="checkbox"
-                             readonly
-                             value="on"
-                      >
-                      foo
-                    </li>
-                  </ul>
-
-            `)
+      <ul data-reactroot>
+        <li>
+          <input type="checkbox"
+                 readonly
+                 value="on"
+          >
+          foo
+        </li>
+      </ul>
+    `)
     expect(checkbox.checked).toBe(false)
   })
 
@@ -1552,18 +1398,16 @@ describe('GFM task lists', () => {
     const checkbox = root.querySelector('ul li input') as HTMLInputElement
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <ul data-reactroot>
-                    <li>
-                      <input type="checkbox"
-                             readonly
-                             value="on"
-                      >
-                      foo
-                    </li>
-                  </ul>
-
-            `)
+      <ul data-reactroot>
+        <li>
+          <input type="checkbox"
+                 readonly
+                 value="on"
+          >
+          foo
+        </li>
+      </ul>
+    `)
     expect(checkbox.checked).toBe(true)
   })
 
@@ -1582,68 +1426,64 @@ describe('GFM tables', () => {
     render(compiler(['foo|bar', '---|---', '1  |2'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <table data-reactroot>
-                    <thead>
-                      <tr>
-                        <th>
-                          foo
-                        </th>
-                        <th>
-                          bar
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>
-                          1
-                        </td>
-                        <td>
-                          2
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-            `)
+      <table data-reactroot>
+        <thead>
+          <tr>
+            <th>
+              foo
+            </th>
+            <th>
+              bar
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              1
+            </td>
+            <td>
+              2
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
   })
 
   it('should handle a table with aligned columns', () => {
     render(compiler(['foo|bar|baz', '--:|:---:|:--', '1|2|3'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <table data-reactroot>
-                    <thead>
-                      <tr>
-                        <th style="text-align: right;">
-                          foo
-                        </th>
-                        <th style="text-align: center;">
-                          bar
-                        </th>
-                        <th style="text-align: left;">
-                          baz
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td style="text-align: right;">
-                          1
-                        </td>
-                        <td style="text-align: center;">
-                          2
-                        </td>
-                        <td style="text-align: left;">
-                          3
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-            `)
+      <table data-reactroot>
+        <thead>
+          <tr>
+            <th style="text-align: right;">
+              foo
+            </th>
+            <th style="text-align: center;">
+              bar
+            </th>
+            <th style="text-align: left;">
+              baz
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="text-align: right;">
+              1
+            </td>
+            <td style="text-align: center;">
+              2
+            </td>
+            <td style="text-align: left;">
+              3
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
   })
 
   it('should handle the other syntax for tables', () => {
@@ -1659,39 +1499,37 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <table data-reactroot>
-                    <thead>
-                      <tr>
-                        <th>
-                          Foo
-                        </th>
-                        <th>
-                          Bar
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>
-                          1
-                        </td>
-                        <td>
-                          2
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>
-                          3
-                        </td>
-                        <td>
-                          4
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-            `)
+      <table data-reactroot>
+        <thead>
+          <tr>
+            <th>
+              Foo
+            </th>
+            <th>
+              Bar
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              1
+            </td>
+            <td>
+              2
+            </td>
+          </tr>
+          <tr>
+            <td>
+              3
+            </td>
+            <td>
+              4
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
   })
 
   it('should handle the other syntax for tables with alignment', () => {
@@ -1707,48 +1545,46 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <table data-reactroot>
-                    <thead>
-                      <tr>
-                        <th style="text-align: right;">
-                          Foo
-                        </th>
-                        <th style="text-align: center;">
-                          Bar
-                        </th>
-                        <th style="text-align: left;">
-                          Baz
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td style="text-align: right;">
-                          1
-                        </td>
-                        <td style="text-align: center;">
-                          2
-                        </td>
-                        <td style="text-align: left;">
-                          3
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="text-align: right;">
-                          4
-                        </td>
-                        <td style="text-align: center;">
-                          5
-                        </td>
-                        <td style="text-align: left;">
-                          6
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-            `)
+      <table data-reactroot>
+        <thead>
+          <tr>
+            <th style="text-align: right;">
+              Foo
+            </th>
+            <th style="text-align: center;">
+              Bar
+            </th>
+            <th style="text-align: left;">
+              Baz
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="text-align: right;">
+              1
+            </td>
+            <td style="text-align: center;">
+              2
+            </td>
+            <td style="text-align: left;">
+              3
+            </td>
+          </tr>
+          <tr>
+            <td style="text-align: right;">
+              4
+            </td>
+            <td style="text-align: center;">
+              5
+            </td>
+            <td style="text-align: left;">
+              6
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
   })
 
   it('#241 should not ignore the first cell when its contents is empty', () => {
@@ -1764,46 +1600,44 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <table data-reactroot>
-                    <thead>
-                      <tr>
-                        <th>
-                          Foo
-                        </th>
-                        <th>
-                          Bar
-                        </th>
-                        <th>
-                          Baz
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>
-                        </td>
-                        <td>
-                          2
-                        </td>
-                        <td>
-                          3
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>
-                        </td>
-                        <td>
-                          5
-                        </td>
-                        <td>
-                          6
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-            `)
+      <table data-reactroot>
+        <thead>
+          <tr>
+            <th>
+              Foo
+            </th>
+            <th>
+              Bar
+            </th>
+            <th>
+              Baz
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+            </td>
+            <td>
+              2
+            </td>
+            <td>
+              3
+            </td>
+          </tr>
+          <tr>
+            <td>
+            </td>
+            <td>
+              5
+            </td>
+            <td>
+              6
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
   })
 
   it('should handle other content after a table', () => {
@@ -1821,53 +1655,51 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th style="text-align: right;">
-                            Foo
-                          </th>
-                          <th style="text-align: center;">
-                            Bar
-                          </th>
-                          <th style="text-align: left;">
-                            Baz
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td style="text-align: right;">
-                            1
-                          </td>
-                          <td style="text-align: center;">
-                            2
-                          </td>
-                          <td style="text-align: left;">
-                            3
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style="text-align: right;">
-                            4
-                          </td>
-                          <td style="text-align: center;">
-                            5
-                          </td>
-                          <td style="text-align: left;">
-                            6
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <p>
-                      Foo
-                    </p>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align: right;">
+                Foo
+              </th>
+              <th style="text-align: center;">
+                Bar
+              </th>
+              <th style="text-align: left;">
+                Baz
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="text-align: right;">
+                1
+              </td>
+              <td style="text-align: center;">
+                2
+              </td>
+              <td style="text-align: left;">
+                3
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: right;">
+                4
+              </td>
+              <td style="text-align: center;">
+                5
+              </td>
+              <td style="text-align: left;">
+                6
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Foo
+        </p>
+      </div>
+    `)
   })
 
   it('should handle escaped pipes inside a table', () => {
@@ -1882,31 +1714,29 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <table data-reactroot>
-                    <thead>
-                      <tr>
-                        <th>
-                          |Attribute|
-                        </th>
-                        <th>
-                          |Type|
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>
-                          pos|position
-                        </td>
-                        <td>
-                          "left" | "right"
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-            `)
+      <table data-reactroot>
+        <thead>
+          <tr>
+            <th>
+              |Attribute|
+            </th>
+            <th>
+              |Type|
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              pos|position
+            </td>
+            <td>
+              "left" | "right"
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
   })
 
   it('should handle pipes in code inside a table', () => {
@@ -1921,35 +1751,33 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <table data-reactroot>
-                    <thead>
-                      <tr>
-                        <th>
-                          Attribute
-                        </th>
-                        <th>
-                          Type
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>
-                          <code>
-                            position
-                          </code>
-                        </td>
-                        <td>
-                          <code>
-                            "left" | "right"
-                          </code>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-            `)
+      <table data-reactroot>
+        <thead>
+          <tr>
+            <th>
+              Attribute
+            </th>
+            <th>
+              Type
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <code>
+                position
+              </code>
+            </td>
+            <td>
+              <code>
+                "left" | "right"
+              </code>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
   })
 })
 
@@ -1958,42 +1786,36 @@ describe('arbitrary HTML', () => {
     render(compiler('<dd>Hello</dd>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <dd data-reactroot>
-                    Hello
-                  </dd>
-
-            `)
+      <dd data-reactroot>
+        Hello
+      </dd>
+    `)
   })
 
   it('processes markdown within inline HTML', () => {
     render(compiler('<time>**Hello**</time>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <time data-reactroot>
-                    <strong>
-                      Hello
-                    </strong>
-                  </time>
-
-            `)
+      <time data-reactroot>
+        <strong>
+          Hello
+        </strong>
+      </time>
+    `)
   })
 
   it('processes markdown within nested inline HTML', () => {
     render(compiler('<time><span>**Hello**</span></time>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <time data-reactroot>
-                    <span>
-                      <strong>
-                        Hello
-                      </strong>
-                    </span>
-                  </time>
-
-            `)
+      <time data-reactroot>
+        <span>
+          <strong>
+            Hello
+          </strong>
+        </span>
+      </time>
+    `)
   })
 
   it('processes markdown within nested inline HTML where childen appear more than once', () => {
@@ -2002,51 +1824,45 @@ describe('arbitrary HTML', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <dl data-reactroot>
-                    <dt>
-                      foo
-                    </dt>
-                    <dd>
-                      bar
-                    </dd>
-                    <dt>
-                      baz
-                    </dt>
-                    <dd>
-                      qux
-                    </dd>
-                  </dl>
-
-            `)
+      <dl data-reactroot>
+        <dt>
+          foo
+        </dt>
+        <dd>
+          bar
+        </dd>
+        <dt>
+          baz
+        </dt>
+        <dd>
+          qux
+        </dd>
+      </dl>
+    `)
   })
 
   it('processes attributes within inline HTML', () => {
     render(compiler('<time data-foo="bar">Hello</time>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <time data-reactroot
-                        data-foo="bar"
-                  >
-                    Hello
-                  </time>
-
-            `)
+      <time data-reactroot
+            data-foo="bar"
+      >
+        Hello
+      </time>
+    `)
   })
 
   it('processes attributes that need JSX massaging within inline HTML', () => {
     render(compiler('<span tabindex="0">Hello</span>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot
-                        tabindex="0"
-                  >
-                    Hello
-                  </span>
-
-            `)
+      <span data-reactroot
+            tabindex="0"
+      >
+        Hello
+      </span>
+    `)
   })
 
   it('processes inline HTML with inline styles', () => {
@@ -2057,61 +1873,53 @@ describe('arbitrary HTML', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot
-                        style="color: red; position: top; margin-right: 10px;"
-                  >
-                    Hello
-                  </span>
-
-            `)
+      <span data-reactroot
+            style="color: red; position: top; margin-right: 10px;"
+      >
+        Hello
+      </span>
+    `)
   })
 
   it('processes markdown within block-level arbitrary HTML', () => {
     render(compiler('<p>**Hello**</p>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <p data-reactroot>
-                    <strong>
-                      Hello
-                    </strong>
-                  </p>
-
-            `)
+      <p data-reactroot>
+        <strong>
+          Hello
+        </strong>
+      </p>
+    `)
   })
 
   it('processes markdown within block-level arbitrary HTML (regression)', () => {
     render(compiler('<div style="float: right">\n# Hello\n</div>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot
-                       style="float: right;"
-                  >
-                    <h1 id="hello">
-                      Hello
-                    </h1>
-                  </div>
-
-            `)
+      <div data-reactroot
+           style="float: right;"
+      >
+        <h1 id="hello">
+          Hello
+        </h1>
+      </div>
+    `)
   })
 
   it('renders inline <code> tags', () => {
     render(compiler('Text and <code>**code**</code>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot>
-                    Text and
-                    <code>
-                      <strong>
-                        code
-                      </strong>
-                    </code>
-                  </span>
-
-            `)
+      <span data-reactroot>
+        Text and
+        <code>
+          <strong>
+            code
+          </strong>
+        </code>
+      </span>
+    `)
   })
 
   it('handles self-closing html inside parsable html (regression)', () => {
@@ -2122,27 +1930,23 @@ describe('arbitrary HTML', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <a data-reactroot
-                     href="https://opencollective.com/react-dropzone/sponsor/0/website"
-                     target="_blank"
-                  >
-                    <img src="https://opencollective.com/react-dropzone/sponsor/0/avatar.svg">
-                  </a>
-
-            `)
+      <a data-reactroot
+         href="https://opencollective.com/react-dropzone/sponsor/0/website"
+         target="_blank"
+      >
+        <img src="https://opencollective.com/react-dropzone/sponsor/0/avatar.svg">
+      </a>
+    `)
   })
 
   it('throws out HTML comments', () => {
     render(compiler('Foo\n<!-- blah -->'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <p data-reactroot>
-                    Foo
-                  </p>
-
-            `)
+      <p data-reactroot>
+        Foo
+      </p>
+    `)
   })
 
   it('throws out multiline HTML comments', () => {
@@ -2154,12 +1958,10 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <p data-reactroot>
-                    Foo
-                  </p>
-
-            `)
+      <p data-reactroot>
+        Foo
+      </p>
+    `)
   })
 
   it('block HTML regression test', () => {
@@ -2176,48 +1978,46 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <ul data-reactroot
-                      id="ProjectSubmenu"
-                  >
-                    <li>
-                      <a href="/projects/markdown/"
-                         title="Markdown Project Page"
-                      >
-                        Main
-                      </a>
-                    </li>
-                    <li>
-                      <a href="/projects/markdown/basics"
-                         title="Markdown Basics"
-                      >
-                        Basics
-                      </a>
-                    </li>
-                    <li>
-                      <a class="selected"
-                         title="Markdown Syntax Documentation"
-                      >
-                        Syntax
-                      </a>
-                    </li>
-                    <li>
-                      <a href="/projects/markdown/license"
-                         title="Pricing and License Information"
-                      >
-                        License
-                      </a>
-                    </li>
-                    <li>
-                      <a href="/projects/markdown/dingus"
-                         title="Online Markdown Web Form"
-                      >
-                        Dingus
-                      </a>
-                    </li>
-                  </ul>
-
-            `)
+      <ul data-reactroot
+          id="ProjectSubmenu"
+      >
+        <li>
+          <a href="/projects/markdown/"
+             title="Markdown Project Page"
+          >
+            Main
+          </a>
+        </li>
+        <li>
+          <a href="/projects/markdown/basics"
+             title="Markdown Basics"
+          >
+            Basics
+          </a>
+        </li>
+        <li>
+          <a class="selected"
+             title="Markdown Syntax Documentation"
+          >
+            Syntax
+          </a>
+        </li>
+        <li>
+          <a href="/projects/markdown/license"
+             title="Pricing and License Information"
+          >
+            License
+          </a>
+        </li>
+        <li>
+          <a href="/projects/markdown/dingus"
+             title="Online Markdown Web Form"
+          >
+            Dingus
+          </a>
+        </li>
+      </ul>
+    `)
   })
 
   it('handles svg', () => {
@@ -2226,20 +2026,18 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <svg data-reactroot
-                       width="246"
-                       height="369"
-                       xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path d="M243.937.055a2 2 0 0 1 2.008 2.002v168.995c0 1.106-.814 2.388-1.802 2.855l-118.895 56.186c-.996.47-2.617.467-3.605 0L2.748 173.907c-.996-.47-1.803-1.742-1.803-2.855V2.057C.945.951 1.832.055 2.953.055h240.984zM110.391 139.367V66.383l-25.032 47.32h-9.843l-24.891-47.32v72.984h-15.68V42.055h20.18l25.594 49.64 25.804-49.64h19.688v97.312h-15.82zm104.101-48.656c0 9.562-.984 17.484-2.953 23.766-1.969 6.28-4.91 11.261-8.824 14.941-3.914 3.68-8.754 6.258-14.52 7.734-5.765 1.477-12.445 2.215-20.039 2.215h-27.21V42.055h26.929c7.781 0 14.59.82 20.426 2.46 5.836 1.641 10.699 4.36 14.59 8.157 3.89 3.797 6.796 8.8 8.718 15.012 1.922 6.21 2.883 13.886 2.883 23.027zm-18.289-16.508c-1.031-4.312-2.742-7.746-5.133-10.3-2.39-2.555-5.554-4.348-9.492-5.38-3.937-1.03-8.812-1.546-14.625-1.546h-9.21v67.359h9.21c5.906 0 10.828-.55 14.766-1.652 3.937-1.102 7.101-2.954 9.492-5.555 2.39-2.602 4.078-6.07 5.062-10.406.985-4.336 1.477-9.739 1.477-16.207 0-6.563-.516-12-1.547-16.313zM51.219 339.805c0 4.922-.574 9.187-1.723 12.797-1.148 3.609-2.93 6.597-5.344 8.964-2.414 2.368-5.507 4.114-9.28 5.239-3.774 1.125-8.263 1.687-13.466 1.687-1.265 0-2.718-.082-4.36-.246a60.81 60.81 0 0 1-5.097-.738 80.327 80.327 0 0 1-5.238-1.16A49.492 49.492 0 0 1 2 364.906l5.484-14.414c.704.375 1.653.762 2.848 1.16 1.195.399 2.45.762 3.762 1.09a56.72 56.72 0 0 0 3.972.844c1.336.234 2.496.351 3.48.351 2.673 0 4.864-.316 6.575-.949 1.711-.633 3.07-1.699 4.078-3.199 1.008-1.5 1.7-3.492 2.074-5.976.375-2.485.563-5.602.563-9.352V269h16.383v70.805zM151.688 339c0 5.484-.973 10.09-2.918 13.816-1.946 3.727-4.582 6.75-7.91 9.07-3.329 2.321-7.208 3.985-11.637 4.993-4.43 1.008-9.13 1.512-14.098 1.512-5.25 0-9.844-.493-13.781-1.477-3.938-.984-7.383-2.32-10.336-4.008-2.953-1.687-5.473-3.656-7.559-5.906A43.715 43.715 0 0 1 78 349.758l12.938-9.352a42.058 42.058 0 0 0 3.902 5.168 23.723 23.723 0 0 0 4.992 4.254c1.898 1.219 4.113 2.192 6.645 2.918 2.53.727 5.46 1.09 8.789 1.09 2.484 0 4.91-.234 7.277-.703s4.465-1.242 6.293-2.32c1.828-1.079 3.293-2.485 4.394-4.22 1.102-1.734 1.653-3.89 1.653-6.468 0-2.438-.528-4.477-1.582-6.117-1.055-1.64-2.473-3.024-4.254-4.149-1.781-1.125-3.867-2.062-6.258-2.812-2.39-.75-4.945-1.477-7.664-2.18a266.328 266.328 0 0 1-13.852-3.902c-4.265-1.336-7.968-3.035-11.109-5.098-3.14-2.062-5.613-4.687-7.418-7.875-1.805-3.187-2.707-7.265-2.707-12.234 0-4.406.75-8.38 2.25-11.918a24.403 24.403 0 0 1 6.61-9.07c2.906-2.508 6.527-4.43 10.863-5.766 4.336-1.336 9.316-2.004 14.941-2.004 4.219 0 8.074.387 11.567 1.16 3.492.774 6.656 1.899 9.492 3.375a32.403 32.403 0 0 1 7.629 5.485 37.377 37.377 0 0 1 5.906 7.418l-12.727 9.492c-2.578-4.125-5.625-7.22-9.14-9.282-3.516-2.062-7.805-3.093-12.868-3.093-5.484 0-9.832 1.125-13.042 3.375-3.211 2.25-4.817 5.437-4.817 9.562 0 2.063.434 3.785 1.3 5.168.868 1.383 2.204 2.59 4.009 3.621 1.804 1.032 4.078 1.957 6.82 2.778 2.742.82 5.988 1.675 9.738 2.566a193.01 193.01 0 0 1 8.473 2.25 67.888 67.888 0 0 1 7.805 2.777 38.465 38.465 0 0 1 6.785 3.727 22.237 22.237 0 0 1 5.308 5.168c1.477 2.016 2.637 4.371 3.48 7.066.845 2.696 1.267 5.824 1.267 9.387zM164 367.313l31.992-48.797L164.844 270h18.914l21.586 35.648L227.633 270h18.281l-31.5 48.094 31.36 49.219H227.07l-22.289-36.282-22.64 36.281z"
-                          fill="#fefefe"
-                          fill-rule="evenodd"
-                    >
-                    </path>
-                  </svg>
-
-            `)
+      <svg data-reactroot
+           width="246"
+           height="369"
+           xmlns="http://www.w3.org/2000/svg"
+      >
+        <path d="M243.937.055a2 2 0 0 1 2.008 2.002v168.995c0 1.106-.814 2.388-1.802 2.855l-118.895 56.186c-.996.47-2.617.467-3.605 0L2.748 173.907c-.996-.47-1.803-1.742-1.803-2.855V2.057C.945.951 1.832.055 2.953.055h240.984zM110.391 139.367V66.383l-25.032 47.32h-9.843l-24.891-47.32v72.984h-15.68V42.055h20.18l25.594 49.64 25.804-49.64h19.688v97.312h-15.82zm104.101-48.656c0 9.562-.984 17.484-2.953 23.766-1.969 6.28-4.91 11.261-8.824 14.941-3.914 3.68-8.754 6.258-14.52 7.734-5.765 1.477-12.445 2.215-20.039 2.215h-27.21V42.055h26.929c7.781 0 14.59.82 20.426 2.46 5.836 1.641 10.699 4.36 14.59 8.157 3.89 3.797 6.796 8.8 8.718 15.012 1.922 6.21 2.883 13.886 2.883 23.027zm-18.289-16.508c-1.031-4.312-2.742-7.746-5.133-10.3-2.39-2.555-5.554-4.348-9.492-5.38-3.937-1.03-8.812-1.546-14.625-1.546h-9.21v67.359h9.21c5.906 0 10.828-.55 14.766-1.652 3.937-1.102 7.101-2.954 9.492-5.555 2.39-2.602 4.078-6.07 5.062-10.406.985-4.336 1.477-9.739 1.477-16.207 0-6.563-.516-12-1.547-16.313zM51.219 339.805c0 4.922-.574 9.187-1.723 12.797-1.148 3.609-2.93 6.597-5.344 8.964-2.414 2.368-5.507 4.114-9.28 5.239-3.774 1.125-8.263 1.687-13.466 1.687-1.265 0-2.718-.082-4.36-.246a60.81 60.81 0 0 1-5.097-.738 80.327 80.327 0 0 1-5.238-1.16A49.492 49.492 0 0 1 2 364.906l5.484-14.414c.704.375 1.653.762 2.848 1.16 1.195.399 2.45.762 3.762 1.09a56.72 56.72 0 0 0 3.972.844c1.336.234 2.496.351 3.48.351 2.673 0 4.864-.316 6.575-.949 1.711-.633 3.07-1.699 4.078-3.199 1.008-1.5 1.7-3.492 2.074-5.976.375-2.485.563-5.602.563-9.352V269h16.383v70.805zM151.688 339c0 5.484-.973 10.09-2.918 13.816-1.946 3.727-4.582 6.75-7.91 9.07-3.329 2.321-7.208 3.985-11.637 4.993-4.43 1.008-9.13 1.512-14.098 1.512-5.25 0-9.844-.493-13.781-1.477-3.938-.984-7.383-2.32-10.336-4.008-2.953-1.687-5.473-3.656-7.559-5.906A43.715 43.715 0 0 1 78 349.758l12.938-9.352a42.058 42.058 0 0 0 3.902 5.168 23.723 23.723 0 0 0 4.992 4.254c1.898 1.219 4.113 2.192 6.645 2.918 2.53.727 5.46 1.09 8.789 1.09 2.484 0 4.91-.234 7.277-.703s4.465-1.242 6.293-2.32c1.828-1.079 3.293-2.485 4.394-4.22 1.102-1.734 1.653-3.89 1.653-6.468 0-2.438-.528-4.477-1.582-6.117-1.055-1.64-2.473-3.024-4.254-4.149-1.781-1.125-3.867-2.062-6.258-2.812-2.39-.75-4.945-1.477-7.664-2.18a266.328 266.328 0 0 1-13.852-3.902c-4.265-1.336-7.968-3.035-11.109-5.098-3.14-2.062-5.613-4.687-7.418-7.875-1.805-3.187-2.707-7.265-2.707-12.234 0-4.406.75-8.38 2.25-11.918a24.403 24.403 0 0 1 6.61-9.07c2.906-2.508 6.527-4.43 10.863-5.766 4.336-1.336 9.316-2.004 14.941-2.004 4.219 0 8.074.387 11.567 1.16 3.492.774 6.656 1.899 9.492 3.375a32.403 32.403 0 0 1 7.629 5.485 37.377 37.377 0 0 1 5.906 7.418l-12.727 9.492c-2.578-4.125-5.625-7.22-9.14-9.282-3.516-2.062-7.805-3.093-12.868-3.093-5.484 0-9.832 1.125-13.042 3.375-3.211 2.25-4.817 5.437-4.817 9.562 0 2.063.434 3.785 1.3 5.168.868 1.383 2.204 2.59 4.009 3.621 1.804 1.032 4.078 1.957 6.82 2.778 2.742.82 5.988 1.675 9.738 2.566a193.01 193.01 0 0 1 8.473 2.25 67.888 67.888 0 0 1 7.805 2.777 38.465 38.465 0 0 1 6.785 3.727 22.237 22.237 0 0 1 5.308 5.168c1.477 2.016 2.637 4.371 3.48 7.066.845 2.696 1.267 5.824 1.267 9.387zM164 367.313l31.992-48.797L164.844 270h18.914l21.586 35.648L227.633 270h18.281l-31.5 48.094 31.36 49.219H227.07l-22.289-36.282-22.64 36.281z"
+              fill="#fefefe"
+              fill-rule="evenodd"
+        >
+        </path>
+      </svg>
+    `)
   })
 
   it('handles nested HTML blocks of the same type (regression)', () => {
@@ -2272,44 +2070,42 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <table data-reactroot>
-                    <tbody>
-                      <tr>
-                        <td>
-                          Time
-                        </td>
-                        <td>
-                          Payment Criteria
-                        </td>
-                        <td>
-                          Payment
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>
-                          Office Visit
-                        </td>
-                        <td>
-                          <ul>
-                            <li>
-                              Complete full visit and enroll
-                              <ul>
-                                <li>
-                                  Enrolling is fun!
-                                </li>
-                              </ul>
-                            </li>
-                          </ul>
-                        </td>
-                        <td>
-                          $20
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-            `)
+      <table data-reactroot>
+        <tbody>
+          <tr>
+            <td>
+              Time
+            </td>
+            <td>
+              Payment Criteria
+            </td>
+            <td>
+              Payment
+            </td>
+          </tr>
+          <tr>
+            <td>
+              Office Visit
+            </td>
+            <td>
+              <ul>
+                <li>
+                  Complete full visit and enroll
+                  <ul>
+                    <li>
+                      Enrolling is fun!
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </td>
+            <td>
+              $20
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
   })
 
   it('regression test for #136', () => {
@@ -2332,27 +2128,25 @@ $25
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <p data-reactroot>
-                    $25
-                    <br>
-                    <br>
-                    <br>
-                    $50
-                    <br>
-                    <br>
-                    <br>
-                    $50
-                    <br>
-                    <br>
-                    <br>
-                    $50
-                    <br>
-                    <br>
-                    <br>
-                  </p>
-
-            `)
+      <p data-reactroot>
+        $25
+        <br>
+        <br>
+        <br>
+        $50
+        <br>
+        <br>
+        <br>
+        $50
+        <br>
+        <br>
+        <br>
+        $50
+        <br>
+        <br>
+        <br>
+      </p>
+    `)
   })
 
   it('regression test for #170', () => {
@@ -2391,56 +2185,54 @@ $25
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <table data-reactroot>
-                    <tbody>
-                      <tr>
-                        <td>
-                          a
-                        </td>
-                        <td>
-                          b
-                        </td>
-                        <td>
-                          c
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>
-                          left
-                        </td>
-                        <td>
-                          <p>
-                            Start of table
-                          </p>
-                          <ul>
-                            <li>
-                              List 1
-                            </li>
-                            <li>
-                              <ul>
-                                <li>
-                                  Nested List 1
-                                </li>
-                              </ul>
-                            </li>
-                            <li>
-                              <ul>
-                                <li>
-                                  list 2
-                                </li>
-                              </ul>
-                            </li>
-                          </ul>
-                        </td>
-                        <td>
-                          right
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-            `)
+      <table data-reactroot>
+        <tbody>
+          <tr>
+            <td>
+              a
+            </td>
+            <td>
+              b
+            </td>
+            <td>
+              c
+            </td>
+          </tr>
+          <tr>
+            <td>
+              left
+            </td>
+            <td>
+              <p>
+                Start of table
+              </p>
+              <ul>
+                <li>
+                  List 1
+                </li>
+                <li>
+                  <ul>
+                    <li>
+                      Nested List 1
+                    </li>
+                  </ul>
+                </li>
+                <li>
+                  <ul>
+                    <li>
+                      list 2
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </td>
+            <td>
+              right
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
   })
 
   it('#140 self-closing HTML with indentation', () => {
@@ -2461,13 +2253,11 @@ $25
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot
-                       class="datepicker"
-                  >
-                  </div>
-
-            `)
+      <div data-reactroot
+           class="datepicker"
+      >
+      </div>
+    `)
   })
 
   it('handles jsx attribute interpolation as a string', () => {
@@ -2492,14 +2282,12 @@ $25
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    1514579720511
-                    to
-                    "1514579720512"
-                  </div>
-
-            `)
+      <div data-reactroot>
+        1514579720511
+        to
+        "1514579720512"
+      </div>
+    `)
   })
 
   it('handles jsx inside jsx interpolations', () => {
@@ -2539,26 +2327,24 @@ $25
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <div class="inner">
-                      bah
-                    </div>
-                    and
-                    <div class="inner">
-                      blah
-                    </div>
-                    and
-                    <div disabled
-                         class="inner"
-                    >
-                    </div>
-                    and
-                    <div class="inner">
-                    </div>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <div class="inner">
+          bah
+        </div>
+        and
+        <div class="inner">
+          blah
+        </div>
+        and
+        <div disabled
+             class="inner"
+        >
+        </div>
+        and
+        <div class="inner">
+        </div>
+      </div>
+    `)
   })
 
   it('handles malformed HTML', () => {
@@ -2575,19 +2361,17 @@ $25
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <g>
-                    </g>
-                    <g>
-                      <path fill="#ffffff">
-                      </path>
-                    </g>
-                    <path fill="#ffffff">
-                    </path>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <g>
+        </g>
+        <g>
+          <path fill="#ffffff">
+          </path>
+        </g>
+        <path fill="#ffffff">
+        </path>
+      </div>
+    `)
   })
 
   it('allows whitespace between attribute and value', () => {
@@ -2602,50 +2386,44 @@ $25
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot
-                       class="foo"
-                       id="baz"
-                       style="background: red;"
-                  >
-                    Bar
-                  </div>
-
-            `)
+      <div data-reactroot
+           class="foo"
+           id="baz"
+           style="background: red;"
+      >
+        Bar
+      </div>
+    `)
   })
 
   it('handles a raw hashtag inside HTML', () => {
     render(compiler(['"<span>#</span>"'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot>
-                    "
-                    <span>
-                      #
-                    </span>
-                    "
-                  </span>
-
-            `)
+      <span data-reactroot>
+        "
+        <span>
+          #
+        </span>
+        "
+      </span>
+    `)
   })
 
   it('handles a heading inside HTML', () => {
     render(compiler(['"<span># foo</span>"'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot>
-                    "
-                    <span>
-                      <h1 id="foo">
-                        foo
-                      </h1>
-                    </span>
-                    "
-                  </span>
-
-            `)
+      <span data-reactroot>
+        "
+        <span>
+          <h1 id="foo">
+            foo
+          </h1>
+        </span>
+        "
+      </span>
+    `)
   })
 
   it('does not parse the inside of <style> blocks', () => {
@@ -2656,38 +2434,32 @@ $25
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <style data-reactroot>
-                    .bar {
-                      color: red;
-                    }
-                  </style>
-
-            `)
+      <style data-reactroot>
+        .bar {
+          color: red;
+        }
+      </style>
+    `)
   })
 
   it('does not parse the inside of <script> blocks', () => {
     render(compiler(['<script>', '  new Date();', '</script>'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <script data-reactroot>
-                    new Date();
-                  </script>
-
-            `)
+      <script data-reactroot>
+        new Date();
+      </script>
+    `)
   })
 
   it('does not parse the inside of <script> blocks with weird capitalization', () => {
     render(compiler(['<SCRIPT>', '  new Date();', '</SCRIPT>'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <script data-reactroot>
-                    new Date();
-                  </script>
-
-            `)
+      <script data-reactroot>
+        new Date();
+      </script>
+    `)
   })
 
   it('handles nested tags of the same type with attributes', () => {
@@ -2698,28 +2470,24 @@ $25
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot
-                       id="foo"
-                  >
-                    <div id="bar">
-                      Baz
-                    </div>
-                  </div>
-
-            `)
+      <div data-reactroot
+           id="foo"
+      >
+        <div id="bar">
+          Baz
+        </div>
+      </div>
+    `)
   })
 
   it('#180 handles invalid character error with angle brackets', () => {
     render(compiler('1<2 or 2>1'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot>
-                    1&lt;2 or 2&gt;1
-                  </span>
-
-            `)
+      <span data-reactroot>
+        1&lt;2 or 2&gt;1
+      </span>
+    `)
   })
 
   it('#181 handling of figure blocks', () => {
@@ -2735,15 +2503,13 @@ $25
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <figure data-reactroot>
-                    <img src="//placehold.it/300x200">
-                    <figcaption>
-                      This is a placeholder image
-                    </figcaption>
-                  </figure>
-
-            `)
+      <figure data-reactroot>
+        <img src="//placehold.it/300x200">
+        <figcaption>
+          This is a placeholder image
+        </figcaption>
+      </figure>
+    `)
   })
 
   it('#185 handles block syntax MD + HTML inside HTML', () => {
@@ -2762,19 +2528,17 @@ import styled from 'styled-components';
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <details data-reactroot>
-                    <summary>
-                      Solution
-                    </summary>
-                    <pre>
-                      <code class="lang-jsx">
-                        import styled from 'styled-components';
-                      </code>
-                    </pre>
-                  </details>
-
-            `)
+      <details data-reactroot>
+        <summary>
+          Solution
+        </summary>
+        <pre>
+          <code class="lang-jsx">
+            import styled from 'styled-components';
+          </code>
+        </pre>
+      </details>
+    `)
   })
 
   it('#207 handles tables inside HTML', () => {
@@ -2793,36 +2557,34 @@ import styled from 'styled-components';
 
     // expect('').toMatchInlineSnapshot();
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <details data-reactroot>
-                    <summary>
-                      Click here
-                    </summary>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>
-                            Heading 1
-                          </th>
-                          <th>
-                            Heading 2
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td>
-                            Foo
-                          </td>
-                          <td>
-                            Bar
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </details>
-
-            `)
+      <details data-reactroot>
+        <summary>
+          Click here
+        </summary>
+        <table>
+          <thead>
+            <tr>
+              <th>
+                Heading 1
+              </th>
+              <th>
+                Heading 2
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                Foo
+              </td>
+              <td>
+                Bar
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </details>
+    `)
   })
 
   it('#185 misc regression test', () => {
@@ -2849,34 +2611,32 @@ Text content
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <details data-reactroot>
-                    <summary>
-                      View collapsed content
-                    </summary>
-                    <h1 id="title-h1">
-                      Title h1
-                    </h1>
-                    <h2 id="title-h2">
-                      Title h2
-                    </h2>
-                    <p>
-                      Text content
-                    </p>
-                    <ul>
-                      <li>
-                        list 1
-                      </li>
-                      <li>
-                        list 2
-                      </li>
-                      <li>
-                        list 3
-                      </li>
-                    </ul>
-                  </details>
-
-            `)
+      <details data-reactroot>
+        <summary>
+          View collapsed content
+        </summary>
+        <h1 id="title-h1">
+          Title h1
+        </h1>
+        <h2 id="title-h2">
+          Title h2
+        </h2>
+        <p>
+          Text content
+        </p>
+        <ul>
+          <li>
+            list 1
+          </li>
+          <li>
+            list 2
+          </li>
+          <li>
+            list 3
+          </li>
+        </ul>
+      </details>
+    `)
   })
 
   it('multiline left-trims by the same amount as the first line', () => {
@@ -2893,18 +2653,16 @@ fun main() {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <pre>
-                      <code class="lang-kotlin">
-                        fun main() {
-                      print("Hello world")
-                  }
-                      </code>
-                    </pre>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <pre>
+          <code class="lang-kotlin">
+            fun main() {
+          print("Hello world")
+      }
+          </code>
+        </pre>
+      </div>
+    `)
   })
 
   it('nested lists work inside html', () => {
@@ -2919,41 +2677,37 @@ fun main() {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <ul>
-                      <li>
-                        hi
-                      </li>
-                      <li>
-                        hello
-                        <ul>
-                          <li>
-                            how are you?
-                          </li>
-                        </ul>
-                      </li>
-                    </ul>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <ul>
+          <li>
+            hi
+          </li>
+          <li>
+            hello
+            <ul>
+              <li>
+                how are you?
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    `)
   })
 
   it('#214 nested paragraphs work inside html', () => {
     render(compiler(['<div>', 'Hello', '', 'World', '</div>'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <p>
-                      Hello
-                    </p>
-                    <p>
-                      World
-                    </p>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <p>
+          Hello
+        </p>
+        <p>
+          World
+        </p>
+      </div>
+    `)
   })
 
   it('does not consume trailing whitespace if there is no newline', () => {
@@ -2962,15 +2716,13 @@ fun main() {
     render(compiler('<Foo/> World!', { overrides: { Foo } }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot>
-                    <span>
-                      Hello
-                    </span>
-                    World!
-                  </span>
-
-            `)
+      <span data-reactroot>
+        <span>
+          Hello
+        </span>
+        World!
+      </span>
+    `)
   })
   it('should not fail with lots of \\n in the middle of the text', () => {
     render(
@@ -2982,17 +2734,15 @@ fun main() {
       )
     )
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <p>
-                      Text
-                    </p>
-                    <p>
-                      text
-                    </p>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <p>
+          Text
+        </p>
+        <p>
+          text
+        </p>
+      </div>
+    `)
   })
 
   it('should not render html if disableParsingRawHTML is true', () => {
@@ -3002,12 +2752,10 @@ fun main() {
       })
     )
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot>
-                    Text with &lt;span&gt;html&lt;/span&gt; inside
-                  </span>
-
-            `)
+      <span data-reactroot>
+        Text with &lt;span&gt;html&lt;/span&gt; inside
+      </span>
+    `)
   })
 
   it('should render html if disableParsingRawHTML is false', () => {
@@ -3017,16 +2765,14 @@ fun main() {
       })
     )
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot>
-                    Text with
-                    <span>
-                      html
-                    </span>
-                    inside
-                  </span>
-
-            `)
+      <span data-reactroot>
+        Text with
+        <span>
+          html
+        </span>
+        inside
+      </span>
+    `)
   })
 })
 
@@ -3045,16 +2791,14 @@ describe('horizontal rules', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <hr>
-                    <hr>
-                    <hr>
-                    <hr>
-                    <hr>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <hr>
+        <hr>
+        <hr>
+        <hr>
+        <hr>
+      </div>
+    `)
   })
 })
 
@@ -3073,14 +2817,12 @@ describe('fenced code blocks', () => {
     render(compiler(['```js', 'foo', '```'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <pre data-reactroot>
-                    <code class="lang-js">
-                      foo
-                    </code>
-                  </pre>
-
-            `)
+      <pre data-reactroot>
+        <code class="lang-js">
+          foo
+        </code>
+      </pre>
+    `)
   })
 })
 
@@ -3089,14 +2831,12 @@ describe('indented code blocks', () => {
     render(compiler('    foo\n\n'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <pre data-reactroot>
-                    <code>
-                      foo
-                    </code>
-                  </pre>
-
-            `)
+      <pre data-reactroot>
+        <code>
+          foo
+        </code>
+      </pre>
+    `)
   })
 })
 
@@ -3105,12 +2845,10 @@ describe('inline code blocks', () => {
     render(compiler('`foo`'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <code data-reactroot>
-                    foo
-                  </code>
-
-            `)
+      <code data-reactroot>
+        foo
+      </code>
+    `)
   })
 })
 
@@ -3119,26 +2857,24 @@ describe('footnotes', () => {
     render(compiler(['foo[^abc] bar', '', '[^abc]: Baz baz'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <p>
-                      foo
-                      <a href="#abc">
-                        <sup>
-                          abc
-                        </sup>
-                      </a>
-                      bar
-                    </p>
-                    <footer>
-                      <div id="abc">
-                        abc
-                        : Baz baz
-                      </div>
-                    </footer>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <p>
+          foo
+          <a href="#abc">
+            <sup>
+              abc
+            </sup>
+          </a>
+          bar
+        </p>
+        <footer>
+          <div id="abc">
+            abc
+            : Baz baz
+          </div>
+        </footer>
+      </div>
+    `)
   })
 
   it('should handle complex references', () => {
@@ -3153,26 +2889,24 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <p>
-                      foo
-                      <a href="#reference-here-123">
-                        <sup>
-                          referencé heré 123
-                        </sup>
-                      </a>
-                      bar
-                    </p>
-                    <footer>
-                      <div id="reference-here-123">
-                        referencé heré 123
-                        : Baz baz
-                      </div>
-                    </footer>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <p>
+          foo
+          <a href="#reference-here-123">
+            <sup>
+              referencé heré 123
+            </sup>
+          </a>
+          bar
+        </p>
+        <footer>
+          <div id="reference-here-123">
+            referencé heré 123
+            : Baz baz
+          </div>
+        </footer>
+      </div>
+    `)
   })
 
   it('should handle conversion of multiple references into links', () => {
@@ -3185,98 +2919,90 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <p>
-                      foo
-                      <a href="#abc">
-                        <sup>
-                          abc
-                        </sup>
-                      </a>
-                      bar. baz
-                      <a href="#def">
-                        <sup>
-                          def
-                        </sup>
-                      </a>
-                    </p>
-                    <footer>
-                      <div id="abc">
-                        abc
-                        : Baz baz
-                      </div>
-                      <div id="def">
-                        def
-                        : Def
-                      </div>
-                    </footer>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <p>
+          foo
+          <a href="#abc">
+            <sup>
+              abc
+            </sup>
+          </a>
+          bar. baz
+          <a href="#def">
+            <sup>
+              def
+            </sup>
+          </a>
+        </p>
+        <footer>
+          <div id="abc">
+            abc
+            : Baz baz
+          </div>
+          <div id="def">
+            def
+            : Def
+          </div>
+        </footer>
+      </div>
+    `)
   })
 
   it('should inject the definitions in a footer at the end of the root', () => {
     render(compiler(['foo[^abc] bar', '', '[^abc]: Baz baz'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <p>
-                      foo
-                      <a href="#abc">
-                        <sup>
-                          abc
-                        </sup>
-                      </a>
-                      bar
-                    </p>
-                    <footer>
-                      <div id="abc">
-                        abc
-                        : Baz baz
-                      </div>
-                    </footer>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <p>
+          foo
+          <a href="#abc">
+            <sup>
+              abc
+            </sup>
+          </a>
+          bar
+        </p>
+        <footer>
+          <div id="abc">
+            abc
+            : Baz baz
+          </div>
+        </footer>
+      </div>
+    `)
   })
 
   it('should handle single word footnote definitions', () => {
     render(compiler(['foo[^abc] bar', '', '[^abc]: Baz'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <div data-reactroot>
-                    <p>
-                      foo
-                      <a href="#abc">
-                        <sup>
-                          abc
-                        </sup>
-                      </a>
-                      bar
-                    </p>
-                    <footer>
-                      <div id="abc">
-                        abc
-                        : Baz
-                      </div>
-                    </footer>
-                  </div>
-
-            `)
+      <div data-reactroot>
+        <p>
+          foo
+          <a href="#abc">
+            <sup>
+              abc
+            </sup>
+          </a>
+          bar
+        </p>
+        <footer>
+          <div id="abc">
+            abc
+            : Baz
+          </div>
+        </footer>
+      </div>
+    `)
   })
 
   it('should not blow up if footnote syntax is seen but no matching footnote was found', () => {
     expect(() => render(compiler('[one] [two]'))).not.toThrow()
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot>
-                    [one] [two]
-                  </span>
-
-            `)
+      <span data-reactroot>
+        [one] [two]
+      </span>
+    `)
   })
 })
 
@@ -3289,16 +3015,14 @@ describe('options.forceBlock', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <p data-reactroot>
-                    Hello.
-                    <em>
-                      Beautiful
-                    </em>
-                    day isn't it?
-                  </p>
-
-            `)
+      <p data-reactroot>
+        Hello.
+        <em>
+          Beautiful
+        </em>
+        day isn't it?
+      </p>
+    `)
   })
 })
 
@@ -3307,12 +3031,10 @@ describe('options.forceInline', () => {
     render(compiler('# You got it babe!', { forceInline: true }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <span data-reactroot>
-                    # You got it babe!
-                  </span>
-
-            `)
+      <span data-reactroot>
+        # You got it babe!
+      </span>
+    `)
   })
 })
 
@@ -3360,28 +3082,24 @@ describe('options.slugify', () => {
     render(compiler('# 中文', { slugify: str => str }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <h1 data-reactroot
-                      id="中文"
-                  >
-                    中文
-                  </h1>
-
-            `)
+      <h1 data-reactroot
+          id="中文"
+      >
+        中文
+      </h1>
+    `)
   })
 
   it('should use the default function if unset', () => {
     render(compiler('# 中文'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <h1 data-reactroot
-                      id
-                  >
-                    中文
-                  </h1>
-
-            `)
+      <h1 data-reactroot
+          id
+      >
+        中文
+      </h1>
+    `)
   })
 
   it('should throw error if invalid', () => {
@@ -3407,14 +3125,12 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-            <p data-reactroot
-               class="foo"
-            >
-              Hello.
-            </p>
-
-        `)
+      <p data-reactroot
+         class="foo"
+      >
+        Hello.
+      </p>
+    `)
   })
 
   it('should accept an override shorthand if props do not need to be overidden', () => {
@@ -3427,14 +3143,12 @@ describe('overrides', () => {
     render(compiler('Hello.\n\n', { overrides: { p: FakeParagraph } }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-            <p data-reactroot
-               class="foo"
-            >
-              Hello.
-            </p>
-
-        `)
+      <p data-reactroot
+         class="foo"
+      >
+        Hello.
+      </p>
+    `)
   })
 
   it('should add props to the appropriate JSX tag if supplied', () => {
@@ -3486,16 +3200,14 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <pre data-reactroot
-                       class="abc"
-                  >
-                    <code data-foo="bar">
-                      foo
-                    </code>
-                  </pre>
-
-            `)
+      <pre data-reactroot
+           class="abc"
+      >
+        <code data-foo="bar">
+          foo
+        </code>
+      </pre>
+    `)
   })
 
   it('should substitute pre & code tags if supplied with an override component', () => {
@@ -3544,19 +3256,17 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
-                  <pre data-reactroot
-                       class="abc"
-                       data-bar="baz"
-                  >
-                    <code data-foo="bar"
-                          data-baz="fizz"
-                    >
-                      foo
-                    </code>
-                  </pre>
-
-            `)
+      <pre data-reactroot
+           class="abc"
+           data-bar="baz"
+      >
+        <code data-foo="bar"
+              data-baz="fizz"
+        >
+          foo
+        </code>
+      </pre>
+    `)
   })
 
   it('should be able to override gfm task list items', () => {
@@ -3568,16 +3278,14 @@ describe('overrides', () => {
     const $element = root.querySelector('li')
 
     expect($element.outerHTML).toMatchInlineSnapshot(`
-
-                  <li class="foo">
-                    <input type="checkbox"
-                           readonly
-                           value="on"
-                    >
-                    foo
-                  </li>
-
-            `)
+      <li class="foo">
+        <input type="checkbox"
+               readonly
+               value="on"
+        >
+        foo
+      </li>
+    `)
   })
 
   it('should be able to override gfm task list item checkboxes', () => {
@@ -3589,14 +3297,12 @@ describe('overrides', () => {
     const $element = root.querySelector('input')
 
     expect($element.outerHTML).toMatchInlineSnapshot(`
-
-                  <input type="checkbox"
-                         readonly
-                         class="foo"
-                         value="on"
-                  >
-
-            `)
+      <input type="checkbox"
+             readonly
+             class="foo"
+             value="on"
+      >
+    `)
   })
 
   it('should substitute the appropriate JSX tag if given a component and disableParsingRawHTML is true', () => {
@@ -3610,13 +3316,11 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
       <p data-reactroot
          class="foo"
       >
         Hello.
       </p>
-
     `)
   })
 
@@ -3631,7 +3335,6 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-
       <div data-reactroot>
         <p>
           Hello.
@@ -3640,7 +3343,6 @@ describe('overrides', () => {
           &lt;FakeSpan&gt;I am a fake span&lt;/FakeSpan&gt;
         </p>
       </div>
-
     `)
   })
 })
