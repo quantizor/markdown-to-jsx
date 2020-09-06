@@ -1,17 +1,9 @@
-const prod = process.env.NODE_ENV === 'production'
-
+// remove when https://github.com/developit/microbundle/pull/702 is released
 module.exports = {
-  plugins: ['styled-components'],
-  presets: [
-    [
-      'env',
-      {
-        loose: true,
-        modules: process.env.BABEL_ENV === 'esm' ? false : 'commonjs',
-      },
-    ],
-    'react',
-    'stage-2',
-    prod && ['minify', { flipComparisons: false }],
-  ].filter(Boolean),
+  plugins: [
+    '@babel/plugin-transform-typescript',
+    '@babel/plugin-proposal-optional-chaining',
+    '@babel/plugin-proposal-nullish-coalescing-operator',
+    '@babel/plugin-proposal-object-rest-spread',
+  ],
 }

@@ -1,11 +1,13 @@
 {
   "compilerOptions": {
-    "allowJs": true,
+    "declaration": true,
     "esModuleInterop": true,
     "incremental": true,
     "jsx": "react",
+    "module": "ESNext",
+    "moduleResolution": "node",
     "outDir": "./dist",
-    "target": "es5",
-    "types": ["jest", "node", "react", "."]
-  }
+    "target": "ESNext"
+  },
+  "files": ["index.tsx"]
 }

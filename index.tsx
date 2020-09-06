@@ -5,8 +5,8 @@
  * parsing infra... without it, half of the optimizations here wouldn't be feasible. 🙏🏼
  */
 import React from 'react'
+/// <reference path="unquote.d.ts" />
 import unquote from 'unquote'
-import { Serializable } from 'child_process'
 
 type CreateElement = typeof React.createElement
 
@@ -1778,15 +1778,6 @@ const Markdown: React.FC<{
     compiler(children, options),
     props as React.Props<any>
   )
-}
-
-if (process.env.NODE_ENV !== 'production') {
-  const PropTypes = require('prop-types')
-
-  Markdown.propTypes = {
-    children: PropTypes.string.isRequired,
-    options: PropTypes.object,
-  }
 }
 
 export default Markdown
