@@ -1,9 +1,10 @@
 import BenchTable from 'benchtable';
+import cliProgress from 'cli-progress'
 import * as fs from 'fs';
 import ReactMarkdown from 'react-markdown';
 import SimpleMarkdown from 'simple-markdown';
 import MarkdownIt from 'markdown-it';
-import { compiler } from './';
+import { compiler } from './dist';
 
 const mdIt = new MarkdownIt();
 const suite = new BenchTable();
