@@ -1,32 +1,38 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>markdown-to-jsx: try it live!</title>
-        <link href="//fonts.googleapis.com/css?family=Source+Code+Pro|Source+Sans+Pro:400,400i,700,700i" rel="stylesheet">
-        <script defer src="./bundle.js"></script>
-    </head>
+  <head>
+    <title>markdown-to-jsx: try it live!</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
 
-    <body>
-        <div id='root'></div>
+    <script crossorigin src="https://unpkg.com/react@16/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-is@16/umd/react-is.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/styled-components@5.2.0/dist/styled-components.min.js"></script>
+  </head>
 
-        <script type='text/plain' id='sample-content'>
-# This is Markdown
+  <body>
+    <div id="root"></div>
 
-#### You can edit me!
+    <script type="text/plain" id="sample-content">
+      # This is Markdown
 
-[Markdown](http://daringfireball.net/projects/markdown/) lets you write content in a really natural way.
+      #### You can edit me!
 
-  * You can have lists, like this one
-  * Make things **bold** or *italic*
-  * Embed snippets of `code`
-  * Create [links](/)
-  * ...
+      [Markdown](http://daringfireball.net/projects/markdown/) lets you write content in a really natural way.
 
-<small>Sample content borrowed with thanks from [elm-markdown](http://elm-lang.org/examples/markdown) ❤️</small>
+        * You can have lists, like this one
+        * Make things **bold** or *italic*
+        * Embed snippets of `code`
+        * Create [links](/)
+        * ...
 
-You can even include custom React components if you declare them in the "overrides" option.
+      <small>Sample content borrowed with thanks from [elm-markdown](http://elm-lang.org/examples/markdown) ❤️</small>
 
-<MyComponent>Isn't that cool?</MyComponent>
-        </script>
-    </body>
+      You can even include custom React components if you declare them in the "overrides" option.
+
+      <MyComponent>Isn't that cool?</MyComponent>
+    </script>
+
+    <script src="./markdown-to-jsx.js"></script>
+  </body>
 </html>
