@@ -33,6 +33,8 @@ type Parser<ParserOutput> = (
   state?: State
 ) => ParserOutput
 
+type RuleOutput = (ast: ParserResult, state: State) => JSX.Element
+
 type Rule<ParserOutput = ParserResult> = {
   match: (
     source: string,
@@ -43,7 +45,7 @@ type Rule<ParserOutput = ParserResult> = {
   parse: Parser<ParserOutput>
   react?: (
     node: ParserOutput,
-    output: (ast: {}, state: State) => JSX.Element,
+    output: RuleOutput,
     state?: State
   ) => React.ReactChild
 }
@@ -501,7 +503,10 @@ function normalizeAttributeKey(key) {
   return key
 }
 
-function attributeValueToJSXPropValue(key, value) {
+function attributeValueToJSXPropValue(
+  key: JSX.IntrinsicAttributes,
+  value: string
+): any {
   if (key === 'style') {
     return value.split(/;\s?/).reduce(function(styles, kvPair) {
       const key = kvPair.slice(0, kvPair.indexOf(':'))
@@ -533,7 +538,7 @@ function attributeValueToJSXPropValue(key, value) {
   return value
 }
 
-function normalizeWhitespace(source) {
+function normalizeWhitespace(source: string): string {
   return source
     .replace(CR_NEWLINE_R, '\n')
     .replace(FORMFEED_R, '')
@@ -559,7 +564,9 @@ function normalizeWhitespace(source) {
  *     some nesting is. For an example use-case, see passage-ref
  *     parsing in src/widgets/passage/passage-markdown.jsx
  */
-function parserFor(rules: Rules) {
+function parserFor(
+  rules: Rules
+): (source: string, state: State) => ReturnType<NestedParser> {
   // Sorts rules in order of increasing order, then
   // ascending rule name in case of ties.
   let ruleList = Object.keys(rules)
@@ -595,7 +602,7 @@ function parserFor(rules: Rules) {
     return 1
   })
 
-  function nestedParse(source: string, state: State) {
+  function nestedParse(source: string, state: State): ParserResult[] {
     let result = []
 
     // We store the previous capture so that match functions can
@@ -642,7 +649,7 @@ function parserFor(rules: Rules) {
 }
 
 // Creates a match function for an inline scoped or simple element from a regex
-function inlineRegex(regex) {
+function inlineRegex(regex: RegExp) {
   return function match(source, state) {
     if (state.inline) {
       return regex.exec(source)
@@ -653,8 +660,8 @@ function inlineRegex(regex) {
 }
 
 // basically any inline element except links
-function simpleInlineRegex(regex) {
-  return function match(source, state) {
+function simpleInlineRegex(regex: RegExp) {
+  return function match(source: string, state: State) {
     if (state.inline || state.simple) {
       return regex.exec(source)
     } else {
@@ -675,14 +682,17 @@ function blockRegex(regex: RegExp) {
 }
 
 // Creates a match function from a regex, ignoring block/inline scope
-function anyScopeRegex(regex) {
-  return function match(source /*, state*/) {
+function anyScopeRegex(regex: RegExp) {
+  return function match(source: string /*, state*/) {
     return regex.exec(source)
   }
 }
 
 function reactFor(outputFunc) {
-  return function nestedReactOutput(ast, state: State = {}): JSX.Element[] {
+  return function nestedReactOutput(
+    ast: ParserResult | ParserResult[],
+    state: State = {}
+  ): React.ReactChild[] {
     if (Array.isArray(ast)) {
       const oldKey = state.key
       const result = []
@@ -809,8 +819,12 @@ function renderNothing() {
   return null
 }
 
-function ruleOutput(rules) {
-  return function nestedRuleOutput(ast, outputFunc, state) {
+function ruleOutput(rules: Rules) {
+  return function nestedRuleOutput(
+    ast: ParserResult,
+    outputFunc: RuleOutput,
+    state: State
+  ): React.ReactChild {
     return rules[ast.type].react(ast, outputFunc, state)
   }
 }
@@ -942,7 +956,7 @@ export function compiler(markdown: string, options: Options = {}) {
     return jsx
   }
 
-  function attrStringToMap(str) {
+  function attrStringToMap(str: string): React.Props<any> {
     const attributes = str.match(ATTR_EXTRACTOR_R)
 
     return attributes
@@ -959,8 +973,9 @@ export function compiler(markdown: string, options: Options = {}) {
             ] = attributeValueToJSXPropValue(key, value))
 
             if (
-              HTML_BLOCK_ELEMENT_R.test(normalizedValue) ||
-              HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue)
+              typeof normalizedValue === 'string' &&
+              (HTML_BLOCK_ELEMENT_R.test(normalizedValue) ||
+                HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue))
             ) {
               map[mappedKey] = React.cloneElement(
                 compile(normalizedValue.trim()),
@@ -1694,8 +1709,11 @@ export function compiler(markdown: string, options: Options = {}) {
       },
       react(node, output, state) {
         return (
+          // @ts-ignore
           <node.tag key={state.key} {...node.attrs}>
-            {node.noInnerParse ? node.content : output(node.content, state)}
+            {node.noInnerParse
+              ? (node.content as string)
+              : output(node.content as ParserResult, state)}
           </node.tag>
         )
       },
