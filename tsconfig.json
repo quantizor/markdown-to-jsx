@@ -7,7 +7,7 @@
     "module": "ESNext",
     "moduleResolution": "node",
     "outDir": "./dist",
-    "target": "ESNext"
+    "target": "ES2018"
   },
   "files": ["index.tsx"]
 }

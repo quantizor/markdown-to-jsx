@@ -14,7 +14,7 @@ it('accepts markdown content', () => {
   render(<Markdown>_Hello._</Markdown>)
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <em data-reactroot>
+    <em>
       Hello.
     </em>
   `)
@@ -24,7 +24,7 @@ it('handles a no-children scenario', () => {
   render(<Markdown>{''}</Markdown>)
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <span data-reactroot>
+    <span>
     </span>
   `)
 })
@@ -43,7 +43,7 @@ it('accepts options', () => {
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <em data-reactroot>
+    <em>
       Hello.
     </em>
   `)
@@ -63,7 +63,7 @@ it('merges className overrides, rather than overwriting', () => {
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <pre data-reactroot>
+    <pre>
       <code class="lang-js foo">
         foo
       </code>
@@ -75,8 +75,7 @@ it('passes along any additional props to the rendered wrapper element', () => {
   render(<Markdown className="foo"># Hello</Markdown>)
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <h1 data-reactroot
-        id="hello"
+    <h1 id="hello"
         class="foo"
     >
       Hello
