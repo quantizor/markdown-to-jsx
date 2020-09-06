@@ -19,26 +19,25 @@
   "repository": "probablyup/markdown-to-jsx",
   "bugs": "https://github.com/probablyup/markdown-to-jsx/issues",
   "files": [
-    "index.js",
     "dist",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "yarn.lock"
   ],
-  "main": "dist/cjs.js",
-  "jsnext:main": "dist/esm.js",
-  "module": "dist/esm.js",
+  "source": "index.tsx",
+  "main": "dist/index.js",
+  "module": "dist/index.module.js",
+  "umd:main": "dist/index.umd.js",
+  "esmodule": "dist/index.modern.js",
+  "types": "dist/index.d.ts",
   "devDependencies": {
+    "@babel/plugin-proposal-nullish-coalescing-operator": "^7.10.4",
+    "@babel/plugin-proposal-object-rest-spread": "^7.11.0",
+    "@babel/plugin-proposal-optional-chaining": "^7.11.0",
+    "@babel/plugin-transform-typescript": "^7.11.0",
     "@size-limit/preset-small-lib": "^4.5.0",
     "@types/node": "^14.6.4",
     "@types/react": "^16.9.49",
-    "babel-cli": "^6.14.0",
-    "babel-core": "^6.26.0",
-    "babel-loader": "^7.1.4",
-    "babel-plugin-transform-react-remove-prop-types": "^0.4.19",
-    "babel-preset-env": "^1.7.0",
-    "babel-preset-minify": "^0.5.0",
-    "babel-preset-react": "^6.11.1",
-    "babel-preset-stage-2": "^6.13.0",
     "benchtable": "^0.1.0",
     "codecov": "^3.1.0",
     "esm": "^3.0.84",
@@ -46,6 +45,7 @@
     "jest": "^26.4.2",
     "jest-serializer-html": "^7.0.0",
     "markdown-it": "^8.4.2",
+    "microbundle": "^0.12.3",
     "microtime": "^3.0.0",
     "mkdirp": "^0.5.1",
     "polished": "^3.0.3",
@@ -57,18 +57,14 @@
     "rimraf": "^2.6.2",
     "simple-markdown": "^0.4.2",
     "size-limit": "^4.5.0",
+    "styled-components": "^5.1.1",
     "ts-jest": "^26.3.0",
     "typescript": "^4.0.2",
     "uglify-js": "^3.9.4",
+    "unquote": "^1.1.0",
     "webpack": "^4.21.0",
     "webpack-cli": "^3.1.2",
     "webpack-dev-server": "^3.1.9"
-  },
-  "dependencies": {
-    "babel-plugin-styled-components": "^1.10.7",
-    "prop-types": "^15.6.2",
-    "styled-components": "^5.1.1",
-    "unquote": "^1.1.0"
   },
   "peerDependencies": {
     "react": ">= 0.14.0"
@@ -76,7 +72,7 @@
   "scripts": {
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
     "prebuild": "rimraf dist && mkdirp dist",
-    "build": "NODE_ENV=production babel index.js --out-file dist/cjs.js --source-maps --no-comments && NODE_ENV=production BABEL_ENV=esm babel index.js --out-file dist/esm.js --source-maps --no-comments",
+    "build": "microbundle -f cjs,umd index.cjs.tsx --name MarkdownToJSX --define process.env.NODE_ENV=production --globals react=React && microbundle -f es,modern --name MarkdownToJSX --define process.env.NODE_ENV=production",
     "release": "webpack --config ./webpack.config.prod.babel.js -p --display-optimization-bailout",
     "release:debug": "webpack --config ./webpack.config.babel.js --display-optimization-bailout",
     "start": "webpack-dev-server --hot --inline --open",
@@ -86,7 +82,7 @@
   },
   "size-limit": [
     {
-      "path": "dist/cjs.js",
+      "path": "dist/index.js",
       "limit": "5.5 kB"
     }
   ],
