@@ -35,7 +35,7 @@ jobs:
             ${{ runner.os }}-yarn-
 
       - run: yarn --pure-lockfile
-      - run: yarn add react@${{ matrix.react }}
+      - run: yarn add react@${{ matrix.react }} --no-lockfile
 
       - name: Jest
         run: yarn test
