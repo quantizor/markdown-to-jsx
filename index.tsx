@@ -429,7 +429,7 @@ function parseTableRow(source: string, parse: NestedParser, state: State) {
   state.inTable = prevInTable
 
   let cells = [[]]
-  tableRow.forEach(function(node, i) {
+  tableRow.forEach(function (node, i) {
     if (node.type === 'tableSeparator') {
       // Filter out empty table separators at the start/end:
       if (i !== 0 && i !== tableRow.length - 1) {
@@ -458,7 +458,7 @@ function parseTableAlign(source: string /*, parse, state*/) {
 function parseTableCells(source: string, parse: NestedParser, state: Object) {
   const rowsText = source.trim().split('\n')
 
-  return rowsText.map(function(rowText) {
+  return rowsText.map(function (rowText) {
     return parseTableRow(rowText, parse, state)
   })
 }
@@ -495,7 +495,7 @@ function normalizeAttributeKey(key) {
   const hyphenIndex = key.indexOf('-')
 
   if (hyphenIndex !== -1 && key.match(HTML_CUSTOM_ATTR_R) === null) {
-    key = key.replace(CAPTURE_LETTER_AFTER_HYPHEN, function(_, letter) {
+    key = key.replace(CAPTURE_LETTER_AFTER_HYPHEN, function (_, letter) {
       return letter.toUpperCase()
     })
   }
@@ -508,7 +508,7 @@ function attributeValueToJSXPropValue(
   value: string
 ): any {
   if (key === 'style') {
-    return value.split(/;\s?/).reduce(function(styles, kvPair) {
+    return value.split(/;\s?/).reduce(function (styles, kvPair) {
       const key = kvPair.slice(0, kvPair.indexOf(':'))
 
       // snake-case to camelCase
@@ -573,7 +573,7 @@ function parserFor(
 
   /* istanbul ignore next */
   if (process.env.NODE_ENV !== 'production') {
-    ruleList.forEach(function(type) {
+    ruleList.forEach(function (type) {
       let order = rules[type].order
       if (
         process.env.NODE_ENV !== 'production' &&
@@ -586,7 +586,7 @@ function parserFor(
     })
   }
 
-  ruleList.sort(function(typeA, typeB) {
+  ruleList.sort(function (typeA, typeB) {
     let orderA = rules[typeA].order
     let orderB = rules[typeB].order
 
@@ -960,7 +960,7 @@ export function compiler(markdown: string, options: Options = {}) {
     const attributes = str.match(ATTR_EXTRACTOR_R)
 
     return attributes
-      ? attributes.reduce(function(map, raw, index) {
+      ? attributes.reduce(function (map, raw, index) {
           const delimiterIdx = raw.indexOf('=')
 
           if (delimiterIdx !== -1) {
@@ -1342,7 +1342,7 @@ export function compiler(markdown: string, options: Options = {}) {
           .match(LIST_ITEM_R)
 
         let lastItemWasAParagraph = false
-        const itemContent = items.map(function(item, i) {
+        const itemContent = items.map(function (item, i) {
           // We need to see how far indented the item is:
           const space = LIST_ITEM_PREFIX_R.exec(item)[0].length
 
@@ -1548,14 +1548,14 @@ export function compiler(markdown: string, options: Options = {}) {
     } as Rule<ReturnType<typeof parseTable>>,
 
     tableSeparator: {
-      match: function(source, state) {
+      match: function (source, state) {
         if (!state.inTable) {
           return null
         }
         return TABLE_SEPARATOR_R.exec(source)
       },
       order: Priority.HIGH,
-      parse: function() {
+      parse: function () {
         return { type: 'tableSeparator' }
       },
       // These shouldn't be reached, but in case they are, be reasonable:
