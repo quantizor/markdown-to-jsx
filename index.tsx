@@ -8,138 +8,146 @@ import React from 'react'
 /// <reference path="unquote.d.ts" />
 import unquote from 'unquote'
 
-type CreateElement = typeof React.createElement
-
-type HTMLTags = keyof JSX.IntrinsicElements
-
-type State = {
-  _list?: boolean
-  inline?: boolean
-  inTable?: boolean
-  key?: React.Key
-  simple?: boolean
-}
-
-type ParserResult = {
-  [key: string]: any
-  type?: string
-}
-
-type NestedParser = (input: string, state?: State) => ParserResult
-
-type Parser<ParserOutput> = (
-  capture: RegExpMatchArray,
-  nestedParse: NestedParser,
-  state?: State
-) => ParserOutput
-
-type RuleOutput = (ast: ParserResult, state: State) => JSX.Element
-
-type Rule<ParserOutput = ParserResult> = {
-  match: (
-    source: string,
-    state: State,
-    prevCapturedString?: string
-  ) => RegExpMatchArray
-  order: Priority
-  parse: Parser<ParserOutput>
-  react?: (
-    node: ParserOutput,
-    output: RuleOutput,
-    state?: State
-  ) => React.ReactChild
-}
-
-type Rules = {
-  [key: string]: Rule
-}
-
-/**
- * RequireAtLeastOne<{ ... }> <- only requires at least one key
- */
-type RequireAtLeastOne<T, Keys extends keyof T = keyof T> = Pick<
-  T,
-  Exclude<keyof T, Keys>
-> &
-  {
-    [K in Keys]-?: Required<Pick<T, K>> & Partial<Pick<T, Exclude<Keys, K>>>
-  }[Keys]
-
-type Override =
-  | RequireAtLeastOne<{
-      component: React.ComponentType<any>
-      props: Object
-    }>
-  | React.ComponentType<any>
-
-type Overrides = {
-  [tag in HTMLTags]?: Override
-} & {
-  [customComponent: string]: Override
-}
-
-type Options = Partial<{
+export namespace MarkdownToJSX {
   /**
-   * Ultimate control over the output of all rendered JSX.
+   * RequireAtLeastOne<{ ... }> <- only requires at least one key
    */
-  createElement: (
-    tag: Parameters<CreateElement>[0],
-    props: React.Props<any>,
-    ...children: React.ReactChild[]
-  ) => JSX.Element
+  type RequireAtLeastOne<T, Keys extends keyof T = keyof T> = Pick<
+    T,
+    Exclude<keyof T, Keys>
+  > &
+    {
+      [K in Keys]-?: Required<Pick<T, K>> & Partial<Pick<T, Exclude<Keys, K>>>
+    }[Keys]
 
-  /**
-   * Disable the compiler's best-effort transcription of provided raw HTML
-   * into JSX-equivalent. This is the functionality that prevents the need to
-   * use `dangerouslySetInnerHTML` in React.
-   */
-  disableParsingRawHTML: boolean
+  export type CreateElement = typeof React.createElement
 
-  /**
-   * Forces the compiler to always output content with a block-level wrapper
-   * (`<p>` or any block-level syntax your markdown already contains.)
-   */
-  forceBlock: boolean
+  export type HTMLTags = keyof JSX.IntrinsicElements
 
-  /**
-   * Forces the compiler to always output content with an inline wrapper (`<span>`)
-   */
-  forceInline: boolean
-
-  /**
-   * Supply additional HTML entity: unicode replacement mappings.
-   *
-   * Pass only the inner part of the entity as the key,
-   * e.g. `&le;` -> `{ "le": "\u2264" }`
-   *
-   * By default
-   * the following entites are replaced with their unicode equivalents:
-   *
-   * ```
-   * &amp;
-   * &apos;
-   * &gt;
-   * &lt;
-   * &nbsp;
-   * &quot;
-   * ```
-   */
-  namedCodesToUnicode: {
-    [key: string]: string
+  export type State = {
+    _list?: boolean
+    inline?: boolean
+    inTable?: boolean
+    key?: React.Key
+    simple?: boolean
   }
 
-  /**
-   * Selectively control the output of particular HTML tags as they would be
-   * emitted by the compiler.
-   */
-  overrides: Overrides
+  export type ParserResult = {
+    [key: string]: any
+    type?: string
+  }
 
-  /**
-   * Override normalization of non-URI-safe characters for use in generating
-   * HTML IDs for anchor linking purposes.
-   */
-  slugify: (source: string) => string
-}>
+  export type NestedParser = (
+    input: string,
+    state?: MarkdownToJSX.State
+  ) => MarkdownToJSX.ParserResult
+
+  export type Parser<ParserOutput> = (
+    capture: RegExpMatchArray,
+    nestedParse: NestedParser,
+    state?: MarkdownToJSX.State
+  ) => ParserOutput
+
+  export type RuleOutput = (
+    ast: MarkdownToJSX.ParserResult,
+    state: MarkdownToJSX.State
+  ) => JSX.Element
+
+  export type Rule<ParserOutput = MarkdownToJSX.ParserResult> = {
+    match: (
+      source: string,
+      state: MarkdownToJSX.State,
+      prevCapturedString?: string
+    ) => RegExpMatchArray
+    order: Priority
+    parse: MarkdownToJSX.Parser<ParserOutput>
+    react?: (
+      node: ParserOutput,
+      output: RuleOutput,
+      state?: MarkdownToJSX.State
+    ) => React.ReactChild
+  }
+
+  export type Rules = {
+    [key: string]: Rule
+  }
+
+  export type Override =
+    | RequireAtLeastOne<{
+        component: React.ComponentType<any>
+        props: Object
+      }>
+    | React.ComponentType<any>
+
+  export type Overrides = {
+    [tag in HTMLTags]?: Override
+  } & {
+    [customComponent: string]: Override
+  }
+
+  export type Options = Partial<{
+    /**
+     * Ultimate control over the output of all rendered JSX.
+     */
+    createElement: (
+      tag: Parameters<CreateElement>[0],
+      props: React.Props<any>,
+      ...children: React.ReactChild[]
+    ) => JSX.Element
+
+    /**
+     * Disable the compiler's best-effort transcription of provided raw HTML
+     * into JSX-equivalent. This is the functionality that prevents the need to
+     * use `dangerouslySetInnerHTML` in React.
+     */
+    disableParsingRawHTML: boolean
+
+    /**
+     * Forces the compiler to always output content with a block-level wrapper
+     * (`<p>` or any block-level syntax your markdown already contains.)
+     */
+    forceBlock: boolean
+
+    /**
+     * Forces the compiler to always output content with an inline wrapper (`<span>`)
+     */
+    forceInline: boolean
+
+    /**
+     * Supply additional HTML entity: unicode replacement mappings.
+     *
+     * Pass only the inner part of the entity as the key,
+     * e.g. `&le;` -> `{ "le": "\u2264" }`
+     *
+     * By default
+     * the following entites are replaced with their unicode equivalents:
+     *
+     * ```
+     * &amp;
+     * &apos;
+     * &gt;
+     * &lt;
+     * &nbsp;
+     * &quot;
+     * ```
+     */
+    namedCodesToUnicode: {
+      [key: string]: string
+    }
+
+    /**
+     * Selectively control the output of particular HTML tags as they would be
+     * emitted by the compiler.
+     */
+    overrides: Overrides
+
+    /**
+     * Override normalization of non-URI-safe characters for use in generating
+     * HTML IDs for anchor linking purposes.
+     */
+    slugify: (source: string) => string
+  }>
+}
 
 /** TODO: Drop for React 16? */
 const ATTRIBUTE_TO_JSX_PROP_MAP = {
@@ -422,7 +430,11 @@ function parseTableAlignCapture(alignCapture: string) {
   return null
 }
 
-function parseTableRow(source: string, parse: NestedParser, state: State) {
+function parseTableRow(
+  source: string,
+  parse: MarkdownToJSX.NestedParser,
+  state: MarkdownToJSX.State
+) {
   const prevInTable = state.inTable
   state.inTable = true
   const tableRow = parse(source.trim(), state)
@@ -455,7 +467,11 @@ function parseTableAlign(source: string /*, parse, state*/) {
   return alignText.map(parseTableAlignCapture)
 }
 
-function parseTableCells(source: string, parse: NestedParser, state: Object) {
+function parseTableCells(
+  source: string,
+  parse: MarkdownToJSX.NestedParser,
+  state: Object
+) {
   const rowsText = source.trim().split('\n')
 
   return rowsText.map(function (rowText) {
@@ -465,8 +481,8 @@ function parseTableCells(source: string, parse: NestedParser, state: Object) {
 
 function parseTable(
   capture: RegExpMatchArray,
-  parse: NestedParser,
-  state: State
+  parse: MarkdownToJSX.NestedParser,
+  state: MarkdownToJSX.State
 ) {
   state.inline = true
   const header = parseTableRow(capture[1], parse, state)
@@ -565,8 +581,11 @@ function normalizeWhitespace(source: string): string {
  *     parsing in src/widgets/passage/passage-markdown.jsx
  */
 function parserFor(
-  rules: Rules
-): (source: string, state: State) => ReturnType<NestedParser> {
+  rules: MarkdownToJSX.Rules
+): (
+  source: string,
+  state: MarkdownToJSX.State
+) => ReturnType<MarkdownToJSX.NestedParser> {
   // Sorts rules in order of increasing order, then
   // ascending rule name in case of ties.
   let ruleList = Object.keys(rules)
@@ -602,7 +621,10 @@ function parserFor(
     return 1
   })
 
-  function nestedParse(source: string, state: State): ParserResult[] {
+  function nestedParse(
+    source: string,
+    state: MarkdownToJSX.State
+  ): MarkdownToJSX.ParserResult[] {
     let result = []
 
     // We store the previous capture so that match functions can
@@ -661,7 +683,7 @@ function inlineRegex(regex: RegExp) {
 
 // basically any inline element except links
 function simpleInlineRegex(regex: RegExp) {
-  return function match(source: string, state: State) {
+  return function match(source: string, state: MarkdownToJSX.State) {
     if (state.inline || state.simple) {
       return regex.exec(source)
     } else {
@@ -672,7 +694,7 @@ function simpleInlineRegex(regex: RegExp) {
 
 // Creates a match function for a block scoped element from a regex
 function blockRegex(regex: RegExp) {
-  return function match(source: string, state: State) {
+  return function match(source: string, state: MarkdownToJSX.State) {
     if (state.inline || state.simple) {
       return null
     } else {
@@ -690,8 +712,8 @@ function anyScopeRegex(regex: RegExp) {
 
 function reactFor(outputFunc) {
   return function nestedReactOutput(
-    ast: ParserResult | ParserResult[],
-    state: State = {}
+    ast: MarkdownToJSX.ParserResult | MarkdownToJSX.ParserResult[],
+    state: MarkdownToJSX.State = {}
   ): React.ReactChild[] {
     if (Array.isArray(ast)) {
       const oldKey = state.key
@@ -764,10 +786,10 @@ function unescapeUrl(rawUrlString: string): string {
  * Everything inline, including links.
  */
 function parseInline(
-  parse: NestedParser,
+  parse: MarkdownToJSX.NestedParser,
   content: string,
-  state: State
-): ParserResult {
+  state: MarkdownToJSX.State
+): MarkdownToJSX.ParserResult {
   const isCurrentlyInline = state.inline || false
   const isCurrentlySimple = state.simple || false
   state.inline = true
@@ -782,10 +804,10 @@ function parseInline(
  * Anything inline that isn't a link.
  */
 function parseSimpleInline(
-  parse: NestedParser,
+  parse: MarkdownToJSX.NestedParser,
   content: string,
-  state: State
-): ParserResult {
+  state: MarkdownToJSX.State
+): MarkdownToJSX.ParserResult {
   const isCurrentlyInline = state.inline || false
   const isCurrentlySimple = state.simple || false
   state.inline = false
@@ -796,16 +818,14 @@ function parseSimpleInline(
   return result
 }
 
-function parseBlock(parse, content, state): ParserResult {
+function parseBlock(parse, content, state): MarkdownToJSX.ParserResult {
   state.inline = false
   return parse(content + '\n\n', state)
 }
 
-const parseCaptureInline: Parser<ReturnType<typeof parseInline>> = (
-  capture,
-  parse,
-  state
-) => {
+const parseCaptureInline: MarkdownToJSX.Parser<ReturnType<
+  typeof parseInline
+>> = (capture, parse, state) => {
   return {
     content: parseInline(parse, capture[1], state),
   }
@@ -819,11 +839,11 @@ function renderNothing() {
   return null
 }
 
-function ruleOutput(rules: Rules) {
+function ruleOutput(rules: MarkdownToJSX.Rules) {
   return function nestedRuleOutput(
-    ast: ParserResult,
-    outputFunc: RuleOutput,
-    state: State
+    ast: MarkdownToJSX.ParserResult,
+    outputFunc: MarkdownToJSX.RuleOutput,
+    state: MarkdownToJSX.State
   ): React.ReactChild {
     return rules[ast.type].react(ast, outputFunc, state)
   }
@@ -847,7 +867,7 @@ function get(src: Object, path: string, fb?: any) {
   return ptr || fb
 }
 
-function getTag(tag: string, overrides: Overrides) {
+function getTag(tag: string, overrides: MarkdownToJSX.Overrides) {
   const override = get(overrides, tag)
 
   if (!override) return tag
@@ -881,7 +901,10 @@ enum Priority {
   MIN,
 }
 
-export function compiler(markdown: string, options: Options = {}) {
+export function compiler(
+  markdown: string,
+  options: MarkdownToJSX.Options = {}
+) {
   options.overrides = options.overrides || {}
   options.slugify = options.slugify || slugify
   options.namedCodesToUnicode = options.namedCodesToUnicode
@@ -893,8 +916,8 @@ export function compiler(markdown: string, options: Options = {}) {
   // eslint-disable-next-line no-unused-vars
   function h(
     // locally we always will render a known string tag
-    tag: HTMLTags,
-    props: Parameters<CreateElement>[1] & {
+    tag: MarkdownToJSX.HTMLTags,
+    props: Parameters<MarkdownToJSX.CreateElement>[1] & {
       className?: string
     },
     ...children
@@ -1023,7 +1046,7 @@ export function compiler(markdown: string, options: Options = {}) {
    * each rule's react() output function goes through our custom h() JSX pragma;
    * this allows the override functionality to be automatically applied
    */
-  const rules: Rules = {
+  const rules: MarkdownToJSX.Rules = {
     blockQuote: {
       match: blockRegex(BLOCKQUOTE_R),
       order: Priority.HIGH,
@@ -1040,7 +1063,7 @@ export function compiler(markdown: string, options: Options = {}) {
           <blockquote key={state.key}>{output(node.content, state)}</blockquote>
         )
       },
-    } as Rule<{ content: ParserResult }>,
+    } as MarkdownToJSX.Rule<{ content: MarkdownToJSX.ParserResult }>,
 
     breakLine: {
       match: anyScopeRegex(BREAK_LINE_R),
@@ -1079,7 +1102,7 @@ export function compiler(markdown: string, options: Options = {}) {
           </pre>
         )
       },
-    } as Rule<{ content: string; lang?: string }>,
+    } as MarkdownToJSX.Rule<{ content: string; lang?: string }>,
 
     codeFenced: {
       match: blockRegex(CODE_BLOCK_FENCED_R),
@@ -1104,7 +1127,7 @@ export function compiler(markdown: string, options: Options = {}) {
       react(node, output, state) {
         return <code key={state.key}>{node.content}</code>
       },
-    } as Rule<{ content: string }>,
+    } as MarkdownToJSX.Rule<{ content: string }>,
 
     /**
      * footnotes are emitted at the end of compilation in a special <footer> block
@@ -1139,7 +1162,7 @@ export function compiler(markdown: string, options: Options = {}) {
           </a>
         )
       },
-    } as Rule<{ content: string; target: string }>,
+    } as MarkdownToJSX.Rule<{ content: string; target: string }>,
 
     gfmTask: {
       match: inlineRegex(GFM_TASK_R),
@@ -1159,7 +1182,7 @@ export function compiler(markdown: string, options: Options = {}) {
           />
         )
       },
-    } as Rule<{ completed: boolean }>,
+    } as MarkdownToJSX.Rule<{ completed: boolean }>,
 
     heading: {
       match: blockRegex(HEADING_R),
@@ -1172,18 +1195,18 @@ export function compiler(markdown: string, options: Options = {}) {
         }
       },
       react(node, output, state) {
-        node.tag = `h${node.level}` as HTMLTags
+        node.tag = `h${node.level}` as MarkdownToJSX.HTMLTags
         return (
           <node.tag id={node.id} key={state.key}>
             {output(node.content, state)}
           </node.tag>
         )
       },
-    } as Rule<{
-      content: ParserResult
+    } as MarkdownToJSX.Rule<{
+      content: MarkdownToJSX.ParserResult
       id: string
       level: number
-      tag: HTMLTags
+      tag: MarkdownToJSX.HTMLTags
     }>,
 
     headingSetext: {
@@ -1227,7 +1250,7 @@ export function compiler(markdown: string, options: Options = {}) {
           />
         )
       },
-    } as Rule<{ alt?: string; target: string; title?: string }>,
+    } as MarkdownToJSX.Rule<{ alt?: string; target: string; title?: string }>,
 
     link: {
       match: inlineRegex(LINK_R),
@@ -1246,7 +1269,11 @@ export function compiler(markdown: string, options: Options = {}) {
           </a>
         )
       },
-    } as Rule<{ content: ParserResult; target: string; title?: string }>,
+    } as MarkdownToJSX.Rule<{
+      content: MarkdownToJSX.ParserResult
+      target: string
+      title?: string
+    }>,
 
     // https://daringfireball.net/projects/markdown/syntax#autolink
     linkAngleBraceStyleDetector: {
@@ -1421,7 +1448,11 @@ export function compiler(markdown: string, options: Options = {}) {
           </Tag>
         )
       },
-    } as Rule<{ items: ParserResult[]; ordered: boolean; start?: number }>,
+    } as MarkdownToJSX.Rule<{
+      items: MarkdownToJSX.ParserResult[]
+      ordered: boolean
+      start?: number
+    }>,
 
     newlineCoalescer: {
       match: blockRegex(CONSECUTIVE_NEWLINE_R),
@@ -1439,7 +1470,7 @@ export function compiler(markdown: string, options: Options = {}) {
       react(node, output, state) {
         return <p key={state.key}>{output(node.content, state)}</p>
       },
-    } as Rule<ReturnType<typeof parseCaptureInline>>,
+    } as MarkdownToJSX.Rule<ReturnType<typeof parseCaptureInline>>,
 
     ref: {
       match: inlineRegex(REFERENCE_IMAGE_OR_LINK),
@@ -1474,7 +1505,7 @@ export function compiler(markdown: string, options: Options = {}) {
           />
         )
       },
-    } as Rule<{ alt?: string; ref: string }>,
+    } as MarkdownToJSX.Rule<{ alt?: string; ref: string }>,
 
     refLink: {
       match: inlineRegex(REFERENCE_LINK_R),
@@ -1502,9 +1533,9 @@ export function compiler(markdown: string, options: Options = {}) {
           <span key={state.key}>{output(node.fallbackContent, state)}</span>
         )
       },
-    } as Rule<{
-      content: ParserResult
-      fallbackContent: ParserResult
+    } as MarkdownToJSX.Rule<{
+      content: MarkdownToJSX.ParserResult
+      fallbackContent: MarkdownToJSX.ParserResult
       ref: string
     }>,
 
@@ -1545,7 +1576,7 @@ export function compiler(markdown: string, options: Options = {}) {
           </table>
         )
       },
-    } as Rule<ReturnType<typeof parseTable>>,
+    } as MarkdownToJSX.Rule<ReturnType<typeof parseTable>>,
 
     tableSeparator: {
       match: function (source, state) {
@@ -1585,7 +1616,7 @@ export function compiler(markdown: string, options: Options = {}) {
       react(node /*, output, state*/) {
         return node.content
       },
-    } as Rule<{ content: string }>,
+    } as MarkdownToJSX.Rule<{ content: string }>,
 
     textBolded: {
       match: simpleInlineRegex(TEXT_BOLD_R),
@@ -1600,7 +1631,7 @@ export function compiler(markdown: string, options: Options = {}) {
       react(node, output, state) {
         return <strong key={state.key}>{output(node.content, state)}</strong>
       },
-    } as Rule<ReturnType<NestedParser>>,
+    } as MarkdownToJSX.Rule<ReturnType<MarkdownToJSX.NestedParser>>,
 
     textEmphasized: {
       match: simpleInlineRegex(TEXT_EMPHASIZED_R),
@@ -1615,7 +1646,7 @@ export function compiler(markdown: string, options: Options = {}) {
       react(node, output, state) {
         return <em key={state.key}>{output(node.content, state)}</em>
       },
-    } as Rule<ReturnType<NestedParser>>,
+    } as MarkdownToJSX.Rule<ReturnType<MarkdownToJSX.NestedParser>>,
 
     textEscaped: {
       // We don't allow escaping numbers, letters, or spaces here so that
@@ -1639,7 +1670,7 @@ export function compiler(markdown: string, options: Options = {}) {
       react(node, output, state) {
         return <del key={state.key}>{output(node.content, state)}</del>
       },
-    } as Rule<ReturnType<typeof parseCaptureInline>>,
+    } as MarkdownToJSX.Rule<ReturnType<typeof parseCaptureInline>>,
   }
 
   // Object.keys(rules).forEach(key => {
@@ -1690,7 +1721,7 @@ export function compiler(markdown: string, options: Options = {}) {
           ? parseBlock
           : parseInline
 
-        const tagName = capture[1].toLowerCase() as HTMLTags
+        const tagName = capture[1].toLowerCase() as MarkdownToJSX.HTMLTags
         const noInnerParse =
           DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(tagName) !== -1
 
@@ -1713,13 +1744,13 @@ export function compiler(markdown: string, options: Options = {}) {
           <node.tag key={state.key} {...node.attrs}>
             {node.noInnerParse
               ? (node.content as string)
-              : output(node.content as ParserResult, state)}
+              : output(node.content as MarkdownToJSX.ParserResult, state)}
           </node.tag>
         )
       },
-    } as Rule<{
+    } as MarkdownToJSX.Rule<{
       attrs: ReturnType<typeof attrStringToMap>
-      content: string | ReturnType<NestedParser>
+      content: string | ReturnType<MarkdownToJSX.NestedParser>
       noInnerParse: Boolean
       tag: string
     }>
@@ -1739,7 +1770,10 @@ export function compiler(markdown: string, options: Options = {}) {
       react(node, output, state) {
         return <node.tag {...node.attrs} key={state.key} />
       },
-    } as Rule<{ attrs: ReturnType<typeof attrStringToMap>; tag: string }>
+    } as MarkdownToJSX.Rule<{
+      attrs: ReturnType<typeof attrStringToMap>
+      tag: string
+    }>
   }
 
   const parser = parserFor(rules)
@@ -1772,7 +1806,7 @@ export function compiler(markdown: string, options: Options = {}) {
 const Markdown: React.FC<{
   [key: string]: any
   children: string
-  options?: Options
+  options?: MarkdownToJSX.Options
 }> = ({ children, options, ...props }) => {
   return React.cloneElement(
     compiler(children, options),
