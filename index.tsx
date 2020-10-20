@@ -1188,9 +1188,15 @@ export function compiler(
       match: blockRegex(HEADING_R),
       order: Priority.HIGH,
       parse(capture, parse, state) {
+        // trim optional closing hashes from heading
+        const trimmedCapture = capture[2].slice(
+          0,
+          / +#+ *$/.exec(capture[2])?.index
+        )
+
         return {
-          content: parseInline(parse, capture[2], state),
-          id: options.slugify(capture[2]),
+          content: parseInline(parse, trimmedCapture, state),
+          id: options.slugify(trimmedCapture),
           level: capture[1].length,
         }
       },

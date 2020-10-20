@@ -560,6 +560,39 @@ describe('headings', () => {
     `)
   })
 
+  it('trims closing hashes in headers', () => {
+    render(compiler('# Hello World #########\nHere is the body'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <div>
+        <h1 id="hello-world">
+          Hello World
+        </h1>
+        <p>
+          Here is the body
+        </p>
+      </div>
+    `)
+  })
+
+  it('keeps hashes before closing hashes in headers and hashes without whitespace preceding', () => {
+    render(compiler('# Hello World # #\n## Subheader#\nHere is the body'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <div>
+        <h1 id="hello-world-">
+          Hello World #
+        </h1>
+        <h2 id="subheader">
+          Subheader#
+        </h2>
+        <p>
+          Here is the body
+        </p>
+      </div>
+    `)
+  })
+
   it('adds an "id" attribute to headings for deeplinking purposes', () => {
     render(compiler("# This is~ a very' complicated> header!"))
 
