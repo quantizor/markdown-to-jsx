@@ -150,6 +150,12 @@ export namespace MarkdownToJSX {
     wrapper: React.ElementType
 
     /**
+     * Forces the compiler to wrap results, even if there is only a single
+     * child or no children.
+     */
+    forceWrapper: boolean
+
+    /**
      * Override normalization of non-URI-safe characters for use in generating
      * HTML IDs for anchor linking purposes.
      */
@@ -972,7 +978,7 @@ export function compiler(
     const wrapper = options.wrapper || (inline ? 'span' : 'div')
     let jsx
 
-    if (arr.length > 1) {
+    if (arr.length > 1 || options.forceWrapper) {
       jsx = arr
     } else if (arr.length === 1) {
       jsx = arr[0]
