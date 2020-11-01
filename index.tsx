@@ -141,7 +141,13 @@ export namespace MarkdownToJSX {
      */
     overrides: Overrides
 
-    wrapper: React.ElementType,
+    /**
+     * Declare the type of the wrapper to be used when there are multiple
+     * children to render. Set to `null` to get an array of children back
+     * without any wrapper, or use `React.Fragment` to get a React element
+     * that won't show up in the DOM.
+     */
+    wrapper: React.ElementType
 
     /**
      * Override normalization of non-URI-safe characters for use in generating
