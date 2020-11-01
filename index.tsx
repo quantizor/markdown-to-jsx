@@ -969,7 +969,7 @@ export function compiler(
       return arr
     }
 
-    const wrapper = options.wrapper || inline ? 'span' : 'div'
+    const wrapper = options.wrapper || (inline ? 'span' : 'div')
     let jsx
 
     if (arr.length > 1) {
@@ -978,7 +978,9 @@ export function compiler(
       jsx = arr[0]
 
       // TODO: remove this for React 16
-      if (typeof jsx !== 'string') {
+      if (typeof jsx === 'string') {
+        return <span key="outer">{jsx}</span>
+      } else {
         return jsx
       }
     } else {
