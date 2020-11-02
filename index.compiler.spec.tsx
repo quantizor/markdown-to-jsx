@@ -3022,6 +3022,72 @@ describe('options.forceInline', () => {
   })
 })
 
+describe('options.wrapper', () => {
+  it('is ignored when there is a single child', () => {
+    render(compiler('Hello, world!', { wrapper: 'article' }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        Hello, world!
+      </span>
+    `)
+  })
+
+  it('overrides the wrapper element when there are multiple children', () => {
+    render(compiler('Hello\n\nworld!', { wrapper: 'article' }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <article>
+        <p>
+          Hello
+        </p>
+        <p>
+          world!
+        </p>
+      </article>
+    `)
+  })
+
+  it('renders an array when `null`', () => {
+    expect(compiler('Hello\n\nworld!', { wrapper: null }))
+      .toMatchInlineSnapshot(`
+        Array [
+          <p>
+            Hello
+          </p>,
+          <p>
+            world!
+          </p>,
+        ]
+      `)
+  })
+
+  it('works with `React.Fragment`', () => {
+    render(compiler('Hello\n\nworld!', { wrapper: React.Fragment }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        Hello
+      </p>
+      <p>
+        world!
+      </p>
+    `)
+  })
+})
+
+describe('options.forceWrapper', () => {
+  it('ensures wrapper element is present even with a single child', () => {
+    render(compiler('Hi Evan', { wrapper: 'aside', forceWrapper: true }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <aside>
+        Hi Evan
+      </aside>
+    `)
+  })
+})
+
 describe('options.createElement', () => {
   it('should render a <custom> element if render function overrides the element type', () => {
     render(
