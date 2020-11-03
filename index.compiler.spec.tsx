@@ -20,7 +20,7 @@ it('should throw if not passed a string (first arg)', () => {
   // @ts-ignore
   expect(() => compiler(1)).toThrow()
   // @ts-ignore
-  expect(() => compiler(() => {})).toThrow()
+  expect(() => compiler(() => { })).toThrow()
   // @ts-ignore
   expect(() => compiler({})).toThrow()
   // @ts-ignore
@@ -706,6 +706,16 @@ describe('links', () => {
     `)
   })
 
+  it('should handle Slack links', () => {
+    render(compiler('<https://example.com|Overlook Hotel>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <a href="https://example.com">
+        Overlook Hotel
+      </a>
+    `)
+  })
+
   it('should handle autolinks after a paragraph (regression)', () => {
     render(
       compiler(`
@@ -789,8 +799,8 @@ describe('links', () => {
   })
 
   it('should sanitize markdown links containing JS expressions', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     render(compiler('[foo](javascript:doSomethingBad)'))
 
@@ -804,8 +814,8 @@ describe('links', () => {
   })
 
   it('should sanitize markdown links containing JS expressions', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     render(compiler('![foo](javascript:doSomethingBad)'))
 
@@ -815,8 +825,8 @@ describe('links', () => {
   })
 
   it('should sanitize markdown links containing Data expressions', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     render(compiler('[foo](data:doSomethingBad)'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
@@ -828,8 +838,8 @@ describe('links', () => {
   })
 
   it('should sanitize markdown links containing VBScript expressions', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     render(compiler('[foo](vbScript:doSomethingBad)'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
@@ -841,8 +851,8 @@ describe('links', () => {
   })
 
   it('should sanitize markdown links containing encoded JS expressions', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     render(compiler('[foo](javascript%3AdoSomethingBad)'))
 
@@ -856,8 +866,8 @@ describe('links', () => {
   })
 
   it('should sanitize markdown links containing padded JS expressions', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     render(compiler('[foo](  javascript%3AdoSomethingBad)'))
 
@@ -871,8 +881,8 @@ describe('links', () => {
   })
 
   it('should sanitize markdown links containing padded encoded vscript expressions', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     render(compiler('[foo](  VBScript%3AdoSomethingBad)'))
 
@@ -885,8 +895,8 @@ describe('links', () => {
   })
 
   it('should sanitize markdown images containing padded encoded vscript expressions', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     render(compiler('![foo](  VBScript%3AdoSomethingBad)'))
     expect(root.innerHTML).toMatchInlineSnapshot(`<img alt="foo">`)
@@ -894,8 +904,8 @@ describe('links', () => {
   })
 
   it('should sanitize markdown links containing padded encoded data expressions', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     render(compiler('[foo](`<data:doSomethingBad)'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
@@ -907,8 +917,8 @@ describe('links', () => {
   })
 
   it('should sanitize markdown images containing padded encoded data expressions', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     render(compiler('![foo](`<data:doSomethingBad)'))
     expect(root.innerHTML).toMatchInlineSnapshot(`<img alt="foo">`)
@@ -916,8 +926,8 @@ describe('links', () => {
   })
 
   it('should sanitize markdown links containing invalid characters', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     render(compiler('[foo](https://google.com/%AF)'))
 
@@ -930,8 +940,8 @@ describe('links', () => {
   })
 
   it('should sanitize html links containing JS expressions', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     render(compiler('<a href="javascript:doSomethingBad">foo</a>'))
 
@@ -945,8 +955,8 @@ describe('links', () => {
   })
 
   it('should sanitize html links containing encoded, prefixed data expressions', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     render(compiler('<a href="<`data:doSomethingBad">foo</a>'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
@@ -958,8 +968,8 @@ describe('links', () => {
   })
 
   it('should sanitize html images containing encoded, prefixed JS expressions', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     // TODO: something is off on parsing here, because this prints:
     // console.error("Warning: Unknown prop `javascript:alert` on <img> tag"...)
@@ -975,8 +985,8 @@ describe('links', () => {
   })
 
   it('should sanitize html images containing weird parsing src=s', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => { })
+    jest.spyOn(console, 'error').mockImplementation(() => { })
 
     render(compiler('<img src="`<src="javascript:alert(`xss`)">`'))
     expect(root.innerHTML).toMatchInlineSnapshot(`

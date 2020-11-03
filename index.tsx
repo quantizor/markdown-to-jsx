@@ -74,9 +74,9 @@ export namespace MarkdownToJSX {
 
   export type Override =
     | RequireAtLeastOne<{
-        component: React.ComponentType<any>
-        props: Object
-      }>
+      component: React.ComponentType<any>
+      props: Object
+    }>
     | React.ComponentType<any>
 
   export type Overrides = {
@@ -297,7 +297,7 @@ const HTML_SELF_CLOSING_ELEMENT_R = /^ *<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*
 const INTERPOLATION_R = /^\{.*\}$/
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/
-const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/
+const LINK_AUTOLINK_R = /^<([^ |>]+:\/[^ |>]+)\|?([^>]*)>/
 const LIST_ITEM_END_R = / *\n+$/
 const LIST_LOOKBEHIND_R = /(?:^|\n)( *)$/
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi
@@ -345,10 +345,10 @@ const LIST_ITEM_PREFIX_R = new RegExp('^' + LIST_ITEM_PREFIX)
 //  * but this is not part of the same item
 const LIST_ITEM_R = new RegExp(
   LIST_ITEM_PREFIX +
-    '[^\\n]*(?:\\n' +
-    '(?!\\1' +
-    LIST_BULLET +
-    ' )[^\\n]*)*(\\n|$)',
+  '[^\\n]*(?:\\n' +
+  '(?!\\1' +
+  LIST_BULLET +
+  ' )[^\\n]*)*(\\n|$)',
   'gm'
 )
 
@@ -356,17 +356,17 @@ const LIST_ITEM_R = new RegExp(
 // we leave the newlines at the end
 const LIST_R = new RegExp(
   '^( *)(' +
-    LIST_BULLET +
-    ') ' +
-    '[\\s\\S]+?(?:\\n{2,}(?! )' +
-    '(?!\\1' +
-    LIST_BULLET +
-    ' (?!' +
-    LIST_BULLET +
-    ' ))\\n*' +
-    // the \\s*$ here is so that we can parse the inside of nested
-    // lists, where our content might end before we receive two `\n`s
-    '|\\s*\\n*$)'
+  LIST_BULLET +
+  ') ' +
+  '[\\s\\S]+?(?:\\n{2,}(?! )' +
+  '(?!\\1' +
+  LIST_BULLET +
+  ' (?!' +
+  LIST_BULLET +
+  ' ))\\n*' +
+  // the \\s*$ here is so that we can parse the inside of nested
+  // lists, where our content might end before we receive two `\n`s
+  '|\\s*\\n*$)'
 )
 
 const LINK_INSIDE = '(?:\\[[^\\]]*\\]|[^\\[\\]]|\\](?=[^\\[]*\\]))*'
@@ -502,8 +502,8 @@ function getTableStyle(node, colIndex) {
   return node.align[colIndex] == null
     ? {}
     : {
-        textAlign: node.align[colIndex],
-      }
+      textAlign: node.align[colIndex],
+    }
 }
 
 /** TODO: remove for react 16 */
@@ -583,9 +583,9 @@ function normalizeWhitespace(source: string): string {
 function parserFor(
   rules: MarkdownToJSX.Rules
 ): (
-  source: string,
-  state: MarkdownToJSX.State
-) => ReturnType<MarkdownToJSX.NestedParser> {
+    source: string,
+    state: MarkdownToJSX.State
+  ) => ReturnType<MarkdownToJSX.NestedParser> {
   // Sorts rules in order of increasing order, then
   // ascending rule name in case of ties.
   let ruleList = Object.keys(rules)
@@ -962,8 +962,8 @@ export function compiler(
       jsx = inline ? (
         <span key="outer">{arr}</span>
       ) : (
-        <div key="outer">{arr}</div>
-      )
+          <div key="outer">{arr}</div>
+        )
     } else if (arr.length === 1) {
       jsx = arr[0]
 
@@ -984,33 +984,33 @@ export function compiler(
 
     return attributes
       ? attributes.reduce(function (map, raw, index) {
-          const delimiterIdx = raw.indexOf('=')
+        const delimiterIdx = raw.indexOf('=')
 
-          if (delimiterIdx !== -1) {
-            const key = normalizeAttributeKey(raw.slice(0, delimiterIdx)).trim()
-            const value = unquote(raw.slice(delimiterIdx + 1).trim())
+        if (delimiterIdx !== -1) {
+          const key = normalizeAttributeKey(raw.slice(0, delimiterIdx)).trim()
+          const value = unquote(raw.slice(delimiterIdx + 1).trim())
 
-            const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key
-            const normalizedValue = (map[
-              mappedKey
-            ] = attributeValueToJSXPropValue(key, value))
+          const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key
+          const normalizedValue = (map[
+            mappedKey
+          ] = attributeValueToJSXPropValue(key, value))
 
-            if (
-              typeof normalizedValue === 'string' &&
-              (HTML_BLOCK_ELEMENT_R.test(normalizedValue) ||
-                HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue))
-            ) {
-              map[mappedKey] = React.cloneElement(
-                compile(normalizedValue.trim()),
-                { key: index }
-              )
-            }
-          } else if (raw !== 'style') {
-            map[ATTRIBUTE_TO_JSX_PROP_MAP[raw] || raw] = true
+          if (
+            typeof normalizedValue === 'string' &&
+            (HTML_BLOCK_ELEMENT_R.test(normalizedValue) ||
+              HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue))
+          ) {
+            map[mappedKey] = React.cloneElement(
+              compile(normalizedValue.trim()),
+              { key: index }
+            )
           }
+        } else if (raw !== 'style') {
+          map[ATTRIBUTE_TO_JSX_PROP_MAP[raw] || raw] = true
+        }
 
-          return map
-        }, {})
+        return map
+      }, {})
       : undefined
   }
 
@@ -1283,7 +1283,7 @@ export function compiler(
         return {
           content: [
             {
-              content: capture[1],
+              content: capture[2] || capture[1],
               type: 'text',
             },
           ],
@@ -1530,8 +1530,8 @@ export function compiler(
             {output(node.content, state)}
           </a>
         ) : (
-          <span key={state.key}>{output(node.fallbackContent, state)}</span>
-        )
+            <span key={state.key}>{output(node.fallbackContent, state)}</span>
+          )
       },
     } as MarkdownToJSX.Rule<{
       content: MarkdownToJSX.ParserResult
