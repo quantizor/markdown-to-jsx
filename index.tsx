@@ -1293,23 +1293,26 @@ export function compiler(
       },
     },
 
-    linkBareUrlDetector: {
-      match: inlineRegex(LINK_AUTOLINK_BARE_URL_R),
-      order: Priority.MAX,
-      parse(capture /*, parse, state*/) {
-        return {
-          content: [
-            {
-              content: capture[1],
-              type: 'text',
-            },
-          ],
-          target: capture[1],
-          title: undefined,
-          type: 'link',
-        }
-      },
-    },
+    // This inteferes with our custom <Link> component
+    // e.g. <Link href="https://google.co.uk" rel="noopener noreferrer" target="_blank">https://google.co.uk</Link>
+    // markdown-to-jsx with auto link the anchor content and create duplicate links on the page
+    // linkBareUrlDetector: {
+    //   match: inlineRegex(LINK_AUTOLINK_BARE_URL_R),
+    //   order: Priority.MAX,
+    //   parse(capture /*, parse, state*/) {
+    //     return {
+    //       content: [
+    //         {
+    //           content: capture[1],
+    //           type: 'text',
+    //         },
+    //       ],
+    //       target: capture[1],
+    //       title: undefined,
+    //       type: 'link',
+    //     }
+    //   },
+    // },
 
     linkMailtoDetector: {
       match: inlineRegex(LINK_AUTOLINK_MAILTO_R),
