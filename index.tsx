@@ -54,6 +54,7 @@ export namespace MarkdownToJSX {
   ) => JSX.Element
 
   export type Rule<ParserOutput = MarkdownToJSX.ParserResult> = {
+    disabled?: boolean,
     match: (
       source: string,
       state: MarkdownToJSX.State,
@@ -94,6 +95,12 @@ export namespace MarkdownToJSX {
       props: React.Props<any>,
       ...children: React.ReactChild[]
     ) => JSX.Element
+
+    /**
+     * Prevent the compiler from taking bare urls (including mailto:) and
+     * converting them into <a> tags
+     */
+    disableParsingBareUrls: boolean
 
     /**
      * Disable the compiler's best-effort transcription of provided raw HTML
@@ -637,7 +644,7 @@ function parserFor(
       while (i < ruleList.length) {
         const ruleType = ruleList[i]
         const rule = rules[ruleType]
-        const capture = rule.match(source, state, prevCapture)
+        const capture = !rule.disabled && rule.match(source, state, prevCapture)
 
         if (capture) {
           const currCaptureString = capture[0]
@@ -1293,28 +1300,27 @@ export function compiler(
       },
     },
 
-    // This inteferes with our custom <Link> component
-    // e.g. <Link href="https://google.co.uk" rel="noopener noreferrer" target="_blank">https://google.co.uk</Link>
-    // markdown-to-jsx with auto link the anchor content and create duplicate links on the page
-    // linkBareUrlDetector: {
-    //   match: inlineRegex(LINK_AUTOLINK_BARE_URL_R),
-    //   order: Priority.MAX,
-    //   parse(capture /*, parse, state*/) {
-    //     return {
-    //       content: [
-    //         {
-    //           content: capture[1],
-    //           type: 'text',
-    //         },
-    //       ],
-    //       target: capture[1],
-    //       title: undefined,
-    //       type: 'link',
-    //     }
-    //   },
-    // },
+    linkBareUrlDetector: {
+      disabled: options.disableParsingBareUrls,
+      match: inlineRegex(LINK_AUTOLINK_BARE_URL_R),
+      order: Priority.MAX,
+      parse(capture /*, parse, state*/) {
+        return {
+          content: [
+            {
+              content: capture[1],
+              type: 'text',
+            },
+          ],
+          target: capture[1],
+          title: undefined,
+          type: 'link',
+        }
+      },
+    },
 
     linkMailtoDetector: {
+      disabled: options.disableParsingBareUrls,
       match: inlineRegex(LINK_AUTOLINK_MAILTO_R),
       order: Priority.MAX,
       parse(capture /*, parse, state*/) {
