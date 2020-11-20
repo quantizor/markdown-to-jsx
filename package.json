@@ -69,7 +69,7 @@
   "scripts": {
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
     "prebuild": "rimraf dist && mkdirp dist",
-    "build": "microbundle --tsconfig tsconfig.json -f cjs,umd index.cjs.tsx --name MarkdownToJSX --define process.env.NODE_ENV=production --globals react=React && microbundle --tsconfig tsconfig.json -f es,modern --name MarkdownToJSX --define process.env.NODE_ENV=production",
+    "prepare": "microbundle --tsconfig tsconfig.json -f cjs,umd index.cjs.tsx --name MarkdownToJSX --define process.env.NODE_ENV=production --globals react=React && microbundle --tsconfig tsconfig.json -f es,modern --name MarkdownToJSX --define process.env.NODE_ENV=production",
     "release": "microbundle site.tsx -o docs -f iife --tsconfig tsconfig.site.json --define process.env.NODE_ENV=production --jsx React.createElement --external react,react-dom,styled-components --globals react=React,react-dom=ReactDOM,styled-components=styled",
     "dev": "microbundle watch site.tsx -o docs -f iife --tsconfig tsconfig.site.json --define process.env.NODE_ENV=development --no-compress --jsx React.createElement --external react,react-dom,styled-components --globals react=React,react-dom=ReactDOM,styled-components=styled",
     "test": "jest --verbose",
