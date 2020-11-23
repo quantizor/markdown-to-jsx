@@ -12,6 +12,8 @@ The most lightweight, customizable React markdown component.
     - [Parsing Options](#parsing-options)
         - [options.forceBlock](#optionsforceblock)
         - [options.forceInline](#optionsforceinline)
+        - [options.wrapper](#optionswrapper)
+        - [options.forceWrapper](#optionsforcewrapper)
         - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
         - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
         - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
@@ -125,6 +127,62 @@ compiler('# You got it babe!', { forceInline: true });
 // renders
 
 <span># You got it babe!</span>;
+```
+
+#### options.wrapper
+
+When there are multiple children to be rendered, the compiler will wrap the output in a `div` by default. You can override this default by setting the `wrapper` option to either a string (React Element) or a component.
+
+```jsx
+const str = '# Heck Yes\n\nThis is great!'
+
+<Markdown options={{ wrapper: 'article' }}>
+  {str}
+</Markdown>;
+
+// or
+
+compiler(str, { wrapper: 'article' });
+
+// renders
+
+<article>
+  <h1>Heck Yes</h1>
+  <p>This is great!</p>
+</article>
+```
+
+##### Other useful recipes
+
+To get an array of children back without a wrapper, set `wrapper` to `null`. This is particularly useful when using `compiler(…)` directly.
+
+```jsx
+compiler('One\n\nTwo\n\nThree', { wrapper: null });
+
+// returns
+
+[
+  (<p>One</p>),
+  (<p>Two</p>),
+  (<p>Three</p>)
+]
+```
+
+To render children at the same DOM level as `<Markdown>` with no HTML wrapper, set `wrapper` to `React.Fragment`. This will still wrap your children in a React node for the purposes of rendering, but the wrapper element won't show up in the DOM.
+
+#### options.forceWrapper
+
+By default, the compiler does not wrap the rendered contents if there is only a single child. You can change this by setting `forceWrapper` to `true`. If the child is inline, it will not necessarily be wrapped in a `span`.
+
+```jsx
+// Using `forceWrapper` with a single, inline child…
+<Markdown options={{ wrapper: 'aside', forceWrapper: true }}>
+  Mumble, mumble…
+</Markdown>
+
+// renders
+
+<aside>Mumble, mumble…</aside>
 ```
 
 #### options.overrides - Override Any HTML Tag's Representation
