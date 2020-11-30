@@ -74,10 +74,10 @@ export namespace MarkdownToJSX {
 
   export type Override =
     | RequireAtLeastOne<{
-        component: React.ComponentType<any>
+        component: React.ElementType
         props: Object
       }>
-    | React.ComponentType<any>
+    | React.ElementType
 
   export type Overrides = {
     [tag in HTMLTags]?: Override
