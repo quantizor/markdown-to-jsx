@@ -348,6 +348,17 @@ describe('inline textual elements', () => {
     `)
   })
 
+  it('regression test for #352, snake_cased_words should not be emphasized', () => {
+    render(compiler('nothing_here_should_be_emphasized'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        nothing_here_should_be_emphasized
+      </span>
+    `)
+  })
+
+
   it('ignore similar syntax inside inline syntax', () => {
     render(
       compiler(

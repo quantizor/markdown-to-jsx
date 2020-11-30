@@ -331,6 +331,8 @@ const TABLE_LEFT_ALIGN = /^ *:-+ *$/
 const TABLE_RIGHT_ALIGN = /^ *-+: *$/
 
 const TEXT_BOLD_R = /^([*_])\1((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1\1(?!\1)/
+
+const TEXT_EMPHASIZED_LOOKBEHIND_R = /[\w\d]$/
 const TEXT_EMPHASIZED_R = /^([*_])((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1(?!\1)/
 const TEXT_STRIKETHROUGHED_R = /^~~((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.)*?)~~/
 
@@ -1652,7 +1654,19 @@ export function compiler(
     } as MarkdownToJSX.Rule<ReturnType<MarkdownToJSX.NestedParser>>,
 
     textEmphasized: {
-      match: simpleInlineRegex(TEXT_EMPHASIZED_R),
+      match(source, state, prevCapture) {
+
+        if (TEXT_EMPHASIZED_LOOKBEHIND_R.exec(prevCapture)) {
+          return null
+        }
+
+        if (state.inline || state.simple) {
+          return TEXT_EMPHASIZED_R.exec(source)
+        } else {
+          return null
+        }
+      },
+
       order: Priority.LOW,
       parse(capture, parse, state) {
         return {
