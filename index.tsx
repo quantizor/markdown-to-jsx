@@ -97,7 +97,7 @@ export namespace MarkdownToJSX {
     ) => JSX.Element
 
     /**
-     * Prevent the compiler from taking bare urls (including mailto:) and
+     * Prevent the compiler from taking bare urls and
      * converting them into <a> tags
      */
     disableParsingBareUrls: boolean
@@ -1320,7 +1320,6 @@ export function compiler(
     },
 
     linkMailtoDetector: {
-      disabled: options.disableParsingBareUrls,
       match: inlineRegex(LINK_AUTOLINK_MAILTO_R),
       order: Priority.MAX,
       parse(capture /*, parse, state*/) {
