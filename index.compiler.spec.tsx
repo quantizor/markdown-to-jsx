@@ -3021,6 +3021,25 @@ describe('options.slugify', () => {
   })
 })
 
+describe('options.disableParsingBareUrls', () => {
+  it('should not convert bare urls to anchors if disableParsingBareUrls option is set', () => {
+    render(
+      compiler(
+        'Please leave me alone https://github.com/probablyup/markdown-to-jsx',
+        {
+          disableParsingBareUrls: true,
+        }
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        Please leave me alone https://github.com/probablyup/markdown-to-jsx
+      </span>
+    `)
+  })
+});
+
 describe('overrides', () => {
   it('should substitute the appropriate JSX tag if given a component', () => {
     class FakeParagraph extends React.Component {
@@ -3252,21 +3271,4 @@ it('handles a holistic example', () => {
   render(compiler(md))
 
   expect(root.innerHTML).toMatchSnapshot()
-})
-
-it('should not convert bare urls to anchors if disableParsingBareUrls option is set', () => {
-  render(
-    compiler(
-      'Please leave me alone https://github.com/probablyup/markdown-to-jsx',
-      {
-        disableParsingBareUrls: true,
-      }
-    )
-  )
-
-  expect(root.innerHTML).toMatchInlineSnapshot(`
-    <span>
-      Please leave me alone https://github.com/probablyup/markdown-to-jsx
-    </span>
-  `)
 })
