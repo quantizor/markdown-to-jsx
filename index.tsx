@@ -149,6 +149,20 @@ export namespace MarkdownToJSX {
     overrides: Overrides
 
     /**
+     * Declare the type of the wrapper to be used when there are multiple
+     * children to render. Set to `null` to get an array of children back
+     * without any wrapper, or use `React.Fragment` to get a React element
+     * that won't show up in the DOM.
+     */
+    wrapper: React.ElementType
+
+    /**
+     * Forces the compiler to wrap results, even if there is only a single
+     * child or no children.
+     */
+    forceWrapper: boolean
+
+    /**
      * Override normalization of non-URI-safe characters for use in generating
      * HTML IDs for anchor linking purposes.
      */
@@ -964,26 +978,30 @@ export function compiler(
       )
     )
 
+    if (options.wrapper === null) {
+      return arr
+    }
+
+    const wrapper = options.wrapper || (inline ? 'span' : 'div')
     let jsx
-    if (arr.length > 1) {
-      jsx = inline ? (
-        <span key="outer">{arr}</span>
-      ) : (
-        <div key="outer">{arr}</div>
-      )
+
+    if (arr.length > 1 || options.forceWrapper) {
+      jsx = arr
     } else if (arr.length === 1) {
       jsx = arr[0]
 
       // TODO: remove this for React 16
       if (typeof jsx === 'string') {
-        jsx = <span key="outer">{jsx}</span>
+        return <span key="outer">{jsx}</span>
+      } else {
+        return jsx
       }
     } else {
       // TODO: return null for React 16
-      jsx = <span key="outer" />
+      jsx = null
     }
 
-    return jsx
+    return React.createElement(wrapper, { key: 'outer' }, jsx)
   }
 
   function attrStringToMap(str: string): React.Props<any> {
@@ -1785,7 +1803,7 @@ export function compiler(
   }
 
   const parser = parserFor(rules)
-  const emitter = reactFor(ruleOutput(rules))
+  const emitter: Function = reactFor(ruleOutput(rules))
 
   const jsx = compile(stripHtmlComments(markdown))
 
