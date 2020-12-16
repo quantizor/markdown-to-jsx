@@ -428,8 +428,6 @@ compiler('URLs like https://github.com will be left alone', { disableParsingBare
 <span>URLs like https://github.com will be left alone</span>
 ```
 
-
-
 ### Getting the smallest possible bundle size
 
 Many development conveniences are placed behind `process.env.NODE_ENV !== "production"` conditionals. When bundling your app, it's a good idea to replace these code snippets such that a minifier (like uglify) can sweep them away and leave a smaller overall bundle.
