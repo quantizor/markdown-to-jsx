@@ -421,7 +421,10 @@ By default, bare URLs will be converted to `<a>` elements in the output. This ca
 
 // or
 
-compiler('This text has bare URLs https://github.com and HTML anchors <a href="https://github.com">https://github.com</a> that will be left alone', { disableParsingBareUrls: true });
+compiler(
+    'This text has bare URLs https://github.com and HTML anchors <a href="https://github.com">https://github.com</a> that will be left alone',
+    { disableParsingBareUrls: true }
+);
 
 // renders:
 
