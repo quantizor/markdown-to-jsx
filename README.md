@@ -18,6 +18,7 @@ The most lightweight, customizable React markdown component.
         - [options.slugify](#optionsslugify)
         - [options.namedCodesToUnicode](#optionsnamedcodestounicode)
         - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
+        - [options.disableParsingBareUrls](#optionsdisableparsingBareurls)
     - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
     - [Usage with Preact](#usage-with-preact)
 - [Gotchas](#gotchas)
@@ -408,6 +409,28 @@ compiler('This text has <span>html</span> in it but it won't be rendered', { dis
 
 <span>This text has &lt;span&gt;html&lt;/span&gt; in it but it won't be rendered</span>
 ```
+
+#### options.disableParsingBareUrls
+
+By default, bare URLs will be converted to `<a>` elements in the output. This can cause issues if there are HTML hyperlinks or custom link components with URLs as text. This behaviour can be disabled with this option.
+
+```jsx
+<Markdown options={{ disableParsingBareUrls: true }}>
+    This text has bare URLs https://github.com and HTML anchors <a href="https://github.com">https://github.com</a> that will be left alone
+</Markdown>;
+
+// or
+
+compiler('This text has bare URLs https://github.com and HTML anchors <a href="https://github.com">https://github.com</a> that will be left alone', { disableParsingBareUrls: true });
+
+// renders:
+
+<span>
+    This text has bare URLs https://github.com and HTML anchors <a href="https://github.com">https://github.com</a> that will be left alone
+</span>
+```
+
+
 
 ### Getting the smallest possible bundle size
 
