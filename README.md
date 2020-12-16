@@ -416,21 +416,16 @@ By default, bare URLs will be converted to `<a>` elements in the output. This ca
 
 ```jsx
 <Markdown options={{ disableParsingBareUrls: true }}>
-    https://github.com and <a href="https://github.com">https://github.com</a> will be left alone
+    URLs like https://github.com will be left alone
 </Markdown>;
 
 // or
 
-compiler(
-    'https://github.com and <a href="https://github.com">https://github.com</a> will be left alone',
-    { disableParsingBareUrls: true }
-);
+compiler('URLs like https://github.com will be left alone', { disableParsingBareUrls: true });
 
 // renders:
 
-<span>
-    https://github.com and <a href="https://github.com">https://github.com</a> will be left alone
-</span>
+<span>URLs like https://github.com will be left alone</span>
 ```
 
 
