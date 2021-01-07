@@ -257,7 +257,7 @@ const FOOTNOTE_R = /^\[\^([^\]]+)](:.*)\n/
 const FOOTNOTE_REFERENCE_R = /^\[\^([^\]]+)]/
 const FORMFEED_R = /\f/g
 const GFM_TASK_R = /^\s*?\[(x|\s)\]/
-const HEADING_R = /^ *(#{1,6}) *([^\n]+)\n{0,2}/
+const HEADING_R = /^ *(#{1,6}) *([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
 const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/
 
 /**
@@ -1188,15 +1188,9 @@ export function compiler(
       match: blockRegex(HEADING_R),
       order: Priority.HIGH,
       parse(capture, parse, state) {
-        // trim optional closing hashes from heading
-        const trimmedCapture = capture[2].slice(
-          0,
-          / +#+ *$/.exec(capture[2])?.index
-        )
-
         return {
-          content: parseInline(parse, trimmedCapture, state),
-          id: options.slugify(trimmedCapture),
+          content: parseInline(parse, capture[2], state),
+          id: options.slugify(capture[2]),
           level: capture[1].length,
         }
       },
