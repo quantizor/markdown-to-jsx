@@ -1,3 +1,3 @@
 import Markdown, { compiler } from './'
 Object.assign(Markdown, { compiler })
-export default Markdown
+export default Markdown as typeof Markdown & { compiler: typeof compiler }
