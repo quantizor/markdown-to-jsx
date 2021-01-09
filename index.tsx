@@ -271,7 +271,7 @@ const FOOTNOTE_R = /^\[\^([^\]]+)](:.*)\n/
 const FOOTNOTE_REFERENCE_R = /^\[\^([^\]]+)]/
 const FORMFEED_R = /\f/g
 const GFM_TASK_R = /^\s*?\[(x|\s)\]/
-const HEADING_R = /^ *(#{1,6}) *([^\n]+)\n{0,2}/
+const HEADING_R = /^ *(#{1,6}) *([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
 const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/
 
 /**
