@@ -2830,6 +2830,28 @@ describe('fenced code blocks', () => {
       </pre>
     `)
   })
+
+  it('should not strip HTML comments inside fenced blocks', () => {
+    render(
+      compiler(
+        `
+\`\`\`html
+<!-- something -->
+Yeah boi
+\`\`\`
+`.trim()
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <pre>
+        <code class="lang-html">
+          &lt;!-- something --&gt;
+      Yeah boi
+        </code>
+      </pre>
+    `)
+  })
 })
 
 describe('indented code blocks', () => {
