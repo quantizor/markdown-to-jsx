@@ -75,10 +75,10 @@ export namespace MarkdownToJSX {
 
   export type Override =
     | RequireAtLeastOne<{
-        component: React.ComponentType<any>
+        component: React.ElementType
         props: Object
       }>
-    | React.ComponentType<any>
+    | React.ElementType
 
   export type Overrides = {
     [tag in HTMLTags]?: Override
@@ -278,7 +278,7 @@ const FOOTNOTE_R = /^\[\^([^\]]+)](:.*)\n/
 const FOOTNOTE_REFERENCE_R = /^\[\^([^\]]+)]/
 const FORMFEED_R = /\f/g
 const GFM_TASK_R = /^\s*?\[(x|\s)\]/
-const HEADING_R = /^ *(#{1,6}) *([^\n]+)\n{0,2}/
+const HEADING_R = /^ *(#{1,6}) *([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
 const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/
 
 /**
@@ -307,7 +307,7 @@ const HTML_BLOCK_ELEMENT_R = /^ *(?!<[a-z][^ >/]* ?\/>)<([a-z][^ >/]*) ?([^>]*)\
 
 const HTML_CHAR_CODE_R = /&([a-z]+);/g
 
-const HTML_COMMENT_R = /^<!--.*?-->/
+const HTML_COMMENT_R = /^<!--[\s\S]*?(?:-->)/
 
 /**
  * borrowed from React 15(https://github.com/facebook/react/blob/894d20744cba99383ffd847dbd5b6e0800355a5c/src/renderers/dom/shared/HTMLDOMPropertyConfig.js)
@@ -844,9 +844,9 @@ function parseBlock(parse, content, state): MarkdownToJSX.ParserResult {
   return parse(content + '\n\n', state)
 }
 
-const parseCaptureInline: MarkdownToJSX.Parser<ReturnType<
-  typeof parseInline
->> = (capture, parse, state) => {
+const parseCaptureInline: MarkdownToJSX.Parser<
+  ReturnType<typeof parseInline>
+> = (capture, parse, state) => {
   return {
     content: parseInline(parse, capture[1], state),
   }
@@ -1037,10 +1037,6 @@ export function compiler(
           return map
         }, {})
       : undefined
-  }
-
-  function stripHtmlComments(html) {
-    return html.replace(/<!--[\s\S]*?(?:-->)/g, '')
   }
 
   /* istanbul ignore next */
@@ -1805,7 +1801,7 @@ export function compiler(
   const parser = parserFor(rules)
   const emitter: Function = reactFor(ruleOutput(rules))
 
-  const jsx = compile(stripHtmlComments(markdown))
+  const jsx = compile(markdown)
 
   if (footnotes.length) {
     jsx.props.children.push(
