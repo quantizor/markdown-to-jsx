@@ -1736,8 +1736,9 @@ export function compiler(
           : parseInline
 
         const tagName = capture[1].toLowerCase() as MarkdownToJSX.HTMLTags
+        const hasBareLinkAsText = LINK_AUTOLINK_BARE_URL_R.test(trimmed)
         const noInnerParse =
-          DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(tagName) !== -1
+          DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(tagName) !== -1 || (hasBareLinkAsText && tagName === 'a')
 
         return {
           attrs: attrStringToMap(capture[2]),

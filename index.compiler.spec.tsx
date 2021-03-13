@@ -837,6 +837,16 @@ describe('links', () => {
     `)
   })
 
+  it('should not link URL if it is already inside an anchor tag', () => {
+    render(compiler('<a href="https://google.com">https://google.com</a>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <a href="https://google.com">
+        https://google.com
+      </a>
+    `)
+  })
+
   it('should sanitize markdown links containing JS expressions', () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {})
     jest.spyOn(console, 'error').mockImplementation(() => {})
