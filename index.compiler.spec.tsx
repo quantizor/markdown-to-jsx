@@ -837,12 +837,39 @@ describe('links', () => {
     `)
   })
 
-  it('should not link URL if it is already inside an anchor tag', () => {
+  it('should not link bare URL if it is already inside an anchor tag', () => {
     render(compiler('<a href="https://google.com">https://google.com</a>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <a href="https://google.com">
         https://google.com
+      </a>
+    `)
+  })
+
+  it('should not link URL if it is nested inside an anchor tag', () => {
+    render(compiler('<a href="https://google.com">some text <span>with a link https://google.com</span></a>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <a href="https://google.com">
+        some text
+        <span>
+          with a link https://google.com
+        </span>
+      </a>
+    `)
+
+    render(compiler('<a href="https://google.com">some text <span>with a nested link <span>https://google.com</span></span></a>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <a href="https://google.com">
+        some text
+        <span>
+          with a nested link
+          <span>
+            https://google.com
+          </span>
+        </span>
       </a>
     `)
   })
