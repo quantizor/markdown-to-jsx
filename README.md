@@ -20,6 +20,7 @@ The most lightweight, customizable React markdown component.
     - [options.slugify](#optionsslugify)
     - [options.namedCodesToUnicode](#optionsnamedcodestounicode)
     - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
+  - [Syntax highlighting](#syntax-highlighting)
   - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
   - [Usage with Preact](#usage-with-preact)
 - [Gotchas](#gotchas)
@@ -462,6 +463,22 @@ compiler('This text has <span>html</span> in it but it won't be rendered', { dis
 <span>This text has &lt;span&gt;html&lt;/span&gt; in it but it won't be rendered</span>
 ```
 
+### Syntax highlighting
+
+Some syntax highlighters require you to specify the language.  The language of the code fence is
+forwarded in the className prop of the element used for `<code>`:
+
+```jsx
+const Code = ({className, children}) => {
+    const language = className.replace("lang-", "");
+
+    return (
+        <SyntaxHighlighter language={language}>
+        <code>{children}</code>
+        </SyntaxHighlighter>
+        );
+}
+```
 ### Getting the smallest possible bundle size
 
 Many development conveniences are placed behind `process.env.NODE_ENV !== "production"` conditionals. When bundling your app, it's a good idea to replace these code snippets such that a minifier (like uglify) can sweep them away and leave a smaller overall bundle.
