@@ -243,6 +243,12 @@ Depending on the type of element, there are some props that must be preserved to
 
 Any conflicts between passed `props` and the specific properties above will be resolved in favor of `markdown-to-jsx`'s code.
 
+Some element mappings are a bit different from other libraries, in particular:
+
+- `span`:  Used for inline text.
+- `code`:  Used for inline code. 
+- `pre > code`: Code blocks are a `code` element with a `pre` as its direct ancestor.   
+
 #### options.overrides - Rendering Arbitrary React Components
 
 One of the most interesting use cases enabled by the HTML syntax processing in `markdown-to-jsx` is the ability to use any kind of element, even ones that aren't real HTML tags like React component classes.
