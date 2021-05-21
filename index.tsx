@@ -28,6 +28,7 @@ export namespace MarkdownToJSX {
     _list?: boolean
     inline?: boolean
     inTable?: boolean
+    inAnchor?: boolean
     key?: React.Key
     simple?: boolean
   }
@@ -1308,7 +1309,12 @@ export function compiler(
     },
 
     linkBareUrlDetector: {
-      match: inlineRegex(LINK_AUTOLINK_BARE_URL_R),
+      match: (source, state) => {
+        if (state.inAnchor) {
+          return null
+        }
+        return inlineRegex(LINK_AUTOLINK_BARE_URL_R)(source, state)
+      },
       order: Priority.MAX,
       parse(capture /*, parse, state*/) {
         return {
@@ -1739,13 +1745,19 @@ export function compiler(
         const noInnerParse =
           DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(tagName) !== -1
 
+        state.inAnchor = state.inAnchor || tagName === 'a'
+
+        /**
+         * if another html block is detected within, parse as block,
+         * otherwise parse as inline to pick up any further markdown
+         */
+        const content = noInnerParse ? capture[3] : parseFunc(parse, trimmed, state)
+
+        state.inAnchor = false
+
         return {
           attrs: attrStringToMap(capture[2]),
-          /**
-           * if another html block is detected within, parse as block,
-           * otherwise parse as inline to pick up any further markdown
-           */
-          content: noInnerParse ? capture[3] : parseFunc(parse, trimmed, state),
+          content,
 
           noInnerParse,
 
