@@ -2,7 +2,7 @@
 
 The most lightweight, customizable React markdown component.
 
-[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) <a href="https://bundlephobia.com/result?p=markdown-to-jsx" title="markdown-to-jsx latest minified+gzip size"><img src="https://badgen.net/bundlephobia/minzip/markdown-to-jsx" alt="gzip size"></a> [![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg)](https://travis-ci.org/probablyup/markdown-to-jsx) [![codecov](https://codecov.io/gh/probablyup/markdown-to-jsx/branch/master/graph/badge.svg)](https://codecov.io/gh/probablyup/markdown-to-jsx) [![downloads](https://img.shields.io/npm/dm/markdown-to-jsx.svg)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
+[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) <a href="https://bundlephobia.com/result?p=markdown-to-jsx" title="markdown-to-jsx latest minified+gzip size"><img src="https://badgen.net/bundlephobia/minzip/markdown-to-jsx" alt="gzip size"></a> [![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg)](https://travis-ci.org/probablyup/markdown-to-jsx) [![codecov](https://codecov.io/gh/probablyup/markdown-to-jsx/branch/main/graph/badge.svg)](https://codecov.io/gh/probablyup/markdown-to-jsx) [![downloads](https://img.shields.io/npm/dm/markdown-to-jsx.svg)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
 
 <!-- TOC -->
 
@@ -325,7 +325,7 @@ render(
 );
 ```
 
-Another possibility is to use something like [recompose's `withProps()` HOC](https://github.com/acdlite/recompose/blob/master/docs/API.md#withprops) to create various pregenerated scenarios and then reference them by name in the markdown:
+Another possibility is to use something like [recompose's `withProps()` HOC](https://github.com/acdlite/recompose/blob/main/docs/API.md#withprops) to create various pregenerated scenarios and then reference them by name in the markdown:
 
 ```jsx
 import Markdown from 'markdown-to-jsx';

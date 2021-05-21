@@ -34,7 +34,7 @@ function TryItLive() {
           padding: '0.5em',
           margin: '-3rem -3rem 2em',
           position: 'sticky',
-          top: 0
+          top: 0,
         }}
       >
         #BlackLivesMatter ✊🏿{' '}
@@ -69,7 +69,7 @@ function TryItLive() {
           See the{' '}
           <a
             target="_blank"
-            href="https://github.com/probablyup/markdown-to-jsx/blob/master/README.md"
+            href="https://github.com/probablyup/markdown-to-jsx/blob/main/README.md"
             rel="noopener noreferrer"
           >
             project README
