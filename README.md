@@ -2,36 +2,32 @@
 
 The most lightweight, customizable React markdown component.
 
-[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) <a href="https://bundlephobia.com/result?p=markdown-to-jsx" title="markdown-to-jsx latest minified+gzip size"><img src="https://badgen.net/bundlephobia/minzip/markdown-to-jsx" alt="gzip size"></a> [![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg)](https://travis-ci.org/probablyup/markdown-to-jsx) [![codecov](https://codecov.io/gh/probablyup/markdown-to-jsx/branch/master/graph/badge.svg)](https://codecov.io/gh/probablyup/markdown-to-jsx) [![downloads](https://img.shields.io/npm/dm/markdown-to-jsx.svg)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
-[![Backers on Open Collective](https://opencollective.com/markdown-to-jsx/backers/badge.svg)](#backers) [![Sponsors on Open Collective](https://opencollective.com/markdown-to-jsx/sponsors/badge.svg)](#sponsors)
+[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) <a href="https://bundlephobia.com/result?p=markdown-to-jsx" title="markdown-to-jsx latest minified+gzip size"><img src="https://badgen.net/bundlephobia/minzip/markdown-to-jsx" alt="gzip size"></a> [![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg)](https://travis-ci.org/probablyup/markdown-to-jsx) [![codecov](https://codecov.io/gh/probablyup/markdown-to-jsx/branch/main/graph/badge.svg)](https://codecov.io/gh/probablyup/markdown-to-jsx) [![downloads](https://img.shields.io/npm/dm/markdown-to-jsx.svg)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
 
 <!-- TOC -->
 
 - [Installation](#installation)
 - [Usage](#usage)
-    - [Parsing Options](#parsing-options)
-        - [options.forceBlock](#optionsforceblock)
-        - [options.forceInline](#optionsforceinline)
-        - [options.wrapper](#optionswrapper)
-        - [options.forceWrapper](#optionsforcewrapper)
-        - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
-        - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
-        - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
-        - [options.slugify](#optionsslugify)
-        - [options.namedCodesToUnicode](#optionsnamedcodestounicode)
-        - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
-    - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
-    - [Usage with Preact](#usage-with-preact)
+  - [Parsing Options](#parsing-options)
+    - [options.forceBlock](#optionsforceblock)
+    - [options.forceInline](#optionsforceinline)
+    - [options.wrapper](#optionswrapper)
+      - [Other useful recipes](#other-useful-recipes)
+    - [options.forceWrapper](#optionsforcewrapper)
+    - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
+    - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
+    - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
+    - [options.slugify](#optionsslugify)
+    - [options.namedCodesToUnicode](#optionsnamedcodestounicode)
+    - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
+  - [Syntax highlighting](#syntax-highlighting)
+  - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
+  - [Usage with Preact](#usage-with-preact)
 - [Gotchas](#gotchas)
-    - [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
-        - [Code blocks](#code-blocks)
-- [Using The Compiler Directly](#using-the-compiler-directly)
+  - [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
+    - [Code blocks](#code-blocks)
 - [Changelog](#changelog)
 - [Donate](#donate)
-- [Credits](#credits)
-    - [Contributors](#contributors)
-    - [Backers](#backers)
-    - [Sponsors](#sponsors)
 
 <!-- /TOC -->
 
@@ -247,6 +243,12 @@ Depending on the type of element, there are some props that must be preserved to
 
 Any conflicts between passed `props` and the specific properties above will be resolved in favor of `markdown-to-jsx`'s code.
 
+Some element mappings are a bit different from other libraries, in particular:
+
+- `span`:  Used for inline text.
+- `code`:  Used for inline code. 
+- `pre > code`: Code blocks are a `code` element with a `pre` as its direct ancestor.   
+
 #### options.overrides - Rendering Arbitrary React Components
 
 One of the most interesting use cases enabled by the HTML syntax processing in `markdown-to-jsx` is the ability to use any kind of element, even ones that aren't real HTML tags like React component classes.
@@ -323,7 +325,7 @@ render(
 );
 ```
 
-Another possibility is to use something like [recompose's `withProps()` HOC](https://github.com/acdlite/recompose/blob/master/docs/API.md#withprops) to create various pregenerated scenarios and then reference them by name in the markdown:
+Another possibility is to use something like [recompose's `withProps()` HOC](https://github.com/acdlite/recompose/blob/main/docs/API.md#withprops) to create various pregenerated scenarios and then reference them by name in the markdown:
 
 ```jsx
 import Markdown from 'markdown-to-jsx';
@@ -467,6 +469,22 @@ compiler('This text has <span>html</span> in it but it won't be rendered', { dis
 <span>This text has &lt;span&gt;html&lt;/span&gt; in it but it won't be rendered</span>
 ```
 
+### Syntax highlighting
+
+Some syntax highlighters require you to specify the language.  The language of the code fence is
+forwarded in the className prop of the element used for `<code>`:
+
+```jsx
+const Code = ({className, children}) => {
+  const language = className.replace("lang-", "");
+
+  return (
+    <SyntaxHighlighter language={language}>
+      <code>{children}</code>
+    </SyntaxHighlighter>
+  );
+}
+```
 ### Getting the smallest possible bundle size
 
 Many development conveniences are placed behind `process.env.NODE_ENV !== "production"` conditionals. When bundling your app, it's a good idea to replace these code snippets such that a minifier (like uglify) can sweep them away and leave a smaller overall bundle.
@@ -560,34 +578,6 @@ See [Github Releases](https://github.com/probablyup/markdown-to-jsx/releases).
 
 ## Donate
 
-Like this library? It's developed entirely on a volunteer basis; chip in a few bucks if you can at the [OpenCollective](https://opencollective.com/markdown-to-jsx).
-
-## Credits
-
-### Contributors
-
-This project exists thanks to all the people who contribute.
-<a href="https://github.com/probablyup/markdown-to-jsx/graphs/contributors"><img src="https://opencollective.com/markdown-to-jsx/contributors.svg?width=890&button=false" /></a>
-
-### Backers
-
-Thank you to all our backers! 🙏 [[Become a backer](https://opencollective.com/markdown-to-jsx#backer)]
-
-<a href="https://opencollective.com/markdown-to-jsx#backers" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/backers.svg?width=890"></a>
-
-### Sponsors
-
-Support this project by becoming a sponsor. Your logo will show up here with a link to your website. [[Become a sponsor](https://opencollective.com/markdown-to-jsx#sponsor)]
-
-<a href="https://opencollective.com/markdown-to-jsx/sponsor/0/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/0/avatar.svg"></a>
-<a href="https://opencollective.com/markdown-to-jsx/sponsor/1/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/1/avatar.svg"></a>
-<a href="https://opencollective.com/markdown-to-jsx/sponsor/2/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/2/avatar.svg"></a>
-<a href="https://opencollective.com/markdown-to-jsx/sponsor/3/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/3/avatar.svg"></a>
-<a href="https://opencollective.com/markdown-to-jsx/sponsor/4/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/4/avatar.svg"></a>
-<a href="https://opencollective.com/markdown-to-jsx/sponsor/5/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/5/avatar.svg"></a>
-<a href="https://opencollective.com/markdown-to-jsx/sponsor/6/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/6/avatar.svg"></a>
-<a href="https://opencollective.com/markdown-to-jsx/sponsor/7/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/7/avatar.svg"></a>
-<a href="https://opencollective.com/markdown-to-jsx/sponsor/8/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/8/avatar.svg"></a>
-<a href="https://opencollective.com/markdown-to-jsx/sponsor/9/website" target="_blank"><img src="https://opencollective.com/markdown-to-jsx/sponsor/9/avatar.svg"></a>
+Like this library? It's developed entirely on a volunteer basis; chip in a few bucks if you can at my [Patreon](https://www.patreon.com/bePatron?u=27436864).
 
 MIT

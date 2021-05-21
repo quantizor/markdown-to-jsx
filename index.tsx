@@ -28,6 +28,7 @@ export namespace MarkdownToJSX {
     _list?: boolean
     inline?: boolean
     inTable?: boolean
+    inAnchor?: boolean
     key?: React.Key
     simple?: boolean
   }
@@ -147,7 +148,7 @@ export namespace MarkdownToJSX {
      * without any wrapper, or use `React.Fragment` to get a React element
      * that won't show up in the DOM.
      */
-    wrapper: React.ElementType
+    wrapper: React.ElementType | null
 
     /**
      * Forces the compiler to wrap results, even if there is only a single
@@ -331,7 +332,7 @@ const TABLE_LEFT_ALIGN = /^ *:-+ *$/
 const TABLE_RIGHT_ALIGN = /^ *-+: *$/
 
 const TEXT_BOLD_R = /^([*_])\1((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1\1(?!\1)/
-const TEXT_EMPHASIZED_R = /^([*_])((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1(?!\1)/
+const TEXT_EMPHASIZED_R = /^([*_])((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1(?!\1|\w)/
 const TEXT_STRIKETHROUGHED_R = /^~~((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.)*?)~~/
 
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
@@ -1308,7 +1309,12 @@ export function compiler(
     },
 
     linkBareUrlDetector: {
-      match: inlineRegex(LINK_AUTOLINK_BARE_URL_R),
+      match: (source, state) => {
+        if (state.inAnchor) {
+          return null
+        }
+        return inlineRegex(LINK_AUTOLINK_BARE_URL_R)(source, state)
+      },
       order: Priority.MAX,
       parse(capture /*, parse, state*/) {
         return {
@@ -1739,13 +1745,19 @@ export function compiler(
         const noInnerParse =
           DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(tagName) !== -1
 
+        state.inAnchor = state.inAnchor || tagName === 'a'
+
+        /**
+         * if another html block is detected within, parse as block,
+         * otherwise parse as inline to pick up any further markdown
+         */
+        const content = noInnerParse ? capture[3] : parseFunc(parse, trimmed, state)
+
+        state.inAnchor = false
+
         return {
           attrs: attrStringToMap(capture[2]),
-          /**
-           * if another html block is detected within, parse as block,
-           * otherwise parse as inline to pick up any further markdown
-           */
-          content: noInnerParse ? capture[3] : parseFunc(parse, trimmed, state),
+          content,
 
           noInnerParse,
 
