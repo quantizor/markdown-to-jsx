@@ -5,7 +5,7 @@
   "license": "MIT",
   "version": "7.1.2",
   "engines": {
-    "node": ">= 4"
+    "node": ">= 10"
   },
   "keywords": [
     "markdown",
