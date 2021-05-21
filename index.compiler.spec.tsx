@@ -428,6 +428,18 @@ describe('inline textual elements', () => {
         in the backticks.
       </em>
     `)
+
+    render(
+      compiler(
+        '_This should not misinterpret the under_score that forms part of a word._'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <em>
+        This should not misinterpret the under_score that forms part of a word.
+      </em>
+    `)
   })
 
   it('replaces common HTML character codes with unicode equivalents so React will render correctly', () => {
