@@ -476,13 +476,13 @@ forwarded in the className prop of the element used for `<code>`:
 
 ```jsx
 const Code = ({className, children}) => {
-    const language = className.replace("lang-", "");
+  const language = className.replace("lang-", "");
 
-    return (
-        <SyntaxHighlighter language={language}>
-        <code>{children}</code>
-        </SyntaxHighlighter>
-        );
+  return (
+    <SyntaxHighlighter language={language}>
+      <code>{children}</code>
+    </SyntaxHighlighter>
+  );
 }
 ```
 ### Getting the smallest possible bundle size
