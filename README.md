@@ -20,6 +20,7 @@ The most lightweight, customizable React markdown component.
     - [options.slugify](#optionsslugify)
     - [options.namedCodesToUnicode](#optionsnamedcodestounicode)
     - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
+  - [Syntax highlighting](#syntax-highlighting)
   - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
   - [Usage with Preact](#usage-with-preact)
 - [Gotchas](#gotchas)
@@ -242,6 +243,12 @@ Depending on the type of element, there are some props that must be preserved to
 
 Any conflicts between passed `props` and the specific properties above will be resolved in favor of `markdown-to-jsx`'s code.
 
+Some element mappings are a bit different from other libraries, in particular:
+
+- `span`:  Used for inline text.
+- `code`:  Used for inline code. 
+- `pre > code`: Code blocks are a `code` element with a `pre` as its direct ancestor.   
+
 #### options.overrides - Rendering Arbitrary React Components
 
 One of the most interesting use cases enabled by the HTML syntax processing in `markdown-to-jsx` is the ability to use any kind of element, even ones that aren't real HTML tags like React component classes.
@@ -462,6 +469,22 @@ compiler('This text has <span>html</span> in it but it won't be rendered', { dis
 <span>This text has &lt;span&gt;html&lt;/span&gt; in it but it won't be rendered</span>
 ```
 
+### Syntax highlighting
+
+Some syntax highlighters require you to specify the language.  The language of the code fence is
+forwarded in the className prop of the element used for `<code>`:
+
+```jsx
+const Code = ({className, children}) => {
+  const language = className.replace("lang-", "");
+
+  return (
+    <SyntaxHighlighter language={language}>
+      <code>{children}</code>
+    </SyntaxHighlighter>
+  );
+}
+```
 ### Getting the smallest possible bundle size
 
 Many development conveniences are placed behind `process.env.NODE_ENV !== "production"` conditionals. When bundling your app, it's a good idea to replace these code snippets such that a minifier (like uglify) can sweep them away and leave a smaller overall bundle.
