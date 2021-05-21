@@ -19,7 +19,7 @@ A good pull request should include a description of the change, any relevant lin
 
 markdown-to-jsx uses semantic versioning. If you're releasing a bugfix, a PATCH version (x.x.X) is sufficient. For new functionality, a MINOR version is warranted (x.X.0). Finally, breaking changes should release a MAJOR version (X.0.0). All maintainers should sign off on breaking changes to ensure they've been thought-through appropriately.
 
-Use the `yarn publish` command to automate the process of building the JS and website, and defining the new version string. Once publish is complete, amend the rebuilt site JS (`git add . && git commit --amend`) and push to master.
+Use the `yarn publish` command to automate the process of building the JS and website, and defining the new version string. Once publish is complete, amend the rebuilt site JS (`git add . && git commit --amend`) and push to main.
 
 Then go to the GitHub Releases panel and add a new one with the same version number. Copy and paste the relevant commits from git history with links to the pull requests and make sure you thank the contributor that added them.
 
