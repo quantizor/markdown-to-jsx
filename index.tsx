@@ -147,7 +147,7 @@ export namespace MarkdownToJSX {
      * without any wrapper, or use `React.Fragment` to get a React element
      * that won't show up in the DOM.
      */
-    wrapper: React.ElementType
+    wrapper: React.ElementType | null
 
     /**
      * Forces the compiler to wrap results, even if there is only a single
