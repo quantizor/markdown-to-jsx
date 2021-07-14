@@ -253,7 +253,8 @@ const DO_NOT_PROCESS_HTML_ELEMENTS = ['style', 'script']
  *                           ==================
  *                                   ↳ someBigNumber: "123456789123456789"
  */
-const ATTR_EXTRACTOR_R = /([-A-Z0-9_:]+)(?:\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|(?:\{((?:\\.|{[^}]*?}|[^}])*)\})))?/gi
+const ATTR_EXTRACTOR_R =
+  /([-A-Z0-9_:]+)(?:\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|(?:\{((?:\\.|{[^}]*?}|[^}])*)\})))?/gi
 
 /** TODO: Write explainers for each of these */
 
@@ -263,7 +264,8 @@ const BLOCKQUOTE_R = /^( *>[^\n]+(\n[^\n]+)*\n*)+\n{2,}/
 const BLOCKQUOTE_TRIM_LEFT_MULTILINE_R = /^ *> ?/gm
 const BREAK_LINE_R = /^ {2,}\n/
 const BREAK_THEMATIC_R = /^(?:( *[-*_]) *){3,}(?:\n *)+\n/
-const CODE_BLOCK_FENCED_R = /^\s*(`{3,}|~{3,}) *(\S+)? *\n([\s\S]+?)\s*\1 *(?:\n *)+\n?/
+const CODE_BLOCK_FENCED_R =
+  /^\s*(`{3,}|~{3,}) *(\S+)? *\n([\s\S]+?)\s*\1 *(?:\n *)+\n?/
 const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)+\n?/
 const CODE_INLINE_R = /^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)/
 const CONSECUTIVE_NEWLINE_R = /^(?:\n *)*\n/
@@ -297,7 +299,8 @@ const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/
  * 6. Capture excess newlines afterward
  *    \n*
  */
-const HTML_BLOCK_ELEMENT_R = /^ *(?!<[a-z][^ >/]* ?\/>)<([a-z][^ >/]*) ?([^>]*)\/{0}>\n?(\s*(?:<\1[^>]*?>[\s\S]*?<\/\1>|(?!<\1)[\s\S])*?)<\/\1>\n*/i
+const HTML_BLOCK_ELEMENT_R =
+  /^ *(?!<[a-z][^ >/]* ?\/>)<([a-z][^ >/]*) ?([^>]*)\/{0}>\n?(\s*(?:<\1[^>]*?>[\s\S]*?<\/\1>|(?!<\1)[\s\S])*?)<\/\1>\n*/i
 
 const HTML_CHAR_CODE_R = /&([a-z]+);/g
 
@@ -308,7 +311,8 @@ const HTML_COMMENT_R = /^<!--[\s\S]*?(?:-->)/
  */
 const HTML_CUSTOM_ATTR_R = /^(data|aria|x)-[a-z_][a-z\d_.-]*$/
 
-const HTML_SELF_CLOSING_ELEMENT_R = /^ *<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*))?\/?>(?!<\/\1>)(\s*\n)?/i
+const HTML_SELF_CLOSING_ELEMENT_R =
+  /^ *<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*))?\/?>(?!<\/\1>)(\s*\n)?/i
 const INTERPOLATION_R = /^\{.*\}$/
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/
@@ -331,12 +335,15 @@ const TABLE_CENTER_ALIGN = /^ *:-+: *$/
 const TABLE_LEFT_ALIGN = /^ *:-+ *$/
 const TABLE_RIGHT_ALIGN = /^ *-+: *$/
 
-const TEXT_BOLD_R = /^([*_])\1((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1\1(?!\1)/
-const TEXT_EMPHASIZED_R = /^([*_])((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1(?!\1|\w)/
+const TEXT_BOLD_R =
+  /^([*_])\1((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1\1(?!\1)/
+const TEXT_EMPHASIZED_R =
+  /^([*_])((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1(?!\1|\w)/
 const TEXT_STRIKETHROUGHED_R = /^~~((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.)*?)~~/
 
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
-const TEXT_PLAIN_R = /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff&;.()'"]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i
+const TEXT_PLAIN_R =
+  /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff&;.()'"]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i
 const TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R = /(^\n+|\n+$|\s+$)/g
 
 const HTML_LEFT_TRIM_AMOUNT_R = /^([ \t]*)/
@@ -838,13 +845,12 @@ function parseBlock(parse, content, state): MarkdownToJSX.ParserResult {
   return parse(content + '\n\n', state)
 }
 
-const parseCaptureInline: MarkdownToJSX.Parser<
-  ReturnType<typeof parseInline>
-> = (capture, parse, state) => {
-  return {
-    content: parseInline(parse, capture[1], state),
+const parseCaptureInline: MarkdownToJSX.Parser<ReturnType<typeof parseInline>> =
+  (capture, parse, state) => {
+    return {
+      content: parseInline(parse, capture[1], state),
+    }
   }
-}
 
 function captureNothing() {
   return {}
@@ -1010,9 +1016,8 @@ export function compiler(
             const value = unquote(raw.slice(delimiterIdx + 1).trim())
 
             const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key
-            const normalizedValue = (map[
-              mappedKey
-            ] = attributeValueToJSXPropValue(key, value))
+            const normalizedValue = (map[mappedKey] =
+              attributeValueToJSXPropValue(key, value))
 
             if (
               typeof normalizedValue === 'string' &&
@@ -1751,7 +1756,9 @@ export function compiler(
          * if another html block is detected within, parse as block,
          * otherwise parse as inline to pick up any further markdown
          */
-        const content = noInnerParse ? capture[3] : parseFunc(parse, trimmed, state)
+        const content = noInnerParse
+          ? capture[3]
+          : parseFunc(parse, trimmed, state)
 
         state.inAnchor = false
 

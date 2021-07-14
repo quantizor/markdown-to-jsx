@@ -23,11 +23,11 @@
     "LICENSE",
     "README.md"
   ],
-  "source": "index.tsx",
+  "exports": "./dist/index.modern.js",
   "main": "dist/index.js",
   "module": "dist/index.module.js",
-  "umd:main": "dist/index.umd.js",
-  "esmodule": "dist/index.modern.js",
+  "source": "index.tsx",
+  "unpkg": "./dist/index.umd.js",
   "types": "dist/index.d.ts",
   "devDependencies": {
     "@babel/plugin-proposal-nullish-coalescing-operator": "^7.10.4",
