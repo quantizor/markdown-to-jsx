@@ -78,6 +78,9 @@
     "size": "size-limit",
     "benchmark": "node -r esm benchmark.js"
   },
+  "mangle": {
+    "regex": "^_"
+  },
   "size-limit": [
     {
       "path": "dist/index.js",
