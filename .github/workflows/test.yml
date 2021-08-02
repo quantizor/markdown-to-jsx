@@ -3,7 +3,7 @@ name: test
 on:
   push:
     branches:
-      - "master"
+      - "main"
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -12,7 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: ["10", "12", "14"]
         react: ["16", "next"]
     steps:
       - uses: actions/checkout@v2
@@ -20,7 +19,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v1
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 16
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
@@ -42,5 +41,5 @@ jobs:
 
       - name: Build
         run: yarn build && yarn size
-        # should use the lowest versions from the matrices
-        if: matrix.node == '10' && matrix.react == '16'
+        # should use the lowest version from the matrix
+        if: matrix.react == '16'
