@@ -43,7 +43,6 @@
     "cli-progress": "^3.8.2",
     "codecov": "^3.1.0",
     "esm": "^3.0.84",
-    "in-publish": "^2.0.0",
     "jest": "^27.0.6",
     "jest-serializer-html": "^7.0.0",
     "markdown-it": "^11.0.0",
@@ -97,5 +96,8 @@
   "collective": {
     "type": "opencollective",
     "url": "https://opencollective.com/markdown-to-jsx"
+  },
+  "dependencies": {
+    "in-publish": "^2.0.1"
   }
 }
