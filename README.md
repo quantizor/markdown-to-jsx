@@ -498,7 +498,7 @@ Here are instructions for some of the popular bundlers:
 
 ### Usage with Preact
 
-Everything will work just fine! Simply [Alias `react` to `preact-compat`](https://github.com/developit/preact-compat#usage-with-webpack) like you probably already are doing.
+Everything will work just fine! Simply [Alias `react` to `preact/compat`](https://preactjs.com/guide/v10/switching-to-preact#setting-up-compat) like you probably already are doing.
 
 ## Gotchas
 
