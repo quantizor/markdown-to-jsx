@@ -16,6 +16,7 @@ The most lightweight, customizable React markdown component.
     - [options.forceWrapper](#optionsforcewrapper)
     - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
     - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
+    - [options.additionalParserRules - Parsing arbitrary patterns in markdown](#optionsadditionalparserrules---parsing-arbitrary-patterns-in-markdown)
     - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
     - [options.slugify](#optionsslugify)
     - [options.namedCodesToUnicode](#optionsnamedcodestounicode)
@@ -372,6 +373,59 @@ render(
     />,
     document.body
 );
+```
+
+#### options.additionalParserRules - Parsing arbitrary patterns in markdown
+
+Pass the `options.additionalParserRules` property to the `compiler` or `<Markdown>` component to parse and replace arbitrary patterns in the markdown.
+
+You can use the enum `Priority` for order value.
+
+```jsx
+import Markdown from 'markdown-to-jsx';
+import React from 'react';
+
+// Matches a string that starts and end with `+`
+const customRegexMatcher =
+    /^([+])\1((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1\1(?!\1)/;
+
+const md = `
+# Hello ++world++!
+`;
+
+render(
+    <Markdown
+        children={md}
+        options={{
+            additionalParserRules: {
+                example: {
+                    match: (source: string) => customRegexMatcher.exec(source),
+                    order: Priority.MED,
+                    parse: (capture, parse, state) => {
+                        return {
+                            content: parse(capture[2], state),
+                        }
+                    },
+                    react: (node, output, state) => {
+                        return <u key={state.key}>{output(node.content, state)}</u>
+                    },
+                },
+            },
+        }}
+    />,
+    document.body
+);
+/*
+    renders:
+
+    <span>
+        Hello
+        <u>
+          world
+        </u>
+        !
+    </span>
+ */
 ```
 
 #### options.createElement - Custom React.createElement behavior

@@ -161,6 +161,11 @@ export namespace MarkdownToJSX {
      * HTML IDs for anchor linking purposes.
      */
     slugify: (source: string) => string
+
+    /**
+     * Add additional rules for parsing the markdown
+     */
+    additionalParserRules: MarkdownToJSX.Rules
   }>
 }
 
@@ -903,7 +908,7 @@ function getTag(tag: string, overrides: MarkdownToJSX.Overrides) {
     : get(overrides, `${tag}.component`, tag)
 }
 
-enum Priority {
+export enum Priority {
   /**
    * anything that must scan the tree before everything else
    */
@@ -935,6 +940,7 @@ export function compiler(
   options.namedCodesToUnicode = options.namedCodesToUnicode
     ? { ...namedCodesToUnicode, ...options.namedCodesToUnicode }
     : namedCodesToUnicode
+  options.additionalParserRules = options.additionalParserRules || {}
 
   const createElementFn = options.createElement || React.createElement
 
@@ -1700,6 +1706,8 @@ export function compiler(
         return <del key={state.key}>{output(node.content, state)}</del>
       },
     } as MarkdownToJSX.Rule<ReturnType<typeof parseCaptureInline>>,
+
+    ...options.additionalParserRules,
   }
 
   // Object.keys(rules).forEach(key => {

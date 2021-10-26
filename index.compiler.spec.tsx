@@ -1,4 +1,4 @@
-import { compiler } from './index'
+import { compiler, Priority } from './index'
 import React from 'react'
 import ReactDOM from 'react-dom'
 import fs from 'fs'
@@ -3255,6 +3255,101 @@ describe('options.slugify', () => {
       // @ts-ignore
       render(compiler('# 中文', { slugify: 'invalid' }))
     }).toThrow(/options\.slugify is not a function/)
+  })
+})
+
+describe('options.additionalParserRules', () => {
+  const customRegexMatcher =
+    /^([+])\1((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1\1(?!\1)/
+  it('should use additional rules for parsing the markdown', () => {
+    render(
+      compiler('hello ++world++!', {
+        additionalParserRules: {
+          example: {
+            match: (source: string) => customRegexMatcher.exec(source),
+            order: 2,
+            parse: (capture, parse, state) => {
+              return {
+                content: parse(capture[2], state),
+              }
+            },
+            react: (node, output, state) => {
+              return <u key={state.key}>{output(node.content, state)}</u>
+            },
+          },
+        },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        hello
+        <u>
+          world
+        </u>
+        !
+      </span>
+    `)
+  })
+  it('should extend the existing rules and not replace them', () => {
+    render(
+      compiler('##hello ++world++!', {
+        additionalParserRules: {
+          example: {
+            match: (source: string) => customRegexMatcher.exec(source),
+            order: Priority.MED,
+            parse: (capture, parse, state) => {
+              return {
+                content: parse(capture[2], state),
+              }
+            },
+            react: (node, output, state) => {
+              return <u key={state.key}>{output(node.content, state)}</u>
+            },
+          },
+        },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <h2 id="hello-world">
+        hello
+        <u>
+          world
+        </u>
+        !
+      </h2>
+    `)
+  })
+
+  it('should override already existing rules when they have the same name', () => {
+    const customRegexMatcherForHeadline =
+      /^ *(#{1,6}) *([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
+    render(
+      compiler('##hello world!', {
+        additionalParserRules: {
+          heading: {
+            match: (source: string) =>
+              customRegexMatcherForHeadline.exec(source),
+            order: 2,
+            parse: (capture, parse, state) => {
+              return {
+                content: parse(capture[2], state),
+              }
+            },
+            react: (node, output, state) => {
+              return <u key={state.key}>{output(node.content, state)}</u>
+            },
+          },
+        },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <u>
+        hello world!
+      </u>
+    `)
   })
 })
 
