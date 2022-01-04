@@ -27,6 +27,7 @@
     "import": "./dist/index.modern.js",
     "require": "./dist/index.js"
   },
+  "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.module.js",
   "source": "index.tsx",
