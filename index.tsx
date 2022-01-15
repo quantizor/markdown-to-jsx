@@ -748,16 +748,14 @@ function matchParagraph(source: string, state: MarkdownToJSX.State, prevCaptured
 
   let match = ''
 
-  for (const line of source.split('\n')) {
+  source.split('\n').every(line => {
     // bail out on first sign of non-paragraph block
     if (NON_PARAGRAPH_BLOCK_SYNTAXES.some(regex => regex.test(line))) {
-      break
+      return false;
     }
     match += line + '\n'
-    if (/^\s*$/.test(line)) {
-      break
-    }
-  }
+    return line.trim();
+  })
 
   const captured = match.trimEnd()
   if (captured == '') {
@@ -788,7 +786,7 @@ function reactFor(outputFunc) {
 
         if (isString && lastWasString) {
           result[result.length - 1] += nodeOut
-        } else {
+        } else if (nodeOut !== null) {
           result.push(nodeOut)
         }
 
@@ -1017,9 +1015,8 @@ export function compiler(
       )
     )
 
-    arr = arr.filter(item => item)
-    while (typeof(arr[arr.length - 1]) == "string" && !arr[arr.length - 1].trim()) {
-      arr = arr.slice(0, -1);
+    while (typeof(arr[arr.length - 1]) === "string" && !arr[arr.length - 1].trim()) {
+      arr.pop();
     }
 
     if (options.wrapper === null) {
