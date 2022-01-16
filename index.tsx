@@ -92,7 +92,7 @@ export namespace MarkdownToJSX {
      */
     createElement: (
       tag: Parameters<CreateElement>[0],
-      props: React.Props<any>,
+      props: Parameters<CreateElement>[1],
       ...children: React.ReactChild[]
     ) => JSX.Element
 
@@ -121,7 +121,7 @@ export namespace MarkdownToJSX {
      * e.g. `&le;` -> `{ "le": "\u2264" }`
      *
      * By default
-     * the following entites are replaced with their unicode equivalents:
+     * the following entities are replaced with their unicode equivalents:
      *
      * ```
      * &amp;
@@ -206,7 +206,10 @@ const ATTRIBUTE_TO_JSX_PROP_MAP = [
   'srcSet',
   'tabIndex',
   'useMap',
-].reduce((obj, x) => ((obj[x.toLowerCase()] = x), obj), { for: 'htmlFor' })
+].reduce((obj, x) => {
+  obj[x.toLowerCase()] = x
+  return obj
+}, { for: 'htmlFor' })
 
 const namedCodesToUnicode = {
   amp: '\u0026',
@@ -278,7 +281,7 @@ const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/
 /**
  * Explanation:
  *
- * 1. Look for a starting tag, preceeded by any amount of spaces
+ * 1. Look for a starting tag, preceded by any amount of spaces
  *    ^ *<
  *
  * 2. Capture the tag name (capture 1)
@@ -975,6 +978,7 @@ export function compiler(
 
   const createElementFn = options.createElement || React.createElement
 
+  // JSX custom pragma
   // eslint-disable-next-line no-unused-vars
   function h(
     // locally we always will render a known string tag
@@ -1054,11 +1058,13 @@ export function compiler(
     return React.createElement(wrapper, { key: 'outer' }, jsx)
   }
 
-  function attrStringToMap(str: string): React.Props<any> {
+  function attrStringToMap(str: string): (React.Attributes & {} | null) {
     const attributes = str.match(ATTR_EXTRACTOR_R)
+    if (!attributes) {
+      return null
+    }
 
-    return attributes
-      ? attributes.reduce(function (map, raw, index) {
+    return attributes.reduce(function (map, raw, index) {
           const delimiterIdx = raw.indexOf('=')
 
           if (delimiterIdx !== -1) {
@@ -1085,7 +1091,6 @@ export function compiler(
 
           return map
         }, {})
-      : undefined
   }
 
   /* istanbul ignore next */
@@ -1902,7 +1907,7 @@ const Markdown: React.FC<{
 }> = ({ children, options, ...props }) => {
   return React.cloneElement(
     compiler(children, options),
-    props as React.Props<any>
+    props
   )
 }
 
