@@ -1006,7 +1006,7 @@ export function compiler(
       _inline = SHOULD_RENDER_AS_BLOCK_R.test(input) === false
     }
 
-    let arr = emitter(
+    const arr = emitter(
       parser(
         _inline
           ? input
