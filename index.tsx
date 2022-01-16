@@ -321,8 +321,7 @@ const LIST_ITEM_END_R = / *\n+$/
 const LIST_LOOKBEHIND_R = /(?:^|\n)( *)$/
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi
 const NP_TABLE_R = /^(.*\|?.*)\n *(\|? *[-:]+ *\|[-| :]*)\n((?:.*\|.*\n)*)\n?/
-// TODO: simplify the PARAGRAPH_R regex now that it's not capturing the actual paragraph
-const PARAGRAPH_R = /^((?:[^\n]|\n(?! *\n))+)(?:\n *)+\n/
+const PARAGRAPH_R = /^[^\n]+(?:  \n|\n{2,})/
 const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s*(\S+)\s*("([^"]*)")?/
 const REFERENCE_IMAGE_R = /^!\[([^\]]*)\] ?\[([^\]]*)\]/
 const REFERENCE_LINK_R = /^\[([^\]]*)\] ?\[([^\]]*)\]/
@@ -367,7 +366,8 @@ const LIST_ITEM_PREFIX_R = new RegExp('^' + LIST_ITEM_PREFIX)
 //
 //  * but this is not part of the same item
 const LIST_ITEM_R = new RegExp(
-  '^' + LIST_ITEM_PREFIX +
+  '^' +
+    LIST_ITEM_PREFIX +
     '[^\\n]*(?:\\n' +
     '(?!\\1' +
     LIST_BULLET +
@@ -417,10 +417,10 @@ const NON_PARAGRAPH_BLOCK_SYNTAXES = [
 ]
 
 const BLOCK_SYNTAXES = [
-    ...NON_PARAGRAPH_BLOCK_SYNTAXES,
-    PARAGRAPH_R,
-    HTML_BLOCK_ELEMENT_R,
-    HTML_SELF_CLOSING_ELEMENT_R,
+  ...NON_PARAGRAPH_BLOCK_SYNTAXES,
+  PARAGRAPH_R,
+  HTML_BLOCK_ELEMENT_R,
+  HTML_SELF_CLOSING_ELEMENT_R,
 ]
 
 function containsBlockSyntax(input: string) {
@@ -737,12 +737,17 @@ function anyScopeRegex(regex: RegExp) {
   }
 }
 
-function matchParagraph(source: string, state: MarkdownToJSX.State, prevCapturedString?: string) {
+function matchParagraph(
+  source: string,
+  state: MarkdownToJSX.State,
+  prevCapturedString?: string
+) {
   if (state._inline || state._simple) {
     return null
   }
 
-  if (prevCapturedString && !prevCapturedString.endsWith('\n')) { // don't match continuation of a line
+  if (prevCapturedString && !prevCapturedString.endsWith('\n')) {
+    // don't match continuation of a line
     return null
   }
 
@@ -751,10 +756,10 @@ function matchParagraph(source: string, state: MarkdownToJSX.State, prevCaptured
   source.split('\n').every(line => {
     // bail out on first sign of non-paragraph block
     if (NON_PARAGRAPH_BLOCK_SYNTAXES.some(regex => regex.test(line))) {
-      return false;
+      return false
     }
     match += line + '\n'
-    return line.trim();
+    return line.trim()
   })
 
   const captured = match.trimEnd()
@@ -1015,8 +1020,11 @@ export function compiler(
       )
     )
 
-    while (typeof(arr[arr.length - 1]) === "string" && !arr[arr.length - 1].trim()) {
-      arr.pop();
+    while (
+      typeof arr[arr.length - 1] === 'string' &&
+      !arr[arr.length - 1].trim()
+    ) {
+      arr.pop()
     }
 
     if (options.wrapper === null) {
@@ -1862,19 +1870,21 @@ export function compiler(
   const jsx = compile(markdown)
 
   if (footnotes.length) {
-    return <div>
-      {jsx}
-      <footer key="footer">
-        {footnotes.map(function createFootnote(def) {
-          return (
-            <div id={options.slugify(def.identifier)} key={def.identifier}>
-              {def.identifier}
-              {emitter(parser(def.footnote, { _inline: true }))}
-            </div>
-          )
-        })}
-      </footer>
-    </div>
+    return (
+      <div>
+        {jsx}
+        <footer key="footer">
+          {footnotes.map(function createFootnote(def) {
+            return (
+              <div id={options.slugify(def.identifier)} key={def.identifier}>
+                {def.identifier}
+                {emitter(parser(def.footnote, { _inline: true }))}
+              </div>
+            )
+          })}
+        </footer>
+      </div>
+    )
   }
 
   return jsx
