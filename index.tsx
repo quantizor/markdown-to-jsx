@@ -165,50 +165,48 @@ export namespace MarkdownToJSX {
 }
 
 /** TODO: Drop for React 16? */
-const ATTRIBUTE_TO_JSX_PROP_MAP = {
-  accesskey: 'accessKey',
-  allowfullscreen: 'allowFullScreen',
-  allowtransparency: 'allowTransparency',
-  autocomplete: 'autoComplete',
-  autofocus: 'autoFocus',
-  autoplay: 'autoPlay',
-  cellpadding: 'cellPadding',
-  cellspacing: 'cellSpacing',
-  charset: 'charSet',
-  class: 'className',
-  classid: 'classId',
-  colspan: 'colSpan',
-  contenteditable: 'contentEditable',
-  contextmenu: 'contextMenu',
-  crossorigin: 'crossOrigin',
-  enctype: 'encType',
-  for: 'htmlFor',
-  formaction: 'formAction',
-  formenctype: 'formEncType',
-  formmethod: 'formMethod',
-  formnovalidate: 'formNoValidate',
-  formtarget: 'formTarget',
-  frameborder: 'frameBorder',
-  hreflang: 'hrefLang',
-  inputmode: 'inputMode',
-  keyparams: 'keyParams',
-  keytype: 'keyType',
-  marginheight: 'marginHeight',
-  marginwidth: 'marginWidth',
-  maxlength: 'maxLength',
-  mediagroup: 'mediaGroup',
-  minlength: 'minLength',
-  novalidate: 'noValidate',
-  radiogroup: 'radioGroup',
-  readonly: 'readOnly',
-  rowspan: 'rowSpan',
-  spellcheck: 'spellCheck',
-  srcdoc: 'srcDoc',
-  srclang: 'srcLang',
-  srcset: 'srcSet',
-  tabindex: 'tabIndex',
-  usemap: 'useMap',
-} as const
+const ATTRIBUTE_TO_JSX_PROP_MAP = [
+  'allowFullScreen',
+  'allowTransparency',
+  'autoComplete',
+  'autoFocus',
+  'autoPlay',
+  'cellPadding',
+  'cellSpacing',
+  'charSet',
+  'className',
+  'classId',
+  'colSpan',
+  'contentEditable',
+  'contextMenu',
+  'crossOrigin',
+  'encType',
+  'formAction',
+  'formEncType',
+  'formMethod',
+  'formNoValidate',
+  'formTarget',
+  'frameBorder',
+  'hrefLang',
+  'inputMode',
+  'keyParams',
+  'keyType',
+  'marginHeight',
+  'marginWidth',
+  'maxLength',
+  'mediaGroup',
+  'minLength',
+  'noValidate',
+  'radioGroup',
+  'readOnly',
+  'rowSpan',
+  'spellCheck',
+  'srcDoc',
+  'srcLang',
+  'srcSet',
+  'tabIndex',
+  'useMap',
+].reduce((obj, x) => ((obj[x.toLowerCase()] = x), obj), { for: 'htmlFor' })
 
 const namedCodesToUnicode = {
   amp: '\u0026',
@@ -321,7 +319,7 @@ const LIST_ITEM_END_R = / *\n+$/
 const LIST_LOOKBEHIND_R = /(?:^|\n)( *)$/
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi
 const NP_TABLE_R = /^(.*\|?.*)\n *(\|? *[-:]+ *\|[-| :]*)\n((?:.*\|.*\n)*)\n?/
-const PARAGRAPH_R = /^((?:[^\n]|\n(?! *\n))+)(?:\n *)+\n/
+const PARAGRAPH_R = /^[^\n]+(?:  \n|\n{2,})/
 const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s*(\S+)\s*("([^"]*)")?/
 const REFERENCE_IMAGE_R = /^!\[([^\]]*)\] ?\[([^\]]*)\]/
 const REFERENCE_LINK_R = /^\[([^\]]*)\] ?\[([^\]]*)\]/
@@ -344,7 +342,8 @@ const TEXT_STRIKETHROUGHED_R = /^~~((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.)*?)~~/
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
 const TEXT_PLAIN_R =
   /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff&;.()'"]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i
-const TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R = /(^\n+|\n+$|\s+$)/g
+
+const TRIM_STARTING_NEWLINES = /^\n+/
 
 const HTML_LEFT_TRIM_AMOUNT_R = /^([ \t]*)/
 
@@ -366,7 +365,8 @@ const LIST_ITEM_PREFIX_R = new RegExp('^' + LIST_ITEM_PREFIX)
 //
 //  * but this is not part of the same item
 const LIST_ITEM_R = new RegExp(
-  LIST_ITEM_PREFIX +
+  '^' +
+    LIST_ITEM_PREFIX +
     '[^\\n]*(?:\\n' +
     '(?!\\1' +
     LIST_BULLET +
@@ -403,19 +403,23 @@ const IMAGE_R = new RegExp(
   '^!\\[(' + LINK_INSIDE + ')\\]\\(' + LINK_HREF_AND_TITLE + '\\)'
 )
 
-const BLOCK_SYNTAXES = [
+const NON_PARAGRAPH_BLOCK_SYNTAXES = [
   BLOCKQUOTE_R,
   CODE_BLOCK_R,
   CODE_BLOCK_FENCED_R,
   HEADING_R,
   HEADING_SETEXT_R,
-  HTML_BLOCK_ELEMENT_R,
   HTML_COMMENT_R,
-  HTML_SELF_CLOSING_ELEMENT_R,
   LIST_ITEM_R,
   LIST_R,
   NP_TABLE_R,
+]
+
+const BLOCK_SYNTAXES = [
+  ...NON_PARAGRAPH_BLOCK_SYNTAXES,
   PARAGRAPH_R,
+  HTML_BLOCK_ELEMENT_R,
+  HTML_SELF_CLOSING_ELEMENT_R,
 ]
 
 function containsBlockSyntax(input: string) {
@@ -732,6 +736,39 @@ function anyScopeRegex(regex: RegExp) {
   }
 }
 
+function matchParagraph(
+  source: string,
+  state: MarkdownToJSX.State,
+  prevCapturedString?: string
+) {
+  if (state._inline || state._simple) {
+    return null
+  }
+
+  if (prevCapturedString && !prevCapturedString.endsWith('\n')) {
+    // don't match continuation of a line
+    return null
+  }
+
+  let match = ''
+
+  source.split('\n').every(line => {
+    // bail out on first sign of non-paragraph block
+    if (NON_PARAGRAPH_BLOCK_SYNTAXES.some(regex => regex.test(line))) {
+      return false
+    }
+    match += line + '\n'
+    return line.trim()
+  })
+
+  const captured = match.trimEnd()
+  if (captured == '') {
+    return null
+  }
+
+  return [match, captured]
+}
+
 function reactFor(outputFunc) {
   return function nestedReactOutput(
     ast: MarkdownToJSX.ParserResult | MarkdownToJSX.ParserResult[],
@@ -753,7 +790,7 @@ function reactFor(outputFunc) {
 
         if (isString && lastWasString) {
           result[result.length - 1] += nodeOut
-        } else {
+        } else if (nodeOut !== null) {
           result.push(nodeOut)
         }
 
@@ -977,10 +1014,19 @@ export function compiler(
       parser(
         _inline
           ? input
-          : `${input.replace(TRIM_NEWLINES_AND_TRAILING_WHITESPACE_R, '')}\n\n`,
-        { _inline }
+          : `${input.trimEnd().replace(TRIM_STARTING_NEWLINES, '')}\n\n`,
+        {
+          _inline,
+        }
       )
     )
+
+    while (
+      typeof arr[arr.length - 1] === 'string' &&
+      !arr[arr.length - 1].trim()
+    ) {
+      arr.pop()
+    }
 
     if (options.wrapper === null) {
       return arr
@@ -1499,7 +1545,7 @@ export function compiler(
     },
 
     paragraph: {
-      _match: blockRegex(PARAGRAPH_R),
+      _match: matchParagraph,
       _order: Priority.LOW,
       _parse: parseCaptureInline,
       _react(node, output, state) {
@@ -1825,17 +1871,20 @@ export function compiler(
   const jsx = compile(markdown)
 
   if (footnotes.length) {
-    jsx.props.children.push(
-      <footer key="footer">
-        {footnotes.map(function createFootnote(def) {
-          return (
-            <div id={options.slugify(def.identifier)} key={def.identifier}>
-              {def.identifier}
-              {emitter(parser(def.footnote, { _inline: true }))}
-            </div>
-          )
-        })}
-      </footer>
+    return (
+      <div>
+        {jsx}
+        <footer key="footer">
+          {footnotes.map(function createFootnote(def) {
+            return (
+              <div id={options.slugify(def.identifier)} key={def.identifier}>
+                {def.identifier}
+                {emitter(parser(def.footnote, { _inline: true }))}
+              </div>
+            )
+          })}
+        </footer>
+      </div>
     )
   }
 
