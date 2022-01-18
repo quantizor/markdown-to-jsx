@@ -2,7 +2,7 @@
 
 The most lightweight, customizable React markdown component.
 
-[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) <a href="https://bundlephobia.com/result?p=markdown-to-jsx" title="markdown-to-jsx latest minified+gzip size"><img src="https://badgen.net/bundlephobia/minzip/markdown-to-jsx" alt="gzip size"></a> [![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg)](https://travis-ci.org/probablyup/markdown-to-jsx) [![codecov](https://codecov.io/gh/probablyup/markdown-to-jsx/branch/main/graph/badge.svg)](https://codecov.io/gh/probablyup/markdown-to-jsx) [![downloads](https://img.shields.io/npm/dm/markdown-to-jsx.svg)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
+[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) [![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg)](https://travis-ci.org/probablyup/markdown-to-jsx) [![downloads](https://badgen.net/npm/dy/markdown-to-jsx)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
 
 <!-- TOC -->
 
@@ -246,8 +246,8 @@ Any conflicts between passed `props` and the specific properties above will be r
 Some element mappings are a bit different from other libraries, in particular:
 
 - `span`:  Used for inline text.
-- `code`:  Used for inline code. 
-- `pre > code`: Code blocks are a `code` element with a `pre` as its direct ancestor.   
+- `code`:  Used for inline code.
+- `pre > code`: Code blocks are a `code` element with a `pre` as its direct ancestor.
 
 #### options.overrides - Rendering Arbitrary React Components
 
