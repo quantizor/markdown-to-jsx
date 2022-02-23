@@ -4,9 +4,7 @@
  * from Khan Academy. Thank you Khan devs for making such an awesome and extensible
  * parsing infra... without it, half of the optimizations here wouldn't be feasible. 🙏🏼
  */
-import React from 'react'
-/// <reference path="unquote.d.ts" />
-import unquote from 'unquote'
+import * as React from 'react'
 
 export namespace MarkdownToJSX {
   /**
@@ -424,6 +422,19 @@ const BLOCK_SYNTAXES = [
 
 function containsBlockSyntax(input: string) {
   return BLOCK_SYNTAXES.some(r => r.test(input))
+}
+
+/** Remove symmetrical leading and trailing quotes */
+function unquote(str: string) {
+  const first = str[0]
+  if (
+    (first === '"' || first === "'") &&
+    str.length >= 2 &&
+    str[str.length - 1] === first
+  ) {
+    return str.slice(1, -1)
+  }
+  return str
 }
 
 // based on https://stackoverflow.com/a/18123682/1141611
