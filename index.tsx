@@ -1,6 +1,6 @@
 /* @jsx h */
 /**
- * markdown-to-jsx@6 is a fork of [simple-markdown v0.2.2](https://github.com/Khan/simple-markdown)
+ * markdown-to-jsx is a fork of [simple-markdown v0.2.2](https://github.com/Khan/simple-markdown)
  * from Khan Academy. Thank you Khan devs for making such an awesome and extensible
  * parsing infra... without it, half of the optimizations here wouldn't be feasible. 🙏🏼
  */
