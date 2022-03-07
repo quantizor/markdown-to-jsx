@@ -1,7 +1,6 @@
 import BenchTable from 'benchtable'
 import cliProgress from 'cli-progress'
 import * as fs from 'fs'
-import ReactMarkdown from 'react-markdown'
 import SimpleMarkdown from 'simple-markdown'
 import MarkdownIt from 'markdown-it'
 import { compiler } from './dist'
@@ -22,7 +21,6 @@ let totalCycles
 // add tests
 suite
   .addFunction('markdown-to-jsx', input => compiler(input))
-  .addFunction('react-markdown', input => new ReactMarkdown({ source: input }))
   .addFunction('simple-markdown', input =>
     SimpleMarkdown.defaultReactOutput(SimpleMarkdown.defaultBlockParse(input))
   )
