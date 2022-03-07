@@ -1,7 +1,7 @@
 /* @jsx React.createElement */
 import { lighten, rgba } from 'polished'
-import React from 'react'
-import ReactDOM from 'react-dom'
+import * as React from 'react'
+import * as ReactDOM from 'react-dom'
 import styled, { createGlobalStyle, css, CSSProp } from 'styled-components'
 import Markdown from './'
 

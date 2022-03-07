@@ -1,8 +1,8 @@
 import { compiler } from './index'
-import React from 'react'
-import ReactDOM from 'react-dom'
-import fs from 'fs'
-import theredoc from 'theredoc'
+import * as React from 'react'
+import * as ReactDOM from 'react-dom'
+import * as fs from 'fs'
+import * as theredoc from 'theredoc'
 
 const root = document.body.appendChild(
   document.createElement('div')
