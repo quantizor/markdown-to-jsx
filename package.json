@@ -106,6 +106,5 @@
   "collective": {
     "type": "opencollective",
     "url": "https://opencollective.com/markdown-to-jsx"
-  },
-  "dependencies": {}
+  }
 }
