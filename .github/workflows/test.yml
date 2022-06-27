@@ -3,7 +3,7 @@ name: test
 on:
   push:
     branches:
-      - "main"
+      - 'main'
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        react: ["16", "next"]
+        react: ['16']
     steps:
       - uses: actions/checkout@v2
 
