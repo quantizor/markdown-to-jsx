@@ -1,7 +1,7 @@
 {
-  "name": "markdown-to-jsx",
+  "name": "@insanicly/markdown-to-jsx",
   "description": "Convert markdown to JSX with ease for React and React-like projects. Super lightweight and highly configurable.",
-  "homepage": "https://probablyup.github.io/markdown-to-jsx",
+  "homepage": "https://github.com/insanicly/markdown-to-jsx",
   "license": "MIT",
   "version": "7.1.7",
   "engines": {
@@ -15,9 +15,9 @@
     "jsx",
     "html"
   ],
-  "author": "Evan Jacobs <probablyup@gmail.com>",
-  "repository": "probablyup/markdown-to-jsx",
-  "bugs": "https://github.com/probablyup/markdown-to-jsx/issues",
+  "author": "Alper <alprsglm@gmail.com>",
+  "repository": "insanicly/markdown-to-jsx",
+  "bugs": "https://github.com/insanicly/markdown-to-jsx/issues",
   "files": [
     "dist",
     "LICENSE",
@@ -106,5 +106,8 @@
   "collective": {
     "type": "opencollective",
     "url": "https://opencollective.com/markdown-to-jsx"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/insanicly"
   }
 }
