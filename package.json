@@ -24,8 +24,11 @@
     "README.md"
   ],
   "exports": {
-    "import": "./dist/index.modern.js",
-    "require": "./dist/index.js"
+    "./package.json": "./package.json",
+    ".": {
+      "import": "./dist/index.modern.js",
+      "require": "./dist/index.js"
+    }
   },
   "main": "dist/index.js",
   "module": "dist/index.module.js",
