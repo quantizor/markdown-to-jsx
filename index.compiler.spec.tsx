@@ -3126,6 +3126,89 @@ describe('footnotes', () => {
   })
 })
 
+describe('options.namedCodesToUnicode', () => {
+  // &amp; &gt; &lt; are already replaced by default
+  const content =
+    '&AElig;,&Aacute;,&Acirc;,&Agrave;,&Aring;,&Atilde;,&Auml;,&Ccedil;,&Eacute;,&Ecirc;,&Egrave;,&Euml;,&Iacute;,&Icirc;,&Igrave;,&Iuml;,&Ntilde;,&Oacute;,&Ocirc;,&Ograve;,&Oslash;,&Otilde;,&Ouml;,&Uacute;,&Ucirc;,&Ugrave;,&Uuml;,&Yacute;,&aacute;,&acirc;,&aelig;,&agrave;,&aring;,&atilde;,&auml;,&ccedil;,&coy;,&eacute;,&ecirc;,&egrave;,&euml;,&ge;,&iacute;,&icirc;,&igrave;,&iuml;,&laquo;,&le;,&nbsp;,&ntilde;,&oacute;,&ocirc;,&ograve;,&oslash;,&otilde;,&ouml;,&para;,&quot;,&raquo;,&szlig;,&uacute;,&ucirc;,&ugrave;,&uuml;,&yacute;'
+
+  const namedCodesToUnicode = {
+    AElig: 'Æ',
+    Aacute: 'Á',
+    Acirc: 'Â',
+    Agrave: 'À',
+    Aring: 'Å',
+    Atilde: 'Ã',
+    Auml: 'Ä',
+    Ccedil: 'Ç',
+    Eacute: 'É',
+    Ecirc: 'Ê',
+    Egrave: 'È',
+    Euml: 'Ë',
+    Iacute: 'Í',
+    Icirc: 'Î',
+    Igrave: 'Ì',
+    Iuml: 'Ï',
+    Ntilde: 'Ñ',
+    Oacute: 'Ó',
+    Ocirc: 'Ô',
+    Ograve: 'Ò',
+    Oslash: 'Ø',
+    Otilde: 'Õ',
+    Ouml: 'Ö',
+    Uacute: 'Ú',
+    Ucirc: 'Û',
+    Ugrave: 'Ù',
+    Uuml: 'Ü',
+    Yacute: 'Ý',
+    aacute: 'á',
+    acirc: 'â',
+    aelig: 'æ',
+    agrave: 'à',
+    aring: 'å',
+    atilde: 'ã',
+    auml: 'ä',
+    ccedil: 'ç',
+    coy: '©',
+    eacute: 'é',
+    ecirc: 'ê',
+    egrave: 'è',
+    euml: 'ë',
+    ge: '\u2265',
+    iacute: 'í',
+    icirc: 'î',
+    igrave: 'ì',
+    iuml: 'ï',
+    laquo: '«',
+    le: '\u2264',
+    nbsp: ' ',
+    ntilde: 'ñ',
+    oacute: 'ó',
+    ocirc: 'ô',
+    ograve: 'ò',
+    oslash: 'ø',
+    otilde: 'õ',
+    ouml: 'ö',
+    para: '§',
+    quot: '"',
+    raquo: '»',
+    szlig: 'ß',
+    uacute: 'ú',
+    ucirc: 'û',
+    ugrave: 'ù',
+    uuml: 'ü',
+    yacute: 'ý',
+  }
+
+  it('should replace special HTML characters', () => {
+    render(compiler(content, { namedCodesToUnicode }))
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        Æ,Á,Â,À,Å,Ã,Ä,Ç,É,Ê,È,Ë,Í,Î,Ì,Ï,Ñ,Ó,Ô,Ò,Ø,Õ,Ö,Ú,Û,Ù,Ü,Ý,á,â,æ,à,å,ã,ä,ç,©,é,ê,è,ë,≥,í,î,ì,ï,«,≤, ,ñ,ó,ô,ò,ø,õ,ö,§,",»,ß,ú,û,ù,ü,ý
+      </span>
+`)
+  })
+})
+
 describe('options.forceBlock', () => {
   it('treats given markdown as block-context', () => {
     render(
