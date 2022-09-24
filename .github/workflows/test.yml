@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        react: ["16", "next"]
+        react: ["17"]
     steps:
       - uses: actions/checkout@v2
 
