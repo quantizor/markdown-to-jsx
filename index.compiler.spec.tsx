@@ -3208,15 +3208,15 @@ describe('options.wrapper', () => {
   it('renders an array when `null`', () => {
     expect(compiler('Hello\n\nworld!', { wrapper: null }))
       .toMatchInlineSnapshot(`
-        Array [
-          <p>
-            Hello
-          </p>,
-          <p>
-            world!
-          </p>,
-        ]
-      `)
+      [
+        <p>
+          Hello
+        </p>,
+        <p>
+          world!
+        </p>,
+      ]
+    `)
   })
 
   it('works with `React.Fragment`', () => {
