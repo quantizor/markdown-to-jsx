@@ -318,7 +318,7 @@ const LIST_LOOKBEHIND_R = /(?:^|\n)( *)$/
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi
 const NP_TABLE_R = /^(.*\|?.*)\n *(\|? *[-:]+ *\|[-| :]*)\n((?:.*\|.*\n)*)\n?/
 const PARAGRAPH_R = /^[^\n]+(?:  \n|\n{2,})/
-const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s*(\S+)\s*("([^"]*)")?/
+const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s+(\S+)\s*("([^"]*)")?/
 const REFERENCE_IMAGE_R = /^!\[([^\]]*)\] ?\[([^\]]*)\]/
 const REFERENCE_LINK_R = /^\[([^\]]*)\] ?\[([^\]]*)\]/
 const SQUARE_BRACKETS_R = /(\[|\])/g
@@ -897,12 +897,13 @@ function parseBlock(
   return parse(content + '\n\n', state)
 }
 
-const parseCaptureInline: MarkdownToJSX.Parser<ReturnType<typeof parseInline>> =
-  (capture, parse, state: MarkdownToJSX.State) => {
-    return {
-      content: parseInline(parse, capture[1], state),
-    }
+const parseCaptureInline: MarkdownToJSX.Parser<
+  ReturnType<typeof parseInline>
+> = (capture, parse, state: MarkdownToJSX.State) => {
+  return {
+    content: parseInline(parse, capture[1], state),
   }
+}
 
 function captureNothing() {
   return {}
@@ -1766,36 +1767,34 @@ export function compiler(
   }
 
   // Object.keys(rules).forEach(key => {
-  //     let { match, parse } = rules[key];
+  //   let { _match: match, _parse: parse } = rules[key]
 
-  //     rules[key]._match = (...args) => {
-  //         const start = performance.now();
-  //         const result = match(...args);
-  //         const delta = performance.now() - start;
+  //   rules[key]._match = (...args) => {
+  //     const start = performance.now()
+  //     const result = match(...args)
+  //     const delta = performance.now() - start
 
-  //         if (delta > 5)
-  //             console.warn(
-  //                 `Slow match for ${key}: ${delta.toFixed(3)}ms, input: ${
-  //                     args[0]
-  //                 }`
-  //             );
+  //     if (delta > 5)
+  //       console.warn(
+  //         `Slow match for ${key}: ${delta.toFixed(3)}ms, input: ${args[0]}`
+  //       )
 
-  //         return result;
-  //     };
+  //     return result
+  //   }
 
-  //     rules[key]._parse = (...args) => {
-  //         const start = performance.now();
-  //         const result = parse(...args);
-  //         const delta = performance.now() - start;
+  //   rules[key]._parse = (...args) => {
+  //     const start = performance.now()
+  //     const result = parse(...args)
+  //     const delta = performance.now() - start
 
-  //         if (delta > 5)
-  //             console.warn(`Slow parse for ${key}: ${delta.toFixed(3)}ms`);
+  //     if (delta > 5)
+  //       console.warn(`Slow parse for ${key}: ${delta.toFixed(3)}ms`)
 
-  //         console.log(`${key}:parse`, `${delta.toFixed(3)}ms`, args[0]);
+  //     console.log(`${key}:parse`, `${delta.toFixed(3)}ms`, args[0])
 
-  //         return result;
-  //     };
-  // });
+  //     return result
+  //   }
+  // })
 
   if (options.disableParsingRawHTML !== true) {
     rules.htmlBlock = {
