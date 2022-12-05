@@ -557,7 +557,7 @@ function normalizeAttributeKey(key) {
 }
 
 function attributeValueToJSXPropValue(
-  key: JSX.IntrinsicAttributes,
+  key: keyof React.AllHTMLAttributes<Element>,
   value: string
 ): any {
   if (key === 'style') {
