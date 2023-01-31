@@ -298,7 +298,7 @@ const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/
 const HTML_BLOCK_ELEMENT_R =
   /^ *(?!<[a-z][^ >/]* ?\/>)<([a-z][^ >/]*) ?([^>]*)\/{0}>\n?(\s*(?:<\1[^>]*?>[\s\S]*?<\/\1>|(?!<\1)[\s\S])*?)<\/\1>\n*/i
 
-const HTML_CHAR_CODE_R = /&([a-z]+);/g
+const HTML_CHAR_CODE_R = /&([a-zA-Z]+);/g
 
 const HTML_COMMENT_R = /^<!--[\s\S]*?(?:-->)/
 
