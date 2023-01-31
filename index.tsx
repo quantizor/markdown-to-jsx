@@ -313,8 +313,6 @@ const INTERPOLATION_R = /^\{.*\}$/
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/
 const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/
-const LIST_ITEM_END_R = / *\n+$/
-const LIST_LOOKBEHIND_R = /(?:^|\n)( *)$/
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi
 const NP_TABLE_R = /^(.*\|?.*)\n *(\|? *[-:]+ *\|[-| :]*)\n((?:.*\|.*\n)*)\n?/
 const PARAGRAPH_R = /^[^\n]+(?:  \n|\n{2,})/
@@ -347,47 +345,223 @@ const HTML_LEFT_TRIM_AMOUNT_R = /^([ \t]*)/
 
 const UNESCAPE_URL_R = /\\([^0-9A-Z\s])/gi
 
+enum LIST_TYPE {
+  ORDERED,
+  UNORDERED,
+}
+
+const LIST_ITEM_END_R = / *\n+$/
+const LIST_LOOKBEHIND_R = /(?:^|\n)( *)$/
+
 // recognize a `*` `-`, `+`, `1.`, `2.`... list bullet
-const LIST_BULLET = '(?:[*+-]|\\d+\\.)'
+const ORDERED_LIST_BULLET = '(?:\\d+\\.)'
+const UNORDERED_LIST_BULLET = '(?:[*+-])'
+
+function generateListItemPrefix(type: LIST_TYPE) {
+  return (
+    '( *)(' +
+    (type === LIST_TYPE.ORDERED ? ORDERED_LIST_BULLET : UNORDERED_LIST_BULLET) +
+    ') +'
+  )
+}
 
 // recognize the start of a list item:
 // leading space plus a bullet plus a space (`   * `)
-const LIST_ITEM_PREFIX = '( *)(' + LIST_BULLET + ') +'
-const LIST_ITEM_PREFIX_R = new RegExp('^' + LIST_ITEM_PREFIX)
+const ORDERED_LIST_ITEM_PREFIX = generateListItemPrefix(LIST_TYPE.ORDERED)
+const UNORDERED_LIST_ITEM_PREFIX = generateListItemPrefix(LIST_TYPE.UNORDERED)
 
-// recognize an individual list item:
-//  * hi
-//    this is part of the same item
-//
-//    as is this, which is a new paragraph in the same item
-//
-//  * but this is not part of the same item
-const LIST_ITEM_R = new RegExp(
-  '^' +
-    LIST_ITEM_PREFIX +
-    '[^\\n]*(?:\\n' +
-    '(?!\\1' +
-    LIST_BULLET +
-    ' )[^\\n]*)*(\\n|$)',
-  'gm'
+function generateListItemPrefixRegex(type: LIST_TYPE) {
+  return new RegExp(
+    '^' +
+      (type === LIST_TYPE.ORDERED
+        ? ORDERED_LIST_ITEM_PREFIX
+        : UNORDERED_LIST_ITEM_PREFIX)
+  )
+}
+
+const ORDERED_LIST_ITEM_PREFIX_R = generateListItemPrefixRegex(
+  LIST_TYPE.ORDERED
 )
+const UNORDERED_LIST_ITEM_PREFIX_R = generateListItemPrefixRegex(
+  LIST_TYPE.UNORDERED
+)
+
+function generateListItemRegex(type: LIST_TYPE) {
+  // recognize an individual list item:
+  //  * hi
+  //    this is part of the same item
+  //
+  //    as is this, which is a new paragraph in the same item
+  //
+  //  * but this is not part of the same item
+  return new RegExp(
+    '^' +
+      (type === LIST_TYPE.ORDERED
+        ? ORDERED_LIST_ITEM_PREFIX
+        : UNORDERED_LIST_ITEM_PREFIX) +
+      '[^\\n]*(?:\\n' +
+      '(?!\\1' +
+      (type === LIST_TYPE.ORDERED
+        ? ORDERED_LIST_BULLET
+        : UNORDERED_LIST_BULLET) +
+      ' )[^\\n]*)*(\\n|$)',
+    'gm'
+  )
+}
+
+const ORDERED_LIST_ITEM_R = generateListItemRegex(LIST_TYPE.ORDERED)
+const UNORDERED_LIST_ITEM_R = generateListItemRegex(LIST_TYPE.UNORDERED)
 
 // check whether a list item has paragraphs: if it does,
 // we leave the newlines at the end
-const LIST_R = new RegExp(
-  '^( *)(' +
-    LIST_BULLET +
-    ') ' +
-    '[\\s\\S]+?(?:\\n{2,}(?! )' +
-    '(?!\\1' +
-    LIST_BULLET +
-    ' (?!' +
-    LIST_BULLET +
-    ' ))\\n*' +
-    // the \\s*$ here is so that we can parse the inside of nested
-    // lists, where our content might end before we receive two `\n`s
-    '|\\s*\\n*$)'
-)
+function generateListRegex(type: LIST_TYPE) {
+  const bullet =
+    type === LIST_TYPE.ORDERED ? ORDERED_LIST_BULLET : UNORDERED_LIST_BULLET
+
+  return new RegExp(
+    '^( *)(' +
+      bullet +
+      ') ' +
+      '[\\s\\S]+?(?:\\n{2,}(?! )' +
+      '(?!\\1' +
+      bullet +
+      ' (?!' +
+      bullet +
+      ' ))\\n*' +
+      // the \\s*$ here is so that we can parse the inside of nested
+      // lists, where our content might end before we receive two `\n`s
+      '|\\s*\\n*$)'
+  )
+}
+
+const ORDERED_LIST_R = generateListRegex(LIST_TYPE.ORDERED)
+const UNORDERED_LIST_R = generateListRegex(LIST_TYPE.UNORDERED)
+
+function generateListRule(h: any, type: LIST_TYPE) {
+  const ordered = type === LIST_TYPE.ORDERED
+  const LIST_R = ordered ? ORDERED_LIST_R : UNORDERED_LIST_R
+  const LIST_ITEM_R = ordered ? ORDERED_LIST_ITEM_R : UNORDERED_LIST_ITEM_R
+  const LIST_ITEM_PREFIX_R = ordered
+    ? ORDERED_LIST_ITEM_PREFIX_R
+    : UNORDERED_LIST_ITEM_PREFIX_R
+
+  return {
+    _match(source, state, prevCapture) {
+      // We only want to break into a list if we are at the start of a
+      // line. This is to avoid parsing "hi * there" with "* there"
+      // becoming a part of a list.
+      // You might wonder, "but that's inline, so of course it wouldn't
+      // start a list?". You would be correct! Except that some of our
+      // lists can be inline, because they might be inside another list,
+      // in which case we can parse with inline scope, but need to allow
+      // nested lists inside this inline scope.
+      const isStartOfLine = LIST_LOOKBEHIND_R.exec(prevCapture)
+      const isListBlock = state._list || !state._inline
+
+      if (isStartOfLine && isListBlock) {
+        source = isStartOfLine[1] + source
+
+        return LIST_R.exec(source)
+      } else {
+        return null
+      }
+    },
+    _order: Priority.HIGH,
+    _parse(capture, parse, state) {
+      const bullet = capture[2]
+      const start = ordered ? +bullet : undefined
+      const items = capture[0]
+        // recognize the end of a paragraph block inside a list item:
+        // two or more newlines at end end of the item
+        .replace(BLOCK_END_R, '\n')
+        .match(LIST_ITEM_R)
+
+      let lastItemWasAParagraph = false
+      const itemContent = items.map(function (item, i) {
+        // We need to see how far indented the item is:
+        const space = LIST_ITEM_PREFIX_R.exec(item)[0].length
+
+        // And then we construct a regex to "unindent" the subsequent
+        // lines of the items by that amount:
+        const spaceRegex = new RegExp('^ {1,' + space + '}', 'gm')
+
+        // Before processing the item, we need a couple things
+        const content = item
+          // remove indents on trailing lines:
+          .replace(spaceRegex, '')
+          // remove the bullet:
+          .replace(LIST_ITEM_PREFIX_R, '')
+
+        // Handling "loose" lists, like:
+        //
+        //  * this is wrapped in a paragraph
+        //
+        //  * as is this
+        //
+        //  * as is this
+        const isLastItem = i === items.length - 1
+        const containsBlocks = content.indexOf('\n\n') !== -1
+
+        // Any element in a list is a block if it contains multiple
+        // newlines. The last element in the list can also be a block
+        // if the previous item in the list was a block (this is
+        // because non-last items in the list can end with \n\n, but
+        // the last item can't, so we just "inherit" this property
+        // from our previous element).
+        const thisItemIsAParagraph =
+          containsBlocks || (isLastItem && lastItemWasAParagraph)
+        lastItemWasAParagraph = thisItemIsAParagraph
+
+        // backup our state for restoration afterwards. We're going to
+        // want to set state._list to true, and state._inline depending
+        // on our list's looseness.
+        const oldStateInline = state._inline
+        const oldStateList = state._list
+        state._list = true
+
+        // Parse inline if we're in a tight list, or block if we're in
+        // a loose list.
+        let adjustedContent
+        if (thisItemIsAParagraph) {
+          state._inline = false
+          adjustedContent = content.replace(LIST_ITEM_END_R, '\n\n')
+        } else {
+          state._inline = true
+          adjustedContent = content.replace(LIST_ITEM_END_R, '')
+        }
+
+        const result = parse(adjustedContent, state)
+
+        // Restore our state before returning
+        state._inline = oldStateInline
+        state._list = oldStateList
+
+        return result
+      })
+
+      return {
+        items: itemContent,
+        ordered: ordered,
+        start: start,
+      }
+    },
+    _react(node, output, state) {
+      const Tag = node.ordered ? 'ol' : 'ul'
+
+      return (
+        <Tag key={state._key} start={node.start}>
+          {node.items.map(function generateListItem(item, i) {
+            return <li key={i}>{output(item, state)}</li>
+          })}
+        </Tag>
+      )
+    },
+  } as MarkdownToJSX.Rule<{
+    items: MarkdownToJSX.ParserResult[]
+    ordered: boolean
+    start?: number
+  }>
+}
 
 const LINK_INSIDE = '(?:\\[[^\\]]*\\]|[^\\[\\]]|\\](?=[^\\[]*\\]))*'
 const LINK_HREF_AND_TITLE =
@@ -403,14 +577,16 @@ const IMAGE_R = new RegExp(
 
 const NON_PARAGRAPH_BLOCK_SYNTAXES = [
   BLOCKQUOTE_R,
-  CODE_BLOCK_R,
   CODE_BLOCK_FENCED_R,
+  CODE_BLOCK_R,
   HEADING_R,
   HEADING_SETEXT_R,
   HTML_COMMENT_R,
-  LIST_ITEM_R,
-  LIST_R,
   NP_TABLE_R,
+  ORDERED_LIST_ITEM_R,
+  ORDERED_LIST_R,
+  UNORDERED_LIST_ITEM_R,
+  UNORDERED_LIST_R,
 ]
 
 const BLOCK_SYNTAXES = [
@@ -1438,123 +1614,8 @@ export function compiler(
       },
     },
 
-    list: {
-      _match(source, state, prevCapture) {
-        // We only want to break into a list if we are at the start of a
-        // line. This is to avoid parsing "hi * there" with "* there"
-        // becoming a part of a list.
-        // You might wonder, "but that's inline, so of course it wouldn't
-        // start a list?". You would be correct! Except that some of our
-        // lists can be inline, because they might be inside another list,
-        // in which case we can parse with inline scope, but need to allow
-        // nested lists inside this inline scope.
-        const isStartOfLine = LIST_LOOKBEHIND_R.exec(prevCapture)
-        const isListBlock = state._list || !state._inline
-
-        if (isStartOfLine && isListBlock) {
-          source = isStartOfLine[1] + source
-
-          return LIST_R.exec(source)
-        } else {
-          return null
-        }
-      },
-      _order: Priority.HIGH,
-      _parse(capture, parse, state) {
-        const bullet = capture[2]
-        const ordered = bullet.length > 1
-        const start = ordered ? +bullet : undefined
-        const items = capture[0]
-          // recognize the end of a paragraph block inside a list item:
-          // two or more newlines at end end of the item
-          .replace(BLOCK_END_R, '\n')
-          .match(LIST_ITEM_R)
-
-        let lastItemWasAParagraph = false
-        const itemContent = items.map(function (item, i) {
-          // We need to see how far indented the item is:
-          const space = LIST_ITEM_PREFIX_R.exec(item)[0].length
-
-          // And then we construct a regex to "unindent" the subsequent
-          // lines of the items by that amount:
-          const spaceRegex = new RegExp('^ {1,' + space + '}', 'gm')
-
-          // Before processing the item, we need a couple things
-          const content = item
-            // remove indents on trailing lines:
-            .replace(spaceRegex, '')
-            // remove the bullet:
-            .replace(LIST_ITEM_PREFIX_R, '')
-
-          // Handling "loose" lists, like:
-          //
-          //  * this is wrapped in a paragraph
-          //
-          //  * as is this
-          //
-          //  * as is this
-          const isLastItem = i === items.length - 1
-          const containsBlocks = content.indexOf('\n\n') !== -1
-
-          // Any element in a list is a block if it contains multiple
-          // newlines. The last element in the list can also be a block
-          // if the previous item in the list was a block (this is
-          // because non-last items in the list can end with \n\n, but
-          // the last item can't, so we just "inherit" this property
-          // from our previous element).
-          const thisItemIsAParagraph =
-            containsBlocks || (isLastItem && lastItemWasAParagraph)
-          lastItemWasAParagraph = thisItemIsAParagraph
-
-          // backup our state for restoration afterwards. We're going to
-          // want to set state._list to true, and state._inline depending
-          // on our list's looseness.
-          const oldStateInline = state._inline
-          const oldStateList = state._list
-          state._list = true
-
-          // Parse inline if we're in a tight list, or block if we're in
-          // a loose list.
-          let adjustedContent
-          if (thisItemIsAParagraph) {
-            state._inline = false
-            adjustedContent = content.replace(LIST_ITEM_END_R, '\n\n')
-          } else {
-            state._inline = true
-            adjustedContent = content.replace(LIST_ITEM_END_R, '')
-          }
-
-          const result = parse(adjustedContent, state)
-
-          // Restore our state before returning
-          state._inline = oldStateInline
-          state._list = oldStateList
-
-          return result
-        })
-
-        return {
-          items: itemContent,
-          ordered: ordered,
-          start: start,
-        }
-      },
-      _react(node, output, state) {
-        const Tag = node.ordered ? 'ol' : 'ul'
-
-        return (
-          <Tag key={state._key} start={node.start}>
-            {node.items.map(function generateListItem(item, i) {
-              return <li key={i}>{output(item, state)}</li>
-            })}
-          </Tag>
-        )
-      },
-    } as MarkdownToJSX.Rule<{
-      items: MarkdownToJSX.ParserResult[]
-      ordered: boolean
-      start?: number
-    }>,
+    orderedList: generateListRule(h, LIST_TYPE.ORDERED),
+    unorderedList: generateListRule(h, LIST_TYPE.UNORDERED),
 
     newlineCoalescer: {
       _match: blockRegex(CONSECUTIVE_NEWLINE_R),

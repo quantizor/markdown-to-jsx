@@ -2905,6 +2905,49 @@ print("hello world")
       </div>
     `)
   })
+
+  it('#444 switching list formats regression test', () => {
+    render(
+      compiler(
+        `
+1.  One
+2.  Two
+3.  Three
+
+*   Red
+*   Green
+*   Blue
+        `
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <div>
+        <ol start="1">
+          <li>
+            One
+          </li>
+          <li>
+            Two
+          </li>
+          <li>
+            Three
+          </li>
+        </ol>
+        <ul>
+          <li>
+            Red
+          </li>
+          <li>
+            Green
+          </li>
+          <li>
+            Blue
+          </li>
+        </ul>
+      </div>
+    `)
+  })
 })
 
 describe('horizontal rules', () => {
