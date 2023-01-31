@@ -2948,6 +2948,24 @@ print("hello world")
       </div>
     `)
   })
+
+  it('#466 list-like syntax inside link regression test', () => {
+    render(
+      compiler(
+        'Hello, I think that [6. Markdown](http://daringfireball.net/projects/markdown/) lets you write content in a really natural way.'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        Hello, I think that
+        <a href="http://daringfireball.net/projects/markdown/">
+          6. Markdown
+        </a>
+        lets you write content in a really natural way.
+      </span>
+    `)
+  })
 })
 
 describe('horizontal rules', () => {
