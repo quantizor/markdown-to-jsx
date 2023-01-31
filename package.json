@@ -25,7 +25,8 @@
   ],
   "exports": {
     "import": "./dist/index.modern.js",
-    "require": "./dist/index.js"
+    "require": "./dist/index.js",
+    "types": "./dist/index.d.ts"
   },
   "main": "dist/index.js",
   "module": "dist/index.module.js",
