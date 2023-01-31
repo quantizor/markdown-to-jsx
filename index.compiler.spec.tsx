@@ -3569,7 +3569,7 @@ describe('overrides', () => {
         overrides: { li: { props: { className: 'foo' } } },
       })
     )
-    const $element = root.querySelector('li')
+    const $element = root.querySelector('li')!
 
     expect($element.outerHTML).toMatchInlineSnapshot(`
       <li class="foo">
@@ -3587,7 +3587,7 @@ describe('overrides', () => {
         overrides: { input: { props: { className: 'foo' } } },
       })
     )
-    const $element = root.querySelector('input')
+    const $element = root.querySelector('input')!
 
     expect($element.outerHTML).toMatchInlineSnapshot(`
       <input readonly
