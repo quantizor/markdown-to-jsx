@@ -90,7 +90,7 @@ export namespace MarkdownToJSX {
      */
     createElement: (
       tag: Parameters<CreateElement>[0],
-      props: React.Props<any>,
+      props: JSX.IntrinsicAttributes,
       ...children: React.ReactChild[]
     ) => JSX.Element
 
@@ -1066,7 +1066,7 @@ export function compiler(
     return React.createElement(wrapper, { key: 'outer' }, jsx)
   }
 
-  function attrStringToMap(str: string): React.Props<any> {
+  function attrStringToMap(str: string): JSX.IntrinsicAttributes {
     const attributes = str.match(ATTR_EXTRACTOR_R)
 
     return attributes
@@ -1921,7 +1921,7 @@ const Markdown: React.FC<{
 }> = ({ children, options, ...props }) => {
   return React.cloneElement(
     compiler(children, options),
-    props as React.Props<any>
+    props as JSX.IntrinsicAttributes
   )
 }
 
