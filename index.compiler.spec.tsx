@@ -3493,6 +3493,24 @@ describe('overrides', () => {
     `)
   })
 
+  it('should substitute custom components when found', () => {
+    const CustomButton: React.FC<JSX.IntrinsicElements['button']> = props => (
+      <button {...props} />
+    )
+
+    render(
+      compiler('<CustomButton>Click me!</CustomButton>', {
+        overrides: { CustomButton },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <button>
+        Click me!
+      </button>
+    `)
+  })
+
   it('should accept an override shorthand if props do not need to be overidden', () => {
     class FakeParagraph extends React.Component {
       render() {
