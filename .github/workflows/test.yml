@@ -41,5 +41,3 @@ jobs:
 
       - name: Build
         run: yarn build && yarn size
-        # should use the lowest version from the matrix
-        if: matrix.react == '18'
