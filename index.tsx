@@ -530,26 +530,26 @@ function generateListRule(h: any, type: LIST_TYPE) {
       })
 
       return {
-        items: itemContent,
-        ordered: ordered,
-        start: start,
+        _items: itemContent,
+        _ordered: ordered,
+        _start: start,
       }
     },
     _react(node, output, state) {
-      const Tag = node.ordered ? 'ol' : 'ul'
+      const Tag = node._ordered ? 'ol' : 'ul'
 
       return (
-        <Tag key={state._key} start={node.start}>
-          {node.items.map(function generateListItem(item, i) {
+        <Tag key={state._key} start={node._start}>
+          {node._items.map(function generateListItem(item, i) {
             return <li key={i}>{output(item, state)}</li>
           })}
         </Tag>
       )
     },
   } as MarkdownToJSX.Rule<{
-    items: MarkdownToJSX.ParserResult[]
-    ordered: boolean
-    start?: number
+    _items: MarkdownToJSX.ParserResult[]
+    _ordered: boolean
+    _start?: number
   }>
 }
 
@@ -656,7 +656,7 @@ function parseTableRow(
         node.type === 'text' &&
         (tableRow[i + 1] == null || tableRow[i + 1].type === 'tableSeparator')
       ) {
-        node.content = node.content.replace(TABLE_CELL_END_TRIM, '')
+        node._content = node._content.replace(TABLE_CELL_END_TRIM, '')
       }
       cells[cells.length - 1].push(node)
     }
@@ -694,18 +694,18 @@ function parseTable(
   state._inline = false
 
   return {
-    align: align,
-    cells: cells,
-    header: header,
+    _align: align,
+    _cells: cells,
+    _header: header,
     type: 'table',
   }
 }
 
 function getTableStyle(node, colIndex) {
-  return node.align[colIndex] == null
+  return node._align[colIndex] == null
     ? {}
     : {
-        textAlign: node.align[colIndex],
+        textAlign: node._align[colIndex],
       }
 }
 
@@ -1067,7 +1067,7 @@ const parseCaptureInline: MarkdownToJSX.Parser<
   ReturnType<typeof parseInline>
 > = (capture, parse, state: MarkdownToJSX.State) => {
   return {
-    content: parseInline(parse, capture[1], state),
+    _content: parseInline(parse, capture[1], state),
   }
 }
 
@@ -1159,6 +1159,7 @@ export function compiler(
     tag: MarkdownToJSX.HTMLTags,
     props: Parameters<MarkdownToJSX.CreateElement>[1] & {
       className?: string
+      id?: string
     },
     ...children
   ) {
@@ -1287,8 +1288,8 @@ export function compiler(
     }
   }
 
-  const footnotes: { footnote: string; identifier: string }[] = []
-  const refs: { [key: string]: { target: string; title: string } } = {}
+  const footnotes: { _footnote: string; _identifier: string }[] = []
+  const refs: { [key: string]: { _target: string; _title: string } } = {}
 
   /**
    * each rule's react() output function goes through our custom h() JSX pragma;
@@ -1300,7 +1301,7 @@ export function compiler(
       _order: Priority.HIGH,
       _parse(capture, parse, state) {
         return {
-          content: parse(
+          _content: parse(
             capture[0].replace(BLOCKQUOTE_TRIM_LEFT_MULTILINE_R, ''),
             state
           ),
@@ -1309,11 +1310,11 @@ export function compiler(
       _react(node, output, state) {
         return (
           <blockquote key={state._key}>
-            {output(node.content, state)}
+            {output(node._content, state)}
           </blockquote>
         )
       },
-    } as MarkdownToJSX.Rule<{ content: MarkdownToJSX.ParserResult }>,
+    } as MarkdownToJSX.Rule<{ _content: MarkdownToJSX.ParserResult }>,
 
     breakLine: {
       _match: anyScopeRegex(BREAK_LINE_R),
@@ -1338,8 +1339,8 @@ export function compiler(
       _order: Priority.MAX,
       _parse(capture /*, parse, state*/) {
         return {
-          content: capture[0].replace(/^ {4}/gm, '').replace(/\n+$/, ''),
-          lang: undefined,
+          _content: capture[0].replace(/^ {4}/gm, '').replace(/\n+$/, ''),
+          _lang: undefined,
         }
       },
 
@@ -1347,18 +1348,18 @@ export function compiler(
         return (
           <pre key={state._key}>
             <code
-              {...node.attrs}
-              className={node.lang ? `lang-${node.lang}` : ''}
+              {...node._attrs}
+              className={node._lang ? `lang-${node._lang}` : ''}
             >
-              {node.content}
+              {node._content}
             </code>
           </pre>
         )
       },
     } as MarkdownToJSX.Rule<{
-      attrs?: ReturnType<typeof attrStringToMap>
-      content: string
-      lang?: string
+      _attrs?: ReturnType<typeof attrStringToMap>
+      _content: string
+      _lang?: string
     }>,
 
     codeFenced: {
@@ -1367,9 +1368,9 @@ export function compiler(
       _parse(capture /*, parse, state*/) {
         return {
           // if capture[3] it's additional metadata
-          attrs: attrStringToMap(capture[3] || ''),
-          content: capture[4],
-          lang: capture[2] || undefined,
+          _attrs: attrStringToMap(capture[3] || ''),
+          _content: capture[4],
+          _lang: capture[2] || undefined,
           type: 'codeBlock',
         }
       },
@@ -1380,13 +1381,13 @@ export function compiler(
       _order: Priority.LOW,
       _parse(capture /*, parse, state*/) {
         return {
-          content: capture[2],
+          _content: capture[2],
         }
       },
       _react(node, output, state) {
-        return <code key={state._key}>{node.content}</code>
+        return <code key={state._key}>{node._content}</code>
       },
-    } as MarkdownToJSX.Rule<{ content: string }>,
+    } as MarkdownToJSX.Rule<{ _content: string }>,
 
     /**
      * footnotes are emitted at the end of compilation in a special <footer> block
@@ -1396,8 +1397,8 @@ export function compiler(
       _order: Priority.MAX,
       _parse(capture /*, parse, state*/) {
         footnotes.push({
-          footnote: capture[2],
-          identifier: capture[1],
+          _footnote: capture[2],
+          _identifier: capture[1],
         })
 
         return {}
@@ -1410,62 +1411,61 @@ export function compiler(
       _order: Priority.HIGH,
       _parse(capture /*, parse*/) {
         return {
-          content: capture[1],
-          target: `#${options.slugify(capture[1])}`,
+          _content: capture[1],
+          _target: `#${options.slugify(capture[1])}`,
         }
       },
       _react(node, output, state) {
         return (
-          <a key={state._key} href={sanitizeUrl(node.target)}>
-            <sup key={state._key}>{node.content}</sup>
+          <a key={state._key} href={sanitizeUrl(node._target)}>
+            <sup key={state._key}>{node._content}</sup>
           </a>
         )
       },
-    } as MarkdownToJSX.Rule<{ content: string; target: string }>,
+    } as MarkdownToJSX.Rule<{ _content: string; _target: string }>,
 
     gfmTask: {
       _match: inlineRegex(GFM_TASK_R),
       _order: Priority.HIGH,
       _parse(capture /*, parse, state*/) {
         return {
-          completed: capture[1].toLowerCase() === 'x',
+          _completed: capture[1].toLowerCase() === 'x',
         }
       },
       _react(node, output, state) {
         return (
           <input
-            checked={node.completed}
+            checked={node._completed}
             key={state._key}
             readOnly
             type="checkbox"
           />
         )
       },
-    } as MarkdownToJSX.Rule<{ completed: boolean }>,
+    } as MarkdownToJSX.Rule<{ _completed: boolean }>,
 
     heading: {
       _match: blockRegex(HEADING_R),
       _order: Priority.HIGH,
       _parse(capture, parse, state) {
         return {
-          content: parseInline(parse, capture[2], state),
-          id: options.slugify(capture[2]),
-          level: capture[1].length,
+          _content: parseInline(parse, capture[2], state),
+          _id: options.slugify(capture[2]),
+          _level: capture[1].length,
         }
       },
       _react(node, output, state) {
-        node.tag = `h${node.level}` as MarkdownToJSX.HTMLTags
-        return (
-          <node.tag id={node.id} key={state._key}>
-            {output(node.content, state)}
-          </node.tag>
+        return h(
+          `h${node._level}`,
+          { id: node._id, key: state._key },
+          output(node._content, state)
         )
       },
     } as MarkdownToJSX.Rule<{
-      content: MarkdownToJSX.ParserResult
-      id: string
-      level: number
-      tag: MarkdownToJSX.HTMLTags
+      _content: MarkdownToJSX.ParserResult
+      _id: string
+      _level: 1 | 2 | 3 | 4 | 5 | 6
+      _tag: MarkdownToJSX.HTMLTags
     }>,
 
     headingSetext: {
@@ -1473,8 +1473,8 @@ export function compiler(
       _order: Priority.MAX,
       _parse(capture, parse, state) {
         return {
-          content: parseInline(parse, capture[1], state),
-          level: capture[2] === '=' ? 1 : 2,
+          _content: parseInline(parse, capture[1], state),
+          _level: capture[2] === '=' ? 1 : 2,
           type: 'heading',
         }
       },
@@ -1494,48 +1494,52 @@ export function compiler(
       _order: Priority.HIGH,
       _parse(capture /*, parse, state*/) {
         return {
-          alt: capture[1],
-          target: unescapeUrl(capture[2]),
-          title: capture[3],
+          _alt: capture[1],
+          _target: unescapeUrl(capture[2]),
+          _title: capture[3],
         }
       },
       _react(node, output, state) {
         return (
           <img
             key={state._key}
-            alt={node.alt || undefined}
-            title={node.title || undefined}
-            src={sanitizeUrl(node.target)}
+            alt={node._alt || undefined}
+            title={node._title || undefined}
+            src={sanitizeUrl(node._target)}
           />
         )
       },
-    } as MarkdownToJSX.Rule<{ alt?: string; target: string; title?: string }>,
+    } as MarkdownToJSX.Rule<{
+      _alt?: string
+      _target: string
+      _title?: string
+    }>,
 
     link: {
       _match: inlineRegex(LINK_R),
       _order: Priority.LOW,
       _parse(capture, parse, state) {
         return {
-          content: parseSimpleInline(parse, capture[1], state),
-          target: unescapeUrl(capture[2]),
-          title: capture[3],
+          _content: parseSimpleInline(parse, capture[1], state),
+          _target: unescapeUrl(capture[2]),
+          _title: capture[3],
         }
       },
       _react(node, output, state) {
         return (
           <a
             key={state._key}
-            href={sanitizeUrl(node.target)}
-            title={node.title}
+            href={sanitizeUrl(node._target)}
+            title={node._title}
           >
-            {output(node.content, state)}
+            {output(node._content, state)}
           </a>
         )
       },
     } as MarkdownToJSX.Rule<{
-      content: MarkdownToJSX.ParserResult
-      target: string
-      title?: string
+      _content: MarkdownToJSX.ParserResult
+      _target: string
+      _title?: string
     }>,
 
     // https://daringfireball.net/projects/markdown/syntax#autolink
@@ -1544,13 +1548,13 @@ export function compiler(
       _order: Priority.MAX,
       _parse(capture /*, parse, state*/) {
         return {
-          content: [
+          _content: [
             {
-              content: capture[1],
+              _content: capture[1],
               type: 'text',
             },
           ],
-          target: capture[1],
+          _target: capture[1],
           type: 'link',
         }
       },
@@ -1566,14 +1570,14 @@ export function compiler(
       _order: Priority.MAX,
       _parse(capture /*, parse, state*/) {
         return {
-          content: [
+          _content: [
             {
-              content: capture[1],
+              _content: capture[1],
               type: 'text',
             },
           ],
-          target: capture[1],
-          title: undefined,
+          _target: capture[1],
+          _title: undefined,
           type: 'link',
         }
       },
@@ -1592,13 +1596,13 @@ export function compiler(
         }
 
         return {
-          content: [
+          _content: [
             {
-              content: address.replace('mailto:', ''),
+              _content: address.replace('mailto:', ''),
               type: 'text',
             },
           ],
-          target: target,
+          _target: target,
           type: 'link',
         }
       },
@@ -1621,7 +1625,7 @@ export function compiler(
       _order: Priority.LOW,
       _parse: parseCaptureInline,
       _react(node, output, state) {
-        return <p key={state._key}>{output(node.content, state)}</p>
+        return <p key={state._key}>{output(node._content, state)}</p>
       },
     } as MarkdownToJSX.Rule<ReturnType<typeof parseCaptureInline>>,
 
@@ -1630,8 +1634,8 @@ export function compiler(
       _order: Priority.MAX,
       _parse(capture /*, parse*/) {
         refs[capture[1]] = {
-          target: capture[2],
-          title: capture[4],
+          _target: capture[2],
+          _title: capture[4],
         }
 
         return {}
@@ -1644,52 +1648,52 @@ export function compiler(
       _order: Priority.MAX,
       _parse(capture) {
         return {
-          alt: capture[1] || undefined,
-          ref: capture[2],
+          _alt: capture[1] || undefined,
+          _ref: capture[2],
         }
       },
       _react(node, output, state) {
         return (
           <img
             key={state._key}
-            alt={node.alt}
-            src={sanitizeUrl(refs[node.ref].target)}
-            title={refs[node.ref].title}
+            alt={node._alt}
+            src={sanitizeUrl(refs[node._ref]._target)}
+            title={refs[node._ref]._title}
           />
         )
       },
-    } as MarkdownToJSX.Rule<{ alt?: string; ref: string }>,
+    } as MarkdownToJSX.Rule<{ _alt?: string; _ref: string }>,
 
     refLink: {
       _match: inlineRegex(REFERENCE_LINK_R),
       _order: Priority.MAX,
       _parse(capture, parse, state) {
         return {
-          content: parse(capture[1], state),
-          fallbackContent: parse(
+          _content: parse(capture[1], state),
+          _fallbackContent: parse(
             capture[0].replace(SQUARE_BRACKETS_R, '\\$1'),
             state
           ),
-          ref: capture[2],
+          _ref: capture[2],
         }
       },
       _react(node, output, state) {
-        return refs[node.ref] ? (
+        return refs[node._ref] ? (
           <a
             key={state._key}
-            href={sanitizeUrl(refs[node.ref].target)}
-            title={refs[node.ref].title}
+            href={sanitizeUrl(refs[node._ref]._target)}
+            title={refs[node._ref]._title}
           >
-            {output(node.content, state)}
+            {output(node._content, state)}
           </a>
         ) : (
-          <span key={state._key}>{output(node.fallbackContent, state)}</span>
+          <span key={state._key}>{output(node._fallbackContent, state)}</span>
         )
       },
     } as MarkdownToJSX.Rule<{
-      content: MarkdownToJSX.ParserResult
-      fallbackContent: MarkdownToJSX.ParserResult
-      ref: string
+      _content: MarkdownToJSX.ParserResult
+      _fallbackContent: MarkdownToJSX.ParserResult
+      _ref: string
     }>,
 
     table: {
@@ -1701,7 +1705,7 @@ export function compiler(
           <table key={state._key}>
             <thead>
               <tr>
-                {node.header.map(function generateHeaderCell(content, i) {
+                {node._header.map(function generateHeaderCell(content, i) {
                   return (
                     <th key={i} style={getTableStyle(node, i)}>
                       {output(content, state)}
@@ -1712,7 +1716,7 @@ export function compiler(
             </thead>
 
             <tbody>
-              {node.cells.map(function generateTableRow(row, i) {
+              {node._cells.map(function generateTableRow(row, i) {
                 return (
                   <tr key={i}>
                     {row.map(function generateTableCell(content, c) {
@@ -1757,7 +1761,7 @@ export function compiler(
       _order: Priority.MIN,
       _parse(capture /*, parse, state*/) {
         return {
-          content: capture[0]
+          _content: capture[0]
             // nbsp -> unicode equivalent for named chars
             .replace(HTML_CHAR_CODE_R, (full, inner) => {
               return options.namedCodesToUnicode[inner]
@@ -1767,9 +1771,9 @@ export function compiler(
         }
       },
       _react(node /*, output, state*/) {
-        return node.content
+        return node._content
       },
-    } as MarkdownToJSX.Rule<{ content: string }>,
+    } as MarkdownToJSX.Rule<{ _content: string }>,
 
     textBolded: {
       _match: simpleInlineRegex(TEXT_BOLD_R),
@@ -1778,11 +1782,11 @@ export function compiler(
         return {
           // capture[1] -> the syntax control character
           // capture[2] -> inner content
-          content: parse(capture[2], state),
+          _content: parse(capture[2], state),
         }
       },
       _react(node, output, state) {
-        return <strong key={state._key}>{output(node.content, state)}</strong>
+        return <strong key={state._key}>{output(node._content, state)}</strong>
       },
     } as MarkdownToJSX.Rule<ReturnType<MarkdownToJSX.NestedParser>>,
 
@@ -1793,11 +1797,11 @@ export function compiler(
         return {
           // capture[1] -> opening * or _
           // capture[2] -> inner content
-          content: parse(capture[2], state),
+          _content: parse(capture[2], state),
         }
       },
       _react(node, output, state) {
-        return <em key={state._key}>{output(node.content, state)}</em>
+        return <em key={state._key}>{output(node._content, state)}</em>
       },
     } as MarkdownToJSX.Rule<ReturnType<MarkdownToJSX.NestedParser>>,
 
@@ -1810,7 +1814,7 @@ export function compiler(
       _order: Priority.HIGH,
       _parse(capture /*, parse, state*/) {
         return {
-          content: capture[1],
+          _content: capture[1],
           type: 'text',
         }
       },
@@ -1821,7 +1825,7 @@ export function compiler(
       _order: Priority.LOW,
       _parse: parseCaptureInline,
       _react(node, output, state) {
-        return <del key={state._key}>{output(node.content, state)}</del>
+        return <del key={state._key}>{output(node._content, state)}</del>
       },
     } as MarkdownToJSX.Rule<ReturnType<typeof parseCaptureInline>>,
   }
@@ -1889,29 +1893,27 @@ export function compiler(
         state._inAnchor = false
 
         return {
-          attrs: attrStringToMap(capture[2]),
-          content,
-
-          noInnerParse,
-
-          tag: noInnerParse ? tagName : capture[1],
+          _attrs: attrStringToMap(capture[2]),
+          _content: content,
+          _noInnerParse: noInnerParse,
+          _tag: noInnerParse ? tagName : capture[1],
         }
       },
       _react(node, output, state) {
         return (
           // @ts-ignore
-          <node.tag key={state._key} {...node.attrs}>
-            {node.noInnerParse
-              ? (node.content as string)
-              : output(node.content as MarkdownToJSX.ParserResult, state)}
-          </node.tag>
+          <node._tag key={state._key} {...node._attrs}>
+            {node._noInnerParse
+              ? (node._content as string)
+              : output(node._content as MarkdownToJSX.ParserResult, state)}
+          </node._tag>
         )
       },
     } as MarkdownToJSX.Rule<{
-      attrs: ReturnType<typeof attrStringToMap>
-      content: string | ReturnType<MarkdownToJSX.NestedParser>
-      noInnerParse: Boolean
-      tag: string
+      _attrs: ReturnType<typeof attrStringToMap>
+      _content: string | ReturnType<MarkdownToJSX.NestedParser>
+      _noInnerParse: Boolean
+      _tag: string
     }>
 
     rules.htmlSelfClosing = {
@@ -1922,16 +1924,16 @@ export function compiler(
       _order: Priority.HIGH,
       _parse(capture /*, parse, state*/) {
         return {
-          attrs: attrStringToMap(capture[2] || ''),
-          tag: capture[1],
+          _attrs: attrStringToMap(capture[2] || ''),
+          _tag: capture[1],
         }
       },
       _react(node, output, state) {
-        return <node.tag {...node.attrs} key={state._key} />
+        return <node._tag {...node._attrs} key={state._key} />
       },
     } as MarkdownToJSX.Rule<{
-      attrs: ReturnType<typeof attrStringToMap>
-      tag: string
+      _attrs: ReturnType<typeof attrStringToMap>
+      _tag: string
     }>
   }
 
@@ -1947,9 +1949,9 @@ export function compiler(
         <footer key="footer">
           {footnotes.map(function createFootnote(def) {
             return (
-              <div id={options.slugify(def.identifier)} key={def.identifier}>
-                {def.identifier}
-                {emitter(parser(def.footnote, { _inline: true }))}
+              <div id={options.slugify(def._identifier)} key={def._identifier}>
+                {def._identifier}
+                {emitter(parser(def._footnote, { _inline: true }))}
               </div>
             )
           })}
