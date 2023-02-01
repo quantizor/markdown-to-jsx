@@ -345,10 +345,9 @@ const HTML_LEFT_TRIM_AMOUNT_R = /^([ \t]*)/
 
 const UNESCAPE_URL_R = /\\([^0-9A-Z\s])/gi
 
-enum LIST_TYPE {
-  ORDERED,
-  UNORDERED,
-}
+type LIST_TYPE = 1 | 2
+const ORDERED: LIST_TYPE = 1
+const UNORDERED: LIST_TYPE = 2
 
 const LIST_ITEM_END_R = / *\n+$/
 const LIST_LOOKBEHIND_R = /(?:^|\n)( *)$/
@@ -360,31 +359,25 @@ const UNORDERED_LIST_BULLET = '(?:[*+-])'
 function generateListItemPrefix(type: LIST_TYPE) {
   return (
     '( *)(' +
-    (type === LIST_TYPE.ORDERED ? ORDERED_LIST_BULLET : UNORDERED_LIST_BULLET) +
+    (type === ORDERED ? ORDERED_LIST_BULLET : UNORDERED_LIST_BULLET) +
     ') +'
   )
 }
 
 // recognize the start of a list item:
 // leading space plus a bullet plus a space (`   * `)
-const ORDERED_LIST_ITEM_PREFIX = generateListItemPrefix(LIST_TYPE.ORDERED)
-const UNORDERED_LIST_ITEM_PREFIX = generateListItemPrefix(LIST_TYPE.UNORDERED)
+const ORDERED_LIST_ITEM_PREFIX = generateListItemPrefix(ORDERED)
+const UNORDERED_LIST_ITEM_PREFIX = generateListItemPrefix(UNORDERED)
 
 function generateListItemPrefixRegex(type: LIST_TYPE) {
   return new RegExp(
     '^' +
-      (type === LIST_TYPE.ORDERED
-        ? ORDERED_LIST_ITEM_PREFIX
-        : UNORDERED_LIST_ITEM_PREFIX)
+      (type === ORDERED ? ORDERED_LIST_ITEM_PREFIX : UNORDERED_LIST_ITEM_PREFIX)
   )
 }
 
-const ORDERED_LIST_ITEM_PREFIX_R = generateListItemPrefixRegex(
-  LIST_TYPE.ORDERED
-)
-const UNORDERED_LIST_ITEM_PREFIX_R = generateListItemPrefixRegex(
-  LIST_TYPE.UNORDERED
-)
+const ORDERED_LIST_ITEM_PREFIX_R = generateListItemPrefixRegex(ORDERED)
+const UNORDERED_LIST_ITEM_PREFIX_R = generateListItemPrefixRegex(UNORDERED)
 
 function generateListItemRegex(type: LIST_TYPE) {
   // recognize an individual list item:
@@ -396,27 +389,24 @@ function generateListItemRegex(type: LIST_TYPE) {
   //  * but this is not part of the same item
   return new RegExp(
     '^' +
-      (type === LIST_TYPE.ORDERED
+      (type === ORDERED
         ? ORDERED_LIST_ITEM_PREFIX
         : UNORDERED_LIST_ITEM_PREFIX) +
       '[^\\n]*(?:\\n' +
       '(?!\\1' +
-      (type === LIST_TYPE.ORDERED
-        ? ORDERED_LIST_BULLET
-        : UNORDERED_LIST_BULLET) +
+      (type === ORDERED ? ORDERED_LIST_BULLET : UNORDERED_LIST_BULLET) +
       ' )[^\\n]*)*(\\n|$)',
     'gm'
   )
 }
 
-const ORDERED_LIST_ITEM_R = generateListItemRegex(LIST_TYPE.ORDERED)
-const UNORDERED_LIST_ITEM_R = generateListItemRegex(LIST_TYPE.UNORDERED)
+const ORDERED_LIST_ITEM_R = generateListItemRegex(ORDERED)
+const UNORDERED_LIST_ITEM_R = generateListItemRegex(UNORDERED)
 
 // check whether a list item has paragraphs: if it does,
 // we leave the newlines at the end
 function generateListRegex(type: LIST_TYPE) {
-  const bullet =
-    type === LIST_TYPE.ORDERED ? ORDERED_LIST_BULLET : UNORDERED_LIST_BULLET
+  const bullet = type === ORDERED ? ORDERED_LIST_BULLET : UNORDERED_LIST_BULLET
 
   return new RegExp(
     '^( *)(' +
@@ -434,11 +424,11 @@ function generateListRegex(type: LIST_TYPE) {
   )
 }
 
-const ORDERED_LIST_R = generateListRegex(LIST_TYPE.ORDERED)
-const UNORDERED_LIST_R = generateListRegex(LIST_TYPE.UNORDERED)
+const ORDERED_LIST_R = generateListRegex(ORDERED)
+const UNORDERED_LIST_R = generateListRegex(UNORDERED)
 
 function generateListRule(h: any, type: LIST_TYPE) {
-  const ordered = type === LIST_TYPE.ORDERED
+  const ordered = type === ORDERED
   const LIST_R = ordered ? ORDERED_LIST_R : UNORDERED_LIST_R
   const LIST_ITEM_R = ordered ? ORDERED_LIST_ITEM_R : UNORDERED_LIST_ITEM_R
   const LIST_ITEM_PREFIX_R = ordered
@@ -1614,8 +1604,8 @@ export function compiler(
       },
     },
 
-    orderedList: generateListRule(h, LIST_TYPE.ORDERED),
-    unorderedList: generateListRule(h, LIST_TYPE.UNORDERED),
+    orderedList: generateListRule(h, ORDERED),
+    unorderedList: generateListRule(h, UNORDERED),
 
     newlineCoalescer: {
       _match: blockRegex(CONSECUTIVE_NEWLINE_R),
