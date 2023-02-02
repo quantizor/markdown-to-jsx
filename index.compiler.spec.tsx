@@ -624,6 +624,20 @@ describe('images', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(`<img src="/xyz.png">`)
   })
 
+  it('should handle a base64-encoded image', () => {
+    render(
+      compiler(
+        '![Red Dot](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==)'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <img alt="Red Dot"
+           src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg=="
+      >
+    `)
+  })
+
   it('should handle an image with alt text', () => {
     render(compiler('![test](/xyz.png)'))
 
