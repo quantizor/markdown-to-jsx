@@ -343,7 +343,7 @@ const TRIM_STARTING_NEWLINES = /^\n+/
 
 const HTML_LEFT_TRIM_AMOUNT_R = /^([ \t]*)/
 
-const UNESCAPE_URL_R = /\\([^0-9A-Z\s])/gi
+const UNESCAPE_URL_R = /\\([^\\])/g
 
 type LIST_TYPE = 1 | 2
 const ORDERED: LIST_TYPE = 1
@@ -553,17 +553,8 @@ function generateListRule(h: any, type: LIST_TYPE) {
   }>
 }
 
-const LINK_INSIDE = '(?:\\[[^\\]]*\\]|[^\\[\\]]|\\](?=[^\\[]*\\]))*'
-const LINK_HREF_AND_TITLE =
-  '\\s*<?((?:[^\\s\\\\]|\\\\.)*?)>?(?:\\s+[\'"]([\\s\\S]*?)[\'"])?\\s*'
-
-const LINK_R = new RegExp(
-  '^\\[(' + LINK_INSIDE + ')\\]\\(' + LINK_HREF_AND_TITLE + '\\)'
-)
-
-const IMAGE_R = new RegExp(
-  '^!\\[(' + LINK_INSIDE + ')\\]\\(' + LINK_HREF_AND_TITLE + '\\)'
-)
+const LINK_R = /^\[([^\]]*)]\( *([^) ]*) *"?([^)"]*)?"?\)/
+const IMAGE_R = /^!\[([^\]]*)]\( *([^) ]*) *"?([^)"]*)?"?\)/
 
 const NON_PARAGRAPH_BLOCK_SYNTAXES = [
   BLOCKQUOTE_R,
@@ -987,7 +978,7 @@ function sanitizeUrl(url: string): string | null {
   try {
     const decoded = decodeURIComponent(url).replace(/[^A-Za-z0-9/:]/g, '')
 
-    if (decoded.match(/^\s*(javascript|vbscript|data):/i)) {
+    if (decoded.match(/^\s*(javascript|vbscript|data(?!:image)):/i)) {
       if (process.env.NODE_ENV !== 'production') {
         console.warn(
           'Anchor URL contains an unsafe JavaScript/VBScript/data expression, it will not be rendered.',
