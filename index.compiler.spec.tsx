@@ -875,7 +875,7 @@ describe('links', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <p>
-        These [brackets] are not a link.
+        These [brackets] are not a link
       </p>
     `)
   })
