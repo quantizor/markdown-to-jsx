@@ -318,7 +318,9 @@ const NP_TABLE_R = /^(.*\|?.*)\n *(\|? *[-:]+ *\|[-| :]*)\n((?:.*\|.*\n)*)\n?/
 const PARAGRAPH_R = /^[^\n]+(?:  \n|\n{2,})/
 const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s+(\S+)\s*("([^"]*)")?/
 const REFERENCE_IMAGE_R = /^!\[([^\]]*)\] ?\[([^\]]*)\]/
-const REFERENCE_LINK_R = /^\[([^\]]*)\] ?\[([^\]]*)\]/
+const REFERENCE_LINK_R = /^\[([^\]]*)\] ?\[([^\]]+)\]/
+const REFERENCE_LINK_COLLAPSED_R = /^\[([^\]]+)\]\[\]/
+const REFERENCE_LINK_SHORTCUT_R = /^\[([^\]]+)\]/
 const SQUARE_BRACKETS_R = /(\[|\])/g
 const SHOULD_RENDER_AS_BLOCK_R = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/
 const TAB_R = /\t/g
@@ -1684,6 +1686,70 @@ export function compiler(
     } as MarkdownToJSX.Rule<{
       _content: MarkdownToJSX.ParserResult
       _fallbackContent: MarkdownToJSX.ParserResult
+      _ref: string
+    }>,
+
+    refLinkCollapsed: {
+      _match: inlineRegex(REFERENCE_LINK_COLLAPSED_R),
+      _order: Priority.HIGH,
+      _parse(capture, parse, state) {
+        return {
+          _content: parse(capture[1], state),
+          _fallbackContent: parse(
+            capture[0].replace(SQUARE_BRACKETS_R, '\\$1'),
+            state
+          ),
+          _ref: capture[1]
+        }
+      },
+      _react(node, output, state) {
+        return refs[node._ref] ? (
+          <a
+            key={state._key}
+            href={sanitizeUrl(refs[node._ref]._target)}
+            title={refs[node._ref]._title}
+          >
+            {output(node._content, state)}
+          </a>
+        ) : (
+            <span key={state._key}>{output(node._fallbackContent, state)}</span>
+        )
+      },
+    } as MarkdownToJSX.Rule<{
+      _content: MarkdownToJSX.ParserResult,
+      _fallbackContent: MarkdownToJSX.ParserResult,
+      _ref: string
+    }>,
+
+    refLinkShortcut: {
+      _match: inlineRegex(REFERENCE_LINK_SHORTCUT_R),
+      _order: Priority.LOW,
+      _parse(capture, parse, state) {
+        return {
+          _content: parse(capture[1], state),
+          _fallbackContent: parse(
+            capture[0].replace(SQUARE_BRACKETS_R, '\\$1'),
+            state
+          ),
+          _ref: capture[1]
+        }
+      },
+      _react(node, output, state) {
+        return refs[node._ref] ? (
+          <a
+            key={state._key}
+            href={sanitizeUrl(refs[node._ref]._target)}
+            title={refs[node._ref]._title}
+          >
+            {output(node._content, state)}
+          </a>
+        ) : (
+          output(node._fallbackContent, state)
+        )
+      },
+    } as MarkdownToJSX.Rule<{
+      _content: MarkdownToJSX.ParserResult,
+      _fallbackContent: MarkdownToJSX.ParserResult,
       _ref: string
     }>,
 

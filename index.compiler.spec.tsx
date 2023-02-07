@@ -771,6 +771,130 @@ describe('links', () => {
     `)
   })
 
+  it('should handle a collapsed reference link', () => {
+    render(compiler(['[foo][]', '[foo]: /url'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="/url">
+          foo
+        </a>
+      </p>
+    `)
+  })
+
+  it('should handle a collapsed reference link with title', () => {
+    render(compiler(['[foo][]', '[foo]: /url "bar"'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="/url"
+           title="bar"
+        >
+          foo
+        </a>
+      </p>
+    `)
+  })
+
+  it('should handle a collapsed reference link with formatted label', () => {
+    render(compiler(['[*foo* bar][]', '[*foo* bar]: /url "title"'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="/url"
+           title="title"
+        >
+          <em>
+            foo
+          </em>
+          bar
+        </a>
+      </p>
+    `)
+  })
+
+  it('should handle a shortcut reference link', () => {
+    render(compiler(['[foo]', '[foo]: /url'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="/url">
+          foo
+        </a>
+      </p>
+    `)
+  })
+
+  it('should handle a shortcut reference link with title', () => {
+    render(compiler(['[foo]', '[foo]: /url "bar"'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="/url"
+           title="bar"
+        >
+          foo
+        </a>
+      </p>
+    `)
+  })
+
+  it('should handle a shortcut reference link with formatted label', () => {
+    render(compiler(['[*foo* bar]', '[*foo* bar]: /url "title"'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="/url"
+           title="title"
+        >
+          <em>
+            foo
+          </em>
+          bar
+        </a>
+      </p>
+    `)
+  })
+
+  it('should preserve a space after a shortcut reference link', () => {
+    render(compiler(['[foo] bar', '[foo]: /url'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="/url">
+          foo
+        </a>
+        bar
+      </p>
+    `)
+  })
+
+  it('should not treat brackets as a shortcut reference link when there is no defined link', () => {
+    render(compiler(['These [brackets] are not a link', '[foo]: /url "bar"'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        These [brackets] are not a link.
+      </p>
+    `)
+  })
+
+  it('should treat a collapsed reference link with a space as a shortcut reference link', () => {
+    render(compiler(['[foo] []', '[foo]: /url "bar"'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="/url"
+           title="bar"
+        >
+          foo
+        </a>
+        []
+      </p>
+    `)
+  })
+
   it('list item should break paragraph', () => {
     render(compiler('foo\n- item'))
 
