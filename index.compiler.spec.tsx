@@ -771,6 +771,44 @@ describe('links', () => {
     `)
   })
 
+  it('should handle a link reference with angle brackets', () => {
+    render(compiler(['[foo][1]', '[1]: </xyz.png>'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="/xyz.png">
+          foo
+        </a>
+      </p>
+    `)
+  })
+
+  it('should handle a link reference with angle brackets and a space', () => {
+    render(compiler(['[foo] [1]', '[1]: </xyz.png>'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="/xyz.png">
+          foo
+        </a>
+      </p>
+    `)
+  })
+
+  it('should handle a link reference with angle brackets and a title', () => {
+    render(compiler(['[foo][1]', '[1]: </xyz.png> "bar"'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="/xyz.png"
+           title="bar"
+        >
+          foo
+        </a>
+      </p>
+    `)
+  })
+
   it('list item should break paragraph', () => {
     render(compiler('foo\n- item'))
 
