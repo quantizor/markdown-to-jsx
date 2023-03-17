@@ -333,6 +333,7 @@ const TEXT_BOLD_R =
   /^([*_])\1((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1\1(?!\1)/
 const TEXT_EMPHASIZED_R =
   /^([*_])((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1(?!\1|\w)/
+const TEXT_MARKED_R = /^==((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.)*?)==/
 const TEXT_STRIKETHROUGHED_R = /^~~((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.)*?)~~/
 
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
@@ -1810,6 +1811,15 @@ export function compiler(
         }
       },
     },
+
+    textMarked: {
+      _match: simpleInlineRegex(TEXT_MARKED_R),
+      _order: Priority.LOW,
+      _parse: parseCaptureInline,
+      _react(node, output, state) {
+        return <mark key={state._key}>{output(node._content, state)}</mark>
+      },
+    } as MarkdownToJSX.Rule<ReturnType<typeof parseCaptureInline>>,
 
     textStrikethroughed: {
       _match: simpleInlineRegex(TEXT_STRIKETHROUGHED_R),

@@ -303,6 +303,20 @@ describe('inline textual elements', () => {
     `)
   })
 
+  it('should handle marked text containing other syntax with an equal sign', () => {
+    render(compiler('==Foo `==bar` baz.=='))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <mark>
+        Foo
+        <code>
+          ==bar
+        </code>
+        baz.
+      </mark>
+    `)
+  })
+
   it('should handle block deleted text containing other syntax with a tilde', () => {
     render(compiler('~~Foo `~~bar` baz.~~\n\nFoo ~~bar~~.'))
 
