@@ -840,6 +840,20 @@ describe('links', () => {
     `)
   })
 
+  it('#474 link regression test', () => {
+    render(
+      compiler(
+        '[Markdown](https://cdn.vox-cdn.com/thumbor/ZGzvLsLuAaPPVW8yZMGqL77xyY8=/0x0:1917x789/1720x0/filters:focal(0x0:1917x789):format(webp):no_upscale()/cdn.vox-cdn.com/uploads/chorus_asset/file/24148777/cavill6.png)'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <a href="https://cdn.vox-cdn.com/thumbor/ZGzvLsLuAaPPVW8yZMGqL77xyY8=/0x0:1917x789/1720x0/filters:focal(0x0:1917x789):format(webp):no_upscale()/cdn.vox-cdn.com/uploads/chorus_asset/file/24148777/cavill6.png">
+        Markdown
+      </a>
+    `)
+  })
+
   it('header should break paragraph', () => {
     render(compiler('foo\n# header'))
 
