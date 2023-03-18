@@ -204,10 +204,13 @@ const ATTRIBUTE_TO_JSX_PROP_MAP = [
   'srcSet',
   'tabIndex',
   'useMap',
-].reduce((obj, x) => {
-  obj[x.toLowerCase()] = x
-  return obj
-}, { for: 'htmlFor' })
+].reduce(
+  (obj, x) => {
+    obj[x.toLowerCase()] = x
+    return obj
+  },
+  { for: 'htmlFor' }
+)
 
 const namedCodesToUnicode = {
   amp: '\u0026',
@@ -557,8 +560,8 @@ function generateListRule(h: any, type: LIST_TYPE) {
   }>
 }
 
-const LINK_R = /^\[([^\]]*)]\( *([^) ]*) *"?([^)"]*)?"?\)/
-const IMAGE_R = /^!\[([^\]]*)]\( *([^) ]*) *"?([^)"]*)?"?\)/
+const LINK_R = /^\[([^\]]*)]\( *((?:\([^)]*\)|[^() ])*) *"?([^)"]*)?"?\)/
+const IMAGE_R = /^!\[([^\]]*)]\( *((?:\([^)]*\)|[^() ])*) *"?([^)"]*)?"?\)/
 
 const NON_PARAGRAPH_BLOCK_SYNTAXES = [
   BLOCKQUOTE_R,
@@ -1228,7 +1231,7 @@ export function compiler(
 
     return React.createElement(wrapper, { key: 'outer' }, jsx)
   }
-  
+
   function attrStringToMap(str: string): JSX.IntrinsicAttributes {
     const attributes = str.match(ATTR_EXTRACTOR_R)
     if (!attributes) {
@@ -1236,32 +1239,33 @@ export function compiler(
     }
 
     return attributes.reduce(function (map, raw, index) {
-          const delimiterIdx = raw.indexOf('=')
+      const delimiterIdx = raw.indexOf('=')
 
-          if (delimiterIdx !== -1) {
-            const key = normalizeAttributeKey(raw.slice(0, delimiterIdx)).trim()
-            const value = unquote(raw.slice(delimiterIdx + 1).trim())
+      if (delimiterIdx !== -1) {
+        const key = normalizeAttributeKey(raw.slice(0, delimiterIdx)).trim()
+        const value = unquote(raw.slice(delimiterIdx + 1).trim())
 
-            const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key
-            const normalizedValue = (map[mappedKey] =
-              attributeValueToJSXPropValue(key, value))
+        const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key
+        const normalizedValue = (map[mappedKey] = attributeValueToJSXPropValue(
+          key,
+          value
+        ))
 
-            if (
-              typeof normalizedValue === 'string' &&
-              (HTML_BLOCK_ELEMENT_R.test(normalizedValue) ||
-                HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue))
-            ) {
-              map[mappedKey] = React.cloneElement(
-                compile(normalizedValue.trim()),
-                { key: index }
-              )
-            }
-          } else if (raw !== 'style') {
-            map[ATTRIBUTE_TO_JSX_PROP_MAP[raw] || raw] = true
-          }
+        if (
+          typeof normalizedValue === 'string' &&
+          (HTML_BLOCK_ELEMENT_R.test(normalizedValue) ||
+            HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue))
+        ) {
+          map[mappedKey] = React.cloneElement(compile(normalizedValue.trim()), {
+            key: index,
+          })
+        }
+      } else if (raw !== 'style') {
+        map[ATTRIBUTE_TO_JSX_PROP_MAP[raw] || raw] = true
+      }
 
-          return map
-        }, {})
+      return map
+    }, {})
   }
 
   /* istanbul ignore next */
