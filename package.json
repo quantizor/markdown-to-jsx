@@ -1,5 +1,5 @@
 {
-  "name": "markdown-to-jsx",
+  "name": "@refrens/markdown-to-jsx",
   "description": "Convert markdown to JSX with ease for React and React-like projects. Super lightweight and highly configurable.",
   "homepage": "https://probablyup.github.io/markdown-to-jsx",
   "license": "MIT",
@@ -16,7 +16,7 @@
     "html"
   ],
   "author": "Evan Jacobs <probablyup@gmail.com>",
-  "repository": "probablyup/markdown-to-jsx",
+  "repository": "refrens/markdown-to-jsx",
   "bugs": "https://github.com/probablyup/markdown-to-jsx/issues",
   "files": [
     "dist",
@@ -82,6 +82,9 @@
     "test": "jest --verbose",
     "size": "size-limit",
     "benchmark": "node -r esm benchmark.js"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   },
   "mangle": {
     "regex": "^_"

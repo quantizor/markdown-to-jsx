@@ -3552,6 +3552,104 @@ describe('options.slugify', () => {
   })
 })
 
+describe('options.disableAutolinking', () => {
+  it('should not handle autolink style', () => {
+    render(compiler('<https://google.com>', { disableAutolinking: true }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        &lt;https://google.com&gt;
+      </span>
+    `)
+  })
+
+  it('should not handle autolinks after a paragraph (regression)', () => {
+    render(
+      compiler(
+        theredoc`
+        **autolink** style
+
+        <https://google.com>
+      `,
+        { disableAutolinking: true }
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <div>
+        <p>
+          <strong>
+            autolink
+          </strong>
+          style
+        </p>
+        <p>
+          &lt;https://google.com&gt;
+        </p>
+      </div>
+    `)
+  })
+
+  it('should not handle mailto autolinks after a paragraph', () => {
+    render(
+      compiler(
+        theredoc`
+        **autolink** style
+
+        <mailto:probablyup@gmail.com>
+      `,
+        { disableAutolinking: true }
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <div>
+        <p>
+          <strong>
+            autolink
+          </strong>
+          style
+        </p>
+        <p>
+          &lt;mailto:probablyup@gmail.com&gt;
+        </p>
+      </div>
+    `)
+  })
+
+  it('should not handle a mailto autolink', () => {
+    render(
+      compiler('<mailto:probablyup@gmail.com>', { disableAutolinking: true })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        &lt;mailto:probablyup@gmail.com&gt;
+      </span>
+    `)
+  })
+
+  it('should not autolink email and add a mailto: prefix', () => {
+    render(compiler('<probablyup@gmail.com>', { disableAutolinking: true }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        &lt;probablyup@gmail.com&gt;
+      </span>
+    `)
+  })
+
+  it('should not automatically link found URLs', () => {
+    render(compiler('https://google.com', { disableAutolinking: true }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        https://google.com
+      </span>
+    `)
+  })
+})
+
 describe('overrides', () => {
   it('should substitute the appropriate JSX tag if given a component', () => {
     class FakeParagraph extends React.Component {

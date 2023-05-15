@@ -159,6 +159,13 @@ export namespace MarkdownToJSX {
      * HTML IDs for anchor linking purposes.
      */
     slugify: (source: string) => string
+
+    /**
+     * Override the default parser rules.
+     * This will disable detection of URLs and email addresses in the text
+     * and disable automatic linking using anchor tag.
+     */
+    disableAutolinking: boolean
   }>
 }
 
@@ -1543,72 +1550,6 @@ export function compiler(
       _title?: string
     }>,
 
-    // https://daringfireball.net/projects/markdown/syntax#autolink
-    linkAngleBraceStyleDetector: {
-      _match: inlineRegex(LINK_AUTOLINK_R),
-      _order: Priority.MAX,
-      _parse(capture /*, parse, state*/) {
-        return {
-          _content: [
-            {
-              _content: capture[1],
-              type: 'text',
-            },
-          ],
-          _target: capture[1],
-          type: 'link',
-        }
-      },
-    },
-
-    linkBareUrlDetector: {
-      _match: (source, state) => {
-        if (state._inAnchor) {
-          return null
-        }
-        return inlineRegex(LINK_AUTOLINK_BARE_URL_R)(source, state)
-      },
-      _order: Priority.MAX,
-      _parse(capture /*, parse, state*/) {
-        return {
-          _content: [
-            {
-              _content: capture[1],
-              type: 'text',
-            },
-          ],
-          _target: capture[1],
-          _title: undefined,
-          type: 'link',
-        }
-      },
-    },
-
-    linkMailtoDetector: {
-      _match: inlineRegex(LINK_AUTOLINK_MAILTO_R),
-      _order: Priority.MAX,
-      _parse(capture /*, parse, state*/) {
-        let address = capture[1]
-        let target = capture[1]
-
-        // Check for a `mailto:` already existing in the link:
-        if (!AUTOLINK_MAILTO_CHECK_R.test(target)) {
-          target = 'mailto:' + target
-        }
-
-        return {
-          _content: [
-            {
-              _content: address.replace('mailto:', ''),
-              type: 'text',
-            },
-          ],
-          _target: target,
-          type: 'link',
-        }
-      },
-    },
-
     orderedList: generateListRule(h, ORDERED),
     unorderedList: generateListRule(h, UNORDERED),
 
@@ -1869,6 +1810,74 @@ export function compiler(
   //     return result
   //   }
   // })
+
+  if (!options.disableAutolinking) {
+    // https://daringfireball.net/projects/markdown/syntax#autolink
+    rules.linkAngleBraceStyleDetector = {
+      _match: inlineRegex(LINK_AUTOLINK_R),
+      _order: Priority.MAX,
+      _parse(capture /*, parse, state*/) {
+        return {
+          _content: [
+            {
+              _content: capture[1],
+              type: 'text',
+            },
+          ],
+          _target: capture[1],
+          type: 'link',
+        }
+      },
+    }
+
+    rules.linkBareUrlDetector = {
+      _match: (source, state) => {
+        if (state._inAnchor) {
+          return null
+        }
+        return inlineRegex(LINK_AUTOLINK_BARE_URL_R)(source, state)
+      },
+      _order: Priority.MAX,
+      _parse(capture /*, parse, state*/) {
+        return {
+          _content: [
+            {
+              _content: capture[1],
+              type: 'text',
+            },
+          ],
+          _target: capture[1],
+          _title: undefined,
+          type: 'link',
+        }
+      },
+    }
+
+    rules.linkMailtoDetector = {
+      _match: inlineRegex(LINK_AUTOLINK_MAILTO_R),
+      _order: Priority.MAX,
+      _parse(capture /*, parse, state*/) {
+        let address = capture[1]
+        let target = capture[1]
+
+        // Check for a `mailto:` already existing in the link:
+        if (!AUTOLINK_MAILTO_CHECK_R.test(target)) {
+          target = 'mailto:' + target
+        }
+
+        return {
+          _content: [
+            {
+              _content: address.replace('mailto:', ''),
+              type: 'text',
+            },
+          ],
+          _target: target,
+          type: 'link',
+        }
+      },
+    }
+  }
 
   if (options.disableParsingRawHTML !== true) {
     rules.htmlBlock = {
