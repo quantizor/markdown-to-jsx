@@ -23,6 +23,7 @@
     "LICENSE",
     "README.md"
   ],
+  "type": "module",
   "exports": {
     "./package.json": "./package.json",
     ".": {
