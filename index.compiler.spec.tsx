@@ -2104,6 +2104,47 @@ describe('GFM tables', () => {
       </table>
     `)
   })
+
+  it('processes a markdown link inside of a table row when a preceeding column contains HTML with nested elements', () => {
+    render(
+      compiler(theredoc`
+        | Nested HTML                        | Link                         |
+        | ---------------------------------- | ---------------------------- |
+        | <div><strong>Nested</strong></div> | [I'm a link](www.google.com) |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Nested HTML
+            </th>
+            <th>
+              Link
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div>
+                <strong>
+                  Nested
+                </strong>
+              </div>
+            </td>
+            <td>
+              <a href="www.google.com">
+                I'm a link
+              </a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
 })
 
 describe('arbitrary HTML', () => {
