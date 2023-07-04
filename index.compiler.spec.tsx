@@ -1986,7 +1986,7 @@ describe('GFM tables', () => {
     `)
   })
 
-  it('process markdown inside of a table row when a preceeding column contains HTML', () => {
+  it('processes markdown inside of a table row when a preceeding column contains HTML', () => {
     render(
       compiler(theredoc`
         | Column A                   | Column B                 |
@@ -2017,6 +2017,47 @@ describe('GFM tables', () => {
             <td>
               <strong>
                 Hello from column B!
+              </strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
+
+  it('process markdown inside of a table row when a preceeding column contains HTML with nested elements', () => {
+    render(
+      compiler(theredoc`
+        | Nested HTML                        | MD                   |
+        | ---------------------------------- | -------------------- |
+        | <div><strong>Nested</strong></div> | **I should be bold** |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Nested HTML
+            </th>
+            <th>
+              MD
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div>
+                <strong>
+                  Nested
+                </strong>
+              </div>
+            </td>
+            <td>
+              <strong>
+                I should be bold
               </strong>
             </td>
           </tr>
