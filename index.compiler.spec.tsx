@@ -2025,7 +2025,46 @@ describe('GFM tables', () => {
     `)
   })
 
-  it('process markdown inside of a table row when a preceeding column contains HTML with nested elements', () => {
+  it('processes HTML inside of a table row when a preceeding column contains markdown', () => {
+    render(
+      compiler(theredoc`
+        | Markdown         | HTML                          |
+        | ---------------- | ----------------------------- |
+        | **I'm Markdown** | <strong>And I'm HTML</strong> |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Markdown
+            </th>
+            <th>
+              HTML
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <strong>
+                I'm Markdown
+              </strong>
+            </td>
+            <td>
+              <strong>
+                And I'm HTML
+              </strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
+
+  it('processes markdown inside of a table row when a preceeding column contains HTML with nested elements', () => {
     render(
       compiler(theredoc`
         | Nested HTML                        | MD                   |
