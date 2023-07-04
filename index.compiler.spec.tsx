@@ -1985,6 +1985,45 @@ describe('GFM tables', () => {
       </table>
     `)
   })
+
+  it('process markdown inside of a table row when a preceeding column contains HTML', () => {
+    render(
+      compiler(theredoc`
+        | Column A                   | Column B                 |
+        | -------------------------- | ------------------------ |
+        | <div>I'm in column A</div> | **Hello from column B!** |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Column A
+            </th>
+            <th>
+              Column B
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div>
+                I'm in column A
+              </div>
+            </td>
+            <td>
+              <strong>
+                Hello from column B!
+              </strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
 })
 
 describe('arbitrary HTML', () => {
