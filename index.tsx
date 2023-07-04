@@ -1741,6 +1741,7 @@ export function compiler(
         if (!state._inTable) {
           return null
         }
+        state._inline = true
         return TABLE_SEPARATOR_R.exec(source)
       },
       _order: Priority.HIGH,
