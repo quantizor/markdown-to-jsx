@@ -1954,6 +1954,37 @@ describe('GFM tables', () => {
       </table>
     `)
   })
+
+  it('processeses HTML inside of a table row', () => {
+    render(
+      compiler(theredoc`
+        | Header                     |
+        | -------------------------- |
+        | <div>I'm in a "div"!</div> |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Header
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div>
+                I'm in a "div"!
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
 })
 
 describe('arbitrary HTML', () => {
