@@ -26,6 +26,7 @@ The most lightweight, customizable React markdown component.
 - [Gotchas](#gotchas)
   - [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
     - [Code blocks](#code-blocks)
+- [Using The Compiler Directly](#using-the-compiler-directly)
 - [Changelog](#changelog)
 - [Donate](#donate)
 
@@ -437,6 +438,7 @@ Some projects require to extend this map of named codes and unicode characters. 
 <Markdown options={{ namedCodesToUnicode: {
     le: '\u2264',
     ge: '\u2265',
+    '#39': '\u0027',
 } }}>This text is &le; than this text.</Markdown>;
 
 // or
@@ -444,6 +446,7 @@ Some projects require to extend this map of named codes and unicode characters. 
 compiler('This text is &le; than this text.', namedCodesToUnicode: {
     le: '\u2264',
     ge: '\u2265',
+    '#39': '\u0027',
 });
 
 // renders:

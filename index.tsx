@@ -304,7 +304,7 @@ const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/
 const HTML_BLOCK_ELEMENT_R =
   /^ *(?!<[a-z][^ >/]* ?\/>)<([a-z][^ >/]*) ?([^>]*)\/{0}>\n?(\s*(?:<\1[^>]*?>[\s\S]*?<\/\1>|(?!<\1)[\s\S])*?)<\/\1>\n*/i
 
-const HTML_CHAR_CODE_R = /&([a-zA-Z]+);/g
+const HTML_CHAR_CODE_R = /&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-fA-F]{1,6});/ig
 
 const HTML_COMMENT_R = /^<!--[\s\S]*?(?:-->)/
 
@@ -344,7 +344,7 @@ const TEXT_STRIKETHROUGHED_R = /^~~((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.)*?)~~/
 
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
 const TEXT_PLAIN_R =
-  /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff&;.()'"]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i
+  /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff&#;.()'"]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
