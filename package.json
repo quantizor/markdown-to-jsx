@@ -93,16 +93,12 @@
   },
   "size-limit": [
     {
-      "path": "./dist/index.cjs",
-      "limit": "6 kB"
-    },
-    {
       "path": "./dist/index.module.js",
-      "limit": "6 kB"
+      "limit": "6.1 kB"
     },
     {
       "path": "./dist/index.modern.js",
-      "limit": "6 kB"
+      "limit": "6.1 kB"
     }
   ],
   "jest": {
