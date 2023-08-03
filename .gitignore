@@ -6,5 +6,12 @@ dist/
 *.log
 package-lock.json
 npm-shrinkwrap.json
-.yarn/cache/*
-.yarn/install-state.gz
+
+# yarn
+.yarn/*
+!.yarn/cache
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
