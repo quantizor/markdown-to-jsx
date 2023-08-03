@@ -19,7 +19,7 @@ jobs:
           cache: 'yarn'
           node-version-file: '.nvmrc'
 
-      - run: yarn --immutable --immutable-cache
+      - run: yarn --immutable
 
       - name: Jest
         run: yarn test
