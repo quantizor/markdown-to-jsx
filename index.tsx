@@ -992,7 +992,7 @@ function reactFor(outputFunc) {
   }
 }
 
-function sanitizeUrl(url: string): string | null {
+function sanitizeUrl(url: string): string | undefined {
   try {
     const decoded = decodeURIComponent(url).replace(/[^A-Za-z0-9/:]/g, '')
 
@@ -1004,7 +1004,7 @@ function sanitizeUrl(url: string): string | null {
         )
       }
 
-      return null
+      return undefined
     }
   } catch (e) {
     if (process.env.NODE_ENV !== 'production') {
