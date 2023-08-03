@@ -25,12 +25,18 @@
   ],
   "type": "module",
   "exports": {
-    "./package.json": "./package.json",
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.modern.js",
-      "require": "./dist/index.cjs"
-    }
+      "import": {
+        "types": "./index.d.ts",
+        "node": "./dist/index.module.js",
+        "default": "./dist/index.modern.js"
+      },
+      "require": {
+        "types": "./dist/index.cjs.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
   },
   "main": "dist/index.cjs",
   "module": "dist/index.module.js",
