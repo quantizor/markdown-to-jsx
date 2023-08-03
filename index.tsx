@@ -1996,6 +1996,10 @@ const Markdown: React.FC<{
   children: string
   options?: MarkdownToJSX.Options
 }> = ({ children, options, ...props }) => {
+  if (process.env.NODE_ENV !== 'production' && typeof children !== 'string') {
+    console.error('markdown-to-jsx: <Markdown> component only accepts a single string as a child, received:', children)
+  }
+
   return React.cloneElement(
     compiler(children, options),
     props as JSX.IntrinsicAttributes
