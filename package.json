@@ -124,5 +124,5 @@
     "type": "opencollective",
     "url": "https://opencollective.com/markdown-to-jsx"
   },
-  "dependencies": {}
+  "packageManager": "yarn@3.6.1"
 }

@@ -3,7 +3,7 @@ name: test
 on:
   push:
     branches:
-      - "main"
+      - 'main'
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -12,14 +12,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        react: ["17"]
+        react: ['17']
     steps:
       - uses: actions/checkout@v3
 
       - name: Setup node
         uses: actions/setup-node@v3
         with:
-          node-version-file: ".nvmrc"
+          cache: 'yarn'
+          node-version-file: '.nvmrc'
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
