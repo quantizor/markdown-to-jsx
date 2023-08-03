@@ -507,6 +507,16 @@ describe('headings', () => {
     `)
   })
 
+  it('should enforce atx when option is passed', () => {
+    render(compiler('#Hello World', { enforceAtxHeadings: true }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        #Hello World
+      </span>
+    `)
+  })
+
   it('should handle level 2 properly', () => {
     render(compiler('## Hello World'))
 

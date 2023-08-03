@@ -159,6 +159,14 @@ export namespace MarkdownToJSX {
      * HTML IDs for anchor linking purposes.
      */
     slugify: (source: string) => string
+
+    /**
+     * Forces the compiler to have space between hash sign and the header text which
+     * is explicitly stated in the most of the markdown specs.
+     * https://github.github.com/gfm/#atx-heading
+     * `The opening sequence of # characters must be followed by a space or by the end of line.`
+     */
+    enforceAtxHeadings: boolean
   }>
 }
 
@@ -277,6 +285,8 @@ const FOOTNOTE_REFERENCE_R = /^\[\^([^\]]+)]/
 const FORMFEED_R = /\f/g
 const GFM_TASK_R = /^\s*?\[(x|\s)\]/
 const HEADING_R = /^ *(#{1,6}) *([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
+const HEADING_ATX_COMPLIANT_R =
+  /^ *(#{1,6}) +([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
 const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/
 
 /**
@@ -569,6 +579,7 @@ const NON_PARAGRAPH_BLOCK_SYNTAXES = [
   CODE_BLOCK_R,
   HEADING_R,
   HEADING_SETEXT_R,
+  HEADING_ATX_COMPLIANT_R,
   HTML_COMMENT_R,
   NP_TABLE_R,
   ORDERED_LIST_ITEM_R,
@@ -1446,7 +1457,9 @@ export function compiler(
     } as MarkdownToJSX.Rule<{ _completed: boolean }>,
 
     heading: {
-      _match: blockRegex(HEADING_R),
+      _match: blockRegex(
+        options.enforceAtxHeadings ? HEADING_ATX_COMPLIANT_R : HEADING_R
+      ),
       _order: Priority.HIGH,
       _parse(capture, parse, state) {
         return {
