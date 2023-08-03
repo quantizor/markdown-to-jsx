@@ -23,15 +23,21 @@
     "LICENSE",
     "README.md"
   ],
+  "type": "module",
   "exports": {
-    "./package.json": "./package.json",
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.modern.js",
-      "require": "./dist/index.js"
+      "import": {
+        "types": "./index.d.ts",
+        "node": "./dist/index.module.js",
+        "default": "./dist/index.modern.js"
+      },
+      "require": {
+        "types": "./dist/index.cjs.d.ts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
-  "main": "dist/index.js",
+  "main": "dist/index.cjs",
   "module": "dist/index.module.js",
   "source": "index.tsx",
   "unpkg": "./dist/index.umd.js",
@@ -88,7 +94,11 @@
   },
   "size-limit": [
     {
-      "path": "dist/index.js",
+      "path": "./dist/index.cjs",
+      "limit": "6 kB"
+    },
+    {
+      "path": "./dist/index.module.js",
       "limit": "6 kB"
     }
   ],
