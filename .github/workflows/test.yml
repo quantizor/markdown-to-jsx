@@ -12,20 +12,20 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        react: ["16", "next"]
+        react: ["17"]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Setup node
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version-file: ".nvmrc"
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
-        run: echo "::set-output name=dir::$(yarn cache dir)"
+        run: echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
         with:
           path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
@@ -41,5 +41,3 @@ jobs:
 
       - name: Build
         run: yarn build && yarn size
-        # should use the lowest version from the matrix
-        if: matrix.react == '16'

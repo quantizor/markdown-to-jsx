@@ -303,6 +303,20 @@ describe('inline textual elements', () => {
     `)
   })
 
+  it('should handle marked text containing other syntax with an equal sign', () => {
+    render(compiler('==Foo `==bar` baz.=='))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <mark>
+        Foo
+        <code>
+          ==bar
+        </code>
+        baz.
+      </mark>
+    `)
+  })
+
   it('should handle block deleted text containing other syntax with a tilde', () => {
     render(compiler('~~Foo `~~bar` baz.~~\n\nFoo ~~bar~~.'))
 
@@ -448,6 +462,21 @@ describe('inline textual elements', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <span>
         Foo &nbsp; bar&amp;baz.
+      </span>
+    `)
+  })
+
+  it('replaces custom named character codes with unicode equivalents so React will render correctly', () => {
+    render(compiler('Apostrophe&#39;s and less than ≤ equal', {
+      namedCodesToUnicode: {
+        le: '\u2264',
+        '#39': '\u0027'
+      }
+    }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        Apostrophe's and less than ≤ equal
       </span>
     `)
   })
@@ -634,6 +663,20 @@ describe('images', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(`<img src="/xyz.png">`)
   })
 
+  it('should handle a base64-encoded image', () => {
+    render(
+      compiler(
+        '![Red Dot](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==)'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <img alt="Red Dot"
+           src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg=="
+      >
+    `)
+  })
+
   it('should handle an image with alt text', () => {
     render(compiler('![test](/xyz.png)'))
 
@@ -767,6 +810,44 @@ describe('links', () => {
     `)
   })
 
+  it('should handle a link reference with angle brackets', () => {
+    render(compiler(['[foo][1]', '[1]: </xyz.png>'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="/xyz.png">
+          foo
+        </a>
+      </p>
+    `)
+  })
+
+  it('should handle a link reference with angle brackets and a space', () => {
+    render(compiler(['[foo] [1]', '[1]: </xyz.png>'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="/xyz.png">
+          foo
+        </a>
+      </p>
+    `)
+  })
+
+  it('should handle a link reference with angle brackets and a title', () => {
+    render(compiler(['[foo][1]', '[1]: </xyz.png> "bar"'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="/xyz.png"
+           title="bar"
+        >
+          foo
+        </a>
+      </p>
+    `)
+  })
+
   it('list item should break paragraph', () => {
     render(compiler('foo\n- item'))
 
@@ -781,6 +862,20 @@ describe('links', () => {
           </li>
         </ul>
       </div>
+    `)
+  })
+
+  it('#474 link regression test', () => {
+    render(
+      compiler(
+        '[Markdown](https://cdn.vox-cdn.com/thumbor/ZGzvLsLuAaPPVW8yZMGqL77xyY8=/0x0:1917x789/1720x0/filters:focal(0x0:1917x789):format(webp):no_upscale()/cdn.vox-cdn.com/uploads/chorus_asset/file/24148777/cavill6.png)'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <a href="https://cdn.vox-cdn.com/thumbor/ZGzvLsLuAaPPVW8yZMGqL77xyY8=/0x0:1917x789/1720x0/filters:focal(0x0:1917x789):format(webp):no_upscale()/cdn.vox-cdn.com/uploads/chorus_asset/file/24148777/cavill6.png">
+        Markdown
+      </a>
     `)
   })
 
@@ -1884,6 +1979,197 @@ describe('GFM tables', () => {
       </table>
     `)
   })
+
+  it('processeses HTML inside of a table row', () => {
+    render(
+      compiler(theredoc`
+        | Header                     |
+        | -------------------------- |
+        | <div>I'm in a "div"!</div> |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Header
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div>
+                I'm in a "div"!
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
+
+  it('processes markdown inside of a table row when a preceeding column contains HTML', () => {
+    render(
+      compiler(theredoc`
+        | Column A                   | Column B                 |
+        | -------------------------- | ------------------------ |
+        | <div>I'm in column A</div> | **Hello from column B!** |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Column A
+            </th>
+            <th>
+              Column B
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div>
+                I'm in column A
+              </div>
+            </td>
+            <td>
+              <strong>
+                Hello from column B!
+              </strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
+
+  it('processes HTML inside of a table row when a preceeding column contains markdown', () => {
+    render(
+      compiler(theredoc`
+        | Markdown         | HTML                          |
+        | ---------------- | ----------------------------- |
+        | **I'm Markdown** | <strong>And I'm HTML</strong> |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Markdown
+            </th>
+            <th>
+              HTML
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <strong>
+                I'm Markdown
+              </strong>
+            </td>
+            <td>
+              <strong>
+                And I'm HTML
+              </strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
+
+  it('processes markdown inside of a table row when a preceeding column contains HTML with nested elements', () => {
+    render(
+      compiler(theredoc`
+        | Nested HTML                        | MD                   |
+        | ---------------------------------- | -------------------- |
+        | <div><strong>Nested</strong></div> | **I should be bold** |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Nested HTML
+            </th>
+            <th>
+              MD
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div>
+                <strong>
+                  Nested
+                </strong>
+              </div>
+            </td>
+            <td>
+              <strong>
+                I should be bold
+              </strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
+
+  it('processes a markdown link inside of a table row when a preceeding column contains HTML with nested elements', () => {
+    render(
+      compiler(theredoc`
+        | Nested HTML                        | Link                         |
+        | ---------------------------------- | ---------------------------- |
+        | <div><strong>Nested</strong></div> | [I'm a link](www.google.com) |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Nested HTML
+            </th>
+            <th>
+              Link
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div>
+                <strong>
+                  Nested
+                </strong>
+              </div>
+            </td>
+            <td>
+              <a href="www.google.com">
+                I'm a link
+              </a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
 })
 
 describe('arbitrary HTML', () => {
@@ -2877,6 +3163,105 @@ comment -->`)
       </span>
     `)
   })
+
+  it('#465 misc regression test', () => {
+    render(compiler('hello [h]:m **world**'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        hello [h]:m
+        <strong>
+          world
+        </strong>
+      </span>
+    `)
+  })
+
+  it('#455 fenced code block regression test', () => {
+    render(
+      compiler(`Hello world example
+
+\`\`\`python data-start="2"
+print("hello world")
+\`\`\``)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <div>
+        <p>
+          Hello world example
+        </p>
+        <pre>
+          <code data-start="2"
+                class="lang-python"
+          >
+            print("hello world")
+          </code>
+        </pre>
+      </div>
+    `)
+  })
+
+  it('#444 switching list formats regression test', () => {
+    render(
+      compiler(
+        `
+1.  One
+2.  Two
+3.  Three
+
+*   Red
+*   Green
+*   Blue
+        `
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <div>
+        <ol start="1">
+          <li>
+            One
+          </li>
+          <li>
+            Two
+          </li>
+          <li>
+            Three
+          </li>
+        </ol>
+        <ul>
+          <li>
+            Red
+          </li>
+          <li>
+            Green
+          </li>
+          <li>
+            Blue
+          </li>
+        </ul>
+      </div>
+    `)
+  })
+
+  it('#466 list-like syntax inside link regression test', () => {
+    render(
+      compiler(
+        'Hello, I think that [6. Markdown](http://daringfireball.net/projects/markdown/) lets you write content in a really natural way.'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        Hello, I think that
+        <a href="http://daringfireball.net/projects/markdown/">
+          6. Markdown
+        </a>
+        lets you write content in a really natural way.
+      </span>
+    `)
+  })
 })
 
 describe('horizontal rules', () => {
@@ -3144,6 +3529,89 @@ describe('footnotes', () => {
   })
 })
 
+describe('options.namedCodesToUnicode', () => {
+  // &amp; &gt; &lt; are already replaced by default
+  const content =
+    '&AElig;,&Aacute;,&Acirc;,&Agrave;,&Aring;,&Atilde;,&Auml;,&Ccedil;,&Eacute;,&Ecirc;,&Egrave;,&Euml;,&Iacute;,&Icirc;,&Igrave;,&Iuml;,&Ntilde;,&Oacute;,&Ocirc;,&Ograve;,&Oslash;,&Otilde;,&Ouml;,&Uacute;,&Ucirc;,&Ugrave;,&Uuml;,&Yacute;,&aacute;,&acirc;,&aelig;,&agrave;,&aring;,&atilde;,&auml;,&ccedil;,&coy;,&eacute;,&ecirc;,&egrave;,&euml;,&ge;,&iacute;,&icirc;,&igrave;,&iuml;,&laquo;,&le;,&nbsp;,&ntilde;,&oacute;,&ocirc;,&ograve;,&oslash;,&otilde;,&ouml;,&para;,&quot;,&raquo;,&szlig;,&uacute;,&ucirc;,&ugrave;,&uuml;,&yacute;'
+
+  const namedCodesToUnicode = {
+    AElig: 'Æ',
+    Aacute: 'Á',
+    Acirc: 'Â',
+    Agrave: 'À',
+    Aring: 'Å',
+    Atilde: 'Ã',
+    Auml: 'Ä',
+    Ccedil: 'Ç',
+    Eacute: 'É',
+    Ecirc: 'Ê',
+    Egrave: 'È',
+    Euml: 'Ë',
+    Iacute: 'Í',
+    Icirc: 'Î',
+    Igrave: 'Ì',
+    Iuml: 'Ï',
+    Ntilde: 'Ñ',
+    Oacute: 'Ó',
+    Ocirc: 'Ô',
+    Ograve: 'Ò',
+    Oslash: 'Ø',
+    Otilde: 'Õ',
+    Ouml: 'Ö',
+    Uacute: 'Ú',
+    Ucirc: 'Û',
+    Ugrave: 'Ù',
+    Uuml: 'Ü',
+    Yacute: 'Ý',
+    aacute: 'á',
+    acirc: 'â',
+    aelig: 'æ',
+    agrave: 'à',
+    aring: 'å',
+    atilde: 'ã',
+    auml: 'ä',
+    ccedil: 'ç',
+    coy: '©',
+    eacute: 'é',
+    ecirc: 'ê',
+    egrave: 'è',
+    euml: 'ë',
+    ge: '\u2265',
+    iacute: 'í',
+    icirc: 'î',
+    igrave: 'ì',
+    iuml: 'ï',
+    laquo: '«',
+    le: '\u2264',
+    nbsp: ' ',
+    ntilde: 'ñ',
+    oacute: 'ó',
+    ocirc: 'ô',
+    ograve: 'ò',
+    oslash: 'ø',
+    otilde: 'õ',
+    ouml: 'ö',
+    para: '§',
+    quot: '"',
+    raquo: '»',
+    szlig: 'ß',
+    uacute: 'ú',
+    ucirc: 'û',
+    ugrave: 'ù',
+    uuml: 'ü',
+    yacute: 'ý',
+  }
+
+  it('should replace special HTML characters', () => {
+    render(compiler(content, { namedCodesToUnicode }))
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        Æ,Á,Â,À,Å,Ã,Ä,Ç,É,Ê,È,Ë,Í,Î,Ì,Ï,Ñ,Ó,Ô,Ò,Ø,Õ,Ö,Ú,Û,Ù,Ü,Ý,á,â,æ,à,å,ã,ä,ç,©,é,ê,è,ë,≥,í,î,ì,ï,«,≤, ,ñ,ó,ô,ò,ø,õ,ö,§,",»,ß,ú,û,ù,ü,ý
+      </span>
+`)
+  })
+})
+
 describe('options.forceBlock', () => {
   it('treats given markdown as block-context', () => {
     render(
@@ -3205,15 +3673,15 @@ describe('options.wrapper', () => {
   it('renders an array when `null`', () => {
     expect(compiler('Hello\n\nworld!', { wrapper: null }))
       .toMatchInlineSnapshot(`
-        Array [
-          <p>
-            Hello
-          </p>,
-          <p>
-            world!
-          </p>,
-        ]
-      `)
+      [
+        <p>
+          Hello
+        </p>,
+        <p>
+          world!
+        </p>,
+      ]
+    `)
   })
 
   it('works with `React.Fragment`', () => {
@@ -3318,6 +3786,24 @@ describe('overrides', () => {
       <p class="foo">
         Hello.
       </p>
+    `)
+  })
+
+  it('should substitute custom components when found', () => {
+    const CustomButton: React.FC<JSX.IntrinsicElements['button']> = props => (
+      <button {...props} />
+    )
+
+    render(
+      compiler('<CustomButton>Click me!</CustomButton>', {
+        overrides: { CustomButton },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <button>
+        Click me!
+      </button>
     `)
   })
 
@@ -3458,7 +3944,7 @@ describe('overrides', () => {
         overrides: { li: { props: { className: 'foo' } } },
       })
     )
-    const $element = root.querySelector('li')
+    const $element = root.querySelector('li')!
 
     expect($element.outerHTML).toMatchInlineSnapshot(`
       <li class="foo">
@@ -3476,7 +3962,7 @@ describe('overrides', () => {
         overrides: { input: { props: { className: 'foo' } } },
       })
     )
-    const $element = root.querySelector('input')
+    const $element = root.querySelector('input')!
 
     expect($element.outerHTML).toMatchInlineSnapshot(`
       <input readonly
