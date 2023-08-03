@@ -99,6 +99,10 @@
     {
       "path": "./dist/index.module.js",
       "limit": "6 kB"
+    },
+    {
+      "path": "./dist/index.modern.js",
+      "limit": "6 kB"
     }
   ],
   "jest": {
