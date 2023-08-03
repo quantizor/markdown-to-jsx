@@ -1969,6 +1969,197 @@ describe('GFM tables', () => {
       </table>
     `)
   })
+
+  it('processeses HTML inside of a table row', () => {
+    render(
+      compiler(theredoc`
+        | Header                     |
+        | -------------------------- |
+        | <div>I'm in a "div"!</div> |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Header
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div>
+                I'm in a "div"!
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
+
+  it('processes markdown inside of a table row when a preceeding column contains HTML', () => {
+    render(
+      compiler(theredoc`
+        | Column A                   | Column B                 |
+        | -------------------------- | ------------------------ |
+        | <div>I'm in column A</div> | **Hello from column B!** |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Column A
+            </th>
+            <th>
+              Column B
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div>
+                I'm in column A
+              </div>
+            </td>
+            <td>
+              <strong>
+                Hello from column B!
+              </strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
+
+  it('processes HTML inside of a table row when a preceeding column contains markdown', () => {
+    render(
+      compiler(theredoc`
+        | Markdown         | HTML                          |
+        | ---------------- | ----------------------------- |
+        | **I'm Markdown** | <strong>And I'm HTML</strong> |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Markdown
+            </th>
+            <th>
+              HTML
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <strong>
+                I'm Markdown
+              </strong>
+            </td>
+            <td>
+              <strong>
+                And I'm HTML
+              </strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
+
+  it('processes markdown inside of a table row when a preceeding column contains HTML with nested elements', () => {
+    render(
+      compiler(theredoc`
+        | Nested HTML                        | MD                   |
+        | ---------------------------------- | -------------------- |
+        | <div><strong>Nested</strong></div> | **I should be bold** |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Nested HTML
+            </th>
+            <th>
+              MD
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div>
+                <strong>
+                  Nested
+                </strong>
+              </div>
+            </td>
+            <td>
+              <strong>
+                I should be bold
+              </strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
+
+  it('processes a markdown link inside of a table row when a preceeding column contains HTML with nested elements', () => {
+    render(
+      compiler(theredoc`
+        | Nested HTML                        | Link                         |
+        | ---------------------------------- | ---------------------------- |
+        | <div><strong>Nested</strong></div> | [I'm a link](www.google.com) |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Nested HTML
+            </th>
+            <th>
+              Link
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div>
+                <strong>
+                  Nested
+                </strong>
+              </div>
+            </td>
+            <td>
+              <a href="www.google.com">
+                I'm a link
+              </a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
 })
 
 describe('arbitrary HTML', () => {

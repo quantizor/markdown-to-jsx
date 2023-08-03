@@ -1058,7 +1058,7 @@ function parseBlock(
   state: MarkdownToJSX.State
 ): MarkdownToJSX.ParserResult {
   state._inline = false
-  return parse(content + '\n\n', state)
+  return parse(content, state)
 }
 
 const parseCaptureInline: MarkdownToJSX.Parser<
@@ -1741,6 +1741,7 @@ export function compiler(
         if (!state._inTable) {
           return null
         }
+        state._inline = true
         return TABLE_SEPARATOR_R.exec(source)
       },
       _order: Priority.HIGH,
