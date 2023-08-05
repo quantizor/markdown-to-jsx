@@ -27,7 +27,7 @@
   "exports": {
     ".": {
       "import": {
-        "types": "./index.d.ts",
+        "types": "./dist/index.d.ts",
         "node": "./dist/index.module.js",
         "default": "./dist/index.modern.js"
       },
