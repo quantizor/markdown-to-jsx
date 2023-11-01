@@ -747,6 +747,20 @@ describe('images', () => {
       </p>
     `)
   })
+
+  it('should handle an image reference with a missing reference', () => {
+    render(
+        compiler(theredoc`
+          ![test][1]
+        `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        ![test][1]
+      </span>
+    `)
+  })
 })
 
 describe('links', () => {
@@ -845,6 +859,16 @@ describe('links', () => {
           foo
         </a>
       </p>
+    `)
+  })
+
+  it('should handle a link reference with a missing reference', () => {
+    render(compiler('[foo][1]'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        [foo][1]
+      </span>
     `)
   })
 

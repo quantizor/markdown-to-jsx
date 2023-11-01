@@ -1660,23 +1660,33 @@ export function compiler(
     refImage: {
       _match: simpleInlineRegex(REFERENCE_IMAGE_R),
       _order: Priority.MAX,
-      _parse(capture) {
+      _parse(capture, parse, state) {
         return {
           _alt: capture[1] || undefined,
+          _fallbackContent: parse(
+              capture[0].replace(SQUARE_BRACKETS_R, '\\$1'),
+              state
+          ),
           _ref: capture[2],
         }
       },
       _react(node, output, state) {
-        return (
+        return refs[node._ref] ? (
           <img
             key={state._key}
             alt={node._alt}
             src={sanitizeUrl(refs[node._ref]._target)}
             title={refs[node._ref]._title}
           />
+        ) : (
+            <span key={state._key}>{ output(node._fallbackContent, state) }</span>
         )
       },
-    } as MarkdownToJSX.Rule<{ _alt?: string; _ref: string }>,
+    } as MarkdownToJSX.Rule<{
+      _alt?: string
+      _fallbackContent: MarkdownToJSX.ParserResult
+      _ref: string
+    }>,
 
     refLink: {
       _match: inlineRegex(REFERENCE_LINK_R),
