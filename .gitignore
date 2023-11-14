@@ -2,7 +2,6 @@ node_modules/
 .git/
 .DS_Store
 coverage/
-dist/
 *.log
 package-lock.json
 npm-shrinkwrap.json
