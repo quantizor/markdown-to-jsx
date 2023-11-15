@@ -3776,7 +3776,6 @@ describe('overrides', () => {
         return <p className="foo">{this.props.children}</p>
       }
     }
-    z
 
     render(
       compiler('Hello.\n\n', {
