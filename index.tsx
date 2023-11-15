@@ -352,9 +352,9 @@ const TEXT_EMPHASIZED_R =
 const TEXT_MARKED_R = /^==((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.)*?)==/
 const TEXT_STRIKETHROUGHED_R = /^~~((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.)*?)~~/
 
-const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
+const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s_])/
 const TEXT_PLAIN_R =
-  /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff&#;.()'"]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i
+  /^[\s\S]+?(?=[^0-9A-Z\s_\u00c0-\uffff&#;.()'"]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
