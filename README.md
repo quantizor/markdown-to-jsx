@@ -2,7 +2,7 @@
 
 The most lightweight, customizable React markdown component.
 
-[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) [![build status](https://api.travis-ci.org/probablyup/markdown-to-jsx.svg)](https://travis-ci.org/probablyup/markdown-to-jsx) [![downloads](https://badgen.net/npm/dy/markdown-to-jsx)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
+[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) [![downloads](https://badgen.net/npm/dy/markdown-to-jsx)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
 
 <!-- TOC -->
 
