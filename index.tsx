@@ -314,7 +314,7 @@ const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/
 const HTML_BLOCK_ELEMENT_R =
   /^ *(?!<[a-z][^ >/]* ?\/>)<([a-z][^ >/]*) ?([^>]*)\/{0}>\n?(\s*(?:<\1[^>]*?>[\s\S]*?<\/\1>|(?!<\1)[\s\S])*?)<\/\1>\n*/i
 
-const HTML_CHAR_CODE_R = /&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-fA-F]{1,6});/ig
+const HTML_CHAR_CODE_R = /&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-fA-F]{1,6});/gi
 
 const HTML_COMMENT_R = /^<!--[\s\S]*?(?:-->)/
 
@@ -1997,7 +1997,10 @@ const Markdown: React.FC<{
   options?: MarkdownToJSX.Options
 }> = ({ children, options, ...props }) => {
   if (process.env.NODE_ENV !== 'production' && typeof children !== 'string') {
-    console.error('markdown-to-jsx: <Markdown> component only accepts a single string as a child, received:', children)
+    console.error(
+      'markdown-to-jsx: <Markdown> component only accepts a single string as a child, received:',
+      children
+    )
   }
 
   return React.cloneElement(
