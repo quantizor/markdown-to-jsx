@@ -37,6 +37,7 @@
       }
     }
   },
+  "sideEffects": false,
   "main": "dist/index.cjs",
   "module": "dist/index.module.js",
   "source": "index.tsx",
@@ -62,7 +63,6 @@
     "microbundle": "^0.15.1",
     "microtime": "^3.1.1",
     "mkdirp": "^3.0.1",
-    "polished": "^4.2.2",
     "preact": "^10.16.0",
     "prettier": "^3.0.1",
     "react": "^17.0.0",
@@ -82,8 +82,8 @@
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
     "prebuild": "rimraf dist && mkdirp dist",
     "build": "microbundle --tsconfig tsconfig.json -f cjs,umd index.cjs.tsx --name MarkdownToJSX --define process.env.NODE_ENV=production --globals react=React && microbundle --tsconfig tsconfig.json -f es,modern --name MarkdownToJSX --define process.env.NODE_ENV=production",
-    "release": "microbundle site.tsx -o docs -f iife --tsconfig tsconfig.site.json --define process.env.NODE_ENV=production --jsx React.createElement --external react,react-dom,styled-components --globals react=React,react-dom=ReactDOM,styled-components=styled",
-    "dev": "microbundle watch site.tsx -o docs -f iife --tsconfig tsconfig.site.json --define process.env.NODE_ENV=development --no-compress --jsx React.createElement --external react,react-dom,styled-components --globals react=React,react-dom=ReactDOM,styled-components=styled --no-pkg-main",
+    "release": "microbundle site.tsx -o docs -f iife --tsconfig tsconfig.site.json --define process.env.NODE_ENV=production --jsx React.createElement --external react,react-dom,styled-components --globals react=React,react-dom=ReactDOM,styled-components=styled -no-pkg-main",
+    "dev": "microbundle watch site.tsx -o docs -f iife --tsconfig tsconfig.site.json --define process.env.NODE_ENV=development --jsx React.createElement --external react,react-dom,styled-components --globals react=React,react-dom=ReactDOM,styled-components=styled --no-pkg-main",
     "test": "jest --verbose",
     "size": "size-limit",
     "benchmark": "node -r esm benchmark.js"

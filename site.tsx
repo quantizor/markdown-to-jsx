@@ -1,5 +1,4 @@
 /* @jsx React.createElement */
-import { lighten, rgba } from 'polished'
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 import styled, { createGlobalStyle, css, CSSProp } from 'styled-components'
@@ -134,12 +133,12 @@ const GlobalStyles = createGlobalStyle`
 
 		&:hover,
 		&:focus {
-			color: ${rgba(COLOR_ACCENT, 0.75)};
+			color: color-mix(in srgb, ${COLOR_ACCENT} 75%, transparent);
 		}
 	}
 
 	code {
-		background: ${rgba(COLOR_ACCENT, 0.05)};
+		background: color-mix(in srgb, ${COLOR_ACCENT} 5%, transparent);
 		display: inline-block;
 		padding: 0 2px;
 	}
@@ -198,7 +197,7 @@ const Description = styled.p`
 `
 
 const LearnMore = styled.p`
-  color: ${lighten(0.2, COLOR_BODY)};
+  color: color-mix(in srgb, ${COLOR_BODY} 20%, white);
 `
 
 const sharedCss = css`
@@ -224,7 +223,7 @@ const Demo = styled.section`
 
 const Textarea = styled.textarea`
   ${sharedCss};
-  background: ${rgba(COLOR_ACCENT, 0.05)};
+  background: color-mix(in srgb, ${COLOR_ACCENT} 10%, transparent);
   border: 0;
   color: inherit;
   position: sticky;
