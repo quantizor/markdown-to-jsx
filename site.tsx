@@ -21,27 +21,6 @@ function TryItLive() {
   return (
     <main>
       <GlobalStyles />
-      <a
-        href="https://support.eji.org/give/153413/#!/donation/checkout"
-        rel="noopener noreferrer"
-        target="_blank"
-        style={{
-          background: '#000',
-          color: '#fff',
-          textAlign: 'center',
-          textDecoration: 'none',
-          fontSize: '16px',
-          padding: '0.5em',
-          margin: '-3rem -3rem 2em',
-          position: 'sticky',
-          top: 0,
-        }}
-      >
-        #BlackLivesMatter ✊🏿{' '}
-        <span style={{ textDecoration: 'underline' }}>
-          Support the Equal Justice Initiative
-        </span>
-      </a>
 
       <Header>
         <a
