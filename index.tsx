@@ -1347,7 +1347,7 @@ export function compiler(
     },
 
     codeBlock: {
-      _match: blockRegex(CODE_BLOCK_R),
+      _match: (source: string, state: MarkdownToJSX.State) => null, //blockRegex(CODE_BLOCK_R),
       _order: Priority.MAX,
       _parse(capture /*, parse, state*/) {
         return {
@@ -1375,7 +1375,7 @@ export function compiler(
     }>,
 
     codeFenced: {
-      _match: blockRegex(CODE_BLOCK_FENCED_R),
+      _match: (source: string, state: MarkdownToJSX.State) => null, // blockRegex(CODE_BLOCK_FENCED_R),
       _order: Priority.MAX,
       _parse(capture /*, parse, state*/) {
         return {
@@ -1389,7 +1389,7 @@ export function compiler(
     },
 
     codeInline: {
-      _match: simpleInlineRegex(CODE_INLINE_R),
+      _match: (source: string, state: MarkdownToJSX.State) => null, // simpleInlineRegex(CODE_INLINE_R),
       _order: Priority.LOW,
       _parse(capture /*, parse, state*/) {
         return {
