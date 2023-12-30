@@ -467,12 +467,14 @@ describe('inline textual elements', () => {
   })
 
   it('replaces custom named character codes with unicode equivalents so React will render correctly', () => {
-    render(compiler('Apostrophe&#39;s and less than ≤ equal', {
-      namedCodesToUnicode: {
-        le: '\u2264',
-        '#39': '\u0027'
-      }
-    }))
+    render(
+      compiler('Apostrophe&#39;s and less than ≤ equal', {
+        namedCodesToUnicode: {
+          le: '\u2264',
+          '#39': '\u0027',
+        },
+      })
+    )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <span>
@@ -4010,6 +4012,21 @@ describe('overrides', () => {
       </div>
     `)
   })
+})
+
+it('emits a div instead of a pre>code block for latex grammar', () => {
+  render(compiler('Hello.\n\n```latex\n$$f(X,n) = X_n + X_{n-1}$$\n```\n'))
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+      <div>
+        <p>
+          Hello.
+        </p>
+        <div class="lang-latex">
+          $$f(X,n) = X_n + X_{n-1}$$
+        </div>
+      </div>
+    `)
 })
 
 it('handles a holistic example', () => {
