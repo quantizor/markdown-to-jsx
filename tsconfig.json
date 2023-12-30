@@ -8,8 +8,8 @@
     "module": "ESNext",
     "moduleResolution": "node",
     "outDir": "./dist",
-    "target": "ESNext",
-    "preserveConstEnums": true
+    "preserveConstEnums": true,
+    "target": "ESNext"
   },
   "files": ["index.tsx"]
 }
