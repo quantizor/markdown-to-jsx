@@ -102,6 +102,14 @@ export namespace MarkdownToJSX {
     disableParsingRawHTML: boolean
 
     /**
+     * Forces the compiler to have space between hash sign and the header text which
+     * is explicitly stated in the most of the markdown specs.
+     * https://github.github.com/gfm/#atx-heading
+     * `The opening sequence of # characters must be followed by a space or by the end of line.`
+     */
+    enforceAtxHeadings: boolean
+
+    /**
      * Forces the compiler to always output content with a block-level wrapper
      * (`<p>` or any block-level syntax your markdown already contains.)
      */
@@ -111,6 +119,12 @@ export namespace MarkdownToJSX {
      * Forces the compiler to always output content with an inline wrapper (`<span>`)
      */
     forceInline: boolean
+
+    /**
+     * Forces the compiler to wrap results, even if there is only a single
+     * child or no children.
+     */
+    forceWrapper: boolean
 
     /**
      * Supply additional HTML entity: unicode replacement mappings.
@@ -141,32 +155,18 @@ export namespace MarkdownToJSX {
     overrides: Overrides
 
     /**
-     * Declare the type of the wrapper to be used when there are multiple
-     * children to render. Set to `null` to get an array of children back
-     * without any wrapper, or use `React.Fragment` to get a React element
-     * that won't show up in the DOM.
-     */
-    wrapper: React.ElementType | null
-
-    /**
-     * Forces the compiler to wrap results, even if there is only a single
-     * child or no children.
-     */
-    forceWrapper: boolean
-
-    /**
      * Override normalization of non-URI-safe characters for use in generating
      * HTML IDs for anchor linking purposes.
      */
     slugify: (source: string) => string
 
     /**
-     * Forces the compiler to have space between hash sign and the header text which
-     * is explicitly stated in the most of the markdown specs.
-     * https://github.github.com/gfm/#atx-heading
-     * `The opening sequence of # characters must be followed by a space or by the end of line.`
+     * Declare the type of the wrapper to be used when there are multiple
+     * children to render. Set to `null` to get an array of children back
+     * without any wrapper, or use `React.Fragment` to get a React element
+     * that won't show up in the DOM.
      */
-    enforceAtxHeadings: boolean
+    wrapper: React.ElementType | null
   }>
 }
 
