@@ -54,6 +54,29 @@ export const RuleType = {
   unorderedList: 33,
 } as const
 
+const enum Priority {
+  /**
+   * anything that must scan the tree before everything else
+   */
+  MAX,
+  /**
+   * scans for block-level constructs
+   */
+  HIGH,
+  /**
+   * inline w/ more priority than other inline
+   */
+  MED,
+  /**
+   * inline elements
+   */
+  LOW,
+  /**
+   * bare text and stuff that is considered leftovers
+   */
+  MIN,
+}
+
 export namespace MarkdownToJSX {
   /**
    * RequireAtLeastOne<{ ... }> <- only requires at least one key
@@ -1218,29 +1241,6 @@ function getTag(tag: string, overrides: MarkdownToJSX.Overrides) {
     (typeof override === 'object' && 'render' in override)
     ? override
     : get(overrides, `${tag}.component`, tag)
-}
-
-enum Priority {
-  /**
-   * anything that must scan the tree before everything else
-   */
-  MAX,
-  /**
-   * scans for block-level constructs
-   */
-  HIGH,
-  /**
-   * inline w/ more priority than other inline
-   */
-  MED,
-  /**
-   * inline elements
-   */
-  LOW,
-  /**
-   * bare text and stuff that is considered leftovers
-   */
-  MIN,
 }
 
 export function compiler(
