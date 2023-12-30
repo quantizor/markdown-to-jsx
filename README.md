@@ -18,6 +18,7 @@ The most lightweight, customizable React markdown component.
     - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
     - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
     - [options.enforceAtxHeadings](#optionsenforceatxheadings)
+    - [options.renderRule](#optionsrenderrule)
     - [options.slugify](#optionsslugify)
     - [options.namedCodesToUnicode](#optionsnamedcodestounicode)
     - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
@@ -402,6 +403,35 @@ render(
 Forces the compiler to have space between hash sign `#` and the header text which is explicitly stated in the most of the [markdown specs](https://github.github.com/gfm/#atx-heading).
 
 > The opening sequence of `#` characters must be followed by a space or by the end of line.
+
+#### options.renderRule
+
+Supply your own rendering function that can selectively override how _rules_ are rendered (note, this is different than _`options.overrides`_ which operates at the HTML tag level and is more general). You can use this functionality to do pretty much anything with an established AST node; here's an example of selectively overriding the "codeBlock" rule to process LaTeX syntax using the `react-katext` library:
+
+````tsx
+import { Markdown, RuleType } from 'markdown-to-jsx'
+import { BlockMath } from 'react-katext'
+
+const exampleContent =
+  'Some important formula:\n\n```latex\n$$f(X,n) = X_n + X_{n-1}$$\n```\n'
+
+function App() {
+  return (
+    <Markdown
+      children={exampleContent}
+      options={{
+        renderRule(defaultOutput, node, renderAST, state) {
+          if (node.type === RuleType.codeBlock && node.lang === 'latex') {
+            return <BlockMath key={state.key} math={node.text} />
+          }
+
+          return defaultOutput()
+        },
+      }}
+    />
+  )
+}
+````
 
 #### options.slugify
 
