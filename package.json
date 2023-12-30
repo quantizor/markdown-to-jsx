@@ -1,7 +1,7 @@
 {
   "name": "markdown-to-jsx",
   "description": "Convert markdown to JSX with ease for React and React-like projects. Super lightweight and highly configurable.",
-  "homepage": "https://probablyup.github.io/markdown-to-jsx",
+  "homepage": "https://markdown-to-jsx.quantizor.dev",
   "license": "MIT",
   "version": "7.3.2",
   "engines": {
@@ -15,9 +15,9 @@
     "jsx",
     "html"
   ],
-  "author": "Evan Jacobs <probablyup@gmail.com>",
-  "repository": "probablyup/markdown-to-jsx",
-  "bugs": "https://github.com/probablyup/markdown-to-jsx/issues",
+  "author": "Evan Jacobs <yo@quantizor.com>",
+  "repository": "quantizor/markdown-to-jsx",
+  "bugs": "https://github.com/quantizor/markdown-to-jsx/issues",
   "files": [
     "dist",
     "LICENSE",
@@ -115,10 +115,6 @@
     "snapshotSerializers": [
       "jest-serializer-html"
     ]
-  },
-  "collective": {
-    "type": "opencollective",
-    "url": "https://opencollective.com/markdown-to-jsx"
   },
   "packageManager": "yarn@4.0.2"
 }
