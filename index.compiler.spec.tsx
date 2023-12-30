@@ -1,4 +1,4 @@
-import { compiler } from './index'
+import { compiler, RuleType } from './index'
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 import * as fs from 'fs'
@@ -3741,6 +3741,33 @@ describe('options.createElement', () => {
   })
 })
 
+describe('options.renderRule', () => {
+  it('should allow arbitrary modification of content', () => {
+    render(
+      compiler('Hello.\n\n```latex\n$$f(X,n) = X_n + X_{n-1}$$\n```\n', {
+        renderRule(defaultRenderer, node, output, state) {
+          if (node.type === RuleType.codeBlock && node.lang === 'latex') {
+            return <div key={state.key}>I'm latex.</div>
+          }
+
+          return defaultRenderer()
+        },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+        <div>
+          <p>
+            Hello.
+          </p>
+          <div>
+            I'm latex.
+          </div>
+        </div>
+      `)
+  })
+})
+
 describe('options.slugify', () => {
   it('should use a custom slugify function rather than the default if set and valid', () => {
     render(compiler('# 中文', { slugify: str => str }))
@@ -4012,21 +4039,6 @@ describe('overrides', () => {
       </div>
     `)
   })
-})
-
-it('emits a div instead of a pre>code block for latex grammar', () => {
-  render(compiler('Hello.\n\n```latex\n$$f(X,n) = X_n + X_{n-1}$$\n```\n'))
-
-  expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div>
-        <p>
-          Hello.
-        </p>
-        <div class="lang-latex">
-          $$f(X,n) = X_n + X_{n-1}$$
-        </div>
-      </div>
-    `)
 })
 
 it('handles a holistic example', () => {
