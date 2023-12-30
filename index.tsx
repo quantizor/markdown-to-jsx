@@ -216,12 +216,12 @@ export namespace MarkdownToJSX {
      * For example, to implement a LaTeX renderer such as `react-katex`:
      *
      * ```
-     * renderRule(defaultRenderer, node, output, state) {
-     *   if (node.type === 'codeBlock' && node.lang === 'latex') {
-     *     return <BlockMath key={state.key} math={node.content} />
+     * renderRule(defaultOutput, node, output, state) {
+     *   if (node.type === RuleType.codeBlock && node.lang === 'latex') {
+     *     return <BlockMath key={state.key} math={node.text} />
      *   }
      *
-     *   return defaultRenderer();
+     *   return defaultOutput();
      * }
      * ```
      *
@@ -230,9 +230,9 @@ export namespace MarkdownToJSX {
      * method in source for a particular rule.
      */
     renderRule: (
-      defaultRenderer: () => React.ReactChild,
+      defaultOutput: () => React.ReactChild,
       node: ParserResult,
-      output: RuleOutput,
+      renderAST: RuleOutput,
       state: State
     ) => React.ReactChild
 
