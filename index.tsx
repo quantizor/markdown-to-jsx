@@ -9,50 +9,50 @@
 import * as React from 'react'
 
 /**
- * Analogous to `node.type`.
+ * Analogous to `node.type`. Please note that the values here may change at any time,
+ * so do not hard code against the value directly.
  */
-export const enum RuleType {
-  blockQuote,
-  breakLine,
-  breakThematic,
-  codeBlock,
-  codeFenced,
-  codeInline,
-  footnote,
-  footnoteReference,
-  gfmTask,
-  heading,
-  headingSetext,
+export const RuleType = {
+  blockQuote: 0,
+  breakLine: 1,
+  breakThematic: 2,
+  codeBlock: 3,
+  codeFenced: 4,
+  codeInline: 5,
+  footnote: 6,
+  footnoteReference: 7,
+  gfmTask: 8,
+  heading: 9,
+  headingSetext: 10,
   /** only available if not `disableHTMLParsing` */
-  htmlBlock,
-  htmlComment,
+  htmlBlock: 11,
+  htmlComment: 12,
   /** only available if not `disableHTMLParsing` */
-  htmlSelfClosing,
-  image,
-  link,
+  htmlSelfClosing: 13,
+  image: 14,
+  link: 15,
   /** emits a `link` node, does not render directly */
-  linkAngleBraceStyleDetector,
+  linkAngleBraceStyleDetector: 16,
   /** emits a `link` node, does not render directly */
-  linkBareUrlDetector,
+  linkBareUrlDetector: 17,
   /** emits a `link` node, does not render directly */
-  linkMailtoDetector,
-  newlineCoalescer,
-  orderedList,
-  paragraph,
-  ref,
-  refImage,
-  refLink,
-  render,
-  table,
-  tableSeparator,
-  text,
-  textBolded,
-  textEmphasized,
-  textEscaped,
-  textMarked,
-  textStrikethroughed,
-  unorderedList,
-}
+  linkMailtoDetector: 18,
+  newlineCoalescer: 19,
+  orderedList: 20,
+  paragraph: 21,
+  ref: 22,
+  refImage: 23,
+  refLink: 24,
+  table: 25,
+  tableSeparator: 26,
+  text: 27,
+  textBolded: 28,
+  textEmphasized: 29,
+  textEscaped: 30,
+  textMarked: 31,
+  textStrikethroughed: 32,
+  unorderedList: 33,
+} as const
 
 export namespace MarkdownToJSX {
   /**
@@ -87,7 +87,7 @@ export namespace MarkdownToJSX {
 
   export type ParserResult = {
     [key: string]: any
-    type?: RuleType
+    type?: number
   }
 
   export type NestedParser = (
@@ -125,7 +125,7 @@ export namespace MarkdownToJSX {
   }
 
   export type Rules = {
-    [key: string]: Rule
+    [key: number]: Rule
   }
 
   export type Override =
@@ -423,9 +423,9 @@ const TAB_R = /\t/g
 const TABLE_SEPARATOR_R = /^ *\| */
 const TABLE_TRIM_PIPES = /(^ *\||\| *$)/g
 const TABLE_CELL_END_TRIM = / *$/
-const TABLE_CENTER_ALIGN = /^ *:-+: *$/
-const TABLE_LEFT_ALIGN = /^ *:-+ *$/
-const TABLE_RIGHT_ALIGN = /^ *-+: *$/
+const TABLE_CENTERalign = /^ *:-+: *$/
+const TABLE_LEFTalign = /^ *:-+ *$/
+const TABLE_RIGHTalign = /^ *-+: *$/
 
 const TEXT_BOLD_R =
   /^([*_])\1((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1\1(?!\1)/
@@ -713,11 +713,11 @@ function slugify(str: string) {
 }
 
 function parseTableAlignCapture(alignCapture: string) {
-  if (TABLE_RIGHT_ALIGN.test(alignCapture)) {
+  if (TABLE_RIGHTalign.test(alignCapture)) {
     return 'right'
-  } else if (TABLE_CENTER_ALIGN.test(alignCapture)) {
+  } else if (TABLE_CENTERalign.test(alignCapture)) {
     return 'center'
-  } else if (TABLE_LEFT_ALIGN.test(alignCapture)) {
+  } else if (TABLE_LEFTalign.test(alignCapture)) {
     return 'left'
   }
 
@@ -786,18 +786,18 @@ function parseTable(
   state.inline = false
 
   return {
-    _align: align,
-    _cells: cells,
-    _header: header,
+    align: align,
+    cells: cells,
+    header: header,
     type: RuleType.table,
   }
 }
 
 function getTableStyle(node, colIndex) {
-  return node._align[colIndex] == null
+  return node.align[colIndex] == null
     ? {}
     : {
-        textAlign: node._align[colIndex],
+        textAlign: node.align[colIndex],
       }
 }
 
@@ -939,7 +939,7 @@ function parserFor(
           // there can be a single output function for all links,
           // even if there are several rules to parse them.
           if (parsed.type == null) {
-            parsed.type = ruleType as unknown as RuleType
+            parsed.type = ruleType as unknown as keyof typeof RuleType
           }
 
           result.push(parsed)
@@ -1594,7 +1594,7 @@ export function compiler(
       order: Priority.HIGH,
       parse(capture /*, parse, state*/) {
         return {
-          _alt: capture[1],
+          alt: capture[1],
           target: unescapeUrl(capture[2]),
           title: capture[3],
         }
@@ -1603,14 +1603,14 @@ export function compiler(
         return (
           <img
             key={state.key}
-            alt={node._alt || undefined}
+            alt={node.alt || undefined}
             title={node.title || undefined}
             src={sanitizeUrl(node.target)}
           />
         )
       },
     } as MarkdownToJSX.Rule<{
-      _alt?: string
+      alt?: string
       target: string
       title?: string
     }>,
@@ -1705,7 +1705,7 @@ export function compiler(
     },
 
     [RuleType.orderedList]: generateListRule(h, ORDERED),
-    unorderedList: generateListRule(h, UNORDERED),
+    [RuleType.unorderedList]: generateListRule(h, UNORDERED),
 
     [RuleType.newlineCoalescer]: {
       match: blockRegex(CONSECUTIVE_NEWLINE_R),
@@ -1744,7 +1744,7 @@ export function compiler(
       order: Priority.MAX,
       parse(capture) {
         return {
-          _alt: capture[1] || undefined,
+          alt: capture[1] || undefined,
           ref: capture[2],
         }
       },
@@ -1752,13 +1752,13 @@ export function compiler(
         return (
           <img
             key={state.key}
-            alt={node._alt}
+            alt={node.alt}
             src={sanitizeUrl(refs[node.ref].target)}
             title={refs[node.ref].title}
           />
         )
       },
-    } as MarkdownToJSX.Rule<{ _alt?: string; ref: string }>,
+    } as MarkdownToJSX.Rule<{ alt?: string; ref: string }>,
 
     [RuleType.refLink]: {
       match: inlineRegex(REFERENCE_LINK_R),
@@ -1801,7 +1801,7 @@ export function compiler(
           <table key={state.key}>
             <thead>
               <tr>
-                {node._header.map(function generateHeaderCell(content, i) {
+                {node.header.map(function generateHeaderCell(content, i) {
                   return (
                     <th key={i} style={getTableStyle(node, i)}>
                       {output(content, state)}
@@ -1812,7 +1812,7 @@ export function compiler(
             </thead>
 
             <tbody>
-              {node._cells.map(function generateTableRow(row, i) {
+              {node.cells.map(function generateTableRow(row, i) {
                 return (
                   <tr key={i}>
                     {row.map(function generateTableCell(content, c) {
