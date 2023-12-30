@@ -902,14 +902,14 @@ function unescapeUrl(rawUrlString: string): string {
  */
 function parseInline(
   parse: MarkdownToJSX.NestedParser,
-  content: string,
+  children: string,
   state: MarkdownToJSX.State
 ): MarkdownToJSX.ParserResult[] {
   const isCurrentlyInline = state.inline || false
   const isCurrentlySimple = state.simple || false
   state.inline = true
   state.simple = true
-  const result = parse(content, state)
+  const result = parse(children, state)
   state.inline = isCurrentlyInline
   state.simple = isCurrentlySimple
   return result
@@ -920,14 +920,14 @@ function parseInline(
  */
 function parseSimpleInline(
   parse: MarkdownToJSX.NestedParser,
-  content: string,
+  children: string,
   state: MarkdownToJSX.State
 ): MarkdownToJSX.ParserResult[] {
   const isCurrentlyInline = state.inline || false
   const isCurrentlySimple = state.simple || false
   state.inline = false
   state.simple = true
-  const result = parse(content, state)
+  const result = parse(children, state)
   state.inline = isCurrentlyInline
   state.simple = isCurrentlySimple
   return result
@@ -935,18 +935,18 @@ function parseSimpleInline(
 
 function parseBlock(
   parse,
-  content,
+  children,
   state: MarkdownToJSX.State
 ): MarkdownToJSX.ParserResult[] {
   state.inline = false
-  return parse(content, state)
+  return parse(children, state)
 }
 
 const parseCaptureInline: MarkdownToJSX.Parser<{
-  content: MarkdownToJSX.ParserResult[]
+  children: MarkdownToJSX.ParserResult[]
 }> = (capture, parse, state: MarkdownToJSX.State) => {
   return {
-    content: parseInline(parse, capture[1], state),
+    children: parseInline(parse, capture[1], state),
   }
 }
 
@@ -1205,7 +1205,7 @@ export function compiler(
       order: Priority.HIGH,
       parse(capture, parse, state) {
         return {
-          content: parse(
+          children: parse(
             capture[0].replace(BLOCKQUOTE_TRIM_LEFT_MULTILINE_R, ''),
             state
           ),
@@ -1213,7 +1213,9 @@ export function compiler(
       },
       render(node, output, state) {
         return (
-          <blockquote key={state.key}>{output(node.content, state)}</blockquote>
+          <blockquote key={state.key}>
+            {output(node.children, state)}
+          </blockquote>
         )
       },
     },
@@ -1353,7 +1355,7 @@ export function compiler(
       order: Priority.HIGH,
       parse(capture, parse, state) {
         return {
-          content: parseInline(parse, capture[2], state),
+          children: parseInline(parse, capture[2], state),
           id: options.slugify(capture[2]),
           level: capture[1].length as MarkdownToJSX.HeadingNode['level'],
         }
@@ -1362,7 +1364,7 @@ export function compiler(
         return h(
           `h${node.level}`,
           { id: node.id, key: state.key },
-          output(node.content, state)
+          output(node.children, state)
         )
       },
     },
@@ -1372,7 +1374,7 @@ export function compiler(
       order: Priority.MAX,
       parse(capture, parse, state) {
         return {
-          content: parseInline(parse, capture[1], state),
+          children: parseInline(parse, capture[1], state),
           level: capture[2] === '=' ? 1 : 2,
           type: RuleType.heading,
         }
@@ -1404,7 +1406,7 @@ export function compiler(
           tag: noInnerParse ? tagName : capture[1],
         } as {
           attrs: ReturnType<typeof attrStringToMap>
-          content?: ReturnType<MarkdownToJSX.NestedParser> | undefined
+          children?: ReturnType<MarkdownToJSX.NestedParser> | undefined
           noInnerParse: Boolean
           tag: MarkdownToJSX.HTMLTags
           text?: string | undefined
@@ -1415,7 +1417,7 @@ export function compiler(
         if (noInnerParse) {
           ast.text = capture[3]
         } else {
-          ast.content = parseFunc(parse, trimmed, state)
+          ast.children = parseFunc(parse, trimmed, state)
         }
 
         /**
@@ -1429,7 +1431,7 @@ export function compiler(
       render(node, output, state) {
         return (
           <node.tag key={state.key} {...node.attrs}>
-            {node.text || output(node.content, state)}
+            {node.text || output(node.children, state)}
           </node.tag>
         )
       },
@@ -1492,7 +1494,7 @@ export function compiler(
       order: Priority.LOW,
       parse(capture, parse, state) {
         return {
-          content: parseSimpleInline(parse, capture[1], state),
+          children: parseSimpleInline(parse, capture[1], state),
           target: unescapeUrl(capture[2]),
           title: capture[3],
         }
@@ -1500,7 +1502,7 @@ export function compiler(
       render(node, output, state) {
         return (
           <a key={state.key} href={sanitizeUrl(node.target)} title={node.title}>
-            {output(node.content, state)}
+            {output(node.children, state)}
           </a>
         )
       },
@@ -1512,7 +1514,7 @@ export function compiler(
       order: Priority.MAX,
       parse(capture /*, parse, state*/) {
         return {
-          content: [
+          children: [
             {
               text: capture[1],
               type: RuleType.text,
@@ -1534,7 +1536,7 @@ export function compiler(
       order: Priority.MAX,
       parse(capture /*, parse, state*/) {
         return {
-          content: [
+          children: [
             {
               text: capture[1],
               type: RuleType.text,
@@ -1560,7 +1562,7 @@ export function compiler(
         }
 
         return {
-          content: [
+          children: [
             {
               text: address.replace('mailto:', ''),
               type: RuleType.text,
@@ -1596,7 +1598,7 @@ export function compiler(
       order: Priority.LOW,
       parse: parseCaptureInline,
       render(node, output, state) {
-        return <p key={state.key}>{output(node.content, state)}</p>
+        return <p key={state.key}>{output(node.children, state)}</p>
       },
     } as MarkdownToJSX.Rule<ReturnType<typeof parseCaptureInline>>,
 
@@ -1640,8 +1642,8 @@ export function compiler(
       order: Priority.MAX,
       parse(capture, parse, state) {
         return {
-          content: parse(capture[1], state),
-          fallbackContent: parse(
+          children: parse(capture[1], state),
+          fallbackChildren: parse(
             capture[0].replace(SQUARE_BRACKETS_R, '\\$1'),
             state
           ),
@@ -1655,10 +1657,10 @@ export function compiler(
             href={sanitizeUrl(refs[node.ref].target)}
             title={refs[node.ref].title}
           >
-            {output(node.content, state)}
+            {output(node.children, state)}
           </a>
         ) : (
-          <span key={state.key}>{output(node.fallbackContent, state)}</span>
+          <span key={state.key}>{output(node.fallbackChildren, state)}</span>
         )
       },
     },
@@ -1750,11 +1752,11 @@ export function compiler(
         return {
           // capture[1] -> the syntax control character
           // capture[2] -> inner content
-          content: parse(capture[2], state),
+          children: parse(capture[2], state),
         }
       },
       render(node, output, state) {
-        return <strong key={state.key}>{output(node.content, state)}</strong>
+        return <strong key={state.key}>{output(node.children, state)}</strong>
       },
     },
 
@@ -1765,11 +1767,11 @@ export function compiler(
         return {
           // capture[1] -> opening * or _
           // capture[2] -> inner content
-          content: parse(capture[2], state),
+          children: parse(capture[2], state),
         }
       },
       render(node, output, state) {
-        return <em key={state.key}>{output(node.content, state)}</em>
+        return <em key={state.key}>{output(node.children, state)}</em>
       },
     },
 
@@ -1793,7 +1795,7 @@ export function compiler(
       order: Priority.LOW,
       parse: parseCaptureInline,
       render(node, output, state) {
-        return <mark key={state.key}>{output(node.content, state)}</mark>
+        return <mark key={state.key}>{output(node.children, state)}</mark>
       },
     },
 
@@ -1802,7 +1804,7 @@ export function compiler(
       order: Priority.LOW,
       parse: parseCaptureInline,
       render(node, output, state) {
-        return <del key={state.key}>{output(node.content, state)}</del>
+        return <del key={state.key}>{output(node.children, state)}</del>
       },
     },
   }
@@ -1922,7 +1924,7 @@ export namespace MarkdownToJSX {
   }
 
   export interface BlockQuoteNode {
-    content: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ParserResult[]
     type: (typeof RuleType)['blockQuote']
   }
 
@@ -1967,7 +1969,7 @@ export namespace MarkdownToJSX {
 
   export interface HeadingNode {
     type: (typeof RuleType)['heading']
-    content: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ParserResult[]
     id: string
     level: 1 | 2 | 3 | 4 | 5 | 6
   }
@@ -1989,7 +1991,7 @@ export namespace MarkdownToJSX {
 
   export interface LinkNode {
     type: (typeof RuleType)['link']
-    content: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ParserResult[]
     target: string
     title?: string
   }
@@ -2025,7 +2027,7 @@ export namespace MarkdownToJSX {
 
   export interface ParagraphNode {
     type: (typeof RuleType)['paragraph']
-    content: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ParserResult[]
   }
 
   export interface ReferenceNode {
@@ -2040,8 +2042,8 @@ export namespace MarkdownToJSX {
 
   export interface ReferenceLinkNode {
     type: (typeof RuleType)['refLink']
-    content: MarkdownToJSX.ParserResult[]
-    fallbackContent: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ParserResult[]
+    fallbackChildren: MarkdownToJSX.ParserResult[]
     ref: string
   }
 
@@ -2066,12 +2068,12 @@ export namespace MarkdownToJSX {
 
   export interface BoldTextNode {
     type: (typeof RuleType)['textBolded']
-    content: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ParserResult[]
   }
 
   export interface ItalicTextNode {
     type: (typeof RuleType)['textEmphasized']
-    content: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ParserResult[]
   }
 
   export interface EscapedTextNode {
@@ -2080,18 +2082,18 @@ export namespace MarkdownToJSX {
 
   export interface MarkedTextNode {
     type: (typeof RuleType)['textMarked']
-    content: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ParserResult[]
   }
 
   export interface StrikethroughTextNode {
     type: (typeof RuleType)['textStrikethroughed']
-    content: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ParserResult[]
   }
 
   export interface HTMLNode {
     type: (typeof RuleType)['htmlBlock']
     attrs: JSX.IntrinsicAttributes
-    content?: ReturnType<MarkdownToJSX.NestedParser> | undefined
+    children?: ReturnType<MarkdownToJSX.NestedParser> | undefined
     noInnerParse: Boolean
     tag: MarkdownToJSX.HTMLTags
     text?: string | undefined
