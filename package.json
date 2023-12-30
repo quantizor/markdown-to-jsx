@@ -54,12 +54,11 @@
     "@types/react": "^17.0.74",
     "benchtable": "^0.1.0",
     "cli-progress": "^3.12.0",
-    "esm": "^3.2.25",
     "in-publish": "^2.0.1",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "jest-serializer-html": "^7.1.0",
-    "markdown-it": "^13.0.2",
+    "markdown-it": "^14.0.0",
     "microbundle": "^0.15.1",
     "microtime": "^3.1.1",
     "mkdirp": "^3.0.1",
@@ -86,7 +85,7 @@
     "dev": "microbundle watch site.tsx -o docs -f iife --tsconfig tsconfig.site.json --define process.env.NODE_ENV=development --jsx React.createElement --external react,react-dom,styled-components --globals react=React,react-dom=ReactDOM,styled-components=styled --no-pkg-main",
     "test": "jest --verbose",
     "size": "size-limit",
-    "benchmark": "node -r esm benchmark.js"
+    "benchmark": "node benchmark.js"
   },
   "size-limit": [
     {
