@@ -216,12 +216,16 @@ export namespace MarkdownToJSX {
      * For example, to implement a LaTeX renderer such as `react-katex`:
      *
      * ```
-     * renderRule(defaultOutput, node, output, state) {
+     * renderRule(next, node, output, state) {
      *   if (node.type === RuleType.codeBlock && node.lang === 'latex') {
-     *     return <BlockMath key={state.key} math={node.text} />
+     *     return (
+     *       <TeX as="div" key={state.key}>
+     *         {String.raw`${node.text}`}
+     *       </TeX>
+     *     )
      *   }
      *
-     *   return defaultOutput();
+     *   return next();
      * }
      * ```
      *
@@ -230,7 +234,8 @@ export namespace MarkdownToJSX {
      * method in source for a particular rule.
      */
     renderRule: (
-      defaultOutput: () => React.ReactChild,
+      /** Resume normal processing, call this function as a fallback if you are not returning custom JSX. */
+      next: () => React.ReactChild,
       node: ParserResult,
       renderAST: RuleOutput,
       state: State
@@ -423,9 +428,9 @@ const TAB_R = /\t/g
 const TABLE_SEPARATOR_R = /^ *\| */
 const TABLE_TRIM_PIPES = /(^ *\||\| *$)/g
 const TABLE_CELL_END_TRIM = / *$/
-const TABLE_CENTERalign = /^ *:-+: *$/
-const TABLE_LEFTalign = /^ *:-+ *$/
-const TABLE_RIGHTalign = /^ *-+: *$/
+const TABLE_CENTER_ALIGN = /^ *:-+: *$/
+const TABLE_LEFT_ALIGN = /^ *:-+ *$/
+const TABLE_RIGHT_ALIGN = /^ *-+: *$/
 
 const TEXT_BOLD_R =
   /^([*_])\1((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1\1(?!\1)/
@@ -713,11 +718,11 @@ function slugify(str: string) {
 }
 
 function parseTableAlignCapture(alignCapture: string) {
-  if (TABLE_RIGHTalign.test(alignCapture)) {
+  if (TABLE_RIGHT_ALIGN.test(alignCapture)) {
     return 'right'
-  } else if (TABLE_CENTERalign.test(alignCapture)) {
+  } else if (TABLE_CENTER_ALIGN.test(alignCapture)) {
     return 'center'
-  } else if (TABLE_LEFTalign.test(alignCapture)) {
+  } else if (TABLE_LEFT_ALIGN.test(alignCapture)) {
     return 'left'
   }
 

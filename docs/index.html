@@ -2,11 +2,16 @@
 <html>
   <head>
     <title>markdown-to-jsx: try it live!</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
       rel="stylesheet"
     />
-
+    <link
+      href="https://unpkg.com/katex@0.16.9/dist/katex.min.css"
+      rel="stylesheet"
+    />
     <script
       crossorigin
       src="https://unpkg.com/react@18/umd/react.production.min.js"
@@ -18,6 +23,10 @@
     <script
       crossorigin
       src="https://unpkg.com/styled-components@6/dist/styled-components.min.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/katex@0.16.9/dist/katex.js"
     ></script>
   </head>
 
@@ -39,6 +48,12 @@
   * ...
 
 <small>Sample content borrowed with thanks from [elm-markdown](http://elm-lang.org/examples/markdown) ❤️</small>
+
+Custom handling of code blocks (or any rule!) is possible with the [`renderRule` option](https://github.com/quantizor/markdown-to-jsx#optionsrenderrule). For example, LaTeX support via [`@matejmazur/react-katex`](https://www.npmjs.com/package/@matejmazur/react-katex):
+
+```latex
+\mathbb{N} = \{ a \in \mathbb{Z} : a > 0 \}
+```
 
 You can even include custom React components if you declare them in the "overrides" option.
 

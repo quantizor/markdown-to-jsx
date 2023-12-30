@@ -2,7 +2,8 @@
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 import styled, { createGlobalStyle, css, CSSProp } from 'styled-components'
-import Markdown from './'
+import TeX from '@matejmazur/react-katex'
+import Markdown, { MarkdownToJSX, RuleType } from './'
 
 declare module 'react' {
   interface Attributes {
@@ -89,7 +90,7 @@ const GlobalStyles = createGlobalStyle`
 	html {
 		background: #222;
 		color: ${COLOR_BODY};
-		font-family: 'Source Sans Pro', Helvetica Neue, Helvetica, sans-serif;
+		font-family: Inter, Helvetica Neue, Helvetica, sans-serif;
 		font-size: 14px;
 		line-height: 1.5;
 	}
@@ -101,6 +102,7 @@ const GlobalStyles = createGlobalStyle`
 	h5,
 	h6 {
 		margin: 0 0 1rem;
+    text-wrap: balance;
 	}
 
 	h1 {
@@ -138,7 +140,7 @@ const GlobalStyles = createGlobalStyle`
 	}
 
 	code {
-		background: color-mix(in srgb, ${COLOR_ACCENT} 5%, transparent);
+		background: color-mix(in srgb, ${COLOR_ACCENT} 25%, transparent);
 		display: inline-block;
 		padding: 0 2px;
 	}
@@ -160,6 +162,10 @@ const GlobalStyles = createGlobalStyle`
 			padding: 3rem;
 		}
 	}
+
+  p {
+    text-wrap: balance;
+  }
 `
 
 const Header = styled.header`
@@ -173,7 +179,7 @@ const Header = styled.header`
 `
 
 const Description = styled.p`
-  font-size: 18px;
+  font-size: 16px;
   margin-left: auto;
   margin-right: auto;
   max-width: 60vw;
@@ -280,6 +286,17 @@ const options = {
       component: MyComponent,
     },
   },
-}
+  renderRule(defaultOutput, node, renderAST, state) {
+    if (node.type === RuleType.codeBlock && node.lang === 'latex') {
+      return (
+        <TeX as="div" key={state.key} style={{ margin: '1.5em 0' }}>
+          {String.raw`${node.text}`}
+        </TeX>
+      )
+    }
+
+    return defaultOutput()
+  },
+} as MarkdownToJSX.Options
 
 ReactDOM.render(<TryItLive />, document.getElementById('root'))
