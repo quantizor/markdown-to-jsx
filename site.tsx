@@ -25,7 +25,7 @@ function TryItLive() {
       <Header>
         <a
           target="_blank"
-          href="https://github.com/probablyup/markdown-to-jsx"
+          href="https://github.com/quantizor/markdown-to-jsx"
           title="Check out the markdown-to-jsx source code"
           rel="noopener noreferrer"
         >
@@ -48,7 +48,7 @@ function TryItLive() {
           See the{' '}
           <a
             target="_blank"
-            href="https://github.com/probablyup/markdown-to-jsx/blob/main/README.md"
+            href="https://github.com/quantizor/markdown-to-jsx/blob/main/README.md"
             rel="noopener noreferrer"
           >
             project README
@@ -68,7 +68,7 @@ function TryItLive() {
   )
 }
 
-const COLOR_ACCENT = 'rgba(255, 255, 255, 0.5)'
+const COLOR_ACCENT = 'cornflowerblue'
 const COLOR_BODY = '#fefefe'
 
 const GlobalStyles = createGlobalStyle`
@@ -88,7 +88,7 @@ const GlobalStyles = createGlobalStyle`
 	}
 
 	html {
-		background: #222;
+		background: #1a1c23;
 		color: ${COLOR_BODY};
 		font-family: Inter, Helvetica Neue, Helvetica, sans-serif;
 		font-size: 14px;
@@ -140,9 +140,13 @@ const GlobalStyles = createGlobalStyle`
 	}
 
 	code {
-		background: color-mix(in srgb, ${COLOR_ACCENT} 25%, transparent);
+		background: color-mix(in srgb, ${COLOR_ACCENT} 15%, transparent);
+    border-radius: 2px;
 		display: inline-block;
-		padding: 0 2px;
+    font-family: 'Jetbrains Mono', Consolas, Monaco, monospace;
+    font-size: 0.9em;
+		padding: 0 4px;
+    text-decoration: inherit;
 	}
 
 	pre code {
@@ -234,7 +238,7 @@ const Textarea = styled.textarea`
   color: inherit;
   position: sticky;
   top: 0;
-  font-family: 'Source Code Pro', Consolas, Monaco, monospace;
+  font-family: 'Jetbrains Mono', Consolas, Monaco, monospace;
   font-size: inherit;
   max-height: 100vh;
 
@@ -253,19 +257,22 @@ const Compiled = styled.div`
 `
 
 const ShinyButton = styled.button`
-  background: #444;
-  color: #ddd;
+  background: color-mix(in srgb, ${COLOR_ACCENT} 50%, black);
+  border: 1px solid color-mix(in srgb, ${COLOR_ACCENT} 50%, transparent);
+  border-radius: 2px;
+  color: #fff;
   cursor: pointer;
+  padding: 0.25em 0.75em;
   font: inherit;
   transition: background 200ms ease;
 
   &:hover,
   &:focus {
-    background: #222;
+    background: ${COLOR_ACCENT};
   }
 
   &:active {
-    background: #000;
+    background: color-mix(in srgb, ${COLOR_ACCENT} 80%, black);
   }
 `
 
