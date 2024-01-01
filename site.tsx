@@ -5,6 +5,14 @@ import styled, { createGlobalStyle, css, CSSProp } from 'styled-components'
 import TeX from '@matejmazur/react-katex'
 import Markdown, { MarkdownToJSX, RuleType } from './'
 
+declare global {
+  interface Window {
+    hljs: {
+      highlightElement: (element: HTMLElement) => void
+    }
+  }
+}
+
 declare module 'react' {
   interface Attributes {
     css?: CSSProp
@@ -139,8 +147,12 @@ const GlobalStyles = createGlobalStyle`
 		}
 	}
 
+  :root {
+    --code-bg: color-mix(in srgb, ${COLOR_ACCENT} 15%, transparent);
+  }
+
 	code {
-		background: color-mix(in srgb, ${COLOR_ACCENT} 15%, transparent);
+    background: var(--code-bg) !important;
     border-radius: 2px;
 		display: inline-block;
     font-family: 'Jetbrains Mono', Consolas, Monaco, monospace;
@@ -150,7 +162,6 @@ const GlobalStyles = createGlobalStyle`
 	}
 
 	pre code {
-		background: transparent;
 		border: 0;
 		display: block;
 		padding: 1em;
@@ -287,19 +298,37 @@ function MyComponent(props) {
   )
 }
 
+function SyntaxHighlightedCode(props) {
+  const ref = React.useRef<HTMLElement | null>(null)
+
+  React.useEffect(() => {
+    if (ref.current && props.className?.includes('lang-') && window.hljs) {
+      window.hljs.highlightElement(ref.current)
+
+      // hljs won't reprocess the element unless this attribute is removed
+      ref.current.removeAttribute('data-highlighted')
+    }
+  }, [props.className, props.children])
+
+  return <code {...props} ref={ref} />
+}
+
 const options = {
   overrides: {
+    code: SyntaxHighlightedCode,
     MyComponent: {
       component: MyComponent,
     },
   },
   renderRule(defaultOutput, node, renderAST, state) {
-    if (node.type === RuleType.codeBlock && node.lang === 'latex') {
-      return (
-        <TeX as="div" key={state.key} style={{ margin: '1.5em 0' }}>
-          {String.raw`${node.text}`}
-        </TeX>
-      )
+    if (node.type === RuleType.codeBlock) {
+      if (node.lang === 'latex') {
+        return (
+          <TeX as="div" key={state.key} style={{ margin: '1.5em 0' }}>
+            {String.raw`${node.text}`}
+          </TeX>
+        )
+      }
     }
 
     return defaultOutput()

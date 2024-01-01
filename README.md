@@ -46,7 +46,7 @@ The most lightweight, customizable React markdown component.
 
 - GFM task list support.
 
-- Fenced code blocks with [highlight.js](https://highlightjs.org/) support.
+- Fenced code blocks with [highlight.js](https://highlightjs.org/) support; see [Syntax highlighting](#syntax-highlighting) for instructions on setting up highlight.js.
 
 All this clocks in at around 6 kB gzipped, which is a fraction of the size of most other React markdown components.
 
@@ -503,20 +503,58 @@ compiler('This text has <span>html</span> in it but it won't be rendered', { dis
 
 ### Syntax highlighting
 
-Some syntax highlighters require you to specify the language. The language of the code fence is
-forwarded in the className prop of the element used for `<code>`:
+When using [fenced code blocks](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) with language annotation, that language will be added to the `<code>` element as `class="lang-${language}"`. For best results, you can use `options.overrides` to provide an appropriate syntax highlighting integration like this one using `highlight.js`:
 
-```jsx
-const Code = ({ className, children }) => {
-  const language = className.replace('lang-', '')
+````jsx
+import { Markdown, RuleType } from 'markdown-to-jsx'
 
+const mdContainingFencedCodeBlock = '```js\nconsole.log("Hello world!");\n```\n'
+
+function App() {
   return (
-    <SyntaxHighlighter language={language}>
-      <code>{children}</code>
-    </SyntaxHighlighter>
+    <Markdown
+      children={mdContainingFencedCodeBlock}
+      options={{
+        overrides: {
+          code: SyntaxHighlightedCode,
+        },
+      }}
+    />
   )
 }
-```
+
+/**
+ * Add the following tags to your page <head> to automatically load hljs and styles:
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/@highlightjs/cdn-assets@11.9.0/styles/nord.min.css"
+  />
+
+  * NOTE: for best performance, load individual languages you need instead of all
+          of them. See their docs for more info: https://highlightjs.org/
+
+  <script
+    crossorigin
+    src="https://unpkg.com/@highlightjs/cdn-assets@11.9.0/highlight.min.js"
+  ></script>
+ */
+
+function SyntaxHighlightedCode(props) {
+  const ref = (React.useRef < HTMLElement) | (null > null)
+
+  React.useEffect(() => {
+    if (ref.current && props.className?.includes('lang-') && window.hljs) {
+      window.hljs.highlightElement(ref.current)
+
+      // hljs won't reprocess the element unless this attribute is removed
+      ref.current.removeAttribute('data-highlighted')
+    }
+  }, [props.className, props.children])
+
+  return <code {...props} ref={ref} />
+}
+````
 
 ### Getting the smallest possible bundle size
 
