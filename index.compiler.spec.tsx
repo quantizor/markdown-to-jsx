@@ -3799,7 +3799,7 @@ describe('options.slugify', () => {
 
 describe('overrides', () => {
   it('should substitute the appropriate JSX tag if given a component', () => {
-    class FakeParagraph extends React.Component {
+    class FakeParagraph extends React.Component<React.PropsWithChildren<{}>> {
       render() {
         return <p className="foo">{this.props.children}</p>
       }
@@ -3837,7 +3837,7 @@ describe('overrides', () => {
   })
 
   it('should accept an override shorthand if props do not need to be overidden', () => {
-    class FakeParagraph extends React.Component {
+    class FakeParagraph extends React.Component<React.PropsWithChildren<{}>> {
       render() {
         return <p className="foo">{this.props.children}</p>
       }
@@ -3865,7 +3865,9 @@ describe('overrides', () => {
   })
 
   it('should override the title property when parsing a link', () => {
-    class FakeLink extends React.Component<{ title: string }> {
+    class FakeLink extends React.Component<
+      React.PropsWithChildren<{ title: string }>
+    > {
       render() {
         const { title, children } = this.props
         return <a title={title}>{children}</a>
@@ -3910,7 +3912,7 @@ describe('overrides', () => {
   })
 
   it('should substitute pre & code tags if supplied with an override component', () => {
-    class OverridenPre extends React.Component {
+    class OverridenPre extends React.Component<React.PropsWithChildren<{}>> {
       render() {
         const { children, ...props } = this.props
 
@@ -3922,7 +3924,7 @@ describe('overrides', () => {
       }
     }
 
-    class OverridenCode extends React.Component {
+    class OverridenCode extends React.Component<React.PropsWithChildren<{}>> {
       render() {
         const { children, ...props } = this.props
 

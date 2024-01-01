@@ -30,7 +30,7 @@ it('handles a no-children scenario', () => {
 })
 
 it('accepts options', () => {
-  class FakeParagraph extends React.Component {
+  class FakeParagraph extends React.Component<React.PropsWithChildren<{}>> {
     render() {
       return <p className="foo">{this.props.children}</p>
     }
