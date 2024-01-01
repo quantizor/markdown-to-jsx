@@ -662,7 +662,7 @@ function attributeValueToJSXPropValue(
 
       return styles
     }, {})
-  } else if (key === 'href') {
+  } else if (key === 'href' || key === 'src') {
     return sanitizeUrl(value)
   } else if (value.match(INTERPOLATION_R)) {
     // return as a string and let the consumer decide what to do with it
