@@ -320,7 +320,7 @@ const options = {
       component: MyComponent,
     },
   },
-  renderRule(defaultOutput, node, renderAST, state) {
+  renderRule(defaultOutput, node, renderChildren, state) {
     if (node.type === RuleType.codeBlock) {
       if (node.lang === 'latex') {
         return (

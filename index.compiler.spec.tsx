@@ -3745,7 +3745,7 @@ describe('options.renderRule', () => {
   it('should allow arbitrary modification of content', () => {
     render(
       compiler('Hello.\n\n```latex\n$$f(X,n) = X_n + X_{n-1}$$\n```\n', {
-        renderRule(defaultRenderer, node, output, state) {
+        renderRule(defaultRenderer, node, renderChildren, state) {
           if (node.type === RuleType.codeBlock && node.lang === 'latex') {
             return <div key={state.key}>I'm latex.</div>
           }

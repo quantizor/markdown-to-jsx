@@ -420,7 +420,7 @@ function App() {
     <Markdown
       children={exampleContent}
       options={{
-        renderRule(next, node, renderAST, state) {
+        renderRule(next, node, renderChildren, state) {
           if (node.type === RuleType.codeBlock && node.lang === 'latex') {
             return (
               <TeX as="div" key={state.key}>{String.raw`${node.text}`}</TeX>
