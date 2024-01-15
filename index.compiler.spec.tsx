@@ -4043,6 +4043,24 @@ describe('overrides', () => {
   })
 })
 
+it('should remove YAML front matter', () => {
+  render(
+    compiler(theredoc`
+      --- 
+      key: value
+      other_key: different value
+      --- 
+      Hello.
+    `)
+  )
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+    <span>
+      Hello.
+    </span>
+`)
+})
+
 it('handles a holistic example', () => {
   const md = fs.readFileSync(__dirname + '/fixture.md', 'utf8')
   render(compiler(md))
