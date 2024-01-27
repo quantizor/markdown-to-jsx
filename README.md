@@ -409,7 +409,7 @@ Forces the compiler to have space between hash sign `#` and the header text whic
 Supply your own rendering function that can selectively override how _rules_ are rendered (note, this is different than _`options.overrides`_ which operates at the HTML tag level and is more general). You can use this functionality to do pretty much anything with an established AST node; here's an example of selectively overriding the "codeBlock" rule to process LaTeX syntax using the `@matejmazur/react-katex` library:
 
 ````tsx
-import { Markdown, RuleType } from 'markdown-to-jsx'
+import Markdown, { RuleType } from 'markdown-to-jsx'
 import TeX from '@matejmazur/react-katex'
 
 const exampleContent =
