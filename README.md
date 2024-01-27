@@ -643,6 +643,6 @@ See [Github Releases](https://github.com/probablyup/markdown-to-jsx/releases).
 
 ## Donate
 
-Like this library? It's developed entirely on a volunteer basis; chip in a few bucks if you can at my [Patreon](https://www.patreon.com/bePatron?u=27436864).
+Like this library? It's developed entirely on a volunteer basis; chip in a few bucks if you can via the Sponsor link!
 
 MIT
