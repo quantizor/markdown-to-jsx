@@ -190,6 +190,7 @@ const CR_NEWLINE_R = /\r\n?/g
 const FOOTNOTE_R = /^\[\^([^\]]+)](:.*)\n/
 const FOOTNOTE_REFERENCE_R = /^\[\^([^\]]+)]/
 const FORMFEED_R = /\f/g
+const FRONT_MATTER_R = /^---[ \t]*\n(.|\n)*\n---[ \t]*\n/
 const GFM_TASK_R = /^\s*?\[(x|\s)\]/
 const HEADING_R = /^ *(#{1,6}) *([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
 const HEADING_ATX_COMPLIANT_R =
@@ -1078,6 +1079,8 @@ export function compiler(
   }
 
   function compile(input: string): JSX.Element {
+    input = input.replace(FRONT_MATTER_R, '')
+    
     let inline = false
 
     if (options.forceInline) {
