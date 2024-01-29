@@ -3,7 +3,7 @@
   "description": "Convert markdown to JSX with ease for React and React-like projects. Super lightweight and highly configurable.",
   "homepage": "https://markdown-to-jsx.quantizor.dev",
   "license": "MIT",
-  "version": "7.4.0",
+  "version": "7.4.1",
   "engines": {
     "node": ">= 10"
   },
@@ -16,7 +16,10 @@
     "html"
   ],
   "author": "Evan Jacobs <yo@quantizor.com>",
-  "repository": "quantizor/markdown-to-jsx",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quantizor/markdown-to-jsx.git"
+  },
   "bugs": "https://github.com/quantizor/markdown-to-jsx/issues",
   "files": [
     "dist",
