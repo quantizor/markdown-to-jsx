@@ -4067,3 +4067,26 @@ it('handles a holistic example', () => {
 
   expect(root.innerHTML).toMatchSnapshot()
 })
+
+
+it('handles <code> brackets in link text', () => {
+  render(compiler('[`[text]`](https://example.com)'))
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+    <a href="https://example.com">
+      <code>
+        [text]
+      </code>
+    </a>
+  `)
+})
+
+it('handles naked brackets in link text', () => {
+  render(compiler('[[text]](https://example.com)'))
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+    <a href="https://example.com">
+      [text]
+    </a>
+  `)
+})
