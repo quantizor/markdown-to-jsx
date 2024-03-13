@@ -736,6 +736,8 @@ function parserFor(
     // Sort based on increasing order
     if (orderA !== orderB) {
       return orderA - orderB
+    } else if (typeA < typeB) {
+      return -1
     }
 
     return 1
@@ -1080,7 +1082,7 @@ export function compiler(
 
   function compile(input: string): JSX.Element {
     input = input.replace(FRONT_MATTER_R, '')
-    
+
     let inline = false
 
     if (options.forceInline) {
