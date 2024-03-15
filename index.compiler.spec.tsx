@@ -221,6 +221,19 @@ describe('inline textual elements', () => {
     `)
   })
 
+  it('should handle emphasized text spanning multiple lines', () => {
+    render(compiler('*Hello\nWorld.*\n'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <em>
+          Hello
+      World.
+        </em>
+      </p>
+    `)
+  })
+
   it('should handle double-emphasized text', () => {
     render(compiler('**Hello.**'))
 
@@ -228,6 +241,19 @@ describe('inline textual elements', () => {
       <strong>
         Hello.
       </strong>
+    `)
+  })
+
+  it('should handle double-emphasized text spanning multiple lines', () => {
+    render(compiler('**Hello\nWorld.**\n'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+    <p>
+      <strong>
+        Hello
+    World.
+      </strong>
+    </p>
     `)
   })
 
@@ -240,6 +266,21 @@ describe('inline textual elements', () => {
           Hello.
         </em>
       </strong>
+    `)
+  })
+
+  it('should handle triple-emphasized text spanning multiple lines', () => {
+    render(compiler('***Hello\nWorld.***\n'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <strong>
+          <em>
+            Hello
+      World.
+          </em>
+        </strong>
+      </p>
     `)
   })
 
