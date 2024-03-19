@@ -187,7 +187,41 @@ const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)+\n?/
 const CODE_INLINE_R = /^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)/
 const CONSECUTIVE_NEWLINE_R = /^(?:\n *)*\n/
 const CR_NEWLINE_R = /\r\n?/g
-const FOOTNOTE_R = /^\[\^([^\]]+)](:.*)\n/
+
+/**
+ * Matches footnotes on the format:
+ *
+ * [^key]: value
+ *
+ * Matches multiline footnotes
+ *
+ * [^key]: row
+ * row
+ * row
+ * 
+ * And empty lines in indented multiline footnotes
+ * 
+ * [^key]: indented with 
+ *     row
+ * 
+ *     row
+ *
+ * Explanation:
+ *
+ * 1. Look for the starting tag, eg: [^key]
+ *    ^\[\^([^\]]+)]
+ *
+ * 2. The first line starts with a colon, and continues for the rest of the line
+ *   :(.*)
+ *
+ * 3. Parse as many additional lines as possible. Matches new non-empty lines that doesn't begin with a new footnote definition.
+ *    (\n(?!\[\^).+)
+ * 
+ * 4. ...or allows for repeated newlines if the next line begins with at least four whitespaces.
+ *    (\n+ {4,}.*)
+ */
+const FOOTNOTE_R = /^\[\^([^\]]+)](:(.*)((\n+ {4,}.*)|(\n(?!\[\^).+))*)/
+
 const FOOTNOTE_REFERENCE_R = /^\[\^([^\]]+)]/
 const FORMFEED_R = /\f/g
 const FRONT_MATTER_R = /^---[ \t]*\n(.|\n)*\n---[ \t]*\n/
