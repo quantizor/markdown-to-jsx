@@ -241,7 +241,7 @@ const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/
  *    ([^ >/]+)
  *
  * 3. Ignore a space after the starting tag and capture the attribute portion of the tag (capture 2)
- *     ?([^>]*)\/{0}>
+ *     ?([^>]*)>
  *
  * 4. Ensure a matching closing tag is present in the rest of the input string
  *    (?=[\s\S]*<\/\1>)
@@ -254,7 +254,7 @@ const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/
  *    \n*
  */
 const HTML_BLOCK_ELEMENT_R =
-  /^ *(?!<[a-z][^ >/]* ?\/>)<([a-z][^ >/]*) ?([^>]*)\/{0}>\n?(\s*(?:<\1[^>]*?>[\s\S]*?<\/\1>|(?!<\1)[\s\S])*?)<\/\1>\n*/i
+  /^ *(?!<[a-z][^ >/]* ?\/>)<([a-z][^ >/]*) ?([^>]*)>\n?(\s*(?:<\1[^>]*?>[\s\S]*?<\/\1>|(?!<\1)[\s\S])*?)<\/\1>\n*/i
 
 const HTML_CHAR_CODE_R = /&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-fA-F]{1,6});/gi
 
@@ -716,9 +716,9 @@ function attributeValueToJSXPropValue(
 
       // snake-case to camelCase
       // also handles PascalCasing vendor prefixes
-      const camelCasedKey = key.replace(/(-[a-z])/g, substr =>
-        substr[1].toUpperCase()
-      )
+      const camelCasedKey = key
+        .trim()
+        .replace(/(-[a-z])/g, substr => substr[1].toUpperCase())
 
       // key.length + 1 to skip over the colon
       styles[camelCasedKey] = kvPair.slice(key.length + 1).trim()
@@ -1456,6 +1456,7 @@ export function compiler(
       order: Priority.HIGH,
       parse(capture, parse, state) {
         const [, whitespace] = capture[3].match(HTML_LEFT_TRIM_AMOUNT_R)
+
         const trimmer = new RegExp(`^${whitespace}`, 'gm')
         const trimmed = capture[3].replace(trimmer, '')
 
@@ -1470,7 +1471,7 @@ export function compiler(
         const ast = {
           attrs: attrStringToMap(capture[2]),
           noInnerParse: noInnerParse,
-          tag: noInnerParse ? tagName : capture[1],
+          tag: (noInnerParse ? tagName : capture[1]).trim(),
         } as {
           attrs: ReturnType<typeof attrStringToMap>
           children?: ReturnType<MarkdownToJSX.NestedParser> | undefined
@@ -1513,7 +1514,7 @@ export function compiler(
       parse(capture /*, parse, state*/) {
         return {
           attrs: attrStringToMap(capture[2] || ''),
-          tag: capture[1],
+          tag: capture[1].trim(),
         }
       },
       render(node, output, state) {
