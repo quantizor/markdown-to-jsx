@@ -4329,6 +4329,19 @@ describe('overrides', () => {
       </div>
     `)
   })
+
+  it('#530 nested overrides', () => {
+    render(
+      compiler('<Accordion><AccordionItem>test</AccordionItem></Accordion>', {
+        overrides: {
+          Accordion: ({ children }) => children,
+          AccordionItem: ({ children }) => children,
+        },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"test"`)
+  })
 })
 
 it('should remove YAML front matter', () => {
