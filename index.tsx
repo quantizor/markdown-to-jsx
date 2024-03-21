@@ -295,12 +295,29 @@ const TABLE_RIGHT_ALIGN = /^ *-+: *$/
 const INLINE_SKIP_R =
   '((?:\\[.*?\\][([].*?[)\\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~~.*?~~|==.*?==|.|\\n)*?)'
 
+/**
+ * Detect a sequence like **foo** or __foo__. Note that bold has a higher priority
+ * than emphasized to support nesting of both since they share a delimiter.
+ */
 const TEXT_BOLD_R = new RegExp(`^([*_])\\1${INLINE_SKIP_R}\\1\\1(?!\\1)`)
+
+/**
+ * Detect a sequence like *foo* or _foo_.
+ */
 const TEXT_EMPHASIZED_R = new RegExp(`^([*_])${INLINE_SKIP_R}\\1(?!\\1|\\w)`)
+
+/**
+ * Detect a sequence like ==foo==.
+ */
 const TEXT_MARKED_R = new RegExp(`^==${INLINE_SKIP_R}==`)
+
+/**
+ * Detect a sequence like ~~foo~~.
+ */
 const TEXT_STRIKETHROUGHED_R = new RegExp(`^~~${INLINE_SKIP_R}~~`)
 
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
+
 const TEXT_PLAIN_R =
   /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff&#;.()'"]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i
 
