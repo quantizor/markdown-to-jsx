@@ -782,6 +782,20 @@ describe('images', () => {
     `)
   })
 
+  it('should gracefully handle an empty image reference', () => {
+    render(
+      compiler(theredoc`
+        ![][1]
+        [2]: /xyz.png
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+      </p>
+    `)
+  })
+
   it('should handle an image reference with alt text', () => {
     render(
       compiler(theredoc`
@@ -913,6 +927,23 @@ describe('links', () => {
         >
           foo
         </a>
+      </p>
+    `)
+  })
+
+  it('should gracefully handle an empty link reference', () => {
+    render(
+      compiler(theredoc`
+        [][1]
+        [2]: foo
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <span>
+          [][1]
+        </span>
       </p>
     `)
   })

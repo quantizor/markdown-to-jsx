@@ -1693,14 +1693,14 @@ export function compiler(
         }
       },
       render(node, output, state) {
-        return (
+        return refs[node.ref] ? (
           <img
             key={state.key}
             alt={node.alt}
             src={sanitizeUrl(refs[node.ref].target)}
             title={refs[node.ref].title}
           />
-        )
+        ) : null
       },
     } as MarkdownToJSX.Rule<{ alt?: string; ref: string }>,
 
