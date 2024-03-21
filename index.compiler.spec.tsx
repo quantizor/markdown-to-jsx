@@ -3213,6 +3213,7 @@ comment -->`)
       </span>
     `)
   })
+
   it('should not fail with lots of \\n in the middle of the text', () => {
     render(
       compiler(
@@ -3360,6 +3361,36 @@ print("hello world")
         </a>
         lets you write content in a really natural way.
       </span>
+    `)
+  })
+
+  it('#540 multiline attributes are supported', () => {
+    render(
+      compiler(
+        `<p>
+Item detail
+<span
+  style="
+    color: #fddb67;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 18px;
+    text-decoration-line: underline;
+  "
+  >debug item 1</span
+>
+</p>`
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+    <p>
+      Item detail
+      <span style="color: rgb(253, 219, 103); font-size: 11px; font-style: normal; font-weight: 500; line-height: 18px; text-decoration-line: underline;">
+        debug item 1
+      </span>
+    </p>
     `)
   })
 })

@@ -1456,6 +1456,7 @@ export function compiler(
       order: Priority.HIGH,
       parse(capture, parse, state) {
         const [, whitespace] = capture[3].match(HTML_LEFT_TRIM_AMOUNT_R)
+
         const trimmer = new RegExp(`^${whitespace}`, 'gm')
         const trimmed = capture[3].replace(trimmer, '')
 
@@ -1470,7 +1471,7 @@ export function compiler(
         const ast = {
           attrs: attrStringToMap(capture[2]),
           noInnerParse: noInnerParse,
-          tag: noInnerParse ? tagName : capture[1],
+          tag: (noInnerParse ? tagName : capture[1]).trim(),
         } as {
           attrs: ReturnType<typeof attrStringToMap>
           children?: ReturnType<MarkdownToJSX.NestedParser> | undefined
@@ -1513,7 +1514,7 @@ export function compiler(
       parse(capture /*, parse, state*/) {
         return {
           attrs: attrStringToMap(capture[2] || ''),
-          tag: capture[1],
+          tag: capture[1].trim(),
         }
       },
       render(node, output, state) {
