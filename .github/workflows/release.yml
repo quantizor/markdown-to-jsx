@@ -1,14 +1,14 @@
-name: test
+name: release
 
 on:
   push:
     branches:
       - 'main'
-  pull_request_target:
-    types: [opened, synchronize, reopened]
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
-  test:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,5 +24,10 @@ jobs:
       - name: Jest
         run: yarn test
 
-      - name: Build
-        run: yarn build && yarn size
+      - name: Create Release Pull Request
+        uses: changesets/action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        with:
+          publish: yarn build && yarn release
