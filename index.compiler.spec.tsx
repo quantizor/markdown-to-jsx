@@ -248,13 +248,13 @@ describe('inline textual elements', () => {
     render(compiler('**Hello\nWorld.**\n'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-    <p>
-      <strong>
-        Hello
-    World.
-      </strong>
-    </p>
-    `)
+          <p>
+            <strong>
+              Hello
+          World.
+            </strong>
+          </p>
+        `)
   })
 
   it('should handle triple-emphasized text', () => {
@@ -3401,13 +3401,13 @@ Item detail
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-    <p>
-      Item detail
-      <span style="color: rgb(253, 219, 103); font-size: 11px; font-style: normal; font-weight: 500; line-height: 18px; text-decoration-line: underline;">
-        debug item 1
-      </span>
-    </p>
-    `)
+          <p>
+            Item detail
+            <span style="color: rgb(253, 219, 103); font-size: 11px; font-style: normal; font-weight: 500; line-height: 18px; text-decoration-line: underline;">
+              debug item 1
+            </span>
+          </p>
+        `)
   })
 })
 
@@ -4341,6 +4341,19 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`"test"`)
+  })
+
+  it('#520 handle deep nesting', () => {
+    render(compiler('<div><div><div></div></div></div>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <div>
+        <div>
+          <div>
+          </div>
+        </div>
+      </div>
+    `)
   })
 })
 
