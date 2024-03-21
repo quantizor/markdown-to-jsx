@@ -830,6 +830,22 @@ describe('images', () => {
       </p>
     `)
   })
+
+  it('should handle an image inside a link', () => {
+    render(
+      compiler(
+        `[![youtubeImg](https://www.gstatic.com/youtube/img/promos/growth/ytp_lp2_logo_phone_landscape_300x44.png)](https://www.youtube.com/)`
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <a href="https://www.youtube.com/">
+        <img alt="youtubeImg"
+             src="https://www.gstatic.com/youtube/img/promos/growth/ytp_lp2_logo_phone_landscape_300x44.png"
+        >
+      </a>
+    `)
+  })
 })
 
 describe('links', () => {
