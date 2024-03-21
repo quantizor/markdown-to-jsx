@@ -287,19 +287,24 @@ const TABLE_CENTER_ALIGN = /^ *:-+: *$/
 const TABLE_LEFT_ALIGN = /^ *:-+ *$/
 const TABLE_RIGHT_ALIGN = /^ *-+: *$/
 
-const TEXT_BOLD_R =
-  /^([*_])\1((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.|\n)*?)\1\1(?!\1)/
-const TEXT_EMPHASIZED_R =
-  /^([*_])((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.|\n)*?)\1(?!\1|\w)/
-const TEXT_MARKED_R = /^==((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.|\n)*?)==/
-const TEXT_STRIKETHROUGHED_R =
-  /^~~((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.|\n)*?)~~/
+/**
+ * For inline formatting, this partial attempts to ignore characters that
+ * may appear in nested formatting that could prematurely trigger detection
+ * and therefore miss content that should have been included.
+ */
+const INLINE_SKIP_R =
+  '((?:\\[.*?\\][([].*?[)\\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~~.*?~~|==.*?==|.|\\n)*?)'
+
+const TEXT_BOLD_R = new RegExp(`^([*_])\\1${INLINE_SKIP_R}\\1\\1(?!\\1)`)
+const TEXT_EMPHASIZED_R = new RegExp(`^([*_])${INLINE_SKIP_R}\\1(?!\\1|\\w)`)
+const TEXT_MARKED_R = new RegExp(`^==${INLINE_SKIP_R}==`)
+const TEXT_STRIKETHROUGHED_R = new RegExp(`^~~${INLINE_SKIP_R}~~`)
 
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
 const TEXT_PLAIN_R =
   /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff&#;.()'"]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i
 
-const TRIMstartING_NEWLINES = /^\n+/
+const TRIM_STARTING_NEWLINES = /^\n+/
 
 const HTML_LEFT_TRIM_AMOUNT_R = /^([ \t]*)/
 
@@ -1139,7 +1144,7 @@ export function compiler(
       parser(
         inline
           ? input
-          : `${input.trimEnd().replace(TRIMstartING_NEWLINES, '')}\n\n`,
+          : `${input.trimEnd().replace(TRIM_STARTING_NEWLINES, '')}\n\n`,
         {
           inline,
         }
