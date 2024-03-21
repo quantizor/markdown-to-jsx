@@ -1107,7 +1107,7 @@ function getTag(tag: string, overrides: MarkdownToJSX.Overrides) {
 }
 
 export function compiler(
-  markdown: string,
+  markdown: string = '',
   options: MarkdownToJSX.Options = {}
 ) {
   options.overrides = options.overrides || {}
@@ -1946,7 +1946,7 @@ const Markdown: React.FC<{
   [key: string]: any
   children: string
   options?: MarkdownToJSX.Options
-}> = ({ children, options, ...props }) => {
+}> = ({ children = '', options, ...props }) => {
   if (process.env.NODE_ENV !== 'production' && typeof children !== 'string') {
     console.error(
       'markdown-to-jsx: <Markdown> component only accepts a single string as a child, received:',

@@ -17,7 +17,7 @@ afterEach(() => ReactDOM.unmountComponentAtNode(root))
 it('should throw if not passed a string (first arg)', () => {
   expect(() => compiler('')).not.toThrow()
   // @ts-ignore
-  expect(() => compiler()).toThrow()
+  expect(() => compiler()).not.toThrow()
   // @ts-ignore
   expect(() => compiler(1)).toThrow()
   // @ts-ignore
