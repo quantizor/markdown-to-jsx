@@ -198,12 +198,12 @@ const CR_NEWLINE_R = /\r\n?/g
  * [^key]: row
  * row
  * row
- * 
+ *
  * And empty lines in indented multiline footnotes
- * 
- * [^key]: indented with 
+ *
+ * [^key]: indented with
  *     row
- * 
+ *
  *     row
  *
  * Explanation:
@@ -216,7 +216,7 @@ const CR_NEWLINE_R = /\r\n?/g
  *
  * 3. Parse as many additional lines as possible. Matches new non-empty lines that doesn't begin with a new footnote definition.
  *    (\n(?!\[\^).+)
- * 
+ *
  * 4. ...or allows for repeated newlines if the next line begins with at least four whitespaces.
  *    (\n+ {4,}.*)
  */
@@ -287,18 +287,41 @@ const TABLE_CENTER_ALIGN = /^ *:-+: *$/
 const TABLE_LEFT_ALIGN = /^ *:-+ *$/
 const TABLE_RIGHT_ALIGN = /^ *-+: *$/
 
-const TEXT_BOLD_R =
-  /^([*_])\1((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1\1(?!\1)/
-const TEXT_EMPHASIZED_R =
-  /^([*_])((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.)*?)\1(?!\1|\w)/
-const TEXT_MARKED_R = /^==((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.)*?)==/
-const TEXT_STRIKETHROUGHED_R = /^~~((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.)*?)~~/
+/**
+ * For inline formatting, this partial attempts to ignore characters that
+ * may appear in nested formatting that could prematurely trigger detection
+ * and therefore miss content that should have been included.
+ */
+const INLINE_SKIP_R =
+  '((?:\\[.*?\\][([].*?[)\\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~~.*?~~|==.*?==|.|\\n)*?)'
+
+/**
+ * Detect a sequence like **foo** or __foo__. Note that bold has a higher priority
+ * than emphasized to support nesting of both since they share a delimiter.
+ */
+const TEXT_BOLD_R = new RegExp(`^([*_])\\1${INLINE_SKIP_R}\\1\\1(?!\\1)`)
+
+/**
+ * Detect a sequence like *foo* or _foo_.
+ */
+const TEXT_EMPHASIZED_R = new RegExp(`^([*_])${INLINE_SKIP_R}\\1(?!\\1|\\w)`)
+
+/**
+ * Detect a sequence like ==foo==.
+ */
+const TEXT_MARKED_R = new RegExp(`^==${INLINE_SKIP_R}==`)
+
+/**
+ * Detect a sequence like ~~foo~~.
+ */
+const TEXT_STRIKETHROUGHED_R = new RegExp(`^~~${INLINE_SKIP_R}~~`)
 
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
+
 const TEXT_PLAIN_R =
   /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff&#;.()'"]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i
 
-const TRIMstartING_NEWLINES = /^\n+/
+const TRIM_STARTING_NEWLINES = /^\n+/
 
 const HTML_LEFT_TRIM_AMOUNT_R = /^([ \t]*)/
 
@@ -516,12 +539,12 @@ function generateListRule(
   }
 }
 
-const LINK_INSIDE = "(?:\\[[^\\]]*\\]|[^\\[\\]]|\\](?=[^\\[]*\\]))*";
+const LINK_INSIDE = '(?:\\[[^\\]]*\\]|[^\\[\\]]|\\](?=[^\\[]*\\]))*'
 const LINK_HREF_AND_TITLE =
-    "\\s*<?((?:\\([^)]*\\)|[^\\s\\\\]|\\\\.)*?)>?(?:\\s+['\"]([\\s\\S]*?)['\"])?\\s*";
+  '\\s*<?((?:\\([^)]*\\)|[^\\s\\\\]|\\\\.)*?)>?(?:\\s+[\'"]([\\s\\S]*?)[\'"])?\\s*'
 const LINK_R = new RegExp(
-      "^\\[(" + LINK_INSIDE + ")\\]\\(" + LINK_HREF_AND_TITLE + "\\)",
-  )
+  '^\\[(' + LINK_INSIDE + ')\\]\\(' + LINK_HREF_AND_TITLE + '\\)'
+)
 const IMAGE_R = /^!\[(.*?)\]\( *((?:\([^)]*\)|[^() ])*) *"?([^)"]*)?"?\)/
 
 const NON_PARAGRAPH_BLOCK_SYNTAXES = [
@@ -1138,7 +1161,7 @@ export function compiler(
       parser(
         inline
           ? input
-          : `${input.trimEnd().replace(TRIMstartING_NEWLINES, '')}\n\n`,
+          : `${input.trimEnd().replace(TRIM_STARTING_NEWLINES, '')}\n\n`,
         {
           inline,
         }

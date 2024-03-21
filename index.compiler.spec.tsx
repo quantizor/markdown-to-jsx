@@ -221,6 +221,19 @@ describe('inline textual elements', () => {
     `)
   })
 
+  it('should handle emphasized text spanning multiple lines', () => {
+    render(compiler('*Hello\nWorld.*\n'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <em>
+          Hello
+      World.
+        </em>
+      </p>
+    `)
+  })
+
   it('should handle double-emphasized text', () => {
     render(compiler('**Hello.**'))
 
@@ -228,6 +241,19 @@ describe('inline textual elements', () => {
       <strong>
         Hello.
       </strong>
+    `)
+  })
+
+  it('should handle double-emphasized text spanning multiple lines', () => {
+    render(compiler('**Hello\nWorld.**\n'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+    <p>
+      <strong>
+        Hello
+    World.
+      </strong>
+    </p>
     `)
   })
 
@@ -240,6 +266,21 @@ describe('inline textual elements', () => {
           Hello.
         </em>
       </strong>
+    `)
+  })
+
+  it('should handle triple-emphasized text spanning multiple lines', () => {
+    render(compiler('***Hello\nWorld.***\n'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <strong>
+          <em>
+            Hello
+      World.
+          </em>
+        </strong>
+      </p>
     `)
   })
 
@@ -303,6 +344,19 @@ describe('inline textual elements', () => {
     `)
   })
 
+  it('should handle deleted text spanning multiple lines', () => {
+    render(compiler('~~Hello\nWorld.~~\n'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <del>
+          Hello
+      World.
+        </del>
+      </p>
+    `)
+  })
+
   it('should handle marked text containing other syntax with an equal sign', () => {
     render(compiler('==Foo `==bar` baz.=='))
 
@@ -314,6 +368,19 @@ describe('inline textual elements', () => {
         </code>
         baz.
       </mark>
+    `)
+  })
+
+  it('should handle marked text spanning multiple lines', () => {
+    render(compiler('==Hello\nWorld.==\n'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <mark>
+          Hello
+      World.
+        </mark>
+      </p>
     `)
   })
 
@@ -3628,7 +3695,7 @@ describe('footnotes', () => {
         Here's a simple footnote,[^1] and here's a longer one.[^bignote]
 
         [^1]: This is the first footnote.
-        
+
         [^bignote]: Here's one with multiple paragraphs and code.
 
             Indent paragraphs to include them in the footnote.
@@ -4189,10 +4256,10 @@ describe('overrides', () => {
 it('should remove YAML front matter', () => {
   render(
     compiler(theredoc`
-      --- 
+      ---
       key: value
       other_key: different value
-      --- 
+      ---
       Hello.
     `)
   )
@@ -4210,7 +4277,6 @@ it('handles a holistic example', () => {
 
   expect(root.innerHTML).toMatchSnapshot()
 })
-
 
 it('handles <code> brackets in link text', () => {
   render(compiler('[`[text]`](https://example.com)'))
