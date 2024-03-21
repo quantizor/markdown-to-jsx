@@ -198,12 +198,12 @@ const CR_NEWLINE_R = /\r\n?/g
  * [^key]: row
  * row
  * row
- * 
+ *
  * And empty lines in indented multiline footnotes
- * 
- * [^key]: indented with 
+ *
+ * [^key]: indented with
  *     row
- * 
+ *
  *     row
  *
  * Explanation:
@@ -216,7 +216,7 @@ const CR_NEWLINE_R = /\r\n?/g
  *
  * 3. Parse as many additional lines as possible. Matches new non-empty lines that doesn't begin with a new footnote definition.
  *    (\n(?!\[\^).+)
- * 
+ *
  * 4. ...or allows for repeated newlines if the next line begins with at least four whitespaces.
  *    (\n+ {4,}.*)
  */
@@ -291,8 +291,9 @@ const TEXT_BOLD_R =
   /^([*_])\1((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.|\n)*?)\1\1(?!\1)/
 const TEXT_EMPHASIZED_R =
   /^([*_])((?:\[.*?\][([].*?[)\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~+.*?~+|.|\n)*?)\1(?!\1|\w)/
-const TEXT_MARKED_R = /^==((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.)*?)==/
-const TEXT_STRIKETHROUGHED_R = /^~~((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.)*?)~~/
+const TEXT_MARKED_R = /^==((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.|\n)*?)==/
+const TEXT_STRIKETHROUGHED_R =
+  /^~~((?:\[.*?\]|<.*?>(?:.*?<.*?>)?|`.*?`|.|\n)*?)~~/
 
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
 const TEXT_PLAIN_R =
@@ -516,12 +517,12 @@ function generateListRule(
   }
 }
 
-const LINK_INSIDE = "(?:\\[[^\\]]*\\]|[^\\[\\]]|\\](?=[^\\[]*\\]))*";
+const LINK_INSIDE = '(?:\\[[^\\]]*\\]|[^\\[\\]]|\\](?=[^\\[]*\\]))*'
 const LINK_HREF_AND_TITLE =
-    "\\s*<?((?:\\([^)]*\\)|[^\\s\\\\]|\\\\.)*?)>?(?:\\s+['\"]([\\s\\S]*?)['\"])?\\s*";
+  '\\s*<?((?:\\([^)]*\\)|[^\\s\\\\]|\\\\.)*?)>?(?:\\s+[\'"]([\\s\\S]*?)[\'"])?\\s*'
 const LINK_R = new RegExp(
-      "^\\[(" + LINK_INSIDE + ")\\]\\(" + LINK_HREF_AND_TITLE + "\\)",
-  )
+  '^\\[(' + LINK_INSIDE + ')\\]\\(' + LINK_HREF_AND_TITLE + '\\)'
+)
 const IMAGE_R = /^!\[(.*?)\]\( *((?:\([^)]*\)|[^() ])*) *"?([^)"]*)?"?\)/
 
 const NON_PARAGRAPH_BLOCK_SYNTAXES = [
