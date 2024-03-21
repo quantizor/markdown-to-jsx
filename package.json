@@ -90,7 +90,8 @@
     "dev": "microbundle watch site.tsx -o docs -f iife --tsconfig tsconfig.site.json --define process.env.NODE_ENV=development --jsx React.createElement --external react,react-dom,styled-components,katex --globals react=React,react-dom=ReactDOM,styled-components=styled --no-pkg-main",
     "test": "jest --verbose",
     "size": "size-limit",
-    "benchmark": "node benchmark.js"
+    "benchmark": "node benchmark.js",
+    "changeset-publish": "yarn build && yarn release && changeset publish"
   },
   "size-limit": [
     {
