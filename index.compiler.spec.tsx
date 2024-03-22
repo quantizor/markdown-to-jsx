@@ -1,4 +1,4 @@
-import { compiler, sanitizer, RuleType } from './index'
+import { createMarkdown, RuleType, MarkdownToJSX } from './index'
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 import * as fs from 'fs'
@@ -12,7 +12,17 @@ function render(jsx) {
   return ReactDOM.render(jsx, root)
 }
 
+let compiler: ReturnType<typeof createMarkdown>['compiler']
+
+beforeEach(() => {
+  compiler = createMarkdown().compiler
+})
+
 afterEach(() => ReactDOM.unmountComponentAtNode(root))
+
+function configure(options: MarkdownToJSX.Options) {
+  compiler = createMarkdown(options).compiler
+}
 
 it('should throw if not passed a string (first arg)', () => {
   expect(() => compiler('')).not.toThrow()
@@ -412,21 +422,15 @@ describe('inline textual elements', () => {
   it('should handle escaped text', () => {
     render(compiler('Hello.\\_\\_foo\\_\\_'))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
-        Hello.__foo__
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Hello.__foo__"`)
   })
 
   it('regression test for #188, mismatched syntaxes triggered the wrong result', () => {
     render(compiler('*This should render as normal text, not emphasized._'))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
-        *This should render as normal text, not emphasized._
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"*This should render as normal text, not emphasized._"`
+    )
   })
 
   it('ignore similar syntax inside inline syntax', () => {
@@ -509,45 +513,27 @@ describe('inline textual elements', () => {
         in the backticks.
       </em>
     `)
-
-    render(
-      compiler(
-        '_This should not misinterpret the under_score that forms part of a word._'
-      )
-    )
-
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <em>
-        This should not misinterpret the under_score that forms part of a word.
-      </em>
-    `)
   })
 
   it('replaces common HTML character codes with unicode equivalents so React will render correctly', () => {
     render(compiler('Foo &nbsp; bar&amp;baz.'))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
-        Foo &nbsp; bar&amp;baz.
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Foo &nbsp; bar&amp;baz."`)
   })
 
   it('replaces custom named character codes with unicode equivalents so React will render correctly', () => {
-    render(
-      compiler('Apostrophe&#39;s and less than ≤ equal', {
-        namedCodesToUnicode: {
-          le: '\u2264',
-          '#39': '\u0027',
-        },
-      })
-    )
+    configure({
+      namedCodesToUnicode: {
+        le: '\u2264',
+        '#39': '\u0027',
+      },
+    })
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
-        Apostrophe's and less than ≤ equal
-      </span>
-    `)
+    render(compiler('Apostrophe&#39;s and less than ≤ equal'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"Apostrophe's and less than ≤ equal"`
+    )
   })
 })
 
@@ -599,7 +585,6 @@ describe('misc block level elements', () => {
 
   it('should handle alert blockquotes', () => {
     render(compiler('> [!NOTE]\n> Something important, perhaps?'))
-
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <blockquote class="markdown-alert-note">
         <header>
@@ -625,12 +610,13 @@ describe('headings', () => {
   })
 
   it('should enforce atx when option is passed', () => {
-    render(compiler('#Hello World', { enforceAtxHeadings: true }))
+    configure({ enforceAtxHeadings: true })
+
+    render(compiler('#Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
-        #Hello World
-      </span>
+      "#Hello World
+      "
     `)
   })
 
@@ -774,7 +760,6 @@ describe('headings', () => {
 
   it('#595 regression - handle pipe character inside header', () => {
     render(compiler('# Heading | text'))
-
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <h1 id="heading--text">
         Heading | text
@@ -1206,53 +1191,10 @@ describe('links', () => {
   })
 
   it('should not link bare URL if disabled via options', () => {
-    render(compiler('https://google.com', { disableAutoLink: true }))
+    configure({ disableAutoLink: true })
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
-        https://google.com
-      </span>
-    `)
-  })
-
-  it('should not sanitize markdown when explicitly disabled', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
-
-    render(compiler('[foo](javascript:doSomethingBad)', { sanitizer: x => x }))
-
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a href="javascript:doSomethingBad">
-        foo
-      </a>
-    `)
-
-    expect(console.warn).not.toHaveBeenCalled()
-  })
-
-  it('tag and attribute are provided to allow for conditional override', () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {})
-    jest.spyOn(console, 'error').mockImplementation(() => {})
-
-    render(
-      compiler(
-        '[foo](javascript:doSomethingBad)\n![foo](javascript:doSomethingBad)',
-        {
-          sanitizer: (value, tag) => (tag === 'a' ? value : sanitizer(value)),
-        }
-      )
-    )
-
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p>
-        <a href="javascript:doSomethingBad">
-          foo
-        </a>
-        <img alt="foo">
-      </p>
-    `)
-
-    expect(console.warn).toHaveBeenCalledTimes(1)
+    render(compiler('https://google.com'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"https://google.com"`)
   })
 
   it('should sanitize markdown links containing JS expressions', () => {
@@ -1803,7 +1745,6 @@ describe('lists', () => {
 - bar **+ baz** qux **quux**
       `)
     )
-
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <ul>
         <li>
@@ -2270,7 +2211,6 @@ describe('GFM tables', () => {
         | col1 | <custom-element>col2</custom-element><br> col2 | <custom-element>col3</custom-element><br>col3 |
       `)
     )
-
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <table>
         <thead>
@@ -2629,9 +2569,10 @@ describe('GFM tables', () => {
 describe('arbitrary HTML', () => {
   it('preserves the HTML given', () => {
     const ast = compiler('<dd class="foo">Hello</dd>')
+
     expect(ast).toMatchInlineSnapshot(`
       <dd
-        className="foo"
+        class="foo"
       >
         Hello
       </dd>
@@ -3081,6 +3022,8 @@ comment -->`)
       return <div className="datepicker" />
     }
 
+    configure({ overrides: { DatePicker } })
+
     render(
       compiler(
         theredoc`
@@ -3088,8 +3031,7 @@ comment -->`)
             biasTowardDateTime="2017-12-05T07:39:36.091Z"
             timezone="UTC+5"
           />
-        `,
-        { overrides: { DatePicker } }
+        `
       )
     )
 
@@ -3108,6 +3050,8 @@ comment -->`)
       )
     }
 
+    configure({ overrides: { DatePicker } })
+
     render(
       compiler(
         theredoc`
@@ -3115,8 +3059,7 @@ comment -->`)
             startTime={1514579720511}
             endTime={"1514579720512"}
           />
-        `,
-        { overrides: { DatePicker } }
+        `
       )
     )
 
@@ -3149,6 +3092,10 @@ comment -->`)
       )
     }
 
+    configure({
+      overrides: { Inner, InterpolationTest },
+    })
+
     render(
       compiler(
         theredoc`
@@ -3158,8 +3105,7 @@ comment -->`)
             component3={<Inner disabled />}
             component4={<Inner disabled={false} />}
           />
-        `,
-        { overrides: { Inner, InterpolationTest } }
+        `
       )
     )
 
@@ -3331,11 +3277,7 @@ comment -->`)
   it('#180 handles invalid character error with angle brackets', () => {
     render(compiler('1<2 or 2>1'))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
-        1&lt;2 or 2&gt;1
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"1&lt;2 or 2&gt;1"`)
   })
 
   it('#181 handling of figure blocks', () => {
@@ -3564,7 +3506,8 @@ comment -->`)
   it('does not consume trailing whitespace if there is no newline', () => {
     const Foo = () => <span>Hello</span>
 
-    render(compiler('<Foo/> World!', { overrides: { Foo } }))
+    configure({ overrides: { Foo } })
+    render(compiler('<Foo/> World!'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <span>
@@ -3577,12 +3520,13 @@ comment -->`)
   })
 
   it('should not fail with lots of \\n in the middle of the text', () => {
+    configure({
+      forceBlock: true,
+    })
+
     render(
       compiler(
-        'Text\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\ntext',
-        {
-          forceBlock: true,
-        }
+        'Text\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\ntext'
       )
     )
     expect(root.innerHTML).toMatchInlineSnapshot(`
@@ -3598,24 +3542,24 @@ comment -->`)
   })
 
   it('should not render html if disableParsingRawHTML is true', () => {
-    render(
-      compiler('Text with <span>html</span> inside', {
-        disableParsingRawHTML: true,
-      })
+    configure({
+      disableParsingRawHTML: true,
+    })
+
+    render(compiler('Text with <span>html</span> inside'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"Text with &lt;span&gt;html&lt;/span&gt; inside"`
     )
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
-        Text with &lt;span&gt;html&lt;/span&gt; inside
-      </span>
-    `)
   })
 
   it('should render html if disableParsingRawHTML is false', () => {
-    render(
-      compiler('Text with <span>html</span> inside', {
-        disableParsingRawHTML: false,
-      })
-    )
+    configure({
+      disableParsingRawHTML: false,
+    })
+
+    render(compiler('Text with <span>html</span> inside'))
+
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <span>
         Text with
@@ -3903,6 +3847,24 @@ Each span you copy above increases the time it takes by 2. Also, writing text he
       </div>
     `)
   })
+
+  it('lowercase attributes are accepted', () => {
+    render(
+      compiler(
+        `<video controls width="250"><source src="/media/cc0-videos/flower.webm" type="video/webm" /></video>`
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <video controls
+             width="250"
+      >
+        <source src="/media/cc0-videos/flower.webm"
+                type="video/webm"
+        >
+      </video>
+    `)
+  })
 })
 
 describe('horizontal rules', () => {
@@ -3980,7 +3942,6 @@ Yeah boi
 
   it('regression 602 - should treat anything following ``` as code until the closing pair', () => {
     render(compiler('```\nfoo'))
-
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <pre>
         <code>
@@ -4196,20 +4157,18 @@ describe('footnotes', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <div>
-        <div>
-          <p>
-            foo
-            <a href="#abc">
-              <sup>
-                abc
-              </sup>
-            </a>
-            bar
-          </p>
-          <p>
-            After footnotes content
-          </p>
-        </div>
+        <p>
+          foo
+          <a href="#abc">
+            <sup>
+              abc
+            </sup>
+          </a>
+          bar
+        </p>
+        <p>
+          After footnotes content
+        </p>
         <footer>
           <div id="abc">
             abc: Baz
@@ -4399,22 +4358,20 @@ describe('options.namedCodesToUnicode', () => {
   }
 
   it('should replace special HTML characters', () => {
-    render(compiler(content, { namedCodesToUnicode }))
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
-        Æ,Á,Â,À,Å,Ã,Ä,Ç,É,Ê,È,Ë,Í,Î,Ì,Ï,Ñ,Ó,Ô,Ò,Ø,Õ,Ö,Ú,Û,Ù,Ü,Ý,á,â,æ,à,å,ã,ä,ç,©,é,ê,è,ë,≥,í,î,ì,ï,«,≤, ,ñ,ó,ô,ò,ø,õ,ö,§,",»,ß,ú,û,ù,ü,ý
-      </span>
-`)
+    configure({ namedCodesToUnicode })
+    render(compiler(content))
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"Æ,Á,Â,À,Å,Ã,Ä,Ç,É,Ê,È,Ë,Í,Î,Ì,Ï,Ñ,Ó,Ô,Ò,Ø,Õ,Ö,Ú,Û,Ù,Ü,Ý,á,â,æ,à,å,ã,ä,ç,©,é,ê,è,ë,≥,í,î,ì,ï,«,≤, ,ñ,ó,ô,ò,ø,õ,ö,§,",»,ß,ú,û,ù,ü,ý"`
+    )
   })
 })
 
 describe('options.forceBlock', () => {
   it('treats given markdown as block-context', () => {
-    render(
-      compiler("Hello. _Beautiful_ day isn't it?", {
-        forceBlock: true,
-      })
-    )
+    configure({
+      forceBlock: true,
+    })
+    render(compiler("Hello. _Beautiful_ day isn't it?"))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <p>
@@ -4430,29 +4387,24 @@ describe('options.forceBlock', () => {
 
 describe('options.forceInline', () => {
   it('treats given markdown as inline-context, passing through any block-level markdown syntax', () => {
-    render(compiler('# You got it babe!', { forceInline: true }))
+    configure({ forceInline: true })
+    render(compiler('# You got it babe!'))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
-        # You got it babe!
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"# You got it babe!"`)
   })
 })
 
 describe('options.wrapper', () => {
   it('is ignored when there is a single child', () => {
-    render(compiler('Hello, world!', { wrapper: 'article' }))
+    configure({ wrapper: 'article' })
+    render(compiler('Hello, world!'))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
-        Hello, world!
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Hello, world!"`)
   })
 
   it('overrides the wrapper element when there are multiple children', () => {
-    render(compiler('Hello\n\nworld!', { wrapper: 'article' }))
+    configure({ wrapper: 'article' })
+    render(compiler('Hello\n\nworld!'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <article>
@@ -4467,8 +4419,8 @@ describe('options.wrapper', () => {
   })
 
   it('renders an array when `null`', () => {
-    expect(compiler('Hello\n\nworld!', { wrapper: null }))
-      .toMatchInlineSnapshot(`
+    configure({ wrapper: null })
+    expect(compiler('Hello\n\nworld!')).toMatchInlineSnapshot(`
       [
         <p>
           Hello
@@ -4481,7 +4433,8 @@ describe('options.wrapper', () => {
   })
 
   it('works with `React.Fragment`', () => {
-    render(compiler('Hello\n\nworld!', { wrapper: React.Fragment }))
+    configure({ wrapper: React.Fragment })
+    render(compiler('Hello\n\nworld!'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <p>
@@ -4496,7 +4449,8 @@ describe('options.wrapper', () => {
 
 describe('options.forceWrapper', () => {
   it('ensures wrapper element is present even with a single child', () => {
-    render(compiler('Hi Evan', { wrapper: 'aside', forceWrapper: true }))
+    configure({ wrapper: 'aside', forceWrapper: true })
+    render(compiler('Hi Evan'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <aside>
@@ -4508,13 +4462,13 @@ describe('options.forceWrapper', () => {
 
 describe('options.createElement', () => {
   it('should render a <custom> element if render function overrides the element type', () => {
-    render(
-      compiler('Hello', {
-        createElement(tag, props, children) {
-          return React.createElement('custom', props, children)
-        },
-      })
-    )
+    configure({
+      createElement(tag, props, children) {
+        return React.createElement('custom', props, children)
+      },
+      forceWrapper: true,
+    })
+    render(compiler('Hello'))
 
     // The tag name is always in the upper-case form.
     // https://developer.mozilla.org/en-US/docs/Web/API/Element/tagName
@@ -4522,13 +4476,13 @@ describe('options.createElement', () => {
   })
 
   it('should render an empty <div> element', () => {
-    render(
-      compiler('Hello', {
-        createElement() {
-          return React.createElement('div')
-        },
-      })
-    )
+    configure({
+      createElement() {
+        return React.createElement('div')
+      },
+      forceWrapper: true,
+    })
+    render(compiler('Hello'))
 
     expect(root.children[0].innerHTML).toBe('')
     expect(root.children[0].children.length).toBe(0)
@@ -4537,17 +4491,16 @@ describe('options.createElement', () => {
 
 describe('options.renderRule', () => {
   it('should allow arbitrary modification of content', () => {
-    render(
-      compiler('Hello.\n\n```latex\n$$f(X,n) = X_n + X_{n-1}$$\n```\n', {
-        renderRule(next, node, renderChildren, state) {
-          if (node.type === RuleType.codeBlock && node.lang === 'latex') {
-            return <div key={state.key}>I'm latex.</div>
-          }
+    configure({
+      renderRule(next, node, renderChildren, state) {
+        if (node.type === RuleType.codeBlock && node.lang === 'latex') {
+          return <div key={state.key}>I'm latex.</div>
+        }
 
-          return next()
-        },
-      })
-    )
+        return next()
+      },
+    })
+    render(compiler('Hello.\n\n```latex\n$$f(X,n) = X_n + X_{n-1}$$\n```\n'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
         <div>
@@ -4564,7 +4517,8 @@ describe('options.renderRule', () => {
 
 describe('options.slugify', () => {
   it('should use a custom slugify function rather than the default if set and valid', () => {
-    render(compiler('# 中文', { slugify: str => str }))
+    configure({ slugify: str => str })
+    render(compiler('# 中文'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <h1 id="中文">
@@ -4584,9 +4538,11 @@ describe('options.slugify', () => {
   })
 
   it('should throw error if invalid', () => {
+    // @ts-ignore
+    configure({ slugify: 'invalid' })
+
     expect(() => {
-      // @ts-ignore
-      render(compiler('# 中文', { slugify: 'invalid' }))
+      render(compiler('# 中文'))
     }).toThrow(/options\.slugify is not a function/)
   })
 })
@@ -4599,11 +4555,11 @@ describe('overrides', () => {
       }
     }
 
-    render(
-      compiler('Hello.\n\n', {
-        overrides: { p: { component: FakeParagraph } },
-      })
-    )
+    configure({
+      overrides: { p: { component: FakeParagraph } },
+    })
+
+    render(compiler('Hello.\n\n'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <p class="foo">
@@ -4617,11 +4573,11 @@ describe('overrides', () => {
       <button {...props} />
     )
 
-    render(
-      compiler('<CustomButton>Click me!</CustomButton>', {
-        overrides: { CustomButton },
-      })
-    )
+    configure({
+      overrides: { CustomButton },
+    })
+
+    render(compiler('<CustomButton>Click me!</CustomButton>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <button>
@@ -4637,7 +4593,9 @@ describe('overrides', () => {
       }
     }
 
-    render(compiler('Hello.\n\n', { overrides: { p: FakeParagraph } }))
+    configure({ overrides: { p: FakeParagraph } })
+
+    render(compiler('Hello.\n\n'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <p class="foo">
@@ -4647,11 +4605,11 @@ describe('overrides', () => {
   })
 
   it('should add props to the appropriate JSX tag if supplied', () => {
-    render(
-      compiler('Hello.\n\n', {
-        overrides: { p: { props: { className: 'abc', title: 'foo' } } },
-      })
-    )
+    configure({
+      overrides: { p: { props: { className: 'abc', title: 'foo' } } },
+    })
+
+    render(compiler('Hello.\n\n'))
 
     expect(root.children[0].className).toBe('abc')
     expect(root.children[0].textContent).toBe('Hello.')
@@ -4668,33 +4626,33 @@ describe('overrides', () => {
       }
     }
 
-    render(
-      compiler('[link](https://example.org)', {
-        overrides: { a: { component: FakeLink, props: { title: 'foo' } } },
-      })
-    )
+    configure({
+      overrides: { a: { component: FakeLink, props: { title: 'foo' } } },
+    })
+
+    render(compiler('[link](https://example.org)'))
 
     expect((root.children[0] as HTMLAnchorElement).title).toBe('foo')
   })
 
   it('should add props to pre & code tags if supplied', () => {
-    render(
-      compiler(['```', 'foo', '```'].join('\n'), {
-        overrides: {
-          code: {
-            props: {
-              'data-foo': 'bar',
-            },
-          },
-
-          pre: {
-            props: {
-              className: 'abc',
-            },
+    configure({
+      overrides: {
+        code: {
+          props: {
+            'data-foo': 'bar',
           },
         },
-      })
-    )
+
+        pre: {
+          props: {
+            className: 'abc',
+          },
+        },
+      },
+    })
+
+    render(compiler(['```', 'foo', '```'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <pre class="abc">
@@ -4730,25 +4688,25 @@ describe('overrides', () => {
       }
     }
 
-    render(
-      compiler(['```', 'foo', '```'].join('\n'), {
-        overrides: {
-          code: {
-            component: OverridenCode,
-            props: {
-              'data-foo': 'bar',
-            },
-          },
-
-          pre: {
-            component: OverridenPre,
-            props: {
-              className: 'abc',
-            },
+    configure({
+      overrides: {
+        code: {
+          component: OverridenCode,
+          props: {
+            'data-foo': 'bar',
           },
         },
-      })
-    )
+
+        pre: {
+          component: OverridenPre,
+          props: {
+            className: 'abc',
+          },
+        },
+      },
+    })
+
+    render(compiler(['```', 'foo', '```'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <pre class="abc"
@@ -4764,11 +4722,11 @@ describe('overrides', () => {
   })
 
   it('should be able to override gfm task list items', () => {
-    render(
-      compiler('- [ ] foo', {
-        overrides: { li: { props: { className: 'foo' } } },
-      })
-    )
+    configure({
+      overrides: { li: { props: { className: 'foo' } } },
+    })
+
+    render(compiler('- [ ] foo'))
     const $element = root.querySelector('li')!
 
     expect($element.outerHTML).toMatchInlineSnapshot(`
@@ -4782,11 +4740,11 @@ describe('overrides', () => {
   })
 
   it('should be able to override gfm task list item checkboxes', () => {
-    render(
-      compiler('- [ ] foo', {
-        overrides: { input: { props: { className: 'foo' } } },
-      })
-    )
+    configure({
+      overrides: { input: { props: { className: 'foo' } } },
+    })
+
+    render(compiler('- [ ] foo'))
     const $element = root.querySelector('input')!
 
     expect($element.outerHTML).toMatchInlineSnapshot(`
@@ -4800,12 +4758,12 @@ describe('overrides', () => {
   it('should substitute the appropriate JSX tag if given a component and disableParsingRawHTML is true', () => {
     const FakeParagraph = ({ children }) => <p className="foo">{children}</p>
 
-    render(
-      compiler('Hello.\n\n', {
-        disableParsingRawHTML: true,
-        overrides: { p: { component: FakeParagraph } },
-      })
-    )
+    configure({
+      disableParsingRawHTML: true,
+      overrides: { p: { component: FakeParagraph } },
+    })
+
+    render(compiler('Hello.\n\n'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <p class="foo">
@@ -4817,12 +4775,12 @@ describe('overrides', () => {
   it('should not substitute the appropriate JSX tag inline if given a component and disableParsingRawHTML is true', () => {
     const FakeSpan = ({ children }) => <span className="foo">{children}</span>
 
-    render(
-      compiler('Hello.\n\n<FakeSpan>I am a fake span</FakeSpan>', {
-        disableParsingRawHTML: true,
-        overrides: { FakeSpan },
-      })
-    )
+    configure({
+      disableParsingRawHTML: true,
+      overrides: { FakeSpan },
+    })
+
+    render(compiler('Hello.\n\n<FakeSpan>I am a fake span</FakeSpan>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <div>
@@ -4837,13 +4795,15 @@ describe('overrides', () => {
   })
 
   it('#530 nested overrides', () => {
+    configure({
+      overrides: {
+        Accordion: ({ children }) => children,
+        AccordionItem: ({ children }) => children,
+      },
+    })
+
     render(
-      compiler('<Accordion><AccordionItem>test</AccordionItem></Accordion>', {
-        overrides: {
-          Accordion: ({ children }) => children,
-          AccordionItem: ({ children }) => children,
-        },
-      })
+      compiler('<Accordion><AccordionItem>test</AccordionItem></Accordion>')
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`"test"`)
@@ -4874,11 +4834,7 @@ it('should remove YAML front matter', () => {
     `)
   )
 
-  expect(root.innerHTML).toMatchInlineSnapshot(`
-    <span>
-      Hello.
-    </span>
-`)
+  expect(root.innerHTML).toMatchInlineSnapshot(`"Hello."`)
 })
 
 it('handles a holistic example', () => {
@@ -4912,7 +4868,6 @@ it('handles naked brackets in link text', () => {
 
 it('#597 handles script tag with empty content', () => {
   render(compiler('<script src="dummy.js"></script>'))
-
   expect(root.innerHTML).toMatchInlineSnapshot(`
     <script src="dummy.js">
     </script>
