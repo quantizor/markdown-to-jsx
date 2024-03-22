@@ -1,8 +1,8 @@
-import Markdown, { compiler, RuleType } from './index.tsx'
+import _createMarkdown, { RuleType } from './'
 
-Object.assign(Markdown, { compiler, RuleType })
+// @ts-ignore
+Object.assign(_createMarkdown, { RuleType })
 
-export default Markdown as typeof Markdown & {
-  compiler: typeof compiler
+export const createMarkdown = _createMarkdown as typeof createMarkdown & {
   RuleType: typeof RuleType
 }

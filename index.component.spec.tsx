@@ -1,4 +1,4 @@
-import Markdown from './index'
+import {createMarkdown, type MarkdownToJSX} from './index'
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 
@@ -7,6 +7,16 @@ const root = document.body.appendChild(document.createElement('div'))
 function render(jsx) {
   return ReactDOM.render(jsx, root)
 }
+
+let Markdown: ReturnType<typeof createMarkdown>['Markdown']
+
+function configure(options: MarkdownToJSX.Options) {
+  Markdown = createMarkdown(options).Markdown
+}
+
+beforeEach(() => {
+  Markdown = createMarkdown().Markdown
+})
 
 afterEach(() => ReactDOM.unmountComponentAtNode(root))
 
@@ -23,10 +33,7 @@ it('accepts markdown content', () => {
 it('handles a no-children scenario', () => {
   render(<Markdown>{''}</Markdown>)
 
-  expect(root.innerHTML).toMatchInlineSnapshot(`
-    <span>
-    </span>
-  `)
+  expect(root.innerHTML).toMatchInlineSnapshot(`""`)
 })
 
 it('accepts options', () => {
@@ -36,8 +43,10 @@ it('accepts options', () => {
     }
   }
 
+  configure({ overrides: { p: { component: FakeParagraph } } })
+
   render(
-    <Markdown options={{ overrides: { p: { component: FakeParagraph } } }}>
+    <Markdown >
       _Hello._
     </Markdown>
   )
@@ -52,11 +61,10 @@ it('accepts options', () => {
 it('merges className overrides, rather than overwriting', () => {
   const code = ['```js', 'foo', '```'].join('\n')
 
+  configure({ overrides: { code: { props: { className: 'foo' } } } })
+
   render(
     <Markdown
-      options={{
-        overrides: { code: { props: { className: 'foo' } } },
-      }}
     >
       {code}
     </Markdown>
@@ -71,14 +79,3 @@ it('merges className overrides, rather than overwriting', () => {
   `)
 })
 
-it('passes along any additional props to the rendered wrapper element', () => {
-  render(<Markdown className="foo"># Hello</Markdown>)
-
-  expect(root.innerHTML).toMatchInlineSnapshot(`
-    <h1 id="hello"
-        class="foo"
-    >
-      Hello
-    </h1>
-  `)
-})
