@@ -563,6 +563,39 @@ describe('misc block level elements', () => {
       </blockquote>
     `)
   })
+
+  it('should handle lazy continuation lines of blockquotes', () => {
+    render(compiler('> Line 1\nLine 2\n>Line 3'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <blockquote>
+        <p>
+          Line 1
+      Line 2
+      Line 3
+        </p>
+      </blockquote>
+    `)
+  })
+
+  it('should handle consecutive blockquotes', () => {
+    render(compiler('> Something important, perhaps?\n\n> Something else'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <div>
+        <blockquote>
+          <p>
+            Something important, perhaps?
+          </p>
+        </blockquote>
+        <blockquote>
+          <p>
+            Something else
+          </p>
+        </blockquote>
+      </div>
+    `)
+  })
 })
 
 describe('headings', () => {
