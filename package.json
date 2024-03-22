@@ -4,6 +4,9 @@
   "homepage": "https://markdown-to-jsx.quantizor.dev",
   "license": "MIT",
   "version": "7.4.5",
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">= 10"
   },
