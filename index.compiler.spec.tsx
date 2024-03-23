@@ -3723,20 +3723,18 @@ describe('footnotes', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <div>
-        <div>
-          <p>
-            foo
-            <a href="#abc">
-              <sup>
-                abc
-              </sup>
-            </a>
-            bar
-          </p>
-          <p>
-            After footnotes content
-          </p>
-        </div>
+        <p>
+          foo
+          <a href="#abc">
+            <sup>
+              abc
+            </sup>
+          </a>
+          bar
+        </p>
+        <p>
+          After footnotes content
+        </p>
         <footer>
           <div id="abc">
             abc: Baz
