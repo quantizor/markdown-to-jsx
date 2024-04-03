@@ -42,15 +42,15 @@ it('wraps multiple block element returns in a div to avoid invalid nesting error
   render(compiler('# Boop\n\n## Blep'))
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <div>
-      <h1 id="boop">
-        Boop
-      </h1>
-      <h2 id="blep">
-        Blep
-      </h2>
-    </div>
-  `)
+<div>
+  <h1 id="-boop">
+    Boop
+  </h1>
+  <h2 id="-blep">
+    Blep
+  </h2>
+</div>
+`)
 })
 
 it('wraps solely inline elements in a span, rather than a div', () => {
@@ -603,10 +603,10 @@ describe('headings', () => {
     render(compiler('# Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h1 id="hello-world">
-        Hello World
-      </h1>
-    `)
+<h1 id="-hello-world">
+  Hello World
+</h1>
+`)
   })
 
   it('should enforce atx when option is passed', () => {
@@ -623,50 +623,50 @@ describe('headings', () => {
     render(compiler('## Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h2 id="hello-world">
-        Hello World
-      </h2>
-    `)
+<h2 id="-hello-world">
+  Hello World
+</h2>
+`)
   })
 
   it('should handle level 3 properly', () => {
     render(compiler('### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h3 id="hello-world">
-        Hello World
-      </h3>
-    `)
+<h3 id="-hello-world">
+  Hello World
+</h3>
+`)
   })
 
   it('should handle level 4 properly', () => {
     render(compiler('#### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h4 id="hello-world">
-        Hello World
-      </h4>
-    `)
+<h4 id="-hello-world">
+  Hello World
+</h4>
+`)
   })
 
   it('should handle level 5 properly', () => {
     render(compiler('##### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h5 id="hello-world">
-        Hello World
-      </h5>
-    `)
+<h5 id="-hello-world">
+  Hello World
+</h5>
+`)
   })
 
   it('should handle level 6 properly', () => {
     render(compiler('###### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h6 id="hello-world">
-        Hello World
-      </h6>
-    `)
+<h6 id="-hello-world">
+  Hello World
+</h6>
+`)
   })
 
   it('should handle setext level 1 style', () => {
@@ -703,58 +703,58 @@ describe('headings', () => {
     render(compiler('# Hello World\n## And again'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div>
-        <h1 id="hello-world">
-          Hello World
-        </h1>
-        <h2 id="and-again">
-          And again
-        </h2>
-      </div>
-    `)
+<div>
+  <h1 id="-hello-world">
+    Hello World
+  </h1>
+  <h2 id="-and-again">
+    And again
+  </h2>
+</div>
+`)
   })
 
   it('trims closing hashes in headers', () => {
     render(compiler('# Hello World #########\nHere is the body'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div>
-        <h1 id="hello-world">
-          Hello World
-        </h1>
-        <p>
-          Here is the body
-        </p>
-      </div>
-    `)
+<div>
+  <h1 id="-hello-world">
+    Hello World
+  </h1>
+  <p>
+    Here is the body
+  </p>
+</div>
+`)
   })
 
   it('keeps hashes before closing hashes in headers and hashes without whitespace preceding', () => {
     render(compiler('# Hello World # #\n## Subheader#\nHere is the body'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div>
-        <h1 id="hello-world-">
-          Hello World #
-        </h1>
-        <h2 id="subheader">
-          Subheader#
-        </h2>
-        <p>
-          Here is the body
-        </p>
-      </div>
-    `)
+<div>
+  <h1 id="-hello-world-">
+    Hello World #
+  </h1>
+  <h2 id="-subheader">
+    Subheader#
+  </h2>
+  <p>
+    Here is the body
+  </p>
+</div>
+`)
   })
 
   it('adds an "id" attribute to headings for deeplinking purposes', () => {
     render(compiler("# This is~ a very' complicated> header!"))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h1 id="this-is-a-very-complicated-header">
-        This is~ a very' complicated&gt; header!
-      </h1>
-    `)
+<h1 id="-this-is-a-very-complicated-header">
+  This is~ a very' complicated&gt; header!
+</h1>
+`)
   })
 })
 
@@ -1032,15 +1032,15 @@ describe('links', () => {
     render(compiler('foo\n# header'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div>
-        <p>
-          foo
-        </p>
-        <h1 id="header">
-          header
-        </h1>
-      </div>
-    `)
+<div>
+  <p>
+    foo
+  </p>
+  <h1 id="-header">
+    header
+  </h1>
+</div>
+`)
   })
 
   it('should handle autolink style', () => {
@@ -2431,12 +2431,12 @@ describe('arbitrary HTML', () => {
     render(compiler('<div style="float: right">\n# Hello\n</div>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div style="float: right;">
-        <h1 id="hello">
-          Hello
-        </h1>
-      </div>
-    `)
+<div style="float: right;">
+  <h1 id="-hello">
+    Hello
+  </h1>
+</div>
+`)
   })
 
   it('renders inline <code> tags', () => {
@@ -2937,16 +2937,16 @@ comment -->`)
     render(compiler('"<span># foo</span>"'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
-        "
-        <span>
-          <h1 id="foo">
-            foo
-          </h1>
-        </span>
-        "
-      </span>
-    `)
+<span>
+  "
+  <span>
+    <h1 id="-foo">
+      foo
+    </h1>
+  </span>
+  "
+</span>
+`)
   })
 
   it('does not parse the inside of <style> blocks', () => {
@@ -3141,32 +3141,32 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <details>
-        <summary>
-          View collapsed content
-        </summary>
-        <h1 id="title-h1">
-          Title h1
-        </h1>
-        <h2 id="title-h2">
-          Title h2
-        </h2>
-        <p>
-          Text content
-        </p>
-        <ul>
-          <li>
-            list 1
-          </li>
-          <li>
-            list 2
-          </li>
-          <li>
-            list 3
-          </li>
-        </ul>
-      </details>
-    `)
+<details>
+  <summary>
+    View collapsed content
+  </summary>
+  <h1 id="-title-h1">
+    Title h1
+  </h1>
+  <h2 id="-title-h2">
+    Title h2
+  </h2>
+  <p>
+    Text content
+  </p>
+  <ul>
+    <li>
+      list 1
+    </li>
+    <li>
+      list 2
+    </li>
+    <li>
+      list 3
+    </li>
+  </ul>
+</details>
+`)
   })
 
   it('multiline left-trims by the same amount as the first line', () => {
@@ -3555,23 +3555,23 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div>
-        <p>
-          foo
-          <a href="#abc">
-            <sup>
-              abc
-            </sup>
-          </a>
-          bar
-        </p>
-        <footer>
-          <div id="abc">
-            abc: Baz baz
-          </div>
-        </footer>
-      </div>
-    `)
+<div>
+  <p>
+    foo
+    <a href="#-abc">
+      <sup>
+        abc
+      </sup>
+    </a>
+    bar
+  </p>
+  <footer>
+    <div id="-abc">
+      abc: Baz baz
+    </div>
+  </footer>
+</div>
+`)
   })
 
   it('should handle complex references', () => {
@@ -3584,23 +3584,23 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div>
-        <p>
-          foo
-          <a href="#reference-here-123">
-            <sup>
-              referencé heré 123
-            </sup>
-          </a>
-          bar
-        </p>
-        <footer>
-          <div id="reference-here-123">
-            referencé heré 123: Baz baz
-          </div>
-        </footer>
-      </div>
-    `)
+<div>
+  <p>
+    foo
+    <a href="#-reference-here-123">
+      <sup>
+        referencé heré 123
+      </sup>
+    </a>
+    bar
+  </p>
+  <footer>
+    <div id="-reference-here-123">
+      referencé heré 123: Baz baz
+    </div>
+  </footer>
+</div>
+`)
   })
 
   it('should handle conversion of multiple references into links', () => {
@@ -3614,31 +3614,31 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div>
-        <p>
-          foo
-          <a href="#abc">
-            <sup>
-              abc
-            </sup>
-          </a>
-          bar. baz
-          <a href="#def">
-            <sup>
-              def
-            </sup>
-          </a>
-        </p>
-        <footer>
-          <div id="abc">
-            abc: Baz baz
-          </div>
-          <div id="def">
-            def: Def
-          </div>
-        </footer>
-      </div>
-    `)
+<div>
+  <p>
+    foo
+    <a href="#-abc">
+      <sup>
+        abc
+      </sup>
+    </a>
+    bar. baz
+    <a href="#-def">
+      <sup>
+        def
+      </sup>
+    </a>
+  </p>
+  <footer>
+    <div id="-abc">
+      abc: Baz baz
+    </div>
+    <div id="-def">
+      def: Def
+    </div>
+  </footer>
+</div>
+`)
   })
 
   it('should inject the definitions in a footer at the end of the root', () => {
@@ -3651,23 +3651,23 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div>
-        <p>
-          foo
-          <a href="#abc">
-            <sup>
-              abc
-            </sup>
-          </a>
-          bar
-        </p>
-        <footer>
-          <div id="abc">
-            abc: Baz baz
-          </div>
-        </footer>
-      </div>
-    `)
+<div>
+  <p>
+    foo
+    <a href="#-abc">
+      <sup>
+        abc
+      </sup>
+    </a>
+    bar
+  </p>
+  <footer>
+    <div id="-abc">
+      abc: Baz baz
+    </div>
+  </footer>
+</div>
+`)
   })
 
   it('should handle single word footnote definitions', () => {
@@ -3680,23 +3680,23 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div>
-        <p>
-          foo
-          <a href="#abc">
-            <sup>
-              abc
-            </sup>
-          </a>
-          bar
-        </p>
-        <footer>
-          <div id="abc">
-            abc: Baz
-          </div>
-        </footer>
-      </div>
-    `)
+<div>
+  <p>
+    foo
+    <a href="#-abc">
+      <sup>
+        abc
+      </sup>
+    </a>
+    bar
+  </p>
+  <footer>
+    <div id="-abc">
+      abc: Baz
+    </div>
+  </footer>
+</div>
+`)
   })
 
   it('should not blow up if footnote syntax is seen but no matching footnote was found', () => {
@@ -3722,30 +3722,30 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div>
-        <div>
-          <p>
-            foo
-            <a href="#abc">
-              <sup>
-                abc
-              </sup>
-            </a>
-            bar
-          </p>
-          <p>
-            After footnotes content
-          </p>
-        </div>
-        <footer>
-          <div id="abc">
-            abc: Baz
-        line2
-        line3
-          </div>
-        </footer>
-      </div>
-    `)
+<div>
+  <div>
+    <p>
+      foo
+      <a href="#-abc">
+        <sup>
+          abc
+        </sup>
+      </a>
+      bar
+    </p>
+    <p>
+      After footnotes content
+    </p>
+  </div>
+  <footer>
+    <div id="-abc">
+      abc: Baz
+  line2
+  line3
+    </div>
+  </footer>
+</div>
+`)
   })
 
   it('should handle mixed multiline and singleline footnotes', () => {
@@ -3762,42 +3762,42 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div>
-        <p>
-          a
-          <a href="#a">
-            <sup>
-              a
-            </sup>
-          </a>
-          b
-          <a href="#b">
-            <sup>
-              b
-            </sup>
-          </a>
-          c
-          <a href="#c">
-            <sup>
-              c
-            </sup>
-          </a>
-        </p>
-        <footer>
-          <div id="a">
-            a: single
-          </div>
-          <div id="b">
-            b: bbbb
-        bbbb
-        bbbb
-          </div>
-          <div id="c">
-            c: single-c
-          </div>
-        </footer>
-      </div>
-    `)
+<div>
+  <p>
+    a
+    <a href="#-a">
+      <sup>
+        a
+      </sup>
+    </a>
+    b
+    <a href="#-b">
+      <sup>
+        b
+      </sup>
+    </a>
+    c
+    <a href="#-c">
+      <sup>
+        c
+      </sup>
+    </a>
+  </p>
+  <footer>
+    <div id="-a">
+      a: single
+    </div>
+    <div id="-b">
+      b: bbbb
+  bbbb
+  bbbb
+    </div>
+    <div id="-c">
+      c: single-c
+    </div>
+  </footer>
+</div>
+`)
   })
 
   it('should handle indented multiline footnote', () => {
@@ -3818,37 +3818,37 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div>
-        <p>
-          Here's a simple footnote,
-          <a href="#1">
-            <sup>
-              1
-            </sup>
-          </a>
-          and here's a longer one.
-          <a href="#bignote">
-            <sup>
-              bignote
-            </sup>
-          </a>
-        </p>
-        <footer>
-          <div id="1">
-            1: This is the first footnote.
-          </div>
-          <div id="bignote">
-            bignote: Here's one with multiple paragraphs and code.
+<div>
+  <p>
+    Here's a simple footnote,
+    <a href="#-1">
+      <sup>
+        1
+      </sup>
+    </a>
+    and here's a longer one.
+    <a href="#-bignote">
+      <sup>
+        bignote
+      </sup>
+    </a>
+  </p>
+  <footer>
+    <div id="-1">
+      1: This is the first footnote.
+    </div>
+    <div id="-bignote">
+      bignote: Here's one with multiple paragraphs and code.
 
-          Indent paragraphs to include them in the footnote.
-            <code>
-              { my code }
-            </code>
-            Add as many paragraphs as you like.
-          </div>
-        </footer>
-      </div>
-      `)
+    Indent paragraphs to include them in the footnote.
+      <code>
+        { my code }
+      </code>
+      Add as many paragraphs as you like.
+    </div>
+  </footer>
+</div>
+`)
   })
 })
 
