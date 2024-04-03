@@ -589,7 +589,7 @@ function unquote(str: string) {
 // based on https://stackoverflow.com/a/18123682/1141611
 // not complete, but probably good enough
 function slugify(str: string) {
-  return str
+  const slug = str
     .replace(/[ÀÁÂÃÄÅàáâãäåæÆ]/g, 'a')
     .replace(/[çÇ]/g, 'c')
     .replace(/[ðÐ]/g, 'd')
@@ -602,6 +602,13 @@ function slugify(str: string) {
     .replace(/[^a-z0-9- ]/gi, '')
     .replace(/ /gi, '-')
     .toLowerCase()
+
+  // Prefix the string with a dash to ensure it isn't a valid JS variable name.
+  // Otherwise, the browser behavior of assigning element with `id` to the global scope
+  // may result in unexpected behavior.
+  // E.g.: Element with `id="analytics"` will be assigned to `window.analytics`
+  // causing `analytics.push()` calls to throw.
+  return slug ? '-' + slug : ''
 }
 
 function parseTableAlignCapture(alignCapture: string) {
