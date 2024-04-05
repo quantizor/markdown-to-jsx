@@ -588,7 +588,7 @@ function unquote(str: string) {
 
 // based on https://stackoverflow.com/a/18123682/1141611
 // not complete, but probably good enough
-function slugify(str: string) {
+export function slugify(str: string) {
   return str
     .replace(/[ÀÁÂÃÄÅàáâãäåæÆ]/g, 'a')
     .replace(/[çÇ]/g, 'c')
