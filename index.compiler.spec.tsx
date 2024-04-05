@@ -43,10 +43,10 @@ it('wraps multiple block element returns in a div to avoid invalid nesting error
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
 <div>
-  <h1 id="-boop">
+  <h1 id="boop">
     Boop
   </h1>
-  <h2 id="-blep">
+  <h2 id="blep">
     Blep
   </h2>
 </div>
@@ -603,7 +603,7 @@ describe('headings', () => {
     render(compiler('# Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-<h1 id="-hello-world">
+<h1 id="hello-world">
   Hello World
 </h1>
 `)
@@ -623,7 +623,7 @@ describe('headings', () => {
     render(compiler('## Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-<h2 id="-hello-world">
+<h2 id="hello-world">
   Hello World
 </h2>
 `)
@@ -633,7 +633,7 @@ describe('headings', () => {
     render(compiler('### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-<h3 id="-hello-world">
+<h3 id="hello-world">
   Hello World
 </h3>
 `)
@@ -643,7 +643,7 @@ describe('headings', () => {
     render(compiler('#### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-<h4 id="-hello-world">
+<h4 id="hello-world">
   Hello World
 </h4>
 `)
@@ -653,7 +653,7 @@ describe('headings', () => {
     render(compiler('##### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-<h5 id="-hello-world">
+<h5 id="hello-world">
   Hello World
 </h5>
 `)
@@ -663,7 +663,7 @@ describe('headings', () => {
     render(compiler('###### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-<h6 id="-hello-world">
+<h6 id="hello-world">
   Hello World
 </h6>
 `)
@@ -704,10 +704,10 @@ describe('headings', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
 <div>
-  <h1 id="-hello-world">
+  <h1 id="hello-world">
     Hello World
   </h1>
-  <h2 id="-and-again">
+  <h2 id="and-again">
     And again
   </h2>
 </div>
@@ -719,7 +719,7 @@ describe('headings', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
 <div>
-  <h1 id="-hello-world">
+  <h1 id="hello-world">
     Hello World
   </h1>
   <p>
@@ -734,10 +734,10 @@ describe('headings', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
 <div>
-  <h1 id="-hello-world-">
+  <h1 id="hello-world-">
     Hello World #
   </h1>
-  <h2 id="-subheader">
+  <h2 id="subheader">
     Subheader#
   </h2>
   <p>
@@ -751,7 +751,7 @@ describe('headings', () => {
     render(compiler("# This is~ a very' complicated> header!"))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-<h1 id="-this-is-a-very-complicated-header">
+<h1 id="this-is-a-very-complicated-header">
   This is~ a very' complicated&gt; header!
 </h1>
 `)
@@ -1036,7 +1036,7 @@ describe('links', () => {
   <p>
     foo
   </p>
-  <h1 id="-header">
+  <h1 id="header">
     header
   </h1>
 </div>
@@ -2432,7 +2432,7 @@ describe('arbitrary HTML', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
 <div style="float: right;">
-  <h1 id="-hello">
+  <h1 id="hello">
     Hello
   </h1>
 </div>
@@ -2940,7 +2940,7 @@ comment -->`)
 <span>
   "
   <span>
-    <h1 id="-foo">
+    <h1 id="foo">
       foo
     </h1>
   </span>
@@ -3145,10 +3145,10 @@ comment -->`)
   <summary>
     View collapsed content
   </summary>
-  <h1 id="-title-h1">
+  <h1 id="title-h1">
     Title h1
   </h1>
-  <h2 id="-title-h2">
+  <h2 id="title-h2">
     Title h2
   </h2>
   <p>
@@ -3558,7 +3558,7 @@ describe('footnotes', () => {
 <div>
   <p>
     foo
-    <a href="#-abc">
+    <a href="#abc">
       <sup>
         abc
       </sup>
@@ -3566,7 +3566,7 @@ describe('footnotes', () => {
     bar
   </p>
   <footer>
-    <div id="-abc">
+    <div id="abc">
       abc: Baz baz
     </div>
   </footer>
@@ -3587,7 +3587,7 @@ describe('footnotes', () => {
 <div>
   <p>
     foo
-    <a href="#-reference-here-123">
+    <a href="#reference-here-123">
       <sup>
         referencé heré 123
       </sup>
@@ -3595,7 +3595,7 @@ describe('footnotes', () => {
     bar
   </p>
   <footer>
-    <div id="-reference-here-123">
+    <div id="reference-here-123">
       referencé heré 123: Baz baz
     </div>
   </footer>
@@ -3617,23 +3617,23 @@ describe('footnotes', () => {
 <div>
   <p>
     foo
-    <a href="#-abc">
+    <a href="#abc">
       <sup>
         abc
       </sup>
     </a>
     bar. baz
-    <a href="#-def">
+    <a href="#def">
       <sup>
         def
       </sup>
     </a>
   </p>
   <footer>
-    <div id="-abc">
+    <div id="abc">
       abc: Baz baz
     </div>
-    <div id="-def">
+    <div id="def">
       def: Def
     </div>
   </footer>
@@ -3654,7 +3654,7 @@ describe('footnotes', () => {
 <div>
   <p>
     foo
-    <a href="#-abc">
+    <a href="#abc">
       <sup>
         abc
       </sup>
@@ -3662,7 +3662,7 @@ describe('footnotes', () => {
     bar
   </p>
   <footer>
-    <div id="-abc">
+    <div id="abc">
       abc: Baz baz
     </div>
   </footer>
@@ -3683,7 +3683,7 @@ describe('footnotes', () => {
 <div>
   <p>
     foo
-    <a href="#-abc">
+    <a href="#abc">
       <sup>
         abc
       </sup>
@@ -3691,7 +3691,7 @@ describe('footnotes', () => {
     bar
   </p>
   <footer>
-    <div id="-abc">
+    <div id="abc">
       abc: Baz
     </div>
   </footer>
@@ -3726,7 +3726,7 @@ describe('footnotes', () => {
   <div>
     <p>
       foo
-      <a href="#-abc">
+      <a href="#abc">
         <sup>
           abc
         </sup>
@@ -3738,7 +3738,7 @@ describe('footnotes', () => {
     </p>
   </div>
   <footer>
-    <div id="-abc">
+    <div id="abc">
       abc: Baz
   line2
   line3
@@ -3765,34 +3765,34 @@ describe('footnotes', () => {
 <div>
   <p>
     a
-    <a href="#-a">
+    <a href="#a">
       <sup>
         a
       </sup>
     </a>
     b
-    <a href="#-b">
+    <a href="#b">
       <sup>
         b
       </sup>
     </a>
     c
-    <a href="#-c">
+    <a href="#c">
       <sup>
         c
       </sup>
     </a>
   </p>
   <footer>
-    <div id="-a">
+    <div id="a">
       a: single
     </div>
-    <div id="-b">
+    <div id="b">
       b: bbbb
   bbbb
   bbbb
     </div>
-    <div id="-c">
+    <div id="c">
       c: single-c
     </div>
   </footer>
@@ -3821,23 +3821,23 @@ describe('footnotes', () => {
 <div>
   <p>
     Here's a simple footnote,
-    <a href="#-1">
+    <a href="#1">
       <sup>
         1
       </sup>
     </a>
     and here's a longer one.
-    <a href="#-bignote">
+    <a href="#bignote">
       <sup>
         bignote
       </sup>
     </a>
   </p>
   <footer>
-    <div id="-1">
+    <div id="1">
       1: This is the first footnote.
     </div>
-    <div id="-bignote">
+    <div id="bignote">
       bignote: Here's one with multiple paragraphs and code.
 
     Indent paragraphs to include them in the footnote.

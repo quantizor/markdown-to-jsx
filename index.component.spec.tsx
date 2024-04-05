@@ -75,7 +75,7 @@ it('passes along any additional props to the rendered wrapper element', () => {
   render(<Markdown className="foo"># Hello</Markdown>)
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-<h1 id="-hello"
+<h1 id="hello"
     class="foo"
 >
   Hello
