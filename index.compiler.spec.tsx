@@ -3442,6 +3442,154 @@ Item detail
           </p>
         `)
   })
+
+  it('#546 perf regression test, self-closing block + block HTML causes exponential degradation', () => {
+    render(
+      compiler(
+        `<span class="oh" data-self-closing="yes" />
+
+You can have anything here. But it's best if the self-closing tag also appears in the document as a pair tag multiple times. We have found it when compiling a table with spans that had a self-closing span at the top.
+
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+<span class="oh">no</span>
+
+Each span you copy above increases the time it takes by 2. Also, writing text here increases the time.`.trim()
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <div>
+        <span class="oh"
+              data-self-closing="yes"
+        >
+        </span>
+        <p>
+          You can have anything here. But it's best if the self-closing tag also appears in the document as a pair tag multiple times. We have found it when compiling a table with spans that had a self-closing span at the top.
+        </p>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <span class="oh">
+          no
+        </span>
+        <p>
+          Each span you copy above increases the time it takes by 2. Also, writing text here increases the time.
+        </p>
+      </div>
+    `)
+  })
 })
 
 describe('horizontal rules', () => {
