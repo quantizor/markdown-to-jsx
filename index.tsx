@@ -272,7 +272,8 @@ const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/
 const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi
-const NP_TABLE_R = /^(.*\|?.*)\n *(\|? *[-:]+ *\|[-| :]*)\n((?:.*\|.*\n)*)\n?/
+const NP_TABLE_R =
+  /^(.*\|.*)\n(?: *(\|? *[-:]+ *\|[-| :]*)\n((?:.*\|.*\n)*))?\n?/
 const PARAGRAPH_R = /^[^\n]+(?:  \n|\n{2,})/
 const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s+<?([^\s>]+)>?\s*("([^"]*)")?/
 const REFERENCE_IMAGE_R = /^!\[([^\]]*)\] ?\[([^\]]*)\]/
@@ -280,9 +281,7 @@ const REFERENCE_LINK_R = /^\[([^\]]*)\] ?\[([^\]]*)\]/
 const SQUARE_BRACKETS_R = /(\[|\])/g
 const SHOULD_RENDER_AS_BLOCK_R = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/
 const TAB_R = /\t/g
-const TABLE_SEPARATOR_R = /^ *\| */
 const TABLE_TRIM_PIPES = /(^ *\||\| *$)/g
-const TABLE_CELL_END_TRIM = / *$/
 const TABLE_CENTER_ALIGN = /^ *:-+: *$/
 const TABLE_LEFT_ALIGN = /^ *:-+ *$/
 const TABLE_RIGHT_ALIGN = /^ *-+: *$/
@@ -619,7 +618,8 @@ function parseTableAlignCapture(alignCapture: string) {
 function parseTableRow(
   source: string,
   parse: MarkdownToJSX.NestedParser,
-  state: MarkdownToJSX.State
+  state: MarkdownToJSX.State,
+  tableOutput: boolean
 ): MarkdownToJSX.ParserResult[][] {
   const prevInTable = state.inTable
   state.inTable = true
@@ -627,8 +627,13 @@ function parseTableRow(
     .trim()
     // isolate situations where a pipe should be ignored (inline code, HTML)
     .split(/( *(?:`[^`]*`|<.*?>.*?<\/.*?>(?!<\/.*?>)|\\\||\|) *)/)
-    .reduce((nodes, fragment, index, arr) => {
-      if (fragment.trim() === '|') nodes.push({ type: RuleType.tableSeparator })
+    .reduce((nodes, fragment) => {
+      if (fragment.trim() === '|')
+        nodes.push(
+          tableOutput
+            ? { type: RuleType.tableSeparator }
+            : { type: RuleType.text, text: fragment }
+        )
       else if (fragment !== '') nodes.push.apply(nodes, parse(fragment, state))
       return nodes
     }, [] as MarkdownToJSX.ParserResult[])
@@ -648,7 +653,7 @@ function parseTableRow(
         (tableRow[i + 1] == null ||
           tableRow[i + 1].type === RuleType.tableSeparator)
       ) {
-        node.text = node.text.replace(TABLE_CELL_END_TRIM, '')
+        node.text = node.text.trimEnd()
       }
       cells[cells.length - 1].push(node)
     }
@@ -670,7 +675,7 @@ function parseTableCells(
   const rowsText = source.trim().split('\n')
 
   return rowsText.map(function (rowText) {
-    return parseTableRow(rowText, parse, state)
+    return parseTableRow(rowText, parse, state, true)
   })
 }
 
@@ -679,18 +684,27 @@ function parseTable(
   parse: MarkdownToJSX.NestedParser,
   state: MarkdownToJSX.State
 ) {
+  /**
+   * The table syntax makes some other parsing angry so as a bit of a hack even if alignment and/or cell rows are missing,
+   * we'll still run a detected first row through the parser and then just emit a paragraph.
+   */
   state.inline = true
-  const header = parseTableRow(capture[1], parse, state)
-  const align = parseTableAlign(capture[2])
-  const cells = parseTableCells(capture[3], parse, state)
+  const align = capture[2] ? parseTableAlign(capture[2]) : []
+  const cells = capture[3] ? parseTableCells(capture[3], parse, state) : []
+  const header = parseTableRow(capture[1], parse, state, !!cells.length)
   state.inline = false
 
-  return {
-    align: align,
-    cells: cells,
-    header: header,
-    type: RuleType.table,
-  }
+  return cells.length
+    ? {
+        align: align,
+        cells: cells,
+        header: header,
+        type: RuleType.table,
+      }
+    : {
+        children: header,
+        type: RuleType.paragraph,
+      }
 }
 
 function getTableStyle(node, colIndex) {
@@ -1749,13 +1763,14 @@ export function compiler(
       order: Priority.HIGH,
       parse: parseTable,
       render(node, output, state) {
+        const table = node as MarkdownToJSX.TableNode
         return (
           <table key={state.key}>
             <thead>
               <tr>
-                {node.header.map(function generateHeaderCell(content, i) {
+                {table.header.map(function generateHeaderCell(content, i) {
                   return (
-                    <th key={i} style={getTableStyle(node, i)}>
+                    <th key={i} style={getTableStyle(table, i)}>
                       {output(content, state)}
                     </th>
                   )
@@ -1764,12 +1779,12 @@ export function compiler(
             </thead>
 
             <tbody>
-              {node.cells.map(function generateTableRow(row, i) {
+              {table.cells.map(function generateTableRow(row, i) {
                 return (
                   <tr key={i}>
                     {row.map(function generateTableCell(content, c) {
                       return (
-                        <td key={c} style={getTableStyle(node, c)}>
+                        <td key={c} style={getTableStyle(table, c)}>
                           {output(content, state)}
                         </td>
                       )
@@ -2237,7 +2252,9 @@ export namespace MarkdownToJSX {
   }
 
   export type Rules = {
-    [K in ParserResult['type']]: Rule<Extract<ParserResult, { type: K }>>
+    [K in ParserResult['type']]: K extends RuleType.table
+      ? Rule<Extract<ParserResult, { type: K | RuleType.paragraph }>>
+      : Rule<Extract<ParserResult, { type: K }>>
   }
 
   export type Override =
