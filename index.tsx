@@ -623,7 +623,15 @@ function parseTableRow(
 ): MarkdownToJSX.ParserResult[][] {
   const prevInTable = state.inTable
   state.inTable = true
-  const tableRow = parse(source.trim(), state)
+  let tableRow = source
+    .trim()
+    // isolate situations where a pipe should be ignored (inline code, HTML)
+    .split(/( *(?:`[^`]*`|<.*?>.*?<\/.*?>(?!<\/.*?>)|\\\||\|) *)/)
+    .reduce((nodes, fragment, index, arr) => {
+      if (fragment.trim() === '|') nodes.push({ type: RuleType.tableSeparator })
+      else if (fragment !== '') nodes.push.apply(nodes, parse(fragment, state))
+      return nodes
+    }, [] as MarkdownToJSX.ParserResult[])
   state.inTable = prevInTable
 
   let cells = [[]]
@@ -1003,8 +1011,11 @@ function parseBlock(
   children,
   state: MarkdownToJSX.State
 ): MarkdownToJSX.ParserResult[] {
+  const isCurrentlyInline = state.inline || false
   state.inline = false
-  return parse(children, state)
+  const result = parse(children, state)
+  state.inline = isCurrentlyInline
+  return result
 }
 
 const parseCaptureInline: MarkdownToJSX.Parser<{
@@ -1769,24 +1780,6 @@ export function compiler(
             </tbody>
           </table>
         )
-      },
-    },
-
-    [RuleType.tableSeparator]: {
-      match: function (source, state) {
-        if (!state.inTable) {
-          return null
-        }
-        state.inline = true
-        return TABLE_SEPARATOR_R.exec(source)
-      },
-      order: Priority.HIGH,
-      parse: function () {
-        return { type: RuleType.tableSeparator }
-      },
-      // These shouldn't be reached, but in case they are, be reasonable:
-      render() {
-        return ' | '
       },
     },
 
