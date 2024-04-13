@@ -2319,6 +2319,66 @@ describe('GFM tables', () => {
       </table>
     `)
   })
+
+  it('#568 handle inline syntax around table separators', () => {
+    render(compiler(`|_foo|bar_|\n|-|-|\n|1|2|`))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              _foo
+            </th>
+            <th>
+              bar_
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              1
+            </td>
+            <td>
+              2
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
+
+  it('#568 handle inline code syntax around table separators', () => {
+    render(compiler(`|\`foo|bar\`|baz|\n|-|-|\n|1|2|`))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              <code>
+                foo|bar
+              </code>
+            </th>
+            <th>
+              baz
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              1
+            </td>
+            <td>
+              2
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
 })
 
 describe('arbitrary HTML', () => {
