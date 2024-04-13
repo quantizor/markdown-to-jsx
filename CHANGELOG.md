@@ -1,5 +1,12 @@
 # markdown-to-jsx
 
+## 7.4.7
+
+### Patch Changes
+
+- 7603248: Fix parsing isolation of individual table cells.
+- f9328cc: Improved block html detection regex to handle certain edge cases that cause extreme slowness. Thank you @devbrains-com for the basis for this fix 🤝
+
 ## 7.4.6
 
 ### Patch Changes
