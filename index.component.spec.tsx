@@ -23,10 +23,7 @@ it('accepts markdown content', () => {
 it('handles a no-children scenario', () => {
   render(<Markdown>{''}</Markdown>)
 
-  expect(root.innerHTML).toMatchInlineSnapshot(`
-    <span>
-    </span>
-  `)
+  expect(root.innerHTML).toMatchInlineSnapshot(`""`)
 })
 
 it('accepts options', () => {

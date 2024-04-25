@@ -1,3 +1,6 @@
-import Markdown, { compiler } from './'
-Object.assign(Markdown, { compiler })
-export default Markdown as typeof Markdown & { compiler: typeof compiler }
+import Markdown, { createMarkdown } from './'
+
+Object.assign(Markdown, { createMarkdown })
+export default Markdown as typeof Markdown & {
+  createMarkdown: typeof createMarkdown
+}
