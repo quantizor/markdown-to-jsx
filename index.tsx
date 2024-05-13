@@ -730,7 +730,8 @@ function normalizeAttributeKey(key) {
 
 function attributeValueToJSXPropValue(
   key: keyof React.AllHTMLAttributes<Element>,
-  value: string
+  value: string,
+  sanitizeUrlFn: (url: string) => string
 ): any {
   if (key === 'style') {
     return value.split(/;\s?/).reduce(function (styles, kvPair) {
@@ -748,7 +749,7 @@ function attributeValueToJSXPropValue(
       return styles
     }, {})
   } else if (key === 'href' || key === 'src') {
-    return sanitizeUrl(value)
+    return sanitizeUrlFn(value)
   } else if (value.match(INTERPOLATION_R)) {
     // return as a string and let the consumer decide what to do with it
     value = value.slice(1, value.length - 1)
@@ -949,7 +950,11 @@ function matchParagraph(
   return [match, captured]
 }
 
-function sanitizeUrl(url: string): string | undefined {
+function identity<T>(x: T): T {
+  return x
+}
+
+function defaultSanitizeUrl(url: string): string | undefined {
   try {
     const decoded = decodeURIComponent(url).replace(/[^A-Za-z0-9/:]/g, '')
 
@@ -1141,6 +1146,10 @@ export function compiler(
     ? { ...namedCodesToUnicode, ...options.namedCodesToUnicode }
     : namedCodesToUnicode
 
+  // If "sanitization" is not explicitly set to false, it will be enabled by default
+  const enableSanitization = options.sanitization !== false
+  let sanitizeUrlFn = enableSanitization ? defaultSanitizeUrl : identity
+
   const createElementFn = options.createElement || React.createElement
 
   // JSX custom pragma
@@ -1242,7 +1251,8 @@ export function compiler(
         const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key
         const normalizedValue = (map[mappedKey] = attributeValueToJSXPropValue(
           key,
-          value
+          value,
+          sanitizeUrlFn
         ))
 
         if (
@@ -1413,7 +1423,7 @@ export function compiler(
       },
       render(node, output, state) {
         return (
-          <a key={state.key} href={sanitizeUrl(node.target)}>
+          <a key={state.key} href={sanitizeUrlFn(node.target)}>
             <sup key={state.key}>{node.text}</sup>
           </a>
         )
@@ -1572,7 +1582,7 @@ export function compiler(
             key={state.key}
             alt={node.alt || undefined}
             title={node.title || undefined}
-            src={sanitizeUrl(node.target)}
+            src={sanitizeUrlFn(node.target)}
           />
         )
       },
@@ -1594,7 +1604,7 @@ export function compiler(
       },
       render(node, output, state) {
         return (
-          <a key={state.key} href={sanitizeUrl(node.target)} title={node.title}>
+          <a key={state.key} href={sanitizeUrlFn(node.target)} title={node.title}>
             {output(node.children, state)}
           </a>
         )
@@ -1723,7 +1733,7 @@ export function compiler(
           <img
             key={state.key}
             alt={node.alt}
-            src={sanitizeUrl(refs[node.ref].target)}
+            src={sanitizeUrlFn(refs[node.ref].target)}
             title={refs[node.ref].title}
           />
         ) : null
@@ -1747,7 +1757,7 @@ export function compiler(
         return refs[node.ref] ? (
           <a
             key={state.key}
-            href={sanitizeUrl(refs[node.ref].target)}
+            href={sanitizeUrlFn(refs[node.ref].target)}
             title={refs[node.ref].title}
           >
             {output(node.children, state)}
@@ -2372,6 +2382,12 @@ export namespace MarkdownToJSX {
       /** contains `key` which should be supplied to the topmost JSX element */
       state: State
     ) => React.ReactChild
+
+
+    /**
+     * Whether to enable markdown-to-jsx's built-in sanitization.
+     */
+    sanitization: boolean
 
     /**
      * Override normalization of non-URI-safe characters for use in generating
