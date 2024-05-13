@@ -1147,8 +1147,7 @@ export function compiler(
     : namedCodesToUnicode
 
   // If "sanitization" is not explicitly set to false, it will be enabled by default
-  const enableSanitization = options.sanitization !== false
-  let sanitizeUrlFn = enableSanitization ? defaultSanitizeUrl : identity
+  let sanitizeUrlFn = options.sanitization !== false ? defaultSanitizeUrl : identity
 
   const createElementFn = options.createElement || React.createElement
 
