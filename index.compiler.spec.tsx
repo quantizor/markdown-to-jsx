@@ -1,4 +1,4 @@
-import { compiler, RuleType } from './index'
+import { compiler, sanitizer, RuleType } from './index'
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 import * as fs from 'fs'
@@ -1195,7 +1195,7 @@ describe('links', () => {
     expect(console.warn).not.toHaveBeenCalled()
   })
 
-  it('can conditionally sanitize HTML using options.sanitize', () => {
+  it('tag and attribute are provided to allow for conditional override', () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {})
     jest.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -1203,8 +1203,7 @@ describe('links', () => {
       compiler(
         '[foo](javascript:doSomethingBad)\n![foo](javascript:doSomethingBad)',
         {
-          sanitizer: (value, tag, attribute, defaultFn) =>
-            tag === 'a' ? value : defaultFn(value),
+          sanitizer: (value, tag) => (tag === 'a' ? value : sanitizer(value)),
         }
       )
     )

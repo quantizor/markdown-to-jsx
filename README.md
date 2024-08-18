@@ -438,22 +438,22 @@ function App() {
 
 #### options.sanitizer
 
-By default a lightweight URL sanitizer function is provided to avoid common attack vectors that might be placed into the `href` of an anchor tag, for example. The sanitizer receives the input, the HTML tag being targeted, the attribute name, and the default sanitizer as a fallback if you only need special handling for certain cases.
+By default a lightweight URL sanitizer function is provided to avoid common attack vectors that might be placed into the `href` of an anchor tag, for example. The sanitizer receives the input, the HTML tag being targeted, and the attribute name. The original function is available as a library export called `sanitizer`.
 
 This can be overridden and replaced with a custom sanitizer if desired via `options.sanitizer`:
 
 ```jsx
 // sanitizer in this situation would receive:
-// ('javascript:alert("foo")', 'a', 'href', fn)
+// ('javascript:alert("foo")', 'a', 'href')
 
-;<Markdown options={{ sanitizer: (value, tag, attribute, defaultFn) => value }}>
+;<Markdown options={{ sanitizer: (value, tag, attribute) => value }}>
   {`[foo](javascript:alert("foo"))`}
 </Markdown>
 
 // or
 
 compiler('[foo](javascript:alert("foo"))', {
-  sanitizer: (value, tag, attribute, defaultFn) => value,
+  sanitizer: (value, tag, attribute) => value,
 })
 ```
 
@@ -471,6 +471,8 @@ compiler('# 中文', { slugify: str => str })
 // renders:
 <h1 id="中文">中文</h1>
 ```
+
+The original function is available as a library export called `slugify`.
 
 #### options.namedCodesToUnicode
 

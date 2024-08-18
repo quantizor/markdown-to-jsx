@@ -752,7 +752,7 @@ function attributeValueToJSXPropValue(
       return styles
     }, {})
   } else if (key === 'href' || key === 'src') {
-    return sanitizeUrlFn(value, tag, key, defaultSanitizeUrl)
+    return sanitizeUrlFn(value, tag, key)
   } else if (value.match(INTERPOLATION_R)) {
     // return as a string and let the consumer decide what to do with it
     value = value.slice(1, value.length - 1)
@@ -953,7 +953,7 @@ function matchParagraph(
   return [match, captured]
 }
 
-function defaultSanitizeUrl(url: string): string | undefined {
+export function sanitizer(url: string): string {
   try {
     const decoded = decodeURIComponent(url).replace(/[^A-Za-z0-9/:]/g, '')
 
@@ -965,7 +965,7 @@ function defaultSanitizeUrl(url: string): string | undefined {
         )
       }
 
-      return undefined
+      return null
     }
   } catch (e) {
     if (process.env.NODE_ENV !== 'production') {
@@ -1139,14 +1139,14 @@ export function compiler(
   markdown: string = '',
   options: MarkdownToJSX.Options = {}
 ) {
-  options.overrides ||= {}
-  options.sanitizer ||= defaultSanitizeUrl
-  options.slugify ||= slugify
+  options.overrides = options.overrides || {}
+  options.sanitizer = options.sanitizer || sanitizer
+  options.slugify = options.slugify || slugify
   options.namedCodesToUnicode = options.namedCodesToUnicode
     ? { ...namedCodesToUnicode, ...options.namedCodesToUnicode }
     : namedCodesToUnicode
 
-  options.createElement ||= React.createElement
+  options.createElement = options.createElement || React.createElement
 
   // JSX custom pragma
   // eslint-disable-next-line no-unused-vars
@@ -1417,21 +1417,13 @@ export function compiler(
       order: Priority.HIGH,
       parse(capture /*, parse*/) {
         return {
-          target: `#${options.slugify(capture[1])}`,
+          target: `#${options.slugify(capture[1], slugify)}`,
           text: capture[1],
         }
       },
       render(node, output, state) {
         return (
-          <a
-            key={state.key}
-            href={options.sanitizer(
-              node.target,
-              'a',
-              'href',
-              defaultSanitizeUrl
-            )}
-          >
+          <a key={state.key} href={options.sanitizer(node.target, 'a', 'href')}>
             <sup key={state.key}>{node.text}</sup>
           </a>
         )
@@ -1466,7 +1458,7 @@ export function compiler(
       parse(capture, parse, state) {
         return {
           children: parseInline(parse, capture[2], state),
-          id: options.slugify(capture[2]),
+          id: options.slugify(capture[2], slugify),
           level: capture[1].length as MarkdownToJSX.HeadingNode['level'],
         }
       },
@@ -1596,12 +1588,7 @@ export function compiler(
             key={state.key}
             alt={node.alt || undefined}
             title={node.title || undefined}
-            src={options.sanitizer(
-              node.target,
-              'img',
-              'src',
-              defaultSanitizeUrl
-            )}
+            src={options.sanitizer(node.target, 'img', 'src')}
           />
         )
       },
@@ -1625,12 +1612,7 @@ export function compiler(
         return (
           <a
             key={state.key}
-            href={options.sanitizer(
-              node.target,
-              'a',
-              'href',
-              defaultSanitizeUrl
-            )}
+            href={options.sanitizer(node.target, 'a', 'href')}
             title={node.title}
           >
             {output(node.children, state)}
@@ -1761,12 +1743,7 @@ export function compiler(
           <img
             key={state.key}
             alt={node.alt}
-            src={options.sanitizer(
-              refs[node.ref].target,
-              'img',
-              'src',
-              defaultSanitizeUrl
-            )}
+            src={options.sanitizer(refs[node.ref].target, 'img', 'src')}
             title={refs[node.ref].title}
           />
         ) : null
@@ -1790,12 +1767,7 @@ export function compiler(
         return refs[node.ref] ? (
           <a
             key={state.key}
-            href={options.sanitizer(
-              refs[node.ref].target,
-              'a',
-              'href',
-              defaultSanitizeUrl
-            )}
+            href={options.sanitizer(refs[node.ref].target, 'a', 'href')}
             title={refs[node.ref].title}
           >
             {output(node.children, state)}
@@ -1980,7 +1952,10 @@ export function compiler(
         <footer key="footer">
           {footnotes.map(function createFootnote(def) {
             return (
-              <div id={options.slugify(def.identifier)} key={def.identifier}>
+              <div
+                id={options.slugify(def.identifier, slugify)}
+                key={def.identifier}
+              >
                 {def.identifier}
                 {emitter(parser(def.footnote, { inline: true }))}
               </div>
@@ -2422,20 +2397,19 @@ export namespace MarkdownToJSX {
     ) => React.ReactChild
 
     /**
-     * Override the built-in sanitizer function for URLs, etc if desired.
+     * Override the built-in sanitizer function for URLs, etc if desired. The built-in version is available as a library export called `sanitizer`.
      */
     sanitizer: (
       value: string,
       tag: HTMLTags,
-      attribute: string,
-      defaultFn: (string) => string
-    ) => string
+      attribute: string
+    ) => string | null
 
     /**
      * Override normalization of non-URI-safe characters for use in generating
      * HTML IDs for anchor linking purposes.
      */
-    slugify: (source: string) => string
+    slugify: (input: string, defaultFn: (input: string) => string) => string
 
     /**
      * Declare the type of the wrapper to be used when there are multiple
