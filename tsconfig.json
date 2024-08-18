@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "declaration": true,
     // Disable because enabling this option can also force consuming libraries to enable it
     "esModuleInterop": false,
@@ -7,6 +8,7 @@
     "jsx": "react",
     "module": "ESNext",
     "moduleResolution": "node",
+    "noEmit": true,
     "outDir": "./dist",
     "preserveConstEnums": true,
     "target": "ESNext"
