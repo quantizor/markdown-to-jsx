@@ -12,47 +12,49 @@ import * as React from 'react'
  * Analogous to `node.type`. Please note that the values here may change at any time,
  * so do not hard code against the value directly.
  */
-export const enum RuleType {
-  blockQuote = '0',
-  breakLine = '1',
-  breakThematic = '2',
-  codeBlock = '3',
-  codeFenced = '4',
-  codeInline = '5',
-  footnote = '6',
-  footnoteReference = '7',
-  gfmTask = '8',
-  heading = '9',
-  headingSetext = '10',
+export const RuleType = {
+  blockQuote: '0',
+  breakLine: '1',
+  breakThematic: '2',
+  codeBlock: '3',
+  codeFenced: '4',
+  codeInline: '5',
+  footnote: '6',
+  footnoteReference: '7',
+  gfmTask: '8',
+  heading: '9',
+  headingSetext: '10',
   /** only available if not `disableHTMLParsing` */
-  htmlBlock = '11',
-  htmlComment = '12',
+  htmlBlock: '11',
+  htmlComment: '12',
   /** only available if not `disableHTMLParsing` */
-  htmlSelfClosing = '13',
-  image = '14',
-  link = '15',
+  htmlSelfClosing: '13',
+  image: '14',
+  link: '15',
   /** emits a `link` 'node', does not render directly */
-  linkAngleBraceStyleDetector = '16',
+  linkAngleBraceStyleDetector: '16',
   /** emits a `link` 'node', does not render directly */
-  linkBareUrlDetector = '17',
+  linkBareUrlDetector: '17',
   /** emits a `link` 'node', does not render directly */
-  linkMailtoDetector = '18',
-  newlineCoalescer = '19',
-  orderedList = '20',
-  paragraph = '21',
-  ref = '22',
-  refImage = '23',
-  refLink = '24',
-  table = '25',
-  tableSeparator = '26',
-  text = '27',
-  textBolded = '28',
-  textEmphasized = '29',
-  textEscaped = '30',
-  textMarked = '31',
-  textStrikethroughed = '32',
-  unorderedList = '33',
-}
+  linkMailtoDetector: '18',
+  newlineCoalescer: '19',
+  orderedList: '20',
+  paragraph: '21',
+  ref: '22',
+  refImage: '23',
+  refLink: '24',
+  table: '25',
+  tableSeparator: '26',
+  text: '27',
+  textBolded: '28',
+  textEmphasized: '29',
+  textEscaped: '30',
+  textMarked: '31',
+  textStrikethroughed: '32',
+  unorderedList: '33',
+} as const
+
+export type RuleType = (typeof RuleType)[keyof typeof RuleType]
 
 const enum Priority {
   /**
@@ -2010,130 +2012,130 @@ export namespace MarkdownToJSX {
 
   export interface BlockQuoteNode {
     children: MarkdownToJSX.ParserResult[]
-    type: RuleType.blockQuote
+    type: typeof RuleType.blockQuote
   }
 
   export interface BreakLineNode {
-    type: RuleType.breakLine
+    type: typeof RuleType.breakLine
   }
 
   export interface BreakThematicNode {
-    type: RuleType.breakThematic
+    type: typeof RuleType.breakThematic
   }
 
   export interface CodeBlockNode {
-    type: RuleType.codeBlock
+    type: typeof RuleType.codeBlock
     attrs?: JSX.IntrinsicAttributes
     lang?: string
     text: string
   }
 
   export interface CodeFencedNode {
-    type: RuleType.codeFenced
+    type: typeof RuleType.codeFenced
   }
 
   export interface CodeInlineNode {
-    type: RuleType.codeInline
+    type: typeof RuleType.codeInline
     text: string
   }
 
   export interface FootnoteNode {
-    type: RuleType.footnote
+    type: typeof RuleType.footnote
   }
 
   export interface FootnoteReferenceNode {
-    type: RuleType.footnoteReference
+    type: typeof RuleType.footnoteReference
     target: string
     text: string
   }
 
   export interface GFMTaskNode {
-    type: RuleType.gfmTask
+    type: typeof RuleType.gfmTask
     completed: boolean
   }
 
   export interface HeadingNode {
-    type: RuleType.heading
+    type: typeof RuleType.heading
     children: MarkdownToJSX.ParserResult[]
     id: string
     level: 1 | 2 | 3 | 4 | 5 | 6
   }
 
   export interface HeadingSetextNode {
-    type: RuleType.headingSetext
+    type: typeof RuleType.headingSetext
   }
 
   export interface HTMLCommentNode {
-    type: RuleType.htmlComment
+    type: typeof RuleType.htmlComment
   }
 
   export interface ImageNode {
-    type: RuleType.image
+    type: typeof RuleType.image
     alt?: string
     target: string
     title?: string
   }
 
   export interface LinkNode {
-    type: RuleType.link
+    type: typeof RuleType.link
     children: MarkdownToJSX.ParserResult[]
     target: string
     title?: string
   }
 
   export interface LinkAngleBraceNode {
-    type: RuleType.linkAngleBraceStyleDetector
+    type: typeof RuleType.linkAngleBraceStyleDetector
   }
 
   export interface LinkBareURLNode {
-    type: RuleType.linkBareUrlDetector
+    type: typeof RuleType.linkBareUrlDetector
   }
 
   export interface LinkMailtoNode {
-    type: RuleType.linkMailtoDetector
+    type: typeof RuleType.linkMailtoDetector
   }
 
   export interface OrderedListNode {
-    type: RuleType.orderedList
+    type: typeof RuleType.orderedList
     items: MarkdownToJSX.ParserResult[][]
     ordered: true
     start?: number
   }
 
   export interface UnorderedListNode {
-    type: RuleType.unorderedList
+    type: typeof RuleType.unorderedList
     items: MarkdownToJSX.ParserResult[][]
     ordered: false
   }
 
   export interface NewlineNode {
-    type: RuleType.newlineCoalescer
+    type: typeof RuleType.newlineCoalescer
   }
 
   export interface ParagraphNode {
-    type: RuleType.paragraph
+    type: typeof RuleType.paragraph
     children: MarkdownToJSX.ParserResult[]
   }
 
   export interface ReferenceNode {
-    type: RuleType.ref
+    type: typeof RuleType.ref
   }
 
   export interface ReferenceImageNode {
-    type: RuleType.refImage
+    type: typeof RuleType.refImage
     alt?: string
     ref: string
   }
 
   export interface ReferenceLinkNode {
-    type: RuleType.refLink
+    type: typeof RuleType.refLink
     children: MarkdownToJSX.ParserResult[]
     fallbackChildren: MarkdownToJSX.ParserResult[]
     ref: string
   }
 
   export interface TableNode {
-    type: RuleType.table
+    type: typeof RuleType.table
     /**
      * alignment for each table column
      */
@@ -2143,40 +2145,40 @@ export namespace MarkdownToJSX {
   }
 
   export interface TableSeparatorNode {
-    type: RuleType.tableSeparator
+    type: typeof RuleType.tableSeparator
   }
 
   export interface TextNode {
-    type: RuleType.text
+    type: typeof RuleType.text
     text: string
   }
 
   export interface BoldTextNode {
-    type: RuleType.textBolded
+    type: typeof RuleType.textBolded
     children: MarkdownToJSX.ParserResult[]
   }
 
   export interface ItalicTextNode {
-    type: RuleType.textEmphasized
+    type: typeof RuleType.textEmphasized
     children: MarkdownToJSX.ParserResult[]
   }
 
   export interface EscapedTextNode {
-    type: RuleType.textEscaped
+    type: typeof RuleType.textEscaped
   }
 
   export interface MarkedTextNode {
-    type: RuleType.textMarked
+    type: typeof RuleType.textMarked
     children: MarkdownToJSX.ParserResult[]
   }
 
   export interface StrikethroughTextNode {
-    type: RuleType.textStrikethroughed
+    type: typeof RuleType.textStrikethroughed
     children: MarkdownToJSX.ParserResult[]
   }
 
   export interface HTMLNode {
-    type: RuleType.htmlBlock
+    type: typeof RuleType.htmlBlock
     attrs: JSX.IntrinsicAttributes
     children?: ReturnType<MarkdownToJSX.NestedParser> | undefined
     noInnerParse: Boolean
@@ -2185,7 +2187,7 @@ export namespace MarkdownToJSX {
   }
 
   export interface HTMLSelfClosingNode {
-    type: RuleType.htmlSelfClosing
+    type: typeof RuleType.htmlSelfClosing
     attrs: JSX.IntrinsicAttributes
     tag: string
   }
@@ -2261,8 +2263,8 @@ export namespace MarkdownToJSX {
   }
 
   export type Rules = {
-    [K in ParserResult['type']]: K extends RuleType.table
-      ? Rule<Extract<ParserResult, { type: K | RuleType.paragraph }>>
+    [K in ParserResult['type']]: K extends typeof RuleType.table
+      ? Rule<Extract<ParserResult, { type: K | typeof RuleType.paragraph }>>
       : Rule<Extract<ParserResult, { type: K }>>
   }
 
