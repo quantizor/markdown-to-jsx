@@ -440,14 +440,14 @@ function App() {
 By default, a [lightweight deburring function](https://github.com/probablyup/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate an HTML id from headings. You can override this by passing a function to `options.slugify`. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
 
 ```jsx
-;<Markdown options={{ slugify: str => str }}># 中文</Markdown>
+<Markdown options={{ slugify: str => str }}># 中文</Markdown>
 
 // or
 
 compiler('# 中文', { slugify: str => str })
 
 // renders:
-;<h1 id="中文">中文</h1>
+<h1 id="中文">中文</h1>
 ```
 
 #### options.namedCodesToUnicode
