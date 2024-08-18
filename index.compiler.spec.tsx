@@ -1184,7 +1184,7 @@ describe('links', () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {})
     jest.spyOn(console, 'error').mockImplementation(() => {})
 
-    render(compiler('[foo](javascript:doSomethingBad)', { sanitization: false }))
+    render(compiler('[foo](javascript:doSomethingBad)', { sanitizer: x => x }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <a href="javascript:doSomethingBad">
@@ -1193,6 +1193,32 @@ describe('links', () => {
     `)
 
     expect(console.warn).not.toHaveBeenCalled()
+  })
+
+  it('can conditionally sanitize HTML using options.sanitize', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {})
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+
+    render(
+      compiler(
+        '[foo](javascript:doSomethingBad)\n![foo](javascript:doSomethingBad)',
+        {
+          sanitizer: (value, tag, attribute, defaultFn) =>
+            tag === 'a' ? value : defaultFn(value),
+        }
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="javascript:doSomethingBad">
+          foo
+        </a>
+        <img alt="foo">
+      </p>
+    `)
+
+    expect(console.warn).toHaveBeenCalledTimes(1)
   })
 
   it('should sanitize markdown links containing JS expressions', () => {

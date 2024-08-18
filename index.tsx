@@ -731,9 +731,10 @@ function normalizeAttributeKey(key) {
 }
 
 function attributeValueToJSXPropValue(
+  tag: MarkdownToJSX.HTMLTags,
   key: keyof React.AllHTMLAttributes<Element>,
   value: string,
-  sanitizeUrlFn: (url: string) => string
+  sanitizeUrlFn: MarkdownToJSX.Options['sanitizer']
 ): any {
   if (key === 'style') {
     return value.split(/;\s?/).reduce(function (styles, kvPair) {
@@ -751,7 +752,7 @@ function attributeValueToJSXPropValue(
       return styles
     }, {})
   } else if (key === 'href' || key === 'src') {
-    return sanitizeUrlFn(value)
+    return sanitizeUrlFn(value, tag, key, defaultSanitizeUrl)
   } else if (value.match(INTERPOLATION_R)) {
     // return as a string and let the consumer decide what to do with it
     value = value.slice(1, value.length - 1)
@@ -952,10 +953,6 @@ function matchParagraph(
   return [match, captured]
 }
 
-function identity<T>(x: T): T {
-  return x
-}
-
 function defaultSanitizeUrl(url: string): string | undefined {
   try {
     const decoded = decodeURIComponent(url).replace(/[^A-Za-z0-9/:]/g, '')
@@ -1142,16 +1139,14 @@ export function compiler(
   markdown: string = '',
   options: MarkdownToJSX.Options = {}
 ) {
-  options.overrides = options.overrides || {}
-  options.slugify = options.slugify || slugify
+  options.overrides ||= {}
+  options.sanitizer ||= defaultSanitizeUrl
+  options.slugify ||= slugify
   options.namedCodesToUnicode = options.namedCodesToUnicode
     ? { ...namedCodesToUnicode, ...options.namedCodesToUnicode }
     : namedCodesToUnicode
 
-  // If "sanitization" is not explicitly set to false, it will be enabled by default
-  let sanitizeUrlFn = options.sanitization !== false ? defaultSanitizeUrl : identity
-
-  const createElementFn = options.createElement || React.createElement
+  options.createElement ||= React.createElement
 
   // JSX custom pragma
   // eslint-disable-next-line no-unused-vars
@@ -1166,7 +1161,7 @@ export function compiler(
   ) {
     const overrideProps = get(options.overrides, `${tag}.props`, {})
 
-    return createElementFn(
+    return options.createElement(
       getTag(tag, options.overrides),
       {
         ...props,
@@ -1236,7 +1231,10 @@ export function compiler(
     return React.createElement(wrapper, { key: 'outer' }, jsx)
   }
 
-  function attrStringToMap(str: string): JSX.IntrinsicAttributes {
+  function attrStringToMap(
+    tag: MarkdownToJSX.HTMLTags,
+    str: string
+  ): JSX.IntrinsicAttributes {
     const attributes = str.match(ATTR_EXTRACTOR_R)
     if (!attributes) {
       return null
@@ -1251,9 +1249,10 @@ export function compiler(
 
         const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key
         const normalizedValue = (map[mappedKey] = attributeValueToJSXPropValue(
+          tag,
           key,
           value,
-          sanitizeUrlFn
+          options.sanitizer
         ))
 
         if (
@@ -1375,7 +1374,7 @@ export function compiler(
       parse(capture /*, parse, state*/) {
         return {
           // if capture[3] it's additional metadata
-          attrs: attrStringToMap(capture[3] || ''),
+          attrs: attrStringToMap('code', capture[3] || ''),
           lang: capture[2] || undefined,
           text: capture[4],
           type: RuleType.codeBlock,
@@ -1424,7 +1423,15 @@ export function compiler(
       },
       render(node, output, state) {
         return (
-          <a key={state.key} href={sanitizeUrlFn(node.target)}>
+          <a
+            key={state.key}
+            href={options.sanitizer(
+              node.target,
+              'a',
+              'href',
+              defaultSanitizeUrl
+            )}
+          >
             <sup key={state.key}>{node.text}</sup>
           </a>
         )
@@ -1504,10 +1511,14 @@ export function compiler(
         const noInnerParse =
           DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(tagName) !== -1
 
+        const tag = (
+          noInnerParse ? tagName : capture[1]
+        ).trim() as MarkdownToJSX.HTMLTags
+
         const ast = {
-          attrs: attrStringToMap(capture[2]),
+          attrs: attrStringToMap(tag, capture[2]),
           noInnerParse: noInnerParse,
-          tag: (noInnerParse ? tagName : capture[1]).trim(),
+          tag,
         } as {
           attrs: ReturnType<typeof attrStringToMap>
           children?: ReturnType<MarkdownToJSX.NestedParser> | undefined
@@ -1548,9 +1559,11 @@ export function compiler(
       match: anyScopeRegex(HTML_SELF_CLOSING_ELEMENT_R),
       order: Priority.HIGH,
       parse(capture /*, parse, state*/) {
+        const tag = capture[1].trim() as MarkdownToJSX.HTMLTags
+
         return {
-          attrs: attrStringToMap(capture[2] || ''),
-          tag: capture[1].trim(),
+          attrs: attrStringToMap(tag, capture[2] || ''),
+          tag,
         }
       },
       render(node, output, state) {
@@ -1583,7 +1596,12 @@ export function compiler(
             key={state.key}
             alt={node.alt || undefined}
             title={node.title || undefined}
-            src={sanitizeUrlFn(node.target)}
+            src={options.sanitizer(
+              node.target,
+              'img',
+              'src',
+              defaultSanitizeUrl
+            )}
           />
         )
       },
@@ -1605,7 +1623,16 @@ export function compiler(
       },
       render(node, output, state) {
         return (
-          <a key={state.key} href={sanitizeUrlFn(node.target)} title={node.title}>
+          <a
+            key={state.key}
+            href={options.sanitizer(
+              node.target,
+              'a',
+              'href',
+              defaultSanitizeUrl
+            )}
+            title={node.title}
+          >
             {output(node.children, state)}
           </a>
         )
@@ -1734,7 +1761,12 @@ export function compiler(
           <img
             key={state.key}
             alt={node.alt}
-            src={sanitizeUrlFn(refs[node.ref].target)}
+            src={options.sanitizer(
+              refs[node.ref].target,
+              'img',
+              'src',
+              defaultSanitizeUrl
+            )}
             title={refs[node.ref].title}
           />
         ) : null
@@ -1758,7 +1790,12 @@ export function compiler(
         return refs[node.ref] ? (
           <a
             key={state.key}
-            href={sanitizeUrlFn(refs[node.ref].target)}
+            href={options.sanitizer(
+              refs[node.ref].target,
+              'a',
+              'href',
+              defaultSanitizeUrl
+            )}
             title={refs[node.ref].title}
           >
             {output(node.children, state)}
@@ -2384,11 +2421,15 @@ export namespace MarkdownToJSX {
       state: State
     ) => React.ReactChild
 
-
     /**
-     * Whether to enable markdown-to-jsx's built-in sanitization.
+     * Override the built-in sanitizer function for URLs, etc if desired.
      */
-    sanitization: boolean
+    sanitizer: (
+      value: string,
+      tag: HTMLTags,
+      attribute: string,
+      defaultFn: (string) => string
+    ) => string
 
     /**
      * Override normalization of non-URI-safe characters for use in generating
