@@ -19,6 +19,7 @@ The most lightweight, customizable React markdown component.
     - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
     - [options.enforceAtxHeadings](#optionsenforceatxheadings)
     - [options.renderRule](#optionsrenderrule)
+    - [options.sanitizer](#optionssanitizer)
     - [options.slugify](#optionsslugify)
     - [options.namedCodesToUnicode](#optionsnamedcodestounicode)
     - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
@@ -435,20 +436,43 @@ function App() {
 }
 ````
 
+#### options.sanitizer
+
+By default a lightweight URL sanitizer function is provided to avoid common attack vectors that might be placed into the `href` of an anchor tag, for example. The sanitizer receives the input, the HTML tag being targeted, and the attribute name. The original function is available as a library export called `sanitizer`.
+
+This can be overridden and replaced with a custom sanitizer if desired via `options.sanitizer`:
+
+```jsx
+// sanitizer in this situation would receive:
+// ('javascript:alert("foo")', 'a', 'href')
+
+;<Markdown options={{ sanitizer: (value, tag, attribute) => value }}>
+  {`[foo](javascript:alert("foo"))`}
+</Markdown>
+
+// or
+
+compiler('[foo](javascript:alert("foo"))', {
+  sanitizer: (value, tag, attribute) => value,
+})
+```
+
 #### options.slugify
 
 By default, a [lightweight deburring function](https://github.com/probablyup/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate an HTML id from headings. You can override this by passing a function to `options.slugify`. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
 
 ```jsx
-;<Markdown options={{ slugify: str => str }}># 中文</Markdown>
+<Markdown options={{ slugify: str => str }}># 中文</Markdown>
 
 // or
 
 compiler('# 中文', { slugify: str => str })
 
 // renders:
-;<h1 id="中文">中文</h1>
+<h1 id="中文">中文</h1>
 ```
+
+The original function is available as a library export called `slugify`.
 
 #### options.namedCodesToUnicode
 

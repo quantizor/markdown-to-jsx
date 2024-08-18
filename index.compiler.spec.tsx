@@ -1,4 +1,4 @@
-import { compiler, RuleType } from './index'
+import { compiler, sanitizer, RuleType } from './index'
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 import * as fs from 'fs'
@@ -1178,6 +1178,46 @@ describe('links', () => {
         </span>
       </a>
     `)
+  })
+
+  it('should not sanitize markdown when explicitly disabled', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {})
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('[foo](javascript:doSomethingBad)', { sanitizer: x => x }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <a href="javascript:doSomethingBad">
+        foo
+      </a>
+    `)
+
+    expect(console.warn).not.toHaveBeenCalled()
+  })
+
+  it('tag and attribute are provided to allow for conditional override', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {})
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+
+    render(
+      compiler(
+        '[foo](javascript:doSomethingBad)\n![foo](javascript:doSomethingBad)',
+        {
+          sanitizer: (value, tag) => (tag === 'a' ? value : sanitizer(value)),
+        }
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <p>
+        <a href="javascript:doSomethingBad">
+          foo
+        </a>
+        <img alt="foo">
+      </p>
+    `)
+
+    expect(console.warn).toHaveBeenCalledTimes(1)
   })
 
   it('should sanitize markdown links containing JS expressions', () => {
