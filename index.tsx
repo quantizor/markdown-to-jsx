@@ -1538,7 +1538,7 @@ export function compiler(
       render(node, output, state) {
         return (
           <node.tag key={state.key} {...node.attrs}>
-            {node.text || output(node.children, state)}
+            {node.text || (node.children ? output(node.children, state) : '')}
           </node.tag>
         )
       },
