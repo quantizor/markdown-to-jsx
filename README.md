@@ -23,6 +23,7 @@ The most lightweight, customizable React markdown component.
     - [options.slugify](#optionsslugify)
     - [options.namedCodesToUnicode](#optionsnamedcodestounicode)
     - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
+    - [options.convertBooleans](#optionsconvertbooleans)
   - [Syntax highlighting](#syntax-highlighting)
   - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
   - [Usage with Preact](#usage-with-preact)
@@ -523,6 +524,28 @@ compiler('This text has <span>html</span> in it but it won't be rendered', { dis
 // renders:
 
 <span>This text has &lt;span&gt;html&lt;/span&gt; in it but it won't be rendered</span>
+```
+
+#### options.convertBooleans
+
+By default, boolean attribute values are converted to boolean primitives. To disable this behavior, set convertBooleans to false
+
+```jsx
+const Capitalize = ({ value }: { value: string }) => {
+  return <>{value.toUpperCase()}</>
+}
+
+<Markdown options={{ convertBooleans: false, overrides: { Capitalize } }}>
+  <Capitalize value="true" />
+</Markdown>;
+
+// or
+
+compiler('<Capitalize value="true" />', { convertBooleans: false, overrides: { Capitalize } });
+
+// renders:
+<>TRUE</>
+
 ```
 
 ### Syntax highlighting

@@ -4100,6 +4100,33 @@ describe('footnotes', () => {
   })
 })
 
+describe('options.convertBooleans', () => {
+  const Capitalize = ({ value }: { value: string }) => {
+    return <>{value.toUpperCase()}</>
+  }
+
+  it('should convert boolean attribute values to boolean primitives by default', () => {
+    expect(() =>
+      render(
+        compiler('<Capitalize value="true"/>', {
+          overrides: { Capitalize },
+        })
+      )
+    ).toThrowErrorMatchingInlineSnapshot(
+      `"value.toUpperCase is not a function"`
+    )
+  })
+  it('should leave attribute values of true/false as strings when convertBooleans is disabled ', () => {
+    render(
+      compiler('<Capitalize value="true"/>', {
+        convertBooleans: false,
+        overrides: { Capitalize },
+      })
+    )
+    expect(root.innerHTML).toMatchInlineSnapshot(`"TRUE"`)
+  })
+})
+
 describe('options.namedCodesToUnicode', () => {
   // &amp; &gt; &lt; are already replaced by default
   const content =
