@@ -734,7 +734,8 @@ function attributeValueToJSXPropValue(
   tag: MarkdownToJSX.HTMLTags,
   key: keyof React.AllHTMLAttributes<Element>,
   value: string,
-  sanitizeUrlFn: MarkdownToJSX.Options['sanitizer']
+  sanitizeUrlFn: MarkdownToJSX.Options['sanitizer'],
+  convertBooleans: boolean
 ): any {
   if (key === 'style') {
     return value.split(/;\s?/).reduce(function (styles, kvPair) {
@@ -758,10 +759,12 @@ function attributeValueToJSXPropValue(
     value = value.slice(1, value.length - 1)
   }
 
-  if (value === 'true') {
-    return true
-  } else if (value === 'false') {
-    return false
+  if (convertBooleans) {
+    if (value === 'true') {
+      return true
+    } else if (value === 'false') {
+      return false
+    }
   }
 
   return value
@@ -1147,6 +1150,7 @@ export function compiler(
     : namedCodesToUnicode
 
   options.createElement = options.createElement || React.createElement
+  options.convertBooleans = options.convertBooleans ?? true
 
   // JSX custom pragma
   // eslint-disable-next-line no-unused-vars
@@ -1252,7 +1256,8 @@ export function compiler(
           tag,
           key,
           value,
-          options.sanitizer
+          options.sanitizer,
+          options.convertBooleans
         ))
 
         if (
@@ -2294,6 +2299,12 @@ export namespace MarkdownToJSX {
   }
 
   export type Options = Partial<{
+    /**
+     * Optionally convert boolean string attributes to boolean in JSX.
+     * Enabled by default
+     */
+    convertBooleans: boolean
+
     /**
      * Ultimate control over the output of all rendered JSX.
      */
