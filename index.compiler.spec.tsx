@@ -4711,3 +4711,12 @@ it('handles naked brackets in link text', () => {
     </a>
   `)
 })
+
+it('#597 handles script tag with empty content', () => {
+  render(compiler('<script src="dummy.js"></script>'))
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+    <script src="dummy.js">
+    </script>
+  `)
+})
