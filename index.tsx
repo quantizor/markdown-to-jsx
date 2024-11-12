@@ -1648,9 +1648,10 @@ export function compiler(
 
     [RuleType.linkBareUrlDetector]: {
       match: (source, state) => {
-        if (state.inAnchor) {
+        if (state.inAnchor || options.disableAutoLink) {
           return null
         }
+
         return inlineRegex(LINK_AUTOLINK_BARE_URL_R)(source, state)
       },
       order: Priority.MAX,
@@ -2308,6 +2309,12 @@ export namespace MarkdownToJSX {
       props: JSX.IntrinsicAttributes,
       ...children: React.ReactChild[]
     ) => React.ReactChild
+
+    /**
+     * The library automatically generates an anchor tag for bare URLs included in the markdown
+     * document, but this behavior can be disabled if desired.
+     */
+    disableAutoLink: boolean
 
     /**
      * Disable the compiler's best-effort transcription of provided raw HTML
