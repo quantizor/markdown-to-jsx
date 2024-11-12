@@ -34,6 +34,13 @@ jobs:
           createGithubReleases: true
           publish: yarn changeset-publish
 
-      - id: deployment
+      - name: Setup site
         if: steps.changesets.outputs.published == 'true'
-        uses: actions/deploy-pages@v4
+        uses: actions/configure-pages@v5
+
+      - name: Upload site
+        if: steps.changesets.outputs.published == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # generated during yarn changeset-publish
+          path: 'docs'
