@@ -1,5 +1,12 @@
 # markdown-to-jsx
 
+## 7.5.1
+
+### Patch Changes
+
+- b16f668: Fix issue with lookback cache resulting in false detection of lists inside lists in some scenarios
+- 58b96d3: fix: handle empty HTML tags more consistently #597
+
 ## 7.5.0
 
 ### Minor Changes
