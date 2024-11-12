@@ -99,7 +99,7 @@
   "size-limit": [
     {
       "path": "./dist/index.module.js",
-      "limit": "6.2 kB"
+      "limit": "6.25 kB"
     },
     {
       "path": "./dist/index.modern.js",

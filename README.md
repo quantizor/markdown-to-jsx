@@ -22,6 +22,7 @@ The most lightweight, customizable React markdown component.
     - [options.sanitizer](#optionssanitizer)
     - [options.slugify](#optionsslugify)
     - [options.namedCodesToUnicode](#optionsnamedcodestounicode)
+    - [options.disableAutoLink](#optionsdisableautolink)
     - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
   - [Syntax highlighting](#syntax-highlighting)
   - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
@@ -507,9 +508,32 @@ compiler('This text is &le; than this text.', namedCodesToUnicode: {
 <p>This text is ≤ than this text.</p>
 ```
 
+#### options.disableAutoLink
+
+By default, bare URLs in the markdown document will be converted into an anchor tag. This behavior can be disabled if desired.
+
+```jsx
+<Markdown options={{ disableAutoLink: true }}>
+  The URL https://quantizor.dev will not be rendered as an anchor tag.
+</Markdown>
+
+// or
+
+compiler(
+  'The URL https://quantizor.dev will not be rendered as an anchor tag.',
+  { disableAutoLink: true }
+)
+
+// renders:
+
+<span>
+  The URL https://quantizor.dev will not be rendered as an anchor tag.
+</span>
+```
+
 #### options.disableParsingRawHTML
 
-By default, raw HTML is parsed to JSX. This behavior can be disabled with this option.
+By default, raw HTML is parsed to JSX. This behavior can be disabled if desired.
 
 ```jsx
 <Markdown options={{ disableParsingRawHTML: true }}>

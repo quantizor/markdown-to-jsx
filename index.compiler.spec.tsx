@@ -1180,6 +1180,16 @@ describe('links', () => {
     `)
   })
 
+  it('should not link bare URL if disabled via options', () => {
+    render(compiler('https://google.com', { disableAutoLink: true }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        https://google.com
+      </span>
+    `)
+  })
+
   it('should not sanitize markdown when explicitly disabled', () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {})
     jest.spyOn(console, 'error').mockImplementation(() => {})
