@@ -424,7 +424,7 @@ function generateListRule(
     : UNORDERED_LIST_ITEM_PREFIX_R
 
   return {
-    match(source, state, prevCapture) {
+    match(source, state) {
       // We only want to break into a list if we are at the start of a
       // line. This is to avoid parsing "hi * there" with "* there"
       // becoming a part of a list.
@@ -433,7 +433,7 @@ function generateListRule(
       // lists can be inline, because they might be inside another list,
       // in which case we can parse with inline scope, but need to allow
       // nested lists inside this inline scope.
-      const isStartOfLine = LIST_LOOKBEHIND_R.exec(prevCapture)
+      const isStartOfLine = LIST_LOOKBEHIND_R.exec(state.prevCapture)
       const isListBlock = state.list || (!state.inline && !state.simple)
 
       if (isStartOfLine && isListBlock) {
@@ -837,21 +837,28 @@ function parserFor(
   ): MarkdownToJSX.ParserResult[] {
     let result = []
 
+    state.prevCapture = state.prevCapture || ''
+
     // We store the previous capture so that match functions can
     // use some limited amount of lookbehind. Lists use this to
     // ensure they don't match arbitrary '- ' or '* ' in inline
     // text (see the list rule for more information).
-    let prevCapture = ''
     while (source) {
       let i = 0
       while (i < ruleList.length) {
         const ruleType = ruleList[i]
         const rule = rules[ruleType]
-        const capture = rule.match(source, state, prevCapture)
+
+        const capture = rule.match(source, state)
 
         if (capture) {
           const currCaptureString = capture[0]
+
+          // retain what's been processed so far for lookbacks
+          state.prevCapture += currCaptureString
+
           source = source.substring(currCaptureString.length)
+
           const parsed = rule.parse(capture, nestedParse, state)
 
           // We also let rules override the default type of
@@ -863,14 +870,15 @@ function parserFor(
           }
 
           result.push(parsed)
-
-          prevCapture = currCaptureString
           break
         }
 
         i++
       }
     }
+
+    // reset on exit
+    state.prevCapture = ''
 
     return result
   }
@@ -2018,6 +2026,8 @@ export namespace MarkdownToJSX {
     key?: React.Key
     /** true if in a list */
     list?: boolean
+    /** used for lookbacks */
+    prevCapture?: string
     /** true if parsing in inline context w/o links */
     simple?: boolean
   }
