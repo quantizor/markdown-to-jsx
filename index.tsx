@@ -280,7 +280,6 @@ const PARAGRAPH_R = /^[^\n]+(?:  \n|\n{2,})/
 const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s+<?([^\s>]+)>?\s*("([^"]*)")?/
 const REFERENCE_IMAGE_R = /^!\[([^\]]*)\] ?\[([^\]]*)\]/
 const REFERENCE_LINK_R = /^\[([^\]]*)\] ?\[([^\]]*)\]/
-const SQUARE_BRACKETS_R = /(\[|\])/g
 const SHOULD_RENDER_AS_BLOCK_R = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/
 const TAB_R = /\t/g
 const TABLE_TRIM_PIPES = /(^ *\||\| *$)/g
@@ -1764,10 +1763,7 @@ export function compiler(
       parse(capture, parse, state) {
         return {
           children: parse(capture[1], state),
-          fallbackChildren: parse(
-            capture[0].replace(SQUARE_BRACKETS_R, '\\$1'),
-            state
-          ),
+          fallbackChildren: capture[0],
           ref: capture[2],
         }
       },
@@ -1781,7 +1777,7 @@ export function compiler(
             {output(node.children, state)}
           </a>
         ) : (
-          <span key={state.key}>{output(node.fallbackChildren, state)}</span>
+          <span key={state.key}>{node.fallbackChildren}</span>
         )
       },
     },
@@ -2152,7 +2148,7 @@ export namespace MarkdownToJSX {
   export interface ReferenceLinkNode {
     type: typeof RuleType.refLink
     children: MarkdownToJSX.ParserResult[]
-    fallbackChildren: MarkdownToJSX.ParserResult[]
+    fallbackChildren: string
     ref: string
   }
 
