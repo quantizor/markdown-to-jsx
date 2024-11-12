@@ -1760,6 +1760,33 @@ describe('lists', () => {
       </div>
     `)
   })
+
+  it('regression #613 - list false detection inside inline syntax', () => {
+    render(
+      compiler(`
+- foo
+- bar **+ baz** qux **quux**
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <ul>
+        <li>
+          foo
+        </li>
+        <li>
+          bar
+          <strong>
+            + baz
+          </strong>
+          qux
+          <strong>
+            quux
+          </strong>
+        </li>
+      </ul>
+    `)
+  })
 })
 
 describe('GFM task lists', () => {
@@ -4314,12 +4341,12 @@ describe('options.renderRule', () => {
   it('should allow arbitrary modification of content', () => {
     render(
       compiler('Hello.\n\n```latex\n$$f(X,n) = X_n + X_{n-1}$$\n```\n', {
-        renderRule(defaultRenderer, node, renderChildren, state) {
+        renderRule(next, node, renderChildren, state) {
           if (node.type === RuleType.codeBlock && node.lang === 'latex') {
             return <div key={state.key}>I'm latex.</div>
           }
 
-          return defaultRenderer()
+          return next()
         },
       })
     )
