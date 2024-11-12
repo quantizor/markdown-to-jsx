@@ -25,6 +25,7 @@ jobs:
         run: yarn test
 
       - name: Create Release Pull Request
+        id: changesets
         uses: changesets/action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -32,3 +33,7 @@ jobs:
         with:
           createGithubReleases: true
           publish: yarn changeset-publish
+
+      - id: deployment
+        if: steps.changesets.outputs.published == 'true'
+        uses: actions/deploy-pages@v4
