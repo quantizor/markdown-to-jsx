@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 7.6.1
+
+### Patch Changes
+
+- 87d8bd3: Handle `class` attribute from arbitrary HTML properly to avoid React warnings.
+
 ## 7.6.0
 
 ### Minor Changes
