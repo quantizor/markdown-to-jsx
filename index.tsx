@@ -89,7 +89,6 @@ const ATTRIBUTE_TO_JSX_PROP_MAP = [
   'cellPadding',
   'cellSpacing',
   'charSet',
-  'className',
   'classId',
   'colSpan',
   'contentEditable',
@@ -126,7 +125,7 @@ const ATTRIBUTE_TO_JSX_PROP_MAP = [
     obj[x.toLowerCase()] = x
     return obj
   },
-  { for: 'htmlFor' }
+  { class: 'className', for: 'htmlFor' }
 )
 
 const namedCodesToUnicode = {

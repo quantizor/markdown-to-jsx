@@ -2460,10 +2460,18 @@ describe('GFM tables', () => {
 
 describe('arbitrary HTML', () => {
   it('preserves the HTML given', () => {
-    render(compiler('<dd>Hello</dd>'))
+    const ast = compiler('<dd class="foo">Hello</dd>')
+    expect(ast).toMatchInlineSnapshot(`
+      <dd
+        className="foo"
+      >
+        Hello
+      </dd>
+    `)
 
+    render(ast)
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <dd>
+      <dd class="foo">
         Hello
       </dd>
     `)
