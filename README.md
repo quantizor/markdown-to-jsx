@@ -28,6 +28,7 @@ The most lightweight, customizable React markdown component.
   - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
   - [Usage with Preact](#usage-with-preact)
 - [Gotchas](#gotchas)
+  - [Passing props to stringified React components](#passing-props-to-stringified-react-components)
   - [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
     - [Code blocks](#code-blocks)
 - [Using The Compiler Directly](#using-the-compiler-directly)
@@ -620,6 +621,52 @@ Here are instructions for some of the popular bundlers:
 Everything will work just fine! Simply [Alias `react` to `preact/compat`](https://preactjs.com/guide/v10/switching-to-preact#setting-up-compat) like you probably already are doing.
 
 ## Gotchas
+
+### Passing props to stringified React components
+
+Using the [`options.overrides`](#optionsoverrides---rendering-arbitrary-react-components) functionality to render React components, props are passed into the component in stringifed form. It is up to you to parse the string to make use of the data.
+
+```tsx
+const Table: React.FC<
+  JSX.IntrinsicElements['table'] & {
+    columns: string
+    dataSource: string
+  }
+> = ({ columns, dataSource, ...props }) => {
+  const parsedColumns = JSON.parse(columns)
+  const parsedData = JSON.parse(dataSource)
+
+  return (
+    <div {...props}>
+      <h1>Columns</h1>
+      {parsedColumns.map(column => (
+        <span key={column.key}>{column.title}</span>
+      ))}
+
+      <h2>Data</h2>
+      {parsedData.map(datum => (
+        <span key={datum.key}>{datum.Month}</span>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Example HTML in markdown:
+ *
+ * <Table
+ *    columns={[{ title: 'Month', dataIndex: 'Month', key: 'Month' }]}
+ *    dataSource={[
+ *      {
+ *        Month: '2024-09-01',
+ *        'Forecasted Revenue': '$3,137,678.85',
+ *        'Forecasted Expenses': '$2,036,660.28',
+ *        key: 0,
+ *      },
+ *    ]}
+ *  />
+ */
+```
 
 ### Significant indentation inside arbitrary HTML
 
