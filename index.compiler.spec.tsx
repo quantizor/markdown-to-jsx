@@ -756,6 +756,16 @@ describe('headings', () => {
       </h1>
     `)
   })
+
+  it('#595 regression - handle pipe character inside header', () => {
+    render(compiler('# Heading | text'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <h1 id="heading--text">
+        Heading | text
+      </h1>
+    `)
+  })
 })
 
 describe('images', () => {
@@ -1851,7 +1861,7 @@ describe('GFM tables', () => {
   it('should handle a basic table', () => {
     render(
       compiler(theredoc`
-        foo|bar
+        |foo|bar|
         ---|---
         1  |2
       `)
@@ -1886,7 +1896,7 @@ describe('GFM tables', () => {
   it('should handle a table with aligned columns', () => {
     render(
       compiler(theredoc`
-        foo|bar|baz
+        |foo|bar|baz|
         --:|:---:|:--
         1|2|3
       `)

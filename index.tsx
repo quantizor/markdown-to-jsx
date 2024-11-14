@@ -273,8 +273,7 @@ const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/
 const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/
 const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi
-const NP_TABLE_R =
-  /^(.*\|.*)\n(?: *(\|? *[-:]+ *\|[-| :]*)\n((?:.*\|.*\n)*))?\n?/
+const NP_TABLE_R = /^(\|.*)\n(?: *(\|? *[-:]+ *\|[-| :]*)\n((?:.*\|.*\n)*))?\n?/
 const PARAGRAPH_R = /^[^\n]+(?:  \n|\n{2,})/
 const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s+<?([^\s>]+)>?\s*("([^"]*)")?/
 const REFERENCE_IMAGE_R = /^!\[([^\]]*)\] ?\[([^\]]*)\]/
@@ -926,17 +925,8 @@ function anyScopeRegex(regex: RegExp) {
   }
 }
 
-function matchParagraph(
-  source: string,
-  state: MarkdownToJSX.State,
-  prevCapturedString?: string
-) {
+function matchParagraph(source: string, state: MarkdownToJSX.State) {
   if (state.inline || state.simple) {
-    return null
-  }
-
-  if (prevCapturedString && !prevCapturedString.endsWith('\n')) {
-    // don't match continuation of a line
     return null
   }
 
