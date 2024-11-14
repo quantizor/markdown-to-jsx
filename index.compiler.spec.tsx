@@ -3809,6 +3809,18 @@ Yeah boi
       </pre>
     `)
   })
+
+  it('regression 602 - should treat anything following ``` as code until the closing pair', () => {
+    render(compiler('```\nfoo'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <pre>
+        <code>
+          foo
+        </code>
+      </pre>
+    `)
+  })
 })
 
 describe('indented code blocks', () => {

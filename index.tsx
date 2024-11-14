@@ -183,7 +183,7 @@ const BLOCKQUOTE_TRIM_LEFT_MULTILINE_R = /^ *> ?/gm
 const BREAK_LINE_R = /^ {2,}\n/
 const BREAK_THEMATIC_R = /^(?:( *[-*_])){3,} *(?:\n *)+\n/
 const CODE_BLOCK_FENCED_R =
-  /^\s*(`{3,}|~{3,}) *(\S+)?([^\n]*?)?\n([\s\S]+?)\s*\1 *(?:\n *)*\n?/
+  /^(?: {1,3})?(`{3,}|~{3,}) *(\S+)? *([^\n]*?)?\n([\s\S]*?)(?:\1\n?|$)/
 const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)+\n?/
 const CODE_INLINE_R = /^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)/
 const CONSECUTIVE_NEWLINE_R = /^(?:\n *)*\n/
