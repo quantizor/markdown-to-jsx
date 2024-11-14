@@ -1,5 +1,13 @@
 # markdown-to-jsx
 
+## 7.6.2
+
+### Patch Changes
+
+- 0274445: Fix false detection of tables in some scenarios.
+- 69f815e: Handle `class` attribute from arbitrary HTML properly to avoid React warnings.
+- 857809a: Fenced code blocks are now tolerant to a missing closing sequence; this improves use in LLM scenarios where the code block markdown is being streamed into the editor in chunks.
+
 ## 7.6.1
 
 ### Patch Changes
