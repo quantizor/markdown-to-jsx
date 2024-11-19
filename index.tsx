@@ -625,7 +625,7 @@ function parseTableRow(
   let tableRow = source
     .trim()
     // isolate situations where a pipe should be ignored (inline code, HTML)
-    .split(/( *(?:`[^`]*`|<.*?>.*?<\/.*?>(?!<\/.*?>)|\\\||\|) *)/)
+    .split(/( *(?:`[^`]*`|<br\/?>|<.*?>.*?<\/.*?>(?!<\/.*?>)|\\\||\|) *)/)
     .reduce((nodes, fragment) => {
       if (fragment.trim() === '|')
         nodes.push(
