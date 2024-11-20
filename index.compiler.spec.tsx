@@ -2247,6 +2247,55 @@ describe('GFM tables', () => {
     `)
   })
 
+  it('regression #625 - processes self-closing HTML inside of a table row', () => {
+    render(
+      compiler(theredoc`
+        | col1 | col2 | col3 |
+        |------|-----------------|------------------|
+        | col1 | <custom-element>col2</custom-element><br> col2 | <custom-element>col3</custom-element><br>col3 |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <thead>
+          <tr>
+            <th>
+              col1
+            </th>
+            <th>
+              col2
+            </th>
+            <th>
+              col3
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              col1
+            </td>
+            <td>
+              <custom-element>
+                col2
+              </custom-element>
+              <br>
+              col2
+            </td>
+            <td>
+              <custom-element>
+                col3
+              </custom-element>
+              <br>
+              col3
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    `)
+  })
+
   it('processes markdown inside of a table row when a preceeding column contains HTML', () => {
     render(
       compiler(theredoc`
