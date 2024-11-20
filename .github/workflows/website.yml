@@ -6,6 +6,9 @@ on:
 
 jobs:
   deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,7 +20,7 @@ jobs:
           node-version-file: '.nvmrc'
 
       - run: yarn --immutable
-      - run: yarn build && yarn release
+      - run: yarn build-site
 
       - name: Setup site
         uses: actions/configure-pages@v5
@@ -25,5 +28,8 @@ jobs:
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
-          # generated during yarn changeset-publish
           path: 'docs'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4 # or specific "vX.X.X" version tag for this action
