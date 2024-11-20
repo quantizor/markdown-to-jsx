@@ -1245,6 +1245,10 @@ export function compiler(
         const value = unquote(raw.slice(delimiterIdx + 1).trim())
 
         const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key
+
+        // bail out, not supported
+        if (mappedKey === 'ref') return map
+
         const normalizedValue = (map[mappedKey] = attributeValueToJSXPropValue(
           tag,
           key,
