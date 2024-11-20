@@ -1984,11 +1984,12 @@ export function compiler(
  * A simple HOC for easy React use. Feed the markdown content as a direct child
  * and the rest is taken care of automatically.
  */
-const Markdown: React.FC<{
-  [key: string]: any
-  children: string
-  options?: MarkdownToJSX.Options
-}> = ({ children = '', options, ...props }) => {
+const Markdown: React.FC<
+  Omit<React.HTMLAttributes<Element>, 'children'> & {
+    children: string
+    options?: MarkdownToJSX.Options
+  }
+> = ({ children = '', options, ...props }) => {
   if (process.env.NODE_ENV !== 'production' && typeof children !== 'string') {
     console.error(
       'markdown-to-jsx: <Markdown> component only accepts a single string as a child, received:',
