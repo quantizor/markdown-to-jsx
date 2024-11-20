@@ -1,0 +1,26 @@
+name: Update website
+on: [release]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          cache: 'yarn'
+          node-version-file: '.nvmrc'
+
+      - run: yarn --immutable
+      - run: yarn build && yarn release
+
+      - name: Setup site
+        uses: actions/configure-pages@v5
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # generated during yarn changeset-publish
+          path: 'docs'
