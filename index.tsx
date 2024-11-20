@@ -1231,7 +1231,7 @@ export function compiler(
   function attrStringToMap(
     tag: MarkdownToJSX.HTMLTags,
     str: string
-  ): JSX.IntrinsicAttributes {
+  ): React.JSX.IntrinsicAttributes {
     const attributes = str.match(ATTR_EXTRACTOR_R)
     if (!attributes) {
       return null
@@ -2003,7 +2003,7 @@ const Markdown: React.FC<
 
   return React.cloneElement(
     compiler(children, options),
-    props as JSX.IntrinsicAttributes
+    props as React.JSX.IntrinsicAttributes
   )
 }
 
@@ -2021,7 +2021,7 @@ export namespace MarkdownToJSX {
 
   export type CreateElement = typeof React.createElement
 
-  export type HTMLTags = keyof JSX.IntrinsicElements
+  export type HTMLTags = keyof React.JSX.IntrinsicElements
 
   export type State = {
     /** true if the current content is inside anchor link grammar */
@@ -2056,7 +2056,7 @@ export namespace MarkdownToJSX {
 
   export interface CodeBlockNode {
     type: typeof RuleType.codeBlock
-    attrs?: JSX.IntrinsicAttributes
+    attrs?: React.JSX.IntrinsicAttributes
     lang?: string
     text: string
   }
@@ -2210,7 +2210,7 @@ export namespace MarkdownToJSX {
 
   export interface HTMLNode {
     type: typeof RuleType.htmlBlock
-    attrs: JSX.IntrinsicAttributes
+    attrs: React.JSX.IntrinsicAttributes
     children?: ReturnType<MarkdownToJSX.NestedParser> | undefined
     noInnerParse: Boolean
     tag: MarkdownToJSX.HTMLTags
@@ -2219,7 +2219,7 @@ export namespace MarkdownToJSX {
 
   export interface HTMLSelfClosingNode {
     type: typeof RuleType.htmlSelfClosing
-    attrs: JSX.IntrinsicAttributes
+    attrs: React.JSX.IntrinsicAttributes
     tag: string
   }
 
@@ -2318,7 +2318,7 @@ export namespace MarkdownToJSX {
      */
     createElement: (
       tag: Parameters<CreateElement>[0],
-      props: JSX.IntrinsicAttributes,
+      props: React.JSX.IntrinsicAttributes,
       ...children: React.ReactChild[]
     ) => React.ReactChild
 
