@@ -596,6 +596,21 @@ describe('misc block level elements', () => {
       </div>
     `)
   })
+
+  it('should handle alert blockquotes', () => {
+    render(compiler('> [!NOTE]\n> Something important, perhaps?'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <blockquote class="markdown-alert-note">
+        <header>
+          NOTE
+        </header>
+        <p>
+          Something important, perhaps?
+        </p>
+      </blockquote>
+    `)
+  })
 })
 
 describe('headings', () => {

@@ -2,7 +2,6 @@ node_modules/
 .git/
 .DS_Store
 coverage/
-dist/
 *.log
 package-lock.json
 npm-shrinkwrap.json
@@ -15,3 +14,8 @@ npm-shrinkwrap.json
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# ephemeral files
+dist/
+docs/markdown-to-jsx.js
+docs/markdown-to-jsx.js.map

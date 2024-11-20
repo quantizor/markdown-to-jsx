@@ -3,7 +3,7 @@ import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 import styled, { createGlobalStyle, css, CSSProp } from 'styled-components'
 import TeX from '@matejmazur/react-katex'
-import Markdown, { MarkdownToJSX, RuleType } from './'
+import Markdown, { MarkdownToJSX, RuleType } from './index'
 
 declare global {
   interface Window {
@@ -180,6 +180,25 @@ const GlobalStyles = createGlobalStyle`
 
   p {
     text-wrap: balance;
+  }
+
+  blockquote {
+    border-left: 1px solid #333;
+    margin: 1.5em 0;
+    padding-left: 1em;
+
+    &.markdown-alert-tip header {
+      color: limegreen;
+
+      &::before {
+        content: '★';
+        margin-right: 4px;
+      }
+    }
+
+    header + * {
+      margin-top: 0.25em;
+    }
   }
 `
 

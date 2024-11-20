@@ -178,8 +178,9 @@ const ATTR_EXTRACTOR_R =
 
 const AUTOLINK_MAILTO_CHECK_R = /mailto:/i
 const BLOCK_END_R = /\n{2,}$/
-const BLOCKQUOTE_R = /^(\s*>[\s\S]*?)(?=\n{2,})/
+const BLOCKQUOTE_R = /^(\s*>[\s\S]*?)(?=\n\n|$)/
 const BLOCKQUOTE_TRIM_LEFT_MULTILINE_R = /^ *> ?/gm
+const BLOCKQUOTE_ALERT_R = /^(?:\[!([^\]]*)\]\n)?([\s\S]*)/
 const BREAK_LINE_R = /^ {2,}\n/
 const BREAK_THEMATIC_R = /^(?:( *[-*_])){3,} *(?:\n *)+\n/
 const CODE_BLOCK_FENCED_R =
@@ -1302,19 +1303,35 @@ export function compiler(
       match: blockRegex(BLOCKQUOTE_R),
       order: Priority.HIGH,
       parse(capture, parse, state) {
+        const [, alert, content] = capture[0]
+          .replace(BLOCKQUOTE_TRIM_LEFT_MULTILINE_R, '')
+          .match(BLOCKQUOTE_ALERT_R)
+
         return {
-          children: parse(
-            capture[0].replace(BLOCKQUOTE_TRIM_LEFT_MULTILINE_R, ''),
-            state
-          ),
+          alert,
+          children: parse(content, state),
         }
       },
       render(node, output, state) {
-        return (
-          <blockquote key={state.key}>
-            {output(node.children, state)}
-          </blockquote>
-        )
+        const props = {
+          key: state.key,
+        } as Record<string, unknown>
+
+        if (node.alert) {
+          props.className =
+            'markdown-alert-' +
+            options.slugify(node.alert.toLowerCase(), slugify)
+
+          node.children.unshift({
+            attrs: {},
+            children: [{ type: RuleType.text, text: node.alert }],
+            noInnerParse: true,
+            type: RuleType.htmlBlock,
+            tag: 'header',
+          })
+        }
+
+        return h('blockquote', props, output(node.children, state))
       },
     },
 
@@ -2019,6 +2036,7 @@ export namespace MarkdownToJSX {
   }
 
   export interface BlockQuoteNode {
+    alert?: string
     children: MarkdownToJSX.ParserResult[]
     type: typeof RuleType.blockQuote
   }
