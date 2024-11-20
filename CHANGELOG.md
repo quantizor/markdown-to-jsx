@@ -1,5 +1,25 @@
 # markdown-to-jsx
 
+## 7.7.0
+
+### Minor Changes
+
+- 20777bf: Add support for GFM alert-style blockquotes.
+
+  ```md
+  > [!Note]
+  > This is a note-flavored alert blockquote. The "Note" text is injected as a `<header>` by
+  > default and the blockquote can be styled via the injected class `markdown-alert-note`
+  > for example.
+  ```
+
+### Patch Changes
+
+- 5d7900b: Adjust type signature for `<Markdown>` component to allow for easier composition.
+- 918b44b: Use newer `React.JSX.*` namespace instead of `JSX.*` for React 19 compatibility.
+- 91a5948: Arbitrary HTML no longer punches out pipes when parsing rows. If you absolutely need a pipe character that isn't a table separator, either escape it or enclose it in backticks to trigger inline code handling.
+- 23caecb: Drop encountered `ref` attributes when processing inline HTML, React doesn't handle it well.
+
 ## 7.6.2
 
 ### Patch Changes
