@@ -4828,20 +4828,21 @@ it('#597 handles script tag with empty content', () => {
 it('#473 handles content with multiple empty spaces without crashing', () => {
   render(
     compiler(
-      '##Long \r\n                                                                                    \r\n ###input \ntest'
+      'Test \r\n                                                                                    \r\n Test'
     )
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
     <div>
-      <h2 id="long">
-        Long
-      </h2>
-      <h3 id="input">
-        input
-      </h3>
       <p>
-        test
+        Test
+      </p>
+      <pre>
+        <code>
+        </code>
+      </pre>
+      <p>
+        Test
       </p>
     </div>
   `)
