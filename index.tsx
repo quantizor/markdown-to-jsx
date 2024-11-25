@@ -185,7 +185,7 @@ const BREAK_LINE_R = /^ {2,}\n/
 const BREAK_THEMATIC_R = /^(?:( *[-*_])){3,} *(?:\n *)+\n/
 const CODE_BLOCK_FENCED_R =
   /^(?: {1,3})?(`{3,}|~{3,}) *(\S+)? *([^\n]*?)?\n([\s\S]*?)(?:\1\n?|$)/
-const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)+\n?/
+const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)*\n?/
 const CODE_INLINE_R = /^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)/
 const CONSECUTIVE_NEWLINE_R = /^(?:\n *)*\n/
 const CR_NEWLINE_R = /\r\n?/g
