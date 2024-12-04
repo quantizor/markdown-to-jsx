@@ -1,5 +1,12 @@
 # markdown-to-jsx
 
+## 7.7.1
+
+### Patch Changes
+
+- 9d42449: Factor out unnecessary element cloning.
+- 8920038: Remove use of explicit React.createElement.
+
 ## 7.7.0
 
 ### Minor Changes
