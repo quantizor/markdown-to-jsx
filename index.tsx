@@ -1241,7 +1241,7 @@ export function compiler(
       return null
     }
 
-    return attributes.reduce(function (map, raw, index) {
+    return attributes.reduce(function (map, raw) {
       const delimiterIdx = raw.indexOf('=')
 
       if (delimiterIdx !== -1) {

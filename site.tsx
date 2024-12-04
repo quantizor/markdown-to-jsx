@@ -76,7 +76,7 @@ function TryItLive() {
   )
 }
 
-const COLOR_ACCENT = 'cornflowerblue'
+const COLOR_ACCENT = 'wheat'
 const COLOR_BODY = '#fefefe'
 
 const GlobalStyles = createGlobalStyle`
@@ -216,7 +216,7 @@ const Description = styled.p`
   font-size: 16px;
   margin-left: auto;
   margin-right: auto;
-  max-width: 60vw;
+  max-width: 100ch;
 
   h1,
   h2 {
