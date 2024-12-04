@@ -7,7 +7,7 @@ on:
 jobs:
   changeset:
     runs-on: ubuntu-latest
-    if: ${{ github.event.pull_request.user.name == 'dependabot' }}
+    if: ${{ github.actor == 'dependabot[bot]' }}
     steps:
       - uses: hmarr/debug-action@v3.0.0
       - name: Checkout
