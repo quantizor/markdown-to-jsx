@@ -1225,7 +1225,11 @@ export function compiler(
       jsx = null
     }
 
-    return React.createElement(wrapper, { key: 'outer' }, jsx)
+    return options.createElement(
+      wrapper,
+      { key: 'outer' },
+      jsx
+    ) as React.JSX.Element
   }
 
   function attrStringToMap(
