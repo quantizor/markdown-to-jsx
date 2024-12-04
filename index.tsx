@@ -1169,7 +1169,7 @@ export function compiler(
     )
   }
 
-  function compile(input: string): JSX.Element {
+  function compile(input: string): React.JSX.Element {
     input = input.replace(FRONT_MATTER_R, '')
 
     let inline = false
@@ -2277,7 +2277,7 @@ export namespace MarkdownToJSX {
   export type RuleOutput = (
     ast: MarkdownToJSX.ParserResult | MarkdownToJSX.ParserResult[],
     state: MarkdownToJSX.State
-  ) => JSX.Element
+  ) => React.JSX.Element
 
   export type Rule<ParserOutput = MarkdownToJSX.ParserResult> = {
     match: (
