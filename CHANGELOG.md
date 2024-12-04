@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 7.7.2
+
+### Patch Changes
+
+- 4fa87d8: Bump ws from 8.11.0 to 8.18.0
+
 ## 7.7.1
 
 ### Patch Changes
