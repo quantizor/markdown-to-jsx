@@ -3,12 +3,11 @@ name: Dependabot
 on:
   pull_request_target:
     types: [opened, synchronize, labeled]
-    branches:
-      - 'dependabot/*'
 
 jobs:
   changeset:
     runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.user.name == 'dependabot' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
