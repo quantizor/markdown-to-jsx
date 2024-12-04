@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.pull_request.user.name == 'dependabot' }}
     steps:
+      - uses: hmarr/debug-action@v3.0.0
       - name: Checkout
         uses: actions/checkout@v4
         with:
