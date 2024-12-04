@@ -1265,9 +1265,7 @@ export function compiler(
           (HTML_BLOCK_ELEMENT_R.test(normalizedValue) ||
             HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue))
         ) {
-          map[mappedKey] = React.cloneElement(compile(normalizedValue.trim()), {
-            key: index,
-          })
+          map[mappedKey] = compile(normalizedValue.trim())
         }
       } else if (raw !== 'style') {
         map[ATTRIBUTE_TO_JSX_PROP_MAP[raw] || raw] = true
