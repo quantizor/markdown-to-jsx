@@ -268,12 +268,15 @@ const Textarea = styled.textarea`
   color: inherit;
   position: sticky;
   top: 0;
+  flex-shrink: 0;
   font-family: 'Jetbrains Mono', Consolas, Monaco, monospace;
   font-size: inherit;
   max-height: 100vh;
+  resize: vertical;
 
   @media all and (max-width: 500px) {
-    height: 300px;
+    field-sizing: content;
+    max-height: 300px;
     position: relative;
   }
 `
