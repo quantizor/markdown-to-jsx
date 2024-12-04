@@ -1,0 +1,24 @@
+name: Dependabot
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, labeled]
+    branches:
+      - 'dependabot/*'
+
+jobs:
+  changeset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Upsert changeset
+        uses: StafflinePeoplePlus/dependabot-changesets@v0.1.5
+        with:
+          owner: ${{ github.repository_owner }}
+          repo: markdown-to-jsx
+          pr-number: ${{ github.event.pull_request.number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
