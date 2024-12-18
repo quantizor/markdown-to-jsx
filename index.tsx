@@ -1053,7 +1053,7 @@ function reactFor(render) {
   return function patchedRender(
     ast: MarkdownToJSX.ParserResult | MarkdownToJSX.ParserResult[],
     state: MarkdownToJSX.State = {}
-  ): React.ReactChild[] {
+  ): React.ReactNode[] {
     if (Array.isArray(ast)) {
       const oldKey = state.key
       const result = []
@@ -1094,7 +1094,7 @@ function createRenderer(
     ast: MarkdownToJSX.ParserResult,
     render: MarkdownToJSX.RuleOutput,
     state: MarkdownToJSX.State
-  ): React.ReactChild {
+  ): React.ReactNode {
     const renderer = rules[ast.type].render as MarkdownToJSX.Rule['render']
 
     return userRender
@@ -2292,7 +2292,7 @@ export namespace MarkdownToJSX {
        */
       render: RuleOutput,
       state?: MarkdownToJSX.State
-    ) => React.ReactChild
+    ) => React.ReactNode
   }
 
   export type Rules = {
@@ -2321,8 +2321,8 @@ export namespace MarkdownToJSX {
     createElement: (
       tag: Parameters<CreateElement>[0],
       props: React.JSX.IntrinsicAttributes,
-      ...children: React.ReactChild[]
-    ) => React.ReactChild
+      ...children: React.ReactNode[]
+    ) => React.ReactNode
 
     /**
      * The library automatically generates an anchor tag for bare URLs included in the markdown
@@ -2414,14 +2414,14 @@ export namespace MarkdownToJSX {
      */
     renderRule: (
       /** Resume normal processing, call this function as a fallback if you are not returning custom JSX. */
-      next: () => React.ReactChild,
+      next: () => React.ReactNode,
       /** the current AST node, use `RuleType` against `node.type` for identification */
       node: ParserResult,
       /** use as `renderChildren(node.children)` for block nodes */
       renderChildren: RuleOutput,
       /** contains `key` which should be supplied to the topmost JSX element */
       state: State
-    ) => React.ReactChild
+    ) => React.ReactNode
 
     /**
      * Override the built-in sanitizer function for URLs, etc if desired. The built-in version is available as a library export called `sanitizer`.
