@@ -16,9 +16,10 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
       - name: Upsert changeset
-        uses: StafflinePeoplePlus/dependabot-changesets@v0.1.5
+        uses: quantizor/dependabot-changesets@changelog
         with:
           owner: ${{ github.repository_owner }}
           repo: markdown-to-jsx
           pr-number: ${{ github.event.pull_request.number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          include-changelog: true
