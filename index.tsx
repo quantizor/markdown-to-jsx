@@ -942,12 +942,16 @@ function matchParagraph(source: string, state: MarkdownToJSX.State) {
   let match = ''
 
   source.split('\n').every(line => {
+    line += '\n'
+
     // bail out on first sign of non-paragraph block
     if (NON_PARAGRAPH_BLOCK_SYNTAXES.some(regex => regex.test(line))) {
       return false
     }
-    match += line + '\n'
-    return line.trim()
+
+    match += line
+
+    return !!line.trim()
   })
 
   const captured = match.trimEnd()

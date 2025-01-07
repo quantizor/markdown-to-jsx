@@ -2574,6 +2574,56 @@ describe('GFM tables', () => {
       </table>
     `)
   })
+
+  it('#641 handles only a single newline prior to the start of the table', () => {
+    render(
+      compiler(theredoc`
+      Test
+      | Nested HTML                        | Link                         |
+      | ---------------------------------- | ---------------------------- |
+      | <div><strong>Nested</strong></div> | [I'm a \`link\`](www.google.com) |
+    `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <div>
+        <p>
+          Test
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>
+                Nested HTML
+              </th>
+              <th>
+                Link
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div>
+                  <strong>
+                    Nested
+                  </strong>
+                </div>
+              </td>
+              <td>
+                <a href="www.google.com">
+                  I'm a
+                  <code>
+                    link
+                  </code>
+                </a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `)
+  })
 })
 
 describe('arbitrary HTML', () => {
