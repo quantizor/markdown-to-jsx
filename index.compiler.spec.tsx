@@ -4918,3 +4918,26 @@ it('#597 handles script tag with empty content', () => {
     </script>
   `)
 })
+
+it('#473 handles content with multiple empty spaces without crashing', () => {
+  render(
+    compiler(
+      'Test \r\n                                                                                    \r\n Test'
+    )
+  )
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+    <div>
+      <p>
+        Test
+      </p>
+      <pre>
+        <code>
+        </code>
+      </pre>
+      <p>
+        Test
+      </p>
+    </div>
+  `)
+})
