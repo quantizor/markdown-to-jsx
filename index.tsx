@@ -12,7 +12,7 @@ import * as React from 'react'
  * Analogous to `node.type`. Please note that the values here may change at any time,
  * so do not hard code against the value directly.
  */
-export var RuleType = {
+export const RuleType = {
   blockQuote: '0',
   breakLine: '1',
   breakThematic: '2',
