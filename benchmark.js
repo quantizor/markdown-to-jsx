@@ -3,7 +3,7 @@ import cliProgress from 'cli-progress'
 import * as fs from 'fs'
 import SimpleMarkdown from 'simple-markdown'
 import MarkdownIt from 'markdown-it'
-import { compiler } from './dist/index.module.js'
+import { createMarkdown } from './dist/index.module.js'
 
 const mdIt = new MarkdownIt()
 const suite = new BenchTable()
@@ -17,6 +17,8 @@ const bar = new cliProgress.SingleBar(
   cliProgress.Presets.shades_classic
 )
 let totalCycles
+
+const { compiler } = createMarkdown()
 
 // add tests
 suite
