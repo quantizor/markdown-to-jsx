@@ -4,11 +4,9 @@ node_modules/
 coverage/
 *.log
 package-lock.json
-npm-shrinkwrap.json
 
 # yarn
 .yarn/*
-!.yarn/cache
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
