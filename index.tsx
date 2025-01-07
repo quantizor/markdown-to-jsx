@@ -629,55 +629,39 @@ function parseTableRow(
 
   state.inTable = true
 
-  const tableRow = [] as MarkdownToJSX.ParserResult[]
-  let cells = [[]]
+  let cells: MarkdownToJSX.ParserResult[][] = [[]]
   let acc = ''
 
   function flush() {
-    if (acc) {
-      tableRow.push.apply(tableRow, parse(acc, state))
-      acc = ''
-    }
+    if (!acc) return
+
+    const cell = cells[cells.length - 1]
+    cell.push.apply(cell, parse(acc, state))
+    acc = ''
   }
 
   source
     .trim()
     // isolate situations where a pipe should be ignored (inline code, escaped, etc)
     .split(/( *(?:`[^`]*`|\\\||\|) *)/)
-    .forEach(fragment => {
+    .filter(Boolean)
+    .forEach((fragment, i, arr) => {
       if (fragment.trim() === '|') {
         flush()
 
-        tableRow.push(
-          tableOutput
-            ? { type: RuleType.tableSeparator }
-            : { type: RuleType.text, text: fragment }
-        )
+        if (tableOutput && i !== 0 && i !== arr.length - 1) {
+          // Split the current row
+          cells.push([])
+        } else if (!tableOutput) {
+          acc += fragment
+          flush()
+        }
       } else if (fragment !== '') {
         acc += fragment
       }
     })
 
   flush()
-
-  tableRow.forEach(function (node, i) {
-    if (node.type === RuleType.tableSeparator) {
-      // Filter out empty table separators at the start/end:
-      if (i !== 0 && i !== tableRow.length - 1) {
-        // Split the current row:
-        cells.push([])
-      }
-    } else {
-      if (
-        node.type === RuleType.text &&
-        (tableRow[i + 1] == null ||
-          tableRow[i + 1].type === RuleType.tableSeparator)
-      ) {
-        node.text = node.text.trimEnd()
-      }
-      cells[cells.length - 1].push(node)
-    }
-  })
 
   state.inTable = prevInTable
 
