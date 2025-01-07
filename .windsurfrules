@@ -1,0 +1,3 @@
+1. This project uses the `yarn` package manager
+2. The priorities of this library are bundle size, performance, and functionality in that order
+3. Optimize code for best minification and tree shaking
