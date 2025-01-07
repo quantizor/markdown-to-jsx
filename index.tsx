@@ -12,7 +12,7 @@ import * as React from 'react'
  * Analogous to `node.type`. Please note that the values here may change at any time,
  * so do not hard code against the value directly.
  */
-export const RuleType = {
+export var RuleType = {
   blockQuote: '0',
   breakLine: '1',
   breakThematic: '2',
@@ -53,6 +53,10 @@ export const RuleType = {
   textStrikethroughed: '32',
   unorderedList: '33',
 } as const
+
+if (process.env.NODE_ENV !== 'production') {
+  Object.keys(RuleType).forEach(key => (RuleType[key] = key))
+}
 
 export type RuleType = (typeof RuleType)[keyof typeof RuleType]
 
@@ -622,24 +626,40 @@ function parseTableRow(
   tableOutput: boolean
 ): MarkdownToJSX.ParserResult[][] {
   const prevInTable = state.inTable
+
   state.inTable = true
-  let tableRow = source
+
+  const tableRow = [] as MarkdownToJSX.ParserResult[]
+  let cells = [[]]
+  let acc = ''
+
+  function flush() {
+    if (acc) {
+      tableRow.push.apply(tableRow, parse(acc, state))
+      acc = ''
+    }
+  }
+
+  source
     .trim()
     // isolate situations where a pipe should be ignored (inline code, escaped, etc)
     .split(/( *(?:`[^`]*`|\\\||\|) *)/)
-    .reduce((nodes, fragment) => {
-      if (fragment.trim() === '|')
-        nodes.push(
+    .forEach(fragment => {
+      if (fragment.trim() === '|') {
+        flush()
+
+        tableRow.push(
           tableOutput
             ? { type: RuleType.tableSeparator }
             : { type: RuleType.text, text: fragment }
         )
-      else if (fragment !== '') nodes.push.apply(nodes, parse(fragment, state))
-      return nodes
-    }, [] as MarkdownToJSX.ParserResult[])
-  state.inTable = prevInTable
+      } else if (fragment !== '') {
+        acc += fragment
+      }
+    })
 
-  let cells = [[]]
+  flush()
+
   tableRow.forEach(function (node, i) {
     if (node.type === RuleType.tableSeparator) {
       // Filter out empty table separators at the start/end:
@@ -658,6 +678,9 @@ function parseTableRow(
       cells[cells.length - 1].push(node)
     }
   })
+
+  state.inTable = prevInTable
+
   return cells
 }
 
