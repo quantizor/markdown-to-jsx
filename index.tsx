@@ -643,22 +643,23 @@ function parseTableRow(
   source
     .trim()
     // isolate situations where a pipe should be ignored (inline code, escaped, etc)
-    .split(/( *(?:`[^`]*`|\\\||\|) *)/)
+    .split(/(`[^`]*`|\\\||\|)/)
     .filter(Boolean)
     .forEach((fragment, i, arr) => {
       if (fragment.trim() === '|') {
         flush()
 
-        if (tableOutput && i !== 0 && i !== arr.length - 1) {
-          // Split the current row
-          cells.push([])
-        } else if (!tableOutput) {
-          acc += fragment
-          flush()
+        if (tableOutput) {
+          if (i !== 0 && i !== arr.length - 1) {
+            // Split the current row
+            cells.push([])
+          }
+
+          return
         }
-      } else if (fragment !== '') {
-        acc += fragment
       }
+
+      acc += fragment
     })
 
   flush()
