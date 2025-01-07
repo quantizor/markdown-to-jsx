@@ -3,7 +3,7 @@
   "description": "Convert markdown to JSX with ease for React and React-like projects. Super lightweight and highly configurable.",
   "homepage": "https://markdown-to-jsx.quantizor.dev",
   "license": "MIT",
-  "version": "7.7.2",
+  "version": "7.7.3",
   "publishConfig": {
     "access": "public"
   },
