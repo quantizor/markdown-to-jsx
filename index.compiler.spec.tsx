@@ -535,7 +535,7 @@ describe('inline textual elements', () => {
 
   it('replaces custom named character codes with unicode equivalents so React will render correctly', () => {
     render(
-      compiler('Apostrophe&#39;s and less than ≤ equal', {
+      compiler('Apostrophe&#39;s and &le; equal', {
         namedCodesToUnicode: {
           le: '\u2264',
           '#39': '\u0027',
@@ -545,7 +545,7 @@ describe('inline textual elements', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <span>
-        Apostrophe's and less than ≤ equal
+        Apostrophe's and ≤ equal
       </span>
     `)
   })
