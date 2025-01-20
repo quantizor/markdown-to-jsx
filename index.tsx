@@ -321,8 +321,11 @@ const TEXT_STRIKETHROUGHED_R = new RegExp(`^~~${INLINE_SKIP_R}~~`)
 
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
 
-const TEXT_PLAIN_R =
-  /^[\s\S]+?(?=[^0-9A-Z\s\u00c0-\uffff&#;.()'"]|\d+\.|\n\n| {2,}\n|\w+:\S|$)/i
+/**
+ * Always take the first character, then eagerly take text until a double space
+ * (potential line break) or some markdown-like punctuation is reached.
+ */
+const TEXT_PLAIN_R = /^([\s\S](?:(?!  |[0-9]\.)[^*_~\-\n<`\\\[!])*)/
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
