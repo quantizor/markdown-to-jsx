@@ -3,6 +3,7 @@ import cliProgress from 'cli-progress'
 import * as fs from 'fs'
 import SimpleMarkdown from 'simple-markdown'
 import MarkdownIt from 'markdown-it'
+import { compiler as latestCompiler } from 'markdown-to-jsx-latest'
 import { compiler } from './dist/index.module.js'
 
 const mdIt = new MarkdownIt()
@@ -20,7 +21,8 @@ let totalCycles
 
 // add tests
 suite
-  .addFunction('markdown-to-jsx', input => compiler(input))
+  .addFunction('markdown-to-jsx (next)', input => compiler(input))
+  .addFunction('markdown-to-jsx (latest)', input => latestCompiler(input))
   .addFunction('simple-markdown', input =>
     SimpleMarkdown.defaultReactOutput(SimpleMarkdown.defaultBlockParse(input))
   )
