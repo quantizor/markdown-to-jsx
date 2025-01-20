@@ -924,7 +924,7 @@ line. To avoid this, you can backslash-escape the period:
   </p>
   <pre>
     <code>
-      1986\\. What a great season.
+      1986. What a great season.
     </code>
   </pre>
   <h3 id="precode">
@@ -1433,7 +1433,7 @@ escape it:
   </p>
   <pre>
     <code>
-      \\*this text is surrounded by literal asterisks\\*
+      *this text is surrounded by literal asterisks*
     </code>
   </pre>
   <h3 id="code">
@@ -1688,7 +1688,7 @@ backslashes before the asterisks, like this:
   </p>
   <pre>
     <code>
-      \\*literal asterisks\\*
+      *literal asterisks*
     </code>
   </pre>
   <p>

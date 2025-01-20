@@ -190,7 +190,7 @@ const BREAK_THEMATIC_R = /^(?:( *[-*_])){3,} *(?:\n *)+\n/
 const CODE_BLOCK_FENCED_R =
   /^(?: {1,3})?(`{3,}|~{3,}) *(\S+)? *([^\n]*?)?\n([\s\S]*?)(?:\1\n?|$)/
 const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)+\n?/
-const CODE_INLINE_R = /^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)/
+const CODE_INLINE_R = /^(`+)((?:\\`|[^`])+)\1/
 const CONSECUTIVE_NEWLINE_R = /^(?:\n *)*\n/
 const CR_NEWLINE_R = /\r\n?/g
 
@@ -320,6 +320,7 @@ const TEXT_MARKED_R = new RegExp(`^==${INLINE_SKIP_R}==`)
 const TEXT_STRIKETHROUGHED_R = new RegExp(`^~~${INLINE_SKIP_R}~~`)
 
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
+const TEXT_UNESCAPE_R = /\\([^0-9A-Za-z\s])/g
 
 /**
  * Always take the first character, then eagerly take text until a double space
@@ -460,6 +461,7 @@ function generateListRule(
         .match(LIST_ITEM_R)
 
       let lastItemWasAParagraph = false
+
       const itemContent = items.map(function (item, i) {
         // We need to see how far indented the item is:
         const space = LIST_ITEM_PREFIX_R.exec(item)[0].length
@@ -495,7 +497,7 @@ function generateListRule(
           containsBlocks || (isLastItem && lastItemWasAParagraph)
         lastItemWasAParagraph = thisItemIsAParagraph
 
-        // backup our state for restoration afterwards. We're going to
+        // backup our state for delta afterwards. We're going to
         // want to set state.list to true, and state.inline depending
         // on our list's looseness.
         const oldStateInline = state.inline
@@ -1400,7 +1402,10 @@ export function compiler(
       parse(capture /*, parse, state*/) {
         return {
           lang: undefined,
-          text: capture[0].replace(/^ {4}/gm, '').replace(/\n+$/, ''),
+          text: capture[0]
+            .replace(/^ {4}/gm, '')
+            .replace(/\n+$/, '')
+            .replaceAll(TEXT_UNESCAPE_R, '$1'),
         }
       },
 
@@ -1430,7 +1435,7 @@ export function compiler(
           // if capture[3] it's additional metadata
           attrs: attrStringToMap('code', capture[3] || ''),
           lang: capture[2] || undefined,
-          text: capture[4],
+          text: capture[4].replaceAll(TEXT_UNESCAPE_R, '$1'),
           type: RuleType.codeBlock,
         }
       },
@@ -1441,7 +1446,7 @@ export function compiler(
       order: Priority.LOW,
       parse(capture /*, parse, state*/) {
         return {
-          text: capture[2],
+          text: capture[2].replaceAll(TEXT_UNESCAPE_R, '$1'),
         }
       },
       render(node, output, state) {
