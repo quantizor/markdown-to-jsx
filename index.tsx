@@ -1955,10 +1955,11 @@ export function compiler(
   //     const result = parse(...args)
   //     const delta = performance.now() - start
 
-  //     if (delta > 5)
-  //       console.warn(`Slow parse for ${key}: ${delta.toFixed(3)}ms`)
-
-  //     console.log(`${key}:parse`, `${delta.toFixed(3)}ms`, args[0])
+  //     console[delta > 5 ? 'warn' : 'log'](
+  //       `${key}:parse`,
+  //       `${delta.toFixed(3)}ms`,
+  //       args[0]
+  //     )
 
   //     return result
   //   }
