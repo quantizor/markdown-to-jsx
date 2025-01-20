@@ -426,7 +426,7 @@ function generateListRule(
     : UNORDERED_LIST_ITEM_PREFIX_R
 
   return {
-    match(source, state) {
+    match: allowInline(function (source, state) {
       // We only want to break into a list if we are at the start of a
       // line. This is to avoid parsing "hi * there" with "* there"
       // becoming a part of a list.
@@ -436,16 +436,16 @@ function generateListRule(
       // in which case we can parse with inline scope, but need to allow
       // nested lists inside this inline scope.
       const isStartOfLine = LIST_LOOKBEHIND_R.exec(state.prevCapture)
-      const isListBlock = state.list || (!state.inline && !state.simple)
+      const isListAllowed = state.list || (!state.inline && !state.simple)
 
-      if (isStartOfLine && isListBlock) {
+      if (isStartOfLine && isListAllowed) {
         source = isStartOfLine[1] + source
 
         return LIST_R.exec(source)
       } else {
         return null
       }
-    },
+    }),
     order: Priority.HIGH,
     parse(capture, parse, state) {
       const bullet = capture[2]
@@ -842,6 +842,10 @@ function parserFor(
     state: MarkdownToJSX.State
   ): MarkdownToJSX.ParserResult[] {
     let result = []
+    let rule
+    let ruleType = ''
+    let parsed
+    let currCaptureString = ''
 
     state.prevCapture = state.prevCapture || ''
 
@@ -852,20 +856,25 @@ function parserFor(
     while (source) {
       let i = 0
       while (i < ruleList.length) {
-        const ruleType = ruleList[i]
-        const rule = rules[ruleType]
+        ruleType = ruleList[i]
+        rule = rules[ruleType]
+
+        if (state.inline && !rule.match.inline) {
+          i++
+          continue
+        }
 
         const capture = rule.match(source, state)
 
         if (capture) {
-          const currCaptureString = capture[0]
+          currCaptureString = capture[0]
 
           // retain what's been processed so far for lookbacks
           state.prevCapture += currCaptureString
 
           source = source.substring(currCaptureString.length)
 
-          const parsed = rule.parse(capture, nestedParse, state)
+          parsed = rule.parse(capture, nestedParse, state)
 
           // We also let rules override the default type of
           // their parsed node if they would like to, so that
@@ -894,26 +903,39 @@ function parserFor(
   }
 }
 
+/**
+ * Marks a matcher function as eligible for being run inside an inline context;
+ * allows us to do a little less work in the nested parser.
+ */
+function allowInline<T extends Function & { inline?: 0 | 1 }>(fn: T) {
+  fn.inline = 1
+
+  return fn
+}
+
 // Creates a match function for an inline scoped or simple element from a regex
 function inlineRegex(regex: RegExp) {
-  return function match(source, state: MarkdownToJSX.State) {
+  return allowInline(function match(source, state: MarkdownToJSX.State) {
     if (state.inline) {
       return regex.exec(source)
     } else {
       return null
     }
-  }
+  })
 }
 
 // basically any inline element except links
 function simpleInlineRegex(regex: RegExp) {
-  return function match(source: string, state: MarkdownToJSX.State) {
+  return allowInline(function match(
+    source: string,
+    state: MarkdownToJSX.State
+  ) {
     if (state.inline || state.simple) {
       return regex.exec(source)
     } else {
       return null
     }
-  }
+  })
 }
 
 // Creates a match function for a block scoped element from a regex
@@ -929,9 +951,9 @@ function blockRegex(regex: RegExp) {
 
 // Creates a match function from a regex, ignoring block/inline scope
 function anyScopeRegex(regex: RegExp) {
-  return function match(source: string /*, state*/) {
+  return allowInline(function match(source: string /*, state*/) {
     return regex.exec(source)
-  }
+  })
 }
 
 function matchParagraph(source: string, state: MarkdownToJSX.State) {
@@ -1671,13 +1693,13 @@ export function compiler(
     },
 
     [RuleType.linkBareUrlDetector]: {
-      match: (source, state) => {
+      match: allowInline((source, state) => {
         if (state.inAnchor || options.disableAutoLink) {
           return null
         }
 
         return inlineRegex(LINK_AUTOLINK_BARE_URL_R)(source, state)
-      },
+      }),
       order: Priority.MAX,
       parse(capture /*, parse, state*/) {
         return {
@@ -1739,7 +1761,7 @@ export function compiler(
     },
 
     [RuleType.paragraph]: {
-      match: matchParagraph,
+      match: allowInline(matchParagraph),
       order: Priority.LOW,
       parse: parseCaptureInline,
       render(node, output, state) {
@@ -1937,18 +1959,18 @@ export function compiler(
   // Object.keys(rules).forEach(key => {
   //   let { match: match, parse: parse } = rules[key]
 
-  //   rules[key].match = (...args) => {
-  //     const start = performance.now()
-  //     const result = match(...args)
-  //     const delta = performance.now() - start
+  //   // rules[key].match = (...args) => {
+  //   //   const start = performance.now()
+  //   //   const result = match(...args)
+  //   //   const delta = performance.now() - start
 
-  //     if (delta > 5)
-  //       console.warn(
-  //         `Slow match for ${key}: ${delta.toFixed(3)}ms, input: ${args[0]}`
-  //       )
+  //   //   if (delta > 5)
+  //   //     console.warn(
+  //   //       `Slow match for ${key}: ${delta.toFixed(3)}ms, input: ${args[0]}`
+  //   //     )
 
-  //     return result
-  //   }
+  //   //   return result
+  //   // }
 
   //   rules[key].parse = (...args) => {
   //     const start = performance.now()
