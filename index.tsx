@@ -296,7 +296,7 @@ const TABLE_RIGHT_ALIGN = /^ *-+: *$/
  * and therefore miss content that should have been included.
  */
 const INLINE_SKIP_R =
-  '((?:\\[.*?\\][([].*?[)\\]]|<.*?>(?:.*?<.*?>)?|`.*?`|~~.*?~~|==.*?==|.|\\n)*?)'
+  '((?:\\[.*?\\][([].*?[)\\]]|<.*?>(?:.*?<.*?>)?|`.*?`|\\\\\\1|[\\s\\S])+?)'
 
 /**
  * Detect a sequence like **foo** or __foo__. Note that bold has a higher priority
@@ -307,17 +307,17 @@ const TEXT_BOLD_R = new RegExp(`^([*_])\\1${INLINE_SKIP_R}\\1\\1(?!\\1)`)
 /**
  * Detect a sequence like *foo* or _foo_.
  */
-const TEXT_EMPHASIZED_R = new RegExp(`^([*_])${INLINE_SKIP_R}\\1(?!\\1|\\w)`)
+const TEXT_EMPHASIZED_R = new RegExp(`^([*_])${INLINE_SKIP_R}\\1(?!\\1)`)
 
 /**
  * Detect a sequence like ==foo==.
  */
-const TEXT_MARKED_R = new RegExp(`^==${INLINE_SKIP_R}==`)
+const TEXT_MARKED_R = new RegExp(`^(==)${INLINE_SKIP_R}\\1`)
 
 /**
  * Detect a sequence like ~~foo~~.
  */
-const TEXT_STRIKETHROUGHED_R = new RegExp(`^~~${INLINE_SKIP_R}~~`)
+const TEXT_STRIKETHROUGHED_R = new RegExp(`^(~~)${INLINE_SKIP_R}\\1`)
 
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
 const TEXT_UNESCAPE_R = /\\([^0-9A-Za-z\s])/g
@@ -574,6 +574,10 @@ const BLOCK_SYNTAXES = [
   HTML_COMMENT_R,
   HTML_SELF_CLOSING_ELEMENT_R,
 ]
+
+function trimEnd(str: string) {
+  return str.replace(/\s*$/, '')
+}
 
 function containsBlockSyntax(input: string) {
   return BLOCK_SYNTAXES.some(r => r.test(input))
@@ -979,12 +983,14 @@ function matchParagraph(source: string, state: MarkdownToJSX.State) {
     return !!line.trim()
   })
 
-  const captured = match.trimEnd()
+  const captured = trimEnd(match)
   if (captured == '') {
     return null
   }
 
-  return [match, captured]
+  // parseCaptureInline expects the inner content to be at index 2
+  // because index 1 is the delimiter for text formatting syntaxes
+  return [match, , captured]
 }
 
 export function sanitizer(url: string): string {
@@ -1074,7 +1080,7 @@ const parseCaptureInline: MarkdownToJSX.Parser<{
   children: MarkdownToJSX.ParserResult[]
 }> = (capture, parse, state: MarkdownToJSX.State) => {
   return {
-    children: parseInline(parse, capture[1], state),
+    children: parseInline(parse, capture[2], state),
   }
 }
 
@@ -1225,7 +1231,7 @@ export function compiler(
       parser(
         inline
           ? input
-          : `${input.trimEnd().replace(TRIM_STARTING_NEWLINES, '')}\n\n`,
+          : `${trimEnd(input).replace(TRIM_STARTING_NEWLINES, '')}\n\n`,
         {
           inline,
         }

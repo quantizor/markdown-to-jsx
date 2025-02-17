@@ -480,7 +480,7 @@ describe('inline textual elements', () => {
 
     render(
       compiler(
-        '*This should not misinterpret the asterisk ~~*~~ in the strikethrough.*'
+        String.raw`*This should not misinterpret the asterisk ~~\*~~ in the strikethrough.*`
       )
     )
 
@@ -512,7 +512,7 @@ describe('inline textual elements', () => {
 
     render(
       compiler(
-        '_This should not misinterpret the under_score that forms part of a word._'
+        `_This should not misinterpret the under\\_score that forms part of a word._`
       )
     )
 
