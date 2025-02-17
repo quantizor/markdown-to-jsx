@@ -18,7 +18,7 @@
     "jsx",
     "html"
   ],
-  "author": "Evan Jacobs <yo@quantizor.com>",
+  "author": "Evan Jacobs <x@quantizor.dev>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/quantizor/markdown-to-jsx.git"
