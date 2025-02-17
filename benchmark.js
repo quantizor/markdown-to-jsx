@@ -20,13 +20,19 @@ const bar = new cliProgress.SingleBar(
 let totalCycles
 
 // add tests
-suite
+const evals = suite
   .addFunction('markdown-to-jsx (next)', input => compiler(input))
   .addFunction('markdown-to-jsx (latest)', input => latestCompiler(input))
-  .addFunction('simple-markdown', input =>
-    SimpleMarkdown.defaultReactOutput(SimpleMarkdown.defaultBlockParse(input))
-  )
-  .addFunction('markdown-it', input => mdIt.render(input))
+
+if (process.argv.includes('--all')) {
+  evals
+    .addFunction('simple-markdown', input =>
+      SimpleMarkdown.defaultReactOutput(SimpleMarkdown.defaultBlockParse(input))
+    )
+    .addFunction('markdown-it', input => mdIt.render(input))
+}
+
+evals
   .addInput('simple markdown string', ['_Hello_ **world**!'])
   .addInput('large markdown string', [fixture])
   .on('start', () => {
