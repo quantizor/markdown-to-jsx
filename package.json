@@ -96,6 +96,7 @@
     "test": "jest --verbose",
     "size": "size-limit",
     "benchmark": "node benchmark.js",
+    "benchmark:all": "node benchmark.js --all",
     "changeset-publish": "yarn build && changeset publish"
   },
   "size-limit": [
