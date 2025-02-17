@@ -509,10 +509,10 @@ function generateListRule(
         let adjustedContent
         if (thisItemIsAParagraph) {
           state.inline = false
-          adjustedContent = content.replace(LIST_ITEM_END_R, '\n\n')
+          adjustedContent = trimEnd(content) + '\n\n'
         } else {
           state.inline = true
-          adjustedContent = content.replace(LIST_ITEM_END_R, '')
+          adjustedContent = trimEnd(content)
         }
 
         const result = parse(adjustedContent, state)
@@ -576,7 +576,9 @@ const BLOCK_SYNTAXES = [
 ]
 
 function trimEnd(str: string) {
-  return str.replace(/\s*$/, '')
+  let end = str.length
+  while (end > 0 && str[end - 1] <= ' ') end--
+  return str.slice(0, end)
 }
 
 function containsBlockSyntax(input: string) {
@@ -1408,10 +1410,10 @@ export function compiler(
       parse(capture /*, parse, state*/) {
         return {
           lang: undefined,
-          text: capture[0]
-            .replace(/^ {4}/gm, '')
-            .replace(/\n+$/, '')
-            .replace(TEXT_UNESCAPE_R, '$1'),
+          text: trimEnd(capture[0].replace(/^ {4}/gm, '')).replace(
+            TEXT_UNESCAPE_R,
+            '$1'
+          ),
         }
       },
 
