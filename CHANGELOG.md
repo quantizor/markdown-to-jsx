@@ -1,5 +1,15 @@
 # markdown-to-jsx
 
+## 7.7.4
+
+### Patch Changes
+
+- adc08c7: Further optimize the plain text splitting regex.
+- c8bc5f3: Remove redundant detectors when processing paragraphs.
+- d96a8d8: Replace some regexes with optimized functions to avoid polynomial time scenarios. Also fixes compatibility issues in some older browsers with the `trimEnd` API.
+- 7be3d77: Optimize regexes and parsing to do less work.
+- cf7693c: Rework inline code syntax handling, handle escaped characters in code blocks correctly so they render without the backslash.
+
 ## 7.7.3
 
 ### Patch Changes
