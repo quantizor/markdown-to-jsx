@@ -1411,7 +1411,7 @@ export function compiler(
           text: capture[0]
             .replace(/^ {4}/gm, '')
             .replace(/\n+$/, '')
-            .replaceAll(TEXT_UNESCAPE_R, '$1'),
+            .replace(TEXT_UNESCAPE_R, '$1'),
         }
       },
 
@@ -1441,7 +1441,7 @@ export function compiler(
           // if capture[3] it's additional metadata
           attrs: attrStringToMap('code', capture[3] || ''),
           lang: capture[2] || undefined,
-          text: capture[4].replaceAll(TEXT_UNESCAPE_R, '$1'),
+          text: capture[4].replace(TEXT_UNESCAPE_R, '$1'),
           type: RuleType.codeBlock,
         }
       },
@@ -1452,7 +1452,7 @@ export function compiler(
       order: Priority.LOW,
       parse(capture /*, parse, state*/) {
         return {
-          text: capture[2].replaceAll(TEXT_UNESCAPE_R, '$1'),
+          text: capture[2].replace(TEXT_UNESCAPE_R, '$1'),
         }
       },
       render(node, output, state) {
