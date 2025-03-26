@@ -1180,7 +1180,7 @@ function getTag(tag: string, overrides: MarkdownToJSX.Overrides) {
 export function compiler(
   markdown: string = '',
   options: MarkdownToJSX.Options = {}
-) {
+): React.JSX.Element {
   options.overrides = options.overrides || {}
   options.sanitizer = options.sanitizer || sanitizer
   options.slugify = options.slugify || slugify
