@@ -1189,6 +1189,7 @@ export function compiler(
     : namedCodesToUnicode
 
   options.createElement = options.createElement || React.createElement
+  options.targetBlank = options.targetBlank || false
 
   // JSX custom pragma
   // eslint-disable-next-line no-unused-vars
@@ -1681,6 +1682,7 @@ export function compiler(
             key={state.key}
             href={options.sanitizer(node.target, 'a', 'href')}
             title={node.title}
+            target={options.targetBlank ? '_blank' : undefined}
           >
             {output(node.children, state)}
           </a>
@@ -2480,6 +2482,11 @@ export namespace MarkdownToJSX {
       tag: HTMLTags,
       attribute: string
     ) => string | null
+
+    /**
+     * allow links to open in a new tab
+     */
+    targetBlank: boolean
 
     /**
      * Override normalization of non-URI-safe characters for use in generating
