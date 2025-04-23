@@ -4027,6 +4027,16 @@ describe('inline code blocks', () => {
       </code>
     `)
   })
+
+  it('naked backticks can be used unescaped if there are two or more outer backticks', () => {
+    render(compiler('``hi `foo` there``'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <code>
+        hi \`foo\` there
+      </code>
+    `)
+  })
 })
 
 describe('footnotes', () => {
