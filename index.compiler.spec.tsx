@@ -1470,6 +1470,22 @@ describe('links', () => {
     expect(console.warn).toHaveBeenCalled()
   })
 
+  it('should sanitize style attribute containing known XSS payloads', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {})
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+
+    render(
+      compiler(
+        '<div style="background-image: url(javascript:alert(`xss`)); color: red;">'
+      )
+    )
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <div style="color: red;">
+      </div>
+    `)
+    expect(console.warn).toHaveBeenCalled()
+  })
+
   it('should handle a link with a URL in the text', () => {
     render(
       compiler('[https://www.google.com *heck yeah*](http://www.google.com)')

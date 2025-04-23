@@ -142,6 +142,14 @@ const namedCodesToUnicode = {
 } as const
 
 const DO_NOT_PROCESS_HTML_ELEMENTS = ['style', 'script']
+const ATTRIBUTES_TO_SANITIZE = [
+  'src',
+  'href',
+  'data',
+  'formAction',
+  'srcDoc',
+  'action',
+]
 
 /**
  * the attribute extractor regex looks for a valid attribute name,
@@ -762,11 +770,15 @@ function attributeValueToJSXPropValue(
         .replace(/(-[a-z])/g, substr => substr[1].toUpperCase())
 
       // key.length + 1 to skip over the colon
-      styles[camelCasedKey] = kvPair.slice(key.length + 1).trim()
+      styles[camelCasedKey] = sanitizeUrlFn(
+        kvPair.slice(key.length + 1).trim(),
+        tag,
+        key
+      )
 
       return styles
     }, {})
-  } else if (key === 'href' || key === 'src') {
+  } else if (ATTRIBUTES_TO_SANITIZE.indexOf(key) !== -1) {
     return sanitizeUrlFn(value, tag, key)
   } else if (value.match(INTERPOLATION_R)) {
     // return as a string and let the consumer decide what to do with it
@@ -995,14 +1007,16 @@ function matchParagraph(source: string, state: MarkdownToJSX.State) {
   return [match, , captured]
 }
 
-export function sanitizer(url: string): string {
-  try {
-    const decoded = decodeURIComponent(url).replace(/[^A-Za-z0-9/:]/g, '')
+const SANITIZE_R = /(javascript|vbscript|data(?!:image)):/i
 
-    if (decoded.match(/^\s*(javascript|vbscript|data(?!:image)):/i)) {
+export function sanitizer(input: string): string {
+  try {
+    const decoded = decodeURIComponent(input).replace(/[^A-Za-z0-9/:]/g, '')
+
+    if (SANITIZE_R.test(decoded)) {
       if (process.env.NODE_ENV !== 'production') {
         console.warn(
-          'Anchor URL contains an unsafe JavaScript/VBScript/data expression, it will not be rendered.',
+          'Input contains an unsafe JavaScript/VBScript/data expression, it will not be rendered.',
           decoded
         )
       }
@@ -1012,8 +1026,8 @@ export function sanitizer(url: string): string {
   } catch (e) {
     if (process.env.NODE_ENV !== 'production') {
       console.warn(
-        'Anchor URL could not be decoded due to malformed syntax or characters, it will not be rendered.',
-        url
+        'Input could not be decoded due to malformed syntax or characters, it will not be rendered.',
+        input
       )
     }
 
@@ -1023,7 +1037,7 @@ export function sanitizer(url: string): string {
     return null
   }
 
-  return url
+  return input
 }
 
 function unescapeUrl(rawUrlString: string): string {
