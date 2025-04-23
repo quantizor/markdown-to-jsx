@@ -357,6 +357,21 @@ describe('inline textual elements', () => {
     `)
   })
 
+  it('should handle consecutive marked text', () => {
+    render(compiler('==Hello== ==World=='))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        <mark>
+          Hello
+        </mark>
+        <mark>
+          World
+        </mark>
+      </span>
+    `)
+  })
+
   it('should handle marked text containing other syntax with an equal sign', () => {
     render(compiler('==Foo `==bar` baz.=='))
 
