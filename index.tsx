@@ -1443,7 +1443,7 @@ export function compiler(
           // if capture[3] it's additional metadata
           attrs: attrStringToMap('code', capture[3] || ''),
           lang: capture[2] || undefined,
-          text: capture[4].replace(TEXT_UNESCAPE_R, '$1'),
+          text: capture[4],
           type: RuleType.codeBlock,
         }
       },

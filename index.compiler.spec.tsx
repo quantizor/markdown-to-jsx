@@ -3989,6 +3989,18 @@ Yeah boi
       </pre>
     `)
   })
+
+  it('regression 670 - fenced code block intentional escape', () => {
+    render(compiler('```\n\\%\n```'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <pre>
+        <code>
+          \\%
+        </code>
+      </pre>
+    `)
+  })
 })
 
 describe('indented code blocks', () => {
