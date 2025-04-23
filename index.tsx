@@ -753,6 +753,69 @@ function normalizeAttributeKey(key) {
   return key
 }
 
+type StyleTuple = [key: string, value: string]
+
+function parseStyleAttribute(styleString: string): StyleTuple[] {
+  const styles: StyleTuple[] = []
+  let buffer = ''
+  let inUrl = false
+  let inQuotes = false
+  let quoteChar: '"' | "'" | '' = ''
+
+  if (!styleString) return styles
+
+  for (let i = 0; i < styleString.length; i++) {
+    const char = styleString[i]
+
+    // Handle quotes
+    if ((char === '"' || char === "'") && !inUrl) {
+      if (!inQuotes) {
+        inQuotes = true
+        quoteChar = char
+      } else if (char === quoteChar) {
+        inQuotes = false
+        quoteChar = ''
+      }
+    }
+
+    // Track url() values
+    if (char === '(' && buffer.endsWith('url')) {
+      inUrl = true
+    } else if (char === ')' && inUrl) {
+      inUrl = false
+    }
+
+    // Only split on semicolons when not in quotes or url()
+    if (char === ';' && !inQuotes && !inUrl) {
+      const declaration = buffer.trim()
+      if (declaration) {
+        const colonIndex = declaration.indexOf(':')
+        if (colonIndex > 0) {
+          const key = declaration.slice(0, colonIndex).trim()
+          const value = declaration.slice(colonIndex + 1).trim()
+          styles.push([key, value])
+        }
+      }
+      buffer = ''
+    } else {
+      buffer += char
+    }
+  }
+
+  // Handle the last declaration
+  const declaration = buffer.trim()
+  if (declaration) {
+    const colonIndex = declaration.indexOf(':')
+    if (colonIndex > 0) {
+      const key = declaration.slice(0, colonIndex).trim()
+      const value = declaration.slice(colonIndex + 1).trim()
+      styles.push([key, value])
+    }
+  }
+
+  return styles
+}
+
 function attributeValueToJSXPropValue(
   tag: MarkdownToJSX.HTMLTags,
   key: keyof React.AllHTMLAttributes<Element>,
@@ -760,21 +823,15 @@ function attributeValueToJSXPropValue(
   sanitizeUrlFn: MarkdownToJSX.Options['sanitizer']
 ): any {
   if (key === 'style') {
-    return value.split(/;\s?/).reduce(function (styles, kvPair) {
-      const key = kvPair.slice(0, kvPair.indexOf(':'))
-
+    return parseStyleAttribute(value).reduce(function (styles, [key, value]) {
       // snake-case to camelCase
       // also handles PascalCasing vendor prefixes
-      const camelCasedKey = key
-        .trim()
-        .replace(/(-[a-z])/g, substr => substr[1].toUpperCase())
+      const camelCasedKey = key.replace(/(-[a-z])/g, substr =>
+        substr[1].toUpperCase()
+      )
 
       // key.length + 1 to skip over the colon
-      styles[camelCasedKey] = sanitizeUrlFn(
-        kvPair.slice(key.length + 1).trim(),
-        tag,
-        key
-      )
+      styles[camelCasedKey] = sanitizeUrlFn(value, tag, key)
 
       return styles
     }, {})
@@ -1633,7 +1690,6 @@ export function compiler(
       order: Priority.HIGH,
       parse(capture /*, parse, state*/) {
         const tag = capture[1].trim() as MarkdownToJSX.HTMLTags
-
         return {
           attrs: attrStringToMap(tag, capture[2] || ''),
           tag,

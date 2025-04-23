@@ -110,6 +110,7 @@
     }
   ],
   "jest": {
+    "clearMocks": true,
     "testEnvironment": "jsdom",
     "transform": {
       "^.+\\.[tj]sx?$": [

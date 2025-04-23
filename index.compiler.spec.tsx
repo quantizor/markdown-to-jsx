@@ -1443,16 +1443,8 @@ describe('links', () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {})
     jest.spyOn(console, 'error').mockImplementation(() => {})
 
-    // TODO: something is off on parsing here, because this prints:
-    // console.error("Warning: Unknown prop `javascript:alert` on <img> tag"...)
-    // Which it shouldn't
-    render(compiler('<img src="`<javascript:alert>`(\'alertstr\')"'))
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
-        <img>
-        \`('alertstr')"
-      </span>
-    `)
+    render(compiler('<img src="`<javascript:alert>`(\'alertstr\')" />'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`<img>`)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -1460,13 +1452,8 @@ describe('links', () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {})
     jest.spyOn(console, 'error').mockImplementation(() => {})
 
-    render(compiler('<img src="`<src="javascript:alert(`xss`)">`'))
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
-        <img src="\`<src=">
-        \`
-      </span>
-    `)
+    render(compiler('<img src="<src=\\"javascript:alert(`xss`)">'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`<img>`)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -1484,6 +1471,22 @@ describe('links', () => {
       </div>
     `)
     expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should not sanitize style attribute with an acceptable data image payload', () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {})
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+
+    render(
+      compiler(
+        '<div style="background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==); color: red;">'
+      )
+    )
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <div style="background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==); color: red;">
+      </div>
+    `)
+    expect(console.warn).not.toHaveBeenCalled()
   })
 
   it('should handle a link with a URL in the text', () => {
