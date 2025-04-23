@@ -196,6 +196,42 @@ const GlobalStyles = createGlobalStyle`
       }
     }
 
+    &.markdown-alert-note header {
+      color: cornflowerblue;
+
+      &::before {
+        content: 'ⓘ';
+        margin-right: 4px;
+      }
+    }
+
+    &.markdown-alert-important header {
+      color: darkorchid;
+
+      &::before {
+        content: '❕';
+        margin-right: 4px;
+      }
+    }
+
+    &.markdown-alert-warning header {
+      color: gold;
+
+      &::before {
+        content: '⚠️';
+        margin-right: 4px;
+      }
+    }
+
+    &.markdown-alert-caution header {
+      color: red;
+
+      &::before {
+        content: '🛑';
+        margin-right: 4px;
+      }
+    }
+
     header + * {
       margin-top: 0.25em;
     }
@@ -285,6 +321,8 @@ const Compiled = styled.div`
   ${sharedCss};
   padding-left: 2rem;
   padding-right: 1rem;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
   overflow: auto;
   overflow-x: hidden;
 `
