@@ -1,5 +1,13 @@
 # markdown-to-jsx
 
+## 7.7.5
+
+### Patch Changes
+
+- 0ddaabb: Remove unescaping of content inside fenced code blocks.
+- 07b4280: Better handle exotic backtick scenarios for inline code blocks.
+- 0dad192: Fix consecutive marked text.
+
 ## 7.7.4
 
 ### Patch Changes
