@@ -1,5 +1,12 @@
 # markdown-to-jsx
 
+## 7.7.6
+
+### Patch Changes
+
+- 654855b: Sanitize more attributes by default to help address XSS vectors.
+- 7639c08: Improve splitting of style attributes.
+
 ## 7.7.5
 
 ### Patch Changes
