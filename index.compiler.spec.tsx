@@ -4616,6 +4616,47 @@ describe('options.renderRule', () => {
         </div>
       `)
   })
+
+  it('can be used to handle shortcodes', () => {
+    const shortcodeMap = {
+      smile: '🙂',
+    }
+
+    const detector = /(:[^:]+:)/g
+
+    const replaceEmoji = (text: string): React.ReactNode => {
+      return text.split(detector).map((part, index) => {
+        if (part.startsWith(':') && part.endsWith(':')) {
+          const shortcode = part.slice(1, -1)
+
+          return <span key={index}>{shortcodeMap[shortcode] || part}</span>
+        }
+
+        return part
+      })
+    }
+
+    render(
+      compiler('Hey there! :smile:', {
+        renderRule(next, node) {
+          if (node.type === RuleType.text && detector.test(node.text)) {
+            return replaceEmoji(node.text)
+          }
+
+          return next()
+        },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        Hey there!
+        <span>
+          🙂
+        </span>
+      </span>
+    `)
+  })
 })
 
 describe('options.slugify', () => {

@@ -25,6 +25,7 @@ The most lightweight, customizable React markdown component.
     - [options.disableAutoLink](#optionsdisableautolink)
     - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
   - [Syntax highlighting](#syntax-highlighting)
+  - [Handling shortcodes](#handling-shortcodes)
   - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
   - [Usage with Preact](#usage-with-preact)
 - [Gotchas](#gotchas)
@@ -604,6 +605,55 @@ function SyntaxHighlightedCode(props) {
   return <code {...props} ref={ref} />
 }
 ````
+
+### Handling shortcodes
+
+For Slack-style messaging with arbitrary shortcodes like `:smile:`, you can use `options.renderRule` to hook into the plain text rendering and adjust things to your liking, for example:
+
+```tsx
+import Markdown, { RuleType } from 'markdown-to-jsx'
+
+const shortcodeMap = {
+  smile: '🙂',
+}
+
+const detector = /(:[^:]+:)/g
+
+const replaceEmoji = (text: string): React.ReactNode => {
+  return text.split(detector).map((part, index) => {
+    if (part.startsWith(':') && part.endsWith(':')) {
+      const shortcode = part.slice(1, -1)
+
+      return <span key={index}>{shortcodeMap[shortcode] || part}</span>
+    }
+
+    return part
+  })
+}
+
+function Example() {
+  return (
+    <Markdown
+      options={{
+        renderRule(next, node) {
+          if (node.type === RuleType.text && detector.test(node.text)) {
+            return replaceEmoji(node.text)
+          }
+
+          return next()
+        },
+      }}
+    >
+      {`On a beautiful summer day, all I want to do is :smile:.`}
+    </Markdown>
+  )
+}
+
+// renders
+// <span>On a beautiful summer day, all I want to do is <span>🙂</span>.</span>
+```
+
+When you use `options.renderRule`, any React-renderable JSX may be returned including images and GIFs. Ensure you benchmark your solution as the `text` rule is one of the hottest paths in the system!
 
 ### Getting the smallest possible bundle size
 
