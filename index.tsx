@@ -1251,7 +1251,6 @@ export function compiler(
 
     const captured = trimEnd(match)
     if (captured == '') {
-      console.log('no')
       return null
     }
 
