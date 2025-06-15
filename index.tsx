@@ -562,34 +562,10 @@ const LINK_R = new RegExp(
 )
 const IMAGE_R = /^!\[(.*?)\]\( *((?:\([^)]*\)|[^() ])*) *"?([^)"]*)?"?\)/
 
-const NON_PARAGRAPH_BLOCK_SYNTAXES = [
-  BLOCKQUOTE_R,
-  CODE_BLOCK_FENCED_R,
-  CODE_BLOCK_R,
-  HEADING_R,
-  HEADING_SETEXT_R,
-  HEADING_ATX_COMPLIANT_R,
-  NP_TABLE_R,
-  ORDERED_LIST_R,
-  UNORDERED_LIST_R,
-]
-
-const BLOCK_SYNTAXES = [
-  ...NON_PARAGRAPH_BLOCK_SYNTAXES,
-  PARAGRAPH_R,
-  HTML_BLOCK_ELEMENT_R,
-  HTML_COMMENT_R,
-  HTML_SELF_CLOSING_ELEMENT_R,
-]
-
 function trimEnd(str: string) {
   let end = str.length
   while (end > 0 && str[end - 1] <= ' ') end--
   return str.slice(0, end)
-}
-
-function containsBlockSyntax(input: string) {
-  return BLOCK_SYNTAXES.some(r => r.test(input))
 }
 
 /** Remove symmetrical leading and trailing quotes */
@@ -1033,36 +1009,6 @@ function anyScopeRegex(regex: RegExp) {
   })
 }
 
-function matchParagraph(source: string, state: MarkdownToJSX.State) {
-  if (state.inline || state.simple) {
-    return null
-  }
-
-  let match = ''
-
-  source.split('\n').every(line => {
-    line += '\n'
-
-    // bail out on first sign of non-paragraph block
-    if (NON_PARAGRAPH_BLOCK_SYNTAXES.some(regex => regex.test(line))) {
-      return false
-    }
-
-    match += line
-
-    return !!line.trim()
-  })
-
-  const captured = trimEnd(match)
-  if (captured == '') {
-    return null
-  }
-
-  // parseCaptureInline expects the inner content to be at index 2
-  // because index 1 is the delimiter for text formatting syntaxes
-  return [match, , captured]
-}
-
 const SANITIZE_R = /(javascript|vbscript|data(?!:image)):/i
 
 export function sanitizer(input: string): string {
@@ -1259,6 +1205,60 @@ export function compiler(
     : namedCodesToUnicode
 
   options.createElement = options.createElement || React.createElement
+
+  const NON_PARAGRAPH_BLOCK_SYNTAXES = [
+    BLOCKQUOTE_R,
+    CODE_BLOCK_FENCED_R,
+    CODE_BLOCK_R,
+    options.enforceAtxHeadings ? HEADING_ATX_COMPLIANT_R : HEADING_R,
+    HEADING_SETEXT_R,
+    NP_TABLE_R,
+    ORDERED_LIST_R,
+    UNORDERED_LIST_R,
+  ]
+
+  const BLOCK_SYNTAXES = [
+    ...NON_PARAGRAPH_BLOCK_SYNTAXES,
+    PARAGRAPH_R,
+    HTML_BLOCK_ELEMENT_R,
+    HTML_COMMENT_R,
+    HTML_SELF_CLOSING_ELEMENT_R,
+  ]
+
+  function containsBlockSyntax(input: string) {
+    return BLOCK_SYNTAXES.some(r => r.test(input))
+  }
+
+  function matchParagraph(source: string, state: MarkdownToJSX.State) {
+    if (state.inline || state.simple) {
+      return null
+    }
+
+    let match = ''
+
+    source.split('\n').every(line => {
+      line += '\n'
+
+      // bail out on first sign of non-paragraph block
+      if (NON_PARAGRAPH_BLOCK_SYNTAXES.some(regex => regex.test(line))) {
+        return false
+      }
+
+      match += line
+
+      return !!line.trim()
+    })
+
+    const captured = trimEnd(match)
+    if (captured == '') {
+      console.log('no')
+      return null
+    }
+
+    // parseCaptureInline expects the inner content to be at index 2
+    // because index 1 is the delimiter for text formatting syntaxes
+    return [match, , captured]
+  }
 
   // JSX custom pragma
   // eslint-disable-next-line no-unused-vars

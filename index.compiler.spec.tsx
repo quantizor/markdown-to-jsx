@@ -643,9 +643,9 @@ describe('headings', () => {
     render(compiler('#Hello World', { enforceAtxHeadings: true }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
+      <p>
         #Hello World
-      </span>
+      </p>
     `)
   })
 
