@@ -1,5 +1,13 @@
 # markdown-to-jsx
 
+## 7.7.7
+
+### Patch Changes
+
+- 89c87e5: Handle spaces in text as a stop token to improve processing, also adapt paragraph detection to exclude non-atx compliant headings if that option is enabled.
+
+  Fixes #680
+
 ## 7.7.6
 
 ### Patch Changes
