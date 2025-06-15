@@ -643,9 +643,9 @@ describe('headings', () => {
     render(compiler('#Hello World', { enforceAtxHeadings: true }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
+      <p>
         #Hello World
-      </span>
+      </p>
     `)
   })
 
@@ -1545,6 +1545,19 @@ describe('links', () => {
         </a>
         .
       </strong>
+    `)
+  })
+
+  it('renders plain links preceded by text', () => {
+    render(compiler('Some text http://www.test.com/some-resource/123'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+        Some text
+        <a href="http://www.test.com/some-resource/123">
+          http://www.test.com/some-resource/123
+        </a>
+      </span>
     `)
   })
 })
