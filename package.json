@@ -68,7 +68,7 @@
     "jest-serializer-html": "^7.1.0",
     "jest-watch-typeahead": "^2.2.2",
     "markdown-it": "^14.0.0",
-    "markdown-to-jsx-latest": "npm:markdown-to-jsx@7.7.6",
+    "markdown-to-jsx-latest": "npm:markdown-to-jsx@7.7.7",
     "microbundle": "^0.15.1",
     "microtime": "^3.1.1",
     "mkdirp": "^3.0.1",

@@ -917,6 +917,12 @@ function parserFor(
           continue
         }
 
+        // Fast qualify check - skip expensive regex if pattern doesn't match
+        if (rule.qualify && !rule.qualify(source, state)) {
+          i++
+          continue
+        }
+
         const capture = rule.match(source, state)
 
         if (capture) {
@@ -1420,6 +1426,7 @@ export function compiler(
   // @ts-ignore
   const rules: MarkdownToJSX.Rules = {
     [RuleType.blockQuote]: {
+      qualify: source => source[0] === '>',
       match: blockRegex(BLOCKQUOTE_R),
       order: Priority.HIGH,
       parse(capture, parse, state) {
@@ -1465,6 +1472,10 @@ export function compiler(
     },
 
     [RuleType.breakThematic]: {
+      qualify: source => {
+        const char = source[0]
+        return char === '-' || char === '*' || char === '_'
+      },
       match: blockRegex(BREAK_THEMATIC_R),
       order: Priority.HIGH,
       parse: captureNothing,
@@ -1474,6 +1485,7 @@ export function compiler(
     },
 
     [RuleType.codeBlock]: {
+      qualify: source => source.startsWith('    '),
       match: blockRegex(CODE_BLOCK_R),
       order: Priority.MAX,
       parse(capture /*, parse, state*/) {
@@ -1505,6 +1517,7 @@ export function compiler(
     }>,
 
     [RuleType.codeFenced]: {
+      qualify: source => source.startsWith('```') || source.startsWith('~~~'),
       match: blockRegex(CODE_BLOCK_FENCED_R),
       order: Priority.MAX,
       parse(capture /*, parse, state*/) {
@@ -1519,6 +1532,7 @@ export function compiler(
     },
 
     [RuleType.codeInline]: {
+      qualify: source => source[0] === '`',
       match: simpleInlineRegex(CODE_INLINE_R),
       order: Priority.LOW,
       parse(capture /*, parse, state*/) {
@@ -1535,6 +1549,7 @@ export function compiler(
      * footnotes are emitted at the end of compilation in a special <footer> block
      */
     [RuleType.footnote]: {
+      qualify: source => source.startsWith('[^'),
       match: blockRegex(FOOTNOTE_R),
       order: Priority.MAX,
       parse(capture /*, parse, state*/) {
@@ -1549,6 +1564,7 @@ export function compiler(
     },
 
     [RuleType.footnoteReference]: {
+      qualify: source => source.startsWith('[^'),
       match: inlineRegex(FOOTNOTE_REFERENCE_R),
       order: Priority.HIGH,
       parse(capture /*, parse*/) {
@@ -1567,6 +1583,10 @@ export function compiler(
     } as MarkdownToJSX.Rule<{ target: string; text: string }>,
 
     [RuleType.gfmTask]: {
+      qualify: source =>
+        source.startsWith('[') &&
+        (source[1] === 'x' || source[1] === ' ') &&
+        source[2] === ']',
       match: inlineRegex(GFM_TASK_R),
       order: Priority.HIGH,
       parse(capture /*, parse, state*/) {
@@ -1587,6 +1607,7 @@ export function compiler(
     } as MarkdownToJSX.Rule<{ completed: boolean }>,
 
     [RuleType.heading]: {
+      qualify: source => source[0] === '#',
       match: blockRegex(
         options.enforceAtxHeadings ? HEADING_ATX_COMPLIANT_R : HEADING_R
       ),
@@ -1620,6 +1641,7 @@ export function compiler(
     },
 
     [RuleType.htmlBlock]: {
+      qualify: source => source[0] === '<',
       /**
        * find the first matching end tag and process the interior
        */
@@ -1681,6 +1703,7 @@ export function compiler(
     },
 
     [RuleType.htmlSelfClosing]: {
+      qualify: source => source[0] === '<',
       /**
        * find the first matching end tag and process the interior
        */
@@ -1699,6 +1722,7 @@ export function compiler(
     },
 
     [RuleType.htmlComment]: {
+      qualify: source => source.startsWith('<!--'),
       match: anyScopeRegex(HTML_COMMENT_R),
       order: Priority.HIGH,
       parse() {
@@ -1708,6 +1732,7 @@ export function compiler(
     },
 
     [RuleType.image]: {
+      qualify: source => source.startsWith('!['),
       match: simpleInlineRegex(IMAGE_R),
       order: Priority.HIGH,
       parse(capture /*, parse, state*/) {
@@ -1734,6 +1759,7 @@ export function compiler(
     }>,
 
     [RuleType.link]: {
+      qualify: source => source[0] === '[',
       match: inlineRegex(LINK_R),
       order: Priority.LOW,
       parse(capture, parse, state) {
@@ -1758,6 +1784,7 @@ export function compiler(
 
     // https://daringfireball.net/projects/markdown/syntax#autolink
     [RuleType.linkAngleBraceStyleDetector]: {
+      qualify: source => source[0] === '<',
       match: inlineRegex(LINK_AUTOLINK_R),
       order: Priority.MAX,
       parse(capture /*, parse, state*/) {
@@ -1775,13 +1802,11 @@ export function compiler(
     },
 
     [RuleType.linkBareUrlDetector]: {
-      match: allowInline((source, state) => {
-        if (state.inAnchor || options.disableAutoLink) {
-          return null
-        }
-
-        return inlineRegex(LINK_AUTOLINK_BARE_URL_R)(source, state)
-      }),
+      qualify: (source, state) => {
+        if (state.inAnchor || options.disableAutoLink) return false
+        return source.startsWith('http://') || source.startsWith('https://')
+      },
+      match: inlineRegex(LINK_AUTOLINK_BARE_URL_R),
       order: Priority.MAX,
       parse(capture /*, parse, state*/) {
         return {
@@ -1799,6 +1824,7 @@ export function compiler(
     },
 
     [RuleType.linkMailtoDetector]: {
+      qualify: source => source[0] === '<',
       match: inlineRegex(LINK_AUTOLINK_MAILTO_R),
       order: Priority.MAX,
       parse(capture /*, parse, state*/) {
@@ -1852,6 +1878,7 @@ export function compiler(
     } as MarkdownToJSX.Rule<ReturnType<typeof parseCaptureInline>>,
 
     [RuleType.ref]: {
+      qualify: source => source[0] === '[',
       match: inlineRegex(REFERENCE_IMAGE_OR_LINK),
       order: Priority.MAX,
       parse(capture /*, parse*/) {
@@ -1866,6 +1893,7 @@ export function compiler(
     },
 
     [RuleType.refImage]: {
+      qualify: source => source.startsWith('!['),
       match: simpleInlineRegex(REFERENCE_IMAGE_R),
       order: Priority.MAX,
       parse(capture) {
@@ -1887,6 +1915,7 @@ export function compiler(
     } as MarkdownToJSX.Rule<{ alt?: string; ref: string }>,
 
     [RuleType.refLink]: {
+      qualify: source => source[0] === '[',
       match: inlineRegex(REFERENCE_LINK_R),
       order: Priority.MAX,
       parse(capture, parse, state) {
@@ -1912,6 +1941,7 @@ export function compiler(
     },
 
     [RuleType.table]: {
+      qualify: source => source[0] === '|',
       match: blockRegex(NP_TABLE_R),
       order: Priority.HIGH,
       parse: parseTable,
@@ -1975,6 +2005,13 @@ export function compiler(
     },
 
     [RuleType.textBolded]: {
+      qualify: source => {
+        const char = source[0]
+        return (
+          (char === '*' && source[1] === '*') ||
+          (char === '_' && source[1] === '_')
+        )
+      },
       match: simpleInlineRegex(TEXT_BOLD_R),
       order: Priority.MED,
       parse(capture, parse, state) {
@@ -1990,6 +2027,10 @@ export function compiler(
     },
 
     [RuleType.textEmphasized]: {
+      qualify: source => {
+        const char = source[0]
+        return (char === '*' || char === '_') && source[1] !== char
+      },
       match: simpleInlineRegex(TEXT_EMPHASIZED_R),
       order: Priority.LOW,
       parse(capture, parse, state) {
@@ -2005,6 +2046,7 @@ export function compiler(
     },
 
     [RuleType.textEscaped]: {
+      qualify: source => source[0] === '\\',
       // We don't allow escaping numbers, letters, or spaces here so that
       // backslashes used in plain text still get rendered. But allowing
       // escaping anything else provides a very flexible escape mechanism,
@@ -2020,6 +2062,7 @@ export function compiler(
     },
 
     [RuleType.textMarked]: {
+      qualify: source => source.startsWith('=='),
       match: simpleInlineRegex(TEXT_MARKED_R),
       order: Priority.LOW,
       parse: parseCaptureInline,
@@ -2029,6 +2072,7 @@ export function compiler(
     },
 
     [RuleType.textStrikethroughed]: {
+      qualify: source => source.startsWith('~~'),
       match: simpleInlineRegex(TEXT_STRIKETHROUGHED_R),
       order: Priority.LOW,
       parse: parseCaptureInline,
@@ -2402,6 +2446,16 @@ export namespace MarkdownToJSX {
     ) => RegExpMatchArray
     order: Priority
     parse: MarkdownToJSX.Parser<Omit<ParserOutput, 'type'>>
+    /**
+     * Optional fast check that can quickly determine if this rule
+     * should even be attempted. Should check the start of the source string
+     * for quick patterns without expensive regex operations.
+     *
+     * @param source The input source string (already trimmed of leading whitespace)
+     * @param state Current parser state
+     * @returns true if the rule should be attempted, false to skip
+     */
+    qualify?: (source: string, state: MarkdownToJSX.State) => boolean
     render?: (
       node: ParserOutput,
       /**
