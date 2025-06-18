@@ -243,7 +243,7 @@ const GFM_TASK_R = /^\s*?\[(x|\s)\]/
 const HEADING_R = /^ *(#{1,6}) *([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
 const HEADING_ATX_COMPLIANT_R =
   /^ *(#{1,6}) +([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
-const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *(?:\n *)+\n/
+const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *\n/
 
 /**
  * Explanation:
@@ -902,52 +902,54 @@ function parserFor(
 
     state.prevCapture = state.prevCapture || ''
 
-    // We store the previous capture so that match functions can
-    // use some limited amount of lookbehind. Lists use this to
-    // ensure they don't match arbitrary '- ' or '* ' in inline
-    // text (see the list rule for more information).
-    while (source) {
-      let i = 0
-      while (i < ruleList.length) {
-        ruleType = ruleList[i]
-        rule = rules[ruleType]
+    if (source.trim()) {
+      // We store the previous capture so that match functions can
+      // use some limited amount of lookbehind. Lists use this to
+      // ensure they don't match arbitrary '- ' or '* ' in inline
+      // text (see the list rule for more information).
+      while (source) {
+        let i = 0
 
-        if (state.inline && !rule.match.inline) {
-          i++
-          continue
-        }
+        while (i < ruleList.length) {
+          ruleType = ruleList[i]
+          rule = rules[ruleType]
 
-        // Fast qualify check - skip expensive regex if pattern doesn't match
-        if (rule.qualify && !rule.qualify(source, state)) {
-          i++
-          continue
-        }
-
-        const capture = rule.match(source, state)
-
-        if (capture) {
-          currCaptureString = capture[0]
-
-          // retain what's been processed so far for lookbacks
-          state.prevCapture += currCaptureString
-
-          source = source.substring(currCaptureString.length)
-
-          parsed = rule.parse(capture, nestedParse, state)
-
-          // We also let rules override the default type of
-          // their parsed node if they would like to, so that
-          // there can be a single output function for all links,
-          // even if there are several rules to parse them.
-          if (parsed.type == null) {
-            parsed.type = ruleType as unknown as RuleType
+          if (rule.qualify && !rule.qualify(source, state)) {
+            i++
+            continue
           }
 
-          result.push(parsed)
-          break
-        }
+          const capture = rule.match(source, state)
 
-        i++
+          if (capture) {
+            currCaptureString = capture[0]
+
+            if (!currCaptureString) {
+              i++
+              continue
+            }
+
+            // retain what's been processed so far for lookbacks
+            state.prevCapture += currCaptureString
+
+            source = source.substring(currCaptureString.length)
+
+            parsed = rule.parse(capture, nestedParse, state)
+
+            // We also let rules override the default type of
+            // their parsed node if they would like to, so that
+            // there can be a single output function for all links,
+            // even if there are several rules to parse them.
+            if (parsed.type == null) {
+              parsed.type = ruleType as unknown as RuleType
+            }
+
+            result.push(parsed)
+            break
+          }
+
+          i++
+        }
       }
     }
 
@@ -1256,13 +1258,13 @@ export function compiler(
     })
 
     const captured = trimEnd(match)
-    if (captured == '') {
+    if (captured === '') {
       return null
     }
 
     // parseCaptureInline expects the inner content to be at index 2
     // because index 1 is the delimiter for text formatting syntaxes
-    return [match, , captured]
+    return [match, , captured] as RegExpMatchArray
   }
 
   // JSX custom pragma
@@ -1356,6 +1358,10 @@ export function compiler(
     tag: MarkdownToJSX.HTMLTags,
     str: string
   ): React.JSX.IntrinsicAttributes {
+    if (!str || !str.trim()) {
+      return null
+    }
+
     const attributes = str.match(ATTR_EXTRACTOR_R)
     if (!attributes) {
       return null
@@ -1988,18 +1994,19 @@ export function compiler(
       // is easy to extend without needing to modify this regex
       match: anyScopeRegex(TEXT_PLAIN_R),
       order: Priority.MIN,
-      parse(capture /*, parse, state*/) {
+      parse(capture) {
+        const text = capture[0]
         return {
-          text: capture[0]
-            // nbsp -> unicode equivalent for named chars
-            .replace(HTML_CHAR_CODE_R, (full, inner) => {
-              return options.namedCodesToUnicode[inner]
-                ? options.namedCodesToUnicode[inner]
-                : full
-            }),
+          text:
+            text.indexOf('&') === -1
+              ? text
+              : text.replace(
+                  HTML_CHAR_CODE_R,
+                  (full, inner) => options.namedCodesToUnicode[inner] || full
+                ),
         }
       },
-      render(node /*, output, state*/) {
+      render(node) {
         return node.text
       },
     },
@@ -2103,11 +2110,17 @@ export function compiler(
   //     const result = parse(...args)
   //     const delta = performance.now() - start
 
-  //     console[delta > 5 ? 'warn' : 'log'](
-  //       `${key}:parse`,
-  //       `${delta.toFixed(3)}ms`,
-  //       args[0]
-  //     )
+  //     if (delta > 5) {
+  //       console.warn(
+  //         `Slow parse for ${key}: ${delta.toFixed(3)}ms, input: ${args[0]}`
+  //       )
+  //     }
+
+  //     // console[delta > 5 ? 'warn' : 'log'](
+  //     //   `${key}:parse`,
+  //     //   `${delta.toFixed(3)}ms`,
+  //     //   args[0]
+  //     // )
 
   //     return result
   //   }
