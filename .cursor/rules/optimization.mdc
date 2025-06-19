@@ -1,0 +1,8 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+The priorities of this library are bundle size, performance, and functionality in that order.
+
+Optimize code for best minification and tree shaking.
