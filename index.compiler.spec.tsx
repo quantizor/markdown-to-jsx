@@ -4697,7 +4697,7 @@ describe('options.slugify', () => {
     expect(() => {
       // @ts-ignore
       render(compiler('# 中文', { slugify: 'invalid' }))
-    }).toThrow(/options\.slugify is not a function/)
+    }).toThrow()
   })
 })
 

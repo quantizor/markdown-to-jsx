@@ -437,6 +437,7 @@ function generateListRule(
     : UNORDERED_LIST_ITEM_PREFIX_R
 
   return {
+    _qualify: source => LIST_ITEM_PREFIX_R.test(source),
     _match: allowInline(function (source, state) {
       // We only want to break into a list if we are at the start of a
       // line. This is to avoid parsing "hi * there" with "* there"
@@ -566,6 +567,26 @@ function trimEnd(str: string) {
   let end = str.length
   while (end > 0 && str[end - 1] <= ' ') end--
   return str.slice(0, end)
+}
+
+function startsWith(str: string, prefix: string) {
+  return str.startsWith(prefix)
+}
+
+function qualifies(
+  source: string,
+  state: MarkdownToJSX.State,
+  qualify: MarkdownToJSX.Rule<any>['_qualify']
+) {
+  if (Array.isArray(qualify)) {
+    for (let i = 0; i < qualify.length; i++) {
+      if (startsWith(source, qualify[i])) return true
+    }
+
+    return false
+  }
+
+  return qualify(source, state)
 }
 
 /** Remove symmetrical leading and trailing quotes */
@@ -891,7 +912,7 @@ function parserFor(
           var ruleType = ruleList[i]
           var rule = rules[ruleType]
 
-          if (rule._qualify && !rule._qualify(source, state)) {
+          if (rule._qualify && !qualifies(source, state, rule._qualify)) {
             i++
             continue
           }
@@ -1164,13 +1185,13 @@ export function compiler(
   options: MarkdownToJSX.Options = {}
 ): React.JSX.Element {
   options.overrides = options.overrides || {}
-  options.sanitizer = options.sanitizer || sanitizer
-  options.slugify = options.slugify || slugify
   options.namedCodesToUnicode = options.namedCodesToUnicode
     ? { ...namedCodesToUnicode, ...options.namedCodesToUnicode }
     : namedCodesToUnicode
 
-  options.createElement = options.createElement || React.createElement
+  const slug = options.slugify || slugify
+  const sanitize = options.sanitizer || sanitizer
+  const createElement = options.createElement || React.createElement
 
   const NON_PARAGRAPH_BLOCK_SYNTAXES = [
     BLOCKQUOTE_R,
@@ -1238,7 +1259,7 @@ export function compiler(
   ) {
     const overrideProps = get(options.overrides, `${tag}.props`, {})
 
-    return options.createElement(
+    return createElement(
       getTag(tag, options.overrides),
       {
         ...props,
@@ -1305,11 +1326,7 @@ export function compiler(
       jsx = null
     }
 
-    return options.createElement(
-      wrapper,
-      { key: 'outer' },
-      jsx
-    ) as React.JSX.Element
+    return createElement(wrapper, { key: 'outer' }, jsx) as React.JSX.Element
   }
 
   function attrStringToMap(
@@ -1341,7 +1358,7 @@ export function compiler(
           tag,
           key,
           value,
-          options.sanitizer
+          sanitize
         ))
 
         if (
@@ -1390,7 +1407,7 @@ export function compiler(
   // @ts-ignore
   const rules: MarkdownToJSX.Rules = {
     [RuleType.blockQuote]: {
-      _qualify: source => source[0] === '>',
+      _qualify: ['>'],
       _match: blockRegex(BLOCKQUOTE_R),
       _order: Priority.HIGH,
       _parse(capture, parse, state) {
@@ -1410,8 +1427,7 @@ export function compiler(
 
         if (node.alert) {
           props.className =
-            'markdown-alert-' +
-            options.slugify(node.alert.toLowerCase(), slugify)
+            'markdown-alert-' + slug(node.alert.toLowerCase(), slugify)
 
           node.children.unshift({
             attrs: {},
@@ -1449,7 +1465,7 @@ export function compiler(
     },
 
     [RuleType.codeBlock]: {
-      _qualify: source => source.startsWith('    '),
+      _qualify: ['    '],
       _match: blockRegex(CODE_BLOCK_R),
       _order: Priority.MAX,
       _parse(capture /*, parse, state*/) {
@@ -1481,7 +1497,7 @@ export function compiler(
     }>,
 
     [RuleType.codeFenced]: {
-      _qualify: source => source.startsWith('```') || source.startsWith('~~~'),
+      _qualify: ['```', '~~~'],
       _match: blockRegex(CODE_BLOCK_FENCED_R),
       _order: Priority.MAX,
       _parse(capture /*, parse, state*/) {
@@ -1496,7 +1512,7 @@ export function compiler(
     },
 
     [RuleType.codeInline]: {
-      _qualify: source => source[0] === '`',
+      _qualify: ['`'],
       _match: simpleInlineRegex(CODE_INLINE_R),
       _order: Priority.LOW,
       _parse(capture /*, parse, state*/) {
@@ -1513,7 +1529,7 @@ export function compiler(
      * footnotes are emitted at the end of compilation in a special <footer> block
      */
     [RuleType.footnote]: {
-      _qualify: source => source.startsWith('[^'),
+      _qualify: ['[^'],
       _match: blockRegex(FOOTNOTE_R),
       _order: Priority.MAX,
       _parse(capture /*, parse, state*/) {
@@ -1528,18 +1544,18 @@ export function compiler(
     },
 
     [RuleType.footnoteReference]: {
-      _qualify: source => source.startsWith('[^'),
+      _qualify: ['[^'],
       _match: inlineRegex(FOOTNOTE_REFERENCE_R),
       _order: Priority.HIGH,
       _parse(capture /*, parse*/) {
         return {
-          target: `#${options.slugify(capture[1], slugify)}`,
+          target: `#${slug(capture[1], slugify)}`,
           text: capture[1],
         }
       },
       _render(node, output, state) {
         return (
-          <a key={state.key} href={options.sanitizer(node.target, 'a', 'href')}>
+          <a key={state.key} href={sanitize(node.target, 'a', 'href')}>
             <sup key={state.key}>{node.text}</sup>
           </a>
         )
@@ -1547,10 +1563,7 @@ export function compiler(
     } as MarkdownToJSX.Rule<{ target: string; text: string }>,
 
     [RuleType.gfmTask]: {
-      _qualify: source =>
-        source.startsWith('[') &&
-        (source[1] === 'x' || source[1] === ' ') &&
-        source[2] === ']',
+      _qualify: ['[ ]', '[x]'],
       _match: inlineRegex(GFM_TASK_R),
       _order: Priority.HIGH,
       _parse(capture /*, parse, state*/) {
@@ -1571,7 +1584,7 @@ export function compiler(
     } as MarkdownToJSX.Rule<{ completed: boolean }>,
 
     [RuleType.heading]: {
-      _qualify: source => source[0] === '#',
+      _qualify: ['#'],
       _match: blockRegex(
         options.enforceAtxHeadings ? HEADING_ATX_COMPLIANT_R : HEADING_R
       ),
@@ -1579,7 +1592,7 @@ export function compiler(
       _parse(capture, parse, state) {
         return {
           children: parseInline(parse, capture[2], state),
-          id: options.slugify(capture[2], slugify),
+          id: slug(capture[2], slugify),
           level: capture[1].length as MarkdownToJSX.HeadingNode['level'],
         }
       },
@@ -1605,7 +1618,7 @@ export function compiler(
     },
 
     [RuleType.htmlBlock]: {
-      _qualify: source => source[0] === '<',
+      _qualify: ['<'],
       /**
        * find the first matching end tag and process the interior
        */
@@ -1667,7 +1680,7 @@ export function compiler(
     },
 
     [RuleType.htmlSelfClosing]: {
-      _qualify: source => source[0] === '<',
+      _qualify: ['<'],
       /**
        * find the first matching end tag and process the interior
        */
@@ -1686,7 +1699,7 @@ export function compiler(
     },
 
     [RuleType.htmlComment]: {
-      _qualify: source => source.startsWith('<!--'),
+      _qualify: ['<!--'],
       _match: anyScopeRegex(HTML_COMMENT_R),
       _order: Priority.HIGH,
       _parse() {
@@ -1696,7 +1709,7 @@ export function compiler(
     },
 
     [RuleType.image]: {
-      _qualify: source => source.startsWith('!['),
+      _qualify: ['!['],
       _match: simpleInlineRegex(IMAGE_R),
       _order: Priority.HIGH,
       _parse(capture /*, parse, state*/) {
@@ -1712,7 +1725,7 @@ export function compiler(
             key={state.key}
             alt={node.alt || undefined}
             title={node.title || undefined}
-            src={options.sanitizer(node.target, 'img', 'src')}
+            src={sanitize(node.target, 'img', 'src')}
           />
         )
       },
@@ -1723,7 +1736,7 @@ export function compiler(
     }>,
 
     [RuleType.link]: {
-      _qualify: source => source[0] === '[',
+      _qualify: ['['],
       _match: inlineRegex(LINK_R),
       _order: Priority.LOW,
       _parse(capture, parse, state) {
@@ -1737,7 +1750,7 @@ export function compiler(
         return (
           <a
             key={state.key}
-            href={options.sanitizer(node.target, 'a', 'href')}
+            href={sanitize(node.target, 'a', 'href')}
             title={node.title}
           >
             {output(node.children, state)}
@@ -1748,7 +1761,7 @@ export function compiler(
 
     // https://daringfireball.net/projects/markdown/syntax#autolink
     [RuleType.linkAngleBraceStyleDetector]: {
-      _qualify: source => source[0] === '<',
+      _qualify: ['<'],
       _match: inlineRegex(LINK_AUTOLINK_R),
       _order: Priority.MAX,
       _parse(capture /*, parse, state*/) {
@@ -1768,7 +1781,7 @@ export function compiler(
     [RuleType.linkBareUrlDetector]: {
       _qualify: (source, state) => {
         if (state.inAnchor || options.disableAutoLink) return false
-        return source.startsWith('http://') || source.startsWith('https://')
+        return startsWith(source, 'http://') || startsWith(source, 'https://')
       },
       _match: inlineRegex(LINK_AUTOLINK_BARE_URL_R),
       _order: Priority.MAX,
@@ -1788,7 +1801,7 @@ export function compiler(
     },
 
     [RuleType.linkMailtoDetector]: {
-      _qualify: source => source[0] === '<',
+      _qualify: ['<'],
       _match: inlineRegex(LINK_AUTOLINK_MAILTO_R),
       _order: Priority.MAX,
       _parse(capture /*, parse, state*/) {
@@ -1842,7 +1855,7 @@ export function compiler(
     } as MarkdownToJSX.Rule<ReturnType<typeof parseCaptureInline>>,
 
     [RuleType.ref]: {
-      _qualify: source => source[0] === '[',
+      _qualify: ['['],
       _match: inlineRegex(REFERENCE_IMAGE_OR_LINK),
       _order: Priority.MAX,
       _parse(capture /*, parse*/) {
@@ -1857,7 +1870,7 @@ export function compiler(
     },
 
     [RuleType.refImage]: {
-      _qualify: source => source.startsWith('!['),
+      _qualify: ['!['],
       _match: simpleInlineRegex(REFERENCE_IMAGE_R),
       _order: Priority.MAX,
       _parse(capture) {
@@ -1871,7 +1884,7 @@ export function compiler(
           <img
             key={state.key}
             alt={node.alt}
-            src={options.sanitizer(refs[node.ref].target, 'img', 'src')}
+            src={sanitize(refs[node.ref].target, 'img', 'src')}
             title={refs[node.ref].title}
           />
         ) : null
@@ -1879,7 +1892,7 @@ export function compiler(
     } as MarkdownToJSX.Rule<{ alt?: string; ref: string }>,
 
     [RuleType.refLink]: {
-      _qualify: source => source[0] === '[',
+      _qualify: ['['],
       _match: inlineRegex(REFERENCE_LINK_R),
       _order: Priority.MAX,
       _parse(capture, parse, state) {
@@ -1893,7 +1906,7 @@ export function compiler(
         return refs[node.ref] ? (
           <a
             key={state.key}
-            href={options.sanitizer(refs[node.ref].target, 'a', 'href')}
+            href={sanitize(refs[node.ref].target, 'a', 'href')}
             title={refs[node.ref].title}
           >
             {output(node.children, state)}
@@ -1905,7 +1918,7 @@ export function compiler(
     },
 
     [RuleType.table]: {
-      _qualify: source => source[0] === '|',
+      _qualify: ['|'],
       _match: blockRegex(NP_TABLE_R),
       _order: Priority.HIGH,
       _parse: parseTable,
@@ -1970,13 +1983,7 @@ export function compiler(
     },
 
     [RuleType.textBolded]: {
-      _qualify: source => {
-        const char = source[0]
-        return (
-          (char === '*' && source[1] === '*') ||
-          (char === '_' && source[1] === '_')
-        )
-      },
+      _qualify: ['**', '__'],
       _match: simpleInlineRegex(TEXT_BOLD_R),
       _order: Priority.MED,
       _parse(capture, parse, state) {
@@ -2011,7 +2018,7 @@ export function compiler(
     },
 
     [RuleType.textEscaped]: {
-      _qualify: source => source[0] === '\\',
+      _qualify: ['\\'],
       // We don't allow escaping numbers, letters, or spaces here so that
       // backslashes used in plain text still get rendered. But allowing
       // escaping anything else provides a very flexible escape mechanism,
@@ -2027,7 +2034,7 @@ export function compiler(
     },
 
     [RuleType.textMarked]: {
-      _qualify: source => source.startsWith('=='),
+      _qualify: ['=='],
       _match: simpleInlineRegex(TEXT_MARKED_R),
       _order: Priority.LOW,
       _parse: parseCaptureInline,
@@ -2037,7 +2044,7 @@ export function compiler(
     },
 
     [RuleType.textStrikethroughed]: {
-      _qualify: source => source.startsWith('~~'),
+      _qualify: ['~~'],
       _match: simpleInlineRegex(TEXT_STRIKETHROUGHED_R),
       _order: Priority.LOW,
       _parse: parseCaptureInline,
@@ -2101,10 +2108,7 @@ export function compiler(
         <footer key="footer">
           {footnotes.map(function createFootnote(def) {
             return (
-              <div
-                id={options.slugify(def.identifier, slugify)}
-                key={def.identifier}
-              >
+              <div id={slug(def.identifier, slugify)} key={def.identifier}>
                 {def.identifier}
                 {emitter(parser(def.footnote, { inline: true }))}
               </div>
@@ -2426,7 +2430,9 @@ export namespace MarkdownToJSX {
      * @param state Current parser state
      * @returns true if the rule should be attempted, false to skip
      */
-    _qualify?: (source: string, state: MarkdownToJSX.State) => boolean
+    _qualify?:
+      | string[]
+      | ((source: string, state: MarkdownToJSX.State) => boolean)
     _render?: (
       node: ParserOutput,
       /**
