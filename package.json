@@ -5,7 +5,16 @@
   "license": "MIT",
   "version": "7.7.7",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "mangle": {
+      "regex": "^_",
+      "reserved": [
+        "__html"
+      ],
+      "compress": {
+        "unsafe": true
+      }
+    }
   },
   "engines": {
     "node": ">= 10"
@@ -102,11 +111,11 @@
   "size-limit": [
     {
       "path": "./dist/index.module.js",
-      "limit": "6.5 kB"
+      "limit": "6.75 kB"
     },
     {
       "path": "./dist/index.modern.js",
-      "limit": "6.5 kB"
+      "limit": "6.75 kB"
     }
   ],
   "jest": {

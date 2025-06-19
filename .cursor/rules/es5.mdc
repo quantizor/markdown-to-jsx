@@ -1,0 +1,6 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+Always prefer ES5 syntax when writing code to ensure the fastest implementation is used by the underlying JS engine.
