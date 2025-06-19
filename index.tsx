@@ -60,27 +60,27 @@ if (process.env.NODE_ENV === 'test') {
 
 export type RuleType = (typeof RuleType)[keyof typeof RuleType]
 
-const enum Priority {
+const Priority = {
   /**
    * anything that must scan the tree before everything else
    */
-  MAX,
+  MAX: 0,
   /**
    * scans for block-level constructs
    */
-  HIGH,
+  HIGH: 1,
   /**
    * inline w/ more priority than other inline
    */
-  MED,
+  MED: 2,
   /**
    * inline elements
    */
-  LOW,
+  LOW: 3,
   /**
    * bare text and stuff that is considered leftovers
    */
-  MIN,
+  MIN: 4,
 }
 
 /** TODO: Drop for React 16? */
@@ -2419,7 +2419,7 @@ export namespace MarkdownToJSX {
       state: MarkdownToJSX.State,
       prevCapturedString?: string
     ) => RegExpMatchArray
-    _order: Priority
+    _order: (typeof Priority)[keyof typeof Priority]
     _parse: MarkdownToJSX.Parser<Omit<ParserOutput, 'type'>>
     /**
      * Optional fast check that can quickly determine if this rule
