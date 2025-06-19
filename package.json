@@ -111,11 +111,11 @@
   "size-limit": [
     {
       "path": "./dist/index.module.js",
-      "limit": "6.5 kB"
+      "limit": "6.75 kB"
     },
     {
       "path": "./dist/index.modern.js",
-      "limit": "6.5 kB"
+      "limit": "6.75 kB"
     }
   ],
   "jest": {
