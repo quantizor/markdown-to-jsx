@@ -54,6 +54,10 @@ export const RuleType = {
   unorderedList: '33',
 } as const
 
+if (process.env.NODE_ENV !== 'production') {
+  Object.keys(RuleType).forEach(key => (RuleType[key] = key))
+}
+
 export type RuleType = (typeof RuleType)[keyof typeof RuleType]
 
 const enum Priority {

@@ -5,16 +5,7 @@
   "license": "MIT",
   "version": "7.7.7",
   "publishConfig": {
-    "access": "public",
-    "mangle": {
-      "regex": "^_",
-      "reserved": [
-        "__html"
-      ],
-      "compress": {
-        "unsafe": true
-      }
-    }
+    "access": "public"
   },
   "engines": {
     "node": ">= 10"
