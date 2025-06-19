@@ -54,7 +54,7 @@ export const RuleType = {
   unorderedList: '33',
 } as const
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV === 'test') {
   Object.keys(RuleType).forEach(key => (RuleType[key] = key))
 }
 
