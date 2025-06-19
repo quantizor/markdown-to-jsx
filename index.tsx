@@ -858,17 +858,12 @@ function parserFor(
   source: string,
   state: MarkdownToJSX.State
 ) => ReturnType<MarkdownToJSX.NestedParser> {
-  // Sorts rules in order of increasing order, then
-  // ascending rule name in case of ties.
-  let ruleList = Object.keys(rules)
+  var ruleList = Object.keys(rules)
 
   if (process.env.NODE_ENV !== 'production') {
     ruleList.forEach(function (type) {
-      let order = rules[type].order
-      if (
-        process.env.NODE_ENV !== 'production' &&
-        (typeof order !== 'number' || !isFinite(order))
-      ) {
+      const order = rules[type].order
+      if (typeof order !== 'number' || !isFinite(order)) {
         console.warn(
           'markdown-to-jsx: Invalid order for rule `' + type + '`: ' + order
         )
@@ -876,78 +871,41 @@ function parserFor(
     })
   }
 
-  ruleList.sort(function (typeA, typeB) {
-    let orderA = rules[typeA].order
-    let orderB = rules[typeB].order
-
-    // Sort based on increasing order
-    if (orderA !== orderB) {
-      return orderA - orderB
-    } else if (typeA < typeB) {
-      return -1
-    }
-
-    return 1
+  // Sorts rules in order of increasing order, then
+  // ascending rule name in case of ties.
+  ruleList.sort(function (a, b) {
+    return rules[a].order - rules[b].order || (a < b ? -1 : 1)
   })
 
   function nestedParse(
     source: string,
     state: MarkdownToJSX.State
   ): MarkdownToJSX.ParserResult[] {
-    let result = []
-    let rule
-    let ruleType = ''
-    let parsed
-    let currCaptureString = ''
-
+    var result = []
     state.prevCapture = state.prevCapture || ''
 
     if (source.trim()) {
-      // We store the previous capture so that match functions can
-      // use some limited amount of lookbehind. Lists use this to
-      // ensure they don't match arbitrary '- ' or '* ' in inline
-      // text (see the list rule for more information).
       while (source) {
-        let i = 0
-
+        var i = 0
         while (i < ruleList.length) {
-          ruleType = ruleList[i]
-          rule = rules[ruleType]
+          var ruleType = ruleList[i]
+          var rule = rules[ruleType]
 
           if (rule.qualify && !rule.qualify(source, state)) {
             i++
             continue
           }
 
-          const capture = rule.match(source, state)
+          var capture = rule.match(source, state)
+          if (capture && capture[0]) {
+            state.prevCapture += capture[0]
+            source = source.substring(capture[0].length)
 
-          if (capture) {
-            currCaptureString = capture[0]
-
-            if (!currCaptureString) {
-              i++
-              continue
-            }
-
-            // retain what's been processed so far for lookbacks
-            state.prevCapture += currCaptureString
-
-            source = source.substring(currCaptureString.length)
-
-            parsed = rule.parse(capture, nestedParse, state)
-
-            // We also let rules override the default type of
-            // their parsed node if they would like to, so that
-            // there can be a single output function for all links,
-            // even if there are several rules to parse them.
-            if (parsed.type == null) {
-              parsed.type = ruleType as unknown as RuleType
-            }
-
+            var parsed = rule.parse(capture, nestedParse, state)
+            if (!parsed.type) parsed.type = ruleType as unknown as RuleType
             result.push(parsed)
             break
           }
-
           i++
         }
       }
@@ -959,7 +917,7 @@ function parserFor(
     return result
   }
 
-  return function outerParse(source, state) {
+  return function (source, state) {
     return nestedParse(normalizeWhitespace(source), state)
   }
 }
