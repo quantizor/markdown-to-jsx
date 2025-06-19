@@ -5,7 +5,10 @@
   "license": "MIT",
   "version": "7.7.7",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "mangle": {
+      "regex": "^_"
+    }
   },
   "engines": {
     "node": ">= 10"
