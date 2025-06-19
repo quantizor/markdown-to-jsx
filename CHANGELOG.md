@@ -1,5 +1,14 @@
 # markdown-to-jsx
 
+## 7.7.8
+
+### Patch Changes
+
+- db378c7: Implement early short-circuit for rules to avoid expensive throwaway work.
+- db378c7: Simpler fix that preserves existing performance.
+- db378c7: Various low-hanging minor performance enhancements by doing less work.
+- db378c7: Improve compression by inlining static RuleType entries when used in the codebase.
+
 ## 7.7.7
 
 ### Patch Changes
