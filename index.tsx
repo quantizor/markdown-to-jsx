@@ -142,6 +142,25 @@ const namedCodesToUnicode = {
 } as const
 
 const DO_NOT_PROCESS_HTML_ELEMENTS = ['style', 'script']
+
+const BLOCK_ELEMENTS =
+  'address,article,aside,blockquote,details,dialog,div,dl,dt,dd,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hgroup,hr,li,main,nav,ol,p,pre,section,table,ul,tbody,thead,tfoot,tr,td,th,script,style,noscript'
+
+const INLINE_ELEMENTS =
+  'a,abbr,b,bdi,bdo,br,button,cite,code,data,del,dfn,em,i,img,input,ins,kbd,label,mark,meter,output,progress,q,ruby,rt,rp,s,samp,small,span,strong,sub,sup,time,u,var,wbr,svg,g,path,circle,rect,line,polygon,polyline,ellipse,text,tspan,defs,use,symbol,marker,clipPath,mask'
+
+function isBlockElement(tagName) {
+  return BLOCK_ELEMENTS.indexOf(tagName.toLowerCase()) !== -1
+}
+
+function isKnownElement(tagName) {
+  tagName = tagName.toLowerCase()
+  return (
+    BLOCK_ELEMENTS.indexOf(tagName) !== -1 ||
+    INLINE_ELEMENTS.indexOf(tagName) !== -1
+  )
+}
+
 const ATTRIBUTES_TO_SANITIZE = [
   'src',
   'href',
@@ -1213,7 +1232,23 @@ export function compiler(
   ]
 
   function containsBlockSyntax(input: string) {
-    return BLOCK_SYNTAXES.some(r => r.test(input))
+    for (var i = 0; i < BLOCK_SYNTAXES.length; i++) {
+      var r = BLOCK_SYNTAXES[i]
+      if (r === HTML_BLOCK_ELEMENT_R) {
+        var match
+        var testInput = input
+        while ((match = r.exec(testInput)) !== null) {
+          if (isBlockElement(match[1].toLowerCase())) {
+            return true
+          }
+          testInput = testInput.slice(match.index + match[0].length)
+          r.lastIndex = 0
+        }
+      } else if (r.test(input)) {
+        return true
+      }
+    }
+    return false
   }
 
   function matchParagraph(source: string, state: MarkdownToJSX.State) {
@@ -1318,6 +1353,17 @@ export function compiler(
       // TODO: remove this for React 16
       if (typeof jsx === 'string') {
         return <span key="outer">{jsx}</span>
+      } else if (
+        jsx &&
+        typeof jsx === 'object' &&
+        jsx.type &&
+        typeof jsx.type === 'string'
+      ) {
+        return inline && !isKnownElement(jsx.type) ? (
+          <p key="outer">{jsx}</p>
+        ) : (
+          jsx
+        )
       } else {
         return jsx
       }
@@ -1630,13 +1676,14 @@ export function compiler(
         const trimmer = new RegExp(`^${whitespace}`, 'gm')
         const trimmed = capture[3].replace(trimmer, '')
 
-        const parseFunc = containsBlockSyntax(trimmed)
-          ? parseBlock
-          : parseInline
-
         const tagName = capture[1].toLowerCase() as MarkdownToJSX.HTMLTags
-        const noInnerParse =
-          DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(tagName) !== -1
+        const noInnerParse = DO_NOT_PROCESS_HTML_ELEMENTS.includes(tagName)
+
+        // Force inline parsing for unknown HTML tags to prevent nested <p> tags
+        const parseFunc =
+          isKnownElement(tagName) && containsBlockSyntax(trimmed)
+            ? parseBlock
+            : parseInline
 
         const tag = (
           noInnerParse ? tagName : capture[1]
