@@ -141,7 +141,7 @@ const namedCodesToUnicode = {
   quot: '\u201c',
 } as const
 
-const DO_NOT_PROCESS_HTML_ELEMENTS = ['style', 'script']
+const DO_NOT_PROCESS_HTML_ELEMENTS = ['style', 'script', 'pre']
 const ATTRIBUTES_TO_SANITIZE = [
   'src',
   'href',
@@ -919,10 +919,12 @@ function parserFor(
 
           var capture = rule._match(source, state)
           if (capture && capture[0]) {
-            state.prevCapture += capture[0]
             source = source.substring(capture[0].length)
 
             var parsed = rule._parse(capture, nestedParse, state)
+
+            state.prevCapture += capture[0]
+
             if (!parsed.type) parsed.type = ruleType as unknown as RuleType
             result.push(parsed)
             break
@@ -1217,7 +1219,13 @@ export function compiler(
   }
 
   function matchParagraph(source: string, state: MarkdownToJSX.State) {
-    if (state.inline || state.simple) {
+    if (
+      state.inline ||
+      state.simple ||
+      (state.inHTML &&
+        source.indexOf('\n\n') === -1 &&
+        state.prevCapture.indexOf('\n\n') === -1)
+    ) {
       return null
     }
 
@@ -1659,7 +1667,10 @@ export function compiler(
         if (noInnerParse) {
           ast.text = capture[3]
         } else {
+          const prevInHTML = state.inHTML
+          state.inHTML = true
           ast.children = parseFunc(parse, trimmed, state)
+          state.inHTML = prevInHTML
         }
 
         /**
@@ -2164,6 +2175,8 @@ export namespace MarkdownToJSX {
   export type State = {
     /** true if the current content is inside anchor link grammar */
     inAnchor?: boolean
+    /** true if parsing in an HTML context */
+    inHTML?: boolean
     /** true if parsing in an inline context (subset of rules around formatting and links) */
     inline?: boolean
     /** true if in a table */

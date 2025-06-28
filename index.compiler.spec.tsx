@@ -3950,6 +3950,45 @@ Each span you copy above increases the time it takes by 2. Also, writing text he
       </div>
     `)
   })
+
+  it('#686 should not add unnecessary paragraphs', () => {
+    render(compiler(`<tag1><tag2>text1</tag2>text2</tag1>`))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <tag1>
+        <tag2>
+          text1
+        </tag2>
+        text2
+      </tag1>
+    `)
+  })
+
+  it('should not process pre blocks inside of arbitrary HTML', () => {
+    render(
+      compiler(`<table><tr><td>
+<pre>
+**Hello**,
+
+_world_.
+</pre>
+</td></tr></table>`)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <tr>
+          <td>
+            <pre>
+              **Hello**,
+
+      _world_.
+            </pre>
+          </td>
+        </tr>
+      </table>
+    `)
+  })
 })
 
 describe('horizontal rules', () => {
