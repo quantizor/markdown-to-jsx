@@ -4789,6 +4789,21 @@ describe('overrides', () => {
     `)
   })
 
+  it('should allow for particular html tags to be voided by configuration', () => {
+    render(
+      compiler(
+        '<iframe src="https://my-malicious-web-page.ngrok-free.app/"></iframe>',
+        {
+          overrides: {
+            iframe: () => null,
+          },
+        }
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`""`)
+  })
+
   it('should accept an override shorthand if props do not need to be overidden', () => {
     class FakeParagraph extends React.Component<React.PropsWithChildren<{}>> {
       render() {
