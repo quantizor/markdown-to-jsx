@@ -3963,6 +3963,32 @@ Each span you copy above increases the time it takes by 2. Also, writing text he
       </tag1>
     `)
   })
+
+  it('should not process pre blocks inside of arbitrary HTML', () => {
+    render(
+      compiler(`<table><tr><td>
+<pre>
+**Hello**,
+
+_world_.
+</pre>
+</td></tr></table>`)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <table>
+        <tr>
+          <td>
+            <pre>
+              **Hello**,
+
+      _world_.
+            </pre>
+          </td>
+        </tr>
+      </table>
+    `)
+  })
 })
 
 describe('horizontal rules', () => {

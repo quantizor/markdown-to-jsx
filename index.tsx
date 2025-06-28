@@ -141,7 +141,7 @@ const namedCodesToUnicode = {
   quot: '\u201c',
 } as const
 
-const DO_NOT_PROCESS_HTML_ELEMENTS = ['style', 'script']
+const DO_NOT_PROCESS_HTML_ELEMENTS = ['style', 'script', 'pre']
 const ATTRIBUTES_TO_SANITIZE = [
   'src',
   'href',
