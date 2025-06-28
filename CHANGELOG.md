@@ -1,5 +1,12 @@
 # markdown-to-jsx
 
+## 7.7.9
+
+### Patch Changes
+
+- 95dda3e: Avoid creating unnecessary paragraphs inside of HTML.
+- 95dda3e: Fix HTML parser to avoid processing the inside of `<pre>` blocks.
+
 ## 7.7.8
 
 ### Patch Changes
