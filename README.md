@@ -14,6 +14,7 @@ The most lightweight, customizable React markdown component.
     - [options.wrapper](#optionswrapper)
       - [Other useful recipes](#other-useful-recipes)
     - [options.forceWrapper](#optionsforcewrapper)
+    - [options.overrides - Void particular banned tags](#optionsoverrides---void-particular-banned-tags)
     - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
     - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
     - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
@@ -180,6 +181,27 @@ By default, the compiler does not wrap the rendered contents if there is only a 
 
 <aside>Mumble, mumble…</aside>
 ```
+
+#### options.overrides - Void particular banned tags
+
+Pass the `options.overrides` prop to the compiler or `<Markdown>` component with an implementation that return `null` for tags you wish to exclude from the rendered output. It is recommended to void `script`, `iframe`, `object`, and `style` tags to avoid XSS attacks when working with user-generated content. For example, to void the `iframe` tag:
+
+```tsx
+import Markdown from 'markdown-to-jsx'
+import React from 'react'
+import { render } from 'react-dom'
+
+render(
+  <Markdown options={{ overrides: { iframe: () => null } }}>
+    <iframe src="https://potentially-malicious-web-page.com/"></iframe>
+  </Markdown>,
+  document.body
+)
+
+// renders: ""
+```
+
+The library does not void any tags by default to avoid surprising behavior for personal use cases.
 
 #### options.overrides - Override Any HTML Tag's Representation
 
