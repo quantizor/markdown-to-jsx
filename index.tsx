@@ -328,7 +328,7 @@ const TEXT_MARKED_R = new RegExp(`^(==)${INLINE_SKIP_R}\\1`)
 const TEXT_STRIKETHROUGHED_R = new RegExp(`^(~~)${INLINE_SKIP_R}\\1`)
 
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
-const TEXT_UNESCAPE_R = /\\([^0-9A-Za-z\s])/g
+const UNESCAPE_R = /\\([^0-9A-Za-z\s])/g
 
 /**
  * Always take the first character, then eagerly take text until a double space
@@ -339,8 +339,6 @@ const TEXT_PLAIN_R = /^[\s\S](?:(?!  |[0-9]\.|http)[^=*_~\-\n<`\\\[!])*/
 const TRIM_STARTING_NEWLINES = /^\n+/
 
 const HTML_LEFT_TRIM_AMOUNT_R = /^([ \t]*)/
-
-const UNESCAPE_URL_R = /\\([^\\])/g
 
 type LIST_TYPE = 1 | 2
 const ORDERED: LIST_TYPE = 1
@@ -832,10 +830,10 @@ function attributeValueToJSXPropValue(
       return styles
     }, {})
   } else if (ATTRIBUTES_TO_SANITIZE.indexOf(key) !== -1) {
-    return sanitizeUrlFn(value, tag, key)
+    return sanitizeUrlFn(unescape(value), tag, key)
   } else if (value.match(INTERPOLATION_R)) {
     // return as a string and let the consumer decide what to do with it
-    value = value.slice(1, value.length - 1)
+    value = unescape(value.slice(1, value.length - 1))
   }
 
   if (value === 'true') {
@@ -1031,8 +1029,8 @@ export function sanitizer(input: string): string {
   return input
 }
 
-function unescapeUrl(rawUrlString: string): string {
-  return rawUrlString.replace(UNESCAPE_URL_R, '$1')
+function unescape(rawString: string): string {
+  return rawString ? rawString.replace(UNESCAPE_R, '$1') : rawString
 }
 
 /**
@@ -1479,10 +1477,7 @@ export function compiler(
       _parse(capture /*, parse, state*/) {
         return {
           lang: undefined,
-          text: trimEnd(capture[0].replace(/^ {4}/gm, '')).replace(
-            TEXT_UNESCAPE_R,
-            '$1'
-          ),
+          text: unescape(trimEnd(capture[0].replace(/^ {4}/gm, ''))),
         }
       },
 
@@ -1525,7 +1520,7 @@ export function compiler(
       _order: Priority.LOW,
       _parse(capture /*, parse, state*/) {
         return {
-          text: capture[2].replace(TEXT_UNESCAPE_R, '$1'),
+          text: unescape(capture[2]),
         }
       },
       _render(node, output, state) {
@@ -1725,9 +1720,9 @@ export function compiler(
       _order: Priority.HIGH,
       _parse(capture /*, parse, state*/) {
         return {
-          alt: capture[1],
-          target: unescapeUrl(capture[2]),
-          title: capture[3],
+          alt: unescape(capture[1]),
+          target: unescape(capture[2]),
+          title: unescape(capture[3]),
         }
       },
       _render(node, output, state) {
@@ -1753,8 +1748,8 @@ export function compiler(
       _parse(capture, parse, state) {
         return {
           children: parseSimpleInline(parse, capture[1], state),
-          target: unescapeUrl(capture[2]),
-          title: capture[3],
+          target: unescape(capture[2]),
+          title: unescape(capture[3]),
         }
       },
       _render(node, output, state) {
@@ -1886,7 +1881,7 @@ export function compiler(
       _order: Priority.MAX,
       _parse(capture) {
         return {
-          alt: capture[1] || undefined,
+          alt: capture[1] ? unescape(capture[1]) : undefined,
           ref: capture[2],
         }
       },

@@ -829,6 +829,16 @@ describe('images', () => {
     `)
   })
 
+  it('should handle an image with escaped alt text', () => {
+    render(compiler('![\\-\\<stuff](https://somewhere)'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <img alt="-<stuff"
+           src="https://somewhere"
+      >
+    `)
+  })
+
   it('should handle an image with title', () => {
     render(compiler('![test](/xyz.png "foo")'))
 
