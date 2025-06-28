@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 7.7.10
+
+### Patch Changes
+
+- bf9dd3d: Unescape content intended for JSX attributes.
+
 ## 7.7.9
 
 ### Patch Changes
