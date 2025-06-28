@@ -3950,6 +3950,19 @@ Each span you copy above increases the time it takes by 2. Also, writing text he
       </div>
     `)
   })
+
+  it('#686 should treat unknown HTML tags as inline elements and wrap them in paragraphs', () => {
+    render(compiler(`<tag1><tag2>text</tag2>text</tag1>`))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <tag1>
+        <tag2>
+          text
+        </tag2>
+        text
+      </tag1>
+    `)
+  })
 })
 
 describe('horizontal rules', () => {
