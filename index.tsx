@@ -553,7 +553,7 @@ function generateListRule(
   }
 }
 
-const LINK_INSIDE = '(?:\\[[^\\]]*\\]|[^\\[\\]]|\\](?=[^\\[]*\\]))*'
+const LINK_INSIDE = '(?:\\[[^\\[\\]]*(?:\\[[^\\[\\]]*\\][^\\[\\]]*)*\\]|[^\\[\\]])*'
 const LINK_HREF_AND_TITLE =
   '\\s*<?((?:\\([^)]*\\)|[^\\s\\\\]|\\\\.)*?)>?(?:\\s+[\'"]([\\s\\S]*?)[\'"])?\\s*'
 const LINK_R = new RegExp(
@@ -1898,7 +1898,7 @@ export function compiler(
     } as MarkdownToJSX.Rule<{ alt?: string; ref: string }>,
 
     [RuleType.refLink]: {
-      _qualify: ['['],
+      _qualify: (source) => source[0] === '[' && source.indexOf('](') === -1,
       _match: inlineRegex(REFERENCE_LINK_R),
       _order: Priority.MAX,
       _parse(capture, parse, state) {

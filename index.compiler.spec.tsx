@@ -5084,6 +5084,16 @@ it('handles naked brackets in link text', () => {
   `)
 })
 
+it('handles multiple nested brackets in link text', () => {
+  render(compiler('[title[bracket1][bracket2][3]](https://example.com)'))
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+    <a href="https://example.com">
+      title[bracket1][bracket2][3]
+    </a>
+  `)
+})
+
 it('#597 handles script tag with empty content', () => {
   render(compiler('<script src="dummy.js"></script>'))
 
