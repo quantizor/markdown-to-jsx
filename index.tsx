@@ -339,7 +339,7 @@ const UNESCAPE_R = /\\([^0-9A-Za-z\s])/g
  * Always take the first character, then eagerly take text until a double space
  * (potential line break) or some markdown-like punctuation is reached.
  */
-const TEXT_PLAIN_R = /^[\s\S](?:(?!  |[0-9]\.|http)[^=*_~\-\n:<`\\\[!])*/
+const TEXT_PLAIN_R = /^[\s\S](?:(?!  \n|[0-9]\.|http)[^=*_~\-\n:<`\\\[!])*/
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
