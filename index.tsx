@@ -1976,7 +1976,7 @@ export function compiler(
       // is easy to extend without needing to modify this regex
       _match: allowInline(function (source, state) {
         let ret
-        if (source.startsWith(':')) ret = SHORTCODE_R.exec(source)
+        if (startsWith(source, ':')) ret = SHORTCODE_R.exec(source)
         if (ret) return ret
 
         return TEXT_PLAIN_R.exec(source)
