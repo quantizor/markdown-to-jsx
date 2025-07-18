@@ -327,6 +327,11 @@ const TEXT_MARKED_R = new RegExp(`^(==)${INLINE_SKIP_R}\\1`)
  */
 const TEXT_STRIKETHROUGHED_R = new RegExp(`^(~~)${INLINE_SKIP_R}\\1`)
 
+/**
+ * Special case for shortcodes like :big-smile: or :emoji:
+ */
+const SHORTCODE_R = /^(:[a-zA-Z0-9-_]+:)/
+
 const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
 const UNESCAPE_R = /\\([^0-9A-Za-z\s])/g
 
@@ -334,7 +339,7 @@ const UNESCAPE_R = /\\([^0-9A-Za-z\s])/g
  * Always take the first character, then eagerly take text until a double space
  * (potential line break) or some markdown-like punctuation is reached.
  */
-const TEXT_PLAIN_R = /^[\s\S](?:(?!  |[0-9]\.|http)[^=*_~\-\n<`\\\[!])*/
+const TEXT_PLAIN_R = /^[\s\S](?:(?!  \n|[0-9]\.|http)[^=*_~\-\n:<`\\\[!])*/
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
@@ -1969,7 +1974,13 @@ export function compiler(
       // double newlines, or double-space-newlines
       // We break on any symbol characters so that this grammar
       // is easy to extend without needing to modify this regex
-      _match: anyScopeRegex(TEXT_PLAIN_R),
+      _match: allowInline(function (source, state) {
+        let ret
+        if (startsWith(source, ':')) ret = SHORTCODE_R.exec(source)
+        if (ret) return ret
+
+        return TEXT_PLAIN_R.exec(source)
+      }),
       _order: Priority.MIN,
       _parse(capture) {
         const text = capture[0]

@@ -4681,7 +4681,7 @@ describe('options.renderRule', () => {
 
   it('can be used to handle shortcodes', () => {
     const shortcodeMap = {
-      smile: '🙂',
+      'big-smile': '🙂',
     }
 
     const detector = /(:[^:]+:)/g
@@ -4699,7 +4699,7 @@ describe('options.renderRule', () => {
     }
 
     render(
-      compiler('Hey there! :smile:', {
+      compiler('Hey there! :big-smile:', {
         renderRule(next, node) {
           if (node.type === RuleType.text && detector.test(node.text)) {
             return replaceEmoji(node.text)
