@@ -41,7 +41,7 @@ The most lightweight, customizable React markdown component.
 
 ---
 
-`markdown-to-jsx` uses a heavily-modified fork of [simple-markdown](https://github.com/Khan/simple-markdown) as its parsing engine and extends it in a number of ways to make your life easier. Notably, this package offers the following additional benefits:
+`markdown-to-jsx` offers the following additional benefits over simple markdown parsing:
 
 - Arbitrary HTML is supported and parsed into the appropriate JSX representation
   without `dangerouslySetInnerHTML`
