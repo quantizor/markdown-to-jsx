@@ -1,5 +1,14 @@
 # markdown-to-jsx
 
+## 7.7.11
+
+### Patch Changes
+
+- 4a692dc: Fixes the issue where link text containing multiple nested brackets is not parsed correctly.
+
+  Before: `[title[bracket1][bracket2]](url)` fails to parse as a link
+  After: `[title[bracket1][bracket2]](url)` correctly parses as a link
+
 ## 7.7.10
 
 ### Patch Changes
