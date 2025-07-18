@@ -1,5 +1,12 @@
 # markdown-to-jsx
 
+## 7.7.12
+
+### Patch Changes
+
+- 4351ef5: Adjust text parsing to not split on double spaces unless followed by a newline.
+- 4351ef5: Special case detection of :shortcode: so the text processor doesn't break it into chunks, enables shortcode replacement via renderRule.
+
 ## 7.7.11
 
 ### Patch Changes
