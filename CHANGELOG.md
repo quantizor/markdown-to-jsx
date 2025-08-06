@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 7.7.13
+
+### Patch Changes
+
+- da003e4: Fix exponential backtracking issue for unpaired inline delimiter sequences.
+
 ## 7.7.12
 
 ### Patch Changes
