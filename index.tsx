@@ -299,6 +299,12 @@ const TABLE_LEFT_ALIGN = /^ *:-+ *$/
 const TABLE_RIGHT_ALIGN = /^ *-+: *$/
 
 /**
+ * Ensure there's at least one more instance of the delimiter later
+ * in the current sequence.
+ */
+const LOOKAHEAD = (double: number) => `(?=[\\s\\S]+?\\1${double ? '\\1' : ''})`
+
+/**
  * For inline formatting, this partial attempts to ignore characters that
  * may appear in nested formatting that could prematurely trigger detection
  * and therefore miss content that should have been included.
@@ -310,22 +316,28 @@ const INLINE_SKIP_R =
  * Detect a sequence like **foo** or __foo__. Note that bold has a higher priority
  * than emphasized to support nesting of both since they share a delimiter.
  */
-const TEXT_BOLD_R = new RegExp(`^([*_])\\1${INLINE_SKIP_R}\\1\\1(?!\\1)`)
+const TEXT_BOLD_R = new RegExp(
+  `^([*_])\\1${LOOKAHEAD(1)}${INLINE_SKIP_R}\\1\\1(?!\\1)`
+)
 
 /**
  * Detect a sequence like *foo* or _foo_.
  */
-const TEXT_EMPHASIZED_R = new RegExp(`^([*_])${INLINE_SKIP_R}\\1(?!\\1)`)
+const TEXT_EMPHASIZED_R = new RegExp(
+  `^([*_])${LOOKAHEAD(0)}${INLINE_SKIP_R}\\1(?!\\1)`
+)
 
 /**
  * Detect a sequence like ==foo==.
  */
-const TEXT_MARKED_R = new RegExp(`^(==)${INLINE_SKIP_R}\\1`)
+const TEXT_MARKED_R = new RegExp(`^(==)${LOOKAHEAD(0)}${INLINE_SKIP_R}\\1`)
 
 /**
  * Detect a sequence like ~~foo~~.
  */
-const TEXT_STRIKETHROUGHED_R = new RegExp(`^(~~)${INLINE_SKIP_R}\\1`)
+const TEXT_STRIKETHROUGHED_R = new RegExp(
+  `^(~~)${LOOKAHEAD(0)}${INLINE_SKIP_R}\\1`
+)
 
 /**
  * Special case for shortcodes like :big-smile: or :emoji:
@@ -558,7 +570,8 @@ function generateListRule(
   }
 }
 
-const LINK_INSIDE = '(?:\\[[^\\[\\]]*(?:\\[[^\\[\\]]*\\][^\\[\\]]*)*\\]|[^\\[\\]])*'
+const LINK_INSIDE =
+  '(?:\\[[^\\[\\]]*(?:\\[[^\\[\\]]*\\][^\\[\\]]*)*\\]|[^\\[\\]])*'
 const LINK_HREF_AND_TITLE =
   '\\s*<?((?:\\([^)]*\\)|[^\\s\\\\]|\\\\.)*?)>?(?:\\s+[\'"]([\\s\\S]*?)[\'"])?\\s*'
 const LINK_R = new RegExp(
@@ -1903,7 +1916,7 @@ export function compiler(
     } as MarkdownToJSX.Rule<{ alt?: string; ref: string }>,
 
     [RuleType.refLink]: {
-      _qualify: (source) => source[0] === '[' && source.indexOf('](') === -1,
+      _qualify: source => source[0] === '[' && source.indexOf('](') === -1,
       _match: inlineRegex(REFERENCE_LINK_R),
       _order: Priority.MAX,
       _parse(capture, parse, state) {
