@@ -210,6 +210,47 @@ it('#234 perf regression', () => {
   `)
 })
 
+it('#700 perf regression with unclosed inline syntax', () => {
+  render(
+    compiler(
+      '«Cleanliness is the finest of uniforms and a great defender against disease»*. Silver fabric was flowing. A wasp, buzzing, touches the bronze lips of the dragon with delicate <Tooltip><TooltipTrigger>hymenous wings</TooltipTrigger><TooltipContent>wings thin like a membrane (hymenous = thin, like a hymen, meaning very thin skin).</TooltipContent></Tooltip>. On the <Tooltip><TooltipTrigger>carved</TooltipTrigger><TooltipContent>engraved.</TooltipContent></Tooltip> tree trunk like a <Tooltip><TooltipTrigger>cradle</TooltipTrigger><TooltipContent>a swing.</TooltipContent></Tooltip> trough, where the animals quench their thirst, the beehive rests after gathering from the flowers.'
+    )
+  )
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+    <span>
+      «Cleanliness is the finest of uniforms and a great defender against disease»*. Silver fabric was flowing. A wasp, buzzing, touches the bronze lips of the dragon with delicate
+      <tooltip>
+        <tooltiptrigger>
+          hymenous wings
+        </tooltiptrigger>
+        <tooltipcontent>
+          wings thin like a membrane (hymenous = thin, like a hymen, meaning very thin skin).
+        </tooltipcontent>
+      </tooltip>
+      . On the
+      <tooltip>
+        <tooltiptrigger>
+          carved
+        </tooltiptrigger>
+        <tooltipcontent>
+          engraved.
+        </tooltipcontent>
+      </tooltip>
+      tree trunk like a
+      <tooltip>
+        <tooltiptrigger>
+          cradle
+        </tooltiptrigger>
+        <tooltipcontent>
+          a swing.
+        </tooltipcontent>
+      </tooltip>
+      trough, where the animals quench their thirst, the beehive rests after gathering from the flowers.
+    </span>
+  `)
+})
+
 describe('inline textual elements', () => {
   it('should handle emphasized text', () => {
     render(compiler('*Hello.*'))
