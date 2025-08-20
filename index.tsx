@@ -1300,7 +1300,7 @@ export function compiler(
     )
   }
 
-  function compile(input: string): React.JSX.Element | React.ReactNode[] {
+  function compile(input: string): React.JSX.Element {
     input = input.replace(FRONT_MATTER_R, '')
 
     let inline = false
@@ -1334,7 +1334,7 @@ export function compiler(
     }
 
     if (options.wrapper === null) {
-      return arr
+      return arr as unknown as React.JSX.Element
     }
 
     const wrapper = options.wrapper || (inline ? 'span' : 'div')
