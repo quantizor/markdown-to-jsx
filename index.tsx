@@ -1119,7 +1119,7 @@ function reactFor(render: ReturnType<typeof createRenderer>) {
   return function patchedRender(
     ast: MarkdownToJSX.ParserResult | MarkdownToJSX.ParserResult[],
     state: MarkdownToJSX.State = {}
-  ): React.ReactNode[] | React.ReactNode {
+  ): React.ReactNode[] {
     if (Array.isArray(ast)) {
       const oldKey = state.key
       const result = []
@@ -1152,7 +1152,7 @@ function reactFor(render: ReturnType<typeof createRenderer>) {
       ast,
       patchedRender as unknown as MarkdownToJSX.RuleOutput,
       state
-    )
+    ) as React.ReactNode[]
   }
 }
 
@@ -1300,7 +1300,7 @@ export function compiler(
     )
   }
 
-  function compile(input: string): React.JSX.Element {
+  function compile(input: string): React.JSX.Element | React.ReactNode[] {
     input = input.replace(FRONT_MATTER_R, '')
 
     let inline = false
@@ -1328,7 +1328,7 @@ export function compiler(
 
     while (
       typeof arr[arr.length - 1] === 'string' &&
-      !arr[arr.length - 1].trim()
+      !(arr[arr.length - 1] as string).trim()
     ) {
       arr.pop()
     }
