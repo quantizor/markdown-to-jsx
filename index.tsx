@@ -1115,7 +1115,7 @@ function renderNothing() {
   return null
 }
 
-function reactFor(render) {
+function reactFor(render: ReturnType<typeof createRenderer>) {
   return function patchedRender(
     ast: MarkdownToJSX.ParserResult | MarkdownToJSX.ParserResult[],
     state: MarkdownToJSX.State = {}
@@ -1148,7 +1148,11 @@ function reactFor(render) {
       return result
     }
 
-    return render(ast, patchedRender, state)
+    return render(
+      ast,
+      patchedRender as unknown as MarkdownToJSX.RuleOutput,
+      state
+    ) as React.ReactNode[]
   }
 }
 
@@ -1158,10 +1162,12 @@ function createRenderer(
 ) {
   return function renderRule(
     ast: MarkdownToJSX.ParserResult,
-    render: MarkdownToJSX.RuleOutput,
-    state: MarkdownToJSX.State
+    render?: MarkdownToJSX.RuleOutput,
+    state?: MarkdownToJSX.State
   ): React.ReactNode {
-    const renderer = rules[ast.type]._render as MarkdownToJSX.Rule['_render']
+    const renderer = rules[ast.type]._render as NonNullable<
+      MarkdownToJSX.Rule['_render']
+    >
 
     return userRender
       ? userRender(() => renderer(ast, render, state), ast, render, state)
@@ -1169,7 +1175,7 @@ function createRenderer(
   }
 }
 
-function cx(...args) {
+function cx(...args: string[]) {
   return args.filter(Boolean).join(' ')
 }
 
@@ -1322,13 +1328,13 @@ export function compiler(
 
     while (
       typeof arr[arr.length - 1] === 'string' &&
-      !arr[arr.length - 1].trim()
+      !(arr[arr.length - 1] as string).trim()
     ) {
       arr.pop()
     }
 
     if (options.wrapper === null) {
-      return arr
+      return arr as unknown as React.JSX.Element
     }
 
     const wrapper = options.wrapper || (inline ? 'span' : 'div')
@@ -2127,7 +2133,7 @@ export function compiler(
   }
 
   const parser = parserFor(rules)
-  const emitter: Function = reactFor(createRenderer(rules, options.renderRule))
+  const emitter = reactFor(createRenderer(rules, options.renderRule))
 
   const jsx = compile(markdown)
 
