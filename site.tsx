@@ -1,21 +1,15 @@
 /* @jsx React.createElement */
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
-import styled, { createGlobalStyle, css, CSSProp } from 'styled-components'
 import TeX from '@matejmazur/react-katex'
 import Markdown, { MarkdownToJSX, RuleType } from './index'
+import './site.css'
 
 declare global {
   interface Window {
     hljs: {
       highlightElement: (element: HTMLElement) => void
     }
-  }
-}
-
-declare module 'react' {
-  interface Attributes {
-    css?: CSSProp
   }
 }
 
@@ -27,32 +21,35 @@ function TryItLive() {
   const handleInput = React.useCallback(e => setMarkdown(e.target.value), [])
 
   return (
-    <main>
-      <GlobalStyles />
-
-      <Header>
+    <main className="flex flex-col px-6 lg:p-12 py-12 min-h-screen">
+      <header className="flex-shrink-0 mb-8 text-center space-y-8">
         <a
+          className="inline-block"
           target="_blank"
           href="https://github.com/quantizor/markdown-to-jsx"
           title="Check out the markdown-to-jsx source code"
           rel="noopener noreferrer"
         >
-          <img src="./images/logo.svg" alt="markdown-to-jsx logo" />
+          <img
+            src="./images/logo.svg"
+            alt="markdown-to-jsx logo"
+            className="h-24"
+          />
         </a>
 
-        <Description>
-          <h1>
+        <div className="mx-auto max-w-[100ch] sm:max-w-none lg:max-w-[100ch]">
+          <h1 className="text-base block lg:inline lg:mb-0 mb-6">
             <code>markdown-to-jsx</code> is an easy-to-use markdown component
             that takes Github-flavored Markdown (GFM) and makes native JSX
             without dangerous hacks.&nbsp;
           </h1>
-          <h2>
+          <h2 className="text-base block lg:inline lg:mb-0 mb-6">
             It&apos;s lightweight, customizable, and happily supports React-like
             libraries.
           </h2>
-        </Description>
+        </div>
 
-        <LearnMore>
+        <p className="text-accent/80">
           See the{' '}
           <a
             target="_blank"
@@ -62,295 +59,47 @@ function TryItLive() {
             project README
           </a>{' '}
           for detailed installation &amp; usage instructions.
-        </LearnMore>
-      </Header>
+        </p>
+      </header>
 
-      <Demo>
-        <Textarea onInput={handleInput} value={markdown} />
+      <section className="flex flex-1 -ml-6 -mr-6 lg:m-0 flex-col sm:flex-row">
+        <textarea
+          className="flex-[0_0_50%] p-4 border-0 text-inherit flex-shrink-0 font-mono text-sm max-h-screen resize-vertical field-sizing-content md:sticky md:top-0 bg-accent/10"
+          onInput={handleInput}
+          value={markdown}
+        />
 
-        <Compiled>
-          <Markdown options={options}>{markdown}</Markdown>
-        </Compiled>
-      </Demo>
+        <div className="flex-[0_0_50%] p-4 pl-8 pr-4 pt-8 pb-8 overflow-auto overflow-x-hidden">
+          <Markdown className="space-y-6 *:block" options={options}>
+            {markdown}
+          </Markdown>
+        </div>
+      </section>
     </main>
   )
 }
 
-const COLOR_ACCENT = 'wheat'
-const COLOR_BODY = '#fefefe'
-
-const GlobalStyles = createGlobalStyle`
-	*,
-	*::before,
-	*::after {
-		box-sizing: border-box;
-		outline-color: ${COLOR_ACCENT};
-	}
-
-	html,
-	body,
-	#root,
-	main {
-		margin: 0;
-		min-height: 100vh;
-	}
-
-	html {
-		background: #1a1c23;
-		color: ${COLOR_BODY};
-		font-family: Inter, Helvetica Neue, Helvetica, sans-serif;
-		font-size: 14px;
-		line-height: 1.5;
-	}
-
-	h1,
-	h2,
-	h3,
-	h4,
-	h5,
-	h6 {
-		margin: 0 0 1rem;
-    text-wrap: balance;
-	}
-
-	h1 {
-		font-size: 2rem;
-	}
-
-	h2 {
-		font-size: 1.8rem;
-	}
-
-	h3 {
-		font-size: 1.6rem;
-	}
-
-	h4 {
-		font-size: 1.4rem;
-	}
-
-	h5 {
-		font-size: 1.2rem;
-	}
-
-	h6 {
-		font-size: 1rem;
-	}
-
-	a {
-		color: ${COLOR_ACCENT};
-		transition: color 200ms ease;
-
-		&:hover,
-		&:focus {
-			color: color-mix(in srgb, ${COLOR_ACCENT} 75%, transparent);
-		}
-	}
-
-  :root {
-    --code-bg: color-mix(in srgb, ${COLOR_ACCENT} 15%, transparent);
-  }
-
-	code {
-    background: var(--code-bg) !important;
-    border-radius: 2px;
-		display: inline-block;
-    font-family: 'Jetbrains Mono', Consolas, Monaco, monospace;
-    font-size: 0.9em;
-		padding: 0 4px;
-    text-decoration: inherit;
-	}
-
-	pre code {
-		border: 0;
-		display: block;
-		padding: 1em;
-	}
-
-	main {
-		display: flex;
-		flex-direction: column;
-		padding: 3rem 1.5rem 0;
-		margin: 0;
-
-		@media all and (min-width: 1024px) {
-			padding: 3rem;
-		}
-	}
-
-  p {
-    text-wrap: balance;
-  }
-
-  blockquote {
-    border-left: 1px solid #333;
-    margin: 1.5em 0;
-    padding-left: 1em;
-
-    &.markdown-alert-tip header {
-      color: limegreen;
-
-      &::before {
-        content: '★';
-        margin-right: 4px;
-      }
-    }
-
-    &.markdown-alert-note header {
-      color: cornflowerblue;
-
-      &::before {
-        content: 'ⓘ';
-        margin-right: 4px;
-      }
-    }
-
-    &.markdown-alert-important header {
-      color: darkorchid;
-
-      &::before {
-        content: '❕';
-        margin-right: 4px;
-      }
-    }
-
-    &.markdown-alert-warning header {
-      color: gold;
-
-      &::before {
-        content: '⚠️';
-        margin-right: 4px;
-      }
-    }
-
-    &.markdown-alert-caution header {
-      color: red;
-
-      &::before {
-        content: '🛑';
-        margin-right: 4px;
-      }
-    }
-
-    header + * {
-      margin-top: 0.25em;
-    }
-  }
-`
-
-const Header = styled.header`
-  flex-shrink: 0;
-  margin-bottom: 2em;
-  text-align: center;
-
-  img {
-    height: 100px;
-  }
-`
-
-const Description = styled.p`
-  font-size: 16px;
-  margin-left: auto;
-  margin-right: auto;
-  max-width: 100ch;
-
-  h1,
-  h2 {
-    font: inherit;
-  }
-
-  @media all and (max-width: 500px) {
-    max-width: none;
-  }
-
-  @media all and (max-width: 1023px) {
-    h1,
-    h2 {
-      display: block;
-      margin-bottom: 1.5rem;
-    }
-  }
-`
-
-const LearnMore = styled.p`
-  color: color-mix(in srgb, ${COLOR_BODY} 20%, white);
-`
-
-const sharedCss = css`
-  flex: 0 0 50%;
-  padding: 1em;
-`
-
-const Demo = styled.section`
-  display: flex;
-  flex-grow: 1;
-  margin-left: -1.5rem;
-  margin-right: -1.5rem;
-
-  @media all and (min-width: 1024px) {
-    margin-left: 0;
-    margin-right: 0;
-  }
-
-  @media all and (max-width: 500px) {
-    flex-direction: column;
-  }
-`
-
-const Textarea = styled.textarea`
-  ${sharedCss};
-  background: color-mix(in srgb, ${COLOR_ACCENT} 10%, transparent);
-  border: 0;
-  color: inherit;
-  position: sticky;
-  top: 0;
-  flex-shrink: 0;
-  font-family: 'Jetbrains Mono', Consolas, Monaco, monospace;
-  font-size: inherit;
-  max-height: 100vh;
-  resize: vertical;
-
-  @media all and (max-width: 500px) {
-    field-sizing: content;
-    max-height: 300px;
-    position: relative;
-  }
-`
-
-const Compiled = styled.div`
-  ${sharedCss};
-  padding-left: 2rem;
-  padding-right: 1rem;
-  padding-top: 2rem;
-  padding-bottom: 2rem;
-  overflow: auto;
-  overflow-x: hidden;
-`
-
-const ShinyButton = styled.button`
-  background: color-mix(in srgb, ${COLOR_ACCENT} 50%, black);
-  border: 1px solid color-mix(in srgb, ${COLOR_ACCENT} 50%, transparent);
-  border-radius: 2px;
-  color: #fff;
-  cursor: pointer;
-  padding: 0.25em 0.75em;
-  font: inherit;
-  transition: background 200ms ease;
-
-  &:hover,
-  &:focus {
-    background: ${COLOR_ACCENT};
-  }
-
-  &:active {
-    background: color-mix(in srgb, ${COLOR_ACCENT} 80%, black);
-  }
-`
-
 function MyComponent(props) {
   return (
-    <ShinyButton
+    <button
       {...props}
+      className="rounded text-white cursor-pointer py-1 px-3 font-inherit transition-colors duration-200"
+      style={{
+        backgroundColor: 'rgb(123, 111, 90)',
+        border: '1px solid rgba(245, 222, 179, 0.5)',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.backgroundColor = 'rgb(245, 222, 179)'
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.backgroundColor = 'rgb(123, 111, 90)'
+      }}
+      onMouseDown={e => {
+        e.currentTarget.style.backgroundColor = 'rgb(196, 178, 143)'
+      }}
+      onMouseUp={e => {
+        e.currentTarget.style.backgroundColor = 'rgb(123, 111, 90)'
+      }}
       onClick={function () {
         alert("Look ma, I'm a real component!")
       }}
