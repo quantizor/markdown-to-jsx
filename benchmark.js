@@ -1,10 +1,21 @@
 import BenchTable from 'benchtable'
 import cliProgress from 'cli-progress'
 import * as fs from 'fs'
-import SimpleMarkdown from 'simple-markdown'
 import MarkdownIt from 'markdown-it'
 import { compiler as latestCompiler } from 'markdown-to-jsx-latest'
+import path from 'path'
+import SimpleMarkdown from 'simple-markdown'
 import { compiler } from './dist/index.module.js'
+
+const { version: latestVersion } = JSON.parse(
+  fs.readFileSync(
+    path.join(
+      import.meta.dirname,
+      'node_modules/markdown-to-jsx-latest/package.json'
+    ),
+    'utf8'
+  )
+)
 
 const mdIt = new MarkdownIt()
 const suite = new BenchTable()
@@ -22,7 +33,9 @@ let totalCycles
 // add tests
 const evals = suite
   .addFunction('markdown-to-jsx (next)', input => compiler(input))
-  .addFunction('markdown-to-jsx (latest)', input => latestCompiler(input))
+  .addFunction(`markdown-to-jsx (${latestVersion})`, input =>
+    latestCompiler(input)
+  )
 
 if (process.argv.includes('--all')) {
   evals
