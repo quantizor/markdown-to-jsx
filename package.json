@@ -98,8 +98,8 @@
   "scripts": {
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
     "prebuild": "rimraf dist && mkdirp dist",
-    "build": "tsup --minify",
-    "build-site": "tsup --config tsup.site.config.ts --minify",
+    "build": "tsup",
+    "build-site": "tsup --config tsup.site.config.ts",
     "dev": "tsup --config tsup.site.config.ts --watch",
     "dev:debug": "tsup --watch",
     "test": "jest --verbose",

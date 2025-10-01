@@ -2,8 +2,10 @@ import { defineConfig } from 'tsup'
 
 const terserOptions = {
   mangle: {
-    regex: '^_',
-    reserved: ['__html'],
+    properties: {
+      regex: '^_',
+      reserved: ['__html'],
+    },
   },
   compress: {
     unsafe: true,
