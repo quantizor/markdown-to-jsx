@@ -1119,11 +1119,26 @@ function renderNothing() {
   return null
 }
 
-function reactFor(render) {
+function createRenderer(
+  rules: MarkdownToJSX.Rules,
+  userRender?: MarkdownToJSX.Options['renderRule']
+) {
+  function renderRule(
+    ast: MarkdownToJSX.ParserResult,
+    render: MarkdownToJSX.RuleOutput,
+    state: MarkdownToJSX.State
+  ): React.ReactNode {
+    const renderer = rules[ast.type]._render as MarkdownToJSX.Rule['_render']
+
+    return userRender
+      ? userRender(() => renderer(ast, render, state), ast, render, state)
+      : renderer(ast, render, state)
+  }
+
   return function patchedRender(
     ast: MarkdownToJSX.ParserResult | MarkdownToJSX.ParserResult[],
     state: MarkdownToJSX.State = {}
-  ): React.ReactNode[] {
+  ): React.ReactNode[] | React.ReactNode {
     if (Array.isArray(ast)) {
       const oldKey = state.key
       const result = []
@@ -1152,24 +1167,7 @@ function reactFor(render) {
       return result
     }
 
-    return render(ast, patchedRender, state)
-  }
-}
-
-function createRenderer(
-  rules: MarkdownToJSX.Rules,
-  userRender?: MarkdownToJSX.Options['renderRule']
-) {
-  return function renderRule(
-    ast: MarkdownToJSX.ParserResult,
-    render: MarkdownToJSX.RuleOutput,
-    state: MarkdownToJSX.State
-  ): React.ReactNode {
-    const renderer = rules[ast.type]._render as MarkdownToJSX.Rule['_render']
-
-    return userRender
-      ? userRender(() => renderer(ast, render, state), ast, render, state)
-      : renderer(ast, render, state)
+    return renderRule(ast, patchedRender, state)
   }
 }
 
@@ -1332,7 +1330,7 @@ export function compiler(
           inline,
         }
       )
-    )
+    ) as React.ReactNode[]
 
     while (
       isString(arr[arr.length - 1]) &&
@@ -2141,7 +2139,7 @@ export function compiler(
   }
 
   const parser = parserFor(rules)
-  const emitter = reactFor(createRenderer(rules, options.renderRule))
+  const emitter = createRenderer(rules, options.renderRule)
 
   const jsx = compile(markdown)
 
@@ -2457,7 +2455,7 @@ export namespace MarkdownToJSX {
   export type RuleOutput = (
     ast: MarkdownToJSX.ParserResult | MarkdownToJSX.ParserResult[],
     state: MarkdownToJSX.State
-  ) => React.JSX.Element
+  ) => React.ReactNode
 
   export type Rule<ParserOutput = MarkdownToJSX.ParserResult> = {
     _match: (
