@@ -36,7 +36,8 @@
   "files": [
     "dist",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "package.json"
   ],
   "type": "module",
   "exports": {
@@ -77,7 +78,7 @@
     "jest-serializer-html": "^7.1.0",
     "jest-watch-typeahead": "^2.2.2",
     "markdown-it": "^14.0.0",
-    "markdown-to-jsx-latest": "npm:markdown-to-jsx@7.7.11",
+    "markdown-to-jsx-latest": "npm:markdown-to-jsx@7.7.13",
     "microbundle": "^0.15.1",
     "microtime": "^3.1.1",
     "mkdirp": "^3.0.1",
