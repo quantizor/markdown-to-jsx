@@ -579,6 +579,10 @@ const LINK_R = new RegExp(
 )
 const IMAGE_R = /^!\[(.*?)\]\( *((?:\([^)]*\)|[^() ])*) *"?([^)"]*)?"?\)/
 
+function isString(value: any): value is string {
+  return typeof value === 'string'
+}
+
 function trimEnd(str: string) {
   let end = str.length
   while (end > 0 && str[end - 1] <= ' ') end--
@@ -1132,15 +1136,15 @@ function reactFor(render) {
         state.key = i
 
         const nodeOut = patchedRender(ast[i], state)
-        const isString = typeof nodeOut === 'string'
+        const _isString = isString(nodeOut)
 
-        if (isString && lastWasString) {
+        if (_isString && lastWasString) {
           result[result.length - 1] += nodeOut
         } else if (nodeOut !== null) {
           result.push(nodeOut)
         }
 
-        lastWasString = isString
+        lastWasString = _isString
       }
 
       state.key = oldKey
@@ -1199,9 +1203,19 @@ function getTag(tag: string, overrides: MarkdownToJSX.Overrides) {
 }
 
 export function compiler(
+  markdown: string,
+  options: MarkdownToJSX.Options & {
+    wrapper: null
+  }
+): React.ReactNode[]
+export function compiler(
+  markdown: string,
+  options?: MarkdownToJSX.Options
+): React.JSX.Element
+export function compiler(
   markdown: string = '',
   options: MarkdownToJSX.Options = {}
-): React.JSX.Element {
+): React.JSX.Element | React.ReactNode[] {
   options.overrides = options.overrides || {}
   options.namedCodesToUnicode = options.namedCodesToUnicode
     ? { ...namedCodesToUnicode, ...options.namedCodesToUnicode }
@@ -1294,7 +1308,7 @@ export function compiler(
     )
   }
 
-  function compile(input: string): React.JSX.Element {
+  function compile(input: string): React.JSX.Element | React.ReactNode[] {
     input = input.replace(FRONT_MATTER_R, '')
 
     let inline = false
@@ -1321,8 +1335,8 @@ export function compiler(
     )
 
     while (
-      typeof arr[arr.length - 1] === 'string' &&
-      !arr[arr.length - 1].trim()
+      isString(arr[arr.length - 1]) &&
+      !(arr[arr.length - 1] as string).trim()
     ) {
       arr.pop()
     }
@@ -2127,7 +2141,7 @@ export function compiler(
   }
 
   const parser = parserFor(rules)
-  const emitter: Function = reactFor(createRenderer(rules, options.renderRule))
+  const emitter = reactFor(createRenderer(rules, options.renderRule))
 
   const jsx = compile(markdown)
 
