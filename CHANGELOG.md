@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 7.7.14
+
+### Patch Changes
+
+- 73d4398: Cut down on unnecessary matching operations by improving qualifiers. Also improved the matching speed of paragraphs, which led to a roughly 2x boost in throughput for larger input strings.
+
 ## 7.7.13
 
 ### Patch Changes
