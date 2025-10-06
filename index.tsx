@@ -1479,6 +1479,7 @@ export function compiler(
     },
 
     [RuleType.breakLine]: {
+      _qualify: ['  '],
       _match: anyScopeRegex(BREAK_LINE_R),
       _order: Priority.HIGH,
       _parse: captureNothing,
