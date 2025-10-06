@@ -1515,7 +1515,7 @@ export function compiler(
     },
 
     [RuleType.breakThematic]: {
-      _qualify: ['-', '_', '*'],
+      _qualify: ['--', '__', '**', '- ', '* ', '_ '],
       _match: blockRegex(BREAK_THEMATIC_R),
       _order: Priority.HIGH,
       _parse: captureNothing,
