@@ -1242,8 +1242,17 @@ export function compiler(
     HTML_SELF_CLOSING_ELEMENT_R,
   ]
 
+  function some(regexes: RegExp[], input: string) {
+    for (let i = 0; i < regexes.length; i++) {
+      if (regexes[i].test(input)) {
+        return true
+      }
+    }
+    return false
+  }
+
   function containsBlockSyntax(input: string) {
-    return BLOCK_SYNTAXES.some(r => r.test(input))
+    return some(BLOCK_SYNTAXES, input)
   }
 
   function matchParagraph(source: string, state: MarkdownToJSX.State) {
@@ -1258,19 +1267,36 @@ export function compiler(
     }
 
     let match = ''
+    let start = 0
 
-    source.split('\n').every(line => {
-      line += '\n'
+    while (true) {
+      const newlineIndex = source.indexOf('\n', start)
 
-      // bail out on first sign of non-paragraph block
-      if (NON_PARAGRAPH_BLOCK_SYNTAXES.some(regex => regex.test(line))) {
-        return false
+      // If no more newlines, check the remaining content
+      if (newlineIndex === -1) {
+        const line = source.slice(start) + '\n'
+        if (some(NON_PARAGRAPH_BLOCK_SYNTAXES, line)) {
+          break
+        }
+        match += line
+        break
+      }
+
+      // Extract the line including the newline
+      const line = source.slice(start, newlineIndex + 1)
+      if (some(NON_PARAGRAPH_BLOCK_SYNTAXES, line)) {
+        break
       }
 
       match += line
 
-      return !!line.trim()
-    })
+      // Stop if line has no content (empty line)
+      if (!line.trim()) {
+        break
+      }
+
+      start = newlineIndex + 1
+    }
 
     const captured = trimEnd(match)
     if (captured === '') {
