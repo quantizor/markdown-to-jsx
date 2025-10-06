@@ -194,7 +194,7 @@ const BLOCKQUOTE_R = /^(\s*>[\s\S]*?)(?=\n\n|$)/
 const BLOCKQUOTE_TRIM_LEFT_MULTILINE_R = /^ *> ?/gm
 const BLOCKQUOTE_ALERT_R = /^(?:\[!([^\]]*)\]\n)?([\s\S]*)/
 const BREAK_LINE_R = /^ {2,}\n/
-const BREAK_THEMATIC_R = /^(?:( *[-*_])){3,} *(?:\n *)+\n/
+const BREAK_THEMATIC_R = /^(?:([-*_])( *\1){2,}) *(?:\n *)+\n/
 const CODE_BLOCK_FENCED_R =
   /^(?: {1,3})?(`{3,}|~{3,}) *(\S+)? *([^\n]*?)?\n([\s\S]*?)(?:\1\n?|$)/
 const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)+\n?/
@@ -1515,6 +1515,7 @@ export function compiler(
     },
 
     [RuleType.breakThematic]: {
+      _qualify: ['-', '_', '*'],
       _match: blockRegex(BREAK_THEMATIC_R),
       _order: Priority.HIGH,
       _parse: captureNothing,
