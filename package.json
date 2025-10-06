@@ -97,6 +97,11 @@
   "peerDependencies": {
     "react": ">= 0.14.0"
   },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
   "scripts": {
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
     "prebuild": "rimraf dist && mkdirp dist",
