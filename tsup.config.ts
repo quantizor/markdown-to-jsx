@@ -1,4 +1,4 @@
-import { defineConfig } from 'tsup'
+import { defineConfig, Options } from 'tsup'
 
 const terserOptions = {
   mangle: {
@@ -12,7 +12,7 @@ const terserOptions = {
   },
 }
 
-const sharedConfig = {
+const sharedConfig: Options = {
   outDir: 'dist',
   minify: 'terser' as const,
   target: 'es5',
@@ -41,8 +41,11 @@ export default defineConfig([
   // UMD build from index.tsx
   {
     ...sharedConfig,
-    entry: { 'index.umd': 'index.cjs.tsx' },
+    entry: { 'index.umd': 'index.tsx' },
     format: 'iife',
+    // minify: true,
+    minify: false,
+    terserOptions,
     outExtension: () => ({ js: '.js' }),
     globalName: 'MarkdownToJSX',
     dts: undefined,
@@ -65,8 +68,6 @@ export default defineConfig([
     ...sharedConfig,
     entry: { debug: 'index.tsx' },
     format: 'esm',
-    target: 'es2015',
-    minify: false,
     define: {
       ...sharedConfig.define,
       'process.env.DEBUG': `"${process.env.DEBUG || '1'}"`,
