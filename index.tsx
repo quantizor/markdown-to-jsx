@@ -142,8 +142,6 @@ const namedCodesToUnicode = {
 } as const
 
 const DO_NOT_PROCESS_HTML_ELEMENTS = ['style', 'script', 'pre']
-const VOID_HTML_R =
-  /^(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)$/i
 const ATTRIBUTES_TO_SANITIZE = [
   'src',
   'href',
