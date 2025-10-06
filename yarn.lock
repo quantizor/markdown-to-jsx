@@ -7162,6 +7162,9 @@ __metadata:
     typescript: "npm:^5.9.3"
   peerDependencies:
     react: ">= 0.14.0"
+  peerDependenciesMeta:
+    react:
+      optional: true
   languageName: unknown
   linkType: soft
 
