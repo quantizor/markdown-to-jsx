@@ -1878,6 +1878,7 @@ export function compiler(
     ) as MarkdownToJSX.Rule<MarkdownToJSX.UnorderedListNode>,
 
     [RuleType.newlineCoalescer]: {
+      _qualify: ['\n'],
       _match: blockRegex(CONSECUTIVE_NEWLINE_R),
       _order: Priority.LOW,
       _parse: captureNothing,
