@@ -1636,6 +1636,14 @@ export function compiler(
     },
 
     [RuleType.headingSetext]: {
+      _qualify: source => {
+        const nlIndex = source.indexOf('\n')
+        return (
+          nlIndex > 0 &&
+          nlIndex < source.length - 1 &&
+          (source[nlIndex + 1] === '=' || source[nlIndex + 1] === '-')
+        )
+      },
       _match: blockRegex(HEADING_SETEXT_R),
       _order: Priority.MAX,
       _parse(capture, parse, state) {
