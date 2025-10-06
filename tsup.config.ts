@@ -50,7 +50,6 @@ export default defineConfig([
   // ES build from index.tsx
   {
     ...sharedConfig,
-    target: 'es2015',
     entry: { 'index.module': 'index.tsx' },
     format: 'esm',
   },
