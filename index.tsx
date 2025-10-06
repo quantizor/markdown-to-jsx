@@ -243,7 +243,7 @@ const GFM_TASK_R = /^\s*?\[(x|\s)\]/
 const HEADING_R = /^ *(#{1,6}) *([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
 const HEADING_ATX_COMPLIANT_R =
   /^ *(#{1,6}) +([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
-const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *\n/
+const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-)\2{2,} *\n/
 
 /**
  * Explanation:
