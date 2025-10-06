@@ -1488,10 +1488,6 @@ export function compiler(
     },
 
     [RuleType.breakThematic]: {
-      _qualify: source => {
-        const char = source[0]
-        return char === '-' || char === '*' || char === '_'
-      },
       _match: blockRegex(BREAK_THEMATIC_R),
       _order: Priority.HIGH,
       _parse: captureNothing,
@@ -2096,42 +2092,83 @@ export function compiler(
     },
   }
 
-  // Object.keys(rules).forEach(key => {
-  //   let { _match: match, parse: parse } = rules[key]
+  // Initialize invocation counters for debugging
+  const invocationCounts = {
+    match: { total: 0, attempts: 0 },
+    parse: { total: 0 },
+  }
 
-  //   // rules[key].match = (...args) => {
-  //   //   const start = performance.now()
-  //   //   const result = match(...args)
-  //   //   const delta = performance.now() - start
+  // Create a reverse mapping from numeric keys to rule names for better debugging output
+  const ruleNames: { [key: string]: string } = {}
+  Object.keys(RuleType).forEach(ruleKey => {
+    ruleNames[RuleType[ruleKey as keyof typeof RuleType]] = ruleKey
+  })
 
-  //   //   if (delta > 5)
-  //   //     console.warn(
-  //   //       `Slow match for ${key}: ${delta.toFixed(3)}ms, input: ${args[0]}`
-  //   //     )
+  Object.keys(rules).forEach(key => {
+    let { _match: match, _parse: parse } = rules[key]
 
-  //   //   return result
-  //   // }
+    // Initialize per-rule counters: [matches, attempts, max]
+    invocationCounts.match[key] = [0, 0, 0]
+    // [exections, cost, max]
+    invocationCounts.parse[key] = [0, 0, 0]
 
-  //   rules[key].parse = (...args) => {
-  //     const start = performance.now()
-  //     const result = parse(...args)
-  //     const delta = performance.now() - start
+    if (!!process.env.DEBUG && process.env.DEBUG !== '0') {
+      rules[key]._match = (...args) => {
+        // Track attempts for miss ratio calculation
+        invocationCounts.match.attempts++
+        invocationCounts.match[key][1]++ // attempts for this rule
 
-  //     if (delta > 5) {
-  //       console.warn(
-  //         `Slow parse for ${key}: ${delta.toFixed(3)}ms, input: ${args[0]}`
-  //       )
-  //     }
+        const start = performance.now()
+        const result = match(...args)
+        const delta = performance.now() - start
 
-  //     // console[delta > 5 ? 'warn' : 'log'](
-  //     //   `${key}:parse`,
-  //     //   `${delta.toFixed(3)}ms`,
-  //     //   args[0]
-  //     // )
+        invocationCounts.match[key][2] = Math.max(
+          Number(invocationCounts.match[key][2]) || 0,
+          delta
+        )
 
-  //     return result
-  //   }
-  // })
+        if (result) {
+          // Successful match
+          invocationCounts.match.total++
+          invocationCounts.match[key][0]++ // matches for this rule
+
+          if (process.env.DEBUG?.includes('speed')) {
+            console[delta > 5 ? 'warn' : 'log'](
+              `${ruleNames[key] || key}:match`,
+              `${delta.toFixed(3)}ms`,
+              args[0]
+            )
+          }
+        }
+
+        return result
+      }
+
+      rules[key]._parse = (...args) => {
+        invocationCounts.parse.total++
+        invocationCounts.parse[key][0] += 1
+        const start = performance.now()
+        const result = parse(...args)
+        const delta = performance.now() - start
+
+        invocationCounts.parse[key][1] += delta
+        invocationCounts.parse[key][2] = Math.max(
+          Number(invocationCounts.parse[key][2]) || 0,
+          delta
+        )
+
+        if (process.env.DEBUG?.includes('speed')) {
+          console[delta > 5 ? 'warn' : 'log'](
+            `${ruleNames[key] || key}:parse`,
+            `${delta.toFixed(3)}ms`,
+            args[0]
+          )
+        }
+
+        return result
+      }
+    }
+  })
 
   if (options.disableParsingRawHTML === true) {
     delete rules[RuleType.htmlBlock]
@@ -2142,6 +2179,60 @@ export function compiler(
   const emitter = createRenderer(rules, options.renderRule)
 
   const jsx = compile(markdown)
+
+  if (!!process.env.DEBUG && process.env.DEBUG !== '0') {
+    // Log invocation counts for debugging with readable rule names and miss ratios
+    const matchCountsWithNames: { [key: string]: any } = {
+      total: invocationCounts.match.total,
+      attempts: invocationCounts.match.attempts,
+      missRatio:
+        invocationCounts.match.attempts > 0
+          ? (
+              ((invocationCounts.match.attempts -
+                invocationCounts.match.total) /
+                invocationCounts.match.attempts) *
+              100
+            ).toFixed(1) + '%'
+          : '0%',
+    }
+
+    const parseCountsWithNames: {
+      [key: string]: { executions: number; cost: number; max: number } | number
+    } = {
+      total: invocationCounts.parse.total,
+    }
+
+    Object.keys(invocationCounts.match).forEach(key => {
+      if (key !== 'total' && key !== 'attempts') {
+        const ruleName = ruleNames[key] || key
+        const [matches, attempts, max] = invocationCounts.match[key]
+        matchCountsWithNames[ruleName] = {
+          matches,
+          attempts,
+          missRatio:
+            attempts > 0
+              ? (((attempts - matches) / attempts) * 100).toFixed(1) + '%'
+              : '0%',
+          max: max.toFixed(3),
+        }
+      }
+    })
+
+    Object.keys(invocationCounts.parse).forEach(key => {
+      if (key !== 'total') {
+        const ruleName = ruleNames[key] || key
+        const [executions, cost, max] = invocationCounts.parse[key]
+        parseCountsWithNames[ruleName] = {
+          executions,
+          cost: cost.toFixed(3),
+          max: max.toFixed(3),
+        }
+      }
+    })
+
+    console.log('Match invocations:', matchCountsWithNames)
+    console.log('Parse invocations:', parseCountsWithNames)
+  }
 
   if (footnotes.length) {
     return (
