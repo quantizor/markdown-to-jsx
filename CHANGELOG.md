@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 7.7.15
+
+### Patch Changes
+
+- 8e4c270: Mark react as an optional peer dependency as when passing createElement, you don't need React
+
 ## 7.7.14
 
 ### Patch Changes
