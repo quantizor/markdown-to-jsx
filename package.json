@@ -105,7 +105,7 @@
     "dev": "microbundle watch site.tsx -o docs -f iife --tsconfig tsconfig.site.json --define process.env.NODE_ENV=development --jsx React.createElement --external react,react-dom,styled-components,katex --globals react=React,react-dom=ReactDOM,styled-components=styled --no-pkg-main",
     "dev:debug": "microbundle watch --tsconfig tsconfig.json -f es --define process.env.NODE_ENV=production -o dist/debug.mjs",
     "test": "jest --verbose",
-    "metrics": "DEBUG=1 node -e \"const fs=await import('fs');const {compiler}=await import('./dist/debug.module.js');console.log('='.repeat(50));compiler(fs.readFileSync('fixture.md','utf8'));\"",
+    "metrics": "DEBUG=\"${DEBUG:-1}\" node -e \"const fs=await import('fs');const {compiler}=await import('./dist/debug.module.js');console.log('='.repeat(50));compiler(fs.readFileSync('fixture.md','utf8'));\"",
     "size": "size-limit",
     "benchmark": "node benchmark.js",
     "benchmark:all": "node benchmark.js --all",

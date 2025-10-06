@@ -2176,6 +2176,11 @@ export function compiler(
               args[0]
             )
           }
+        } else if (process.env.DEBUG?.includes('miss')) {
+          console.log(
+            `\n${ruleNames[key] || key}:miss`,
+            JSON.stringify(args[0])
+          )
         }
 
         return result
