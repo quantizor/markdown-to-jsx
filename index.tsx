@@ -35,7 +35,9 @@ export const RuleType = {
   linkAngleBraceStyleDetector: '16',
   /** emits a `link` 'node', does not render directly */
   linkBareUrlDetector: '17',
-  /** emits a `link` 'node', does not render directly */
+  /** @deprecated merged into linkAngleBraceStyleDetector
+   *
+   * emits a `link` 'node', does not render directly */
   linkMailtoDetector: '18',
   newlineCoalescer: '19',
   orderedList: '20',
@@ -188,7 +190,6 @@ const ATTR_EXTRACTOR_R =
 
 /** TODO: Write explainers for each of these */
 
-const AUTOLINK_MAILTO_CHECK_R = /mailto:/i
 const BLOCK_END_R = /\n{2,}$/
 const BLOCKQUOTE_R = /^(\s*>[\s\S]*?)(?=\n\n|$)/
 const BLOCKQUOTE_TRIM_LEFT_MULTILINE_R = /^ *> ?/gm
@@ -283,8 +284,7 @@ const HTML_SELF_CLOSING_ELEMENT_R =
   /^ *<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*))?\/?>(?!<\/\1>)(\s*\n)?/i
 const INTERPOLATION_R = /^\{.*\}$/
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/
-const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/
-const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/
+const LINK_AUTOLINK_R = /^<([^ >]+[:@\/][^ >]+)>/
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi
 const NP_TABLE_R = /^(\|.*)\n(?: *(\|? *[-:]+ *\|[-| :]*)\n((?:.*\|.*\n)*))?\n?/
 const PARAGRAPH_R = /^[^\n]+(?:  \n|\n{2,})/
@@ -1833,14 +1833,26 @@ export function compiler(
       _match: inlineRegex(LINK_AUTOLINK_R),
       _order: Priority.MAX,
       _parse(capture /*, parse, state*/) {
+        let target = capture[1]
+        let isEmail = false
+
+        if (
+          target.indexOf('@') !== -1 &&
+          // emails don't have protocols in them
+          target.indexOf('//') === -1
+        ) {
+          isEmail = true
+          target = target.replace('mailto:', '')
+        }
+
         return {
           children: [
             {
-              text: capture[1],
+              text: target,
               type: RuleType.text,
             },
           ],
-          target: capture[1],
+          target: isEmail ? 'mailto:' + target : target,
           type: RuleType.link,
         }
       },
@@ -1863,32 +1875,6 @@ export function compiler(
           ],
           target: capture[1],
           title: undefined,
-          type: RuleType.link,
-        }
-      },
-    },
-
-    [RuleType.linkMailtoDetector]: {
-      _qualify: ['<'],
-      _match: inlineRegex(LINK_AUTOLINK_MAILTO_R),
-      _order: Priority.MAX,
-      _parse(capture /*, parse, state*/) {
-        let address = capture[1]
-        let target = capture[1]
-
-        // Check for a `mailto:` already existing in the link:
-        if (!AUTOLINK_MAILTO_CHECK_R.test(target)) {
-          target = 'mailto:' + target
-        }
-
-        return {
-          children: [
-            {
-              text: address.replace('mailto:', ''),
-              type: RuleType.text,
-            },
-          ],
-          target: target,
           type: RuleType.link,
         }
       },
