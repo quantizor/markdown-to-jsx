@@ -35,7 +35,9 @@ export const RuleType = {
   linkAngleBraceStyleDetector: '16',
   /** emits a `link` 'node', does not render directly */
   linkBareUrlDetector: '17',
-  /** emits a `link` 'node', does not render directly */
+  /** @deprecated merged into linkAngleBraceStyleDetector
+   *
+   * emits a `link` 'node', does not render directly */
   linkMailtoDetector: '18',
   newlineCoalescer: '19',
   orderedList: '20',
@@ -188,13 +190,12 @@ const ATTR_EXTRACTOR_R =
 
 /** TODO: Write explainers for each of these */
 
-const AUTOLINK_MAILTO_CHECK_R = /mailto:/i
 const BLOCK_END_R = /\n{2,}$/
 const BLOCKQUOTE_R = /^(\s*>[\s\S]*?)(?=\n\n|$)/
 const BLOCKQUOTE_TRIM_LEFT_MULTILINE_R = /^ *> ?/gm
 const BLOCKQUOTE_ALERT_R = /^(?:\[!([^\]]*)\]\n)?([\s\S]*)/
 const BREAK_LINE_R = /^ {2,}\n/
-const BREAK_THEMATIC_R = /^(?:( *[-*_])){3,} *(?:\n *)+\n/
+const BREAK_THEMATIC_R = /^(?:([-*_])( *\1){2,}) *(?:\n *)+\n/
 const CODE_BLOCK_FENCED_R =
   /^(?: {1,3})?(`{3,}|~{3,}) *(\S+)? *([^\n]*?)?\n([\s\S]*?)(?:\1\n?|$)/
 const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)+\n?/
@@ -243,7 +244,7 @@ const GFM_TASK_R = /^\s*?\[(x|\s)\]/
 const HEADING_R = /^ *(#{1,6}) *([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
 const HEADING_ATX_COMPLIANT_R =
   /^ *(#{1,6}) +([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
-const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-){3,} *\n/
+const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-)\2{2,} *\n/
 
 /**
  * Explanation:
@@ -283,8 +284,7 @@ const HTML_SELF_CLOSING_ELEMENT_R =
   /^ *<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*))?\/?>(?!<\/\1>)(\s*\n)?/i
 const INTERPOLATION_R = /^\{.*\}$/
 const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/
-const LINK_AUTOLINK_MAILTO_R = /^<([^ >]+@[^ >]+)>/
-const LINK_AUTOLINK_R = /^<([^ >]+:\/[^ >]+)>/
+const LINK_AUTOLINK_R = /^<([^ >]+[:@\/][^ >]+)>/
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi
 const NP_TABLE_R = /^(\|.*)\n(?: *(\|? *[-:]+ *\|[-| :]*)\n((?:.*\|.*\n)*))?\n?/
 const PARAGRAPH_R = /^[^\n]+(?:  \n|\n{2,})/
@@ -1242,8 +1242,17 @@ export function compiler(
     HTML_SELF_CLOSING_ELEMENT_R,
   ]
 
+  function some(regexes: RegExp[], input: string) {
+    for (let i = 0; i < regexes.length; i++) {
+      if (regexes[i].test(input)) {
+        return true
+      }
+    }
+    return false
+  }
+
   function containsBlockSyntax(input: string) {
-    return BLOCK_SYNTAXES.some(r => r.test(input))
+    return some(BLOCK_SYNTAXES, input)
   }
 
   function matchParagraph(source: string, state: MarkdownToJSX.State) {
@@ -1258,19 +1267,29 @@ export function compiler(
     }
 
     let match = ''
+    let start = 0
 
-    source.split('\n').every(line => {
-      line += '\n'
+    while (true) {
+      const newlineIndex = source.indexOf('\n', start)
 
-      // bail out on first sign of non-paragraph block
-      if (NON_PARAGRAPH_BLOCK_SYNTAXES.some(regex => regex.test(line))) {
-        return false
+      // Extract the line including the newline
+      const line = source.slice(
+        start,
+        newlineIndex === -1 ? undefined : newlineIndex + 1
+      )
+      if (some(NON_PARAGRAPH_BLOCK_SYNTAXES, line)) {
+        break
       }
 
       match += line
 
-      return !!line.trim()
-    })
+      // Stop if line has no content (empty line)
+      if (newlineIndex === -1 || !line.trim()) {
+        break
+      }
+
+      start = newlineIndex + 1
+    }
 
     const captured = trimEnd(match)
     if (captured === '') {
@@ -1479,6 +1498,7 @@ export function compiler(
     },
 
     [RuleType.breakLine]: {
+      _qualify: ['  '],
       _match: anyScopeRegex(BREAK_LINE_R),
       _order: Priority.HIGH,
       _parse: captureNothing,
@@ -1488,10 +1508,7 @@ export function compiler(
     },
 
     [RuleType.breakThematic]: {
-      _qualify: source => {
-        const char = source[0]
-        return char === '-' || char === '*' || char === '_'
-      },
+      _qualify: ['--', '__', '**', '- ', '* ', '_ '],
       _match: blockRegex(BREAK_THEMATIC_R),
       _order: Priority.HIGH,
       _parse: captureNothing,
@@ -1639,6 +1656,14 @@ export function compiler(
     },
 
     [RuleType.headingSetext]: {
+      _qualify: source => {
+        const nlIndex = source.indexOf('\n')
+        return (
+          nlIndex > 0 &&
+          nlIndex < source.length - 1 &&
+          (source[nlIndex + 1] === '=' || source[nlIndex + 1] === '-')
+        )
+      },
       _match: blockRegex(HEADING_SETEXT_R),
       _order: Priority.MAX,
       _parse(capture, parse, state) {
@@ -1801,14 +1826,26 @@ export function compiler(
       _match: inlineRegex(LINK_AUTOLINK_R),
       _order: Priority.MAX,
       _parse(capture /*, parse, state*/) {
+        let target = capture[1]
+        let isEmail = false
+
+        if (
+          target.indexOf('@') !== -1 &&
+          // emails don't have protocols in them
+          target.indexOf('//') === -1
+        ) {
+          isEmail = true
+          target = target.replace('mailto:', '')
+        }
+
         return {
           children: [
             {
-              text: capture[1],
+              text: target,
               type: RuleType.text,
             },
           ],
-          target: capture[1],
+          target: isEmail ? 'mailto:' + target : target,
           type: RuleType.link,
         }
       },
@@ -1836,32 +1873,6 @@ export function compiler(
       },
     },
 
-    [RuleType.linkMailtoDetector]: {
-      _qualify: ['<'],
-      _match: inlineRegex(LINK_AUTOLINK_MAILTO_R),
-      _order: Priority.MAX,
-      _parse(capture /*, parse, state*/) {
-        let address = capture[1]
-        let target = capture[1]
-
-        // Check for a `mailto:` already existing in the link:
-        if (!AUTOLINK_MAILTO_CHECK_R.test(target)) {
-          target = 'mailto:' + target
-        }
-
-        return {
-          children: [
-            {
-              text: address.replace('mailto:', ''),
-              type: RuleType.text,
-            },
-          ],
-          target: target,
-          type: RuleType.link,
-        }
-      },
-    },
-
     [RuleType.orderedList]: generateListRule(
       h,
       ORDERED
@@ -1873,6 +1884,7 @@ export function compiler(
     ) as MarkdownToJSX.Rule<MarkdownToJSX.UnorderedListNode>,
 
     [RuleType.newlineCoalescer]: {
+      _qualify: ['\n'],
       _match: blockRegex(CONSECUTIVE_NEWLINE_R),
       _order: Priority.LOW,
       _parse: captureNothing,
@@ -2096,42 +2108,92 @@ export function compiler(
     },
   }
 
-  // Object.keys(rules).forEach(key => {
-  //   let { _match: match, parse: parse } = rules[key]
+  const isDebug = !!process.env.DEBUG && process.env.DEBUG !== '0'
 
-  //   // rules[key].match = (...args) => {
-  //   //   const start = performance.now()
-  //   //   const result = match(...args)
-  //   //   const delta = performance.now() - start
+  let invocationCounts, ruleNames: { [key: string]: string }
 
-  //   //   if (delta > 5)
-  //   //     console.warn(
-  //   //       `Slow match for ${key}: ${delta.toFixed(3)}ms, input: ${args[0]}`
-  //   //     )
+  if (isDebug) {
+    // Initialize invocation counters for debugging
+    invocationCounts = {
+      match: { total: 0, attempts: 0 },
+      parse: { total: 0 },
+    }
 
-  //   //   return result
-  //   // }
+    // Create a reverse mapping from numeric keys to rule names for better debugging output
+    ruleNames = {}
+    Object.keys(RuleType).forEach(ruleKey => {
+      ruleNames[RuleType[ruleKey as keyof typeof RuleType]] = ruleKey
+    })
 
-  //   rules[key].parse = (...args) => {
-  //     const start = performance.now()
-  //     const result = parse(...args)
-  //     const delta = performance.now() - start
+    Object.keys(rules).forEach(key => {
+      let { _match: match, _parse: parse } = rules[key]
 
-  //     if (delta > 5) {
-  //       console.warn(
-  //         `Slow parse for ${key}: ${delta.toFixed(3)}ms, input: ${args[0]}`
-  //       )
-  //     }
+      // Initialize per-rule counters: [matches, attempts, max]
+      invocationCounts.match[key] = [0, 0, 0]
+      // [exections, cost, max]
+      invocationCounts.parse[key] = [0, 0, 0]
 
-  //     // console[delta > 5 ? 'warn' : 'log'](
-  //     //   `${key}:parse`,
-  //     //   `${delta.toFixed(3)}ms`,
-  //     //   args[0]
-  //     // )
+      rules[key]._match = (...args) => {
+        // Track attempts for miss ratio calculation
+        invocationCounts.match.attempts++
+        invocationCounts.match[key][1]++ // attempts for this rule
 
-  //     return result
-  //   }
-  // })
+        const start = performance.now()
+        const result = match(...args)
+        const delta = performance.now() - start
+
+        invocationCounts.match[key][2] = Math.max(
+          Number(invocationCounts.match[key][2]) || 0,
+          delta
+        )
+
+        if (result) {
+          // Successful match
+          invocationCounts.match.total++
+          invocationCounts.match[key][0]++ // matches for this rule
+
+          if (process.env.DEBUG?.includes('speed')) {
+            console[delta > 5 ? 'warn' : 'log'](
+              `${ruleNames[key] || key}:match`,
+              `${delta.toFixed(3)}ms`,
+              args[0]
+            )
+          }
+        } else if (process.env.DEBUG?.includes('miss')) {
+          console.log(
+            `\n${ruleNames[key] || key}:miss`,
+            JSON.stringify(args[0])
+          )
+        }
+
+        return result
+      }
+
+      rules[key]._parse = (...args) => {
+        invocationCounts.parse.total++
+        invocationCounts.parse[key][0] += 1
+        const start = performance.now()
+        const result = parse(...args)
+        const delta = performance.now() - start
+
+        invocationCounts.parse[key][1] += delta
+        invocationCounts.parse[key][2] = Math.max(
+          Number(invocationCounts.parse[key][2]) || 0,
+          delta
+        )
+
+        if (process.env.DEBUG?.includes('speed')) {
+          console[delta > 5 ? 'warn' : 'log'](
+            `${ruleNames[key] || key}:parse`,
+            `${delta.toFixed(3)}ms`,
+            args[0]
+          )
+        }
+
+        return result
+      }
+    })
+  }
 
   if (options.disableParsingRawHTML === true) {
     delete rules[RuleType.htmlBlock]
@@ -2142,6 +2204,60 @@ export function compiler(
   const emitter = createRenderer(rules, options.renderRule)
 
   const jsx = compile(markdown)
+
+  if (isDebug) {
+    // Log invocation counts for debugging with readable rule names and miss ratios
+    const matchCountsWithNames: { [key: string]: any } = {
+      total: invocationCounts.match.total,
+      attempts: invocationCounts.match.attempts,
+      missRatio:
+        invocationCounts.match.attempts > 0
+          ? (
+              ((invocationCounts.match.attempts -
+                invocationCounts.match.total) /
+                invocationCounts.match.attempts) *
+              100
+            ).toFixed(1) + '%'
+          : '0%',
+    }
+
+    const parseCountsWithNames: {
+      [key: string]: { executions: number; cost: number; max: number } | number
+    } = {
+      total: invocationCounts.parse.total,
+    }
+
+    Object.keys(invocationCounts.match).forEach(key => {
+      if (key !== 'total' && key !== 'attempts') {
+        const ruleName = ruleNames[key] || key
+        const [matches, attempts, max] = invocationCounts.match[key]
+        matchCountsWithNames[ruleName] = {
+          matches,
+          attempts,
+          missRatio:
+            attempts > 0
+              ? (((attempts - matches) / attempts) * 100).toFixed(1) + '%'
+              : '0%',
+          max: max.toFixed(3),
+        }
+      }
+    })
+
+    Object.keys(invocationCounts.parse).forEach(key => {
+      if (key !== 'total') {
+        const ruleName = ruleNames[key] || key
+        const [executions, cost, max] = invocationCounts.parse[key]
+        parseCountsWithNames[ruleName] = {
+          executions,
+          cost: cost.toFixed(3),
+          max: max.toFixed(3),
+        }
+      }
+    })
+
+    console.log('Match invocations:', matchCountsWithNames)
+    console.log('Parse invocations:', parseCountsWithNames)
+  }
 
   if (footnotes.length) {
     return (
