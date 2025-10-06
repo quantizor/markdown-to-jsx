@@ -2115,27 +2115,31 @@ export function compiler(
     },
   }
 
-  // Initialize invocation counters for debugging
-  const invocationCounts = {
-    match: { total: 0, attempts: 0 },
-    parse: { total: 0 },
-  }
+  const isDebug = !!process.env.DEBUG && process.env.DEBUG !== '0'
 
-  // Create a reverse mapping from numeric keys to rule names for better debugging output
-  const ruleNames: { [key: string]: string } = {}
-  Object.keys(RuleType).forEach(ruleKey => {
-    ruleNames[RuleType[ruleKey as keyof typeof RuleType]] = ruleKey
-  })
+  let invocationCounts, ruleNames: { [key: string]: string }
 
-  Object.keys(rules).forEach(key => {
-    let { _match: match, _parse: parse } = rules[key]
+  if (isDebug) {
+    // Initialize invocation counters for debugging
+    invocationCounts = {
+      match: { total: 0, attempts: 0 },
+      parse: { total: 0 },
+    }
 
-    // Initialize per-rule counters: [matches, attempts, max]
-    invocationCounts.match[key] = [0, 0, 0]
-    // [exections, cost, max]
-    invocationCounts.parse[key] = [0, 0, 0]
+    // Create a reverse mapping from numeric keys to rule names for better debugging output
+    ruleNames = {}
+    Object.keys(RuleType).forEach(ruleKey => {
+      ruleNames[RuleType[ruleKey as keyof typeof RuleType]] = ruleKey
+    })
 
-    if (!!process.env.DEBUG && process.env.DEBUG !== '0') {
+    Object.keys(rules).forEach(key => {
+      let { _match: match, _parse: parse } = rules[key]
+
+      // Initialize per-rule counters: [matches, attempts, max]
+      invocationCounts.match[key] = [0, 0, 0]
+      // [exections, cost, max]
+      invocationCounts.parse[key] = [0, 0, 0]
+
       rules[key]._match = (...args) => {
         // Track attempts for miss ratio calculation
         invocationCounts.match.attempts++
@@ -2195,8 +2199,8 @@ export function compiler(
 
         return result
       }
-    }
-  })
+    })
+  }
 
   if (options.disableParsingRawHTML === true) {
     delete rules[RuleType.htmlBlock]
@@ -2208,7 +2212,7 @@ export function compiler(
 
   const jsx = compile(markdown)
 
-  if (!!process.env.DEBUG && process.env.DEBUG !== '0') {
+  if (isDebug) {
     // Log invocation counts for debugging with readable rule names and miss ratios
     const matchCountsWithNames: { [key: string]: any } = {
       total: invocationCounts.match.total,
