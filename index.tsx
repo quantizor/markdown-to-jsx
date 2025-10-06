@@ -142,6 +142,8 @@ const namedCodesToUnicode = {
 } as const
 
 const DO_NOT_PROCESS_HTML_ELEMENTS = ['style', 'script', 'pre']
+const VOID_HTML_R =
+  /^(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)$/i
 const ATTRIBUTES_TO_SANITIZE = [
   'src',
   'href',
@@ -1689,6 +1691,10 @@ export function compiler(
 
         state.inAnchor = state.inAnchor || tagName === 'a'
 
+        // track if we're inside a math block
+        const wasInMath = state.inMath
+        if (String(tagName) === 'math') state.inMath = true
+
         if (noInnerParse) {
           ast.text = capture[3]
         } else {
@@ -1703,6 +1709,7 @@ export function compiler(
          * otherwise parse as inline to pick up any further markdown
          */
         state.inAnchor = false
+        state.inMath = wasInMath
 
         return ast
       },
@@ -1717,10 +1724,15 @@ export function compiler(
 
     [RuleType.htmlSelfClosing]: {
       _qualify: ['<'],
-      /**
-       * find the first matching end tag and process the interior
-       */
-      _match: anyScopeRegex(HTML_SELF_CLOSING_ELEMENT_R),
+      _match(source, state) {
+        const m = HTML_SELF_CLOSING_ELEMENT_R.exec(source)
+        if (!m) return null
+        const isSelfClosed = /\/>\s*(\n)?$/i.test(m[0])
+        // Inside MathML, only accept true `/>` self-closing tags.
+        if (state && state.inMath) return isSelfClosed ? m : null
+        // Outside MathML, preserve existing behavior for inline HTML and tests.
+        return m
+      },
       _order: Priority.HIGH,
       _parse(capture /*, parse, state*/) {
         const tag = capture[1].trim() as MarkdownToJSX.HTMLTags
@@ -2220,6 +2232,8 @@ export namespace MarkdownToJSX {
     prevCapture?: string
     /** true if parsing in inline context w/o links */
     simple?: boolean
+    /** true if parsing in a math block */
+    inMath?: boolean
   }
 
   export interface BlockQuoteNode {
