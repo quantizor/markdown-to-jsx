@@ -1272,18 +1272,11 @@ export function compiler(
     while (true) {
       const newlineIndex = source.indexOf('\n', start)
 
-      // If no more newlines, check the remaining content
-      if (newlineIndex === -1) {
-        const line = source.slice(start) + '\n'
-        if (some(NON_PARAGRAPH_BLOCK_SYNTAXES, line)) {
-          break
-        }
-        match += line
-        break
-      }
-
       // Extract the line including the newline
-      const line = source.slice(start, newlineIndex + 1)
+      const line = source.slice(
+        start,
+        newlineIndex === -1 ? undefined : newlineIndex + 1
+      )
       if (some(NON_PARAGRAPH_BLOCK_SYNTAXES, line)) {
         break
       }
@@ -1291,7 +1284,7 @@ export function compiler(
       match += line
 
       // Stop if line has no content (empty line)
-      if (!line.trim()) {
+      if (newlineIndex === -1 || !line.trim()) {
         break
       }
 
