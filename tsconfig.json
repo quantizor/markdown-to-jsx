@@ -4,7 +4,6 @@
     "declaration": true,
     // Disable because enabling this option can also force consuming libraries to enable it
     "esModuleInterop": false,
-    "incremental": true,
     "jsx": "react",
     "module": "ESNext",
     "moduleResolution": "node",

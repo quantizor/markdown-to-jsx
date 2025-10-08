@@ -15,5 +15,5 @@ package-lock.json
 
 # ephemeral files
 dist/
-docs/markdown-to-jsx.js
-docs/markdown-to-jsx.js.map
+docs/site.js
+docs/site.js.map
