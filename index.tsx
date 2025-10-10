@@ -7,60 +7,14 @@
  * optimizations here wouldn't be feasible. 🙏🏼
  */
 import * as React from 'react'
+import {
+  RuleType as RuleTypeConst,
+  matchInlineFormatting,
+  type RuleType as RuleTypeValue,
+} from './match'
 
-/**
- * Analogous to `node.type`. Please note that the values here may change at any time,
- * so do not hard code against the value directly.
- */
-export const RuleType = {
-  blockQuote: '0',
-  breakLine: '1',
-  breakThematic: '2',
-  codeBlock: '3',
-  codeFenced: '4',
-  codeInline: '5',
-  footnote: '6',
-  footnoteReference: '7',
-  gfmTask: '8',
-  heading: '9',
-  headingSetext: '10',
-  /** only available if not `disableHTMLParsing` */
-  htmlBlock: '11',
-  htmlComment: '12',
-  /** only available if not `disableHTMLParsing` */
-  htmlSelfClosing: '13',
-  image: '14',
-  link: '15',
-  /** emits a `link` 'node', does not render directly */
-  linkAngleBraceStyleDetector: '16',
-  /** emits a `link` 'node', does not render directly */
-  linkBareUrlDetector: '17',
-  /** @deprecated merged into linkAngleBraceStyleDetector
-   *
-   * emits a `link` 'node', does not render directly */
-  linkMailtoDetector: '18',
-  newlineCoalescer: '19',
-  orderedList: '20',
-  paragraph: '21',
-  ref: '22',
-  refImage: '23',
-  refLink: '24',
-  table: '25',
-  tableSeparator: '26',
-  text: '27',
-  textBolded: '28',
-  textEmphasized: '29',
-  textEscaped: '30',
-  textMarked: '31',
-  textStrikethroughed: '32',
-  unorderedList: '33',
-} as const
-
-if (process.env.NODE_ENV === 'test') {
-  Object.keys(RuleType).forEach(key => (RuleType[key] = key))
-}
-
-export type RuleType = (typeof RuleType)[keyof typeof RuleType]
+export const RuleType = RuleTypeConst
+export type RuleType = RuleTypeValue
 
 const Priority = {
   /**
@@ -297,47 +251,6 @@ const TABLE_TRIM_PIPES = /(^ *\||\| *$)/g
 const TABLE_CENTER_ALIGN = /^ *:-+: *$/
 const TABLE_LEFT_ALIGN = /^ *:-+ *$/
 const TABLE_RIGHT_ALIGN = /^ *-+: *$/
-
-/**
- * Ensure there's at least one more instance of the delimiter later
- * in the current sequence.
- */
-const LOOKAHEAD = (double: number) => `(?=[\\s\\S]+?\\1${double ? '\\1' : ''})`
-
-/**
- * For inline formatting, this partial attempts to ignore characters that
- * may appear in nested formatting that could prematurely trigger detection
- * and therefore miss content that should have been included.
- */
-const INLINE_SKIP_R =
-  '((?:\\[.*?\\][([].*?[)\\]]|<.*?>(?:.*?<.*?>)?|`.*?`|\\\\\\1|[\\s\\S])+?)'
-
-/**
- * Detect a sequence like **foo** or __foo__. Note that bold has a higher priority
- * than emphasized to support nesting of both since they share a delimiter.
- */
-const TEXT_BOLD_R = new RegExp(
-  `^([*_])\\1${LOOKAHEAD(1)}${INLINE_SKIP_R}\\1\\1(?!\\1)`
-)
-
-/**
- * Detect a sequence like *foo* or _foo_.
- */
-const TEXT_EMPHASIZED_R = new RegExp(
-  `^([*_])${LOOKAHEAD(0)}${INLINE_SKIP_R}\\1(?!\\1)`
-)
-
-/**
- * Detect a sequence like ==foo==.
- */
-const TEXT_MARKED_R = new RegExp(`^(==)${LOOKAHEAD(0)}${INLINE_SKIP_R}\\1`)
-
-/**
- * Detect a sequence like ~~foo~~.
- */
-const TEXT_STRIKETHROUGHED_R = new RegExp(
-  `^(~~)${LOOKAHEAD(0)}${INLINE_SKIP_R}\\1`
-)
 
 /**
  * Special case for shortcodes like :big-smile: or :emoji:
@@ -2036,38 +1949,22 @@ export function compiler(
       },
     },
 
-    [RuleType.textBolded]: {
-      _qualify: ['**', '__'],
-      _match: simpleInlineRegex(TEXT_BOLD_R),
+    [RuleType.textFormatted]: {
+      _qualify: ['*', '_', '~', '='],
+      _match: allowInline(matchInlineFormatting),
       _order: Priority.MED,
       _parse(capture, parse, state) {
         return {
-          // capture[1] -> the syntax control character
-          // capture[2] -> inner content
           children: parse(capture[2], state),
+          tag: capture[1],
         }
       },
       _render(node, output, state) {
-        return <strong key={state.key}>{output(node.children, state)}</strong>
-      },
-    },
-
-    [RuleType.textEmphasized]: {
-      _qualify: source => {
-        const char = source[0]
-        return (char === '*' || char === '_') && source[1] !== char
-      },
-      _match: simpleInlineRegex(TEXT_EMPHASIZED_R),
-      _order: Priority.LOW,
-      _parse(capture, parse, state) {
-        return {
-          // capture[1] -> opening * or _
-          // capture[2] -> inner content
-          children: parse(capture[2], state),
-        }
-      },
-      _render(node, output, state) {
-        return <em key={state.key}>{output(node.children, state)}</em>
+        return h(
+          node.tag as MarkdownToJSX.HTMLTags,
+          { key: state.key },
+          output(node.children, state)
+        )
       },
     },
 
@@ -2084,26 +1981,6 @@ export function compiler(
           text: capture[1],
           type: RuleType.text,
         }
-      },
-    },
-
-    [RuleType.textMarked]: {
-      _qualify: ['=='],
-      _match: simpleInlineRegex(TEXT_MARKED_R),
-      _order: Priority.LOW,
-      _parse: parseCaptureInline,
-      _render(node, output, state) {
-        return <mark key={state.key}>{output(node.children, state)}</mark>
-      },
-    },
-
-    [RuleType.textStrikethroughed]: {
-      _qualify: ['~~'],
-      _match: simpleInlineRegex(TEXT_STRIKETHROUGHED_R),
-      _order: Priority.LOW,
-      _parse: parseCaptureInline,
-      _render(node, output, state) {
-        return <del key={state.key}>{output(node.children, state)}</del>
       },
     },
   }
@@ -2484,28 +2361,17 @@ export namespace MarkdownToJSX {
     text: string
   }
 
-  export interface BoldTextNode {
-    type: typeof RuleType.textBolded
-    children: MarkdownToJSX.ParserResult[]
-  }
-
-  export interface ItalicTextNode {
-    type: typeof RuleType.textEmphasized
+  export interface FormattedTextNode {
+    type: typeof RuleType.textFormatted
+    /**
+     * the corresponding html tag
+     */
+    tag: string
     children: MarkdownToJSX.ParserResult[]
   }
 
   export interface EscapedTextNode {
     type: typeof RuleType.textEscaped
-  }
-
-  export interface MarkedTextNode {
-    type: typeof RuleType.textMarked
-    children: MarkdownToJSX.ParserResult[]
-  }
-
-  export interface StrikethroughTextNode {
-    type: typeof RuleType.textStrikethroughed
-    children: MarkdownToJSX.ParserResult[]
   }
 
   export interface HTMLNode {
@@ -2551,11 +2417,8 @@ export namespace MarkdownToJSX {
     | TableNode
     | TableSeparatorNode
     | TextNode
-    | BoldTextNode
-    | ItalicTextNode
+    | FormattedTextNode
     | EscapedTextNode
-    | MarkedTextNode
-    | StrikethroughTextNode
     | HTMLNode
     | HTMLSelfClosingNode
 
