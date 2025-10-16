@@ -1665,7 +1665,7 @@ export function compiler(
         )
       },
       _match: blockRegex(HEADING_SETEXT_R),
-      _order: Priority.MAX,
+      _order: Priority.HIGH,
       _parse(capture, parse, state) {
         return {
           children: parseInline(parse, capture[1], state),
