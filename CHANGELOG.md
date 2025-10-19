@@ -1,5 +1,13 @@
 # markdown-to-jsx
 
+## 7.7.16
+
+### Patch Changes
+
+- 7e487bd: Fix the issue where YAML frontmatter in code blocks doesn't render properly.
+
+  This is done by lowering the parsing priority of Setext headings to match ATX headings; both are now prioritized lower than code blocks.
+
 ## 7.7.15
 
 ### Patch Changes
