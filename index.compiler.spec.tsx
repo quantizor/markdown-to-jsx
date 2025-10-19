@@ -5096,6 +5096,32 @@ it('should remove YAML front matter', () => {
 `)
 })
 
+it('correctly parses YAML front matter inside a code block', () => {
+  render(
+    compiler(theredoc`
+      \`\`\`
+      ---
+      key: value
+      other_key: different value
+      ---
+      Hello.
+      \`\`\`
+    `)
+  )
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+    <pre>
+      <code>
+        ---
+    key: value
+    other_key: different value
+    ---
+    Hello.
+      </code>
+    </pre>
+  `)
+});
+
 it('handles a holistic example', () => {
   const md = fs.readFileSync(__dirname + '/fixture.md', 'utf8')
   render(compiler(md))
