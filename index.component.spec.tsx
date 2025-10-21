@@ -82,3 +82,70 @@ it('passes along any additional props to the rendered wrapper element', () => {
     </h1>
   `)
 })
+
+it('can render simple math', () => {
+  render(
+    <Markdown>{`<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow>a</mrow><mrow>2</mrow></mfrac></mrow><annotation encoding="application/x-tex">\\frac{a}{2}</annotation></semantics></math>`}</Markdown>
+  )
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+    <math xmlns="http://www.w3.org/1998/Math/MathML"
+          display="block"
+    >
+      <semantics>
+        <mrow>
+          <mfrac>
+            <mrow>
+              a
+            </mrow>
+            <mrow>
+              2
+            </mrow>
+          </mfrac>
+        </mrow>
+        <annotation encoding="application/x-tex">
+          \\frac{a}{2}
+        </annotation>
+      </semantics>
+    </math>
+  `)
+})
+
+it.skip('can render complex math', () => {
+  render(
+    <Markdown>{`<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+<semantics>
+  <mrow><mfrac><mrow><msqrt><mrow>a</mrow></msqrt></mrow><mrow><mn>2</mn></mrow></mfrac></mrow>
+  <annotation encoding="application/x-tex">\\frac{\\sqrt{a}}{2}</annotation>
+</semantics>
+</math>`}</Markdown>
+  )
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+    <math xmlns="http://www.w3.org/1998/Math/MathML"
+          display="block"
+    >
+      <semantics>
+        <mrow>
+          <mfrac>
+            <mrow>
+              <msqrt>
+                <mrow>
+                  a
+                </mrow>
+              </msqrt>
+            </mrow>
+            <mrow>
+              <mn>
+                2
+              </mn>
+            </mrow>
+          </mfrac>
+        </mrow>
+        <annotation encoding="application/x-tex">
+          \\frac{\\sqrt{a}}{2}
+        </annotation>
+      </semantics>
+    </math>
+  `)
+})
