@@ -29,6 +29,26 @@ it('handles a no-children scenario', () => {
   `)
 })
 
+it('handles a null-children scenario', () => {
+  const previousEnv = process.env.NODE_ENV;
+
+  // Only reproducible in production mode
+  process.env.NODE_ENV = 'production';
+
+  render(<Markdown>{null}</Markdown>)
+
+  try {
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      <span>
+      </span>
+    `)
+  } catch (error) {
+    throw error;
+  } finally {
+    process.env.NODE_ENV = previousEnv;
+  }
+})
+
 it('accepts options', () => {
   class FakeParagraph extends React.Component<React.PropsWithChildren<{}>> {
     render() {
