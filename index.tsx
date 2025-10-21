@@ -269,7 +269,117 @@ const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-)\2{2,} *\n/
  *    \n*
  */
 const HTML_BLOCK_ELEMENT_R =
-  /^ *(?!<[a-z][^ >/]* ?\/>)<([a-z][^ >/]*) ?((?:[^>]*[^/])?)>\n?(\s*(?:<\1[^>]*?>[\s\S]*?<\/\1>|(?!<\1\b)[\s\S])*?)<\/\1>(?!<\/\1>)\n*/i
+  /^ *(?!<[a-z][^ >/]* ?\/>)<([a-z][^ >\/]*) ?((?:[^>]*[^/])?)>\n?(\s*(?:<\1[^>]*?>[\s\S]*?<\/\1>|(?!<\1\b)[\s\S])*?)<\/\1>(?!<\/\1>)\n*/i
+const HTML_BLOCK_OPEN_TAG_R = /^<([a-z][^ >\/]*)([^>]*)>/i
+const MATHML_CONTAINER_TAGS = new Set([
+  'math',
+  'mrow',
+  'mfrac',
+  'msqrt',
+  'mroot',
+  'mfenced',
+  'menclose',
+  'mtable',
+  'mtr',
+  'mtd',
+  'mlabeledtr',
+  'mstyle',
+  'semantics',
+])
+
+function isTagBoundaryCharacter(char: string | undefined): boolean {
+  if (!char) return true
+  if (char === '>' || char === '/') return true
+  return char <= ' '
+}
+
+function findNextMathMLTagIndex(
+  lowerSource: string,
+  needle: string,
+  from: number
+): number {
+  let index = lowerSource.indexOf(needle, from)
+
+  while (index !== -1) {
+    if (isTagBoundaryCharacter(lowerSource[index + needle.length])) {
+      return index
+    }
+
+    index = lowerSource.indexOf(needle, index + needle.length)
+  }
+
+  return -1
+}
+
+function matchMathMLBlock(source: string): RegExpMatchArray | null {
+  const openMatch = HTML_BLOCK_OPEN_TAG_R.exec(source)
+  if (!openMatch) return null
+
+  const [openTag, rawTagName, attrString] = openMatch
+  const tagName = rawTagName.toLowerCase()
+
+  if (!MATHML_CONTAINER_TAGS.has(tagName)) {
+    return null
+  }
+
+  if (openTag.endsWith('/>')) {
+    return null
+  }
+
+  const lowerSource = source.toLowerCase()
+  const openNeedle = `<${tagName}`
+  const closeNeedle = `</${tagName}>`
+  const closeLength = closeNeedle.length
+
+  let depth = 1
+  let cursor = openTag.length
+
+  while (cursor < source.length) {
+    const nextOpen = findNextMathMLTagIndex(lowerSource, openNeedle, cursor)
+    const nextClose = lowerSource.indexOf(closeNeedle, cursor)
+
+    if (nextClose === -1) {
+      return null
+    }
+
+    if (nextOpen !== -1 && nextOpen < nextClose) {
+      const openEnd = source.indexOf('>', nextOpen)
+      if (openEnd === -1) {
+        return null
+      }
+
+      if (source[openEnd - 1] === '/') {
+        cursor = openEnd + 1
+        continue
+      }
+
+      depth += 1
+      cursor = openEnd + 1
+      continue
+    }
+
+    depth -= 1
+    const closeIndex = nextClose
+    cursor = closeIndex + closeLength
+
+    if (depth === 0) {
+      let matchEnd = cursor
+      while (matchEnd < source.length && source[matchEnd] === '\n') {
+        matchEnd += 1
+      }
+
+      const fullMatch = source.slice(0, matchEnd)
+      const inner = source.slice(openTag.length, closeIndex)
+      const attrs = attrString || ''
+      const result = [fullMatch, rawTagName, attrs, inner] as unknown as RegExpMatchArray
+      result.index = 0
+      result.input = source
+      return result
+    }
+  }
+
+  return null
+}
 
 const HTML_CHAR_CODE_R = /&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-fA-F]{1,6});/gi
 
@@ -1018,6 +1128,10 @@ function anyScopeRegex(regex: RegExp) {
   })
 }
 
+const matchHtmlBlock = allowInline(function match(source: string) {
+  return matchMathMLBlock(source) || HTML_BLOCK_ELEMENT_R.exec(source)
+})
+
 const SANITIZE_R = /(javascript|vbscript|data(?!:image)):/i
 
 export function sanitizer(input: string): string {
@@ -1680,13 +1794,16 @@ export function compiler(
       /**
        * find the first matching end tag and process the interior
        */
-      _match: anyScopeRegex(HTML_BLOCK_ELEMENT_R),
+      _match: matchHtmlBlock,
       _order: Priority.HIGH,
       _parse(capture, parse, state) {
-        const [, whitespace] = capture[3].match(HTML_LEFT_TRIM_AMOUNT_R)
+        const whitespaceMatch = capture[3].match(HTML_LEFT_TRIM_AMOUNT_R)
+        const whitespace = whitespaceMatch ? whitespaceMatch[1] : ''
 
-        const trimmer = new RegExp(`^${whitespace}`, 'gm')
-        const trimmed = capture[3].replace(trimmer, '')
+        const trimmedContent = whitespace
+          ? capture[3].replace(new RegExp(`^${whitespace}`, 'gm'), '')
+          : capture[3]
+        const trimmed = trimmedContent.replace(/^[\n\r]+/, '')
 
         const parseFunc = containsBlockSyntax(trimmed)
           ? parseBlock

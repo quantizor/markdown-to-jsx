@@ -111,7 +111,7 @@ it('can render simple math', () => {
   `)
 })
 
-it.skip('can render complex math', () => {
+it('can render complex math', () => {
   render(
     <Markdown>{`<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
 <semantics>
