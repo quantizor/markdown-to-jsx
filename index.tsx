@@ -1015,7 +1015,7 @@ function captureNothing() {
   return {}
 }
 
-function renderNode(
+function render(
   node: MarkdownToJSX.ParserResult,
   output: MarkdownToJSX.RuleOutput,
   state: MarkdownToJSX.State,
@@ -1226,13 +1226,13 @@ function createRenderer(
 ) {
   function renderRule(
     ast: MarkdownToJSX.ParserResult,
-    render: MarkdownToJSX.RuleOutput,
+    renderer: MarkdownToJSX.RuleOutput,
     state: MarkdownToJSX.State
   ): React.ReactNode {
     const nodeRender = () =>
-      renderNode(ast, render, state, h, sanitize, slug, refs)
+      render(ast, renderer, state, h, sanitize, slug, refs)
     return userRender
-      ? userRender(nodeRender, ast, render, state)
+      ? userRender(nodeRender, ast, renderer, state)
       : nodeRender()
   }
 
