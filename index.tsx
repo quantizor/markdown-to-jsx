@@ -396,16 +396,13 @@ function generateListRule(
         .replace(BLOCK_END_R, '\n')
         .match(LIST_ITEM_R)
 
+      const firstPrefixMatch = LIST_ITEM_PREFIX_R.exec(items[0])
+      const space = firstPrefixMatch ? firstPrefixMatch[0].length : 0
+      const spaceRegex = new RegExp('^ {1,' + space + '}', 'gm')
+
       let lastItemWasAParagraph = false
 
       const itemContent = items.map(function (item, i) {
-        // We need to see how far indented the item is:
-        const space = LIST_ITEM_PREFIX_R.exec(item)[0].length
-
-        // And then we construct a regex to "unindent" the subsequent
-        // lines of the items by that amount:
-        const spaceRegex = new RegExp('^ {1,' + space + '}', 'gm')
-
         // Before processing the item, we need a couple things
         const content = item
           // remove indents on trailing lines:
@@ -421,7 +418,7 @@ function generateListRule(
         //
         //  * as is this
         const isLastItem = i === items.length - 1
-        const containsBlocks = content.indexOf('\n\n') !== -1
+        const containsBlocks = includes(content, '\n\n')
 
         // Any element in a list is a block if it contains multiple
         // newlines. The last element in the list can also be a block
@@ -490,6 +487,10 @@ function trimEnd(str: string) {
 
 function startsWith(str: string, prefix: string) {
   return str.startsWith(prefix)
+}
+
+function includes(str: string, search: string) {
+  return str.indexOf(search) !== -1
 }
 
 function qualifies(
@@ -1405,8 +1406,8 @@ export function compiler(
       state.inline ||
       state.simple ||
       (state.inHTML &&
-        source.indexOf('\n\n') === -1 &&
-        state.prevCapture.indexOf('\n\n') === -1)
+        !includes(source, '\n\n') &&
+        !includes(state.prevCapture, '\n\n'))
     ) {
       return null
     }
@@ -1829,9 +1830,9 @@ export function compiler(
         let isEmail = false
 
         if (
-          target.indexOf('@') !== -1 &&
+          includes(target, '@') &&
           // emails don't have protocols in them
-          target.indexOf('//') === -1
+          !includes(target, '//')
         ) {
           isEmail = true
           target = target.replace('mailto:', '')
@@ -1922,7 +1923,7 @@ export function compiler(
     } as MarkdownToJSX.Rule<{ alt?: string; ref: string }>,
 
     [RuleType.refLink]: {
-      _qualify: source => source[0] === '[' && source.indexOf('](') === -1,
+      _qualify: source => source[0] === '[' && !includes(source, ']('),
       _match: inlineRegex(REFERENCE_LINK_R),
       _order: Priority.MAX,
       _parse(capture, parse, state) {
@@ -1957,13 +1958,12 @@ export function compiler(
       _parse(capture) {
         const text = capture[0]
         return {
-          text:
-            text.indexOf('&') === -1
-              ? text
-              : text.replace(
-                  HTML_CHAR_CODE_R,
-                  (full, inner) => options.namedCodesToUnicode[inner] || full
-                ),
+          text: !includes(text, '&')
+            ? text
+            : text.replace(
+                HTML_CHAR_CODE_R,
+                (full, inner) => options.namedCodesToUnicode[inner] || full
+              ),
         }
       },
     },
