@@ -7114,7 +7114,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"markdown-to-jsx-latest@npm:markdown-to-jsx@latest":
+"markdown-to-jsx-latest@npm:markdown-to-jsx@7.7.16":
   version: 7.7.16
   resolution: "markdown-to-jsx@npm:7.7.16"
   peerDependencies:
@@ -7148,7 +7148,7 @@ __metadata:
     jest-serializer-html: "npm:^7.1.0"
     jest-watch-typeahead: "npm:^2.2.2"
     markdown-it: "npm:^14.0.0"
-    markdown-to-jsx-latest: "npm:markdown-to-jsx@latest"
+    markdown-to-jsx-latest: "npm:markdown-to-jsx@7.7.16"
     microbundle: "npm:^0.15.1"
     microtime: "npm:^3.1.1"
     mkdirp: "npm:^3.0.1"
