@@ -30,10 +30,10 @@ it('handles a no-children scenario', () => {
 })
 
 it('handles a null-children scenario', () => {
-  const previousEnv = process.env.NODE_ENV;
+  const previousEnv = process.env.NODE_ENV
 
   // Only reproducible in production mode
-  process.env.NODE_ENV = 'production';
+  process.env.NODE_ENV = 'production'
 
   render(<Markdown>{null}</Markdown>)
 
@@ -43,9 +43,9 @@ it('handles a null-children scenario', () => {
       </span>
     `)
   } catch (error) {
-    throw error;
+    throw error
   } finally {
-    process.env.NODE_ENV = previousEnv;
+    process.env.NODE_ENV = previousEnv
   }
 })
 
@@ -131,7 +131,7 @@ it('can render simple math', () => {
   `)
 })
 
-it.skip('can render complex math', () => {
+it('can render complex math', () => {
   render(
     <Markdown>{`<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
 <semantics>
