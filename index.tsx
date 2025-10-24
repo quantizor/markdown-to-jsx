@@ -1300,6 +1300,64 @@ function getTag(tag: string, overrides: MarkdownToJSX.Overrides) {
     : get(overrides, `${tag}.component`, tag)
 }
 
+function attrStringToMap(
+  tag: MarkdownToJSX.HTMLTags,
+  str: string,
+  sanitize: (value: string, tag: string, attribute: string) => string | null,
+  compile: (value: string) => React.ReactNode
+): React.JSX.IntrinsicAttributes {
+  if (!str || !str.trim()) {
+    return null
+  }
+
+  const attributes = str.match(ATTR_EXTRACTOR_R)
+  if (!attributes) {
+    return null
+  }
+
+  return attributes.reduce(function (map, raw) {
+    const delimiterIdx = raw.indexOf('=')
+
+    if (delimiterIdx !== -1) {
+      const key = normalizeAttributeKey(raw.slice(0, delimiterIdx)).trim()
+      const value = unquote(raw.slice(delimiterIdx + 1).trim())
+
+      const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key
+
+      // bail out, not supported
+      if (mappedKey === 'ref') return map
+
+      const normalizedValue = (map[mappedKey] = attributeValueToJSXPropValue(
+        tag,
+        key,
+        value,
+        sanitize
+      ))
+
+      if (
+        typeof normalizedValue === 'string' &&
+        (HTML_BLOCK_ELEMENT_R.test(normalizedValue) ||
+          HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue))
+      ) {
+        map[mappedKey] = compile(normalizedValue.trim())
+      }
+    } else if (raw !== 'style') {
+      map[ATTRIBUTE_TO_JSX_PROP_MAP[raw] || raw] = true
+    }
+
+    return map
+  }, {})
+}
+
+function some(regexes: RegExp[], input: string) {
+  for (let i = 0; i < regexes.length; i++) {
+    if (regexes[i].test(input)) {
+      return true
+    }
+  }
+  return false
+}
+
 export function compiler(
   markdown: string,
   options: MarkdownToJSX.Options & {
@@ -1341,19 +1399,6 @@ export function compiler(
     HTML_COMMENT_R,
     HTML_SELF_CLOSING_ELEMENT_R,
   ]
-
-  function some(regexes: RegExp[], input: string) {
-    for (let i = 0; i < regexes.length; i++) {
-      if (regexes[i].test(input)) {
-        return true
-      }
-    }
-    return false
-  }
-
-  function containsBlockSyntax(input: string) {
-    return some(BLOCK_SYNTAXES, input)
-  }
 
   function matchParagraph(source: string, state: MarkdownToJSX.State) {
     if (
@@ -1484,53 +1529,6 @@ export function compiler(
     return createElement(wrapper, { key: 'outer' }, jsx) as React.JSX.Element
   }
 
-  function attrStringToMap(
-    tag: MarkdownToJSX.HTMLTags,
-    str: string
-  ): React.JSX.IntrinsicAttributes {
-    if (!str || !str.trim()) {
-      return null
-    }
-
-    const attributes = str.match(ATTR_EXTRACTOR_R)
-    if (!attributes) {
-      return null
-    }
-
-    return attributes.reduce(function (map, raw) {
-      const delimiterIdx = raw.indexOf('=')
-
-      if (delimiterIdx !== -1) {
-        const key = normalizeAttributeKey(raw.slice(0, delimiterIdx)).trim()
-        const value = unquote(raw.slice(delimiterIdx + 1).trim())
-
-        const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key
-
-        // bail out, not supported
-        if (mappedKey === 'ref') return map
-
-        const normalizedValue = (map[mappedKey] = attributeValueToJSXPropValue(
-          tag,
-          key,
-          value,
-          sanitize
-        ))
-
-        if (
-          typeof normalizedValue === 'string' &&
-          (HTML_BLOCK_ELEMENT_R.test(normalizedValue) ||
-            HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue))
-        ) {
-          map[mappedKey] = compile(normalizedValue.trim())
-        }
-      } else if (raw !== 'style') {
-        map[ATTRIBUTE_TO_JSX_PROP_MAP[raw] || raw] = true
-      }
-
-      return map
-    }, {})
-  }
-
   if (process.env.NODE_ENV !== 'production') {
     if (typeof markdown !== 'string') {
       throw new Error(`markdown-to-jsx: the first argument must be
@@ -1614,7 +1612,7 @@ export function compiler(
       _parse(capture /*, parse, state*/) {
         return {
           // if capture[3] it's additional metadata
-          attrs: attrStringToMap('code', capture[3] || ''),
+          attrs: attrStringToMap('code', capture[3] || '', sanitize, compile),
           lang: capture[2] || undefined,
           text: capture[4],
           type: RuleType.codeBlock,
@@ -1721,7 +1719,7 @@ export function compiler(
         const trimmer = new RegExp(`^${whitespace}`, 'gm')
         const trimmed = capture[3].replace(trimmer, '')
 
-        const parseFunc = containsBlockSyntax(trimmed)
+        const parseFunc = some(BLOCK_SYNTAXES, trimmed)
           ? parseBlock
           : parseInline
 
@@ -1734,7 +1732,7 @@ export function compiler(
         ).trim() as MarkdownToJSX.HTMLTags
 
         const ast = {
-          attrs: attrStringToMap(tag, capture[2]),
+          attrs: attrStringToMap(tag, capture[2], sanitize, compile),
           noInnerParse: noInnerParse,
           tag,
         } as {
@@ -1776,7 +1774,7 @@ export function compiler(
       _parse(capture /*, parse, state*/) {
         const tag = capture[1].trim() as MarkdownToJSX.HTMLTags
         return {
-          attrs: attrStringToMap(tag, capture[2] || ''),
+          attrs: attrStringToMap(tag, capture[2] || '', sanitize, compile),
           tag,
         }
       },
