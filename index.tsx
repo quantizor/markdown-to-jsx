@@ -2289,7 +2289,9 @@ const Markdown: React.FC<
     children: string
     options?: MarkdownToJSX.Options
   }
-> = ({ children = '', options, ...props }) => {
+> = ({ children: rawChildren, options, ...props }) => {
+  const children = rawChildren === null || rawChildren === undefined ? '' : rawChildren
+
   if (process.env.NODE_ENV !== 'production' && typeof children !== 'string') {
     console.error(
       'markdown-to-jsx: <Markdown> component only accepts a single string as a child, received:',
