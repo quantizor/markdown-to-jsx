@@ -466,20 +466,6 @@ function generateListRule(
         start: start,
       }
     },
-    _render(node, output, state) {
-      const Tag = node.ordered ? 'ol' : 'ul'
-
-      return (
-        <Tag
-          key={state.key}
-          start={node.type === RuleType.orderedList ? node.start : undefined}
-        >
-          {node.items.map(function generateListItem(item, i) {
-            return <li key={i}>{output(item, state)}</li>
-          })}
-        </Tag>
-      )
-    },
   }
 }
 
@@ -1028,24 +1014,225 @@ function captureNothing() {
   return {}
 }
 
-function renderNothing() {
-  return null
+function renderNode(
+  node: MarkdownToJSX.ParserResult,
+  output: MarkdownToJSX.RuleOutput,
+  state: MarkdownToJSX.State,
+  h: (tag: any, props: any, ...children: any[]) => any,
+  sanitize: (value: string, tag: string, attribute: string) => string | null,
+  slug: (input: string, defaultFn: (input: string) => string) => string,
+  refs: { [key: string]: { target: string; title: string } }
+): React.ReactNode {
+  switch (node.type) {
+    case RuleType.blockQuote: {
+      const props = {
+        key: state.key,
+      } as Record<string, unknown>
+
+      if (node.alert) {
+        props.className =
+          'markdown-alert-' + slug(node.alert.toLowerCase(), slugify)
+
+        node.children.unshift({
+          attrs: {},
+          children: [{ type: RuleType.text, text: node.alert }],
+          noInnerParse: true,
+          type: RuleType.htmlBlock,
+          tag: 'header',
+        })
+      }
+
+      return h('blockquote', props, output(node.children, state))
+    }
+
+    case RuleType.breakLine:
+      return <br key={state.key} />
+
+    case RuleType.breakThematic:
+      return <hr key={state.key} />
+
+    case RuleType.codeBlock:
+      return (
+        <pre key={state.key}>
+          <code
+            {...node.attrs}
+            className={node.lang ? `lang-${node.lang}` : ''}
+          >
+            {node.text}
+          </code>
+        </pre>
+      )
+
+    case RuleType.codeInline:
+      return <code key={state.key}>{node.text}</code>
+
+    case RuleType.footnoteReference:
+      return (
+        <a key={state.key} href={sanitize(node.target, 'a', 'href')}>
+          <sup key={state.key}>{node.text}</sup>
+        </a>
+      )
+
+    case RuleType.gfmTask:
+      return (
+        <input
+          checked={node.completed}
+          key={state.key}
+          readOnly
+          type="checkbox"
+        />
+      )
+
+    case RuleType.heading:
+      return h(
+        `h${node.level}`,
+        { id: node.id, key: state.key },
+        output(node.children, state)
+      )
+
+    case RuleType.htmlBlock:
+      return (
+        <node.tag key={state.key} {...node.attrs}>
+          {node.text || (node.children ? output(node.children, state) : '')}
+        </node.tag>
+      )
+
+    case RuleType.htmlSelfClosing:
+      return <node.tag {...node.attrs} key={state.key} />
+
+    case RuleType.image:
+      return (
+        <img
+          key={state.key}
+          alt={node.alt || undefined}
+          title={node.title || undefined}
+          src={sanitize(node.target, 'img', 'src')}
+        />
+      )
+
+    case RuleType.link:
+      return (
+        <a
+          key={state.key}
+          href={sanitize(node.target, 'a', 'href')}
+          title={node.title}
+        >
+          {output(node.children, state)}
+        </a>
+      )
+
+    case RuleType.refImage:
+      return refs[node.ref] ? (
+        <img
+          key={state.key}
+          alt={node.alt}
+          src={sanitize(refs[node.ref].target, 'img', 'src')}
+          title={refs[node.ref].title}
+        />
+      ) : null
+
+    case RuleType.refLink:
+      return refs[node.ref] ? (
+        <a
+          key={state.key}
+          href={sanitize(refs[node.ref].target, 'a', 'href')}
+          title={refs[node.ref].title}
+        >
+          {output(node.children, state)}
+        </a>
+      ) : (
+        <span key={state.key}>{node.fallbackChildren}</span>
+      )
+
+    case RuleType.table: {
+      const table = node as MarkdownToJSX.TableNode
+      return (
+        <table key={state.key}>
+          <thead>
+            <tr>
+              {table.header.map(function generateHeaderCell(content, i) {
+                return (
+                  <th key={i} style={getTableStyle(table, i)}>
+                    {output(content, state)}
+                  </th>
+                )
+              })}
+            </tr>
+          </thead>
+
+          <tbody>
+            {table.cells.map(function generateTableRow(row, i) {
+              return (
+                <tr key={i}>
+                  {row.map(function generateTableCell(content, c) {
+                    return (
+                      <td key={c} style={getTableStyle(table, c)}>
+                        {output(content, state)}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )
+    }
+
+    case RuleType.text:
+      return node.text
+
+    case RuleType.textFormatted:
+      return h(
+        node.tag as MarkdownToJSX.HTMLTags,
+        { key: state.key },
+        output(node.children, state)
+      )
+
+    case RuleType.orderedList:
+    case RuleType.unorderedList: {
+      const Tag = node.ordered ? 'ol' : 'ul'
+
+      return (
+        <Tag
+          key={state.key}
+          start={node.type === RuleType.orderedList ? node.start : undefined}
+        >
+          {node.items.map(function generateListItem(item, i) {
+            return <li key={i}>{output(item, state)}</li>
+          })}
+        </Tag>
+      )
+    }
+
+    case RuleType.newlineCoalescer:
+      return '\n'
+
+    case RuleType.paragraph:
+      return <p key={state.key}>{output(node.children, state)}</p>
+
+    default:
+      return null
+  }
 }
 
 function createRenderer(
-  rules: MarkdownToJSX.Rules,
-  userRender?: MarkdownToJSX.Options['renderRule']
+  userRender: MarkdownToJSX.Options['renderRule'] | undefined,
+  h: (tag: any, props: any, ...children: any[]) => any,
+  sanitize: (value: string, tag: string, attribute: string) => string | null,
+  slug: (input: string, defaultFn: (input: string) => string) => string,
+  refs: { [key: string]: { target: string; title: string } }
 ) {
   function renderRule(
     ast: MarkdownToJSX.ParserResult,
     render: MarkdownToJSX.RuleOutput,
     state: MarkdownToJSX.State
   ): React.ReactNode {
-    const renderer = rules[ast.type]._render as MarkdownToJSX.Rule['_render']
-
+    const nodeRender = () =>
+      renderNode(ast, render, state, h, sanitize, slug, refs)
     return userRender
-      ? userRender(() => renderer(ast, render, state), ast, render, state)
-      : renderer(ast, render, state)
+      ? userRender(nodeRender, ast, render, state)
+      : nodeRender()
   }
 
   return function patchedRender(
@@ -1388,26 +1575,6 @@ export function compiler(
           children: parse(content, state),
         }
       },
-      _render(node, output, state) {
-        const props = {
-          key: state.key,
-        } as Record<string, unknown>
-
-        if (node.alert) {
-          props.className =
-            'markdown-alert-' + slug(node.alert.toLowerCase(), slugify)
-
-          node.children.unshift({
-            attrs: {},
-            children: [{ type: RuleType.text, text: node.alert }],
-            noInnerParse: true,
-            type: RuleType.htmlBlock,
-            tag: 'header',
-          })
-        }
-
-        return h('blockquote', props, output(node.children, state))
-      },
     },
 
     [RuleType.breakLine]: {
@@ -1415,9 +1582,6 @@ export function compiler(
       _match: anyScopeRegex(BREAK_LINE_R),
       _order: Priority.HIGH,
       _parse: captureNothing,
-      _render(_, __, state) {
-        return <br key={state.key} />
-      },
     },
 
     [RuleType.breakThematic]: {
@@ -1425,9 +1589,6 @@ export function compiler(
       _match: blockRegex(BREAK_THEMATIC_R),
       _order: Priority.HIGH,
       _parse: captureNothing,
-      _render(_, __, state) {
-        return <hr key={state.key} />
-      },
     },
 
     [RuleType.codeBlock]: {
@@ -1439,19 +1600,6 @@ export function compiler(
           lang: undefined,
           text: unescape(trimEnd(capture[0].replace(/^ {4}/gm, ''))),
         }
-      },
-
-      _render(node, output, state) {
-        return (
-          <pre key={state.key}>
-            <code
-              {...node.attrs}
-              className={node.lang ? `lang-${node.lang}` : ''}
-            >
-              {node.text}
-            </code>
-          </pre>
-        )
       },
     } as MarkdownToJSX.Rule<{
       attrs?: ReturnType<typeof attrStringToMap>
@@ -1483,9 +1631,6 @@ export function compiler(
           text: unescape(capture[2]),
         }
       },
-      _render(node, output, state) {
-        return <code key={state.key}>{node.text}</code>
-      },
     },
 
     /**
@@ -1503,7 +1648,6 @@ export function compiler(
 
         return {}
       },
-      _render: renderNothing,
     },
 
     [RuleType.footnoteReference]: {
@@ -1516,13 +1660,6 @@ export function compiler(
           text: capture[1],
         }
       },
-      _render(node, output, state) {
-        return (
-          <a key={state.key} href={sanitize(node.target, 'a', 'href')}>
-            <sup key={state.key}>{node.text}</sup>
-          </a>
-        )
-      },
     } as MarkdownToJSX.Rule<{ target: string; text: string }>,
 
     [RuleType.gfmTask]: {
@@ -1533,16 +1670,6 @@ export function compiler(
         return {
           completed: capture[1].toLowerCase() === 'x',
         }
-      },
-      _render(node, output, state) {
-        return (
-          <input
-            checked={node.completed}
-            key={state.key}
-            readOnly
-            type="checkbox"
-          />
-        )
       },
     } as MarkdownToJSX.Rule<{ completed: boolean }>,
 
@@ -1558,13 +1685,6 @@ export function compiler(
           id: slug(capture[2], slugify),
           level: capture[1].length as MarkdownToJSX.HeadingNode['level'],
         }
-      },
-      _render(node, output, state) {
-        return h(
-          `h${node.level}`,
-          { id: node.id, key: state.key },
-          output(node.children, state)
-        )
       },
     },
 
@@ -1644,13 +1764,6 @@ export function compiler(
 
         return ast
       },
-      _render(node, output, state) {
-        return (
-          <node.tag key={state.key} {...node.attrs}>
-            {node.text || (node.children ? output(node.children, state) : '')}
-          </node.tag>
-        )
-      },
     },
 
     [RuleType.htmlSelfClosing]: {
@@ -1667,9 +1780,6 @@ export function compiler(
           tag,
         }
       },
-      _render(node, output, state) {
-        return <node.tag {...node.attrs} key={state.key} />
-      },
     },
 
     [RuleType.htmlComment]: {
@@ -1679,7 +1789,6 @@ export function compiler(
       _parse() {
         return {}
       },
-      _render: renderNothing,
     },
 
     [RuleType.image]: {
@@ -1692,16 +1801,6 @@ export function compiler(
           target: unescape(capture[2]),
           title: unescape(capture[3]),
         }
-      },
-      _render(node, output, state) {
-        return (
-          <img
-            key={state.key}
-            alt={node.alt || undefined}
-            title={node.title || undefined}
-            src={sanitize(node.target, 'img', 'src')}
-          />
-        )
       },
     } as MarkdownToJSX.Rule<{
       alt?: string
@@ -1719,17 +1818,6 @@ export function compiler(
           target: unescape(capture[2]),
           title: unescape(capture[3]),
         }
-      },
-      _render(node, output, state) {
-        return (
-          <a
-            key={state.key}
-            href={sanitize(node.target, 'a', 'href')}
-            title={node.title}
-          >
-            {output(node.children, state)}
-          </a>
-        )
       },
     },
 
@@ -1801,18 +1889,12 @@ export function compiler(
       _match: blockRegex(CONSECUTIVE_NEWLINE_R),
       _order: Priority.LOW,
       _parse: captureNothing,
-      _render(/*node, output, state*/) {
-        return '\n'
-      },
     },
 
     [RuleType.paragraph]: {
       _match: allowInline(matchParagraph),
       _order: Priority.LOW,
       _parse: parseCaptureInline,
-      _render(node, output, state) {
-        return <p key={state.key}>{output(node.children, state)}</p>
-      },
     } as MarkdownToJSX.Rule<ReturnType<typeof parseCaptureInline>>,
 
     [RuleType.ref]: {
@@ -1827,7 +1909,6 @@ export function compiler(
 
         return {}
       },
-      _render: renderNothing,
     },
 
     [RuleType.refImage]: {
@@ -1839,16 +1920,6 @@ export function compiler(
           alt: capture[1] ? unescape(capture[1]) : undefined,
           ref: capture[2],
         }
-      },
-      _render(node, output, state) {
-        return refs[node.ref] ? (
-          <img
-            key={state.key}
-            alt={node.alt}
-            src={sanitize(refs[node.ref].target, 'img', 'src')}
-            title={refs[node.ref].title}
-          />
-        ) : null
       },
     } as MarkdownToJSX.Rule<{ alt?: string; ref: string }>,
 
@@ -1863,19 +1934,6 @@ export function compiler(
           ref: capture[2],
         }
       },
-      _render(node, output, state) {
-        return refs[node.ref] ? (
-          <a
-            key={state.key}
-            href={sanitize(refs[node.ref].target, 'a', 'href')}
-            title={refs[node.ref].title}
-          >
-            {output(node.children, state)}
-          </a>
-        ) : (
-          <span key={state.key}>{node.fallbackChildren}</span>
-        )
-      },
     },
 
     [RuleType.table]: {
@@ -1883,40 +1941,6 @@ export function compiler(
       _match: blockRegex(NP_TABLE_R),
       _order: Priority.HIGH,
       _parse: parseTable,
-      _render(node, output, state) {
-        const table = node as MarkdownToJSX.TableNode
-        return (
-          <table key={state.key}>
-            <thead>
-              <tr>
-                {table.header.map(function generateHeaderCell(content, i) {
-                  return (
-                    <th key={i} style={getTableStyle(table, i)}>
-                      {output(content, state)}
-                    </th>
-                  )
-                })}
-              </tr>
-            </thead>
-
-            <tbody>
-              {table.cells.map(function generateTableRow(row, i) {
-                return (
-                  <tr key={i}>
-                    {row.map(function generateTableCell(content, c) {
-                      return (
-                        <td key={c} style={getTableStyle(table, c)}>
-                          {output(content, state)}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        )
-      },
     },
 
     [RuleType.text]: {
@@ -1944,9 +1968,6 @@ export function compiler(
                 ),
         }
       },
-      _render(node) {
-        return node.text
-      },
     },
 
     [RuleType.textFormatted]: {
@@ -1958,13 +1979,6 @@ export function compiler(
           children: parse(capture[2], state),
           tag: capture[1],
         }
-      },
-      _render(node, output, state) {
-        return h(
-          node.tag as MarkdownToJSX.HTMLTags,
-          { key: state.key },
-          output(node.children, state)
-        )
       },
     },
 
@@ -2078,7 +2092,7 @@ export function compiler(
   }
 
   const parser = parserFor(rules)
-  const emitter = createRenderer(rules, options.renderRule)
+  const emitter = createRenderer(options.renderRule, h, sanitize, slug, refs)
 
   const jsx = compile(markdown)
 
@@ -2167,7 +2181,8 @@ const Markdown: React.FC<
     options?: MarkdownToJSX.Options
   }
 > = ({ children: rawChildren, options, ...props }) => {
-  const children = rawChildren === null || rawChildren === undefined ? '' : rawChildren
+  const children =
+    rawChildren === null || rawChildren === undefined ? '' : rawChildren
 
   if (process.env.NODE_ENV !== 'production' && typeof children !== 'string') {
     console.error(
