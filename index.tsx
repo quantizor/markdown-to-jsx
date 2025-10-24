@@ -210,23 +210,23 @@ function matchHTMLBlock(source: string): RegExpMatchArray | null {
   const tagLower = tagName.toLowerCase()
   const openRE = new RegExp('<' + tagLower + '(?:[ >])', 'gi')
   const closeRE = new RegExp('</\\s*' + tagLower + '\\s*>', 'gi')
- 
+
   let pos = m[0].length
   const hasNewlineAfterOpen = source[pos] === '\n'
   if (hasNewlineAfterOpen) pos++
-  
+
   let contentEnd = pos
   let depth = 1
- 
+
   while (depth > 0) {
     openRE.lastIndex = pos
     const openMatch = openRE.exec(source)
-    
+
     closeRE.lastIndex = pos
     const closeMatch = closeRE.exec(source)
-    
+
     if (!closeMatch) return null
- 
+
     if (openMatch && openMatch.index < closeMatch.index) {
       pos = openRE.lastIndex
       depth++
@@ -236,10 +236,10 @@ function matchHTMLBlock(source: string): RegExpMatchArray | null {
       depth--
     }
   }
- 
+
   let trailingNewlineCount = 0
   while (source[pos + trailingNewlineCount] === '\n') trailingNewlineCount++
-  
+
   const fullMatch = source.slice(0, pos + trailingNewlineCount)
   const contentStart = m[0].length + (hasNewlineAfterOpen ? 1 : 0)
   const content = source.slice(contentStart, contentEnd)
@@ -2197,7 +2197,7 @@ export function compiler(
  */
 const Markdown: React.FC<
   Omit<React.HTMLAttributes<Element>, 'children'> & {
-    children: string
+    children?: string | null
     options?: MarkdownToJSX.Options
   }
 > = ({ children: rawChildren, options, ...props }) => {
