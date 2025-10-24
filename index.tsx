@@ -200,30 +200,52 @@ const HEADING_ATX_COMPLIANT_R =
   /^ *(#{1,6}) +([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
 const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-)\2{2,} *\n/
 
-/**
- * Explanation:
- *
- * 1. Look for a starting tag, preceded by any amount of spaces
- *    ^ *<
- *
- * 2. Capture the tag name (capture 1)
- *    ([^ >/]+)
- *
- * 3. Ignore a space after the starting tag and capture the attribute portion of the tag (capture 2)
- *     ?([^>]*)>
- *
- * 4. Ensure a matching closing tag is present in the rest of the input string
- *    (?=[\s\S]*<\/\1>)
- *
- * 5. Capture everything until the matching closing tag -- this might include additional pairs
- *    of the same tag type found in step 2 (capture 3)
- *    ((?:[\s\S]*?(?:<\1[^>]*>[\s\S]*?<\/\1>)*[\s\S]*?)*?)<\/\1>
- *
- * 6. Capture excess newlines afterward
- *    \n*
- */
-const HTML_BLOCK_ELEMENT_R =
-  /^(?!<[a-z][^ >/]* ?\/>)<([a-z][^ >/]*) ?((?:[^>]*[^/])?)>\n?(\s*(?:<\1[^>]*?>[\s\S]*?<\/\1>|(?!<\1\b)[\s\S])*?)<\/\1>(?!<\/\1>)\n*/i
+const HTML_BLOCK_ELEMENT_START_R = /^ *<([a-z][^ >/]*) ?((?:[^>]*[^/])?)>/i
+
+function matchHTMLBlock(source: string): RegExpMatchArray | null {
+  const m = HTML_BLOCK_ELEMENT_START_R.exec(source)
+  if (!m) return null
+
+  const tagName = m[1]
+  const tagLower = tagName.toLowerCase()
+  const openRE = new RegExp('<' + tagLower + '(?:[ >])', 'gi')
+  const closeRE = new RegExp('</\\s*' + tagLower + '\\s*>', 'gi')
+ 
+  let pos = m[0].length
+  const hasNewlineAfterOpen = source[pos] === '\n'
+  if (hasNewlineAfterOpen) pos++
+  
+  let contentEnd = pos
+  let depth = 1
+ 
+  while (depth > 0) {
+    openRE.lastIndex = pos
+    const openMatch = openRE.exec(source)
+    
+    closeRE.lastIndex = pos
+    const closeMatch = closeRE.exec(source)
+    
+    if (!closeMatch) return null
+ 
+    if (openMatch && openMatch.index < closeMatch.index) {
+      pos = openRE.lastIndex
+      depth++
+    } else {
+      contentEnd = closeMatch.index
+      pos = closeMatch.index + closeMatch[0].length
+      depth--
+    }
+  }
+ 
+  let trailingNewlineCount = 0
+  while (source[pos + trailingNewlineCount] === '\n') trailingNewlineCount++
+  
+  const fullMatch = source.slice(0, pos + trailingNewlineCount)
+  const contentStart = m[0].length + (hasNewlineAfterOpen ? 1 : 0)
+  const content = source.slice(contentStart, contentEnd)
+
+  return [fullMatch, tagName, m[2], content] as RegExpMatchArray
+}
 
 const HTML_CHAR_CODE_R = /&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-fA-F]{1,6});/gi
 
@@ -1337,7 +1359,7 @@ function attrStringToMap(
 
       if (
         typeof normalizedValue === 'string' &&
-        (HTML_BLOCK_ELEMENT_R.test(normalizedValue) ||
+        (HTML_BLOCK_ELEMENT_START_R.test(normalizedValue) ||
           HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue))
       ) {
         map[mappedKey] = compile(normalizedValue.trim())
@@ -1396,7 +1418,7 @@ export function compiler(
   const BLOCK_SYNTAXES = [
     ...NON_PARAGRAPH_BLOCK_SYNTAXES,
     PARAGRAPH_R,
-    HTML_BLOCK_ELEMENT_R,
+    HTML_BLOCK_ELEMENT_START_R,
     HTML_COMMENT_R,
     HTML_SELF_CLOSING_ELEMENT_R,
   ]
@@ -1712,7 +1734,7 @@ export function compiler(
       /**
        * find the first matching end tag and process the interior
        */
-      _match: anyScopeRegex(HTML_BLOCK_ELEMENT_R),
+      _match: allowInline(matchHTMLBlock),
       _order: Priority.HIGH,
       _parse(capture, parse, state) {
         const [, whitespace] = capture[3].match(HTML_LEFT_TRIM_AMOUNT_R)
