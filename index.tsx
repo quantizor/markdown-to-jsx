@@ -194,13 +194,13 @@ const FOOTNOTE_R = /^\[\^([^\]]+)](:(.*)((\n+ {4,}.*)|(\n(?!\[\^).+))*)/
 const FOOTNOTE_REFERENCE_R = /^\[\^([^\]]+)]/
 const FORMFEED_R = /\f/g
 const FRONT_MATTER_R = /^---[ \t]*\n(.|\n)*\n---[ \t]*\n/
-const GFM_TASK_R = /^\s*?\[(x|\s)\]/
-const HEADING_R = /^ *(#{1,6}) *([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
+const GFM_TASK_R = /^\[(x|\s)\]/
+const HEADING_R = /^(#{1,6}) *([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
 const HEADING_ATX_COMPLIANT_R =
   /^ *(#{1,6}) +([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
 const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-)\2{2,} *\n/
 
-const HTML_BLOCK_ELEMENT_START_R = /^ *<([a-z][^ >/]*) ?((?:[^>]*[^/])?)>/i
+const HTML_BLOCK_ELEMENT_START_R = /^<([a-z][^ >/]*) ?((?:[^>]*[^/])?)>/i
 
 function matchHTMLBlock(source: string): RegExpMatchArray | null {
   const m = HTML_BLOCK_ELEMENT_START_R.exec(source)
