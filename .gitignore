@@ -2,6 +2,7 @@ node_modules/
 .git/
 .DS_Store
 coverage/
+*.cpuprofile
 *.log
 package-lock.json
 
