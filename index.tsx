@@ -1661,7 +1661,12 @@ export function compiler(
     },
 
     [RuleType.breakThematic]: {
-      _qualify: ['--', '__', '**', '- ', '* ', '_ '],
+      _qualify: function (source, state) {
+        // Only attempt in block mode
+        if (state.inline || state.simple) return false
+        var c = source[0]
+        return c === '-' || c === '*' || c === '_'
+      },
       _match: blockRegex(BREAK_THEMATIC_R),
       _order: Priority.HIGH,
       _parse: captureNothing,
@@ -1899,7 +1904,17 @@ export function compiler(
 
     // https://daringfireball.net/projects/markdown/syntax#autolink
     [RuleType.linkAngleBraceStyleDetector]: {
-      _qualify: ['<'],
+      _qualify: function (source, state) {
+        // Only attempt in inline mode and skip if in anchor
+        if (!state.inline || state.inAnchor) return false
+        // Must start with < and contain URL-like characters
+        if (source[0] !== '<') return false
+        return (
+          includes(source, ':') ||
+          includes(source, '@') ||
+          includes(source, '/')
+        )
+      },
       _match: inlineRegex(LINK_AUTOLINK_R),
       _order: Priority.MAX,
       _parse(capture /*, parse, state*/) {
@@ -1968,6 +1983,10 @@ export function compiler(
     },
 
     [RuleType.paragraph]: {
+      _qualify: function (source, state) {
+        // Only attempt paragraph if not in inline/simple mode
+        return !state.inline && !state.simple
+      },
       _match: allowInline(matchParagraph),
       _order: Priority.LOW,
       _parse: parseCaptureInline,
