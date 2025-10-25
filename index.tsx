@@ -1298,6 +1298,27 @@ function createRenderer(
     ast: MarkdownToJSX.ParserResult | MarkdownToJSX.ParserResult[],
     state: MarkdownToJSX.State = {}
   ): React.ReactNode[] | React.ReactNode {
+    // Track render depth to prevent stack overflow from extremely deep nesting
+    const currentDepth = (state.renderDepth || 0) + 1
+    const MAX_RENDER_DEPTH = 2500
+
+    if (currentDepth > MAX_RENDER_DEPTH) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(
+          'markdown-to-jsx: Rendering depth exceeded maximum (2500 levels). ' +
+            'This usually indicates extremely nested delimiter sequences (e.g., 5,000+ consecutive asterisks). ' +
+            'Consider breaking up the nested formatting or reducing delimiter depth.'
+        )
+      }
+      // Return plain text as fallback to prevent stack overflow
+      if (Array.isArray(ast)) {
+        return ast.map(node => ('text' in node ? node.text : ''))
+      }
+      return 'text' in ast ? ast.text : ''
+    }
+
+    state.renderDepth = currentDepth
+
     if (Array.isArray(ast)) {
       const oldKey = state.key
       const result = []
@@ -1322,11 +1343,15 @@ function createRenderer(
       }
 
       state.key = oldKey
+      state.renderDepth = currentDepth - 1
 
       return result
     }
 
-    return renderRule(ast, patchedRender, state)
+    const result = renderRule(ast, patchedRender, state)
+    state.renderDepth = currentDepth - 1
+
+    return result
   }
 }
 
@@ -1575,7 +1600,11 @@ export function compiler(
       jsx = null
     }
 
-    return createElement(wrapper, { key: 'outer' }, jsx) as React.JSX.Element
+    return createElement(
+      wrapper,
+      { key: 'outer', ...options.wrapperProps },
+      jsx
+    ) as React.JSX.Element
   }
 
   if (process.env.NODE_ENV !== 'production') {
@@ -2256,10 +2285,13 @@ const Markdown: React.FC<
     )
   }
 
-  return React.cloneElement(
-    compiler(children, options),
-    props as React.JSX.IntrinsicAttributes
-  )
+  return compiler(children, {
+    ...options,
+    wrapperProps: {
+      ...options?.wrapperProps,
+      ...props,
+    } as React.JSX.IntrinsicAttributes,
+  })
 }
 
 export namespace MarkdownToJSX {
@@ -2295,6 +2327,8 @@ export namespace MarkdownToJSX {
     prevCapture?: string
     /** true if parsing in inline context w/o links */
     simple?: boolean
+    /** current recursion depth during rendering */
+    renderDepth?: number
   }
 
   export interface BlockQuoteNode {
@@ -2698,6 +2732,11 @@ export namespace MarkdownToJSX {
      * that won't show up in the DOM.
      */
     wrapper: React.ElementType | null
+
+    /**
+     * Props to apply to the wrapper element.
+     */
+    wrapperProps?: React.JSX.IntrinsicAttributes
   }>
 }
 
