@@ -4,10 +4,15 @@ import { execSync } from 'child_process'
 
 async function main() {
   const markdown = fs.readFileSync('fixture.md', 'utf8')
+
+  console.log('Importing markdown-to-jsx...')
   const { compiler } = await import('./dist/debug.module.js')
 
   const gc = global.gc
-  if (gc) gc()
+  if (gc) {
+    console.log('Taking baseline memory snapshot...')
+    gc()
+  }
 
   console.log('Starting profile...')
   console.log('Input size:', Math.round(markdown.length / 1024) + 'KB')
