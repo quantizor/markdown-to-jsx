@@ -1917,7 +1917,7 @@ export function compiler(
     [RuleType.linkBareUrlDetector]: {
       _qualify: (source, state) => {
         if (state.inAnchor || options.disableAutoLink) return false
-        return startsWith(source, 'http://') || startsWith(source, 'https://')
+        return startsWith(source, 'http')
       },
       _match: inlineRegex(LINK_AUTOLINK_BARE_URL_R),
       _order: Priority.MAX,
