@@ -208,43 +208,101 @@ function matchHTMLBlock(source: string): RegExpMatchArray | null {
 
   const tagName = m[1]
   const tagLower = tagName.toLowerCase()
-  const openRE = new RegExp('<' + tagLower + '(?:[ >])', 'gi')
-  const closeRE = new RegExp('</\\s*' + tagLower + '\\s*>', 'gi')
+  const openTagLen = tagLower.length + 1
 
   let pos = m[0].length
-  const hasNewlineAfterOpen = source[pos] === '\n'
-  if (hasNewlineAfterOpen) pos++
-
+  if (source[pos] === '\n') pos++
+  const contentStart = pos
   let contentEnd = pos
   let depth = 1
+  const sourceLen = source.length
 
   while (depth > 0) {
-    openRE.lastIndex = pos
-    const openMatch = openRE.exec(source)
+    const idx = source.indexOf('<', pos)
+    if (idx === -1) return null
 
-    closeRE.lastIndex = pos
-    const closeMatch = closeRE.exec(source)
+    let openIdx = -1
+    let closeIdx = -1
 
-    if (!closeMatch) return null
+    if (source[idx + 1] === '/') {
+      closeIdx = idx
+    } else if (
+      source[idx + 1] === tagLower[0] ||
+      source[idx + 1] === tagName[0]
+    ) {
+      let match = true
+      for (let i = 0; i < tagLower.length; i++) {
+        const c = source[idx + 1 + i]
+        if (c !== tagLower[i] && c !== tagName[i]) {
+          match = false
+          break
+        }
+      }
+      if (
+        match &&
+        (source[idx + openTagLen] === ' ' || source[idx + openTagLen] === '>')
+      ) {
+        openIdx = idx
+      }
+    }
 
-    if (openMatch && openMatch.index < closeMatch.index) {
-      pos = openRE.lastIndex
+    if (openIdx === -1 && closeIdx === -1) {
+      pos = idx + 1
+      continue
+    }
+
+    if (openIdx !== -1 && (closeIdx === -1 || openIdx < closeIdx)) {
+      pos = openIdx + openTagLen + 1
       depth++
     } else {
-      contentEnd = closeMatch.index
-      pos = closeMatch.index + closeMatch[0].length
+      let p = closeIdx + 2
+      while (p < sourceLen) {
+        const c = source[p]
+        if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') break
+        p++
+      }
+      if (p + tagLower.length > sourceLen) return null
+
+      let match = true
+      for (let i = 0; i < tagLower.length; i++) {
+        const c = source[p + i]
+        if (c !== tagLower[i] && c !== tagName[i]) {
+          match = false
+          break
+        }
+      }
+      if (!match) {
+        pos = p
+        continue
+      }
+
+      p += tagLower.length
+      while (p < sourceLen) {
+        const c = source[p]
+        if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') break
+        p++
+      }
+      if (p >= sourceLen || source[p] !== '>') {
+        pos = p
+        continue
+      }
+
+      contentEnd = closeIdx
+      pos = p + 1
       depth--
     }
   }
 
-  let trailingNewlineCount = 0
-  while (source[pos + trailingNewlineCount] === '\n') trailingNewlineCount++
+  let trailingNl = 0
+  while (pos + trailingNl < sourceLen && source[pos + trailingNl] === '\n')
+    trailingNl++
 
-  const fullMatch = source.slice(0, pos + trailingNewlineCount)
-  const contentStart = m[0].length + (hasNewlineAfterOpen ? 1 : 0)
-  const content = source.slice(contentStart, contentEnd)
-
-  return [fullMatch, tagName, m[2], content] as RegExpMatchArray
+  return [
+    source.slice(0, pos + trailingNl),
+    tagName,
+    m[2],
+    source.slice(contentStart, contentEnd),
+  ] as RegExpMatchArray
 }
 
 const HTML_CHAR_CODE_R = /&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-fA-F]{1,6});/gi
