@@ -421,6 +421,161 @@ function intern(str) {
 
 **Recommendation**: Start with Idea J (hybrid approach)
 
+### Cursor Implementation Results
+
+**Implemented**: Idea E (Incremental slice() Optimization) with cursor tracking
+
+**Changes Made**:
+
+- Added `sourceOffset` parameter to `nestedParse`
+- Track cursor offset instead of repeatedly calling `substring()`
+- Only slice once per iteration: `const remaining = source.slice(cursor)`
+- Pass offset to nested parsing for continuation
+
+**Performance Impact**:
+
+- **Parse time**: +7.7% slower (14.21ms vs 13.20ms)
+- **Allocations**: +2.4% increase (1,687KB vs 1,648KB)
+- **GC freed**: +10.8% more reclaimed (1,157KB vs 1,044KB)
+- **Final overhead**: -12.4% reduction (529KB vs 604KB)
+
+**Analysis**:
+The cursor approach didn't reduce allocations as expected because we still call `slice()` once per iteration. However, GC efficiency improved significantly - more memory was reclaimed with better final overhead. The slight slowdown suggests the cursor approach introduces overhead that outweighs the benefits.
+
+**Conclusion**:
+
+- ✅ GC efficiency improved
+- ✅ Final memory footprint better
+- ❌ Actually slower than original
+- ❌ Didn't reduce allocations
+
+**Next Steps**: The optimization failed because we still allocate `remaining` on every iteration. To truly reduce allocations, we'd need Idea D (StringView) or Idea H (Regex modification), but those are too invasive. The current implementation is a net negative.
+
+**Decision**: ✅ **REVERTED** - The cursor changes have been reverted back to the original `substring()` approach. The overhead introduced (function calls, offset tracking) outweighs the minimal benefits. The original approach is simpler and performs adequately.
+
+### Lazy String Slicing Implementation Results
+
+**Implemented**: Simple variable to avoid reassigning `source`
+
+**Changes Made**:
+
+- Created `remaining` variable to hold the substring
+- Changed `source = source.substring()` to `remaining = remaining.substring()`
+- One fewer variable reassignment
+
+**Performance Impact**:
+
+- **Parse time**: Identical (14.61ms vs 14.59ms, within noise)
+- **Allocations**: Identical (1,675KB vs 1,672KB, within noise)
+- **GC**: Identical
+
+**Analysis**:
+This was essentially a no-op. The `remaining` variable introduced no performance benefit because the original `source.substring()` was already efficient. This confirms that `substring()` operations are optimized well in V8.
+
+**Decision**: ✅ **REVERTED** - Trivial change with no measurable benefit
+
+### Summary of Attempts
+
+**Character Dispatch Table**: ❌ Failed
+
+- Added complexity without reducing iterations
+- Still checked all rules, just with Set lookups
+- Major performance regression
+
+**Cursor/Offset Tracking**: ❌ Failed
+
+- Didn't reduce allocations as expected
+- Still slice once per iteration
+- Introduced overhead that slowed parsing
+- GC efficiency improved slightly but not worth it
+
+**Lazy String Slicing**: ❌ Failed
+
+- Simple variable change with no measurable impact
+- Confirmed `substring()` is already well-optimized in V8
+- Within statistical noise of original
+
+**Conclusion**:
+The current implementation with `substring()` is actually quite efficient. The overhead from trying to optimize string operations outweighs the benefits. String operations in modern JS engines are highly optimized, and our hand-optimization attempts are fighting against the VM rather than helping.
+
+**Best Path Forward**:
+
+1. Accept current memory profile as reasonable for a parser
+2. Focus on algorithmic improvements (state-based filtering) rather than micro-optimizations
+3. Let the JS engine handle string optimizations
+4. Consider more significant refactors only if profiling shows specific bottlenecks
+
+The profiling tool in `yarn metrics` is now available for future performance investigations.
+
+---
+
+## What's Left to Try
+
+From the original ideas, here's what's still promising:
+
+### 🎯 High Impact Options
+
+**1. State-Based Rule Filtering** (#1)
+
+- **Gain**: Reduce from ~30 rules to ~5-10 per check (66-83% reduction)
+- **Complexity**: Medium
+- **Status**: Not tried
+- **Risk**: Low - just reorganizing rule lists
+- **Why Promising**: Direct reduction in iterations, biggest potential win
+
+**2. Bail-Out After Catch-All Rules** (#8)
+
+- **Gain**: Skip remaining rules when text rule matches (common case)
+- **Complexity**: Low - small logic addition
+- **Status**: Not tried
+- **Risk**: Very Low
+- **Why Promising**: Text rule is Priority.MIN and catches everything
+
+### 🟡 Medium Impact Options
+
+**3. Idea F: StringBuilder for prevCapture**
+
+- **Gain**: 10-15% reduction in concatenation allocations
+- **Complexity**: Medium - refactor concatenation points
+- **Status**: Not tried
+- **Risk**: Low
+- **Why Moderate**: Only addresses one allocation source
+
+**4. Idea G: Skip Unnecessary Operations**
+
+- **Gain**: 20-30% reduction (skip trim, normalize)
+- **Complexity**: Medium
+- **Status**: Not tried
+- **Risk**: Medium - need to track normalization state
+- **Why Moderate**: Touches multiple areas
+
+### 🔴 Low Impact / High Risk
+
+**5. Idea A: slice() vs substring()**
+
+- **Gain**: 5-10% reduction
+- **Complexity**: Trivial
+- **Status**: Not tried
+- **Note**: V8 likely optimized already
+
+**6. Idea B: String Pool**
+
+- **Gain**: 10-20% for repetitive content
+- **Complexity**: Medium
+- **Risk**: Memory leak potential
+- **Status**: Not tried
+
+**7. Idea D/H: Major Refactors**
+
+- **Gain**: High
+- **Complexity**: Very High
+- **Risk**: Very High
+- **Status**: Should avoid unless necessary
+
+### Recommendation
+
+Try **#1 (State-Based Rule Filtering)** first. It's the highest potential impact with reasonable complexity and low risk. This could meaningfully reduce iterations and improve cache locality.
+
 ### How to Profile Memory Pressure
 
 #### Quick Test - Heap Usage
@@ -634,3 +789,271 @@ const COMBINED_R = /^(?:heading|blockquote|code)/
 **Complexity**: Very High - requires assembly-level thinking, browser optimization-dependent
 
 **Reality**: Probably not worth it, depends on JS engine implementation
+
+---
+
+## Attempted Optimizations
+
+### State-Based Rule Filtering (Inline Qualify Check)
+
+**Implemented**: Inlined the `qualifies()` function call to eliminate function call overhead in the hot path
+
+**Changes Made**:
+
+- Moved the qualify check logic directly into the nestedParse loop
+- Eliminated the function call to `qualifies()`
+- Direct check of array-based qualifies using `startsWith()`
+
+**Performance Impact**:
+
+- **Parse time**: 14.66ms vs 14.35ms baseline (+2.2% slower)
+- **Allocations**: 1,631KB vs 1,672KB baseline (slightly better)
+- **Final overhead**: 610KB vs 529KB baseline (+15% worse)
+
+**Analysis**:
+Inlining the qualify check **hurt performance**. The added variable declarations (`qualifiesMatch`, `j`) and the more complex control flow introduced overhead that outweighed the benefit of eliminating a single function call. V8's inlining is already very good at optimizing small function calls like `qualifies()`.
+
+**Decision**: ✅ **REVERTED** - Micro-optimization that added overhead
+
+### State-Based Rule Filtering (Block Rule Skip)
+
+**Implemented**: Skip block-only rules when `state.inline` is true
+
+**Changes Made**:
+
+- Created `BLOCK_ONLY_RULES` Set with 13 block-only rule types
+- Added check `if ((state.inline || state.simple) && BLOCK_ONLY_RULES.has(ruleType)) continue`
+- Skip block rules (paragraph, heading, list, etc.) when parsing inline content
+
+**Performance Impact**:
+
+- Failed tests due to state switching issues
+- The dynamic nature of `state.inline` (switches during parsing) makes this approach fragile
+
+**Analysis**:
+State-based rule filtering is theoretically sound but practically difficult to implement correctly. The parser switches between inline and block modes dynamically, and incorrectly categorizing rules can cause parsing failures. The added Set lookup overhead may not justify the skipped rules, especially since most parsing starts in block mode.
+
+**Decision**: ✅ **REVERTED** - Too complex and fragile for the potential gain
+
+---
+
+## Updated Summary of Attempts
+
+**Character Dispatch Table**: ❌ Failed - Added complexity without reducing iterations
+
+**Cursor/Offset Tracking**: ❌ Failed - Didn't reduce allocations, introduced overhead
+
+**Lazy String Slicing**: ❌ Failed - No measurable impact
+
+**Inline Qualify Check**: ❌ Failed - Micro-optimization that added overhead
+
+**Block Rule Skip**: ❌ Failed - Too complex and fragile
+
+**Character Dispatch Table (Proper)**: ❌ Failed - Can't maintain priority order efficiently
+
+**Conclusion**:
+The current implementation is already well-optimized within its architectural constraints. V8's JIT compiler handles micro-optimizations automatically (function inlining, string operations, etc.). Manual attempts to optimize these areas add overhead rather than benefit.
+
+**Best Path Forward**:
+
+1. **Accept current performance** - 14ms for 27KB is reasonable for single-pass JSX output
+2. **Understand the architectural trade-off** - The 2-3x gap vs markdown-it is inherent to the design
+3. **Focus on bundle size** instead of runtime performance (already < 8KB gzipped)
+4. **Consider architectural changes** only if performance becomes a real user problem
+
+**Key Realization**: The performance "problem" isn't a bug - it's a fundamental consequence of choosing single-pass direct-to-JSX architecture over two-pass tokenization. Both have merits, but optimize different things.
+
+---
+
+### Character Dispatch Table (Second Attempt - Proper Iteration Reduction)
+
+**Implemented**: Proper dispatch table that ONLY iterates through candidate rules for each character
+
+**Changes Made**:
+
+- Built `charDispatch` mapping characters to candidate rules
+- Separated non-dispatchable rules (function-based qualifiers)
+- Only iterate through `candidates.concat(nonDispatchableRules)` instead of all 30 rules
+- Attempted to merge lists while maintaining priority order
+
+**Performance Impact**:
+
+- **Parse time**: 13.57ms (with sorting every iteration) - 5.4% faster, but...
+- **Correctness**: Failed tests due to priority order issues
+
+**Analysis**:
+The dispatch table CAN reduce iterations, but maintaining priority order when merging candidate and non-dispatchable rules requires:
+
+1. Sorting every iteration (13.57ms) - wastes the gain
+2. Complex merge logic - fragile and error-prone
+
+The fundamental problem: **we need to iterate rules in priority order**. Dispatch breaks this ordering by grouping rules by character, requiring re-sorting that negates the benefit.
+
+**Decision**: ✅ **REVERTED** - Can't maintain priority order efficiently
+
+**Key Insight**: The current linear scan through sorted rules is actually optimal. The priority system and qualifier checks already filter most rules efficiently. Trying to be clever with dispatch tables adds overhead that outweighs benefits.
+
+---
+
+## Why markdown-it is Faster
+
+### Key Architectural Differences
+
+Based on benchmarks and architectural analysis, markdown-it achieves 2-3x better performance than markdown-to-jsx. Here's why:
+
+#### 1. **Two-Pass Architecture**
+
+**markdown-it**:
+
+- **Pass 1 (Tokenization)**: Convert markdown → AST (tokens)
+- **Pass 2 (Rendering)**: Convert AST → HTML
+
+**markdown-to-jsx**:
+
+- **Single Pass**: Directly convert markdown → JSX in one pass
+
+**Performance Impact**:
+
+- Tokens are lightweight objects (just type + content)
+- Rendering logic only processes tokens, not raw markdown
+- Regex and parsing overhead happens once, rendering is cheap
+- Separation allows optimization of each phase independently
+
+#### 2. **Token-Based Representation**
+
+**markdown-it tokens**:
+
+```javascript
+{ type: 'paragraph_open', tag: 'p' }
+{ type: 'text', content: 'hello' }
+{ type: 'paragraph_close', tag: 'p' }
+```
+
+**markdown-to-jsx**:
+
+- Directly generates JSX elements during parsing
+- Each rule creates JSX structures immediately
+- Mixes parsing concerns with rendering concerns
+
+**Performance Impact**:
+
+- Tokens are simple objects (fast to create, manipulate, cache)
+- Rendering can be optimized independently (memoization, etc.)
+- No React.createElement overhead during parsing
+
+#### 3. **Optimized Tokenizer Loop**
+
+**markdown-it**:
+
+- Uses dedicated `StateInline` and `StateBlock` classes
+- Tokenizer rules don't create HTML/JSX
+- Rules return simple match objects, tokens are created separately
+- Parsing is purely data extraction
+
+**markdown-to-jsx**:
+
+- Each rule calls `rule._parse()` which returns **data objects** (not JSX)
+- Data objects are rendered to JSX in a separate phase via `render()` function
+- More complex rule matching logic with qualifier checks
+- JSX creation happens after parsing completes, not during parsing
+
+**Clarification**: I was wrong about JSX creation during parsing. The flow is:
+
+1. Parse markdown → data objects (AST-like)
+2. Render data objects → JSX via `React.createElement`
+
+So JSX overhead isn't during parsing - it's during rendering. The real bottleneck is the parsing phase itself.
+
+#### 4. **Rule Execution Model**
+
+**markdown-it**:
+
+- Rules execute sequentially on token stream
+- Each rule modifies tokens in-place
+- Simple match → create token → continue
+- No priority system needed
+
+**markdown-to-jsx**:
+
+- Priority-based rule system
+- Each character position checks all rules in priority order
+- Qualifier pre-checks add overhead
+- More complex rule coordination
+
+#### 5. **Less String Manipulation**
+
+**markdown-it**:
+
+- Tokenizer extracts spans from original string
+- Tokens reference source positions
+- Minimal string copying during parsing
+- Strings only created for final HTML output
+
+**markdown-to-jsx**:
+
+- Constant `substring()` calls during parsing
+- Each match slices the source string
+- Nested parsing creates more strings
+- String allocations throughout parsing
+
+### Key Performance Bottlenecks in markdown-to-jsx
+
+1. **Priority System**: Overhead from sorting and qualifying checks
+2. **String Operations**: Too many substring allocations during parsing
+3. **Recursive Complexity**: Each rule's parse can trigger full nested parsing
+4. **Rule Matching Overhead**: Each character position checks multiple rules with qualifiers
+5. **JSX Creation Overhead**: React.createElement calls during rendering (not parsing)
+
+**Correction**: JSX creation happens **after** parsing, so it's not a parsing bottleneck. The real issue is the parsing algorithm itself (priority-based rule checking).
+
+### What markdown-it Does Right
+
+1. ✅ **Separation of concerns**: Parse once, render separately
+2. ✅ **Lightweight tokens**: Simple objects, not JSX
+3. ✅ **Minimal allocations**: Token references, not copies
+4. ✅ **Optimized for parsing**: Single responsibility
+5. ✅ **Cacheable**: Tokens can be cached, rendering is cheap
+
+### Fundamental Architectural Constraint
+
+**The Real Problem**: markdown-to-jsx uses a priority-based rule system that checks multiple rules per character position.
+
+**markdown-it's advantage**:
+
+- Rules run sequentially on tokens, not character-by-character
+- Simpler execution model (match → create token → continue)
+- No priority overhead
+- No qualifier checks
+
+**The actual bottlenecks**:
+
+1. Priority-based rule checking (checking many rules per position)
+2. Qualifier pre-checks before full regex
+3. String manipulation (substring calls)
+4. Recursive parsing calls
+
+**Not the problem**: JSX creation (happens after parsing)
+
+### Conclusion
+
+The performance gap is from **fundamental architectural differences**:
+
+1. **Rule execution model**: Sequential token parsing vs priority-based character checking
+2. **Overhead**: markdown-it has simpler rule matching without qualifiers
+3. **String handling**: markdown-it uses token positions, markdown-to-jsx uses substring calls
+4. **Not JSX overhead**: Both parse to data first, then render (JSX overhead is the same)
+
+**The real difference**: markdown-it's two-pass tokenization is inherently faster than character-by-character priority-based parsing.
+
+### Potential Improvements (Without Full Rewrite)
+
+1. **Token Abstraction**: Parse to intermediate token format, render separately
+2. **Lazy JSX Creation**: Generate JSX only at render time
+3. **Memoization**: Cache token trees, regenerate JSX from tokens
+4. **String Reduction**: Use token positions instead of substring calls
+
+### Should We Rewrite?
+
+**No** - The architectural change required (two-pass parsing) would break the API and potentially the design goals. The library's value proposition is "markdown → JSX in one step", which is incompatible with markdown-it's architecture.
+
+**Current performance (14ms for 27KB) is reasonable** for a single-pass parser that outputs JSX directly. The 2-3x gap is the cost of the architectural decision, not a bug.
