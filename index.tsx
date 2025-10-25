@@ -753,60 +753,48 @@ type StyleTuple = [key: string, value: string]
 
 function parseStyleAttribute(styleString: string): StyleTuple[] {
   const styles: StyleTuple[] = []
-  let buffer = ''
-  let inUrl = false
-  let inQuotes = false
-  let quoteChar: '"' | "'" | '' = ''
-
   if (!styleString) return styles
+
+  let buffer = ''
+  let depth = 0
+  let quoteChar = ''
 
   for (let i = 0; i < styleString.length; i++) {
     const char = styleString[i]
 
-    // Handle quotes
-    if ((char === '"' || char === "'") && !inUrl) {
-      if (!inQuotes) {
-        inQuotes = true
+    if (char === '"' || char === "'") {
+      if (!quoteChar) {
         quoteChar = char
+        depth++
       } else if (char === quoteChar) {
-        inQuotes = false
         quoteChar = ''
+        depth--
       }
-    }
-
-    // Track url() values
-    if (char === '(' && buffer.endsWith('url')) {
-      inUrl = true
-    } else if (char === ')' && inUrl) {
-      inUrl = false
-    }
-
-    // Only split on semicolons when not in quotes or url()
-    if (char === ';' && !inQuotes && !inUrl) {
-      const declaration = buffer.trim()
-      if (declaration) {
-        const colonIndex = declaration.indexOf(':')
-        if (colonIndex > 0) {
-          const key = declaration.slice(0, colonIndex).trim()
-          const value = declaration.slice(colonIndex + 1).trim()
-          styles.push([key, value])
-        }
+    } else if (char === '(' && buffer.endsWith('url')) {
+      depth++
+    } else if (char === ')' && depth > 0) {
+      depth--
+    } else if (char === ';' && depth === 0) {
+      const colonIndex = buffer.indexOf(':')
+      if (colonIndex > 0) {
+        styles.push([
+          buffer.slice(0, colonIndex).trim(),
+          buffer.slice(colonIndex + 1).trim(),
+        ])
       }
       buffer = ''
-    } else {
-      buffer += char
+      continue
     }
+
+    buffer += char
   }
 
-  // Handle the last declaration
-  const declaration = buffer.trim()
-  if (declaration) {
-    const colonIndex = declaration.indexOf(':')
-    if (colonIndex > 0) {
-      const key = declaration.slice(0, colonIndex).trim()
-      const value = declaration.slice(colonIndex + 1).trim()
-      styles.push([key, value])
-    }
+  const colonIndex = buffer.indexOf(':')
+  if (colonIndex > 0) {
+    styles.push([
+      buffer.slice(0, colonIndex).trim(),
+      buffer.slice(colonIndex + 1).trim(),
+    ])
   }
 
   return styles
@@ -820,31 +808,21 @@ function attributeValueToJSXPropValue(
 ): any {
   if (key === 'style') {
     return parseStyleAttribute(value).reduce(function (styles, [key, value]) {
-      // snake-case to camelCase
-      // also handles PascalCasing vendor prefixes
-      const camelCasedKey = key.replace(/(-[a-z])/g, substr =>
-        substr[1].toUpperCase()
-      )
-
-      // key.length + 1 to skip over the colon
-      styles[camelCasedKey] = sanitizeUrlFn(value, tag, key)
-
+      styles[key.replace(/(-[a-z])/g, substr => substr[1].toUpperCase())] =
+        sanitizeUrlFn(value, tag, key)
       return styles
     }, {})
-  } else if (ATTRIBUTES_TO_SANITIZE.indexOf(key) !== -1) {
+  }
+
+  if (ATTRIBUTES_TO_SANITIZE.indexOf(key) !== -1) {
     return sanitizeUrlFn(unescape(value), tag, key)
-  } else if (value.match(INTERPOLATION_R)) {
-    // return as a string and let the consumer decide what to do with it
+  }
+
+  if (value.match(INTERPOLATION_R)) {
     value = unescape(value.slice(1, value.length - 1))
   }
 
-  if (value === 'true') {
-    return true
-  } else if (value === 'false') {
-    return false
-  }
-
-  return value
+  return value === 'true' ? true : value === 'false' ? false : value
 }
 
 function normalizeWhitespace(source: string): string {
@@ -1387,31 +1365,24 @@ function attrStringToMap(
   sanitize: (value: string, tag: string, attribute: string) => string | null,
   compile: (value: string) => React.ReactNode
 ): React.JSX.IntrinsicAttributes {
-  if (!str || !str.trim()) {
-    return null
-  }
+  if (!str || !str.trim()) return null
 
   const attributes = str.match(ATTR_EXTRACTOR_R)
-  if (!attributes) {
-    return null
-  }
+  if (!attributes) return null
 
   return attributes.reduce(function (map, raw) {
     const delimiterIdx = raw.indexOf('=')
 
     if (delimiterIdx !== -1) {
       const key = normalizeAttributeKey(raw.slice(0, delimiterIdx)).trim()
-      const value = unquote(raw.slice(delimiterIdx + 1).trim())
-
       const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key
 
-      // bail out, not supported
       if (mappedKey === 'ref') return map
 
       const normalizedValue = (map[mappedKey] = attributeValueToJSXPropValue(
         tag,
         key,
-        value,
+        unquote(raw.slice(delimiterIdx + 1).trim()),
         sanitize
       ))
 
