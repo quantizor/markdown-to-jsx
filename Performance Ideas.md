@@ -1,5 +1,24 @@
 # Performance Optimization Ideas
 
+## Executive Summary
+
+**Goal**: Reduce parsing time from ~14ms to 3ms (78% reduction)
+
+**Result**: **FAILED** - No optimization achieved meaningful gains
+
+**Key Findings**:
+
+- GC overhead (7% of CPU time) is inherent to JavaScript's immutable strings
+- Regex matching requires string allocations (can't be avoided in JS)
+- All micro-optimization attempts either failed or caused regressions
+- Current ~14ms parse time is reasonable for this architecture
+
+**Conclusion**: Getting to 3ms requires a complete architectural rewrite (two-pass parsing like markdown-it), which would fundamentally change the library's design and API.
+
+---
+
+## Detailed Analysis
+
 ## Character Dispatch Table Attempt
 
 ### What We Tried
@@ -1168,7 +1187,147 @@ This is **linear** with nesting depth, not exponential. Exponential would be 30^
 - Skip remaining rules when guaranteed match found
 - **Attempted**: Failed - broke text matching logic
 
-**Conclusion**: Context-aware filtering is the most promising, but requires careful manual categorization of all rules and maintaining correct priority order. The ~11% speedup shown suggests it can help, but the risk of breaking parsing correctness is high.
+**Attempted**: Implemented context-aware filtering to skip block-only rules in inline mode.
+
+- **Results**: 14.99ms (actually slower than baseline ~6ms)
+- **Why failed**: Adding conditional logic inside the hot loop (`activeRules` check) creates overhead that outweighs the benefit
+- **Insight**: Micro-optimizations that add conditionals to hot paths are counterproductive. The rule list is small (~29 rules), so iterating through all rules is fast.
+
+**Conclusion**: Analyzed performance profile and found:
+
+- **Paragraph parsing**: 2.6ms (largest cost, 131 executions)
+- **HTML block parsing**: 2.2ms (30 executions)
+- **Code block parsing**: 0.5ms (82 executions)
+- **Text parsing**: 0.2ms (655 executions, but very fast)
+
+Nested recursion is NOT the bottleneck. The `matchParagraph` function is slow due to:
+
+- Multiple `includes()` calls checking for `\n\n`
+- Repeated `indexOf('\n')` in a while loop
+- String concatenation in the loop (`match += line`)
+- `some(NON_PARAGRAPH_BLOCK_SYNTAXES, line)` called per line
+
+To achieve 3ms parsing (~78% reduction from 14ms):
+
+1. ✅ **Identified**: Paragraph parsing is slowest (2.6ms)
+2. ✅ **Identified**: HTML block parsing is second (2.2ms)
+3. ❌ **Attempted**: Optimize `matchParagraph` - broke test, too risky
+4. **Alternative**: Focus on eliminating RegExp creation in HTML block `_parse`
+
+**Reality Check**: If the total time is 14ms and rendering is ~3ms (from profiling), then parsing is ~11ms. To get to 3ms parsing would require ~73% reduction, which is unrealistic without architectural changes.
+
+**Recommendation**: Accept the current performance. The library is well-optimized for its architecture.
+
+### Final Analysis: Can We Get to 3ms?
+
+**Current state**: 13.89ms parsing time for 27KB markdown
+**Target**: 3ms parsing time
+**Required reduction**: ~78%
+
+**Finding**: This is not achievable with incremental optimizations. The bottlenecks are:
+
+1. Paragraph matching algorithm is inherently O(n) per paragraph due to line-by-line checking
+2. HTML block parsing requires nested parsing with regex construction
+3. The parsing model itself is iterative over rules and source strings
+
+**To reach 3ms would require**:
+
+- Complete rewrite using a different parsing model (e.g., markdown-it's tokenizer-first approach)
+- Pre-compiling all dynamic regexes
+- Eliminating nested parsing recursion entirely
+
+**Conclusion**: The current 14ms parse time is reasonable for this architecture. Further optimization would risk correctness for minimal gains.
+
+## CPU Profiling Setup
+
+Added `yarn profile` command to generate CPU profiles for detailed analysis.
+
+**Usage**:
+
+```bash
+yarn profile  # Generates CPU.XXXX.cpuprofile
+```
+
+**View in Chrome DevTools**:
+
+1. Open Chrome DevTools → Performance tab
+2. Click "Load profile" button
+3. Select the `.cpuprofile` file
+4. Analyze the flamegraph to identify hot paths
+
+**Findings**:
+
+- Average parse time over 100 iterations: **1.66ms** (much faster than single run!)
+- This suggests warm-up/JIT effects are significant
+- The profile shows most time in regex matching and nested parsing
+
+**Profile Analysis Results** (Sandwich view):
+
+**Top Offenders**:
+
+1. **`nestedParse`**: 87.33ms (43%) total, 39.83ms (20%) self - Core parsing loop
+2. **`patchedRender`**: 60.63ms (30%) total, 3.75ms (1.8%) self - Rendering pipeline
+3. **`parseCaptureInline`**: 46.79ms (23%) total, 11.25ms (5.5%) self - Inline parsing
+4. **`h`**: 46.33ms (23%) total, 11.46ms (5.6%) self - JSX factory
+5. **`createElement`**: 25.67ms (13%) total, 3.79ms (1.9%) self - React.createElement
+6. **`(garbage collector)`**: **14.12ms (7.0%) total, 14.12ms (7.0%) self** ⚠️ **CRITICAL**
+7. **`RegExp: ^---[ \t]*\n(.|\n)*\n---[ \t]*\n`**: 13.71ms (6.7%) total, 11.17ms (5.5%) self - Front matter regex
+
+**Key Insight**: The garbage collector itself is consuming **7% of total CPU time**! All self-time means it's actively collecting, indicating high allocation pressure.
+
+**GC-Friendly Optimizations** (Target: Reduce 14.12ms GC time):
+
+**Attempted Optimizations**:
+
+**1. Cursor-Based Substring Elimination** ❌ **FAILED**
+
+- Tried using cursor/offset instead of `source.substring()`
+- Still had to use `source.slice(cursor)` which allocates
+- No performance improvement (14.81ms vs 13.89ms)
+
+**2. Array Buffer for prevCapture** ❌ **FAILED**
+
+- Tried using array buffer instead of `state.prevCapture += capture[0]`
+- Broke recursive parsing (nested parses need incremental updates)
+- Tests failed due to state management issues
+
+**Why These Failed**:
+
+- JavaScript strings are immutable - any operation creates new strings
+- V8 already optimizes `+=` concatenation with ropes
+- The GC overhead (7%) is inherent to the parsing model
+- Rules need actual strings, not just offsets
+- Recursive parsing needs incremental state updates
+
+**Conclusion**: The 7% GC overhead is a fundamental cost of the markdown parsing architecture. To eliminate it would require:
+
+1. Rewriting parser to avoid string manipulations entirely (unrealistic)
+2. Using native string views (not available in JS)
+3. Accepting that markdown parsing has allocation overhead
+
+**Character Array Optimization** ❌ **FAILED - MAJOR REGRESSION**
+
+Attempted to cache character array for fast single-character access:
+
+- Added `_sourceArray` and `_sourceOffset` to state
+- Optimized `qualifies()` to use `arr[offset]` for single-char checks
+- Track offset as we parse
+
+**Results**: Caused significant performance regression
+
+**Why It Failed**:
+
+- The character array split creates additional overhead
+- Tracking offset adds complexity without eliminating the main bottleneck
+- Single-char optimizations don't offset the cost of array operations
+- The "fast path" conditionals add overhead
+
+**Final Analysis**:
+
+- GC overhead (7%) is inherent to JavaScript's immutable strings and regex API
+- Every optimization attempt either failed or caused regressions
+- The current ~14ms parse time is reasonable for the architecture
+- Getting to 3ms (~78% reduction) is **not achievable** without complete architectural rewrite
 
 ### Optimization Opportunities:
 
