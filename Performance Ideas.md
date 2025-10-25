@@ -327,9 +327,14 @@ state.prevCapture = captureParts.join('')
 - ✅ One allocation instead of many
 - ❌ Array overhead
 - ❌ Extra joins
+- ❌ **Doesn't work with recursive parsing**
 
 **Complexity**: Medium - refactor concatenation points
 **Expected Gain**: 10-15% reduction
+
+**Attempted**: Failed because nested parsing relies on incremental updates to `state.prevCapture`. The buffer approach doesn't update the state during nested parsing, breaking lookback functionality used by list items and other nested rules.
+
+**Status**: ❌ Not viable due to recursive parsing requirements
 
 ---
 
@@ -1047,10 +1052,71 @@ The performance gap is from **fundamental architectural differences**:
 
 ### Potential Improvements (Without Full Rewrite)
 
-1. **Token Abstraction**: Parse to intermediate token format, render separately
-2. **Lazy JSX Creation**: Generate JSX only at render time
-3. **Memoization**: Cache token trees, regenerate JSX from tokens
-4. **String Reduction**: Use token positions instead of substring calls
+1. ✅ **AST Exposure**: Parse to AST and expose it (IMPLEMENTED - Feature)
+2. **Profile React Rendering**: Measure time spent in React.createElement
+3. **Optimize Rendering**: Reduce JSX creation overhead
+4. **Memoization**: Cache rendered JSX for repeated ASTs
+5. ~~**String Reduction**: Use token positions instead of substring calls~~ (❌ Attempted - incompatible with recursive parsing)
+
+### Next Steps for Performance:
+
+**Phase 1: Measure rendering performance**
+
+- Profile `render()` function separately
+- Measure React.createElement overhead
+- Determine parsing vs rendering split
+
+**Phase 2: Optimize based on findings**
+
+- If rendering is the bottleneck: optimize JSX creation
+- If parsing is the bottleneck: focus on parsing optimizations (already done)
+- If memory is the bottleneck: reduce allocations during rendering
+
+## Next: Profile React Rendering Performance
+
+We've focused heavily on parsing performance, but **we haven't profiled the React rendering phase yet**.
+
+### Questions to Answer:
+
+1. **How much time is spent in React.createElement()?**
+
+   - Each AST node creates JSX elements
+   - For a 27KB document, we might have hundreds of React.createElement calls
+   - Is this a bottleneck?
+
+2. **What's the overhead of JSX creation?**
+
+   - Every AST node → JSX element conversion
+   - Component overhead vs plain objects
+   - React reconciliation preparation
+
+3. **Can we optimize rendering?**
+   - Memoization opportunities
+   - Reducing object allocations during rendering
+   - Optimizing the render function
+
+### How to Profile Rendering:
+
+```javascript
+// Profile rendering separately from parsing
+const ast = compiler(markdown, { ast: true })
+
+// Measure rendering time
+const t0 = performance.now()
+const jsx = renderAST(ast) // Use createRenderer
+const t1 = performance.now()
+
+console.log('Render time:', t1 - t0, 'ms')
+```
+
+We need to:
+
+1. Add profiling hooks to the `render()` function
+2. Measure time spent in `React.createElement`
+3. Measure memory allocations during rendering
+4. Compare parsing time vs rendering time
+
+**Hypothesis**: React rendering might be a significant portion of the 14ms total time.
 
 ### Should We Rewrite?
 
