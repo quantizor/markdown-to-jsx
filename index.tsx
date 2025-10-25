@@ -1488,42 +1488,39 @@ export function compiler(
       (state.inHTML &&
         !includes(source, '\n\n') &&
         !includes(state.prevCapture, '\n\n'))
-    ) {
+    )
       return null
-    }
 
     let match = ''
     let start = 0
 
     while (true) {
-      const newlineIndex = source.indexOf('\n', start)
+      const nlIdx = source.indexOf('\n', start)
+      const line = source.slice(start, nlIdx === -1 ? undefined : nlIdx + 1)
+      const c = source[start]
 
-      // Extract the line including the newline
-      const line = source.slice(
-        start,
-        newlineIndex === -1 ? undefined : newlineIndex + 1
+      if (
+        (c === '>' ||
+          c === '#' ||
+          c === '|' ||
+          c === '`' ||
+          c === '~' ||
+          c === '*' ||
+          c === '-' ||
+          c === '_' ||
+          c === ' ') &&
+        some(NON_PARAGRAPH_BLOCK_SYNTAXES, line)
       )
-      if (some(NON_PARAGRAPH_BLOCK_SYNTAXES, line)) {
         break
-      }
 
       match += line
-
-      // Stop if line has no content (empty line)
-      if (newlineIndex === -1 || !line.trim()) {
-        break
-      }
-
-      start = newlineIndex + 1
+      if (nlIdx === -1 || !line.trim()) break
+      start = nlIdx + 1
     }
 
     const captured = trimEnd(match)
-    if (captured === '') {
-      return null
-    }
+    if (captured === '') return null
 
-    // parseCaptureInline expects the inner content to be at index 2
-    // because index 1 is the delimiter for text formatting syntaxes
     return [match, , captured] as RegExpMatchArray
   }
 
