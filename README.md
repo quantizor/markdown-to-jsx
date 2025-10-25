@@ -25,6 +25,7 @@ The most lightweight, customizable React markdown component.
     - [options.namedCodesToUnicode](#optionsnamedcodestounicode)
     - [options.disableAutoLink](#optionsdisableautolink)
     - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
+    - [options.ast](#optionsast)
   - [Syntax highlighting](#syntax-highlighting)
   - [Handling shortcodes](#handling-shortcodes)
   - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
@@ -572,6 +573,32 @@ compiler('This text has <span>html</span> in it but it won't be rendered', { dis
 
 <span>This text has &lt;span&gt;html&lt;/span&gt; in it but it won't be rendered</span>
 ```
+
+#### options.ast
+
+When `ast: true`, the compiler returns the parsed AST structure instead of rendered JSX. **This is the first time the AST is accessible to users!**
+
+```tsx
+import { compiler } from 'markdown-to-jsx'
+import type { MarkdownToJSX } from 'markdown-to-jsx'
+
+// Get the AST directly
+const ast = compiler('# Hello world', { ast: true })
+
+// TypeScript: AST is MarkdownToJSX.AST[]
+console.log(ast) // Array of parsed nodes with types
+
+// You can manipulate, transform, or analyze the AST before rendering
+```
+
+The AST format is `MarkdownToJSX.AST[]` and enables:
+
+- AST manipulation and transformation
+- Custom rendering logic without re-parsing
+- Caching parsed AST for performance
+- Linting or validation of markdown structure
+
+When footnotes are present, the returned value will be an object with `ast` and `footnotes` properties instead of just the AST array.
 
 ### Syntax highlighting
 
