@@ -1072,51 +1072,120 @@ The performance gap is from **fundamental architectural differences**:
 - If parsing is the bottleneck: focus on parsing optimizations (already done)
 - If memory is the bottleneck: reduce allocations during rendering
 
-## Next: Profile React Rendering Performance
+## Parsing Performance Deep Dive
 
-We've focused heavily on parsing performance, but **we haven't profiled the React rendering phase yet**.
+**Current State** (27KB document):
 
-### Questions to Answer:
+- **Parse time**: 6.12ms (67% of total)
+- **Render time**: 3.02ms (33% of total)
+- **Total**: 9.14ms
 
-1. **How much time is spent in React.createElement()?**
+### Profiling Data:
 
-   - Each AST node creates JSX elements
-   - For a 27KB document, we might have hundreds of React.createElement calls
-   - Is this a bottleneck?
+**Match Attempts**: 1,282 across all rules
+**Match Success**: 1,034 matches (19.3% miss ratio)
+**Most Expensive Rules**:
 
-2. **What's the overhead of JSX creation?**
+- `htmlBlock`: 2.230ms for 30 executions (74ms avg per execution!)
+- `unorderedList`: 1.282ms for 7 executions (183ms avg per execution!)
+- `headingSetext`: 0.209ms max per execution
 
-   - Every AST node → JSX element conversion
-   - Component overhead vs plain objects
-   - React reconciliation preparation
+### Key Bottlenecks Identified:
 
-3. **Can we optimize rendering?**
-   - Memoization opportunities
-   - Reducing object allocations during rendering
-   - Optimizing the render function
+1. **Nested Parsing Overhead** (`htmlBlock`, `unorderedList`)
 
-### How to Profile Rendering:
+   - Each HTML block and list item triggers full recursive parsing
+   - `parse(adjustedContent, state)` calls `nestedParse` which iterates through ALL rules again
+   - For nested structures, this compounds exponentially
 
-```javascript
-// Profile rendering separately from parsing
-const ast = compiler(markdown, { ast: true })
+2. **Lookback Regex** (`unorderedList`)
 
-// Measure rendering time
-const t0 = performance.now()
-const jsx = renderAST(ast) // Use createRenderer
-const t1 = performance.now()
+   - `LIST_LOOKBEHIND_R.exec(state.prevCapture)` runs on every attempt
+   - Requires string scanning to find line starts
 
-console.log('Render time:', t1 - t0, 'ms')
-```
+3. **String Operations** (everywhere)
+   - `source.substring()` on every match (1,034 times)
+   - `state.prevCapture += capture[0]` (1,034 times)
+   - `replace()`, `trim()`, `includes()` calls in list parsing
 
-We need to:
+### What's NOT the Bottleneck:
 
-1. Add profiling hooks to the `render()` function
-2. Measure time spent in `React.createElement`
-3. Measure memory allocations during rendering
-4. Compare parsing time vs rendering time
+1. ✅ Qualifier checks - already optimized with `startsWith()`
+2. ✅ Regex execution - typically < 0.003ms each
+3. ✅ Rule iteration overhead - minimal (just array access)
 
-**Hypothesis**: React rendering might be a significant portion of the 14ms total time.
+### What IS the Bottleneck:
+
+**Nested parsing recursion** - the biggest issue is that parsing nested content (HTML blocks, list items) triggers a complete re-scan of all rules. This is O(n × m) behavior where n is nesting depth and m is number of rules (~30).
+
+**The Real Problem**: Every nested parse goes through the same 30-rule loop. For deeply nested content, this compounds.
+
+**Example**: A list with 10 items, each containing paragraphs:
+
+- Each list item parse: checks 30 rules
+- Each paragraph parse: checks 30 rules
+- Total: 10 × 30 (list items) + 10 × 30 (paragraphs) = 600 rule checks
+
+### How to Make It Non-Exponential:
+
+**Clarification**: It's not actually exponential! It's **O(n × m)** where:
+
+- n = nesting depth
+- m = number of rules (~30)
+
+For depth 3: 3 × 30 = 90 rule checks
+For depth 10: 10 × 30 = 300 rule checks
+
+This is **linear** with nesting depth, not exponential. Exponential would be 30^depth.
+
+**The Real Issue**: For large documents with many nested structures, this accumulates.
+
+### Potential Solutions:
+
+**1. Context-Aware Rule Filtering** (Most Promising)
+
+- When parsing inline content, skip block-only rules
+- Manually categorize rules once: block, inline, or both
+- In `nestedParse`, use filtered rule list based on `state.inline`
+- **Attempted**: Failed because manual categorization is error-prone and broke tests
+- **Potential gain**: 30-50% reduction in inline parsing iterations
+
+**2. Memoization**
+
+- Cache parse results for identical substrings
+- **Potential gain**: Near-instant for repeated content
+- **Complexity**: High - need invalidation strategy
+- **Risk**: Memory explosion
+
+**3. Pass Explicit Parser Functions**
+
+- Have separate `parseBlock` and `parseInline` functions
+- Call appropriate one based on context
+- **Issue**: Duplicates rule iteration logic
+
+**4. Early Bail-Outs**
+
+- Skip remaining rules when guaranteed match found
+- **Attempted**: Failed - broke text matching logic
+
+**Conclusion**: Context-aware filtering is the most promising, but requires careful manual categorization of all rules and maintaining correct priority order. The ~11% speedup shown suggests it can help, but the risk of breaking parsing correctness is high.
+
+### Optimization Opportunities:
+
+1. ~~**Early termination for text rule**~~ - Attempted but broke parsing logic. Text rule needs to match character-by-character, not greedily.
+2. **Cache compiled regexes** - Some rules create regexes dynamically (`LIST_ITEM_PREFIX_R`)
+3. **Optimize lookback** - Maybe track line starts instead of scanning `prevCapture`
+
+### Attempted Optimizations:
+
+**Early Termination for Text Rule** ❌ **FAILED**
+
+- **Idea**: When text rule matches, skip remaining rules and match text greedily
+- **Implementation**: Added `if (rule._order === Priority.MIN)` check after text match
+- **Result**: Broke parsing - text was matched too greedily, consuming special characters
+- **Why Failed**: Text rule must match exact regex boundaries, not greedily
+
+But realistically: **these won't give significant wins**. The fundamental O(n²) behavior of nested parsing is the constraint.
 
 ### Should We Rewrite?
 
