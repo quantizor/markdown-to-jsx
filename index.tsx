@@ -1294,6 +1294,16 @@ function createRenderer(
       : nodeRender()
   }
 
+  // Return plain text as fallback to prevent stack overflow
+  function handleStackOverflow(
+    ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[]
+  ) {
+    if (Array.isArray(ast)) {
+      return ast.map(node => ('text' in node ? node.text : ''))
+    }
+    return 'text' in ast ? ast.text : ''
+  }
+
   return function patchedRender(
     ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
     state: MarkdownToJSX.State = {}
@@ -1303,12 +1313,7 @@ function createRenderer(
     const MAX_RENDER_DEPTH = 2500
 
     if (currentDepth > MAX_RENDER_DEPTH) {
-      // Return plain text as fallback to prevent stack overflow
-      // Note: Don't log error here as console.error can trigger stack overflow
-      if (Array.isArray(ast)) {
-        return ast.map(node => ('text' in node ? node.text : ''))
-      }
-      return 'text' in ast ? ast.text : ''
+      return handleStackOverflow(ast)
     }
 
     state.renderDepth = currentDepth
@@ -1355,20 +1360,20 @@ function createRenderer(
       ) {
         // Log error asynchronously to avoid stack overflow
         if (process.env.NODE_ENV !== 'production') {
-          setTimeout(() => {
+          try {
             console.error(
               'markdown-to-jsx: Stack overflow during rendering. ' +
                 'This usually indicates extremely nested content. ' +
                 'Consider breaking up the nested structure.'
             )
-          }, 0)
+          } catch (e) {
+            // If console.error fails, silently continue - no more stack available
+          }
         }
-        // Fallback to plain text rendering
-        if (Array.isArray(ast)) {
-          return ast.map(node => ('text' in node ? node.text : ''))
-        }
-        return 'text' in ast ? ast.text : ''
+
+        return handleStackOverflow(ast)
       }
+
       // Re-throw other errors
       throw error
     }
