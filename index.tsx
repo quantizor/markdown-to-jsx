@@ -1353,12 +1353,15 @@ function createRenderer(
         error instanceof RangeError &&
         error.message.includes('Maximum call stack')
       ) {
+        // Log error asynchronously to avoid stack overflow
         if (process.env.NODE_ENV !== 'production') {
-          console.error(
-            'markdown-to-jsx: Stack overflow during rendering. ' +
-              'This usually indicates extremely nested content. ' +
-              'Consider breaking up the nested structure.'
-          )
+          setTimeout(() => {
+            console.error(
+              'markdown-to-jsx: Stack overflow during rendering. ' +
+                'This usually indicates extremely nested content. ' +
+                'Consider breaking up the nested structure.'
+            )
+          }, 0)
         }
         // Fallback to plain text rendering
         if (Array.isArray(ast)) {

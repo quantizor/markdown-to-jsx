@@ -1,7 +1,8 @@
 import { compiler } from './index'
 import { performance } from 'perf_hooks'
 
-const MAX_EXECUTION_TIME_MS = 100
+// CI is a bit slower than my MBP, so we give it more time
+const MAX_EXECUTION_TIME_MS = process.env.CI ? 200 : 100
 
 function timeExecution(fn: () => void): number {
   const start = performance.now()
@@ -583,6 +584,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
+        // Allow more time for CI environments which may be slower
         expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
       }
     })
@@ -592,10 +594,15 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
       const extremeNesting = '*'.repeat(10000) + 'text' + '*'.repeat(10000)
 
       // Should not throw - try/catch should catch and fallback to plain text
-      expect(() => {
-        const result = compiler(extremeNesting)
-        expect(result).toBeDefined()
-      }).not.toThrow()
+      const executionTime = timeExecution(() => {
+        expect(() => {
+          const result = compiler(extremeNesting)
+          expect(result).toBeDefined()
+        }).not.toThrow()
+      })
+
+      // Should complete in reasonable time even with fallback
+      expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
     })
 
     it('should handle mixed delimiter characters that look similar', () => {
