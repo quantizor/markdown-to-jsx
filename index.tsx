@@ -1303,14 +1303,8 @@ function createRenderer(
     const MAX_RENDER_DEPTH = 2500
 
     if (currentDepth > MAX_RENDER_DEPTH) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.error(
-          'markdown-to-jsx: Rendering depth exceeded maximum (2500 levels). ' +
-            'This usually indicates extremely nested delimiter sequences (e.g., 5,000+ consecutive asterisks). ' +
-            'Consider breaking up the nested formatting or reducing delimiter depth.'
-        )
-      }
       // Return plain text as fallback to prevent stack overflow
+      // Note: Don't log error here as console.error can trigger stack overflow
       if (Array.isArray(ast)) {
         return ast.map(node => ('text' in node ? node.text : ''))
       }
@@ -1319,39 +1313,62 @@ function createRenderer(
 
     state.renderDepth = currentDepth
 
-    if (Array.isArray(ast)) {
-      const oldKey = state.key
-      const result = []
+    try {
+      if (Array.isArray(ast)) {
+        const oldKey = state.key
+        const result = []
 
-      // map nestedOutput over the ast, except group any text
-      // nodes together into a single string output.
-      let lastWasString = false
+        // map nestedOutput over the ast, except group any text
+        // nodes together into a single string output.
+        let lastWasString = false
 
-      for (let i = 0; i < ast.length; i++) {
-        state.key = i
+        for (let i = 0; i < ast.length; i++) {
+          state.key = i
 
-        const nodeOut = patchedRender(ast[i], state)
-        const _isString = isString(nodeOut)
+          const nodeOut = patchedRender(ast[i], state)
+          const _isString = isString(nodeOut)
 
-        if (_isString && lastWasString) {
-          result[result.length - 1] += nodeOut
-        } else if (nodeOut !== null) {
-          result.push(nodeOut)
+          if (_isString && lastWasString) {
+            result[result.length - 1] += nodeOut
+          } else if (nodeOut !== null) {
+            result.push(nodeOut)
+          }
+
+          lastWasString = _isString
         }
 
-        lastWasString = _isString
+        state.key = oldKey
+        state.renderDepth = currentDepth - 1
+
+        return result
       }
 
-      state.key = oldKey
+      const result = renderRule(ast, patchedRender, state)
       state.renderDepth = currentDepth - 1
 
       return result
+    } catch (error) {
+      // Catch stack overflow or other unexpected errors
+      if (
+        error instanceof RangeError &&
+        error.message.includes('Maximum call stack')
+      ) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error(
+            'markdown-to-jsx: Stack overflow during rendering. ' +
+              'This usually indicates extremely nested content. ' +
+              'Consider breaking up the nested structure.'
+          )
+        }
+        // Fallback to plain text rendering
+        if (Array.isArray(ast)) {
+          return ast.map(node => ('text' in node ? node.text : ''))
+        }
+        return 'text' in ast ? ast.text : ''
+      }
+      // Re-throw other errors
+      throw error
     }
-
-    const result = renderRule(ast, patchedRender, state)
-    state.renderDepth = currentDepth - 1
-
-    return result
   }
 }
 
