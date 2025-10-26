@@ -587,6 +587,17 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
       }
     })
 
+    it('should have try/catch safety net for unexpected stack overflows', () => {
+      // Create extremely deeply nested structure that could bypass depth check
+      const extremeNesting = '*'.repeat(10000) + 'text' + '*'.repeat(10000)
+
+      // Should not throw - try/catch should catch and fallback to plain text
+      expect(() => {
+        const result = compiler(extremeNesting)
+        expect(result).toBeDefined()
+      }).not.toThrow()
+    })
+
     it('should handle mixed delimiter characters that look similar', () => {
       const repetitions = [100, 500]
 
