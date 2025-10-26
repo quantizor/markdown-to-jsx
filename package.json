@@ -116,7 +116,7 @@
     "size": "size-limit",
     "benchmark": "node benchmark.js",
     "benchmark:all": "node benchmark.js --all",
-    "changeset-publish": "yarn build && changeset publish"
+    "changeset-publish": "bun run build && changeset publish"
   },
   "size-limit": [
     {
@@ -150,6 +150,5 @@
       "jest-watch-typeahead/filename",
       "jest-watch-typeahead/testname"
     ]
-  },
-  "packageManager": "yarn@4.10.3"
+  }
 }
