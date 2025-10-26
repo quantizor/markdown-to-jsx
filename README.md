@@ -6,6 +6,8 @@ The most lightweight, customizable React markdown component.
 
 <!-- TOC -->
 
+- [Upgrading](#upgrading)
+  - [From v7.x to v8.x](#from-v7x-to-v8x)
 - [Installation](#installation)
 - [Usage](#usage)
   - [Parsing Options](#parsing-options)
@@ -57,6 +59,32 @@ The most lightweight, customizable React markdown component.
 All this clocks in at around 7.5 kB gzipped, which is a fraction of the size of most other React markdown components.
 
 Requires React >= 0.14.
+
+## Upgrading
+
+### From v7.x to v8.x
+
+**Breaking Changes:**
+
+- Type `ParserResult` renamed to `ASTNode` - If you were using `MarkdownToJSX.ParserResult` in your code, update to `MarkdownToJSX.ASTNode`
+
+```typescript
+// Before
+const nodes: MarkdownToJSX.ParserResult[] = parse(markdown)
+
+// After
+const nodes: MarkdownToJSX.ASTNode[] = parse(markdown)
+```
+
+- Multiple `RuleType` enums consolidated into `RuleType.textFormatted` - If you were checking for `RuleType.textBolded`, `RuleType.textEmphasized`, `RuleType.textMarked`, or `RuleType.textStrikethroughed`, update to check for `RuleType.textFormatted` and inspect the node's boolean flags:
+
+```typescript
+// Before
+if (node.type === RuleType.textBolded) { ... }
+
+// After
+if (node.type === RuleType.textFormatted && node.bold) { ... }
+```
 
 ## Installation
 
