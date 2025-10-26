@@ -22,7 +22,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Jest
-        run: bun test
+        run: bun run test
 
       - name: Create Release Pull Request
         id: changesets
@@ -32,4 +32,4 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         with:
           createGithubReleases: true
-          publish: bun changeset-publish
+          publish: bun run changeset-publish
