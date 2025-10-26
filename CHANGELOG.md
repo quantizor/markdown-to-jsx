@@ -1,5 +1,85 @@
 # markdown-to-jsx
 
+## 8.0.0
+
+### Major Changes
+
+- 450d2bb: Added `ast` option to compiler to expose the parsed AST directly. When `ast: true`, the compiler returns the AST structure (`ASTNode[]`) instead of rendered JSX.
+
+  **Breaking Changes:**
+
+  - The internal type `ParserResult` has been renamed to `ASTNode` for clarity. If you were accessing this type directly (e.g., via module augmentation or type manipulation), you'll need to update references from `MarkdownToJSX.ParserResult` to `MarkdownToJSX.ASTNode`.
+
+  **First time the AST is accessible to users!** This enables:
+
+  - AST manipulation and transformation before rendering
+  - Custom rendering logic without parsing
+  - Caching parsed AST for performance
+  - Linting or validation of markdown structure
+
+  **Usage:**
+
+  ```typescript
+  import { compiler } from 'markdown-to-jsx'
+  import type { MarkdownToJSX } from 'markdown-to-jsx'
+
+  // Get the AST structure
+  const ast: MarkdownToJSX.ASTNode[] = compiler('# Hello world', {
+    ast: true,
+  })
+
+  // Inspect/modify AST
+  console.log(ast) // Array of parsed nodes
+
+  // Render AST to JSX using createRenderer (not implemented yet)
+  ```
+
+  The AST format is `MarkdownToJSX.ASTNode[]`. When footnotes are present, the returned value will be an object with `ast` and `footnotes` properties instead of just the AST array.
+
+- 3fa0c22: Refactored inline formatting parsing to eliminate ReDoS vulnerabilities and improve performance. The previous regex-based approach was susceptible to exponential backtracking on certain inputs and had several edge case bugs with nested formatting, escaped characters, and formatting inside links. The new implementation uses a custom iterative scanner that runs in O(n) time and is immune to ReDoS attacks.
+
+  This also consolidates multiple formatting rule types into a single unified rule with boolean flags, reducing code duplication and bundle size. Performance has improved measurably on simple markdown strings:
+
+  **Breaking Changes:**
+
+  The following `RuleType` enum values have been removed and consolidated into a single `RuleType.textFormatted`:
+
+  - `RuleType.textBolded`
+  - `RuleType.textEmphasized`
+  - `RuleType.textMarked`
+  - `RuleType.textStrikethroughed`
+
+  If you're using these rule types directly (e.g., for custom AST processing or overrides), you'll need to update your code to check for `RuleType.textFormatted` instead and inspect the node's boolean flags (`bold`, `italic`, `marked`, `strikethrough`) to determine which formatting is applied.
+
+### Minor Changes
+
+- a421067: fix: overhaul HTML block parsing to eliminate exponential backtracking
+
+  Replaced the complex nested regex `HTML_BLOCK_ELEMENT_R` with an efficient iterative depth-counting algorithm that maintains O(n) complexity. The new implementation uses stateful regex matching with `lastIndex` to avoid exponential backtracking on nested HTML elements while preserving all existing functionality.
+
+  **Performance improvements:**
+
+  - Eliminates O(2^n) worst-case exponential backtracking
+  - Linear O(n) time complexity regardless of nesting depth
+
+### Patch Changes
+
+- e6b1e14: Fix renderer crash on extremely deeply nested markdown content
+
+  Previously, rendering markdown with extremely deeply nested content (e.g., thousands of nested bold markers like `****************...text...****************`) would cause a stack overflow crash. The renderer now gracefully handles such edge cases by falling back to plain text rendering instead of crashing.
+
+  **Technical details:**
+
+  - Added render depth tracking to prevent stack overflow
+  - Graceful fallback at 2500 levels of nesting (way beyond normal usage)
+  - Try/catch safety net as additional protection for unexpected errors
+  - Zero performance impact during normal operation
+  - Prevents crashes while maintaining O(n) parsing complexity
+
+  This fix ensures stability even with adversarial or malformed inputs while having no impact on normal markdown documents.
+
+- fe95c02: Remove unnecessary wrapper when footnotes are present.
+
 ## 7.7.17
 
 ### Patch Changes
