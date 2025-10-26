@@ -4355,20 +4355,18 @@ describe('footnotes', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <div>
-        <div>
-          <p>
-            foo
-            <a href="#abc">
-              <sup>
-                abc
-              </sup>
-            </a>
-            bar
-          </p>
-          <p>
-            After footnotes content
-          </p>
-        </div>
+        <p>
+          foo
+          <a href="#abc">
+            <sup>
+              abc
+            </sup>
+          </a>
+          bar
+        </p>
+        <p>
+          After footnotes content
+        </p>
         <footer>
           <div id="abc">
             abc: Baz
@@ -5120,7 +5118,7 @@ it('correctly parses YAML front matter inside a code block', () => {
       </code>
     </pre>
   `)
-});
+})
 
 it('handles a holistic example', () => {
   const md = fs.readFileSync(__dirname + '/fixture.md', 'utf8')

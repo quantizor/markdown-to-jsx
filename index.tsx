@@ -1569,7 +1569,9 @@ export function compiler(
     )
   }
 
-  function compile(input: string): React.JSX.Element | React.ReactNode[] {
+  function compile(
+    input: string
+  ): React.JSX.Element | React.ReactNode[] | MarkdownToJSX.ASTNode[] {
     input = input.replace(FRONT_MATTER_R, '')
 
     let inline = false
@@ -1584,22 +1586,41 @@ export function compiler(
       inline = SHOULD_RENDER_AS_BLOCK_R.test(input) === false
     }
 
-    const arr = emitter(
-      parser(
-        inline
-          ? input
-          : `${trimEnd(input).replace(TRIM_STARTING_NEWLINES, '')}\n\n`,
-        {
-          inline,
-        }
-      )
-    ) as React.ReactNode[]
+    const astNodes = parser(
+      inline
+        ? input
+        : `${trimEnd(input).replace(TRIM_STARTING_NEWLINES, '')}\n\n`,
+      {
+        inline,
+      }
+    )
+
+    if (options.ast) {
+      return astNodes
+    }
+
+    const arr = emitter(astNodes) as React.ReactNode[]
 
     while (
       isString(arr[arr.length - 1]) &&
       !(arr[arr.length - 1] as string).trim()
     ) {
       arr.pop()
+    }
+
+    if (footnotes.length) {
+      arr.push(
+        <footer key="footer">
+          {footnotes.map(function createFootnote(def) {
+            return (
+              <div id={slug(def.identifier, slugify)} key={def.identifier}>
+                {def.identifier}
+                {emitter(parser(def.footnote, { inline: true }))}
+              </div>
+            )
+          })}
+        </footer>
+      )
     }
 
     if (options.wrapper === null) {
@@ -2269,24 +2290,6 @@ export function compiler(
     console.log('Parse invocations:', parseCountsWithNames)
   }
 
-  if (footnotes.length) {
-    return (
-      <div>
-        {jsx}
-        <footer key="footer">
-          {footnotes.map(function createFootnote(def) {
-            return (
-              <div id={slug(def.identifier, slugify)} key={def.identifier}>
-                {def.identifier}
-                {emitter(parser(def.footnote, { inline: true }))}
-              </div>
-            )
-          })}
-        </footer>
-      </div>
-    )
-  }
-
   return jsx
 }
 
@@ -2627,6 +2630,12 @@ export namespace MarkdownToJSX {
   }
 
   export type Options = Partial<{
+    /**
+     * When true, returns the parsed AST instead of rendered JSX.
+     * Footnotes are not automatically appended; the consumer handles them.
+     */
+    ast: boolean
+
     /**
      * Ultimate control over the output of all rendered JSX.
      */
