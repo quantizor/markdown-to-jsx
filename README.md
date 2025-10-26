@@ -613,20 +613,18 @@ import type { MarkdownToJSX } from 'markdown-to-jsx'
 // Get the AST directly
 const ast = compiler('# Hello world', { ast: true })
 
-// TypeScript: AST is MarkdownToJSX.AST[]
+// TypeScript: AST is MarkdownToJSX.ASTNode[]
 console.log(ast) // Array of parsed nodes with types
 
 // You can manipulate, transform, or analyze the AST before rendering
 ```
 
-The AST format is `MarkdownToJSX.AST[]` and enables:
+The AST format is `MarkdownToJSX.ASTNode[]` and enables:
 
 - AST manipulation and transformation
 - Custom rendering logic without re-parsing
 - Caching parsed AST for performance
 - Linting or validation of markdown structure
-
-When footnotes are present, the returned value will be an object with `ast` and `footnotes` properties instead of just the AST array.
 
 ### Syntax highlighting
 
