@@ -106,7 +106,7 @@
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
     "prebuild": "rimraf dist && mkdirp dist",
     "build": "microbundle --tsconfig tsconfig.json -f cjs,umd index.cjs.tsx --name MarkdownToJSX --define process.env.NODE_ENV=production,process.env.DEBUG=0 --globals react=React && microbundle --tsconfig tsconfig.json -f es,modern --name MarkdownToJSX --define process.env.NODE_ENV=production,process.env.DEBUG=0 && microbundle --tsconfig tsconfig.json -f es --define process.env.NODE_ENV=production --no-compress -o dist/debug.mjs",
-    "build-site": "microbundle site.tsx -o docs -f iife --tsconfig tsconfig.site.json --define process.env.NODE_ENV=production --jsx React.createElement --external react,react-dom,styled-components,katex --globals react=React,react-dom=ReactDOM,styled-components=styled --no-pkg-main",
+    "build-site": "microbundle site.tsx -o docs -f iife --tsconfig tsconfig.site.json --define process.env.NODE_ENV=production,process.env.DEBUG=0 --jsx React.createElement --external react,react-dom,styled-components,katex --globals react=React,react-dom=ReactDOM,styled-components=styled --no-pkg-main",
     "dev": "microbundle watch site.tsx -o docs -f iife --tsconfig tsconfig.site.json --define process.env.NODE_ENV=development --jsx React.createElement --external react,react-dom,styled-components,katex --globals react=React,react-dom=ReactDOM,styled-components=styled --no-pkg-main",
     "dev:debug": "microbundle watch --tsconfig tsconfig.json -f es --define process.env.NODE_ENV=production --no-compress -o dist/debug.mjs",
     "test": "jest --verbose",
