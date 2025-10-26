@@ -59,19 +59,13 @@ Every attempt made things slower:
 
 **The trade-off**: Larger refactor required, but would open up optimization opportunities currently unavailable.
 
-## Conclusion
+## Current Status
 
-**Current state**: ~14ms is optimal for this architecture.
+**Performance**: ~14ms is optimal for this architecture.
 
-**To achieve 3ms would require**:
+**Trade-offs**: Single-pass approach prioritizes bundle size and API simplicity over parsing speed. Every attempted optimization either failed or made things slower, confirming V8 is already highly optimized for this pattern.
 
-- Complete architectural rewrite
-- Breaking API changes
-- Months of work
-
-**Trade-off**: Single-pass approach prioritizes bundle size and API simplicity over parsing speed.
-
-**Recommendation**: Focus on bundle size (< 8KB ✅), API usability, and correctness over micro-optimizations.
+**Focus areas**: Bundle size (< 8KB ✅), API usability, and correctness.
 
 ## Profiling Tools
 

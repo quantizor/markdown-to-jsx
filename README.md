@@ -54,7 +54,7 @@ The most lightweight, customizable React markdown component.
 
 - Fenced code blocks with [highlight.js](https://highlightjs.org/) support; see [Syntax highlighting](#syntax-highlighting) for instructions on setting up highlight.js.
 
-All this clocks in at around 6 kB gzipped, which is a fraction of the size of most other React markdown components.
+All this clocks in at around 7.5 kB gzipped, which is a fraction of the size of most other React markdown components.
 
 Requires React >= 0.14.
 
