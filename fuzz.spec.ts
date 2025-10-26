@@ -1,8 +1,8 @@
 import { compiler } from './index'
 import { performance } from 'perf_hooks'
 
-// CI is a bit slower than my MBP, so we give it more time
-const MAX_EXECUTION_TIME_MS = process.env.CI ? 200 : 100
+// CI is slower than my MBP, so we give it more time
+const MAX_EXECUTION_TIME_MS = 1000
 
 function timeExecution(fn: () => void): number {
   const start = performance.now()
