@@ -3,7 +3,7 @@ name: release
 on:
   push:
     branches:
-      - 'main'
+      - "main"
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -13,16 +13,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup node
-        uses: actions/setup-node@v4
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v1
         with:
-          cache: 'yarn'
-          node-version-file: '.nvmrc'
+          bun-version: latest
 
-      - run: yarn --immutable
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
       - name: Jest
-        run: yarn test
+        run: bun test
 
       - name: Create Release Pull Request
         id: changesets
@@ -32,4 +32,4 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         with:
           createGithubReleases: true
-          publish: yarn changeset-publish
+          publish: bun changeset-publish

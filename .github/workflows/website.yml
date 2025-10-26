@@ -17,14 +17,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup node
-        uses: actions/setup-node@v4
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v1
         with:
-          cache: 'yarn'
-          node-version-file: '.nvmrc'
+          bun-version: latest
 
-      - run: yarn --immutable
-      - run: yarn build-site
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build site
+        run: bun run build-site
 
       - name: Setup site
         uses: actions/configure-pages@v5
@@ -32,7 +34,7 @@ jobs:
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'docs'
+          path: "docs"
 
       - name: Deploy to GitHub Pages
         id: deployment
