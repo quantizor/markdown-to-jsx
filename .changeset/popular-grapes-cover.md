@@ -6,16 +6,6 @@ Refactored inline formatting parsing to eliminate ReDoS vulnerabilities and impr
 
 This also consolidates multiple formatting rule types into a single unified rule with boolean flags, reducing code duplication and bundle size. Performance has improved measurably on simple markdown strings:
 
-```
-+--------------------------+------------------------+-----------------------+
-|                          │ simple markdown string │ large markdown string |
-+--------------------------+------------------------+-----------------------+
-| markdown-to-jsx (next)   │ 134,498 ops/sec        │ 720 ops/sec           |
-+--------------------------+------------------------+-----------------------+
-| markdown-to-jsx (7.7.15) │ 106,616 ops/sec        │ 717 ops/sec           |
-+--------------------------+------------------------+-----------------------+
-```
-
 **Breaking Changes:**
 
 The following `RuleType` enum values have been removed and consolidated into a single `RuleType.textFormatted`:
