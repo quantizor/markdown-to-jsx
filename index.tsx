@@ -637,12 +637,12 @@ function parseTableRow(
   parse: MarkdownToJSX.NestedParser,
   state: MarkdownToJSX.State,
   tableOutput: boolean
-): MarkdownToJSX.ParserResult[][] {
+): MarkdownToJSX.ASTNode[][] {
   const prevInTable = state.inTable
 
   state.inTable = true
 
-  let cells: MarkdownToJSX.ParserResult[][] = [[]]
+  let cells: MarkdownToJSX.ASTNode[][] = [[]]
   let acc = ''
 
   function flush() {
@@ -879,7 +879,7 @@ function parserFor(
   function nestedParse(
     source: string,
     state: MarkdownToJSX.State
-  ): MarkdownToJSX.ParserResult[] {
+  ): MarkdownToJSX.ASTNode[] {
     var result = []
     state.prevCapture = state.prevCapture || ''
 
@@ -1020,7 +1020,7 @@ function parseInline(
   parse: MarkdownToJSX.NestedParser,
   children: string,
   state: MarkdownToJSX.State
-): MarkdownToJSX.ParserResult[] {
+): MarkdownToJSX.ASTNode[] {
   const isCurrentlyInline = state.inline || false
   const isCurrentlySimple = state.simple || false
   state.inline = true
@@ -1038,7 +1038,7 @@ function parseSimpleInline(
   parse: MarkdownToJSX.NestedParser,
   children: string,
   state: MarkdownToJSX.State
-): MarkdownToJSX.ParserResult[] {
+): MarkdownToJSX.ASTNode[] {
   const isCurrentlyInline = state.inline || false
   const isCurrentlySimple = state.simple || false
   state.inline = false
@@ -1053,7 +1053,7 @@ function parseBlock(
   parse,
   children,
   state: MarkdownToJSX.State
-): MarkdownToJSX.ParserResult[] {
+): MarkdownToJSX.ASTNode[] {
   const isCurrentlyInline = state.inline || false
   state.inline = false
   const result = parse(children, state)
@@ -1062,7 +1062,7 @@ function parseBlock(
 }
 
 const parseCaptureInline: MarkdownToJSX.Parser<{
-  children: MarkdownToJSX.ParserResult[]
+  children: MarkdownToJSX.ASTNode[]
 }> = (capture, parse, state: MarkdownToJSX.State) => {
   return {
     children: parseInline(parse, capture[2], state),
@@ -1074,7 +1074,7 @@ function captureNothing() {
 }
 
 function render(
-  node: MarkdownToJSX.ParserResult,
+  node: MarkdownToJSX.ASTNode,
   output: MarkdownToJSX.RuleOutput,
   state: MarkdownToJSX.State,
   h: (tag: any, props: any, ...children: any[]) => any,
@@ -1283,7 +1283,7 @@ function createRenderer(
   refs: { [key: string]: { target: string; title: string } }
 ) {
   function renderRule(
-    ast: MarkdownToJSX.ParserResult,
+    ast: MarkdownToJSX.ASTNode,
     renderer: MarkdownToJSX.RuleOutput,
     state: MarkdownToJSX.State
   ): React.ReactNode {
@@ -1295,7 +1295,7 @@ function createRenderer(
   }
 
   return function patchedRender(
-    ast: MarkdownToJSX.ParserResult | MarkdownToJSX.ParserResult[],
+    ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
     state: MarkdownToJSX.State = {}
   ): React.ReactNode[] | React.ReactNode {
     // Track render depth to prevent stack overflow from extremely deep nesting
@@ -2350,7 +2350,7 @@ export namespace MarkdownToJSX {
 
   export interface BlockQuoteNode {
     alert?: string
-    children: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ASTNode[]
     type: typeof RuleType.blockQuote
   }
 
@@ -2395,7 +2395,7 @@ export namespace MarkdownToJSX {
 
   export interface HeadingNode {
     type: typeof RuleType.heading
-    children: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ASTNode[]
     id: string
     level: 1 | 2 | 3 | 4 | 5 | 6
   }
@@ -2417,7 +2417,7 @@ export namespace MarkdownToJSX {
 
   export interface LinkNode {
     type: typeof RuleType.link
-    children: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ASTNode[]
     target: string
     title?: string
   }
@@ -2436,14 +2436,14 @@ export namespace MarkdownToJSX {
 
   export interface OrderedListNode {
     type: typeof RuleType.orderedList
-    items: MarkdownToJSX.ParserResult[][]
+    items: MarkdownToJSX.ASTNode[][]
     ordered: true
     start?: number
   }
 
   export interface UnorderedListNode {
     type: typeof RuleType.unorderedList
-    items: MarkdownToJSX.ParserResult[][]
+    items: MarkdownToJSX.ASTNode[][]
     ordered: false
   }
 
@@ -2453,7 +2453,7 @@ export namespace MarkdownToJSX {
 
   export interface ParagraphNode {
     type: typeof RuleType.paragraph
-    children: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ASTNode[]
   }
 
   export interface ReferenceNode {
@@ -2468,7 +2468,7 @@ export namespace MarkdownToJSX {
 
   export interface ReferenceLinkNode {
     type: typeof RuleType.refLink
-    children: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ASTNode[]
     fallbackChildren: string
     ref: string
   }
@@ -2479,8 +2479,8 @@ export namespace MarkdownToJSX {
      * alignment for each table column
      */
     align: ('left' | 'right' | 'center')[]
-    cells: MarkdownToJSX.ParserResult[][][]
-    header: MarkdownToJSX.ParserResult[][]
+    cells: MarkdownToJSX.ASTNode[][][]
+    header: MarkdownToJSX.ASTNode[][]
   }
 
   export interface TableSeparatorNode {
@@ -2498,7 +2498,7 @@ export namespace MarkdownToJSX {
      * the corresponding html tag
      */
     tag: string
-    children: MarkdownToJSX.ParserResult[]
+    children: MarkdownToJSX.ASTNode[]
   }
 
   export interface EscapedTextNode {
@@ -2520,7 +2520,7 @@ export namespace MarkdownToJSX {
     tag: string
   }
 
-  export type ParserResult =
+  export type ASTNode =
     | BlockQuoteNode
     | BreakLineNode
     | BreakThematicNode
@@ -2556,7 +2556,7 @@ export namespace MarkdownToJSX {
   export type NestedParser = (
     input: string,
     state?: MarkdownToJSX.State
-  ) => MarkdownToJSX.ParserResult[]
+  ) => MarkdownToJSX.ASTNode[]
 
   export type Parser<ParserOutput> = (
     capture: RegExpMatchArray,
@@ -2565,11 +2565,11 @@ export namespace MarkdownToJSX {
   ) => ParserOutput
 
   export type RuleOutput = (
-    ast: MarkdownToJSX.ParserResult | MarkdownToJSX.ParserResult[],
+    ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
     state: MarkdownToJSX.State
   ) => React.ReactNode
 
-  export type Rule<ParserOutput = MarkdownToJSX.ParserResult> = {
+  export type Rule<ParserOutput = MarkdownToJSX.ASTNode> = {
     _match: (
       source: string,
       state: MarkdownToJSX.State,
@@ -2600,9 +2600,9 @@ export namespace MarkdownToJSX {
   }
 
   export type Rules = {
-    [K in ParserResult['type']]: K extends typeof RuleType.table
-      ? Rule<Extract<ParserResult, { type: K | typeof RuleType.paragraph }>>
-      : Rule<Extract<ParserResult, { type: K }>>
+    [K in ASTNode['type']]: K extends typeof RuleType.table
+      ? Rule<Extract<ASTNode, { type: K | typeof RuleType.paragraph }>>
+      : Rule<Extract<ASTNode, { type: K }>>
   }
 
   export type Override =
@@ -2720,7 +2720,7 @@ export namespace MarkdownToJSX {
       /** Resume normal processing, call this function as a fallback if you are not returning custom JSX. */
       next: () => React.ReactNode,
       /** the current AST node, use `RuleType` against `node.type` for identification */
-      node: ParserResult,
+      node: ASTNode,
       /** use as `renderChildren(node.children)` for block nodes */
       renderChildren: RuleOutput,
       /** contains `key` which should be supplied to the topmost JSX element */
