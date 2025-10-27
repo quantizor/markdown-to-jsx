@@ -6,14 +6,6 @@ coverage/
 *.log
 package-lock.json
 
-# yarn
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
-
 # ephemeral files
 dist/
 docs/markdown-to-jsx.js

@@ -1,1 +1,2 @@
-- This project uses yarn package manager.
+- This project uses bun package manager.
+- When debugging, you can directly import index.tsx if using the bun CLI without needing a build step to run experimental scripts.

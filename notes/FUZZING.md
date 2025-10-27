@@ -5,7 +5,7 @@
 ## Quick Stats
 
 - **36 comprehensive tests**
-- **Run**: `yarn test:fuzz`
+- **Run**: `bun run test:fuzz`
 - **Timeout**: 100ms per test
 - **Categories**: HTML parsing, inline formatting, combined attacks, repetitive delimiters, random fuzzing
 
