@@ -129,9 +129,9 @@ Each markdown element is handled by a rule with this structure:
 
 ### Build Process
 
-1. `yarn build`: uses microbundle, needed for benchmarking
-2. `yarn size`: Automated bundle size checking
-3. `yarn benchmark`: Performance comparison against a recent version of markdown-to-jsx
+1. `bun run build`: uses microbundle, needed for benchmarking
+2. `bun run size`: Automated bundle size checking
+3. `bun run benchmark`: Performance comparison against a recent version of markdown-to-jsx
 
 ## Contributing Guidelines
 

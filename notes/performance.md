@@ -70,8 +70,8 @@ Every attempt made things slower:
 ## Profiling Tools
 
 ```bash
-yarn profile    # Generate CPU profile
-yarn metrics    # Show parse time, memory, GC stats
+bun run profile    # Generate CPU profile
+bun run metrics    # Show parse time, memory, GC stats
 ```
 
 View profiles in Speedscope or Chrome DevTools Performance tab.
