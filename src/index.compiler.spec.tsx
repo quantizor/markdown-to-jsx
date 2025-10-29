@@ -3051,7 +3051,7 @@ comment -->`)
 
   it('handles svg', () => {
     render(
-      compiler(fs.readFileSync(__dirname + '/docs/images/logo.svg', 'utf8'))
+      compiler(fs.readFileSync(__dirname + '/../docs/images/logo.svg', 'utf8'))
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`

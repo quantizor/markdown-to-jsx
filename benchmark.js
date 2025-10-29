@@ -20,7 +20,7 @@ const { version: latestVersion } = JSON.parse(
 const mdIt = new MarkdownIt()
 const suite = new BenchTable()
 
-const fixture = fs.readFileSync('./fixture.md', 'utf8')
+const fixture = fs.readFileSync('./src/fixture.md', 'utf8')
 
 const bar = new cliProgress.SingleBar(
   {
