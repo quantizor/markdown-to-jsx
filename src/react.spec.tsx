@@ -1,0 +1,3013 @@
+import * as fs from 'fs'
+import { afterEach, expect, it, describe, mock, spyOn } from 'bun:test'
+import * as React from 'react'
+import { renderToString } from 'react-dom/server'
+import theredoc from 'theredoc'
+import Markdown, { compiler, RuleType, sanitizer } from './react'
+
+const root = { innerHTML: '' }
+
+function render(jsx) {
+  root.innerHTML = renderToString(jsx)
+}
+
+afterEach(() => {
+  root.innerHTML = ''
+  mock.clearAllMocks()
+})
+
+it('should throw if not passed a string (first arg)', () => {
+  expect(() => compiler('')).not.toThrow()
+  // @ts-ignore
+  expect(() => compiler()).not.toThrow()
+  // @ts-ignore
+  expect(() => compiler(1)).toThrow()
+  // @ts-ignore
+  expect(() => compiler(() => {})).toThrow()
+  // @ts-ignore
+  expect(() => compiler({})).toThrow()
+  // @ts-ignore
+  expect(() => compiler([])).toThrow()
+  // @ts-ignore
+  expect(() => compiler(null)).toThrow()
+  // @ts-ignore
+  expect(() => compiler(true)).toThrow()
+})
+
+it('should handle a basic string', () => {
+  render(compiler('Hello.'))
+
+  expect(root.innerHTML).toBe('Hello.')
+})
+
+it('wraps multiple block element returns in a div to avoid invalid nesting errors', () => {
+  render(compiler('# Boop\n\n## Blep'))
+
+  expect(root.innerHTML).toMatchInlineSnapshot(
+    `"<div><h1 id="boop">Boop</h1><h2 id="blep">Blep</h2></div>"`
+  )
+})
+
+it('wraps solely inline elements in a span, rather than a div', () => {
+  render(compiler("Hello. _Beautiful_ day isn't it?"))
+
+  expect(root.innerHTML).toMatchInlineSnapshot(
+    `"<span>Hello. <em>Beautiful</em> day isn&#x27;t it?</span>"`
+  )
+})
+
+describe('inline textual elements', () => {
+  it('should handle triple-emphasized text with mixed syntax 1/2', () => {
+    render(compiler('**_Hello._**'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<strong><em>Hello.</em></strong>"`
+    )
+  })
+
+  it('should handle triple-emphasized text with mixed syntax 2/2', () => {
+    render(compiler('_**Hello.**_'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<em><strong>Hello.</strong></em>"`
+    )
+  })
+
+  it('should handle the alternate form of bold/italic', () => {
+    render(compiler('___Hello.___'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<em><strong>Hello.</strong></em>"`
+    )
+  })
+
+  it('should handle deleted text', () => {
+    render(compiler('~~Hello.~~'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<del>Hello.</del>"`)
+  })
+
+  it('should handle deleted text containing other syntax with a tilde', () => {
+    render(compiler('~~Foo `~~bar` baz.~~'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<del>Foo <code>~~bar</code> baz.</del>"`
+    )
+  })
+
+  it('should handle consecutive marked text', () => {
+    render(compiler('==Hello== ==World=='))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span><mark>Hello</mark> <mark>World</mark></span>"`
+    )
+  })
+
+  it('should handle marked text containing other syntax with an equal sign', () => {
+    render(compiler('==Foo `==bar` baz.=='))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<mark>Foo <code>==bar</code> baz.</mark>"`
+    )
+  })
+
+  it('should handle block deleted text containing other syntax with a tilde', () => {
+    render(compiler('~~Foo `~~bar` baz.~~\n\nFoo ~~bar~~.'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p><del>Foo <code>~~bar</code> baz.</del></p><p>Foo <del>bar</del>.</p></div>"`
+    )
+  })
+
+  it('should handle escaped text', () => {
+    render(compiler('Hello.\\_\\_foo\\_\\_'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Hello.__foo__"`)
+  })
+
+  it('regression test for #188, mismatched syntaxes triggered the wrong result', () => {
+    render(compiler('*This should render as normal text, not emphasized._'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"*This should render as normal text, not emphasized._"`
+    )
+  })
+
+  it('ignore similar syntax inside inline syntax', () => {
+    render(
+      compiler(
+        '*This should not misinterpret the asterisk <span>*</span> in the HTML.*'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<em>This should not misinterpret the asterisk <span>*</span> in the HTML.</em>"`
+    )
+
+    render(
+      compiler(
+        '*This should not misinterpret the asterisk [*](x) in the anchor text.*'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<em>This should not misinterpret the asterisk <a href="x">*</a> in the anchor text.</em>"`
+    )
+
+    render(
+      compiler(
+        '*This should not misinterpret the asterisk [foo](x*) in the link href.*'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<em>This should not misinterpret the asterisk <a href="x*">foo</a> in the link href.</em>"`
+    )
+
+    render(
+      compiler(
+        String.raw`*This should not misinterpret the asterisk ~~\*~~ in the strikethrough.*`
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<em>This should not misinterpret the asterisk <del>*</del> in the strikethrough.</em>"`
+    )
+
+    render(
+      compiler(
+        '*This should not misinterpret the asterisk `*` in the backticks.*'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<em>This should not misinterpret the asterisk <code>*</code> in the backticks.</em>"`
+    )
+
+    render(
+      compiler(
+        `_This should not misinterpret the under\\_score that forms part of a word._`
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<em>This should not misinterpret the under_score that forms part of a word.</em>"`
+    )
+  })
+
+  it('replaces common HTML character codes with unicode equivalents so React will render correctly', () => {
+    render(compiler('Foo &nbsp; bar&amp;baz.'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Foo   bar&amp;baz."`)
+  })
+
+  it('replaces named character codes with unicode equivalents so React will render correctly', () => {
+    render(compiler('Apostrophe&#39;s and &le; equal'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"Apostrophe&#x27;s and ≤ equal"`
+    )
+  })
+})
+
+describe('misc block level elements', () => {
+  it('should handle blockquotes', () => {
+    render(compiler('> Something important, perhaps?'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<blockquote><p>Something important, perhaps?</p></blockquote>"`
+    )
+  })
+
+  it('should handle lazy continuation lines of blockquotes', () => {
+    render(compiler('> Line 1\nLine 2\n>Line 3'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      "<blockquote><p>Line 1
+      Line 2
+      Line 3</p></blockquote>"
+    `)
+  })
+
+  it('should handle consecutive blockquotes', () => {
+    render(compiler('> Something important, perhaps?\n\n> Something else'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><blockquote><p>Something important, perhaps?</p></blockquote><blockquote><p>Something else</p></blockquote></div>"`
+    )
+  })
+
+  it('should handle alert blockquotes', () => {
+    render(compiler('> [!NOTE]\n> Something important, perhaps?'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<blockquote class="markdown-alert-note"><header>NOTE</header><p>Something important, perhaps?</p></blockquote>"`
+    )
+  })
+})
+
+describe('headings', () => {
+  it('should handle level 1 properly', () => {
+    render(compiler('# Hello World'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<h1 id="hello-world">Hello World</h1>"`
+    )
+  })
+
+  it('should enforce atx when option is passed', () => {
+    render(compiler('#Hello World', { enforceAtxHeadings: true }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<p>#Hello World</p>"`)
+  })
+
+  it('should handle level 2 properly', () => {
+    render(compiler('## Hello World'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<h2 id="hello-world">Hello World</h2>"`
+    )
+  })
+
+  it('should handle level 3 properly', () => {
+    render(compiler('### Hello World'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<h3 id="hello-world">Hello World</h3>"`
+    )
+  })
+
+  it('should handle level 4 properly', () => {
+    render(compiler('#### Hello World'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<h4 id="hello-world">Hello World</h4>"`
+    )
+  })
+
+  it('should handle level 5 properly', () => {
+    render(compiler('##### Hello World'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<h5 id="hello-world">Hello World</h5>"`
+    )
+  })
+
+  it('should handle level 6 properly', () => {
+    render(compiler('###### Hello World'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<h6 id="hello-world">Hello World</h6>"`
+    )
+  })
+
+  it('should handle setext level 1 style', () => {
+    render(compiler('Hello World\n===========\n\nsomething'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><h1 id="hello-world">Hello World</h1><p>something</p></div>"`
+    )
+  })
+
+  it('should handle setext level 2 style', () => {
+    render(compiler('Hello World\n-----------\n\nsomething'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><h2 id="hello-world">Hello World</h2><p>something</p></div>"`
+    )
+  })
+
+  it('should handle consecutive headings without a padding newline', () => {
+    render(compiler('# Hello World\n## And again'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><h1 id="hello-world">Hello World</h1><h2 id="and-again">And again</h2></div>"`
+    )
+  })
+
+  it('trims closing hashes in headers', () => {
+    render(compiler('# Hello World #########\nHere is the body'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><h1 id="hello-world">Hello World</h1><p>Here is the body</p></div>"`
+    )
+  })
+
+  it('keeps hashes before closing hashes in headers and hashes without whitespace preceding', () => {
+    render(compiler('# Hello World # #\n## Subheader#\nHere is the body'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><h1 id="hello-world-">Hello World #</h1><h2 id="subheader">Subheader#</h2><p>Here is the body</p></div>"`
+    )
+  })
+
+  it('adds an "id" attribute to headings for deeplinking purposes', () => {
+    render(compiler("# This is~ a very' complicated> header!"))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<h1 id="this-is-a-very-complicated-header">This is~ a very&#x27; complicated&gt; header!</h1>"`
+    )
+  })
+
+  it('#595 regression - handle pipe character inside header', () => {
+    render(compiler('# Heading | text'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<h1 id="heading--text">Heading | text</h1>"`
+    )
+  })
+})
+
+describe('images', () => {
+  it('should handle a basic image', () => {
+    render(compiler('![](/xyz.png)'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<link rel="preload" as="image" href="/xyz.png"/><img src="/xyz.png"/>"`
+    )
+  })
+
+  it('should handle a base64-encoded image', () => {
+    render(
+      compiler(
+        '![Red Dot](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==)'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<img alt="Red Dot" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg=="/>"`
+    )
+  })
+
+  it('should handle an image with alt text', () => {
+    render(compiler('![test](/xyz.png)'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<link rel="preload" as="image" href="/xyz.png"/><img alt="test" src="/xyz.png"/>"`
+    )
+  })
+
+  it('should handle an image with escaped alt text', () => {
+    render(compiler('![\\-\\<stuff](https://somewhere)'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<link rel="preload" as="image" href="https://somewhere"/><img alt="-&lt;stuff" src="https://somewhere"/>"`
+    )
+  })
+
+  it('should handle an image with title', () => {
+    render(compiler('![test](/xyz.png "foo")'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<link rel="preload" as="image" href="/xyz.png"/><img alt="test" title="foo" src="/xyz.png"/>"`
+    )
+  })
+
+  it('should handle an image reference', () => {
+    render(
+      compiler(theredoc`
+        ![][1]
+
+        [1]: /xyz.png
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<link rel="preload" as="image" href="/xyz.png"/><p><img src="/xyz.png"/></p>"`
+    )
+  })
+
+  it('should gracefully handle an empty image reference', () => {
+    render(
+      compiler(theredoc`
+        ![][1]
+
+        [2]: /xyz.png
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<p>![][1]</p>"`)
+  })
+
+  it('should handle an image reference with alt text', () => {
+    render(
+      compiler(theredoc`
+        ![test][1]
+
+        [1]: /xyz.png
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<link rel="preload" as="image" href="/xyz.png"/><p><img alt="test" src="/xyz.png"/></p>"`
+    )
+  })
+
+  it('should handle an image reference with title', () => {
+    render(
+      compiler(theredoc`
+        ![test][1]
+
+        [1]: /xyz.png "foo"
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<link rel="preload" as="image" href="/xyz.png"/><p><img alt="test" title="foo" src="/xyz.png"/></p>"`
+    )
+  })
+
+  it('should handle an image inside a link', () => {
+    render(
+      compiler(
+        `[![youtubeImg](https://www.gstatic.com/youtube/img/promos/growth/ytp_lp2_logo_phone_landscape_300x44.png)](https://www.youtube.com/)`
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<link rel="preload" as="image" href="https://www.gstatic.com/youtube/img/promos/growth/ytp_lp2_logo_phone_landscape_300x44.png"/><a href="https://www.youtube.com/"><img alt="youtubeImg" src="https://www.gstatic.com/youtube/img/promos/growth/ytp_lp2_logo_phone_landscape_300x44.png"/></a>"`
+    )
+  })
+})
+
+describe('links', () => {
+  it('should handle a link reference', () => {
+    render(compiler(`[foo][1]\n\n[1]: /xyz.png`))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<p><a href="/xyz.png">foo</a></p>"`
+    )
+  })
+
+  it('should handle a link reference with title', () => {
+    render(compiler(`[foo][1]\n\n[1]: /xyz.png "bar"`))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<p><a href="/xyz.png" title="bar">foo</a></p>"`
+    )
+  })
+
+  it('should handle a link reference with angle brackets', () => {
+    render(compiler(`[foo][1]\n\n[1]: </xyz.png>`))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<p><a href="/xyz.png">foo</a></p>"`
+    )
+  })
+
+  it('should handle a link reference with angle brackets and a title', () => {
+    render(compiler(`[foo][1]\n\n[1]: </xyz.png> "bar"`))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<p><a href="/xyz.png" title="bar">foo</a></p>"`
+    )
+  })
+
+  it('should gracefully handle an empty link reference', () => {
+    render(
+      compiler(theredoc`
+        [][1]
+        [2]: foo
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      "<p>[][1]
+      [2]: foo</p>"
+    `)
+  })
+
+  it('list item should break paragraph', () => {
+    render(compiler('foo\n- item'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>foo</p><ul><li>item</li></ul></div>"`
+    )
+  })
+
+  it('#474 link regression test', () => {
+    render(
+      compiler(
+        '[Markdown](https://cdn.vox-cdn.com/thumbor/ZGzvLsLuAaPPVW8yZMGqL77xyY8=/0x0:1917x789/1720x0/filters:focal(0x0:1917x789):format(webp):no_upscale()/cdn.vox-cdn.com/uploads/chorus_asset/file/24148777/cavill6.png)'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<a href="https://cdn.vox-cdn.com/thumbor/ZGzvLsLuAaPPVW8yZMGqL77xyY8=/0x0:1917x789/1720x0/filters:focal(0x0:1917x789):format(webp):no_upscale()/cdn.vox-cdn.com/uploads/chorus_asset/file/24148777/cavill6.png">Markdown</a>"`
+    )
+  })
+
+  it('header should break paragraph', () => {
+    render(compiler('foo\n# header'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>foo</p><h1 id="header">header</h1></div>"`
+    )
+  })
+
+  it('should handle autolinks after a paragraph (regression)', () => {
+    render(
+      compiler(theredoc`
+        **autolink** style
+
+        <https://google.com>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p><strong>autolink</strong> style</p><p><a href="https://google.com">https://google.com</a></p></div>"`
+    )
+  })
+
+  it('should handle mailto autolinks after a paragraph', () => {
+    render(
+      compiler(theredoc`
+        **autolink** style
+
+        <mailto:probablyup@gmail.com>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p><strong>autolink</strong> style</p><p><a href="mailto:probablyup@gmail.com">mailto:probablyup@gmail.com</a></p></div>"`
+    )
+  })
+
+  it('should handle a mailto autolink', () => {
+    render(compiler('<mailto:probablyup@gmail.com>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<a href="mailto:probablyup@gmail.com">mailto:probablyup@gmail.com</a>"`
+    )
+  })
+
+  it('should an email autolink and add a mailto: prefix', () => {
+    render(compiler('<probablyup@gmail.com>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<a href="mailto:probablyup@gmail.com">probablyup@gmail.com</a>"`
+    )
+  })
+
+  it('should automatically link found URLs', () => {
+    render(compiler('https://google.com'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<a href="https://google.com">https://google.com</a>"`
+    )
+  })
+
+  it('should not link bare URL if it is already inside an anchor tag', () => {
+    render(compiler('<a href="https://google.com">https://google.com</a>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<a href="https://google.com">https://google.com</a>"`
+    )
+  })
+
+  it('should not link URL if it is nested inside an anchor tag', () => {
+    render(
+      compiler(
+        '<a href="https://google.com">some text <span>with a link https://google.com</span></a>'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<a href="https://google.com">some text <span>with a link https://google.com</span></a>"`
+    )
+
+    render(
+      compiler(
+        '<a href="https://google.com">some text <span>with a nested link <span>https://google.com</span></span></a>'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<a href="https://google.com">some text <span>with a nested link <span>https://google.com</span></span></a>"`
+    )
+  })
+
+  it('should not link bare URL if disabled via options', () => {
+    render(compiler('https://google.com', { disableAutoLink: true }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"https://google.com"`)
+  })
+
+  it('should not sanitize markdown when explicitly disabled', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('[foo](javascript:doSomethingBad)', { sanitizer: x => x }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<a href="javascript:throw new Error(&#x27;React has blocked a javascript: URL as a security precaution.&#x27;)">foo</a>"`
+    )
+
+    expect(console.warn).not.toHaveBeenCalled()
+  })
+
+  it('tag and attribute are provided to allow for conditional override', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(
+      compiler(
+        '[foo](javascript:doSomethingBad)\n![foo](javascript:doSomethingBad)',
+        {
+          sanitizer: (value, tag) => (tag === 'a' ? value : sanitizer(value)),
+        }
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      "<p><a href="javascript:throw new Error(&#x27;React has blocked a javascript: URL as a security precaution.&#x27;)">foo</a>
+      <img alt="foo"/></p>"
+    `)
+
+    expect(console.warn).toHaveBeenCalledTimes(1)
+  })
+
+  it('should sanitize markdown links containing JS expressions', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('[foo](javascript:doSomethingBad)'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<a>foo</a>"`)
+
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should sanitize markdown links containing JS expressions', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('![foo](javascript:doSomethingBad)'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<img alt="foo"/>"`)
+
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should sanitize markdown links containing Data expressions', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('[foo](data:doSomethingBad)'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<a>foo</a>"`)
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should sanitize markdown links containing VBScript expressions', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('[foo](vbScript:doSomethingBad)'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<a>foo</a>"`)
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should sanitize markdown links containing encoded JS expressions', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('[foo](javascript%3AdoSomethingBad)'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<a>foo</a>"`)
+
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should sanitize markdown links containing padded JS expressions', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('[foo](  javascript%3AdoSomethingBad)'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<a>foo</a>"`)
+
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should sanitize markdown links containing padded encoded vscript expressions', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('[foo](  VBScript%3AdoSomethingBad)'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<a>foo</a>"`)
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should sanitize markdown images containing padded encoded vscript expressions', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('![foo](  VBScript%3AdoSomethingBad)'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<img alt="foo"/>"`)
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should sanitize markdown links containing padded encoded data expressions', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('[foo](`<data:doSomethingBad)'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<a>foo</a>"`)
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should sanitize markdown images containing padded encoded data expressions', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('![foo](`<data:doSomethingBad)'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<img alt="foo"/>"`)
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should sanitize markdown links containing invalid characters', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('[foo](https://google.com/%AF)'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<a>foo</a>"`)
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should sanitize html links containing JS expressions', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('<a href="javascript:doSomethingBad">foo</a>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<a>foo</a>"`)
+
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should sanitize html links containing encoded, prefixed data expressions', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('<a href="<`data:doSomethingBad">foo</a>'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<a>foo</a>"`)
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should sanitize html images containing encoded, prefixed JS expressions', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('<img src="`<javascript:alert>`(\'alertstr\')" />'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<img/>"`)
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should sanitize html images containing weird parsing src=s', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(compiler('<img src="<src=\\"javascript:alert(`xss`)">'))
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span>&lt;img src=&quot;&lt;src=&quot;javascript:alert(<code>xss</code>)&quot;&gt;</span>"`
+    )
+  })
+
+  it('should sanitize style attribute containing known XSS payloads', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(
+      compiler(
+        '<div style="background-image: url(javascript:alert(`xss`)); color: red;">'
+      )
+    )
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<div></div>"`)
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('should not sanitize style attribute with an acceptable data image payload', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
+    spyOn(console, 'error').mockImplementation(() => {})
+
+    render(
+      compiler(
+        '<div style="background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==); color: red;">'
+      )
+    )
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div style="background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==);color:red"></div>"`
+    )
+    expect(console.warn).not.toHaveBeenCalled()
+  })
+
+  it('should handle a link with a URL in the text', () => {
+    render(
+      compiler('[https://www.google.com *heck yeah*](http://www.google.com)')
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<a href="http://www.google.com">https://www.google.com <em>heck yeah</em></a>"`
+    )
+  })
+
+  it('regression test for #188, link inside underscore emphasis with underscore', () => {
+    render(
+      compiler(
+        '_This is emphasized text with [a link](https://example.com/asdf_asdf.pdf), and another [link](https://example.com)._'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<em>This is emphasized text with <a href="https://example.com/asdf_asdf.pdf">a link</a>, and another <a href="https://example.com">link</a>.</em>"`
+    )
+  })
+
+  it('regression test for #188, link inside underscore bolding with underscore', () => {
+    render(
+      compiler(
+        '__This is emphasized text with [a link](https://example.com/asdf__asdf.pdf), and another [link](https://example.com).__'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<strong>This is emphasized text with <a href="https://example.com/asdf__asdf.pdf">a link</a>, and another <a href="https://example.com">link</a>.</strong>"`
+    )
+  })
+
+  it('renders plain links preceded by text', () => {
+    render(compiler('Some text http://www.test.com/some-resource/123'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span>Some text <a href="http://www.test.com/some-resource/123">http://www.test.com/some-resource/123</a></span>"`
+    )
+  })
+
+  it('should encode backslashes in URLs per CommonMark spec', () => {
+    render(compiler('[link](http://example.com/path\\with\\backslashes)'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<a href="http://example.com/path%5Cwith%5Cbackslashes">link</a>"`
+    )
+  })
+
+  it('should encode backticks in URLs per CommonMark spec', () => {
+    render(compiler('[link](http://example.com/path`with`backticks)'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<a href="http://example.com/path%60with%60backticks">link</a>"`
+    )
+  })
+
+  it('should preserve existing percent-encoded sequences in URLs', () => {
+    render(
+      compiler(
+        '[link](http://example.com/path%20with\\backslashes%60and`backticks)'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<a href="http://example.com/path%20with%5Cbackslashes%60and%60backticks">link</a>"`
+    )
+  })
+
+  it('should encode mixed backslashes and backticks in URLs', () => {
+    render(compiler('[link](http://example.com/path\\with`mixed`\\chars)'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<a href="http://example.com/path%5Cwith%60mixed%60%5Cchars">link</a>"`
+    )
+  })
+
+  it('should handle inline HTML with empty content', () => {
+    render(compiler('text <span></span> more'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span>text <span></span> more</span>"`
+    )
+  })
+
+  it('should handle trailing whitespace in paragraphs', () => {
+    render(compiler('paragraph with trailing spaces   \n\nnext paragraph'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>paragraph with trailing spaces</p><p>next paragraph</p></div>"`
+    )
+  })
+
+  it('should handle self-closing HTML tags', () => {
+    render(compiler('text <br> more'))
+
+    // normally this would be <br> but react will render it as <br/>
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span>text <br/> more</span>"`
+    )
+  })
+})
+
+describe('lists', () => {
+  it('should handle a tight list', () => {
+    render(compiler(['- xyz', '- abc', '- foo'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li>xyz</li><li>abc</li><li>foo</li></ul>"`
+    )
+  })
+
+  it('should handle a loose list', () => {
+    render(compiler(['- xyz', '', '- abc', '', '- foo'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li><p>xyz</p></li><li><p>abc</p></li><li><p>foo</p></li></ul>"`
+    )
+  })
+
+  it('should handle an ordered list', () => {
+    render(compiler(['1. xyz', '1. abc', '1. foo'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ol start="1"><li>xyz</li><li>abc</li><li>foo</li></ol>"`
+    )
+  })
+
+  it('should handle an ordered list with a specific start index', () => {
+    render(compiler(['2. xyz', '3. abc', '4. foo'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ol start="2"><li>xyz</li><li>abc</li><li>foo</li></ol>"`
+    )
+  })
+
+  it('should handle a nested list', () => {
+    render(compiler(['- xyz', '  - abc', '- foo'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li>xyz<ul><li>abc</li></ul></li><li>foo</li></ul>"`
+    )
+  })
+
+  it('should not add an extra wrapper around a list', () => {
+    render(
+      compiler(theredoc`
+
+        - xyz
+          1. abc
+            - def
+        - foo
+
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li>xyz<ol start="1"><li>abc<ul><li>def</li></ul></li></ol></li><li>foo</li></ul>"`
+    )
+  })
+
+  it('should handle link trees', () => {
+    render(
+      compiler(`
+- [buttermilk](#buttermilk)
+- [installation](#installation)
+- [usage](#usage)
+    - [configuration](#configuration)
+    - [components](#components)
+        - [\`<Router>\`](#router)
+        - [\`<RoutingState>\`](#routingstate)
+        - [\`<Link>\`](#link)
+    - [utilities](#utilities)
+        - [\`route(url: String, addNewHistoryEntry: Boolean = true)\`](#routeurl-string-addnewhistoryentry-boolean--true)
+    - [holistic example](#holistic-example)
+- [goals](#goals)
+            `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li><a href="#buttermilk">buttermilk</a></li><li><a href="#installation">installation</a></li><li><a href="#usage">usage</a><ul><li><a href="#configuration">configuration</a></li><li><a href="#components">components</a><ul><li><a href="#router"><code>&lt;Router&gt;</code></a></li><li><a href="#routingstate"><code>&lt;RoutingState&gt;</code></a></li><li><a href="#link"><code>&lt;Link&gt;</code></a></li></ul></li><li><a href="#utilities">utilities</a><ul><li><a href="#routeurl-string-addnewhistoryentry-boolean--true"><code>route(url: String, addNewHistoryEntry: Boolean = true)</code></a></li></ul></li><li><a href="#holistic-example">holistic example</a></li></ul></li><li><a href="#goals">goals</a></li></ul>"`
+    )
+  })
+
+  it('handles horizontal rules after lists', () => {
+    render(
+      compiler(`
+-   one
+-   two
+
+* * *
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><ul><li>one</li><li>two</li></ul><hr/></div>"`
+    )
+  })
+
+  it('regression #613 - list false detection inside inline syntax', () => {
+    render(
+      compiler(`
+- foo
+- bar **+ baz** qux **quux**
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li>foo</li><li>bar <strong>+ baz</strong> qux <strong>quux</strong></li></ul>"`
+    )
+  })
+})
+
+it('should continue an indented list', () => {
+  render(
+    compiler(theredoc`
+*   An exclamation mark: \`!\`;
+*   followed by a set of square brackets, containing the \`alt\`
+    attribute text for the image;
+*   followed by a set of parentheses, containing the URL or path to
+    the image, and an optional \`title\` attribute enclosed in double
+    or single quotes.
+      `)
+  )
+
+  expect(root.innerHTML).toMatchInlineSnapshot(
+    `"<ul><li>An exclamation mark: <code>!</code>;</li><li>followed by a set of square brackets, containing the <code>alt</code> attribute text for the image;</li><li>followed by a set of parentheses, containing the URL or path to the image, and an optional <code>title</code> attribute enclosed in double or single quotes.</li></ul>"`
+  )
+})
+
+describe('GFM task lists', () => {
+  it('should handle unchecked items', () => {
+    render(compiler('- [ ] foo'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li><input readOnly="" type="checkbox"/> foo</li></ul>"`
+    )
+  })
+
+  it('should handle checked items', () => {
+    render(compiler('- [x] foo'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li><input readOnly="" type="checkbox" checked=""/> foo</li></ul>"`
+    )
+  })
+
+  it('should mark the checkboxes as readonly', () => {
+    render(compiler('- [x] foo'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li><input readOnly="" type="checkbox" checked=""/> foo</li></ul>"`
+    )
+  })
+})
+
+describe('GFM tables', () => {
+  it('should handle a basic table', () => {
+    render(
+      compiler(theredoc`
+        |foo|bar|
+        ---|---
+        1  |2
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th>foo</th><th>bar</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>"`
+    )
+  })
+
+  it('should handle a table with aligned columns', () => {
+    render(
+      compiler(theredoc`
+        |foo|bar|baz|
+        --:|:---:|:--
+        1|2|3
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th style="text-align:right">foo</th><th style="text-align:center">bar</th><th style="text-align:left">baz</th></tr></thead><tbody><tr><td style="text-align:right">1</td><td style="text-align:center">2</td><td style="text-align:left">3</td></tr></tbody></table>"`
+    )
+  })
+
+  it('should handle the other syntax for tables', () => {
+    render(
+      compiler(theredoc`
+        | Foo | Bar |
+        | --- | --- |
+        | 1   | 2   |
+        | 3   | 4   |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th>Foo</th><th>Bar</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></tbody></table>"`
+    )
+  })
+
+  it('should handle the other syntax for tables with alignment', () => {
+    render(
+      compiler(theredoc`
+        | Foo | Bar | Baz |
+        | --: | :-: | :-- |
+        | 1   | 2   | 3   |
+        | 4   | 5   | 6   |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th style="text-align:right">Foo</th><th style="text-align:center">Bar</th><th style="text-align:left">Baz</th></tr></thead><tbody><tr><td style="text-align:right">1</td><td style="text-align:center">2</td><td style="text-align:left">3</td></tr><tr><td style="text-align:right">4</td><td style="text-align:center">5</td><td style="text-align:left">6</td></tr></tbody></table>"`
+    )
+  })
+
+  it('#241 should not ignore the first cell when its contents is empty', () => {
+    render(
+      compiler(theredoc`
+        | Foo | Bar | Baz |
+        | --- | --- | --- |
+        |   | 2   | 3   |
+        |   | 5   | 6   |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th>Foo</th><th>Bar</th><th>Baz</th></tr></thead><tbody><tr><td></td><td>2</td><td>3</td></tr><tr><td></td><td>5</td><td>6</td></tr></tbody></table>"`
+    )
+  })
+
+  it('should handle other content after a table', () => {
+    render(
+      compiler(theredoc`
+        | Foo | Bar | Baz |
+        | --: | :-: | :-- |
+        | 1   | 2   | 3   |
+        | 4   | 5   | 6   |
+
+        Foo
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><table><thead><tr><th style="text-align:right">Foo</th><th style="text-align:center">Bar</th><th style="text-align:left">Baz</th></tr></thead><tbody><tr><td style="text-align:right">1</td><td style="text-align:center">2</td><td style="text-align:left">3</td></tr><tr><td style="text-align:right">4</td><td style="text-align:center">5</td><td style="text-align:left">6</td></tr></tbody></table><p>Foo</p></div>"`
+    )
+  })
+
+  it('should handle escaped pipes inside a table', () => {
+    render(
+      compiler(theredoc`
+        | \\|Attribute\\| | \\|Type\\|         |
+        | --------------- | ------------------ |
+        | pos\\|position  | "left" \\| "right" |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th>|Attribute|</th><th>|Type|</th></tr></thead><tbody><tr><td>pos|position</td><td>&quot;left&quot; | &quot;right&quot;</td></tr></tbody></table>"`
+    )
+  })
+
+  it('should handle pipes in code inside a table', () => {
+    render(
+      compiler(theredoc`
+        | Attribute    | Type                  |
+        | ------------ | --------------------- |
+        | \`position\`   | \`"left" | "right"\`    |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th>Attribute</th><th>Type</th></tr></thead><tbody><tr><td><code>position</code></td><td><code>&quot;left&quot; | &quot;right&quot;</code></td></tr></tbody></table>"`
+    )
+  })
+
+  it('processeses HTML inside of a table row', () => {
+    render(
+      compiler(theredoc`
+        | Header                     |
+        | -------------------------- |
+        | <div>I'm in a "div"!</div> |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th>Header</th></tr></thead><tbody><tr><td><div>I&#x27;m in a &quot;div&quot;!</div></td></tr></tbody></table>"`
+    )
+  })
+
+  it('regression #625 - processes self-closing HTML inside of a table row', () => {
+    render(
+      compiler(theredoc`
+        | col1 | col2 | col3 |
+        |------|-----------------|------------------|
+        | col1 | <custom-element>col2</custom-element><br> col2 | <custom-element>col3</custom-element><br>col3 |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th>col1</th><th>col2</th><th>col3</th></tr></thead><tbody><tr><td>col1</td><td><custom-element>col2</custom-element><br/> col2</td><td><custom-element>col3</custom-element><br/>col3</td></tr></tbody></table>"`
+    )
+  })
+
+  it('processes markdown inside of a table row when a preceeding column contains HTML', () => {
+    render(
+      compiler(theredoc`
+        | Column A                   | Column B                 |
+        | -------------------------- | ------------------------ |
+        | <div>I'm in column A</div> | **Hello from column B!** |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th>Column A</th><th>Column B</th></tr></thead><tbody><tr><td><div>I&#x27;m in column A</div></td><td><strong>Hello from column B!</strong></td></tr></tbody></table>"`
+    )
+  })
+
+  it('processes HTML inside of a table row when a preceeding column contains markdown', () => {
+    render(
+      compiler(theredoc`
+        | Markdown         | HTML                          |
+        | ---------------- | ----------------------------- |
+        | **I'm Markdown** | <strong>And I'm HTML</strong> |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th>Markdown</th><th>HTML</th></tr></thead><tbody><tr><td><strong>I&#x27;m Markdown</strong></td><td><strong>And I&#x27;m HTML</strong></td></tr></tbody></table>"`
+    )
+  })
+
+  it('processes markdown inside of a table row when a preceeding column contains HTML with nested elements', () => {
+    render(
+      compiler(theredoc`
+        | Nested HTML                        | MD                   |
+        | ---------------------------------- | -------------------- |
+        | <div><strong>Nested</strong></div> | **I should be bold** |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th>Nested HTML</th><th>MD</th></tr></thead><tbody><tr><td><div><strong>Nested</strong></div></td><td><strong>I should be bold</strong></td></tr></tbody></table>"`
+    )
+  })
+
+  it('processes a markdown link inside of a table row when a preceeding column contains HTML with nested elements', () => {
+    render(
+      compiler(theredoc`
+        | Nested HTML                        | Link                         |
+        | ---------------------------------- | ---------------------------- |
+        | <div><strong>Nested</strong></div> | [I'm a link](www.google.com) |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th>Nested HTML</th><th>Link</th></tr></thead><tbody><tr><td><div><strong>Nested</strong></div></td><td><a href="www.google.com">I&#x27;m a link</a></td></tr></tbody></table>"`
+    )
+  })
+
+  it('#568 handle inline syntax around table separators', () => {
+    render(compiler(`|_foo|bar_|\n|-|-|\n|1|2|`))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th>_foo</th><th>bar_</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>"`
+    )
+  })
+
+  it('#568 handle inline code syntax around table separators', () => {
+    render(compiler(`|\`foo|bar\`|baz|\n|-|-|\n|1|2|`))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th><code>foo|bar</code></th><th>baz</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>"`
+    )
+  })
+
+  it('#644 handles nested inlines within table cells', () => {
+    render(
+      compiler(theredoc`
+      | Nested HTML                        | Link                         |
+      | ---------------------------------- | ---------------------------- |
+      | <div><strong>Nested</strong></div> | [I'm a \`link\`](www.google.com) |
+    `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th>Nested HTML</th><th>Link</th></tr></thead><tbody><tr><td><div><strong>Nested</strong></div></td><td><a href="www.google.com">I&#x27;m a <code>link</code></a></td></tr></tbody></table>"`
+    )
+  })
+
+  it('#641 handles only a single newline prior to the start of the table', () => {
+    render(
+      compiler(theredoc`
+      Test
+      | Nested HTML                        | Link                         |
+      | ---------------------------------- | ---------------------------- |
+      | <div><strong>Nested</strong></div> | [I'm a \`link\`](www.google.com) |
+    `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>Test</p><table><thead><tr><th>Nested HTML</th><th>Link</th></tr></thead><tbody><tr><td><div><strong>Nested</strong></div></td><td><a href="www.google.com">I&#x27;m a <code>link</code></a></td></tr></tbody></table></div>"`
+    )
+  })
+})
+
+describe('arbitrary HTML', () => {
+  it('preserves the HTML given', () => {
+    const ast = compiler('<dd class="foo">Hello</dd>')
+    expect(ast).toMatchInlineSnapshot(`
+      {
+        "$$typeof": Symbol(react.transitional.element),
+        "_debugInfo": null,
+        "_debugStack": [Error: react-stack-top-frame],
+        "_debugTask": null,
+        "_owner": null,
+        "_store": {
+          "validated": 0,
+        },
+        "key": "0",
+        "props": {
+          "children": [
+            "Hello",
+          ],
+          "className": "foo",
+          "key": [native code],
+        },
+        "ref": null,
+        "type": "dd",
+      }
+    `)
+
+    render(ast)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<dd class="foo">Hello</dd>"`)
+  })
+
+  it('processes markdown within inline HTML', () => {
+    render(compiler('<time>**Hello**</time>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<time><strong>Hello</strong></time>"`
+    )
+  })
+
+  it('processes markdown within nested inline HTML', () => {
+    render(compiler('<time><span>**Hello**</span></time>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<time><span><strong>Hello</strong></span></time>"`
+    )
+  })
+
+  it('processes markdown within nested inline HTML where childen appear more than once', () => {
+    render(
+      compiler('<dl><dt>foo</dt><dd>bar</dd><dt>baz</dt><dd>qux</dd></dl>')
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<dl><dt>foo</dt><dd>bar</dd><dt>baz</dt><dd>qux</dd></dl>"`
+    )
+  })
+
+  it('processes attributes within inline HTML', () => {
+    render(compiler('<time data-foo="bar">Hello</time>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<time data-foo="bar">Hello</time>"`
+    )
+  })
+
+  it('processes attributes that need JSX massaging within inline HTML', () => {
+    render(compiler('<span tabindex="0">Hello</span>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span tabindex="0">Hello</span>"`
+    )
+  })
+
+  it('processes inline HTML with inline styles', () => {
+    render(
+      compiler(
+        '<span style="color: red; position: top; margin-right: 10px">Hello</span>'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span style="color:red;position:top;margin-right:10px">Hello</span>"`
+    )
+  })
+
+  it('processes markdown within block-level arbitrary HTML', () => {
+    render(compiler('<p>**Hello**</p>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<p><strong>Hello</strong></p>"`
+    )
+  })
+
+  it('processes markdown within block-level arbitrary HTML (regression)', () => {
+    render(compiler('<div style="float: right">\n# Hello\n</div>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div style="float:right"><h1 id="hello">Hello</h1></div>"`
+    )
+  })
+
+  it('renders inline <code> tags', () => {
+    render(compiler('Text and <code>**code**</code>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span>Text and <code><strong>code</strong></code></span>"`
+    )
+  })
+
+  it('handles self-closing html inside parsable html (regression)', () => {
+    render(
+      compiler(
+        '<a href="https://opencollective.com/react-dropzone/sponsor/0/website" target="_blank"><img src="https://opencollective.com/react-dropzone/sponsor/0/avatar.svg"></a>'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<link rel="preload" as="image" href="https://opencollective.com/react-dropzone/sponsor/0/avatar.svg"/><a href="https://opencollective.com/react-dropzone/sponsor/0/website" target="_blank"><img src="https://opencollective.com/react-dropzone/sponsor/0/avatar.svg"/></a>"`
+    )
+  })
+
+  it('throws out HTML comments', () => {
+    render(compiler('Foo\n<!-- blah -->'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<p>Foo</p>"`)
+  })
+
+  it('throws out multiline HTML comments', () => {
+    render(
+      compiler(`Foo\n<!-- this is
+a
+multiline
+comment -->`)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<p>Foo</p>"`)
+  })
+
+  it('block HTML regression test', () => {
+    render(
+      compiler(theredoc`
+        <ul id="ProjectSubmenu">
+          <li><a href="/projects/markdown/" title="Markdown Project Page">Main</a></li>
+          <li><a href="/projects/markdown/basics" title="Markdown Basics">Basics</a></li>
+          <li><a class="selected" title="Markdown Syntax Documentation">Syntax</a></li>
+          <li><a href="/projects/markdown/license" title="Pricing and License Information">License</a></li>
+          <li><a href="/projects/markdown/dingus" title="Online Markdown Web Form">Dingus</a></li>
+        </ul>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul id="ProjectSubmenu"><li><a href="/projects/markdown/" title="Markdown Project Page">Main</a><li><a href="/projects/markdown/basics" title="Markdown Basics">Basics</a></li><li><a class="selected" title="Markdown Syntax Documentation">Syntax</a></li><li><a href="/projects/markdown/license" title="Pricing and License Information">License</a></li><li><a href="/projects/markdown/dingus" title="Online Markdown Web Form">Dingus</a></li></li></ul>"`
+    )
+  })
+
+  it('handles svg', () => {
+    render(
+      compiler(fs.readFileSync(__dirname + '/../docs/images/logo.svg', 'utf8'))
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<svg width="246" height="369" xmlns="http://www.w3.org/2000/svg"><path d="M243.937.055a2 2 0 0 1 2.008 2.002v168.995c0 1.106-.814 2.388-1.802 2.855l-118.895 56.186c-.996.47-2.617.467-3.605 0L2.748 173.907c-.996-.47-1.803-1.742-1.803-2.855V2.057C.945.951 1.832.055 2.953.055h240.984zM110.391 139.367V66.383l-25.032 47.32h-9.843l-24.891-47.32v72.984h-15.68V42.055h20.18l25.594 49.64 25.804-49.64h19.688v97.312h-15.82zm104.101-48.656c0 9.562-.984 17.484-2.953 23.766-1.969 6.28-4.91 11.261-8.824 14.941-3.914 3.68-8.754 6.258-14.52 7.734-5.765 1.477-12.445 2.215-20.039 2.215h-27.21V42.055h26.929c7.781 0 14.59.82 20.426 2.46 5.836 1.641 10.699 4.36 14.59 8.157 3.89 3.797 6.796 8.8 8.718 15.012 1.922 6.21 2.883 13.886 2.883 23.027zm-18.289-16.508c-1.031-4.312-2.742-7.746-5.133-10.3-2.39-2.555-5.554-4.348-9.492-5.38-3.937-1.03-8.812-1.546-14.625-1.546h-9.21v67.359h9.21c5.906 0 10.828-.55 14.766-1.652 3.937-1.102 7.101-2.954 9.492-5.555 2.39-2.602 4.078-6.07 5.062-10.406.985-4.336 1.477-9.739 1.477-16.207 0-6.563-.516-12-1.547-16.313zM51.219 339.805c0 4.922-.574 9.187-1.723 12.797-1.148 3.609-2.93 6.597-5.344 8.964-2.414 2.368-5.507 4.114-9.28 5.239-3.774 1.125-8.263 1.687-13.466 1.687-1.265 0-2.718-.082-4.36-.246a60.81 60.81 0 0 1-5.097-.738 80.327 80.327 0 0 1-5.238-1.16A49.492 49.492 0 0 1 2 364.906l5.484-14.414c.704.375 1.653.762 2.848 1.16 1.195.399 2.45.762 3.762 1.09a56.72 56.72 0 0 0 3.972.844c1.336.234 2.496.351 3.48.351 2.673 0 4.864-.316 6.575-.949 1.711-.633 3.07-1.699 4.078-3.199 1.008-1.5 1.7-3.492 2.074-5.976.375-2.485.563-5.602.563-9.352V269h16.383v70.805zM151.688 339c0 5.484-.973 10.09-2.918 13.816-1.946 3.727-4.582 6.75-7.91 9.07-3.329 2.321-7.208 3.985-11.637 4.993-4.43 1.008-9.13 1.512-14.098 1.512-5.25 0-9.844-.493-13.781-1.477-3.938-.984-7.383-2.32-10.336-4.008-2.953-1.687-5.473-3.656-7.559-5.906A43.715 43.715 0 0 1 78 349.758l12.938-9.352a42.058 42.058 0 0 0 3.902 5.168 23.723 23.723 0 0 0 4.992 4.254c1.898 1.219 4.113 2.192 6.645 2.918 2.53.727 5.46 1.09 8.789 1.09 2.484 0 4.91-.234 7.277-.703s4.465-1.242 6.293-2.32c1.828-1.079 3.293-2.485 4.394-4.22 1.102-1.734 1.653-3.89 1.653-6.468 0-2.438-.528-4.477-1.582-6.117-1.055-1.64-2.473-3.024-4.254-4.149-1.781-1.125-3.867-2.062-6.258-2.812-2.39-.75-4.945-1.477-7.664-2.18a266.328 266.328 0 0 1-13.852-3.902c-4.265-1.336-7.968-3.035-11.109-5.098-3.14-2.062-5.613-4.687-7.418-7.875-1.805-3.187-2.707-7.265-2.707-12.234 0-4.406.75-8.38 2.25-11.918a24.403 24.403 0 0 1 6.61-9.07c2.906-2.508 6.527-4.43 10.863-5.766 4.336-1.336 9.316-2.004 14.941-2.004 4.219 0 8.074.387 11.567 1.16 3.492.774 6.656 1.899 9.492 3.375a32.403 32.403 0 0 1 7.629 5.485 37.377 37.377 0 0 1 5.906 7.418l-12.727 9.492c-2.578-4.125-5.625-7.22-9.14-9.282-3.516-2.062-7.805-3.093-12.868-3.093-5.484 0-9.832 1.125-13.042 3.375-3.211 2.25-4.817 5.437-4.817 9.562 0 2.063.434 3.785 1.3 5.168.868 1.383 2.204 2.59 4.009 3.621 1.804 1.032 4.078 1.957 6.82 2.778 2.742.82 5.988 1.675 9.738 2.566a193.01 193.01 0 0 1 8.473 2.25 67.888 67.888 0 0 1 7.805 2.777 38.465 38.465 0 0 1 6.785 3.727 22.237 22.237 0 0 1 5.308 5.168c1.477 2.016 2.637 4.371 3.48 7.066.845 2.696 1.267 5.824 1.267 9.387zM164 367.313l31.992-48.797L164.844 270h18.914l21.586 35.648L227.633 270h18.281l-31.5 48.094 31.36 49.219H227.07l-22.289-36.282-22.64 36.281z" fill="#fefefe" fill-rule="evenodd"></path></svg>"`
+    )
+  })
+
+  it('handles nested HTML blocks of the same type (regression)', () => {
+    render(
+      compiler(theredoc`
+        <table>
+        <tbody>
+            <tr>
+            <td>Time</td>
+            <td>Payment Criteria</td>
+            <td>Payment</td>
+            </tr>
+            <tr>
+            <td>Office Visit </td>
+            <td>
+                <ul>
+                <li>
+                    Complete full visit and enroll
+                    <ul>
+                    <li>Enrolling is fun!</li>
+                    </ul>
+                </li>
+                </ul>
+            </td>
+            <td>$20</td>
+            </tr>
+        </tbody>
+        </table>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><tbody><tr><td>Time<td>Payment Criteria</td><td>Payment</td><tr><td>Office Visit </td><td><ul><li>             Complete full visit and enroll             <ul><li>Enrolling is fun!</li></ul></li></ul></td><td>$20</td></tr></td></tr></tbody></table>"`
+    )
+  })
+
+  it('regression test for #136', () => {
+    render(
+      compiler(theredoc`
+        $25
+        <br>
+        <br>
+        <br>$50
+        <br>
+        <br>
+        <br>$50
+        <br>
+        <br>
+        <br>$50
+        <br>
+        <br>
+        <br>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      "<p>$25
+      <br/>
+      <br/>
+      <br/>$50
+      <br/>
+      <br/>
+      <br/>$50
+      <br/>
+      <br/>
+      <br/>$50
+      <br/>
+      <br/>
+      <br/></p>"
+    `)
+  })
+
+  it('regression test for #170', () => {
+    render(
+      compiler(theredoc`
+        <table>
+          <tbody>
+            <tr>
+              <td>a</td>
+              <td>b</td>
+              <td>c</td>
+            </tr>
+            <tr>
+              <td>left</td>
+              <td>
+                <p>Start of table</p>
+                <ul>
+                  <li>List 1</li>
+                  <li>
+                    <ul>
+                      <li>Nested List 1</li>
+                    </ul>
+                  </li>
+                  <li>
+                    <ul>
+                      <li>list 2</li>
+                    </ul>
+                  </li>
+                </ul>
+              </td>
+              <td>right</td>
+            </tr>
+          </tbody>
+        </table>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><tbody><tr><td>a<td>b</td><td>c</td><tr><td>left</td><td><p>Start of table</p><ul><li>List 1</li><li><ul><li>Nested List 1</li></ul></li><li><ul><li>list 2</li></ul></li></ul></td><td>right</td></tr></td></tr></tbody></table>"`
+    )
+  })
+
+  it('#140 self-closing HTML with indentation', () => {
+    function DatePicker() {
+      return <div className="datepicker" />
+    }
+
+    render(
+      compiler(
+        theredoc`
+          <DatePicker
+            biasTowardDateTime="2017-12-05T07:39:36.091Z"
+            timezone="UTC+5"
+          />
+        `,
+        { overrides: { DatePicker } }
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div class="datepicker"></div>"`
+    )
+  })
+
+  it('handles jsx attribute interpolation as a string', () => {
+    function DatePicker({ endTime, startTime }) {
+      return (
+        <div>
+          {startTime} to {endTime}
+        </div>
+      )
+    }
+
+    render(
+      compiler(
+        theredoc`
+          <DatePicker
+            startTime={1514579720511}
+            endTime={"1514579720512"}
+          />
+        `,
+        { overrides: { DatePicker } }
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div>1514579720511<!-- --> to <!-- -->&quot;1514579720512&quot;</div>"`
+    )
+  })
+
+  it('handles jsx inside jsx interpolations', () => {
+    function InterpolationTest({
+      component,
+      component2,
+      component3,
+      component4,
+    }) {
+      return (
+        <div>
+          {component} and {component2} and {component3} and {component4}
+        </div>
+      )
+    }
+
+    function Inner({ children, ...props }) {
+      return (
+        <div {...props} className="inner">
+          {children}
+        </div>
+      )
+    }
+
+    render(
+      compiler(
+        theredoc`
+          <InterpolationTest
+            component={<Inner children="bah" />}
+            component2={<Inner>blah</Inner>}
+            component3={<Inner disabled />}
+            component4={<Inner disabled={false} />}
+          />
+        `,
+        { overrides: { Inner, InterpolationTest } }
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><div class="inner">bah</div> and <div class="inner">blah</div> and <div disabled="" class="inner"></div> and <div class="inner"></div></div>"`
+    )
+  })
+
+  it('handles malformed HTML', () => {
+    render(
+      compiler(
+        theredoc`
+          <g>
+          <g>
+          <path fill="#ffffff"/>
+          </g>
+          <path fill="#ffffff"/>
+        `
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<g><g><path fill="#ffffff"></path></g><path fill="#ffffff"></path></g>"`
+    )
+  })
+
+  it('allows whitespace between attribute and value', () => {
+    render(
+      compiler(
+        theredoc`
+          <div class = "foo" style= "background:red;" id ="baz">
+          Bar
+          </div>
+        `
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div class="foo" style="background:red" id="baz">Bar </div>"`
+    )
+  })
+
+  it('handles a raw hashtag inside HTML', () => {
+    render(compiler(['"<span>#</span>"'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span>&quot;<span>#</span>&quot;</span>"`
+    )
+  })
+
+  it('handles a heading inside HTML', () => {
+    render(compiler('"<span># foo</span>"'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span>&quot;<span><h1 id="foo">foo</h1></span>&quot;</span>"`
+    )
+  })
+
+  it('does not parse the inside of <style> blocks', () => {
+    render(
+      compiler(
+        theredoc`
+          <style>
+            .bar {
+              color: red;
+            }
+          </style>
+        `
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      "<style>  .bar {
+          color: red;
+        }</style>"
+    `)
+  })
+
+  it('does not parse the inside of <script> blocks', () => {
+    render(
+      compiler(theredoc`
+        <script>
+          new Date();
+        </script>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<script>  new Date();</script>"`
+    )
+  })
+
+  it('does not parse the inside of <script> blocks with weird capitalization', () => {
+    render(compiler(['<SCRIPT>', '  new Date();', '</SCRIPT>'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<SCRIPT>  new Date();</SCRIPT>"`
+    )
+  })
+
+  it('handles nested tags of the same type with attributes', () => {
+    render(
+      compiler(theredoc`
+        <div id="foo">
+          <div id="bar">Baz</div>
+        </div>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div id="foo"><div id="bar">Baz</div></div>"`
+    )
+  })
+
+  it('#180 handles invalid character error with angle brackets', () => {
+    render(compiler('1<2 or 2>1'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"1&lt;2 or 2&gt;1"`)
+  })
+
+  it('#181 handling of figure blocks', () => {
+    render(
+      compiler(
+        theredoc`
+          <figure>
+          ![](//placehold.it/300x200)
+          <figcaption>This is a placeholder image</figcaption>
+          </figure>
+        `
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<link rel="preload" as="image" href="//placehold.it/300x200"/><figure><img src="//placehold.it/300x200"/><figcaption>This is a placeholder image</figcaption></figure>"`
+    )
+  })
+
+  it('#185 handles block syntax MD + HTML inside HTML', () => {
+    render(
+      compiler(theredoc`
+        <details>
+        <summary>Solution</summary>
+
+        \`\`\`jsx
+        import styled from 'styled-components';
+        \`\`\`
+        </details>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<details><summary>Solution</summary><pre><code class="language-jsx">import styled from &#x27;styled-components&#x27;;</code></pre></details>"`
+    )
+  })
+
+  it('#207 handles tables inside HTML', () => {
+    render(
+      compiler(theredoc`
+        <details>
+        <summary>Click here</summary>
+
+        | Heading 1 | Heading 2 |
+        | --------- | --------- |
+        | Foo       | Bar       |
+
+        </details>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<details><summary>Click here</summary><table><thead><tr><th>Heading 1</th><th>Heading 2</th></tr></thead><tbody><tr><td>Foo</td><td>Bar</td></tr></tbody></table></details>"`
+    )
+  })
+
+  it('#185 misc regression test', () => {
+    render(
+      compiler(theredoc`
+        <details>
+        <summary>View collapsed content</summary>
+
+        # Title h1
+
+        ## Title h2
+
+        Text content
+
+        * list 1
+        * list 2
+        * list 3
+
+
+        </details>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<details><summary>View collapsed content</summary><h1 id="title-h1">Title h1</h1><h2 id="title-h2">Title h2</h2><p>Text content</p><ul><li>list 1</li><li>list 2</li><li>list 3</li></ul></details>"`
+    )
+  })
+
+  it('multiline left-trims by the same amount as the first line', () => {
+    render(
+      compiler(theredoc`
+        <div>
+        \`\`\`kotlin
+        fun main() {
+            print("Hello world")
+        }
+        \`\`\`
+        </div>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      "<div><pre><code class="language-kotlin">fun main() {
+          print(&quot;Hello world&quot;)
+      }</code></pre></div>"
+    `)
+  })
+
+  it('nested lists work inside html', () => {
+    render(
+      compiler(theredoc`
+        <div>
+        * hi
+        * hello
+            * how are you?
+        </div>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><ul><li>hi</li><li>hello<ul><li>how are you?</li></ul></li></ul></div>"`
+    )
+  })
+
+  it('#214 nested paragraphs work inside html', () => {
+    render(
+      compiler(theredoc`
+        <div>
+          Hello
+
+          World
+        </div>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      "<div><p>Hello</p><p>World
+      </p></div>"
+    `)
+  })
+
+  it('does not consume trailing whitespace if there is no newline', () => {
+    const Foo = () => <span>Hello</span>
+
+    render(compiler('<Foo/> World!', { overrides: { Foo } }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span><span>Hello</span> World!</span>"`
+    )
+  })
+
+  it('should not fail with lots of \\n in the middle of the text', () => {
+    render(
+      compiler(
+        'Text\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\ntext',
+        {
+          forceBlock: true,
+        }
+      )
+    )
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>Text</p><p>text</p></div>"`
+    )
+  })
+
+  it('should not render html if disableParsingRawHTML is true', () => {
+    render(
+      compiler('Text with <span>html</span> inside', {
+        disableParsingRawHTML: true,
+      })
+    )
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"Text with &lt;span&gt;html&lt;/span&gt; inside"`
+    )
+  })
+
+  it('should render html if disableParsingRawHTML is false', () => {
+    render(
+      compiler('Text with <span>html</span> inside', {
+        disableParsingRawHTML: false,
+      })
+    )
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span>Text with <span>html</span> inside</span>"`
+    )
+  })
+
+  it('#465 misc regression test', () => {
+    render(compiler('hello [h]:m **world**'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span>hello [h]:m <strong>world</strong></span>"`
+    )
+  })
+
+  it('#455 fenced code block regression test', () => {
+    render(
+      compiler(`Hello world example
+
+\`\`\`python data-start="2"
+print("hello world")
+\`\`\``)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>Hello world example</p><pre><code data-start="2" class="language-python">print(&quot;hello world&quot;)</code></pre></div>"`
+    )
+  })
+
+  it('#444 switching list formats regression test', () => {
+    render(
+      compiler(
+        `
+1.  One
+2.  Two
+3.  Three
+
+*   Red
+*   Green
+*   Blue
+        `
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><ol start="1"><li>One</li><li>Two</li><li>Three</li></ol><ul><li>Red</li><li>Green</li><li>Blue</li></ul></div>"`
+    )
+  })
+
+  it('#466 list-like syntax inside link regression test', () => {
+    render(
+      compiler(
+        'Hello, I think that [6. Markdown](http://daringfireball.net/projects/markdown/) lets you write content in a really natural way.'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span>Hello, I think that <a href="http://daringfireball.net/projects/markdown/">6. Markdown</a> lets you write content in a really natural way.</span>"`
+    )
+  })
+
+  it('#540 multiline attributes are supported', () => {
+    render(
+      compiler(
+        `<p>
+Item detail
+<span
+  style="
+    color: #fddb67;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 18px;
+    text-decoration-line: underline;
+  "
+  >debug item 1</span
+>
+</p>`
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      "<p>
+      Item detail
+      <span style="color:#fddb67;font-size:11px;font-style:normal;font-weight:500;line-height:18px;text-decoration-line:underline">debug item 1</span>
+      </p>"
+    `)
+  })
+
+  it('#686 should not add unnecessary paragraphs', () => {
+    render(compiler(`<tag1><tag2>text1</tag2>text2</tag1>`))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<tag1><tag2>text1</tag2>text2</tag1>"`
+    )
+  })
+
+  it('should not process pre blocks inside of arbitrary HTML', () => {
+    render(
+      compiler(`<table><tr><td>
+<pre>
+**Hello**,
+
+_world_.
+</pre>
+</td></tr></table>`)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      "<table><tr><td>
+      <pre>
+      **Hello**,
+
+      _world_.
+      </pre></td></tr></table>"
+    `)
+  })
+})
+
+describe('horizontal rules', () => {
+  it('should handle the various syntaxes', () => {
+    render(
+      compiler(theredoc`
+        * * *
+
+        ***
+
+        *****
+
+        - - -
+
+        ---------------------------------------
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><hr/><hr/><hr/><hr/><hr/></div>"`
+    )
+  })
+})
+
+describe('line breaks', () => {
+  it('should be added for 2-space sequences', () => {
+    render(compiler(['hello  ', 'there'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<p>hello<br/>there</p>"`)
+  })
+})
+
+describe('fenced code blocks', () => {
+  it('should be handled', () => {
+    render(compiler(['```js', 'foo', '```'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<pre><code class="language-js">foo</code></pre>"`
+    )
+  })
+
+  it('should not strip HTML comments inside fenced blocks', () => {
+    render(
+      compiler(
+        `
+\`\`\`html
+<!-- something -->
+Yeah boi
+\`\`\`
+`.trim()
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      "<pre><code class="language-html">&lt;!-- something --&gt;
+      Yeah boi</code></pre>"
+    `)
+  })
+
+  it('regression 602 - should treat anything following ``` as code until the closing pair', () => {
+    render(compiler('```\nfoo'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      "<pre><code>foo
+      </code></pre>"
+    `)
+  })
+
+  it('regression 670 - fenced code block intentional escape', () => {
+    render(compiler('```\n\\%\n```'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<pre><code>\\%</code></pre>"`
+    )
+  })
+})
+
+describe('indented code blocks', () => {
+  it('should be handled', () => {
+    render(compiler('    foo\n\n'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<pre><code>foo</code></pre>"`
+    )
+  })
+})
+
+describe('inline code blocks', () => {
+  it('naked backticks can be used unescaped if there are two or more outer backticks', () => {
+    render(compiler('``hi `foo` there``'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<code>hi \`foo\` there</code>"`
+    )
+  })
+})
+
+describe('footnotes', () => {
+  it('should handle conversion of references into links', () => {
+    render(
+      compiler(theredoc`
+        foo[^abc] bar
+
+        [^abc]: Baz baz
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>foo<a href="#abc"><sup>abc</sup></a> bar</p><footer><div id="abc">abc: <!-- -->Baz baz</div></footer></div>"`
+    )
+  })
+
+  it('should handle complex references', () => {
+    render(
+      compiler(theredoc`
+        foo[^referencé heré 123] bar
+
+        [^referencé heré 123]: Baz baz
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>foo<a href="#reference-here-123"><sup>referencé heré 123</sup></a> bar</p><footer><div id="reference-here-123">referencé heré 123: <!-- -->Baz baz</div></footer></div>"`
+    )
+  })
+
+  it('should handle conversion of multiple references into links', () => {
+    render(
+      compiler(theredoc`
+        foo[^abc] bar. baz[^def]
+
+        [^abc]: Baz baz
+        [^def]: Def
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>foo<a href="#abc"><sup>abc</sup></a> bar. baz<a href="#def"><sup>def</sup></a></p><footer><div id="abc">abc: <!-- -->Baz baz</div><div id="def">def: <!-- -->Def</div></footer></div>"`
+    )
+  })
+
+  it('should inject the definitions in a footer at the end of the root', () => {
+    render(
+      compiler(theredoc`
+        foo[^abc] bar
+
+        [^abc]: Baz baz
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>foo<a href="#abc"><sup>abc</sup></a> bar</p><footer><div id="abc">abc: <!-- -->Baz baz</div></footer></div>"`
+    )
+  })
+
+  it('should handle single word footnote definitions', () => {
+    render(
+      compiler(theredoc`
+        foo[^abc] bar
+
+        [^abc]: Baz
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>foo<a href="#abc"><sup>abc</sup></a> bar</p><footer><div id="abc">abc: <!-- -->Baz</div></footer></div>"`
+    )
+  })
+
+  it('should not blow up if footnote syntax is seen but no matching footnote was found', () => {
+    expect(() => render(compiler('[one] [two]'))).not.toThrow()
+    expect(root.innerHTML).toMatchInlineSnapshot(`"[one] [two]"`)
+  })
+
+  it('should handle multiline footnotes', () => {
+    render(
+      compiler(theredoc`
+        foo[^abc] bar
+
+        [^abc]: Baz
+          line2
+          line3
+
+        After footnotes content
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      "<div><p>foo<a href="#abc"><sup>abc</sup></a> bar</p><p>After footnotes content</p><footer><div id="abc">abc: <!-- -->Baz
+        line2
+        line3</div></footer></div>"
+    `)
+  })
+
+  it('should handle mixed multiline and singleline footnotes', () => {
+    render(
+      compiler(theredoc`
+        a[^a] b[^b] c[^c]
+
+        [^a]: single
+        [^b]: bbbb
+          bbbb
+          bbbb
+        [^c]: single-c
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      "<div><p>a<a href="#a"><sup>a</sup></a> b<a href="#b"><sup>b</sup></a> c<a href="#c"><sup>c</sup></a></p><footer><div id="a">a: <!-- -->single</div><div id="b">b: <!-- -->bbbb
+        bbbb
+        bbbb</div><div id="c">c: <!-- -->single-c</div></footer></div>"
+    `)
+  })
+
+  it('should handle indented multiline footnote', () => {
+    render(
+      compiler(theredoc`
+        Here's a simple footnote,[^1] and here's a longer one.[^bignote]
+
+        [^1]: This is the first footnote.
+
+        [^bignote]: Here's one with multiple paragraphs and code.
+
+            Indent paragraphs to include them in the footnote.
+
+            \`{ my code }\`
+
+            Add as many paragraphs as you like.
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`
+      "<div><p>Here&#x27;s a simple footnote,<a href="#1"><sup>1</sup></a> and here&#x27;s a longer one.<a href="#bignote"><sup>bignote</sup></a></p><footer><div id="1">1: <!-- -->This is the first footnote.</div><div id="bignote">bignote: <!-- -->Here&#x27;s one with multiple paragraphs and code.
+
+          Indent paragraphs to include them in the footnote.
+
+          <code>{ my code }</code>
+
+          Add as many paragraphs as you like.</div></footer></div>"
+    `)
+  })
+})
+
+describe('named character entity decoding', () => {
+  // All named entities are now supported by default via the full entity list
+  const content =
+    '&AElig;,&Aacute;,&Acirc;,&Agrave;,&Aring;,&Atilde;,&Auml;,&Ccedil;,&Eacute;,&Ecirc;,&Egrave;,&Euml;,&Iacute;,&Icirc;,&Igrave;,&Iuml;,&Ntilde;,&Oacute;,&Ocirc;,&Ograve;,&Oslash;,&Otilde;,&Ouml;,&Uacute;,&Ucirc;,&Ugrave;,&Uuml;,&Yacute;,&aacute;,&acirc;,&aelig;,&agrave;,&aring;,&atilde;,&auml;,&ccedil;,&coy;,&eacute;,&ecirc;,&egrave;,&euml;,&ge;,&iacute;,&icirc;,&igrave;,&iuml;,&laquo;,&le;,&nbsp;,&ntilde;,&oacute;,&ocirc;,&ograve;,&oslash;,&otilde;,&ouml;,&para;,&quot;,&raquo;,&szlig;,&uacute;,&ucirc;,&ugrave;,&uuml;,&yacute;'
+
+  it('should replace special HTML characters', () => {
+    render(compiler(content))
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"Æ,Á,Â,À,Å,Ã,Ä,Ç,É,Ê,È,Ë,Í,Î,Ì,Ï,Ñ,Ó,Ô,Ò,Ø,Õ,Ö,Ú,Û,Ù,Ü,Ý,á,â,Æ,à,å,ã,ä,ç,&amp;coy;,é,ê,è,ë,≥,í,î,ì,ï,«,≤, ,ñ,ó,ô,ò,ø,õ,ö,¶,&quot;,»,ß,ú,û,ù,ü,ý"`
+    )
+  })
+})
+
+describe('options.forceBlock', () => {
+  it('treats given markdown as block-context', () => {
+    render(
+      compiler("Hello. _Beautiful_ day isn't it?", {
+        forceBlock: true,
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<p>Hello. <em>Beautiful</em> day isn&#x27;t it?</p>"`
+    )
+  })
+})
+
+describe('options.forceInline', () => {
+  it('treats given markdown as inline-context, passing through any block-level markdown syntax', () => {
+    render(compiler('# You got it babe!', { forceInline: true }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"# You got it babe!"`)
+  })
+})
+
+describe('options.wrapper', () => {
+  it('is ignored when there is a single child', () => {
+    render(compiler('Hello, world!', { wrapper: 'article' }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Hello, world!"`)
+  })
+
+  it('overrides the wrapper element when there are multiple children', () => {
+    render(compiler('Hello\n\nworld!', { wrapper: 'article' }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<article><p>Hello</p><p>world!</p></article>"`
+    )
+  })
+
+  it('renders an array when `null`', () => {
+    expect(compiler('Hello\n\nworld!', { wrapper: null }))
+      .toMatchInlineSnapshot(`
+      [
+        {
+          "$$typeof": Symbol(react.transitional.element),
+          "_debugInfo": null,
+          "_debugStack": [Error: react-stack-top-frame],
+          "_debugTask": null,
+          "_owner": null,
+          "_store": {
+            "validated": 0,
+          },
+          "key": "0",
+          "props": {
+            "children": [
+              "Hello",
+            ],
+            "className": undefined,
+            "key": [native code],
+          },
+          "ref": null,
+          "type": "p",
+        },
+        {
+          "$$typeof": Symbol(react.transitional.element),
+          "_debugInfo": null,
+          "_debugStack": [Error: react-stack-top-frame],
+          "_debugTask": null,
+          "_owner": null,
+          "_store": {
+            "validated": 0,
+          },
+          "key": "1",
+          "props": {
+            "children": [
+              "world!",
+            ],
+            "className": undefined,
+            "key": [native code],
+          },
+          "ref": null,
+          "type": "p",
+        },
+      ]
+    `)
+  })
+
+  it('works with `React.Fragment`', () => {
+    render(compiler('Hello\n\nworld!', { wrapper: React.Fragment }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<p>Hello</p><p>world!</p>"`)
+  })
+})
+
+describe('options.forceWrapper', () => {
+  it('ensures wrapper element is present even with a single child', () => {
+    render(compiler('Hi Evan', { wrapper: 'aside', forceWrapper: true }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<aside>Hi Evan</aside>"`)
+  })
+})
+
+describe('options.createElement', () => {
+  it('should render a <custom> element if render function overrides the element type', () => {
+    render(
+      compiler('Hello', {
+        createElement(tag, props, children) {
+          return React.createElement('custom', props, children)
+        },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Hello"`)
+  })
+
+  it('should render an empty <div> element', () => {
+    render(
+      compiler('Hello', {
+        createElement() {
+          return React.createElement('div')
+        },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Hello"`)
+  })
+})
+
+describe('options.renderRule', () => {
+  it('should allow arbitrary modification of content', () => {
+    render(
+      compiler('Hello.\n\n```latex\n$$f(X,n) = X_n + X_{n-1}$$\n```\n', {
+        renderRule(next, node, renderChildren, state) {
+          if (node.type === RuleType.codeBlock && node.lang === 'latex') {
+            return <div key={state.key}>I'm latex.</div>
+          }
+
+          return next()
+        },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>Hello.</p><div>I&#x27;m latex.</div></div>"`
+    )
+  })
+
+  it('can be used to handle shortcodes', () => {
+    const shortcodeMap = {
+      'big-smile': '🙂',
+    }
+
+    const detector = /(:[^:]+:)/g
+
+    const replaceEmoji = (text: string): React.ReactNode => {
+      return text.split(detector).map((part, index) => {
+        if (part.startsWith(':') && part.endsWith(':')) {
+          const shortcode = part.slice(1, -1)
+
+          return <span key={index}>{shortcodeMap[shortcode] || part}</span>
+        }
+
+        return part
+      })
+    }
+
+    render(
+      compiler('Hey there! :big-smile:', {
+        renderRule(next, node) {
+          if (node.type === RuleType.text && detector.test(node.text)) {
+            return replaceEmoji(node.text)
+          }
+
+          return next()
+        },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span>Hey there! <span>🙂</span></span>"`
+    )
+  })
+})
+
+describe('options.slugify', () => {
+  it('should use a custom slugify function rather than the default if set and valid', () => {
+    render(compiler('# 中文', { slugify: str => str }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<h1 id="中文">中文</h1>"`)
+  })
+
+  it('should use the default function if unset', () => {
+    render(compiler('# 中文'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<h1 id="">中文</h1>"`)
+  })
+
+  it('should throw error if invalid', () => {
+    expect(() => {
+      // @ts-ignore
+      render(compiler('# 中文', { slugify: 'invalid' }))
+    }).toThrow()
+  })
+
+  it('should throw error if options.overrides is not an object', () => {
+    expect(() => {
+      // @ts-ignore
+      render(compiler('# test', { overrides: 'invalid' }))
+    }).toThrow(/options\.overrides/)
+  })
+
+  it('should throw error if options.overrides is an array', () => {
+    expect(() => {
+      // @ts-ignore
+      render(compiler('# test', { overrides: [] }))
+    }).toThrow(/options\.overrides/)
+  })
+})
+
+describe('overrides', () => {
+  it('should substitute the appropriate JSX tag if given a component', () => {
+    class FakeParagraph extends React.Component<React.PropsWithChildren<{}>> {
+      render() {
+        return <p className="foo">{this.props.children}</p>
+      }
+    }
+
+    render(
+      compiler('Hello.\n\n', {
+        overrides: { p: { component: FakeParagraph } },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<p class="foo">Hello.</p>"`)
+  })
+
+  it('should substitute custom components when found', () => {
+    const CustomButton: React.FC<
+      React.JSX.IntrinsicElements['button']
+    > = props => <button {...props} />
+
+    render(
+      compiler('<CustomButton>Click me!</CustomButton>', {
+        overrides: { CustomButton },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<button>Click me!</button>"`)
+  })
+
+  it('should allow for particular html tags to be voided by configuration', () => {
+    render(
+      compiler(
+        '<iframe src="https://my-malicious-web-page.ngrok-free.app/"></iframe>',
+        {
+          overrides: {
+            iframe: () => null,
+          },
+        }
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`""`)
+  })
+
+  it('should accept an override shorthand if props do not need to be overidden', () => {
+    class FakeParagraph extends React.Component<React.PropsWithChildren<{}>> {
+      render() {
+        return <p className="foo">{this.props.children}</p>
+      }
+    }
+
+    render(compiler('Hello.\n\n', { overrides: { p: FakeParagraph } }))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<p class="foo">Hello.</p>"`)
+  })
+
+  it('should add props to the appropriate JSX tag if supplied', () => {
+    render(
+      compiler('Hello.\n\n', {
+        overrides: { p: { props: { className: 'abc', title: 'foo' } } },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<p class="abc" title="foo">Hello.</p>"`
+    )
+  })
+
+  it('should override the title property when parsing a link', () => {
+    class FakeLink extends React.Component<
+      React.PropsWithChildren<{ title: string }>
+    > {
+      render() {
+        const { title, children } = this.props
+        return <a title={title}>{children}</a>
+      }
+    }
+
+    render(
+      compiler('[link](https://example.org)', {
+        overrides: { a: { component: FakeLink, props: { title: 'foo' } } },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<a title="foo">link</a>"`)
+  })
+
+  it('should add props to pre & code tags if supplied', () => {
+    render(
+      compiler(['```', 'foo', '```'].join('\n'), {
+        overrides: {
+          code: {
+            props: {
+              'data-foo': 'bar',
+            },
+          },
+
+          pre: {
+            props: {
+              className: 'abc',
+            },
+          },
+        },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<pre class="abc"><code data-foo="bar">foo</code></pre>"`
+    )
+  })
+
+  it('should substitute pre & code tags if supplied with an override component', () => {
+    class OverridenPre extends React.Component<React.PropsWithChildren<{}>> {
+      render() {
+        const { children, ...props } = this.props
+
+        return (
+          <pre {...props} data-bar="baz">
+            {children}
+          </pre>
+        )
+      }
+    }
+
+    class OverridenCode extends React.Component<React.PropsWithChildren<{}>> {
+      render() {
+        const { children, ...props } = this.props
+
+        return (
+          <code {...props} data-baz="fizz">
+            {children}
+          </code>
+        )
+      }
+    }
+
+    render(
+      compiler(['```', 'foo', '```'].join('\n'), {
+        overrides: {
+          code: {
+            component: OverridenCode,
+            props: {
+              'data-foo': 'bar',
+            },
+          },
+
+          pre: {
+            component: OverridenPre,
+            props: {
+              className: 'abc',
+            },
+          },
+        },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<pre class="abc" data-bar="baz"><code data-foo="bar" data-baz="fizz">foo</code></pre>"`
+    )
+  })
+
+  it('should be able to override gfm task list items', () => {
+    render(
+      compiler('- [ ] foo', {
+        overrides: { li: { props: { className: 'foo' } } },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li class="foo"><input readOnly="" type="checkbox"/> foo</li></ul>"`
+    )
+  })
+
+  it('should be able to override gfm task list item checkboxes', () => {
+    render(
+      compiler('- [ ] foo', {
+        overrides: { input: { props: { className: 'foo' } } },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li><input readOnly="" type="checkbox" class="foo"/> foo</li></ul>"`
+    )
+  })
+
+  it('should substitute the appropriate JSX tag if given a component and disableParsingRawHTML is true', () => {
+    const FakeParagraph = ({ children }) => <p className="foo">{children}</p>
+
+    render(
+      compiler('Hello.\n\n', {
+        disableParsingRawHTML: true,
+        overrides: { p: { component: FakeParagraph } },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<p class="foo">Hello.</p>"`)
+  })
+
+  it('should not substitute the appropriate JSX tag inline if given a component and disableParsingRawHTML is true', () => {
+    const FakeSpan = ({ children }) => <span className="foo">{children}</span>
+
+    render(
+      compiler('Hello.\n\n<FakeSpan>I am a fake span</FakeSpan>', {
+        disableParsingRawHTML: true,
+        overrides: { FakeSpan },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>Hello.</p><p>&lt;FakeSpan&gt;I am a fake span&lt;/FakeSpan&gt;</p></div>"`
+    )
+  })
+
+  it('#530 nested overrides', () => {
+    render(
+      compiler('<Accordion><AccordionItem>test</AccordionItem></Accordion>', {
+        overrides: {
+          Accordion: ({ children }) => children,
+          AccordionItem: ({ children }) => children,
+        },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"test"`)
+  })
+
+  it('#520 handle deep nesting', () => {
+    render(compiler('<div><div><div></div></div></div>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><div><div></div></div></div>"`
+    )
+  })
+})
+
+it('should remove YAML front matter', () => {
+  render(
+    compiler(theredoc`
+      ---
+      key: value
+      other_key: different value
+      ---
+      Hello.
+    `)
+  )
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`"<p>Hello.</p>"`)
+})
+
+it('correctly parses YAML front matter inside a code block', () => {
+  render(
+    compiler(theredoc`
+      \`\`\`
+      ---
+      key: value
+      other_key: different value
+      ---
+      Hello.
+      \`\`\`
+    `)
+  )
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+    "<pre><code>---
+    key: value
+    other_key: different value
+    ---
+    Hello.</code></pre>"
+  `)
+})
+
+it('handles <code> brackets in link text', () => {
+  render(compiler('[`[text]`](https://example.com)'))
+
+  expect(root.innerHTML).toMatchInlineSnapshot(
+    `"<a href="https://example.com"><code>[text]</code></a>"`
+  )
+})
+
+it('handles naked brackets in link text', () => {
+  render(compiler('[[text]](https://example.com)'))
+
+  expect(root.innerHTML).toMatchInlineSnapshot(
+    `"<a href="https://example.com">[text]</a>"`
+  )
+})
+
+it('handles multiple nested brackets in link text', () => {
+  render(compiler('[title[bracket1][bracket2][3]](https://example.com)'))
+
+  expect(root.innerHTML).toMatchInlineSnapshot(
+    `"<a href="https://example.com">title[bracket1][bracket2][3]</a>"`
+  )
+})
+
+it('#597 handles script tag with empty content', () => {
+  render(compiler('<script src="dummy.js"></script>'))
+
+  expect(root.innerHTML).toMatchInlineSnapshot(
+    `"<script src="dummy.js"></script>"`
+  )
+})
+
+it('#678 handles various combinations of inline markup and html', () => {
+  render(
+    compiler(`
+**bold** *italic*
+
+*italic* **bold**
+
+*italic* <u>underline</u>
+
+<u>underline</u> *italic*
+
+~~strikethrough~~ **bold*
+
+*italic* ~~strikethrough~~
+
+**bold** ~~strikethrough~~
+  `)
+  )
+
+  expect(root.innerHTML).toMatchInlineSnapshot(
+    `"<div><p><strong>bold</strong> <em>italic</em></p><p><em>italic</em> <strong>bold</strong></p><p><em>italic</em> <u>underline</u></p><p><u>underline</u> <em>italic</em></p><p><del>strikethrough</del> *<em>bold</em></p><p><em>italic</em> <del>strikethrough</del></p><p><strong>bold</strong> <del>strikethrough</del></p></div>"`
+  )
+})
+
+it('handles a holistic example', () => {
+  const md = fs.readFileSync(__dirname + '/markdown-spec.md', 'utf8')
+  render(compiler(md))
+
+  expect(root.innerHTML).toMatchSnapshot()
+})
+
+describe('Markdown component', () => {
+  it('accepts markdown content', () => {
+    render(<Markdown>_Hello._</Markdown>)
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<em>Hello.</em>"`)
+  })
+
+  it('handles a no-children scenario', () => {
+    render(<Markdown>{''}</Markdown>)
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`""`)
+  })
+
+  it('handles a null-children scenario', () => {
+    render(<Markdown>{null}</Markdown>)
+    expect(root.innerHTML).toMatchInlineSnapshot(`""`)
+  })
+
+  it('accepts options', () => {
+    class FakeParagraph extends React.Component<React.PropsWithChildren<{}>> {
+      render() {
+        return <p className="foo">{this.props.children}</p>
+      }
+    }
+
+    render(
+      <Markdown options={{ overrides: { p: { component: FakeParagraph } } }}>
+        _Hello._
+      </Markdown>
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<em>Hello.</em>"`)
+  })
+
+  it('merges className overrides, rather than overwriting', () => {
+    const code = ['```js', 'foo', '```'].join('\n')
+
+    renderToString(
+      <Markdown
+        options={{
+          overrides: { code: { props: { className: 'foo' } } },
+        }}
+      >
+        {code}
+      </Markdown>
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`""`)
+  })
+
+  it('passes along any additional props to the rendered wrapper element', () => {
+    render(<Markdown className="foo"># Hello</Markdown>)
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<h1 id="hello">Hello</h1>"`)
+  })
+
+  it('can render simple math', () => {
+    expect(
+      renderToString(
+        <Markdown>{`<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow>a</mrow><mrow>2</mrow></mfrac></mrow><annotation encoding="application/x-tex">\\frac{a}{2}</annotation></semantics></math>`}</Markdown>
+      )
+    ).toMatchInlineSnapshot(
+      `"<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow>a</mrow><mrow>2</mrow></mfrac></mrow><annotation encoding="application/x-tex">\\frac{a}{2}</annotation></semantics></math>"`
+    )
+  })
+
+  it('can render complex math', () => {
+    expect(
+      renderToString(
+        <Markdown>{`<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+<semantics>
+  <mrow><mfrac><mrow><msqrt><mrow>a</mrow></msqrt></mrow><mrow><mn>2</mn></mrow></mfrac></mrow>
+  <annotation encoding="application/x-tex">\\frac{\\sqrt{a}}{2}</annotation>
+</semantics>
+</math>`}</Markdown>
+      )
+    ).toMatchInlineSnapshot(
+      `"<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow><msqrt><mrow>a</mrow></msqrt></mrow><mrow><mn>2</mn></mrow></mfrac></mrow><annotation encoding="application/x-tex">\\frac{\\sqrt{a}}{2}</annotation></semantics></math>"`
+    )
+  })
+
+  it('throws error for non-string input to compiler', () => {
+    expect(() => {
+      // @ts-ignore
+      compiler(123)
+    }).toThrow(/must be/)
+  })
+})

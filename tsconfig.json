@@ -13,5 +13,5 @@
     "preserveConstEnums": true,
     "target": "ESNext"
   },
-  "files": ["index.tsx"]
+  "files": ["src/index.tsx"]
 }

@@ -1,0 +1,137 @@
+sequenceDiagram
+    participant Input as Markdown Input
+    participant Phase1 as Phase 1: Block Structure
+    participant LineProcessor as Process Line
+    participant BlockChecker as Check Open Blocks
+    participant BlockParser as Block Parser
+    participant Phase2 as Phase 2: Inline Structure
+    participant TreeWalker as Walk Tree
+    participant InlineParser as Parse Inline
+    participant AST as Final AST
+
+    Input->>Phase1: Markdown text
+
+    loop For Each Line
+        Phase1->>LineProcessor: Process line sequentially
+
+        LineProcessor->>BlockChecker: Step 1: Check open blocks
+        Note over BlockChecker: Iterate from root to last open block<br/>Each block imposes continuation condition
+
+        BlockChecker->>BlockChecker: Match all or some open blocks
+        Note over BlockChecker: Cannot close unmatched yet<br/>May have lazy continuation
+
+        BlockChecker->>BlockParser: Step 2: Consume continuation markers
+        Note over BlockParser: >, list markers, indentation
+
+        BlockParser->>BlockParser: Look for new block starts
+
+        alt First non-space char
+            BlockParser->>BlockParser: Space/Tab: Indented path
+            Note over BlockParser: 1. Thematic Break 0-3 spaces<br/>2. Lists/Blockquote<br/>3. Code Block 4+ spaces
+        else >
+            BlockParser->>BlockParser: Block Quote (container)
+        else #
+            BlockParser->>BlockParser: ATX Heading (0-3 spaces indent)
+        else - * _
+            BlockParser->>BlockParser: Thematic Break (0-3 spaces, 3+ chars)<br/>(Note: setext > thematic when content exists)
+        else ` ~
+            BlockParser->>BlockParser: Fenced Code Block (0-3 spaces)
+        else - * + 0-9
+            BlockParser->>BlockParser: Unordered/Ordered List (container)
+        else <
+            BlockParser->>BlockParser: HTML Block (0-3 spaces, Type 1-7)
+        else |
+            BlockParser->>BlockParser: Table (GFM extension)<br/>Requires header row + delimiter row<br/>Delimiter row must match header cell count
+        else = -
+            BlockParser->>BlockParser: Setext Heading<br/>(PRECEDENCE: setext > thematic break)
+        else default
+            BlockParser->>BlockParser: Paragraph (leaf block)
+        end
+
+        BlockParser->>BlockParser: Close unmatched blocks from Step 1
+        BlockParser->>BlockParser: Create new block as child of last matched container
+
+        BlockParser->>BlockParser: Step 3: Process remainder
+        Note over BlockParser: Add text to last open block<br/>(Paragraph, Code Block, Heading, Raw HTML)<br/>or Table (GFM extension)
+
+        alt Paragraph + Setext underline?
+            BlockParser->>BlockParser: Convert paragraph to setext heading
+        else No
+            BlockParser->>BlockParser: Accumulate text in current block
+        end
+
+        BlockParser-->>LineProcessor: Block node created
+    end
+
+    Phase1->>Phase1: Close all open blocks
+    Phase1->>Phase1: For each list item:<br/>Check if first block is paragraph with task marker (GFM extension)<br/>[ ] or [x] or [X] at start of paragraph
+    Phase1->>Phase1: For each closed paragraph:<br/>Parse accumulated text lines
+    Phase1->>Phase1: Extract link reference definitions from start of text
+    Phase1->>Phase1: Remaining text becomes normal paragraph
+
+    Phase1->>Phase2: Block tree structure
+
+    Phase2->>TreeWalker: Walk the tree
+
+    loop Visit every node
+        TreeWalker->>TreeWalker: Check if node has inline content
+        Note over TreeWalker: Paragraph, Heading<br/>or Table Cell (GFM extension)
+
+        alt Has inline content?
+            TreeWalker->>InlineParser: Parse inline content (left to right)
+
+            loop Character-by-character
+                InlineParser->>InlineParser: Switch on character
+
+                alt backslash
+                    InlineParser->>InlineParser: Backslash escape
+                else `
+                    InlineParser->>InlineParser: Code span<br/>(Higher precedence than emphasis/links)
+                else <
+                    InlineParser->>InlineParser: Check angle bracket
+                    alt autolink (angle brackets)
+                        InlineParser->>InlineParser: Autolink (email or URL)<br/>Standard CommonMark autolinks<br/>(Same precedence as code spans and HTML tags)
+                    else HTML tag
+                        InlineParser->>InlineParser: HTML tag<br/>GFM extension: Disallowed Raw HTML<br/>(Same precedence as code spans and autolinks)
+                    else comment
+                        InlineParser->>InlineParser: HTML comment
+                    end
+                else www. or http:// or https:// or ftp:// or email
+                    InlineParser->>InlineParser: Extended autolink (GFM extension)<br/>www. URLs, http/https/ftp URLs, emails<br/>Only after start of line, whitespace, or * _ ~ (<br/>(Same precedence as code spans and HTML tags)
+                else * _
+                    InlineParser->>InlineParser: Emphasis delimiter<br/>Add to delimiter stack
+                    InlineParser->>InlineParser: Check left-flanking
+                    InlineParser->>InlineParser: Check right-flanking
+                    InlineParser->>InlineParser: Apply delimiter rules (9/10/11/12/13)
+                    InlineParser->>InlineParser: Parse nested content recursively
+                else ~
+                    InlineParser->>InlineParser: Strikethrough delimiter (GFM extension)<br/>Add to delimiter stack<br/>Requires exactly ~~ (two tildes) for strikethrough<br/>Similar parsing rules to emphasis
+                else !bracket
+                    InlineParser->>InlineParser: Image (add to delimiter stack)
+                else bracket
+                    InlineParser->>InlineParser: Link (add to delimiter stack)
+                else closing bracket
+                    InlineParser->>InlineParser: Look for link/image<br/>Process delimiter stack
+                    alt Reference link?
+                        InlineParser->>InlineParser: Resolve reference<br/>(All link refs available from Phase 1)
+                    else Inline link
+                        InlineParser->>InlineParser: Inline link
+                    end
+                else newline
+                    InlineParser->>InlineParser: Soft line break
+                else entity
+                    InlineParser->>InlineParser: HTML entity reference<br/>(decodeEntityReferences)
+                else default
+                    InlineParser->>InlineParser: Accumulate as text
+                end
+            end
+
+            InlineParser-->>TreeWalker: Inline AST nodes
+        end
+
+        TreeWalker->>TreeWalker: Next node
+    end
+
+    TreeWalker-->>Phase2: Complete tree with inline nodes
+    Phase2->>AST: Final AST document tree
+

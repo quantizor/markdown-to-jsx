@@ -1,9 +1,9 @@
 /* @jsx React.createElement */
 import * as React from 'react'
-import * as ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import styled, { createGlobalStyle, css, CSSProp } from 'styled-components'
 import TeX from '@matejmazur/react-katex'
-import Markdown, { MarkdownToJSX, RuleType } from './index'
+import Markdown, { MarkdownToJSX, RuleType } from './src/react.tsx'
 
 declare global {
   interface Window {
@@ -395,4 +395,4 @@ const options = {
   },
 } as MarkdownToJSX.Options
 
-ReactDOM.render(<TryItLive />, document.getElementById('root'))
+createRoot(document.getElementById('root')!).render(<TryItLive />)

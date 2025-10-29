@@ -1,12 +1,19 @@
 **markdown-to-jsx**
 
-The most lightweight, customizable React markdown component.
+A very fast and versatile markdown toolchain.
 
 [![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) [![downloads](https://badgen.net/npm/dy/markdown-to-jsx)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
+
+<div align="center">
+
+**100% GFM-CommonMark Compliant**
+
+</div>
 
 <!-- TOC -->
 
 - [Upgrading](#upgrading)
+  - [From v8.x to v9.x](#from-v8x-to-v9x)
   - [From v7.x to v8.x](#from-v7x-to-v8x)
 - [Installation](#installation)
 - [Usage](#usage)
@@ -24,10 +31,8 @@ The most lightweight, customizable React markdown component.
     - [options.renderRule](#optionsrenderrule)
     - [options.sanitizer](#optionssanitizer)
     - [options.slugify](#optionsslugify)
-    - [options.namedCodesToUnicode](#optionsnamedcodestounicode)
     - [options.disableAutoLink](#optionsdisableautolink)
     - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
-    - [options.ast](#optionsast)
   - [Syntax highlighting](#syntax-highlighting)
   - [Handling shortcodes](#handling-shortcodes)
   - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
@@ -36,7 +41,15 @@ The most lightweight, customizable React markdown component.
   - [Passing props to stringified React components](#passing-props-to-stringified-react-components)
   - [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
     - [Code blocks](#code-blocks)
-- [Using The Compiler Directly](#using-the-compiler-directly)
+- [Entry Points](#entry-points)
+  - [Main Entry Point markdown-to-jsx](#main-entry-point-markdown-to-jsx)
+  - [React Entry Point markdown-to-jsx/react](#react-entry-point-markdown-to-jsxreact)
+  - [HTML Entry Point markdown-to-jsx/html](#html-entry-point-markdown-to-jsxhtml)
+- [Using The Parser Low-Level AST API](#using-the-parser-low-level-ast-api)
+- [AST Anatomy](#ast-anatomy)
+  - [Node Types](#node-types)
+  - [Example AST Structure](#example-ast-structure)
+  - [Type Checking](#type-checking)
 - [Changelog](#changelog)
 - [Donate](#donate)
 
@@ -56,11 +69,85 @@ The most lightweight, customizable React markdown component.
 
 - Fenced code blocks with [highlight.js](https://highlightjs.org/) support; see [Syntax highlighting](#syntax-highlighting) for instructions on setting up highlight.js.
 
-All this clocks in at around 7.5 kB gzipped, which is a fraction of the size of most other React markdown components.
-
-Requires React >= 0.14.
-
 ## Upgrading
+
+### From v8.x to v9.x
+
+**Breaking Changes:**
+
+- **`ast` option removed**: The `ast: true` option on `compiler()` has been removed. Use the new `parser()` function instead to access the AST directly.
+
+```typescript
+// Before (v8)
+import { compiler } from 'markdown-to-jsx'
+const ast = compiler('# Hello world', { ast: true })
+
+// After (v9)
+import { parser } from 'markdown-to-jsx'
+const ast = parser('# Hello world')
+```
+
+- **`namedCodesToUnicode` option removed**: The `namedCodesToUnicode` option has been removed. All named HTML entities are now supported by default via the full entity list, so custom entity mappings are no longer needed.
+
+```typescript
+// Before (v8)
+import { compiler } from 'markdown-to-jsx'
+compiler('&le; symbol', { namedCodesToUnicode: { le: '\u2264' } })
+
+// After (v9)
+import { compiler } from 'markdown-to-jsx'
+compiler('&le; symbol') // All entities supported automatically
+```
+
+**New Features:**
+
+- **New `parser` function**: Provides direct access to the parsed AST without rendering. This is the recommended way to get AST nodes.
+
+- **New entry points**: React-specific and HTML-specific entry points are now available for better tree-shaking and separation of concerns.
+
+```typescript
+// React-specific usage (recommended)
+import Markdown, { compiler, parser } from 'markdown-to-jsx/react'
+
+// HTML string output
+import { compiler, parser } from 'markdown-to-jsx/html'
+```
+
+**Migration Guide:**
+
+1. **Replace `compiler(..., { ast: true })` with `parser()`**:
+
+```typescript
+// Before
+import { compiler } from 'markdown-to-jsx'
+const ast = compiler(markdown, { ast: true })
+
+// After
+import { parser } from 'markdown-to-jsx'
+const ast = parser(markdown)
+```
+
+2. **Migrate React imports to `/react` entry point** (optional but recommended):
+
+```typescript
+// Before
+import Markdown, { compiler } from 'markdown-to-jsx'
+
+// After (recommended)
+import Markdown, { compiler } from 'markdown-to-jsx/react'
+```
+
+3. **Remove `namedCodesToUnicode` option**: All named HTML entities are now supported automatically, so you can remove any custom entity mappings.
+
+```typescript
+// Before
+compiler('&le; symbol', { namedCodesToUnicode: { le: '\u2264' } })
+
+// After
+compiler('&le; symbol') // Works automatically
+```
+
+**Note:** The main entry point (`markdown-to-jsx`) continues to work for backward compatibility, but React code there is deprecated and will be removed in a future major release. Consider migrating to `markdown-to-jsx/react` for React-specific usage.
 
 ### From v7.x to v8.x
 
@@ -513,7 +600,7 @@ compiler('[foo](javascript:alert("foo"))', {
 
 #### options.slugify
 
-By default, a [lightweight deburring function](https://github.com/probablyup/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate an HTML id from headings. You can override this by passing a function to `options.slugify`. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
+By default, a [lightweight deburring function](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate an HTML id from headings. You can override this by passing a function to `options.slugify`. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
 
 ```jsx
 <Markdown options={{ slugify: str => str }}># 中文</Markdown>
@@ -527,39 +614,6 @@ compiler('# 中文', { slugify: str => str })
 ```
 
 The original function is available as a library export called `slugify`.
-
-#### options.namedCodesToUnicode
-
-By default only a couple of named html codes are converted to unicode characters:
-
-- `&` (`&amp;`)
-- `'` (`&apos;`)
-- `>` (`&gt;`)
-- `<` (`&lt;`)
-- ` ` (`&nbsp;`)
-- `"` (`&quot;`)
-
-Some projects require to extend this map of named codes and unicode characters. To customize this list with additional html codes pass the option namedCodesToUnicode as object with the code names needed as in the example below:
-
-```jsx
-<Markdown options={{ namedCodesToUnicode: {
-    le: '\u2264',
-    ge: '\u2265',
-    '#39': '\u0027',
-} }}>This text is &le; than this text.</Markdown>;
-
-// or
-
-compiler('This text is &le; than this text.', namedCodesToUnicode: {
-    le: '\u2264',
-    ge: '\u2265',
-    '#39': '\u0027',
-});
-
-// renders:
-
-<p>This text is ≤ than this text.</p>
-```
 
 #### options.disableAutoLink
 
@@ -601,30 +655,6 @@ compiler('This text has <span>html</span> in it but it won't be rendered', { dis
 
 <span>This text has &lt;span&gt;html&lt;/span&gt; in it but it won't be rendered</span>
 ```
-
-#### options.ast
-
-When `ast: true`, the compiler returns the parsed AST structure instead of rendered JSX. **This is the first time the AST is accessible to users!**
-
-```tsx
-import { compiler } from 'markdown-to-jsx'
-import type { MarkdownToJSX } from 'markdown-to-jsx'
-
-// Get the AST directly
-const ast = compiler('# Hello world', { ast: true })
-
-// TypeScript: AST is MarkdownToJSX.ASTNode[]
-console.log(ast) // Array of parsed nodes with types
-
-// You can manipulate, transform, or analyze the AST before rendering
-```
-
-The AST format is `MarkdownToJSX.ASTNode[]` and enables:
-
-- AST manipulation and transformation
-- Custom rendering logic without re-parsing
-- Caching parsed AST for performance
-- Linting or validation of markdown structure
 
 ### Syntax highlighting
 
@@ -833,33 +863,240 @@ var some = code();
 </div>
 ````
 
-## Using The Compiler Directly
+## Entry Points
 
-If desired, the compiler function is a "named" export on the `markdown-to-jsx` module:
+`markdown-to-jsx` provides multiple entry points for different use cases:
+
+### Main Entry Point (`markdown-to-jsx`)
+
+The legacy\*default entry point exports everything, including the React compiler and component:
 
 ```jsx
-import { compiler } from 'markdown-to-jsx'
-import React from 'react'
-import { render } from 'react-dom'
-
-render(compiler('# Hello world!'), document.body)
-
-/*
-    renders:
-
-    <h1>Hello world!</h1>
- */
+import Markdown, { compiler, parser } from 'markdown-to-jsx'
 ```
 
-It accepts the following arguments:
+_The React code in this entry point is deprecated and will be removed in a future major release, migrate to `markdown-to-jsx/react`._
 
-```js
-compiler(markdown: string, options: object?)
+### React Entry Point (`markdown-to-jsx/react`)
+
+For React-specific usage, import from the `/react` entry point:
+
+```jsx
+import Markdown, { compiler, parser } from 'markdown-to-jsx/react'
+
+// Use compiler for markdown → JSX
+const jsxElement = compiler('# Hello world')
+
+const markdown = `# Hello world`
+
+function App() {
+  return <Markdown children={markdown} />
+}
+
+// Or use parser for total control
+const ast = parser('# Hello world')
 ```
+
+### HTML Entry Point (`markdown-to-jsx/html`)
+
+For HTML string output (server-side rendering), import from the `/html` entry point:
+
+```tsx
+import { compiler, html, parser } from 'markdown-to-jsx/html'
+
+// Convenience function that combines parsing and HTML rendering
+const htmlString = compiler('# Hello world')
+// Returns: '<h1>Hello world</h1>'
+
+// Or use parser + html separately for more control
+const ast = parser('# Hello world')
+const htmlString2 = html(ast)
+```
+
+## Using The Parser (Low-Level AST API)
+
+The `parser` function provides direct access to the parsed AST without rendering:
+
+```tsx
+import { parser } from 'markdown-to-jsx'
+import type { MarkdownToJSX } from 'markdown-to-jsx'
+
+// Parse markdown to AST
+const ast = parser('# Hello world')
+
+// TypeScript: AST is MarkdownToJSX.ASTNode[]
+console.log(ast) // Array of parsed nodes
+
+// You can then render with html() or compiler()
+```
+
+The `parser` function accepts:
+
+- `source: string` - markdown source
+- `state?: MarkdownToJSX.State` - parsing state (defaults: `{ inline: false, refs: {} }`)
+- `options?: MarkdownToJSX.Options` - parsing options
+
+Use `parser` when you need:
+
+- Direct AST access without React rendering
+- Custom rendering logic
+- AST manipulation before rendering
+
+## AST Anatomy
+
+The Abstract Syntax Tree (AST) is a structured representation of parsed markdown. Each node in the AST has a `type` property that identifies its kind, and type-specific properties.
+
+**Important:** The first node in the AST is typically a `RuleType.refCollection` node that contains all reference definitions found in the document. This node is skipped during rendering but is useful for accessing reference data.
+
+### Node Types
+
+The AST consists of the following node types (use `RuleType` to check node types):
+
+**Block-level nodes:**
+
+- `RuleType.heading` - Headings (`# Heading`)
+  ```tsx
+  { type: RuleType.heading, level: 1, id: "heading", children: [...] }
+  ```
+- `RuleType.paragraph` - Paragraphs
+  ```tsx
+  { type: RuleType.paragraph, children: [...] }
+  ```
+- `RuleType.codeBlock` - Fenced code blocks (```)
+  ```tsx
+  { type: RuleType.codeBlock, lang: "javascript", text: "code content" }
+  ```
+- `RuleType.blockQuote` - Blockquotes (`>`)
+  ```tsx
+  { type: RuleType.blockQuote, children: [...], alert?: "note" }
+  ```
+- `RuleType.orderedList` / `RuleType.unorderedList` - Lists
+  ```tsx
+  { type: RuleType.orderedList, items: [[...]], start?: 1 }
+  { type: RuleType.unorderedList, items: [[...]], ordered: false }
+  ```
+- `RuleType.table` - Tables
+  ```tsx
+  { type: RuleType.table, header: [...], cells: [[...]], align: [...] }
+  ```
+- `RuleType.htmlBlock` - HTML blocks
+  ```tsx
+  { type: RuleType.htmlBlock, tag: "div", attrs: {}, children: [...] }
+  ```
+
+**Inline nodes:**
+
+- `RuleType.text` - Plain text
+  ```tsx
+  { type: RuleType.text, text: "Hello world" }
+  ```
+- `RuleType.textFormatted` - Bold, italic, etc.
+  ```tsx
+  { type: RuleType.textFormatted, tag: "strong", children: [...] }
+  ```
+- `RuleType.codeInline` - Inline code (`` ` ``)
+  ```tsx
+  { type: RuleType.codeInline, text: "code" }
+  ```
+- `RuleType.link` - Links
+  ```tsx
+  { type: RuleType.link, target: "https://example.com", children: [...] }
+  ```
+- `RuleType.image` - Images
+  ```tsx
+  { type: RuleType.image, target: "image.png", alt: "description" }
+  ```
+- `RuleType.refLink` / `RuleType.refImage` - Reference-style links/images
+  ```tsx
+  { type: RuleType.refLink, ref: "linkref", children: [...] }
+  ```
+
+**Other nodes:**
+
+- `RuleType.breakLine` - Hard line breaks (`  `)
+- `RuleType.breakThematic` - Horizontal rules (`---`)
+- `RuleType.gfmTask` - GFM task list items (`- [ ]`)
+- `RuleType.refCollection` - Reference definitions collection (appears at AST root)
+
+### Example AST Structure
+
+```tsx
+import { parser, RuleType } from 'markdown-to-jsx'
+
+const ast = parser(`# Hello World
+
+This is a **paragraph** with [a link](https://example.com).
+
+[linkref]: https://example.com
+
+\`\`\`javascript
+console.log('code')
+\`\`\`
+`)
+
+// AST structure:
+[
+  // Reference collection (first node, if references exist)
+  {
+    type: RuleType.refCollection,
+    refs: {
+      "linkref": { target: "https://example.com", title: undefined }
+    }
+  },
+  {
+    type: RuleType.heading,
+    level: 1,
+    id: 'hello-world',
+    children: [{ type: RuleType.text, text: 'Hello World' }],
+  },
+  {
+    type: RuleType.paragraph,
+    children: [
+      { type: RuleType.text, text: 'This is a ' },
+      {
+        type: RuleType.textFormatted,
+        tag: 'strong',
+        children: [{ type: RuleType.text, text: 'paragraph' }],
+      },
+      { type: RuleType.text, text: ' with ' },
+      {
+        type: RuleType.link,
+        target: 'https://example.com',
+        children: [{ type: RuleType.text, text: 'a link' }],
+      },
+      { type: RuleType.text, text: '.' },
+    ],
+  },
+  {
+    type: RuleType.codeBlock,
+    lang: 'javascript',
+    text: "console.log('code')",
+  })
+]
+```
+
+### Type Checking
+
+Use `RuleType` constants to check node types:
+
+```tsx
+import { RuleType } from 'markdown-to-jsx'
+
+if (node.type === RuleType.heading) {
+  const heading = node as MarkdownToJSX.HeadingNode
+  console.log(`Heading level ${heading.level}: ${heading.id}`)
+}
+```
+
+**When to use `compiler` vs `parser` vs `<Markdown>`:**
+
+- Use `<Markdown>` when you need a simple React component that renders markdown to JSX or HTML.
+- Use `compiler` when you need React JSX or HTML output (the component uses this internally)
+- Use `parser` when you need the AST for custom processing
 
 ## Changelog
 
-See [Github Releases](https://github.com/probablyup/markdown-to-jsx/releases).
+See [Github Releases](https://github.com/quantizor/markdown-to-jsx/releases).
 
 ## Donate
 
