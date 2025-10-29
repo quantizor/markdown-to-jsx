@@ -67,9 +67,11 @@
     "@changesets/cli": "^2.27.1",
     "@matejmazur/react-katex": "^3.1.3",
     "@size-limit/preset-small-lib": "^11.0.1",
+    "@types/benchmark": "^2.1.5",
     "@types/jest": "^29.5.11",
     "@types/node": "^20.10.6",
-    "@types/react": "^17.0.74",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
     "benchtable": "^0.1.0",
     "cli-progress": "^3.12.0",
     "in-publish": "^2.0.1",
@@ -83,8 +85,16 @@
     "mkdirp": "^3.0.1",
     "preact": "^10.19.3",
     "prettier": "^2.0.0",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "rehype-react": "^8.0.0",
+    "remark": "^15.0.1",
+    "remark-directive": "^4.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
     "rimraf": "^5.0.5",
     "simple-markdown": "^0.7.3",
     "size-limit": "^11.0.1",
@@ -94,7 +104,7 @@
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
-    "react": ">= 0.14.0"
+    "react": ">= 16.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
@@ -104,32 +114,34 @@
   "scripts": {
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
     "prebuild": "rimraf dist && mkdirp dist",
-    "build": "microbundle --tsconfig tsconfig.json -f cjs,umd src/index.cjs.tsx --name MarkdownToJSX --define process.env.NODE_ENV=production,process.env.DEBUG=0 --globals react=React && microbundle --tsconfig tsconfig.json -f es,modern --name MarkdownToJSX --define process.env.NODE_ENV=production,process.env.DEBUG=0 src/index.tsx && microbundle --tsconfig tsconfig.json -f es --define process.env.NODE_ENV=production --no-compress -o src/index.tsx dist/debug.mjs",
+    "build": "microbundle --tsconfig tsconfig.json -f cjs,umd src/index.cjs.tsx --name MarkdownToJSX --define process.env.NODE_ENV=production,process.env.DEBUG=0 --globals react=React && microbundle --tsconfig tsconfig.json -f es,modern --name MarkdownToJSX --define process.env.NODE_ENV=production,process.env.DEBUG=0 src/index.tsx && microbundle --tsconfig tsconfig.json -f es --define process.env.NODE_ENV=production --no-compress src/index.tsx -o dist/debug.mjs",
     "build-site": "microbundle site.tsx -o docs -f iife --tsconfig tsconfig.site.json --define process.env.NODE_ENV=production,process.env.DEBUG=0 --jsx React.createElement --external react,react-dom,styled-components,katex --globals react=React,react-dom=ReactDOM,styled-components=styled --no-pkg-main",
     "dev": "microbundle watch site.tsx -o docs -f iife --tsconfig tsconfig.site.json --define process.env.NODE_ENV=development --jsx React.createElement --external react,react-dom,styled-components,katex --globals react=React,react-dom=ReactDOM,styled-components=styled --no-pkg-main",
     "dev:debug": "microbundle watch --tsconfig tsconfig.json -f es --define process.env.NODE_ENV=production --no-compress -o dist/debug.mjs",
     "test": "jest --verbose",
     "test:fuzz": "jest fuzz.spec.ts --verbose",
-    "metrics": "DEBUG=\"${DEBUG:-1}\" bun --expose-gc -e \"import fs from 'fs';import {performance}from 'perf_hooks';import {compiler} from './index.tsx';const markdown=fs.readFileSync('fixture.md','utf8');if(gc)gc();const baseline=process.memoryUsage();const before=process.memoryUsage();const t0=performance.now();compiler(markdown);const t1=performance.now();const during=process.memoryUsage();if(gc)gc();const after=process.memoryUsage();console.log('='.repeat(50));console.log('Input size:',Math.round(markdown.length/1024)+'KB');console.log('Parse time:',(t1-t0).toFixed(2)+'ms');console.log('='.repeat(50));console.log('Memory Usage:');console.log('  Baseline (Node + imports):',Math.round(baseline.heapUsed/1024)+'KB');console.log('  Peak (during parse):',Math.round(during.heapUsed/1024)+'KB');console.log('  Final (after GC):',Math.round(after.heapUsed/1024)+'KB');console.log('='.repeat(50));console.log('True Delta:');console.log('  Parsing allocated:',Math.round((during.heapUsed-before.heapUsed)/1024)+'KB');console.log('  GC freed:',Math.round((during.heapUsed-after.heapUsed)/1024)+'KB');console.log('  Final overhead:',Math.round((after.heapUsed-before.heapUsed)/1024)+'KB');console.log('='.repeat(50));\"",
-    "profile": "node --cpu-prof --expose-gc profile.js && node profile.post.js",
+    "metrics": "DEBUG=\"${DEBUG:-1}\" bun -e \"import fs from 'fs';import {performance}from 'perf_hooks';import {compiler} from './src/index.tsx';const markdown=fs.readFileSync('./src/fixture.md','utf8');const t0=performance.now();compiler(markdown);const t1=performance.now();console.log('='.repeat(50));console.log('Input size:',Math.round(markdown.length/1024)+'KB');console.log('Parse time:',(t1-t0).toFixed(2)+'ms');console.log('='.repeat(50));\"",
+    "profile": "node --cpu-prof --expose-gc profile.ts && node profile.post.ts",
     "size": "size-limit",
-    "benchmark": "node benchmark.js",
-    "benchmark:all": "node benchmark.js --all",
+    "benchmark": "node benchmark.ts",
+    "benchmark:all": "node benchmark.ts --all",
+    "benchmark:jsx": "node benchmark.ts --jsx",
     "changeset-publish": "bun run build && changeset publish"
   },
   "size-limit": [
     {
       "path": "./dist/index.module.js",
-      "limit": "8 kB"
+      "limit": "12 kB"
     },
     {
       "path": "./dist/index.modern.js",
-      "limit": "8 kB"
+      "limit": "12 kB"
     }
   ],
   "jest": {
     "clearMocks": true,
     "testEnvironment": "node",
+    "testTimeout": 1000,
     "transform": {
       "^.+\\.[tj]sx?$": [
         "ts-jest",

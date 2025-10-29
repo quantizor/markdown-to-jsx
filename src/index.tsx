@@ -1,559 +1,43 @@
 /* @jsx h */
-/**
- * markdown-to-jsx is a fork of
- * [simple-markdown v0.2.2](https://github.com/Khan/simple-markdown)
- * from Khan Academy. Thank you Khan devs for making such an awesome
- * and extensible parsing infra... without it, half of the
- * optimizations here wouldn't be feasible. 🙏🏼
- */
 import * as React from 'react'
 import {
-  RuleType as RuleTypeConst,
-  matchInlineFormatting,
-  type RuleType as RuleTypeValue,
-} from './match'
+  parseBlockQuote,
+  parseBreakThematic,
+  parseCodeBlock,
+  parseCodeFenced,
+  parseFootnote,
+  parseHeading,
+  parseHeadingSetext,
+  parseHTMLBlock,
+  parseHTMLComment,
+  parseHTMLSelfClosing,
+  parseInlineSpan,
+  ParseOptions,
+  parseOrderedList,
+  parseParagraph,
+  parseRef,
+  parseTable,
+  parseUnorderedList,
+} from './parse'
+import { MarkdownToJSX, RuleType } from './types'
+import {
+  camelCaseCss,
+  NAMED_CODES_TO_UNICODE,
+  sanitizer,
+  slugify,
+} from './utils'
 
-export const RuleType = RuleTypeConst
-export type RuleType = RuleTypeValue
+export { type MarkdownToJSX, RuleType } from './types'
+export {
+  camelCaseCss,
+  NAMED_CODES_TO_UNICODE,
+  sanitizer,
+  slugify,
+} from './utils'
 
-const Priority = {
-  /**
-   * anything that must scan the tree before everything else
-   */
-  MAX: 0,
-  /**
-   * scans for block-level constructs
-   */
-  HIGH: 1,
-  /**
-   * inline w/ more priority than other inline
-   */
-  MED: 2,
-  /**
-   * inline elements
-   */
-  LOW: 3,
-  /**
-   * bare text and stuff that is considered leftovers
-   */
-  MIN: 4,
-}
-
-/** TODO: Drop for React 16? */
-const ATTRIBUTE_TO_JSX_PROP_MAP = [
-  'allowFullScreen',
-  'allowTransparency',
-  'autoComplete',
-  'autoFocus',
-  'autoPlay',
-  'cellPadding',
-  'cellSpacing',
-  'charSet',
-  'classId',
-  'colSpan',
-  'contentEditable',
-  'contextMenu',
-  'crossOrigin',
-  'encType',
-  'formAction',
-  'formEncType',
-  'formMethod',
-  'formNoValidate',
-  'formTarget',
-  'frameBorder',
-  'hrefLang',
-  'inputMode',
-  'keyParams',
-  'keyType',
-  'marginHeight',
-  'marginWidth',
-  'maxLength',
-  'mediaGroup',
-  'minLength',
-  'noValidate',
-  'radioGroup',
-  'readOnly',
-  'rowSpan',
-  'spellCheck',
-  'srcDoc',
-  'srcLang',
-  'srcSet',
-  'tabIndex',
-  'useMap',
-].reduce(
-  (obj, x) => {
-    obj[x.toLowerCase()] = x
-    return obj
-  },
-  { class: 'className', for: 'htmlFor' }
-)
-
-const namedCodesToUnicode = {
-  amp: '\u0026',
-  apos: '\u0027',
-  gt: '\u003e',
-  lt: '\u003c',
-  nbsp: '\u00a0',
-  quot: '\u201c',
-} as const
-
-const DO_NOT_PROCESS_HTML_ELEMENTS = ['style', 'script', 'pre']
-const ATTRIBUTES_TO_SANITIZE = [
-  'src',
-  'href',
-  'data',
-  'formAction',
-  'srcDoc',
-  'action',
-]
-
-/**
- * the attribute extractor regex looks for a valid attribute name,
- * followed by an equal sign (whitespace around the equal sign is allowed), followed
- * by one of the following:
- *
- * 1. a single quote-bounded string, e.g. 'foo'
- * 2. a double quote-bounded string, e.g. "bar"
- * 3. an interpolation, e.g. {something}
- *
- * JSX can be be interpolated into itself and is passed through the compiler using
- * the same options and setup as the current run.
- *
- * <Something children={<SomeOtherThing />} />
- *                      ==================
- *                              ↳ children: [<SomeOtherThing />]
- *
- * Otherwise, interpolations are handled as strings or simple booleans
- * unless HTML syntax is detected.
- *
- * <Something color={green} disabled={true} />
- *                   =====            ====
- *                     ↓                ↳ disabled: true
- *                     ↳ color: "green"
- *
- * Numbers are not parsed at this time due to complexities around int, float,
- * and the upcoming bigint functionality that would make handling it unwieldy.
- * Parse the string in your component as desired.
- *
- * <Something someBigNumber={123456789123456789} />
- *                           ==================
- *                                   ↳ someBigNumber: "123456789123456789"
- */
-const ATTR_EXTRACTOR_R =
-  /([-A-Z0-9_:]+)(?:\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|(?:\{((?:\\.|{[^}]*?}|[^}])*)\})))?/gi
-
-/** TODO: Write explainers for each of these */
-
-const BLOCK_END_R = /\n{2,}$/
-const BLOCKQUOTE_R = /^(\s*>[\s\S]*?)(?=\n\n|$)/
-const BLOCKQUOTE_TRIM_LEFT_MULTILINE_R = /^ *> ?/gm
-const BLOCKQUOTE_ALERT_R = /^(?:\[!([^\]]*)\]\n)?([\s\S]*)/
-const BREAK_LINE_R = /^ {2,}\n/
-const BREAK_THEMATIC_R = /^(?:([-*_])( *\1){2,}) *(?:\n *)+\n/
-const CODE_BLOCK_FENCED_R =
-  /^(?: {1,3})?(`{3,}|~{3,}) *(\S+)? *([^\n]*?)?\n([\s\S]*?)(?:\1\n?|$)/
-const CODE_BLOCK_R = /^(?: {4}[^\n]+\n*)+(?:\n *)+\n?/
-const CODE_INLINE_R = /^(`+)((?:\\`|(?!\1)`|[^`])+)\1/
-const CONSECUTIVE_NEWLINE_R = /^(?:\n *)*\n/
-const CR_NEWLINE_R = /\r\n?/g
-
-/**
- * Matches footnotes on the format:
- *
- * [^key]: value
- *
- * Matches multiline footnotes
- *
- * [^key]: row
- * row
- * row
- *
- * And empty lines in indented multiline footnotes
- *
- * [^key]: indented with
- *     row
- *
- *     row
- *
- * Explanation:
- *
- * 1. Look for the starting tag, eg: [^key]
- *    ^\[\^([^\]]+)]
- *
- * 2. The first line starts with a colon, and continues for the rest of the line
- *   :(.*)
- *
- * 3. Parse as many additional lines as possible. Matches new non-empty lines that doesn't begin with a new footnote definition.
- *    (\n(?!\[\^).+)
- *
- * 4. ...or allows for repeated newlines if the next line begins with at least four whitespaces.
- *    (\n+ {4,}.*)
- */
-const FOOTNOTE_R = /^\[\^([^\]]+)](:(.*)((\n+ {4,}.*)|(\n(?!\[\^).+))*)/
-
-const FOOTNOTE_REFERENCE_R = /^\[\^([^\]]+)]/
-const FORMFEED_R = /\f/g
 const FRONT_MATTER_R = /^---[ \t]*\n(.|\n)*\n---[ \t]*\n/
-const GFM_TASK_R = /^\[(x|\s)\]/
-const HEADING_R = /^(#{1,6}) *([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
-const HEADING_ATX_COMPLIANT_R =
-  /^ *(#{1,6}) +([^\n]+?)(?: +#*)?(?:\n *)*(?:\n|$)/
-const HEADING_SETEXT_R = /^([^\n]+)\n *(=|-)\2{2,} *\n/
-
-const HTML_BLOCK_ELEMENT_START_R = /^<([a-z][^ >/]*) ?((?:[^>]*[^/])?)>/i
-
-function matchHTMLBlock(source: string): RegExpMatchArray | null {
-  const m = HTML_BLOCK_ELEMENT_START_R.exec(source)
-  if (!m) return null
-
-  const tagName = m[1]
-  const tagLower = tagName.toLowerCase()
-  const openTagLen = tagLower.length + 1
-
-  let pos = m[0].length
-  if (source[pos] === '\n') pos++
-  const contentStart = pos
-  let contentEnd = pos
-  let depth = 1
-  const sourceLen = source.length
-
-  while (depth > 0) {
-    const idx = source.indexOf('<', pos)
-    if (idx === -1) return null
-
-    let openIdx = -1
-    let closeIdx = -1
-
-    if (source[idx + 1] === '/') {
-      closeIdx = idx
-    } else if (
-      source[idx + 1] === tagLower[0] ||
-      source[idx + 1] === tagName[0]
-    ) {
-      let match = true
-      for (let i = 0; i < tagLower.length; i++) {
-        const c = source[idx + 1 + i]
-        if (c !== tagLower[i] && c !== tagName[i]) {
-          match = false
-          break
-        }
-      }
-      if (
-        match &&
-        (source[idx + openTagLen] === ' ' || source[idx + openTagLen] === '>')
-      ) {
-        openIdx = idx
-      }
-    }
-
-    if (openIdx === -1 && closeIdx === -1) {
-      pos = idx + 1
-      continue
-    }
-
-    if (openIdx !== -1 && (closeIdx === -1 || openIdx < closeIdx)) {
-      pos = openIdx + openTagLen + 1
-      depth++
-    } else {
-      let p = closeIdx + 2
-      while (p < sourceLen) {
-        const c = source[p]
-        if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') break
-        p++
-      }
-      if (p + tagLower.length > sourceLen) return null
-
-      let match = true
-      for (let i = 0; i < tagLower.length; i++) {
-        const c = source[p + i]
-        if (c !== tagLower[i] && c !== tagName[i]) {
-          match = false
-          break
-        }
-      }
-      if (!match) {
-        pos = p
-        continue
-      }
-
-      p += tagLower.length
-      while (p < sourceLen) {
-        const c = source[p]
-        if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') break
-        p++
-      }
-      if (p >= sourceLen || source[p] !== '>') {
-        pos = p
-        continue
-      }
-
-      contentEnd = closeIdx
-      pos = p + 1
-      depth--
-    }
-  }
-
-  let trailingNl = 0
-  while (pos + trailingNl < sourceLen && source[pos + trailingNl] === '\n')
-    trailingNl++
-
-  return [
-    source.slice(0, pos + trailingNl),
-    tagName,
-    m[2],
-    source.slice(contentStart, contentEnd),
-  ] as RegExpMatchArray
-}
-
-const HTML_CHAR_CODE_R = /&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-fA-F]{1,6});/gi
-
-const HTML_COMMENT_R = /^<!--[\s\S]*?(?:-->)/
-
-/**
- * borrowed from React 15(https://github.com/facebook/react/blob/894d20744cba99383ffd847dbd5b6e0800355a5c/src/renderers/dom/shared/HTMLDOMPropertyConfig.js)
- */
-const HTML_CUSTOM_ATTR_R = /^(data|aria|x)-[a-z_][a-z\d_.-]*$/
-
-const HTML_SELF_CLOSING_ELEMENT_R =
-  /^ *<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*))?\/?>(?!<\/\1>)(\s*\n)?/i
-const INTERPOLATION_R = /^\{.*\}$/
-const LINK_AUTOLINK_BARE_URL_R = /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/
-const LINK_AUTOLINK_R = /^<([^ >]+[:@\/][^ >]+)>/
-const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi
-const NP_TABLE_R = /^(\|.*)\n(?: *(\|? *[-:]+ *\|[-| :]*)\n((?:.*\|.*\n)*))?\n?/
-const PARAGRAPH_R = /^[^\n]+(?:  \n|\n{2,})/
-const REFERENCE_IMAGE_OR_LINK = /^\[([^\]]*)\]:\s+<?([^\s>]+)>?\s*("([^"]*)")?/
-const REFERENCE_IMAGE_R = /^!\[([^\]]*)\] ?\[([^\]]*)\]/
-const REFERENCE_LINK_R = /^\[([^\]]*)\] ?\[([^\]]*)\]/
 const SHOULD_RENDER_AS_BLOCK_R = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/
-const TAB_R = /\t/g
-const TABLE_TRIM_PIPES = /(^ *\||\| *$)/g
-const TABLE_CENTER_ALIGN = /^ *:-+: *$/
-const TABLE_LEFT_ALIGN = /^ *:-+ *$/
-const TABLE_RIGHT_ALIGN = /^ *-+: *$/
-
-/**
- * Special case for shortcodes like :big-smile: or :emoji:
- */
-const SHORTCODE_R = /^(:[a-zA-Z0-9-_]+:)/
-
-const TEXT_ESCAPED_R = /^\\([^0-9A-Za-z\s])/
-const UNESCAPE_R = /\\([^0-9A-Za-z\s])/g
-
-/**
- * Always take the first character, then eagerly take text until a double space
- * (potential line break) or some markdown-like punctuation is reached.
- */
-const TEXT_PLAIN_R = /^[\s\S](?:(?!  \n|[0-9]\.|http)[^=*_~\-\n:<`\\\[!])*/
-
 const TRIM_STARTING_NEWLINES = /^\n+/
-
-const HTML_LEFT_TRIM_AMOUNT_R = /^([ \t]*)/
-
-type LIST_TYPE = 1 | 2
-const ORDERED: LIST_TYPE = 1
-const UNORDERED: LIST_TYPE = 2
-
-const LIST_LOOKBEHIND_R = /(?:^|\n)( *)$/
-
-// recognize a `*` `-`, `+`, `1.`, `2.`... list bullet
-const ORDERED_LIST_BULLET = '(?:\\d+\\.)'
-const UNORDERED_LIST_BULLET = '(?:[*+-])'
-
-function generateListItemPrefix(type: LIST_TYPE) {
-  return (
-    '( *)(' +
-    (type === ORDERED ? ORDERED_LIST_BULLET : UNORDERED_LIST_BULLET) +
-    ') +'
-  )
-}
-
-// recognize the start of a list item:
-// leading space plus a bullet plus a space (`   * `)
-const ORDERED_LIST_ITEM_PREFIX = generateListItemPrefix(ORDERED)
-const UNORDERED_LIST_ITEM_PREFIX = generateListItemPrefix(UNORDERED)
-
-function generateListItemPrefixRegex(type: LIST_TYPE) {
-  return new RegExp(
-    '^' +
-      (type === ORDERED ? ORDERED_LIST_ITEM_PREFIX : UNORDERED_LIST_ITEM_PREFIX)
-  )
-}
-
-const ORDERED_LIST_ITEM_PREFIX_R = generateListItemPrefixRegex(ORDERED)
-const UNORDERED_LIST_ITEM_PREFIX_R = generateListItemPrefixRegex(UNORDERED)
-
-function generateListItemRegex(type: LIST_TYPE) {
-  // recognize an individual list item:
-  //  * hi
-  //    this is part of the same item
-  //
-  //    as is this, which is a new paragraph in the same item
-  //
-  //  * but this is not part of the same item
-  return new RegExp(
-    '^' +
-      (type === ORDERED
-        ? ORDERED_LIST_ITEM_PREFIX
-        : UNORDERED_LIST_ITEM_PREFIX) +
-      '[^\\n]*(?:\\n' +
-      '(?!\\1' +
-      (type === ORDERED ? ORDERED_LIST_BULLET : UNORDERED_LIST_BULLET) +
-      ' )[^\\n]*)*(\\n|$)',
-    'gm'
-  )
-}
-
-const ORDERED_LIST_ITEM_R = generateListItemRegex(ORDERED)
-const UNORDERED_LIST_ITEM_R = generateListItemRegex(UNORDERED)
-
-// check whether a list item has paragraphs: if it does,
-// we leave the newlines at the end
-function generateListRegex(type: LIST_TYPE) {
-  const bullet = type === ORDERED ? ORDERED_LIST_BULLET : UNORDERED_LIST_BULLET
-
-  return new RegExp(
-    '^( *)(' +
-      bullet +
-      ') ' +
-      '[\\s\\S]+?(?:\\n{2,}(?! )' +
-      '(?!\\1' +
-      bullet +
-      ' (?!' +
-      bullet +
-      ' ))\\n*' +
-      // the \\s*$ here is so that we can parse the inside of nested
-      // lists, where our content might end before we receive two `\n`s
-      '|\\s*\\n*$)'
-  )
-}
-
-const ORDERED_LIST_R = generateListRegex(ORDERED)
-const UNORDERED_LIST_R = generateListRegex(UNORDERED)
-
-function generateListRule(
-  h: any,
-  type: LIST_TYPE
-): MarkdownToJSX.Rule<
-  MarkdownToJSX.OrderedListNode | MarkdownToJSX.UnorderedListNode
-> {
-  const ordered = type === ORDERED
-  const LIST_R = ordered ? ORDERED_LIST_R : UNORDERED_LIST_R
-  const LIST_ITEM_R = ordered ? ORDERED_LIST_ITEM_R : UNORDERED_LIST_ITEM_R
-  const LIST_ITEM_PREFIX_R = ordered
-    ? ORDERED_LIST_ITEM_PREFIX_R
-    : UNORDERED_LIST_ITEM_PREFIX_R
-
-  return {
-    _qualify: source => LIST_ITEM_PREFIX_R.test(source),
-    _match: allowInline(function (source, state) {
-      // We only want to break into a list if we are at the start of a
-      // line. This is to avoid parsing "hi * there" with "* there"
-      // becoming a part of a list.
-      // You might wonder, "but that's inline, so of course it wouldn't
-      // start a list?". You would be correct! Except that some of our
-      // lists can be inline, because they might be inside another list,
-      // in which case we can parse with inline scope, but need to allow
-      // nested lists inside this inline scope.
-      const isStartOfLine = LIST_LOOKBEHIND_R.exec(state.prevCapture)
-      const isListAllowed = state.list || (!state.inline && !state.simple)
-
-      if (isStartOfLine && isListAllowed) {
-        source = isStartOfLine[1] + source
-
-        return LIST_R.exec(source)
-      } else {
-        return null
-      }
-    }),
-    _order: Priority.HIGH,
-    _parse(capture, parse, state) {
-      const bullet = capture[2]
-      const start = ordered ? +bullet : undefined
-      const items = capture[0]
-        // recognize the end of a paragraph block inside a list item:
-        // two or more newlines at end end of the item
-        .replace(BLOCK_END_R, '\n')
-        .match(LIST_ITEM_R)
-
-      const firstPrefixMatch = LIST_ITEM_PREFIX_R.exec(items[0])
-      const space = firstPrefixMatch ? firstPrefixMatch[0].length : 0
-      const spaceRegex = new RegExp('^ {1,' + space + '}', 'gm')
-
-      let lastItemWasAParagraph = false
-
-      const itemContent = items.map(function (item, i) {
-        // Before processing the item, we need a couple things
-        const content = item
-          // remove indents on trailing lines:
-          .replace(spaceRegex, '')
-          // remove the bullet:
-          .replace(LIST_ITEM_PREFIX_R, '')
-
-        // Handling "loose" lists, like:
-        //
-        //  * this is wrapped in a paragraph
-        //
-        //  * as is this
-        //
-        //  * as is this
-        const isLastItem = i === items.length - 1
-        const containsBlocks = includes(content, '\n\n')
-
-        // Any element in a list is a block if it contains multiple
-        // newlines. The last element in the list can also be a block
-        // if the previous item in the list was a block (this is
-        // because non-last items in the list can end with \n\n, but
-        // the last item can't, so we just "inherit" this property
-        // from our previous element).
-        const thisItemIsAParagraph =
-          containsBlocks || (isLastItem && lastItemWasAParagraph)
-        lastItemWasAParagraph = thisItemIsAParagraph
-
-        // backup our state for delta afterwards. We're going to
-        // want to set state.list to true, and state.inline depending
-        // on our list's looseness.
-        const oldStateInline = state.inline
-        const oldStateList = state.list
-        state.list = true
-
-        // Parse inline if we're in a tight list, or block if we're in
-        // a loose list.
-        let adjustedContent
-        if (thisItemIsAParagraph) {
-          state.inline = false
-          adjustedContent = trimEnd(content) + '\n\n'
-        } else {
-          state.inline = true
-          adjustedContent = trimEnd(content)
-        }
-
-        const result = parse(adjustedContent, state)
-
-        // Restore our state before returning
-        state.inline = oldStateInline
-        state.list = oldStateList
-
-        return result
-      })
-
-      return {
-        items: itemContent,
-        ordered: ordered,
-        start: start,
-      }
-    },
-  }
-}
-
-const LINK_INSIDE =
-  '(?:\\[[^\\[\\]]*(?:\\[[^\\[\\]]*\\][^\\[\\]]*)*\\]|[^\\[\\]])*'
-const LINK_HREF_AND_TITLE =
-  '\\s*<?((?:\\([^)]*\\)|[^\\s\\\\]|\\\\.)*?)>?(?:\\s+[\'"]([\\s\\S]*?)[\'"])?\\s*'
-const LINK_R = new RegExp(
-  '^\\[(' + LINK_INSIDE + ')\\]\\(' + LINK_HREF_AND_TITLE + '\\)'
-)
-const IMAGE_R = /^!\[(.*?)\]\( *((?:\([^)]*\)|[^() ])*) *"?([^)"]*)?"?\)/
 
 function isString(value: any): value is string {
   return typeof value === 'string'
@@ -565,169 +49,6 @@ function trimEnd(str: string) {
   return str.slice(0, end)
 }
 
-function startsWith(str: string, prefix: string) {
-  return str.startsWith(prefix)
-}
-
-function includes(str: string, search: string) {
-  return str.indexOf(search) !== -1
-}
-
-function qualifies(
-  source: string,
-  state: MarkdownToJSX.State,
-  qualify: MarkdownToJSX.Rule<any>['_qualify']
-) {
-  if (Array.isArray(qualify)) {
-    for (let i = 0; i < qualify.length; i++) {
-      if (startsWith(source, qualify[i])) return true
-    }
-
-    return false
-  }
-
-  return qualify(source, state)
-}
-
-/** Remove symmetrical leading and trailing quotes */
-function unquote(str: string) {
-  const first = str[0]
-  if (
-    (first === '"' || first === "'") &&
-    str.length >= 2 &&
-    str[str.length - 1] === first
-  ) {
-    return str.slice(1, -1)
-  }
-  return str
-}
-
-// based on https://stackoverflow.com/a/18123682/1141611
-// not complete, but probably good enough
-export function slugify(str: string) {
-  return str
-    .replace(/[ÀÁÂÃÄÅàáâãäåæÆ]/g, 'a')
-    .replace(/[çÇ]/g, 'c')
-    .replace(/[ðÐ]/g, 'd')
-    .replace(/[ÈÉÊËéèêë]/g, 'e')
-    .replace(/[ÏïÎîÍíÌì]/g, 'i')
-    .replace(/[Ññ]/g, 'n')
-    .replace(/[øØœŒÕõÔôÓóÒò]/g, 'o')
-    .replace(/[ÜüÛûÚúÙù]/g, 'u')
-    .replace(/[ŸÿÝý]/g, 'y')
-    .replace(/[^a-z0-9- ]/gi, '')
-    .replace(/ /gi, '-')
-    .toLowerCase()
-}
-
-function parseTableAlignCapture(alignCapture: string) {
-  if (TABLE_RIGHT_ALIGN.test(alignCapture)) {
-    return 'right'
-  } else if (TABLE_CENTER_ALIGN.test(alignCapture)) {
-    return 'center'
-  } else if (TABLE_LEFT_ALIGN.test(alignCapture)) {
-    return 'left'
-  }
-
-  return null
-}
-
-function parseTableRow(
-  source: string,
-  parse: MarkdownToJSX.NestedParser,
-  state: MarkdownToJSX.State,
-  tableOutput: boolean
-): MarkdownToJSX.ASTNode[][] {
-  const prevInTable = state.inTable
-
-  state.inTable = true
-
-  let cells: MarkdownToJSX.ASTNode[][] = [[]]
-  let acc = ''
-
-  function flush() {
-    if (!acc) return
-
-    const cell = cells[cells.length - 1]
-    cell.push.apply(cell, parse(acc, state))
-    acc = ''
-  }
-
-  source
-    .trim()
-    // isolate situations where a pipe should be ignored (inline code, escaped, etc)
-    .split(/(`[^`]*`|\\\||\|)/)
-    .filter(Boolean)
-    .forEach((fragment, i, arr) => {
-      if (fragment.trim() === '|') {
-        flush()
-
-        if (tableOutput) {
-          if (i !== 0 && i !== arr.length - 1) {
-            // Split the current row
-            cells.push([])
-          }
-
-          return
-        }
-      }
-
-      acc += fragment
-    })
-
-  flush()
-
-  state.inTable = prevInTable
-
-  return cells
-}
-
-function parseTableAlign(source: string /*, parse, state*/) {
-  const alignText = source.replace(TABLE_TRIM_PIPES, '').split('|')
-
-  return alignText.map(parseTableAlignCapture)
-}
-
-function parseTableCells(
-  source: string,
-  parse: MarkdownToJSX.NestedParser,
-  state: MarkdownToJSX.State
-) {
-  const rowsText = source.trim().split('\n')
-
-  return rowsText.map(function (rowText) {
-    return parseTableRow(rowText, parse, state, true)
-  })
-}
-
-function parseTable(
-  capture: RegExpMatchArray,
-  parse: MarkdownToJSX.NestedParser,
-  state: MarkdownToJSX.State
-) {
-  /**
-   * The table syntax makes some other parsing angry so as a bit of a hack even if alignment and/or cell rows are missing,
-   * we'll still run a detected first row through the parser and then just emit a paragraph.
-   */
-  state.inline = true
-  const align = capture[2] ? parseTableAlign(capture[2]) : []
-  const cells = capture[3] ? parseTableCells(capture[3], parse, state) : []
-  const header = parseTableRow(capture[1], parse, state, !!cells.length)
-  state.inline = false
-
-  return cells.length
-    ? {
-        align: align,
-        cells: cells,
-        header: header,
-        type: RuleType.table,
-      }
-    : {
-        children: header,
-        type: RuleType.paragraph,
-      }
-}
-
 function getTableStyle(node, colIndex) {
   return node.align[colIndex] == null
     ? {}
@@ -736,346 +57,9 @@ function getTableStyle(node, colIndex) {
       }
 }
 
-/** TODO: remove for react 16 */
-function normalizeAttributeKey(key) {
-  const hyphenIndex = key.indexOf('-')
-
-  if (hyphenIndex !== -1 && key.match(HTML_CUSTOM_ATTR_R) === null) {
-    key = key.replace(CAPTURE_LETTER_AFTER_HYPHEN, function (_, letter) {
-      return letter.toUpperCase()
-    })
-  }
-
-  return key
-}
-
-type StyleTuple = [key: string, value: string]
-
-function parseStyleAttribute(styleString: string): StyleTuple[] {
-  const styles: StyleTuple[] = []
-  if (!styleString) return styles
-
-  let buffer = ''
-  let depth = 0
-  let quoteChar = ''
-
-  for (let i = 0; i < styleString.length; i++) {
-    const char = styleString[i]
-
-    if (char === '"' || char === "'") {
-      if (!quoteChar) {
-        quoteChar = char
-        depth++
-      } else if (char === quoteChar) {
-        quoteChar = ''
-        depth--
-      }
-    } else if (char === '(' && buffer.endsWith('url')) {
-      depth++
-    } else if (char === ')' && depth > 0) {
-      depth--
-    } else if (char === ';' && depth === 0) {
-      const colonIndex = buffer.indexOf(':')
-      if (colonIndex > 0) {
-        styles.push([
-          buffer.slice(0, colonIndex).trim(),
-          buffer.slice(colonIndex + 1).trim(),
-        ])
-      }
-      buffer = ''
-      continue
-    }
-
-    buffer += char
-  }
-
-  const colonIndex = buffer.indexOf(':')
-  if (colonIndex > 0) {
-    styles.push([
-      buffer.slice(0, colonIndex).trim(),
-      buffer.slice(colonIndex + 1).trim(),
-    ])
-  }
-
-  return styles
-}
-
-function attributeValueToJSXPropValue(
-  tag: MarkdownToJSX.HTMLTags,
-  key: keyof React.AllHTMLAttributes<Element>,
-  value: string,
-  sanitizeUrlFn: MarkdownToJSX.Options['sanitizer']
-): any {
-  if (key === 'style') {
-    return parseStyleAttribute(value).reduce(function (styles, [key, value]) {
-      styles[key.replace(/(-[a-z])/g, substr => substr[1].toUpperCase())] =
-        sanitizeUrlFn(value, tag, key)
-      return styles
-    }, {})
-  }
-
-  if (ATTRIBUTES_TO_SANITIZE.indexOf(key) !== -1) {
-    return sanitizeUrlFn(unescape(value), tag, key)
-  }
-
-  if (value.match(INTERPOLATION_R)) {
-    value = unescape(value.slice(1, value.length - 1))
-  }
-
-  return value === 'true' ? true : value === 'false' ? false : value
-}
-
-function normalizeWhitespace(source: string): string {
-  return source
-    .replace(CR_NEWLINE_R, '\n')
-    .replace(FORMFEED_R, '')
-    .replace(TAB_R, '    ')
-}
-
-/**
- * Creates a parser for a given set of rules, with the precedence
- * specified as a list of rules.
- *
- * @rules: an object containing
- * rule type -> {match, order, parse} objects
- * (lower order is higher precedence)
- * (Note: `order` is added to defaultRules after creation so that
- *  the `order` of defaultRules in the source matches the `order`
- *  of defaultRules in terms of `order` fields.)
- *
- * @returns The resulting parse function, with the following parameters:
- *   @source: the input source string to be parsed
- *   @state: an optional object to be threaded through parse
- *     calls. Allows clients to add stateful operations to
- *     parsing, such as keeping track of how many levels deep
- *     some nesting is. For an example use-case, see passage-ref
- *     parsing in src/widgets/passage/passage-markdown.jsx
- */
-function parserFor(
-  rules: MarkdownToJSX.Rules
-): (
-  source: string,
-  state: MarkdownToJSX.State
-) => ReturnType<MarkdownToJSX.NestedParser> {
-  var ruleList = Object.keys(rules)
-
-  if (process.env.NODE_ENV !== 'production') {
-    ruleList.forEach(function (type) {
-      const order = rules[type]._order
-      if (typeof order !== 'number' || !isFinite(order)) {
-        console.warn(
-          'markdown-to-jsx: Invalid order for rule `' + type + '`: ' + order
-        )
-      }
-    })
-  }
-
-  // Sorts rules in order of increasing order, then
-  // ascending rule name in case of ties.
-  ruleList.sort(function (a, b) {
-    return rules[a]._order - rules[b]._order || (a < b ? -1 : 1)
-  })
-
-  function nestedParse(
-    source: string,
-    state: MarkdownToJSX.State
-  ): MarkdownToJSX.ASTNode[] {
-    var result = []
-    state.prevCapture = state.prevCapture || ''
-
-    if (source.trim()) {
-      while (source) {
-        var i = 0
-        while (i < ruleList.length) {
-          var ruleType = ruleList[i]
-          var rule = rules[ruleType]
-
-          if (rule._qualify && !qualifies(source, state, rule._qualify)) {
-            i++
-            continue
-          }
-
-          var capture = rule._match(source, state)
-          if (capture && capture[0]) {
-            source = source.substring(capture[0].length)
-
-            var parsed = rule._parse(capture, nestedParse, state)
-
-            state.prevCapture += capture[0]
-
-            if (!parsed.type) parsed.type = ruleType as unknown as RuleType
-            result.push(parsed)
-            break
-          }
-          i++
-        }
-      }
-    }
-
-    // reset on exit
-    state.prevCapture = ''
-
-    return result
-  }
-
-  return function (source, state) {
-    return nestedParse(normalizeWhitespace(source), state)
-  }
-}
-
-/**
- * Marks a matcher function as eligible for being run inside an inline context;
- * allows us to do a little less work in the nested parser.
- */
-function allowInline<T extends Function & { inline?: 0 | 1 }>(fn: T) {
-  fn.inline = 1
-
-  return fn
-}
-
-// Creates a match function for an inline scoped or simple element from a regex
-function inlineRegex(regex: RegExp) {
-  return allowInline(function match(source, state: MarkdownToJSX.State) {
-    if (state.inline) {
-      return regex.exec(source)
-    } else {
-      return null
-    }
-  })
-}
-
-// basically any inline element except links
-function simpleInlineRegex(regex: RegExp) {
-  return allowInline(function match(
-    source: string,
-    state: MarkdownToJSX.State
-  ) {
-    if (state.inline || state.simple) {
-      return regex.exec(source)
-    } else {
-      return null
-    }
-  })
-}
-
-// Creates a match function for a block scoped element from a regex
-function blockRegex(regex: RegExp) {
-  return function match(source: string, state: MarkdownToJSX.State) {
-    if (state.inline || state.simple) {
-      return null
-    } else {
-      return regex.exec(source)
-    }
-  }
-}
-
-// Creates a match function from a regex, ignoring block/inline scope
-function anyScopeRegex(regex: RegExp) {
-  return allowInline(function match(source: string /*, state*/) {
-    return regex.exec(source)
-  })
-}
-
-const SANITIZE_R = /(javascript|vbscript|data(?!:image)):/i
-
-export function sanitizer(input: string): string {
-  try {
-    const decoded = decodeURIComponent(input).replace(/[^A-Za-z0-9/:]/g, '')
-
-    if (SANITIZE_R.test(decoded)) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn(
-          'Input contains an unsafe JavaScript/VBScript/data expression, it will not be rendered.',
-          decoded
-        )
-      }
-
-      return null
-    }
-  } catch (e) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn(
-        'Input could not be decoded due to malformed syntax or characters, it will not be rendered.',
-        input
-      )
-    }
-
-    // decodeURIComponent sometimes throws a URIError
-    // See `decodeURIComponent('a%AFc');`
-    // http://stackoverflow.com/questions/9064536/javascript-decodeuricomponent-malformed-uri-exception
-    return null
-  }
-
-  return input
-}
-
-function unescape(rawString: string): string {
-  return rawString ? rawString.replace(UNESCAPE_R, '$1') : rawString
-}
-
-/**
- * Everything inline, including links.
- */
-function parseInline(
-  parse: MarkdownToJSX.NestedParser,
-  children: string,
-  state: MarkdownToJSX.State
-): MarkdownToJSX.ASTNode[] {
-  const isCurrentlyInline = state.inline || false
-  const isCurrentlySimple = state.simple || false
-  state.inline = true
-  state.simple = true
-  const result = parse(children, state)
-  state.inline = isCurrentlyInline
-  state.simple = isCurrentlySimple
-  return result
-}
-
-/**
- * Anything inline that isn't a link.
- */
-function parseSimpleInline(
-  parse: MarkdownToJSX.NestedParser,
-  children: string,
-  state: MarkdownToJSX.State
-): MarkdownToJSX.ASTNode[] {
-  const isCurrentlyInline = state.inline || false
-  const isCurrentlySimple = state.simple || false
-  state.inline = false
-  state.simple = true
-  const result = parse(children, state)
-  state.inline = isCurrentlyInline
-  state.simple = isCurrentlySimple
-  return result
-}
-
-function parseBlock(
-  parse,
-  children,
-  state: MarkdownToJSX.State
-): MarkdownToJSX.ASTNode[] {
-  const isCurrentlyInline = state.inline || false
-  state.inline = false
-  const result = parse(children, state)
-  state.inline = isCurrentlyInline
-  return result
-}
-
-const parseCaptureInline: MarkdownToJSX.Parser<{
-  children: MarkdownToJSX.ASTNode[]
-}> = (capture, parse, state: MarkdownToJSX.State) => {
-  return {
-    children: parseInline(parse, capture[2], state),
-  }
-}
-
-function captureNothing() {
-  return {}
-}
-
 function render(
   node: MarkdownToJSX.ASTNode,
-  output: MarkdownToJSX.RuleOutput,
+  output: MarkdownToJSX.ASTRender,
   state: MarkdownToJSX.State,
   h: (tag: any, props: any, ...children: any[]) => any,
   sanitize: (value: string, tag: string, attribute: string) => string | null,
@@ -1149,15 +133,19 @@ function render(
         output(node.children, state)
       )
 
-    case RuleType.htmlBlock:
-      return (
-        <node.tag key={state.key} {...node.attrs}>
-          {node.text || (node.children ? output(node.children, state) : '')}
-        </node.tag>
+    case RuleType.htmlBlock: {
+      const attrsBlock = normalizeHtmlAttributes(node.attrs)
+      return h(
+        node.tag,
+        { key: state.key, ...attrsBlock },
+        node.text || (node.children ? output(node.children, state) : '')
       )
+    }
 
-    case RuleType.htmlSelfClosing:
-      return <node.tag {...node.attrs} key={state.key} />
+    case RuleType.htmlSelfClosing: {
+      const attrsSelf = normalizeHtmlAttributes(node.attrs)
+      return h(node.tag, { key: state.key, ...attrsSelf })
+    }
 
     case RuleType.image:
       return (
@@ -1169,16 +157,18 @@ function render(
         />
       )
 
-    case RuleType.link:
-      return (
-        <a
-          key={state.key}
-          href={sanitize(node.target, 'a', 'href')}
-          title={node.title}
-        >
-          {output(node.children, state)}
-        </a>
-      )
+    case RuleType.link: {
+      const href =
+        node.target !== null ? sanitize(node.target, 'a', 'href') : null
+      const props: Record<string, unknown> = { key: state.key }
+      if (href != null) {
+        props.href = href
+      }
+      if (node.title) {
+        props.title = node.title
+      }
+      return h('a', props, output(node.children, state))
+    }
 
     case RuleType.refImage:
       return refs[node.ref] ? (
@@ -1284,7 +274,7 @@ function createRenderer(
 ) {
   function renderRule(
     ast: MarkdownToJSX.ASTNode,
-    renderer: MarkdownToJSX.RuleOutput,
+    renderer: MarkdownToJSX.ASTRender,
     state: MarkdownToJSX.State
   ): React.ReactNode {
     const nodeRender = () =>
@@ -1307,7 +297,7 @@ function createRenderer(
   return function patchedRender(
     ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
     state: MarkdownToJSX.State = {}
-  ): React.ReactNode[] | React.ReactNode {
+  ): React.ReactNode {
     // Track render depth to prevent stack overflow from extremely deep nesting
     const currentDepth = (state.renderDepth || 0) + 1
     const MAX_RENDER_DEPTH = 2500
@@ -1336,7 +326,12 @@ function createRenderer(
           if (_isString && lastWasString) {
             result[result.length - 1] += nodeOut
           } else if (nodeOut !== null) {
-            result.push(nodeOut)
+            // If renderRule returned an array, spread it into result (React handles arrays as children)
+            if (Array.isArray(nodeOut)) {
+              result.push(...nodeOut)
+            } else {
+              result.push(nodeOut)
+            }
           }
 
           lastWasString = _isString
@@ -1409,63 +404,18 @@ function getTag(tag: string, overrides: MarkdownToJSX.Overrides) {
     : get(overrides, `${tag}.component`, tag)
 }
 
-function attrStringToMap(
-  tag: MarkdownToJSX.HTMLTags,
-  str: string,
-  sanitize: (value: string, tag: string, attribute: string) => string | null,
-  compile: (value: string) => React.ReactNode
-): React.JSX.IntrinsicAttributes {
-  if (!str || !str.trim()) return null
-
-  const attributes = str.match(ATTR_EXTRACTOR_R)
-  if (!attributes) return null
-
-  return attributes.reduce(function (map, raw) {
-    const delimiterIdx = raw.indexOf('=')
-
-    if (delimiterIdx !== -1) {
-      const key = normalizeAttributeKey(raw.slice(0, delimiterIdx)).trim()
-      const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key] || key
-
-      if (mappedKey === 'ref') return map
-
-      const normalizedValue = (map[mappedKey] = attributeValueToJSXPropValue(
-        tag,
-        key,
-        unquote(raw.slice(delimiterIdx + 1).trim()),
-        sanitize
-      ))
-
-      if (
-        typeof normalizedValue === 'string' &&
-        (HTML_BLOCK_ELEMENT_START_R.test(normalizedValue) ||
-          HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue))
-      ) {
-        map[mappedKey] = compile(normalizedValue.trim())
-      }
-    } else if (raw !== 'style') {
-      map[ATTRIBUTE_TO_JSX_PROP_MAP[raw] || raw] = true
-    }
-
-    return map
-  }, {})
-}
-
-function some(regexes: RegExp[], input: string) {
-  for (let i = 0; i < regexes.length; i++) {
-    if (regexes[i].test(input)) {
-      return true
-    }
+export function compiler(
+  markdown: string,
+  options: MarkdownToJSX.Options & {
+    ast: true
   }
-  return false
-}
-
+): MarkdownToJSX.ASTNode[]
 export function compiler(
   markdown: string,
   options: MarkdownToJSX.Options & {
     wrapper: null
   }
-): React.ReactNode[]
+): React.ReactNode
 export function compiler(
   markdown: string,
   options?: MarkdownToJSX.Options
@@ -1473,77 +423,70 @@ export function compiler(
 export function compiler(
   markdown: string = '',
   options: MarkdownToJSX.Options = {}
-): React.JSX.Element | React.ReactNode[] {
+): React.ReactNode | MarkdownToJSX.ASTNode[] {
+  const isDebug = !!process.env.DEBUG
+
+  let parseMetrics: {
+    blockParsers: { [key: string]: { attempts: number; hits: number } }
+    inlineParsers: { [key: string]: { attempts: number; hits: number } }
+    totalOperations: number
+    blockParseIterations: number
+    inlineParseIterations: number
+  } | null = null
+
+  if (isDebug) {
+    parseMetrics = {
+      blockParsers: {
+        codeBlock: { attempts: 0, hits: 0 },
+        blockQuote: { attempts: 0, hits: 0 },
+        heading: { attempts: 0, hits: 0 },
+        headingSetext: { attempts: 0, hits: 0 },
+        breakThematic: { attempts: 0, hits: 0 },
+        codeFenced: { attempts: 0, hits: 0 },
+        unorderedList: { attempts: 0, hits: 0 },
+        orderedList: { attempts: 0, hits: 0 },
+        table: { attempts: 0, hits: 0 },
+        htmlComment: { attempts: 0, hits: 0 },
+        htmlBlock: { attempts: 0, hits: 0 },
+        htmlSelfClosing: { attempts: 0, hits: 0 },
+        footnote: { attempts: 0, hits: 0 },
+        ref: { attempts: 0, hits: 0 },
+        paragraph: { attempts: 0, hits: 0 },
+        noMatch: { attempts: 0, hits: 0 },
+      },
+      inlineParsers: {
+        escaped: { attempts: 0, hits: 0 },
+        footnoteRef: { attempts: 0, hits: 0 },
+        ref: { attempts: 0, hits: 0 },
+        gfmTask: { attempts: 0, hits: 0 },
+        refLink: { attempts: 0, hits: 0 },
+        link: { attempts: 0, hits: 0 },
+        angleBraceLink: { attempts: 0, hits: 0 },
+        htmlComment: { attempts: 0, hits: 0 },
+        htmlElement: { attempts: 0, hits: 0 },
+        htmlSelfClosing: { attempts: 0, hits: 0 },
+        formatting: { attempts: 0, hits: 0 },
+        breakLine: { attempts: 0, hits: 0 },
+        codeInline: { attempts: 0, hits: 0 },
+        refImage: { attempts: 0, hits: 0 },
+        image: { attempts: 0, hits: 0 },
+        bareUrl: { attempts: 0, hits: 0 },
+        text: { attempts: 0, hits: 0 },
+      },
+      totalOperations: 0,
+      blockParseIterations: 0,
+      inlineParseIterations: 0,
+    }
+  }
+
   options.overrides = options.overrides || {}
   options.namedCodesToUnicode = options.namedCodesToUnicode
-    ? { ...namedCodesToUnicode, ...options.namedCodesToUnicode }
-    : namedCodesToUnicode
+    ? { ...NAMED_CODES_TO_UNICODE, ...options.namedCodesToUnicode }
+    : NAMED_CODES_TO_UNICODE
 
   const slug = options.slugify || slugify
   const sanitize = options.sanitizer || sanitizer
   const createElement = options.createElement || React.createElement
-
-  const NON_PARAGRAPH_BLOCK_SYNTAXES = [
-    BLOCKQUOTE_R,
-    CODE_BLOCK_FENCED_R,
-    CODE_BLOCK_R,
-    options.enforceAtxHeadings ? HEADING_ATX_COMPLIANT_R : HEADING_R,
-    HEADING_SETEXT_R,
-    NP_TABLE_R,
-    ORDERED_LIST_R,
-    UNORDERED_LIST_R,
-  ]
-
-  const BLOCK_SYNTAXES = [
-    ...NON_PARAGRAPH_BLOCK_SYNTAXES,
-    PARAGRAPH_R,
-    HTML_BLOCK_ELEMENT_START_R,
-    HTML_COMMENT_R,
-    HTML_SELF_CLOSING_ELEMENT_R,
-  ]
-
-  function matchParagraph(source: string, state: MarkdownToJSX.State) {
-    if (
-      state.inline ||
-      state.simple ||
-      (state.inHTML &&
-        !includes(source, '\n\n') &&
-        !includes(state.prevCapture, '\n\n'))
-    )
-      return null
-
-    let match = ''
-    let start = 0
-
-    while (true) {
-      const nlIdx = source.indexOf('\n', start)
-      const line = source.slice(start, nlIdx === -1 ? undefined : nlIdx + 1)
-      const c = source[start]
-
-      if (
-        (c === '>' ||
-          c === '#' ||
-          c === '|' ||
-          c === '`' ||
-          c === '~' ||
-          c === '*' ||
-          c === '-' ||
-          c === '_' ||
-          c === ' ') &&
-        some(NON_PARAGRAPH_BLOCK_SYNTAXES, line)
-      )
-        break
-
-      match += line
-      if (nlIdx === -1 || !line.trim()) break
-      start = nlIdx + 1
-    }
-
-    const captured = trimEnd(match)
-    if (captured === '') return null
-
-    return [match, , captured] as RegExpMatchArray
-  }
 
   // JSX custom pragma
   // eslint-disable-next-line no-unused-vars
@@ -1569,9 +512,7 @@ export function compiler(
     )
   }
 
-  function compile(
-    input: string
-  ): React.JSX.Element | React.ReactNode[] | MarkdownToJSX.ASTNode[] {
+  function compile(input: string): React.ReactNode | MarkdownToJSX.ASTNode[] {
     input = input.replace(FRONT_MATTER_R, '')
 
     let inline = false
@@ -1586,13 +527,20 @@ export function compiler(
       inline = SHOULD_RENDER_AS_BLOCK_R.test(input) === false
     }
 
-    const astNodes = parser(
+    const parseOptions: ParseOptions = {
+      ...options,
+      slugify: (input: string) => slug(input, slugify),
+      sanitizer: sanitize,
+      compile: compile,
+      parseMetrics: parseMetrics,
+    }
+
+    const astNodes = parseMarkdown(
       inline
         ? input
         : `${trimEnd(input).replace(TRIM_STARTING_NEWLINES, '')}\n\n`,
-      {
-        inline,
-      }
+      { inline: inline, footnotes: footnotes, refs: refs },
+      parseOptions
     )
 
     if (options.ast) {
@@ -1612,11 +560,18 @@ export function compiler(
       arr.push(
         <footer key="footer">
           {footnotes.map(function createFootnote(def) {
-            return (
-              <div id={slug(def.identifier, slugify)} key={def.identifier}>
-                {def.identifier}
-                {emitter(parser(def.footnote, { inline: true }))}
-              </div>
+            // Footnotes are parsed with preserveNewlines to match old parser behavior
+            // This preserves newlines and indentation in the rendered output
+            const footnoteAstNodes = parseMarkdown(
+              def.footnote,
+              { inline: true, refs: refs, preserveNewlines: true },
+              parseOptions
+            )
+            return h(
+              'div',
+              { id: slug(def.identifier, slugify), key: def.identifier },
+              def.identifier + ': ',
+              emitter(footnoteAstNodes)
             )
           })}
         </footer>
@@ -1628,22 +583,14 @@ export function compiler(
     }
 
     const wrapper = options.wrapper || (inline ? 'span' : 'div')
-    let jsx
+    let jsx: React.ReactNode
 
     if (arr.length > 1 || options.forceWrapper) {
       jsx = arr
     } else if (arr.length === 1) {
-      jsx = arr[0]
-
-      // TODO: remove this for React 16
-      if (typeof jsx === 'string') {
-        return <span key="outer">{jsx}</span>
-      } else {
-        return jsx
-      }
+      return arr[0]
     } else {
-      // TODO: return null for React 16
-      jsx = null
+      return null
     }
 
     return createElement(
@@ -1674,623 +621,475 @@ export function compiler(
   }
 
   const footnotes: { footnote: string; identifier: string }[] = []
-  const refs: { [key: string]: { target: string; title: string } } = {}
+  const refs: { [key: string]: { target: string; title: string | undefined } } =
+    {}
 
-  /**
-   * each rule's react() output function goes through our custom
-   * h() JSX pragma; this allows the override functionality to be
-   * automatically applied
-   */
-  // @ts-ignore
-  const rules: MarkdownToJSX.Rules = {
-    [RuleType.blockQuote]: {
-      _qualify: ['>'],
-      _match: blockRegex(BLOCKQUOTE_R),
-      _order: Priority.HIGH,
-      _parse(capture, parse, state) {
-        const [, alert, content] = capture[0]
-          .replace(BLOCKQUOTE_TRIM_LEFT_MULTILINE_R, '')
-          .match(BLOCKQUOTE_ALERT_R)
+  function parseMarkdown(
+    input: string,
+    state: MarkdownToJSX.State,
+    options: ParseOptions
+  ): MarkdownToJSX.ASTNode[] {
+    const isDebug = !!process.env.DEBUG
+    const parseMetrics = options.parseMetrics
+    const result: MarkdownToJSX.ASTNode[] = []
+    let pos = 0
 
-        return {
-          alert,
-          children: parse(content, state),
-        }
-      },
-    },
-
-    [RuleType.breakLine]: {
-      _qualify: ['  '],
-      _match: inlineRegex(BREAK_LINE_R),
-      _order: Priority.HIGH,
-      _parse: captureNothing,
-    },
-
-    [RuleType.breakThematic]: {
-      _qualify: function (source, state) {
-        // Only attempt in block mode
-        if (state.inline || state.simple) return false
-        var c = source[0]
-        return c === '-' || c === '*' || c === '_'
-      },
-      _match: blockRegex(BREAK_THEMATIC_R),
-      _order: Priority.HIGH,
-      _parse: captureNothing,
-    },
-
-    [RuleType.codeBlock]: {
-      _qualify: ['    '],
-      _match: blockRegex(CODE_BLOCK_R),
-      _order: Priority.MAX,
-      _parse(capture /*, parse, state*/) {
-        return {
-          lang: undefined,
-          text: unescape(trimEnd(capture[0].replace(/^ {4}/gm, ''))),
-        }
-      },
-    } as MarkdownToJSX.Rule<{
-      attrs?: ReturnType<typeof attrStringToMap>
-      lang?: string
-      text: string
-    }>,
-
-    [RuleType.codeFenced]: {
-      _qualify: ['```', '~~~'],
-      _match: blockRegex(CODE_BLOCK_FENCED_R),
-      _order: Priority.MAX,
-      _parse(capture /*, parse, state*/) {
-        return {
-          // if capture[3] it's additional metadata
-          attrs: attrStringToMap('code', capture[3] || '', sanitize, compile),
-          lang: capture[2] || undefined,
-          text: capture[4],
-          type: RuleType.codeBlock,
-        }
-      },
-    },
-
-    [RuleType.codeInline]: {
-      _qualify: ['`'],
-      _match: simpleInlineRegex(CODE_INLINE_R),
-      _order: Priority.LOW,
-      _parse(capture /*, parse, state*/) {
-        return {
-          text: unescape(capture[2]),
-        }
-      },
-    },
-
-    /**
-     * footnotes are emitted at the end of compilation in a special <footer> block
-     */
-    [RuleType.footnote]: {
-      _qualify: ['[^'],
-      _match: blockRegex(FOOTNOTE_R),
-      _order: Priority.MAX,
-      _parse(capture /*, parse, state*/) {
-        footnotes.push({
-          footnote: capture[2],
-          identifier: capture[1],
-        })
-
-        return {}
-      },
-    },
-
-    [RuleType.footnoteReference]: {
-      _qualify: ['[^'],
-      _match: inlineRegex(FOOTNOTE_REFERENCE_R),
-      _order: Priority.HIGH,
-      _parse(capture /*, parse*/) {
-        return {
-          target: `#${slug(capture[1], slugify)}`,
-          text: capture[1],
-        }
-      },
-    } as MarkdownToJSX.Rule<{ target: string; text: string }>,
-
-    [RuleType.gfmTask]: {
-      _qualify: ['[ ]', '[x]'],
-      _match: inlineRegex(GFM_TASK_R),
-      _order: Priority.HIGH,
-      _parse(capture /*, parse, state*/) {
-        return {
-          completed: capture[1].toLowerCase() === 'x',
-        }
-      },
-    } as MarkdownToJSX.Rule<{ completed: boolean }>,
-
-    [RuleType.heading]: {
-      _qualify: ['#'],
-      _match: blockRegex(
-        options.enforceAtxHeadings ? HEADING_ATX_COMPLIANT_R : HEADING_R
-      ),
-      _order: Priority.HIGH,
-      _parse(capture, parse, state) {
-        return {
-          children: parseInline(parse, capture[2], state),
-          id: slug(capture[2], slugify),
-          level: capture[1].length as MarkdownToJSX.HeadingNode['level'],
-        }
-      },
-    },
-
-    [RuleType.headingSetext]: {
-      _qualify: source => {
-        const nlIndex = source.indexOf('\n')
-        return (
-          nlIndex > 0 &&
-          nlIndex < source.length - 1 &&
-          (source[nlIndex + 1] === '=' || source[nlIndex + 1] === '-')
-        )
-      },
-      _match: blockRegex(HEADING_SETEXT_R),
-      _order: Priority.HIGH,
-      _parse(capture, parse, state) {
-        return {
-          children: parseInline(parse, capture[1], state),
-          level: capture[2] === '=' ? 1 : 2,
-          type: RuleType.heading,
-        }
-      },
-    },
-
-    [RuleType.htmlBlock]: {
-      _qualify: ['<'],
-      /**
-       * find the first matching end tag and process the interior
-       */
-      _match: allowInline(matchHTMLBlock),
-      _order: Priority.HIGH,
-      _parse(capture, parse, state) {
-        const [, whitespace] = capture[3].match(HTML_LEFT_TRIM_AMOUNT_R)
-
-        const trimmer = new RegExp(`^${whitespace}`, 'gm')
-        const trimmed = capture[3].replace(trimmer, '')
-
-        const parseFunc = some(BLOCK_SYNTAXES, trimmed)
-          ? parseBlock
-          : parseInline
-
-        const tagName = capture[1].toLowerCase() as MarkdownToJSX.HTMLTags
-        const noInnerParse =
-          DO_NOT_PROCESS_HTML_ELEMENTS.indexOf(tagName) !== -1
-
-        const tag = (
-          noInnerParse ? tagName : capture[1]
-        ).trim() as MarkdownToJSX.HTMLTags
-
-        const ast = {
-          attrs: attrStringToMap(tag, capture[2], sanitize, compile),
-          noInnerParse: noInnerParse,
-          tag,
-        } as {
-          attrs: ReturnType<typeof attrStringToMap>
-          children?: ReturnType<MarkdownToJSX.NestedParser> | undefined
-          noInnerParse: Boolean
-          tag: MarkdownToJSX.HTMLTags
-          text?: string | undefined
-        }
-
-        state.inAnchor = state.inAnchor || tagName === 'a'
-
-        if (noInnerParse) {
-          ast.text = capture[3]
-        } else {
-          const prevInHTML = state.inHTML
-          state.inHTML = true
-          ast.children = parseFunc(parse, trimmed, state)
-          state.inHTML = prevInHTML
-        }
-
-        /**
-         * if another html block is detected within, parse as block,
-         * otherwise parse as inline to pick up any further markdown
-         */
-        state.inAnchor = false
-
-        return ast
-      },
-    },
-
-    [RuleType.htmlSelfClosing]: {
-      _qualify: ['<'],
-      /**
-       * find the first matching end tag and process the interior
-       */
-      _match: anyScopeRegex(HTML_SELF_CLOSING_ELEMENT_R),
-      _order: Priority.HIGH,
-      _parse(capture /*, parse, state*/) {
-        const tag = capture[1].trim() as MarkdownToJSX.HTMLTags
-        return {
-          attrs: attrStringToMap(tag, capture[2] || '', sanitize, compile),
-          tag,
-        }
-      },
-    },
-
-    [RuleType.htmlComment]: {
-      _qualify: ['<!--'],
-      _match: anyScopeRegex(HTML_COMMENT_R),
-      _order: Priority.HIGH,
-      _parse() {
-        return {}
-      },
-    },
-
-    [RuleType.image]: {
-      _qualify: ['!['],
-      _match: simpleInlineRegex(IMAGE_R),
-      _order: Priority.HIGH,
-      _parse(capture /*, parse, state*/) {
-        return {
-          alt: unescape(capture[1]),
-          target: unescape(capture[2]),
-          title: unescape(capture[3]),
-        }
-      },
-    } as MarkdownToJSX.Rule<{
-      alt?: string
-      target: string
-      title?: string
-    }>,
-
-    [RuleType.link]: {
-      _qualify: ['['],
-      _match: inlineRegex(LINK_R),
-      _order: Priority.LOW,
-      _parse(capture, parse, state) {
-        return {
-          children: parseSimpleInline(parse, capture[1], state),
-          target: unescape(capture[2]),
-          title: unescape(capture[3]),
-        }
-      },
-    },
-
-    // https://daringfireball.net/projects/markdown/syntax#autolink
-    [RuleType.linkAngleBraceStyleDetector]: {
-      _qualify: function (source, state) {
-        // Only attempt in inline mode and skip if in anchor
-        if (!state.inline || state.inAnchor) return false
-        // Must start with < and contain URL-like characters
-        if (source[0] !== '<') return false
-        return (
-          includes(source, ':') ||
-          includes(source, '@') ||
-          includes(source, '/')
-        )
-      },
-      _match: inlineRegex(LINK_AUTOLINK_R),
-      _order: Priority.MAX,
-      _parse(capture /*, parse, state*/) {
-        let target = capture[1]
-        let isEmail = false
-
-        if (
-          includes(target, '@') &&
-          // emails don't have protocols in them
-          !includes(target, '//')
-        ) {
-          isEmail = true
-          target = target.replace('mailto:', '')
-        }
-
-        return {
-          children: [
-            {
-              text: target,
-              type: RuleType.text,
-            },
-          ],
-          target: isEmail ? 'mailto:' + target : target,
-          type: RuleType.link,
-        }
-      },
-    },
-
-    [RuleType.linkBareUrlDetector]: {
-      _qualify: (source, state) => {
-        if (state.inAnchor || options.disableAutoLink) return false
-        return startsWith(source, 'http')
-      },
-      _match: inlineRegex(LINK_AUTOLINK_BARE_URL_R),
-      _order: Priority.MAX,
-      _parse(capture /*, parse, state*/) {
-        return {
-          children: [
-            {
-              text: capture[1],
-              type: RuleType.text,
-            },
-          ],
-          target: capture[1],
-          title: undefined,
-          type: RuleType.link,
-        }
-      },
-    },
-
-    [RuleType.orderedList]: generateListRule(
-      h,
-      ORDERED
-    ) as MarkdownToJSX.Rule<MarkdownToJSX.OrderedListNode>,
-
-    [RuleType.unorderedList]: generateListRule(
-      h,
-      UNORDERED
-    ) as MarkdownToJSX.Rule<MarkdownToJSX.UnorderedListNode>,
-
-    [RuleType.newlineCoalescer]: {
-      _qualify: ['\n'],
-      _match: blockRegex(CONSECUTIVE_NEWLINE_R),
-      _order: Priority.LOW,
-      _parse: captureNothing,
-    },
-
-    [RuleType.paragraph]: {
-      _qualify: function (source, state) {
-        // Only attempt paragraph if not in inline/simple mode
-        return !state.inline && !state.simple
-      },
-      _match: allowInline(matchParagraph),
-      _order: Priority.LOW,
-      _parse: parseCaptureInline,
-    } as MarkdownToJSX.Rule<ReturnType<typeof parseCaptureInline>>,
-
-    [RuleType.ref]: {
-      _qualify: ['['],
-      _match: inlineRegex(REFERENCE_IMAGE_OR_LINK),
-      _order: Priority.MAX,
-      _parse(capture /*, parse*/) {
-        refs[capture[1]] = {
-          target: capture[2],
-          title: capture[4],
-        }
-
-        return {}
-      },
-    },
-
-    [RuleType.refImage]: {
-      _qualify: ['!['],
-      _match: simpleInlineRegex(REFERENCE_IMAGE_R),
-      _order: Priority.MAX,
-      _parse(capture) {
-        return {
-          alt: capture[1] ? unescape(capture[1]) : undefined,
-          ref: capture[2],
-        }
-      },
-    } as MarkdownToJSX.Rule<{ alt?: string; ref: string }>,
-
-    [RuleType.refLink]: {
-      _qualify: source => source[0] === '[' && !includes(source, ']('),
-      _match: inlineRegex(REFERENCE_LINK_R),
-      _order: Priority.MAX,
-      _parse(capture, parse, state) {
-        return {
-          children: parse(capture[1], state),
-          fallbackChildren: capture[0],
-          ref: capture[2],
-        }
-      },
-    },
-
-    [RuleType.table]: {
-      _qualify: ['|'],
-      _match: blockRegex(NP_TABLE_R),
-      _order: Priority.HIGH,
-      _parse: parseTable,
-    },
-
-    [RuleType.text]: {
-      // Here we look for anything followed by non-symbols,
-      // double newlines, or double-space-newlines
-      // We break on any symbol characters so that this grammar
-      // is easy to extend without needing to modify this regex
-      _match: allowInline(function (source, state) {
-        let ret
-        if (startsWith(source, ':')) ret = SHORTCODE_R.exec(source)
-        if (ret) return ret
-
-        return TEXT_PLAIN_R.exec(source)
-      }),
-      _order: Priority.MIN,
-      _parse(capture) {
-        const text = capture[0]
-        return {
-          text: !includes(text, '&')
-            ? text
-            : text.replace(
-                HTML_CHAR_CODE_R,
-                (full, inner) => options.namedCodesToUnicode[inner] || full
-              ),
-        }
-      },
-    },
-
-    [RuleType.textFormatted]: {
-      _qualify: ['*', '_', '~', '='],
-      _match: allowInline(matchInlineFormatting),
-      _order: Priority.MED,
-      _parse(capture, parse, state) {
-        return {
-          children: parse(capture[2], state),
-          tag: capture[1],
-        }
-      },
-    },
-
-    [RuleType.textEscaped]: {
-      _qualify: ['\\'],
-      // We don't allow escaping numbers, letters, or spaces here so that
-      // backslashes used in plain text still get rendered. But allowing
-      // escaping anything else provides a very flexible escape mechanism,
-      // regardless of how this grammar is extended.
-      _match: simpleInlineRegex(TEXT_ESCAPED_R),
-      _order: Priority.HIGH,
-      _parse(capture /*, parse, state*/) {
-        return {
-          text: capture[1],
-          type: RuleType.text,
-        }
-      },
-    },
-  }
-
-  const isDebug = !!process.env.DEBUG && process.env.DEBUG !== '0'
-
-  let invocationCounts, ruleNames: { [key: string]: string }
-
-  if (isDebug) {
-    // Initialize invocation counters for debugging
-    invocationCounts = {
-      match: { total: 0, attempts: 0 },
-      parse: { total: 0 },
+    // If inline mode, just parse the entire input as inline content
+    if (state.inline) {
+      const inlineNodes = parseInlineSpan(
+        input,
+        0,
+        input.length,
+        state,
+        options
+      )
+      return inlineNodes
     }
 
-    // Create a reverse mapping from numeric keys to rule names for better debugging output
-    ruleNames = {}
-    Object.keys(RuleType).forEach(ruleKey => {
-      ruleNames[RuleType[ruleKey as keyof typeof RuleType]] = ruleKey
-    })
+    // Block parsing mode
+    while (pos < input.length) {
+      if (isDebug && parseMetrics) {
+        parseMetrics.blockParseIterations++
+        parseMetrics.totalOperations++
+      }
 
-    Object.keys(rules).forEach(key => {
-      let { _match: match, _parse: parse } = rules[key]
+      // Skip leading newlines (but preserve whitespace for indented code blocks)
+      while (pos < input.length && input[pos] === '\n') {
+        pos++
+        if (isDebug && parseMetrics) {
+          parseMetrics.totalOperations++
+        }
+      }
 
-      // Initialize per-rule counters: [matches, attempts, max]
-      invocationCounts.match[key] = [0, 0, 0]
-      // [exections, cost, max]
-      invocationCounts.parse[key] = [0, 0, 0]
+      if (pos >= input.length) break
 
-      rules[key]._match = (...args) => {
-        // Track attempts for miss ratio calculation
-        invocationCounts.match.attempts++
-        invocationCounts.match[key][1]++ // attempts for this rule
+      const char = input[pos]
+      let matched = false
 
-        const start = performance.now()
-        const result = match(...args)
-        const delta = performance.now() - start
-
-        invocationCounts.match[key][2] = Math.max(
-          Number(invocationCounts.match[key][2]) || 0,
-          delta
-        )
-
-        if (result) {
-          // Successful match
-          invocationCounts.match.total++
-          invocationCounts.match[key][0]++ // matches for this rule
-
-          if (process.env.DEBUG?.includes('speed')) {
-            console[delta > 5 ? 'warn' : 'log'](
-              `${ruleNames[key] || key}:match`,
-              `${delta.toFixed(3)}ms`,
-              args[0]
-            )
+      // Check for indented code blocks BEFORE skipping whitespace
+      if (!matched && (char === ' ' || char === '\t')) {
+        if (isDebug && parseMetrics) {
+          parseMetrics.blockParsers.codeBlock.attempts++
+        }
+        const parseResult = parseCodeBlock(input, pos)
+        if (parseResult) {
+          if (isDebug && parseMetrics) {
+            parseMetrics.blockParsers.codeBlock.hits++
           }
-        } else if (process.env.DEBUG?.includes('miss')) {
-          console.log(
-            `\n${ruleNames[key] || key}:miss`,
-            JSON.stringify(args[0])
-          )
+          result.push(parseResult.node)
+          pos = parseResult.endPos
+          matched = true
         }
-
-        return result
       }
 
-      rules[key]._parse = (...args) => {
-        invocationCounts.parse.total++
-        invocationCounts.parse[key][0] += 1
-        const start = performance.now()
-        const result = parse(...args)
-        const delta = performance.now() - start
-
-        invocationCounts.parse[key][1] += delta
-        invocationCounts.parse[key][2] = Math.max(
-          Number(invocationCounts.parse[key][2]) || 0,
-          delta
-        )
-
-        if (process.env.DEBUG?.includes('speed')) {
-          console[delta > 5 ? 'warn' : 'log'](
-            `${ruleNames[key] || key}:parse`,
-            `${delta.toFixed(3)}ms`,
-            args[0]
-          )
+      // Try different parsers based on the first character
+      if (!matched) {
+        // Block quote
+        if (char === '>') {
+          if (isDebug && parseMetrics) {
+            parseMetrics.blockParsers.blockQuote.attempts++
+          }
+          const parseResult = parseBlockQuote(input, pos, state, options)
+          if (parseResult) {
+            if (isDebug && parseMetrics) {
+              parseMetrics.blockParsers.blockQuote.hits++
+            }
+            result.push(parseResult.node)
+            pos = parseResult.endPos
+            matched = true
+          }
         }
-
-        return result
       }
-    })
+
+      if (!matched) {
+        // Heading (ATX style)
+        if (char === '#') {
+          if (isDebug && parseMetrics) {
+            parseMetrics.blockParsers.heading.attempts++
+          }
+          const parseResult = parseHeading(input, pos, state, options)
+          if (parseResult) {
+            if (isDebug && parseMetrics) {
+              parseMetrics.blockParsers.heading.hits++
+            }
+            result.push(parseResult.node)
+            pos = parseResult.endPos
+            matched = true
+          }
+        }
+      }
+
+      if (!matched) {
+        // Heading (Setext style) - check after other parsers that might match
+        if (isDebug && parseMetrics) {
+          parseMetrics.blockParsers.headingSetext.attempts++
+        }
+        const parseResult = parseHeadingSetext(input, pos, state, options)
+        if (parseResult) {
+          if (isDebug && parseMetrics) {
+            parseMetrics.blockParsers.headingSetext.hits++
+          }
+          result.push(parseResult.node)
+          pos = parseResult.endPos
+          matched = true
+        }
+      }
+
+      if (!matched) {
+        // Thematic break
+        if (char === '-' || char === '*' || char === '_') {
+          if (isDebug && parseMetrics) {
+            parseMetrics.blockParsers.breakThematic.attempts++
+          }
+          const parseResult = parseBreakThematic(input, pos)
+          if (parseResult) {
+            if (isDebug && parseMetrics) {
+              parseMetrics.blockParsers.breakThematic.hits++
+            }
+            result.push(parseResult.node)
+            pos = parseResult.endPos
+            matched = true
+          }
+        }
+      }
+
+      if (!matched) {
+        // Code block (fenced)
+        if (char === '`') {
+          if (isDebug && parseMetrics) {
+            parseMetrics.blockParsers.codeFenced.attempts++
+          }
+          const parseResult = parseCodeFenced(input, pos, state, options)
+          if (parseResult) {
+            if (isDebug && parseMetrics) {
+              parseMetrics.blockParsers.codeFenced.hits++
+            }
+            result.push(parseResult.node)
+            pos = parseResult.endPos
+            matched = true
+          }
+        }
+      }
+
+      if (!matched) {
+        // List
+        if (
+          char === '-' ||
+          char === '*' ||
+          char === '+' ||
+          (char >= '0' && char <= '9')
+        ) {
+          // Try unordered list first
+          if (isDebug && parseMetrics) {
+            parseMetrics.blockParsers.unorderedList.attempts++
+          }
+          let parseResult = parseUnorderedList(input, pos, state, options)
+          if (parseResult) {
+            if (isDebug && parseMetrics) {
+              parseMetrics.blockParsers.unorderedList.hits++
+            }
+            result.push(parseResult.node)
+            pos = parseResult.endPos
+            matched = true
+          } else {
+            // Try ordered list
+            if (isDebug && parseMetrics) {
+              parseMetrics.blockParsers.orderedList.attempts++
+            }
+            parseResult = parseOrderedList(input, pos, state, options)
+            if (parseResult) {
+              if (isDebug && parseMetrics) {
+                parseMetrics.blockParsers.orderedList.hits++
+              }
+              result.push(parseResult.node)
+              pos = parseResult.endPos
+              matched = true
+            }
+          }
+        }
+      }
+
+      if (!matched) {
+        // Table
+        if (char === '|') {
+          if (isDebug && parseMetrics) {
+            parseMetrics.blockParsers.table.attempts++
+          }
+          const parseResult = parseTable(input, pos, state, options)
+          if (parseResult) {
+            if (isDebug && parseMetrics) {
+              parseMetrics.blockParsers.table.hits++
+            }
+            result.push(parseResult.node)
+            pos = parseResult.endPos
+            matched = true
+          }
+        }
+      }
+
+      if (!matched) {
+        // HTML elements (honor disableParsingRawHTML)
+        if (char === '<' && !options.disableParsingRawHTML) {
+          // Try HTML comment first
+          if (isDebug && parseMetrics) {
+            parseMetrics.blockParsers.htmlComment.attempts++
+          }
+          let parseResult = parseHTMLComment(input, pos)
+          if (parseResult) {
+            if (isDebug && parseMetrics) {
+              parseMetrics.blockParsers.htmlComment.hits++
+            }
+            result.push(parseResult.node)
+            pos = parseResult.endPos
+            matched = true
+          } else {
+            // Try HTML block first (handles both self-closing and block tags)
+            if (isDebug && parseMetrics) {
+              parseMetrics.blockParsers.htmlBlock.attempts++
+            }
+            parseResult = parseHTMLBlock(input, pos, state, options)
+            if (parseResult) {
+              if (isDebug && parseMetrics) {
+                parseMetrics.blockParsers.htmlBlock.hits++
+              }
+              result.push(parseResult.node)
+              pos = parseResult.endPos
+              matched = true
+            } else {
+              // Fallback to self-closing HTML
+              if (isDebug && parseMetrics) {
+                parseMetrics.blockParsers.htmlSelfClosing.attempts++
+              }
+              parseResult = parseHTMLSelfClosing(input, pos, state, options)
+              if (parseResult) {
+                if (isDebug && parseMetrics) {
+                  parseMetrics.blockParsers.htmlSelfClosing.hits++
+                }
+                result.push(parseResult.node)
+                pos = parseResult.endPos
+                matched = true
+              }
+            }
+          }
+        }
+      }
+
+      if (!matched) {
+        // Footnote definition (skip leading whitespace)
+        let checkPos = pos
+        while (
+          checkPos < input.length &&
+          (input[checkPos] === ' ' || input[checkPos] === '\t')
+        ) {
+          checkPos++
+        }
+        if (
+          checkPos < input.length &&
+          input[checkPos] === '[' &&
+          checkPos + 1 < input.length &&
+          input[checkPos + 1] === '^'
+        ) {
+          if (isDebug && parseMetrics) {
+            parseMetrics.blockParsers.footnote.attempts++
+          }
+          const parseResult = parseFootnote(input, checkPos, footnotes)
+          if (parseResult) {
+            if (isDebug && parseMetrics) {
+              parseMetrics.blockParsers.footnote.hits++
+            }
+            // Footnotes don't produce visible content, just stored
+            pos = parseResult.endPos
+            matched = true
+          }
+        }
+      }
+
+      if (!matched) {
+        // Reference definition
+        if (char === '[') {
+          if (isDebug && parseMetrics) {
+            parseMetrics.blockParsers.ref.attempts++
+          }
+          const parseResult = parseRef(input, pos, refs)
+          if (parseResult) {
+            if (isDebug && parseMetrics) {
+              parseMetrics.blockParsers.ref.hits++
+            }
+            // References don't produce visible content, just stored
+            pos = parseResult.endPos
+            matched = true
+          }
+        }
+      }
+
+      if (!matched) {
+        // Paragraph (fallback for any remaining content)
+        if (isDebug && parseMetrics) {
+          parseMetrics.blockParsers.paragraph.attempts++
+        }
+        const parseResult = parseParagraph(input, pos, state, options)
+        if (parseResult) {
+          if (isDebug && parseMetrics) {
+            parseMetrics.blockParsers.paragraph.hits++
+          }
+          result.push(parseResult.node)
+          pos = parseResult.endPos
+          matched = true
+        }
+      }
+
+      // If nothing matched, advance by one character to avoid infinite loop
+      if (!matched) {
+        if (isDebug && parseMetrics) {
+          parseMetrics.blockParsers.noMatch.attempts++
+          parseMetrics.blockParsers.noMatch.hits++
+        }
+        pos++
+      }
+    }
+
+    // Note: Memory snapshot "After block parsing" is taken in compiler function
+    // after parseMarkdown returns, not here
+
+    // Footnotes footer is appended during rendering phase (old rule system)
+    // to preserve legacy snapshot behavior. Do not emit here to avoid duplicates.
+
+    return result
   }
 
-  if (options.disableParsingRawHTML === true) {
-    delete rules[RuleType.htmlBlock]
-    delete rules[RuleType.htmlSelfClosing]
-  }
-
-  const parser = parserFor(rules)
   const emitter = createRenderer(options.renderRule, h, sanitize, slug, refs)
 
   const jsx = compile(markdown)
 
-  if (isDebug) {
-    // Log invocation counts for debugging with readable rule names and miss ratios
-    const matchCountsWithNames: { [key: string]: any } = {
-      total: invocationCounts.match.total,
-      attempts: invocationCounts.match.attempts,
-      missRatio:
-        invocationCounts.match.attempts > 0
-          ? (
-              ((invocationCounts.match.attempts -
-                invocationCounts.match.total) /
-                invocationCounts.match.attempts) *
-              100
-            ).toFixed(1) + '%'
-          : '0%',
+  if (isDebug && parseMetrics) {
+    console.log('='.repeat(60))
+    console.log('MARKDOWN PARSING METRICS')
+    console.log('='.repeat(60))
+    console.log('\nBlock Parser Performance:')
+    console.log('-'.repeat(60))
+    for (const parser in parseMetrics.blockParsers) {
+      const stats = parseMetrics.blockParsers[parser]
+      const hitRate =
+        stats.attempts > 0
+          ? ((stats.hits / stats.attempts) * 100).toFixed(2)
+          : '0.00'
+      const missRate =
+        stats.attempts > 0
+          ? (((stats.attempts - stats.hits) / stats.attempts) * 100).toFixed(2)
+          : '0.00'
+      console.log(
+        `  ${parser.padEnd(20)} Attempts: ${stats.attempts
+          .toString()
+          .padStart(6)} Hits: ${stats.hits
+          .toString()
+          .padStart(6)} (${hitRate}% hit, ${missRate}% miss)`
+      )
     }
 
-    const parseCountsWithNames: {
-      [key: string]: { executions: number; cost: number; max: number } | number
-    } = {
-      total: invocationCounts.parse.total,
+    console.log('\nInline Parser Performance:')
+    console.log('-'.repeat(60))
+    for (const parser in parseMetrics.inlineParsers) {
+      const stats = parseMetrics.inlineParsers[parser]
+      const hitRate =
+        stats.attempts > 0
+          ? ((stats.hits / stats.attempts) * 100).toFixed(2)
+          : '0.00'
+      const missRate =
+        stats.attempts > 0
+          ? (((stats.attempts - stats.hits) / stats.attempts) * 100).toFixed(2)
+          : '0.00'
+      console.log(
+        `  ${parser.padEnd(20)} Attempts: ${stats.attempts
+          .toString()
+          .padStart(6)} Hits: ${stats.hits
+          .toString()
+          .padStart(6)} (${hitRate}% hit, ${missRate}% miss)`
+      )
     }
 
-    Object.keys(invocationCounts.match).forEach(key => {
-      if (key !== 'total' && key !== 'attempts') {
-        const ruleName = ruleNames[key] || key
-        const [matches, attempts, max] = invocationCounts.match[key]
-        matchCountsWithNames[ruleName] = {
-          matches,
-          attempts,
-          missRatio:
-            attempts > 0
-              ? (((attempts - matches) / attempts) * 100).toFixed(1) + '%'
-              : '0%',
-          max: max.toFixed(3),
-        }
-      }
-    })
+    console.log('\nOperation Counts:')
+    console.log('-'.repeat(60))
+    console.log(
+      `  Total Operations:      ${parseMetrics.totalOperations.toLocaleString()}`
+    )
+    console.log(
+      `  Block Parse Iterations: ${parseMetrics.blockParseIterations.toLocaleString()}`
+    )
+    console.log(
+      `  Inline Parse Iterations: ${parseMetrics.inlineParseIterations.toLocaleString()}`
+    )
 
-    Object.keys(invocationCounts.parse).forEach(key => {
-      if (key !== 'total') {
-        const ruleName = ruleNames[key] || key
-        const [executions, cost, max] = invocationCounts.parse[key]
-        parseCountsWithNames[ruleName] = {
-          executions,
-          cost: cost.toFixed(3),
-          max: max.toFixed(3),
-        }
-      }
-    })
-
-    console.log('Match invocations:', matchCountsWithNames)
-    console.log('Parse invocations:', parseCountsWithNames)
+    console.log('='.repeat(60))
   }
 
   return jsx
+}
+
+function normalizeHtmlAttributes(attrs: any = {}) {
+  const out: any = {}
+  const booleanMap: { [key: string]: string } = {
+    autofocus: 'autoFocus',
+    autoplay: 'autoPlay',
+    checked: 'checked',
+    controls: 'controls',
+    disabled: 'disabled',
+    hidden: 'hidden',
+    loop: 'loop',
+    multiple: 'multiple',
+    muted: 'muted',
+    readonly: 'readOnly',
+    required: 'required',
+    selected: 'selected',
+    playsinline: 'playsInline',
+    allowfullscreen: 'allowFullScreen',
+  }
+
+  const svgAttrMap: { [key: string]: string } = {
+    'fill-rule': 'fillRule',
+    'clip-rule': 'clipRule',
+    'stroke-linecap': 'strokeLinecap',
+    'stroke-linejoin': 'strokeLinejoin',
+    'stroke-width': 'strokeWidth',
+    'stroke-miterlimit': 'strokeMiterlimit',
+    viewBox: 'viewBox',
+    'xml:space': 'xmlSpace',
+    'xlink:href': 'xlinkHref',
+  }
+
+  Object.keys(attrs || {}).forEach(key => {
+    const value = (attrs as any)[key]
+    if (svgAttrMap[key]) {
+      out[svgAttrMap[key]] = value
+    } else if (key === 'class') {
+      out.className = value
+    } else if (key === 'for') {
+      out.htmlFor = value
+    } else if (key === 'tabindex') {
+      out.tabIndex = value
+    } else if (key === 'style' && typeof value === 'string') {
+      const styleObj: { [key: string]: string } = {}
+      String(value)
+        .split(';')
+        .forEach(decl => {
+          if (!decl) return
+          const idx = decl.indexOf(':')
+          if (idx === -1) return
+          const k = camelCaseCss(decl.slice(0, idx))
+          const v = decl.slice(idx + 1).trim()
+          if (k) styleObj[k] = v
+        })
+      out.style = styleObj
+    } else if (booleanMap[key] !== undefined) {
+      const reactKey = booleanMap[key]
+      // Treat presence or truthy string as true
+      out[reactKey] =
+        value === '' || value === true || String(value).toLowerCase() === 'true'
+    } else {
+      out[key] = value
+    }
+  })
+
+  return out
 }
 
 /**
@@ -2322,456 +1121,6 @@ const Markdown: React.FC<
   })
 }
 
-export namespace MarkdownToJSX {
-  /**
-   * RequireAtLeastOne<{ ... }> <- only requires at least one key
-   */
-  type RequireAtLeastOne<T, Keys extends keyof T = keyof T> = Pick<
-    T,
-    Exclude<keyof T, Keys>
-  > &
-    {
-      [K in Keys]-?: Required<Pick<T, K>> & Partial<Pick<T, Exclude<Keys, K>>>
-    }[Keys]
-
-  export type CreateElement = typeof React.createElement
-
-  export type HTMLTags = keyof React.JSX.IntrinsicElements
-
-  export type State = {
-    /** true if the current content is inside anchor link grammar */
-    inAnchor?: boolean
-    /** true if parsing in an HTML context */
-    inHTML?: boolean
-    /** true if parsing in an inline context (subset of rules around formatting and links) */
-    inline?: boolean
-    /** true if in a table */
-    inTable?: boolean
-    /** use this for the `key` prop */
-    key?: React.Key
-    /** true if in a list */
-    list?: boolean
-    /** used for lookbacks */
-    prevCapture?: string
-    /** true if parsing in inline context w/o links */
-    simple?: boolean
-    /** current recursion depth during rendering */
-    renderDepth?: number
-  }
-
-  export interface BlockQuoteNode {
-    alert?: string
-    children: MarkdownToJSX.ASTNode[]
-    type: typeof RuleType.blockQuote
-  }
-
-  export interface BreakLineNode {
-    type: typeof RuleType.breakLine
-  }
-
-  export interface BreakThematicNode {
-    type: typeof RuleType.breakThematic
-  }
-
-  export interface CodeBlockNode {
-    type: typeof RuleType.codeBlock
-    attrs?: React.JSX.IntrinsicAttributes
-    lang?: string
-    text: string
-  }
-
-  export interface CodeFencedNode {
-    type: typeof RuleType.codeFenced
-  }
-
-  export interface CodeInlineNode {
-    type: typeof RuleType.codeInline
-    text: string
-  }
-
-  export interface FootnoteNode {
-    type: typeof RuleType.footnote
-  }
-
-  export interface FootnoteReferenceNode {
-    type: typeof RuleType.footnoteReference
-    target: string
-    text: string
-  }
-
-  export interface GFMTaskNode {
-    type: typeof RuleType.gfmTask
-    completed: boolean
-  }
-
-  export interface HeadingNode {
-    type: typeof RuleType.heading
-    children: MarkdownToJSX.ASTNode[]
-    id: string
-    level: 1 | 2 | 3 | 4 | 5 | 6
-  }
-
-  export interface HeadingSetextNode {
-    type: typeof RuleType.headingSetext
-  }
-
-  export interface HTMLCommentNode {
-    type: typeof RuleType.htmlComment
-  }
-
-  export interface ImageNode {
-    type: typeof RuleType.image
-    alt?: string
-    target: string
-    title?: string
-  }
-
-  export interface LinkNode {
-    type: typeof RuleType.link
-    children: MarkdownToJSX.ASTNode[]
-    target: string
-    title?: string
-  }
-
-  export interface LinkAngleBraceNode {
-    type: typeof RuleType.linkAngleBraceStyleDetector
-  }
-
-  export interface LinkBareURLNode {
-    type: typeof RuleType.linkBareUrlDetector
-  }
-
-  export interface LinkMailtoNode {
-    type: typeof RuleType.linkMailtoDetector
-  }
-
-  export interface OrderedListNode {
-    type: typeof RuleType.orderedList
-    items: MarkdownToJSX.ASTNode[][]
-    ordered: true
-    start?: number
-  }
-
-  export interface UnorderedListNode {
-    type: typeof RuleType.unorderedList
-    items: MarkdownToJSX.ASTNode[][]
-    ordered: false
-  }
-
-  export interface NewlineNode {
-    type: typeof RuleType.newlineCoalescer
-  }
-
-  export interface ParagraphNode {
-    type: typeof RuleType.paragraph
-    children: MarkdownToJSX.ASTNode[]
-  }
-
-  export interface ReferenceNode {
-    type: typeof RuleType.ref
-  }
-
-  export interface ReferenceImageNode {
-    type: typeof RuleType.refImage
-    alt?: string
-    ref: string
-  }
-
-  export interface ReferenceLinkNode {
-    type: typeof RuleType.refLink
-    children: MarkdownToJSX.ASTNode[]
-    fallbackChildren: string
-    ref: string
-  }
-
-  export interface TableNode {
-    type: typeof RuleType.table
-    /**
-     * alignment for each table column
-     */
-    align: ('left' | 'right' | 'center')[]
-    cells: MarkdownToJSX.ASTNode[][][]
-    header: MarkdownToJSX.ASTNode[][]
-  }
-
-  export interface TableSeparatorNode {
-    type: typeof RuleType.tableSeparator
-  }
-
-  export interface TextNode {
-    type: typeof RuleType.text
-    text: string
-  }
-
-  export interface FormattedTextNode {
-    type: typeof RuleType.textFormatted
-    /**
-     * the corresponding html tag
-     */
-    tag: string
-    children: MarkdownToJSX.ASTNode[]
-  }
-
-  export interface EscapedTextNode {
-    type: typeof RuleType.textEscaped
-  }
-
-  export interface HTMLNode {
-    type: typeof RuleType.htmlBlock
-    attrs: React.JSX.IntrinsicAttributes
-    children?: ReturnType<MarkdownToJSX.NestedParser> | undefined
-    noInnerParse: Boolean
-    tag: MarkdownToJSX.HTMLTags
-    text?: string | undefined
-  }
-
-  export interface HTMLSelfClosingNode {
-    type: typeof RuleType.htmlSelfClosing
-    attrs: React.JSX.IntrinsicAttributes
-    tag: string
-  }
-
-  export type ASTNode =
-    | BlockQuoteNode
-    | BreakLineNode
-    | BreakThematicNode
-    | CodeBlockNode
-    | CodeFencedNode
-    | CodeInlineNode
-    | FootnoteNode
-    | FootnoteReferenceNode
-    | GFMTaskNode
-    | HeadingNode
-    | HeadingSetextNode
-    | HTMLCommentNode
-    | ImageNode
-    | LinkNode
-    | LinkAngleBraceNode
-    | LinkBareURLNode
-    | LinkMailtoNode
-    | OrderedListNode
-    | UnorderedListNode
-    | NewlineNode
-    | ParagraphNode
-    | ReferenceNode
-    | ReferenceImageNode
-    | ReferenceLinkNode
-    | TableNode
-    | TableSeparatorNode
-    | TextNode
-    | FormattedTextNode
-    | EscapedTextNode
-    | HTMLNode
-    | HTMLSelfClosingNode
-
-  export type NestedParser = (
-    input: string,
-    state?: MarkdownToJSX.State
-  ) => MarkdownToJSX.ASTNode[]
-
-  export type Parser<ParserOutput> = (
-    capture: RegExpMatchArray,
-    nestedParse: NestedParser,
-    state?: MarkdownToJSX.State
-  ) => ParserOutput
-
-  export type RuleOutput = (
-    ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
-    state: MarkdownToJSX.State
-  ) => React.ReactNode
-
-  export type Rule<ParserOutput = MarkdownToJSX.ASTNode> = {
-    _match: (
-      source: string,
-      state: MarkdownToJSX.State,
-      prevCapturedString?: string
-    ) => RegExpMatchArray
-    _order: (typeof Priority)[keyof typeof Priority]
-    _parse: MarkdownToJSX.Parser<Omit<ParserOutput, 'type'>>
-    /**
-     * Optional fast check that can quickly determine if this rule
-     * should even be attempted. Should check the start of the source string
-     * for quick patterns without expensive regex operations.
-     *
-     * @param source The input source string (already trimmed of leading whitespace)
-     * @param state Current parser state
-     * @returns true if the rule should be attempted, false to skip
-     */
-    _qualify?:
-      | string[]
-      | ((source: string, state: MarkdownToJSX.State) => boolean)
-    _render?: (
-      node: ParserOutput,
-      /**
-       * Continue rendering AST nodes if applicable.
-       */
-      render: RuleOutput,
-      state?: MarkdownToJSX.State
-    ) => React.ReactNode
-  }
-
-  export type Rules = {
-    [K in ASTNode['type']]: K extends typeof RuleType.table
-      ? Rule<Extract<ASTNode, { type: K | typeof RuleType.paragraph }>>
-      : Rule<Extract<ASTNode, { type: K }>>
-  }
-
-  export type Override =
-    | RequireAtLeastOne<{
-        component: React.ElementType
-        props: Object
-      }>
-    | React.ElementType
-
-  export type Overrides = {
-    [tag in HTMLTags]?: Override
-  } & {
-    [customComponent: string]: Override
-  }
-
-  export type Options = Partial<{
-    /**
-     * When true, returns the parsed AST instead of rendered JSX.
-     * Footnotes are not automatically appended; the consumer handles them.
-     */
-    ast: boolean
-
-    /**
-     * Ultimate control over the output of all rendered JSX.
-     */
-    createElement: (
-      tag: Parameters<CreateElement>[0],
-      props: React.JSX.IntrinsicAttributes,
-      ...children: React.ReactNode[]
-    ) => React.ReactNode
-
-    /**
-     * The library automatically generates an anchor tag for bare URLs included in the markdown
-     * document, but this behavior can be disabled if desired.
-     */
-    disableAutoLink: boolean
-
-    /**
-     * Disable the compiler's best-effort transcription of provided raw HTML
-     * into JSX-equivalent. This is the functionality that prevents the need to
-     * use `dangerouslySetInnerHTML` in React.
-     */
-    disableParsingRawHTML: boolean
-
-    /**
-     * Forces the compiler to have space between hash sign and the header text which
-     * is explicitly stated in the most of the markdown specs.
-     * https://github.github.com/gfm/#atx-heading
-     * `The opening sequence of # characters must be followed by a space or by the end of line.`
-     */
-    enforceAtxHeadings: boolean
-
-    /**
-     * Forces the compiler to always output content with a block-level wrapper
-     * (`<p>` or any block-level syntax your markdown already contains.)
-     */
-    forceBlock: boolean
-
-    /**
-     * Forces the compiler to always output content with an inline wrapper (`<span>`)
-     */
-    forceInline: boolean
-
-    /**
-     * Forces the compiler to wrap results, even if there is only a single
-     * child or no children.
-     */
-    forceWrapper: boolean
-
-    /**
-     * Supply additional HTML entity: unicode replacement mappings.
-     *
-     * Pass only the inner part of the entity as the key,
-     * e.g. `&le;` -> `{ "le": "\u2264" }`
-     *
-     * By default
-     * the following entities are replaced with their unicode equivalents:
-     *
-     * ```
-     * &amp;
-     * &apos;
-     * &gt;
-     * &lt;
-     * &nbsp;
-     * &quot;
-     * ```
-     */
-    namedCodesToUnicode: {
-      [key: string]: string
-    }
-
-    /**
-     * Selectively control the output of particular HTML tags as they would be
-     * emitted by the compiler.
-     */
-    overrides: Overrides
-
-    /**
-     * Allows for full control over rendering of particular rules.
-     * For example, to implement a LaTeX renderer such as `react-katex`:
-     *
-     * ```
-     * renderRule(next, node, renderChildren, state) {
-     *   if (node.type === RuleType.codeBlock && node.lang === 'latex') {
-     *     return (
-     *       <TeX as="div" key={state.key}>
-     *         {String.raw`${node.text}`}
-     *       </TeX>
-     *     )
-     *   }
-     *
-     *   return next();
-     * }
-     * ```
-     *
-     * Thar be dragons obviously, but you can do a lot with this
-     * (have fun!) To see how things work internally, check the `render`
-     * method in source for a particular rule.
-     */
-    renderRule: (
-      /** Resume normal processing, call this function as a fallback if you are not returning custom JSX. */
-      next: () => React.ReactNode,
-      /** the current AST node, use `RuleType` against `node.type` for identification */
-      node: ASTNode,
-      /** use as `renderChildren(node.children)` for block nodes */
-      renderChildren: RuleOutput,
-      /** contains `key` which should be supplied to the topmost JSX element */
-      state: State
-    ) => React.ReactNode
-
-    /**
-     * Override the built-in sanitizer function for URLs, etc if desired. The built-in version is available as a library export called `sanitizer`.
-     */
-    sanitizer: (
-      value: string,
-      tag: HTMLTags,
-      attribute: string
-    ) => string | null
-
-    /**
-     * Override normalization of non-URI-safe characters for use in generating
-     * HTML IDs for anchor linking purposes.
-     */
-    slugify: (input: string, defaultFn: (input: string) => string) => string
-
-    /**
-     * Declare the type of the wrapper to be used when there are multiple
-     * children to render. Set to `null` to get an array of children back
-     * without any wrapper, or use `React.Fragment` to get a React element
-     * that won't show up in the DOM.
-     */
-    wrapper: React.ElementType | null
-
-    /**
-     * Props to apply to the wrapper element.
-     */
-    wrapperProps?: React.JSX.IntrinsicAttributes
-  }>
-}
+// MarkdownToJSX namespace moved to types.ts
 
 export default Markdown

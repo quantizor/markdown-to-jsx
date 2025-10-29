@@ -35,18 +35,14 @@ it('should throw if not passed a string (first arg)', () => {
 it('should handle a basic string', () => {
   render(compiler('Hello.'))
 
-  expect(root.innerHTML).toMatchInlineSnapshot(`
-    <span data-reactroot>
-      Hello.
-    </span>
-  `)
+  expect(root.innerHTML).toBe('Hello.')
 })
 
 it('wraps multiple block element returns in a div to avoid invalid nesting errors', () => {
   render(compiler('# Boop\n\n## Blep'))
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <div data-reactroot>
+    <div>
       <h1 id="boop">
         Boop
       </h1>
@@ -61,7 +57,7 @@ it('wraps solely inline elements in a span, rather than a div', () => {
   render(compiler("Hello. _Beautiful_ day isn't it?"))
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <span data-reactroot>
+    <span>
       Hello.
       <em>
         Beautiful
@@ -79,7 +75,7 @@ it('#190 perf regression', () => {
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <span data-reactroot>
+    <span>
       Lorum
       <em>
         ipsum
@@ -118,7 +114,7 @@ it('#234 perf regression', () => {
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <div data-reactroot>
+    <div>
       <br>
       <b>
         1
@@ -222,7 +218,7 @@ it('#700 perf regression with unclosed inline syntax', () => {
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <span data-reactroot>
+    <span>
       «Cleanliness is the finest of uniforms and a great defender against disease»*. Silver fabric was flowing. A wasp, buzzing, touches the bronze lips of the dragon with delicate
       <Tooltip>
         <TooltipTrigger>
@@ -260,7 +256,7 @@ describe('inline textual elements', () => {
     render(compiler('*Hello.*'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <em data-reactroot>
+      <em>
         Hello.
       </em>
     `)
@@ -270,7 +266,7 @@ describe('inline textual elements', () => {
     render(compiler('*Hello\nWorld.*\n'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         <em>
           Hello
       World.
@@ -283,7 +279,7 @@ describe('inline textual elements', () => {
     render(compiler('**Hello.**'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <strong data-reactroot>
+      <strong>
         Hello.
       </strong>
     `)
@@ -293,7 +289,7 @@ describe('inline textual elements', () => {
     render(compiler('**Hello\nWorld.**\n'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         <strong>
           Hello
       World.
@@ -306,7 +302,7 @@ describe('inline textual elements', () => {
     render(compiler('***Hello.***'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <strong data-reactroot>
+      <strong>
         <em>
           Hello.
         </em>
@@ -318,7 +314,7 @@ describe('inline textual elements', () => {
     render(compiler('***Hello\nWorld.***\n'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         <strong>
           <em>
             Hello
@@ -333,7 +329,7 @@ describe('inline textual elements', () => {
     render(compiler('**_Hello._**'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <strong data-reactroot>
+      <strong>
         <em>
           Hello.
         </em>
@@ -345,7 +341,7 @@ describe('inline textual elements', () => {
     render(compiler('_**Hello.**_'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <em data-reactroot>
+      <em>
         <strong>
           Hello.
         </strong>
@@ -357,7 +353,7 @@ describe('inline textual elements', () => {
     render(compiler('___Hello.___'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <strong data-reactroot>
+      <strong>
         <em>
           Hello.
         </em>
@@ -369,7 +365,7 @@ describe('inline textual elements', () => {
     render(compiler('~~Hello.~~'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <del data-reactroot>
+      <del>
         Hello.
       </del>
     `)
@@ -379,7 +375,7 @@ describe('inline textual elements', () => {
     render(compiler('~~Foo `~~bar` baz.~~'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <del data-reactroot>
+      <del>
         Foo
         <code>
           ~~bar
@@ -393,7 +389,7 @@ describe('inline textual elements', () => {
     render(compiler('~~Hello\nWorld.~~\n'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         <del>
           Hello
       World.
@@ -406,7 +402,7 @@ describe('inline textual elements', () => {
     render(compiler('==Hello== ==World=='))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
+      <span>
         <mark>
           Hello
         </mark>
@@ -421,7 +417,7 @@ describe('inline textual elements', () => {
     render(compiler('==Foo `==bar` baz.=='))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <mark data-reactroot>
+      <mark>
         Foo
         <code>
           ==bar
@@ -435,7 +431,7 @@ describe('inline textual elements', () => {
     render(compiler('==Hello\nWorld.==\n'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         <mark>
           Hello
       World.
@@ -448,7 +444,7 @@ describe('inline textual elements', () => {
     render(compiler('~~Foo `~~bar` baz.~~\n\nFoo ~~bar~~.'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           <del>
             Foo
@@ -472,21 +468,15 @@ describe('inline textual elements', () => {
   it('should handle escaped text', () => {
     render(compiler('Hello.\\_\\_foo\\_\\_'))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
-        Hello.__foo__
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Hello.__foo__"`)
   })
 
   it('regression test for #188, mismatched syntaxes triggered the wrong result', () => {
     render(compiler('*This should render as normal text, not emphasized._'))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
-        *This should render as normal text, not emphasized._
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"*This should render as normal text, not emphasized._"`
+    )
   })
 
   it('ignore similar syntax inside inline syntax', () => {
@@ -497,7 +487,7 @@ describe('inline textual elements', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <em data-reactroot>
+      <em>
         This should not misinterpret the asterisk
         <span>
           *
@@ -513,7 +503,7 @@ describe('inline textual elements', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <em data-reactroot>
+      <em>
         This should not misinterpret the asterisk
         <a href="x">
           *
@@ -529,7 +519,7 @@ describe('inline textual elements', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <em data-reactroot>
+      <em>
         This should not misinterpret the asterisk
         <a href="x*">
           foo
@@ -545,7 +535,7 @@ describe('inline textual elements', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <em data-reactroot>
+      <em>
         This should not misinterpret the asterisk
         <del>
           *
@@ -561,7 +551,7 @@ describe('inline textual elements', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <em data-reactroot>
+      <em>
         This should not misinterpret the asterisk
         <code>
           *
@@ -577,7 +567,7 @@ describe('inline textual elements', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <em data-reactroot>
+      <em>
         This should not misinterpret the under_score that forms part of a word.
       </em>
     `)
@@ -586,11 +576,7 @@ describe('inline textual elements', () => {
   it('replaces common HTML character codes with unicode equivalents so React will render correctly', () => {
     render(compiler('Foo &nbsp; bar&amp;baz.'))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
-        Foo   bar&amp;baz.
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Foo   bar&amp;baz."`)
   })
 
   it('replaces custom named character codes with unicode equivalents so React will render correctly', () => {
@@ -603,11 +589,9 @@ describe('inline textual elements', () => {
       })
     )
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
-        Apostrophe&#x27;s and ≤ equal
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"Apostrophe&#x27;s and ≤ equal"`
+    )
   })
 })
 
@@ -616,7 +600,7 @@ describe('misc block level elements', () => {
     render(compiler('> Something important, perhaps?'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <blockquote data-reactroot>
+      <blockquote>
         <p>
           Something important, perhaps?
         </p>
@@ -628,7 +612,7 @@ describe('misc block level elements', () => {
     render(compiler('> Line 1\nLine 2\n>Line 3'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <blockquote data-reactroot>
+      <blockquote>
         <p>
           Line 1
       Line 2
@@ -642,7 +626,7 @@ describe('misc block level elements', () => {
     render(compiler('> Something important, perhaps?\n\n> Something else'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <blockquote>
           <p>
             Something important, perhaps?
@@ -661,9 +645,7 @@ describe('misc block level elements', () => {
     render(compiler('> [!NOTE]\n> Something important, perhaps?'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <blockquote class="markdown-alert-note"
-                  data-reactroot
-      >
+      <blockquote class="markdown-alert-note">
         <header>
           NOTE
         </header>
@@ -680,9 +662,7 @@ describe('headings', () => {
     render(compiler('# Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h1 id="hello-world"
-          data-reactroot
-      >
+      <h1 id="hello-world">
         Hello World
       </h1>
     `)
@@ -692,7 +672,7 @@ describe('headings', () => {
     render(compiler('#Hello World', { enforceAtxHeadings: true }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         #Hello World
       </p>
     `)
@@ -702,9 +682,7 @@ describe('headings', () => {
     render(compiler('## Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h2 id="hello-world"
-          data-reactroot
-      >
+      <h2 id="hello-world">
         Hello World
       </h2>
     `)
@@ -714,9 +692,7 @@ describe('headings', () => {
     render(compiler('### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h3 id="hello-world"
-          data-reactroot
-      >
+      <h3 id="hello-world">
         Hello World
       </h3>
     `)
@@ -726,9 +702,7 @@ describe('headings', () => {
     render(compiler('#### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h4 id="hello-world"
-          data-reactroot
-      >
+      <h4 id="hello-world">
         Hello World
       </h4>
     `)
@@ -738,9 +712,7 @@ describe('headings', () => {
     render(compiler('##### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h5 id="hello-world"
-          data-reactroot
-      >
+      <h5 id="hello-world">
         Hello World
       </h5>
     `)
@@ -750,9 +722,7 @@ describe('headings', () => {
     render(compiler('###### Hello World'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h6 id="hello-world"
-          data-reactroot
-      >
+      <h6 id="hello-world">
         Hello World
       </h6>
     `)
@@ -762,7 +732,7 @@ describe('headings', () => {
     render(compiler('Hello World\n===========\n\nsomething'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <h1>
           Hello World
         </h1>
@@ -777,7 +747,7 @@ describe('headings', () => {
     render(compiler('Hello World\n-----------\n\nsomething'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <h2>
           Hello World
         </h2>
@@ -792,7 +762,7 @@ describe('headings', () => {
     render(compiler('# Hello World\n## And again'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <h1 id="hello-world">
           Hello World
         </h1>
@@ -807,7 +777,7 @@ describe('headings', () => {
     render(compiler('# Hello World #########\nHere is the body'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <h1 id="hello-world">
           Hello World
         </h1>
@@ -822,7 +792,7 @@ describe('headings', () => {
     render(compiler('# Hello World # #\n## Subheader#\nHere is the body'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <h1 id="hello-world-">
           Hello World #
         </h1>
@@ -840,9 +810,7 @@ describe('headings', () => {
     render(compiler("# This is~ a very' complicated> header!"))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h1 id="this-is-a-very-complicated-header"
-          data-reactroot
-      >
+      <h1 id="this-is-a-very-complicated-header">
         This is~ a very&#x27; complicated&gt; header!
       </h1>
     `)
@@ -852,9 +820,7 @@ describe('headings', () => {
     render(compiler('# Heading | text'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h1 id="heading--text"
-          data-reactroot
-      >
+      <h1 id="heading--text">
         Heading | text
       </h1>
     `)
@@ -866,9 +832,11 @@ describe('images', () => {
     render(compiler('![](/xyz.png)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <img src="/xyz.png"
-           data-reactroot
+      <link rel="preload"
+            as="image"
+            href="/xyz.png"
       >
+      <img src="/xyz.png">
     `)
   })
 
@@ -882,7 +850,6 @@ describe('images', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <img alt="Red Dot"
            src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg=="
-           data-reactroot
       >
     `)
   })
@@ -891,9 +858,12 @@ describe('images', () => {
     render(compiler('![test](/xyz.png)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
+      <link rel="preload"
+            as="image"
+            href="/xyz.png"
+      >
       <img alt="test"
            src="/xyz.png"
-           data-reactroot
       >
     `)
   })
@@ -902,9 +872,12 @@ describe('images', () => {
     render(compiler('![\\-\\<stuff](https://somewhere)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
+      <link rel="preload"
+            as="image"
+            href="https://somewhere"
+      >
       <img alt="-&lt;stuff"
            src="https://somewhere"
-           data-reactroot
       >
     `)
   })
@@ -913,10 +886,13 @@ describe('images', () => {
     render(compiler('![test](/xyz.png "foo")'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
+      <link rel="preload"
+            as="image"
+            href="/xyz.png"
+      >
       <img alt="test"
            title="foo"
            src="/xyz.png"
-           data-reactroot
       >
     `)
   })
@@ -930,7 +906,11 @@ describe('images', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <link rel="preload"
+            as="image"
+            href="/xyz.png"
+      >
+      <p>
         <img src="/xyz.png">
       </p>
     `)
@@ -945,7 +925,7 @@ describe('images', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
       </p>
     `)
   })
@@ -959,7 +939,11 @@ describe('images', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <link rel="preload"
+            as="image"
+            href="/xyz.png"
+      >
+      <p>
         <img alt="test"
              src="/xyz.png"
         >
@@ -976,7 +960,11 @@ describe('images', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <link rel="preload"
+            as="image"
+            href="/xyz.png"
+      >
+      <p>
         <img alt="test"
              src="/xyz.png"
              title="foo"
@@ -993,9 +981,11 @@ describe('images', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a href="https://www.youtube.com/"
-         data-reactroot
+      <link rel="preload"
+            as="image"
+            href="https://www.gstatic.com/youtube/img/promos/growth/ytp_lp2_logo_phone_landscape_300x44.png"
       >
+      <a href="https://www.youtube.com/">
         <img alt="youtubeImg"
              src="https://www.gstatic.com/youtube/img/promos/growth/ytp_lp2_logo_phone_landscape_300x44.png"
         >
@@ -1009,9 +999,7 @@ describe('links', () => {
     render(compiler('[foo](/xyz.png)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a href="/xyz.png"
-         data-reactroot
-      >
+      <a href="/xyz.png">
         foo
       </a>
     `)
@@ -1023,7 +1011,6 @@ describe('links', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <a href="/xyz.png"
          title="bar"
-         data-reactroot
       >
         foo
       </a>
@@ -1034,7 +1021,7 @@ describe('links', () => {
     render(compiler(['[foo][1]', '[1]: /xyz.png'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         <a href="/xyz.png">
           foo
         </a>
@@ -1046,7 +1033,7 @@ describe('links', () => {
     render(compiler(['[foo] [1]', '[1]: /xyz.png'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         <a href="/xyz.png">
           foo
         </a>
@@ -1058,7 +1045,7 @@ describe('links', () => {
     render(compiler(['[foo][1]', '[1]: /xyz.png "bar"'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         <a href="/xyz.png"
            title="bar"
         >
@@ -1072,7 +1059,7 @@ describe('links', () => {
     render(compiler(['[foo][1]', '[1]: </xyz.png>'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         <a href="/xyz.png">
           foo
         </a>
@@ -1084,7 +1071,7 @@ describe('links', () => {
     render(compiler(['[foo] [1]', '[1]: </xyz.png>'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         <a href="/xyz.png">
           foo
         </a>
@@ -1096,7 +1083,7 @@ describe('links', () => {
     render(compiler(['[foo][1]', '[1]: </xyz.png> "bar"'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         <a href="/xyz.png"
            title="bar"
         >
@@ -1115,7 +1102,7 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         <span>
           [][1]
         </span>
@@ -1127,7 +1114,7 @@ describe('links', () => {
     render(compiler('foo\n- item'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           foo
         </p>
@@ -1148,9 +1135,7 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a href="https://cdn.vox-cdn.com/thumbor/ZGzvLsLuAaPPVW8yZMGqL77xyY8=/0x0:1917x789/1720x0/filters:focal(0x0:1917x789):format(webp):no_upscale()/cdn.vox-cdn.com/uploads/chorus_asset/file/24148777/cavill6.png"
-         data-reactroot
-      >
+      <a href="https://cdn.vox-cdn.com/thumbor/ZGzvLsLuAaPPVW8yZMGqL77xyY8=/0x0:1917x789/1720x0/filters:focal(0x0:1917x789):format(webp):no_upscale()/cdn.vox-cdn.com/uploads/chorus_asset/file/24148777/cavill6.png">
         Markdown
       </a>
     `)
@@ -1160,7 +1145,7 @@ describe('links', () => {
     render(compiler('foo\n# header'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           foo
         </p>
@@ -1175,9 +1160,7 @@ describe('links', () => {
     render(compiler('<https://google.com>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a href="https://google.com"
-         data-reactroot
-      >
+      <a href="https://google.com">
         https://google.com
       </a>
     `)
@@ -1193,7 +1176,7 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           <strong>
             autolink
@@ -1219,7 +1202,7 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           <strong>
             autolink
@@ -1239,9 +1222,7 @@ describe('links', () => {
     render(compiler('<mailto:probablyup@gmail.com>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a href="mailto:probablyup@gmail.com"
-         data-reactroot
-      >
+      <a href="mailto:probablyup@gmail.com">
         probablyup@gmail.com
       </a>
     `)
@@ -1251,9 +1232,7 @@ describe('links', () => {
     render(compiler('<probablyup@gmail.com>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a href="mailto:probablyup@gmail.com"
-         data-reactroot
-      >
+      <a href="mailto:probablyup@gmail.com">
         probablyup@gmail.com
       </a>
     `)
@@ -1263,9 +1242,7 @@ describe('links', () => {
     render(compiler('https://google.com'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a href="https://google.com"
-         data-reactroot
-      >
+      <a href="https://google.com">
         https://google.com
       </a>
     `)
@@ -1275,9 +1252,7 @@ describe('links', () => {
     render(compiler('<a href="https://google.com">https://google.com</a>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a href="https://google.com"
-         data-reactroot
-      >
+      <a href="https://google.com">
         https://google.com
       </a>
     `)
@@ -1291,9 +1266,7 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a href="https://google.com"
-         data-reactroot
-      >
+      <a href="https://google.com">
         some text
         <span>
           with a link https://google.com
@@ -1308,9 +1281,7 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a href="https://google.com"
-         data-reactroot
-      >
+      <a href="https://google.com">
         some text
         <span>
           with a nested link
@@ -1325,11 +1296,7 @@ describe('links', () => {
   it('should not link bare URL if disabled via options', () => {
     render(compiler('https://google.com', { disableAutoLink: true }))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
-        https://google.com
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"https://google.com"`)
   })
 
   it('should not sanitize markdown when explicitly disabled', () => {
@@ -1339,9 +1306,7 @@ describe('links', () => {
     render(compiler('[foo](javascript:doSomethingBad)', { sanitizer: x => x }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a href="javascript:doSomethingBad"
-         data-reactroot
-      >
+      <a href="javascript:throw new Error(&#x27;React has blocked a javascript: URL as a security precaution.&#x27;)">
         foo
       </a>
     `)
@@ -1363,8 +1328,8 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
-        <a href="javascript:doSomethingBad">
+      <p>
+        <a href="javascript:throw new Error(&#x27;React has blocked a javascript: URL as a security precaution.&#x27;)">
           foo
         </a>
         <img alt="foo">
@@ -1381,7 +1346,7 @@ describe('links', () => {
     render(compiler('[foo](javascript:doSomethingBad)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a data-reactroot>
+      <a>
         foo
       </a>
     `)
@@ -1395,11 +1360,7 @@ describe('links', () => {
 
     render(compiler('![foo](javascript:doSomethingBad)'))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <img alt="foo"
-           data-reactroot
-      >
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`<img alt="foo">`)
 
     expect(console.warn).toHaveBeenCalled()
   })
@@ -1410,7 +1371,7 @@ describe('links', () => {
 
     render(compiler('[foo](data:doSomethingBad)'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a data-reactroot>
+      <a>
         foo
       </a>
     `)
@@ -1423,7 +1384,7 @@ describe('links', () => {
 
     render(compiler('[foo](vbScript:doSomethingBad)'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a data-reactroot>
+      <a>
         foo
       </a>
     `)
@@ -1437,7 +1398,7 @@ describe('links', () => {
     render(compiler('[foo](javascript%3AdoSomethingBad)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a data-reactroot>
+      <a>
         foo
       </a>
     `)
@@ -1452,7 +1413,7 @@ describe('links', () => {
     render(compiler('[foo](  javascript%3AdoSomethingBad)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a data-reactroot>
+      <a>
         foo
       </a>
     `)
@@ -1467,7 +1428,7 @@ describe('links', () => {
     render(compiler('[foo](  VBScript%3AdoSomethingBad)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a data-reactroot>
+      <a>
         foo
       </a>
     `)
@@ -1479,11 +1440,7 @@ describe('links', () => {
     jest.spyOn(console, 'error').mockImplementation(() => {})
 
     render(compiler('![foo](  VBScript%3AdoSomethingBad)'))
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <img alt="foo"
-           data-reactroot
-      >
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`<img alt="foo">`)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -1493,7 +1450,7 @@ describe('links', () => {
 
     render(compiler('[foo](`<data:doSomethingBad)'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a data-reactroot>
+      <a>
         foo
       </a>
     `)
@@ -1505,11 +1462,7 @@ describe('links', () => {
     jest.spyOn(console, 'error').mockImplementation(() => {})
 
     render(compiler('![foo](`<data:doSomethingBad)'))
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <img alt="foo"
-           data-reactroot
-      >
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`<img alt="foo">`)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -1520,7 +1473,7 @@ describe('links', () => {
     render(compiler('[foo](https://google.com/%AF)'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a data-reactroot>
+      <a>
         foo
       </a>
     `)
@@ -1534,7 +1487,7 @@ describe('links', () => {
     render(compiler('<a href="javascript:doSomethingBad">foo</a>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a data-reactroot>
+      <a>
         foo
       </a>
     `)
@@ -1548,7 +1501,7 @@ describe('links', () => {
 
     render(compiler('<a href="<`data:doSomethingBad">foo</a>'))
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a data-reactroot>
+      <a>
         foo
       </a>
     `)
@@ -1560,7 +1513,7 @@ describe('links', () => {
     jest.spyOn(console, 'error').mockImplementation(() => {})
 
     render(compiler('<img src="`<javascript:alert>`(\'alertstr\')" />'))
-    expect(root.innerHTML).toMatchInlineSnapshot(`<img data-reactroot>`)
+    expect(root.innerHTML).toMatchInlineSnapshot(`<img>`)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -1569,7 +1522,7 @@ describe('links', () => {
     jest.spyOn(console, 'error').mockImplementation(() => {})
 
     render(compiler('<img src="<src=\\"javascript:alert(`xss`)">'))
-    expect(root.innerHTML).toMatchInlineSnapshot(`<img data-reactroot>`)
+    expect(root.innerHTML).toMatchInlineSnapshot(`<img>`)
     expect(console.warn).toHaveBeenCalled()
   })
 
@@ -1583,9 +1536,7 @@ describe('links', () => {
       )
     )
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div style="color:red"
-           data-reactroot
-      >
+      <div style="color:red">
       </div>
     `)
     expect(console.warn).toHaveBeenCalled()
@@ -1601,9 +1552,7 @@ describe('links', () => {
       )
     )
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div style="background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==);color:red"
-           data-reactroot
-      >
+      <div style="background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==);color:red">
       </div>
     `)
     expect(console.warn).not.toHaveBeenCalled()
@@ -1615,9 +1564,7 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a href="http://www.google.com"
-         data-reactroot
-      >
+      <a href="http://www.google.com">
         https://www.google.com
         <em>
           heck yeah
@@ -1634,7 +1581,7 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <em data-reactroot>
+      <em>
         This is emphasized text with
         <a href="https://example.com/asdf_asdf.pdf">
           a link
@@ -1656,7 +1603,7 @@ describe('links', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <strong data-reactroot>
+      <strong>
         This is emphasized text with
         <a href="https://example.com/asdf__asdf.pdf">
           a link
@@ -1674,7 +1621,7 @@ describe('links', () => {
     render(compiler('Some text http://www.test.com/some-resource/123'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
+      <span>
         Some text
         <a href="http://www.test.com/some-resource/123">
           http://www.test.com/some-resource/123
@@ -1689,7 +1636,7 @@ describe('lists', () => {
     render(compiler(['- xyz', '- abc', '- foo'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ul data-reactroot>
+      <ul>
         <li>
           xyz
         </li>
@@ -1707,7 +1654,7 @@ describe('lists', () => {
     render(compiler(['- xyz', '', '- abc', '', '- foo'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ul data-reactroot>
+      <ul>
         <li>
           <p>
             xyz
@@ -1731,9 +1678,7 @@ describe('lists', () => {
     render(compiler(['1. xyz', '1. abc', '1. foo'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ol start="1"
-          data-reactroot
-      >
+      <ol start="1">
         <li>
           xyz
         </li>
@@ -1751,9 +1696,7 @@ describe('lists', () => {
     render(compiler(['2. xyz', '3. abc', '4. foo'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ol start="2"
-          data-reactroot
-      >
+      <ol start="2">
         <li>
           xyz
         </li>
@@ -1771,7 +1714,7 @@ describe('lists', () => {
     render(compiler(['- xyz', '  - abc', '- foo'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ul data-reactroot>
+      <ul>
         <li>
           xyz
           <ul>
@@ -1791,7 +1734,7 @@ describe('lists', () => {
     render(compiler(['- xyz', '  1. abc', '    - def', '- foo'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ul data-reactroot>
+      <ul>
         <li>
           xyz
           <ol start="1">
@@ -1825,7 +1768,7 @@ describe('lists', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ul data-reactroot>
+      <ul>
         <li>
           xyz
           <ol start="1">
@@ -1865,7 +1808,7 @@ describe('lists', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ul data-reactroot>
+      <ul>
         <li>
           <a href="#buttermilk">
             buttermilk
@@ -1955,7 +1898,7 @@ describe('lists', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <ul>
           <li>
             one
@@ -1978,7 +1921,7 @@ describe('lists', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ul data-reactroot>
+      <ul>
         <li>
           foo
         </li>
@@ -2002,10 +1945,10 @@ describe('GFM task lists', () => {
     render(compiler('- [ ] foo'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ul data-reactroot>
+      <ul>
         <li>
-          <input type="checkbox"
-                 readonly
+          <input readonly
+                 type="checkbox"
           >
           foo
         </li>
@@ -2017,11 +1960,11 @@ describe('GFM task lists', () => {
     render(compiler('- [x] foo'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ul data-reactroot>
+      <ul>
         <li>
-          <input type="checkbox"
+          <input readonly
+                 type="checkbox"
                  checked
-                 readonly
           >
           foo
         </li>
@@ -2033,11 +1976,11 @@ describe('GFM task lists', () => {
     render(compiler('- [x] foo'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ul data-reactroot>
+      <ul>
         <li>
-          <input type="checkbox"
+          <input readonly
+                 type="checkbox"
                  checked
-                 readonly
           >
           foo
         </li>
@@ -2057,7 +2000,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th>
@@ -2092,7 +2035,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th style="text-align:right">
@@ -2134,7 +2077,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th>
@@ -2178,7 +2121,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th style="text-align:right">
@@ -2231,7 +2174,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th>
@@ -2284,7 +2227,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <table>
           <thead>
             <tr>
@@ -2341,7 +2284,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th>
@@ -2376,7 +2319,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th>
@@ -2415,7 +2358,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th>
@@ -2446,7 +2389,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th>
@@ -2495,7 +2438,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th>
@@ -2534,7 +2477,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th>
@@ -2573,7 +2516,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th>
@@ -2614,7 +2557,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th>
@@ -2649,7 +2592,7 @@ describe('GFM tables', () => {
     render(compiler(`|_foo|bar_|\n|-|-|\n|1|2|`))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th>
@@ -2678,7 +2621,7 @@ describe('GFM tables', () => {
     render(compiler(`|\`foo|bar\`|baz|\n|-|-|\n|1|2|`))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th>
@@ -2715,7 +2658,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <thead>
           <tr>
             <th>
@@ -2760,7 +2703,7 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           Test
         </p>
@@ -2804,18 +2747,24 @@ describe('arbitrary HTML', () => {
   it('preserves the HTML given', () => {
     const ast = compiler('<dd class="foo">Hello</dd>')
     expect(ast).toMatchInlineSnapshot(`
-      <dd
-        className="foo"
-      >
-        Hello
-      </dd>
+      {
+        "$$typeof": Symbol(react.transitional.element),
+        "_owner": null,
+        "_store": {},
+        "key": "0",
+        "props": {
+          "children": [
+            "Hello",
+          ],
+          "className": "foo",
+        },
+        "type": "dd",
+      }
     `)
 
     render(ast)
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <dd class="foo"
-          data-reactroot
-      >
+      <dd class="foo">
         Hello
       </dd>
     `)
@@ -2825,7 +2774,7 @@ describe('arbitrary HTML', () => {
     render(compiler('<time>**Hello**</time>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <time data-reactroot>
+      <time>
         <strong>
           Hello
         </strong>
@@ -2837,7 +2786,7 @@ describe('arbitrary HTML', () => {
     render(compiler('<time><span>**Hello**</span></time>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <time data-reactroot>
+      <time>
         <span>
           <strong>
             Hello
@@ -2853,7 +2802,7 @@ describe('arbitrary HTML', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <dl data-reactroot>
+      <dl>
         <dt>
           foo
         </dt>
@@ -2874,9 +2823,7 @@ describe('arbitrary HTML', () => {
     render(compiler('<time data-foo="bar">Hello</time>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <time data-foo="bar"
-            data-reactroot
-      >
+      <time data-foo="bar">
         Hello
       </time>
     `)
@@ -2886,9 +2833,7 @@ describe('arbitrary HTML', () => {
     render(compiler('<span tabindex="0">Hello</span>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span tabindex="0"
-            data-reactroot
-      >
+      <span tabindex="0">
         Hello
       </span>
     `)
@@ -2902,9 +2847,7 @@ describe('arbitrary HTML', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span style="color:red;position:top;margin-right:10px"
-            data-reactroot
-      >
+      <span style="color:red;position:top;margin-right:10px">
         Hello
       </span>
     `)
@@ -2914,7 +2857,7 @@ describe('arbitrary HTML', () => {
     render(compiler('<p>**Hello**</p>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         <strong>
           Hello
         </strong>
@@ -2926,9 +2869,7 @@ describe('arbitrary HTML', () => {
     render(compiler('<div style="float: right">\n# Hello\n</div>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div style="float:right"
-           data-reactroot
-      >
+      <div style="float:right">
         <h1 id="hello">
           Hello
         </h1>
@@ -2940,7 +2881,7 @@ describe('arbitrary HTML', () => {
     render(compiler('Text and <code>**code**</code>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
+      <span>
         Text and
         <code>
           <strong>
@@ -2959,9 +2900,12 @@ describe('arbitrary HTML', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
+      <link rel="preload"
+            as="image"
+            href="https://opencollective.com/react-dropzone/sponsor/0/avatar.svg"
+      >
       <a href="https://opencollective.com/react-dropzone/sponsor/0/website"
          target="_blank"
-         data-reactroot
       >
         <img src="https://opencollective.com/react-dropzone/sponsor/0/avatar.svg">
       </a>
@@ -2972,7 +2916,7 @@ describe('arbitrary HTML', () => {
     render(compiler('Foo\n<!-- blah -->'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         Foo
       </p>
     `)
@@ -2987,7 +2931,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         Foo
       </p>
     `)
@@ -3007,9 +2951,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ul id="ProjectSubmenu"
-          data-reactroot
-      >
+      <ul id="ProjectSubmenu">
         <li>
           <a href="/projects/markdown/"
              title="Markdown Project Page"
@@ -3058,7 +3000,6 @@ comment -->`)
       <svg width="246"
            height="369"
            xmlns="http://www.w3.org/2000/svg"
-           data-reactroot
       >
         <path d="M243.937.055a2 2 0 0 1 2.008 2.002v168.995c0 1.106-.814 2.388-1.802 2.855l-118.895 56.186c-.996.47-2.617.467-3.605 0L2.748 173.907c-.996-.47-1.803-1.742-1.803-2.855V2.057C.945.951 1.832.055 2.953.055h240.984zM110.391 139.367V66.383l-25.032 47.32h-9.843l-24.891-47.32v72.984h-15.68V42.055h20.18l25.594 49.64 25.804-49.64h19.688v97.312h-15.82zm104.101-48.656c0 9.562-.984 17.484-2.953 23.766-1.969 6.28-4.91 11.261-8.824 14.941-3.914 3.68-8.754 6.258-14.52 7.734-5.765 1.477-12.445 2.215-20.039 2.215h-27.21V42.055h26.929c7.781 0 14.59.82 20.426 2.46 5.836 1.641 10.699 4.36 14.59 8.157 3.89 3.797 6.796 8.8 8.718 15.012 1.922 6.21 2.883 13.886 2.883 23.027zm-18.289-16.508c-1.031-4.312-2.742-7.746-5.133-10.3-2.39-2.555-5.554-4.348-9.492-5.38-3.937-1.03-8.812-1.546-14.625-1.546h-9.21v67.359h9.21c5.906 0 10.828-.55 14.766-1.652 3.937-1.102 7.101-2.954 9.492-5.555 2.39-2.602 4.078-6.07 5.062-10.406.985-4.336 1.477-9.739 1.477-16.207 0-6.563-.516-12-1.547-16.313zM51.219 339.805c0 4.922-.574 9.187-1.723 12.797-1.148 3.609-2.93 6.597-5.344 8.964-2.414 2.368-5.507 4.114-9.28 5.239-3.774 1.125-8.263 1.687-13.466 1.687-1.265 0-2.718-.082-4.36-.246a60.81 60.81 0 0 1-5.097-.738 80.327 80.327 0 0 1-5.238-1.16A49.492 49.492 0 0 1 2 364.906l5.484-14.414c.704.375 1.653.762 2.848 1.16 1.195.399 2.45.762 3.762 1.09a56.72 56.72 0 0 0 3.972.844c1.336.234 2.496.351 3.48.351 2.673 0 4.864-.316 6.575-.949 1.711-.633 3.07-1.699 4.078-3.199 1.008-1.5 1.7-3.492 2.074-5.976.375-2.485.563-5.602.563-9.352V269h16.383v70.805zM151.688 339c0 5.484-.973 10.09-2.918 13.816-1.946 3.727-4.582 6.75-7.91 9.07-3.329 2.321-7.208 3.985-11.637 4.993-4.43 1.008-9.13 1.512-14.098 1.512-5.25 0-9.844-.493-13.781-1.477-3.938-.984-7.383-2.32-10.336-4.008-2.953-1.687-5.473-3.656-7.559-5.906A43.715 43.715 0 0 1 78 349.758l12.938-9.352a42.058 42.058 0 0 0 3.902 5.168 23.723 23.723 0 0 0 4.992 4.254c1.898 1.219 4.113 2.192 6.645 2.918 2.53.727 5.46 1.09 8.789 1.09 2.484 0 4.91-.234 7.277-.703s4.465-1.242 6.293-2.32c1.828-1.079 3.293-2.485 4.394-4.22 1.102-1.734 1.653-3.89 1.653-6.468 0-2.438-.528-4.477-1.582-6.117-1.055-1.64-2.473-3.024-4.254-4.149-1.781-1.125-3.867-2.062-6.258-2.812-2.39-.75-4.945-1.477-7.664-2.18a266.328 266.328 0 0 1-13.852-3.902c-4.265-1.336-7.968-3.035-11.109-5.098-3.14-2.062-5.613-4.687-7.418-7.875-1.805-3.187-2.707-7.265-2.707-12.234 0-4.406.75-8.38 2.25-11.918a24.403 24.403 0 0 1 6.61-9.07c2.906-2.508 6.527-4.43 10.863-5.766 4.336-1.336 9.316-2.004 14.941-2.004 4.219 0 8.074.387 11.567 1.16 3.492.774 6.656 1.899 9.492 3.375a32.403 32.403 0 0 1 7.629 5.485 37.377 37.377 0 0 1 5.906 7.418l-12.727 9.492c-2.578-4.125-5.625-7.22-9.14-9.282-3.516-2.062-7.805-3.093-12.868-3.093-5.484 0-9.832 1.125-13.042 3.375-3.211 2.25-4.817 5.437-4.817 9.562 0 2.063.434 3.785 1.3 5.168.868 1.383 2.204 2.59 4.009 3.621 1.804 1.032 4.078 1.957 6.82 2.778 2.742.82 5.988 1.675 9.738 2.566a193.01 193.01 0 0 1 8.473 2.25 67.888 67.888 0 0 1 7.805 2.777 38.465 38.465 0 0 1 6.785 3.727 22.237 22.237 0 0 1 5.308 5.168c1.477 2.016 2.637 4.371 3.48 7.066.845 2.696 1.267 5.824 1.267 9.387zM164 367.313l31.992-48.797L164.844 270h18.914l21.586 35.648L227.633 270h18.281l-31.5 48.094 31.36 49.219H227.07l-22.289-36.282-22.64 36.281z"
               fill="#fefefe"
@@ -3099,7 +3040,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <tbody>
           <tr>
             <td>
@@ -3157,7 +3098,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         $25
         <br>
         <br>
@@ -3214,7 +3155,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <tbody>
           <tr>
             <td>
@@ -3282,9 +3223,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div class="datepicker"
-           data-reactroot
-      >
+      <div class="datepicker">
       </div>
     `)
   })
@@ -3311,7 +3250,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         1514579720511
         to
         &quot;1514579720512&quot;
@@ -3356,7 +3295,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <div class="inner">
           bah
         </div>
@@ -3390,7 +3329,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <g>
         </g>
         <g>
@@ -3418,7 +3357,6 @@ comment -->`)
       <div class="foo"
            style="background:red"
            id="baz"
-           data-reactroot
       >
         Bar
       </div>
@@ -3429,7 +3367,7 @@ comment -->`)
     render(compiler(['"<span>#</span>"'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
+      <span>
         &quot;
         <span>
           #
@@ -3443,7 +3381,7 @@ comment -->`)
     render(compiler('"<span># foo</span>"'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
+      <span>
         &quot;
         <span>
           <h1 id="foo">
@@ -3469,7 +3407,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <style data-reactroot>
+      <style>
         .bar {
           color: red;
         }
@@ -3487,7 +3425,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <script data-reactroot>
+      <script>
         new Date();
       </script>
     `)
@@ -3497,7 +3435,7 @@ comment -->`)
     render(compiler(['<SCRIPT>', '  new Date();', '</SCRIPT>'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <script data-reactroot>
+      <script>
         new Date();
       </script>
     `)
@@ -3513,9 +3451,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div id="foo"
-           data-reactroot
-      >
+      <div id="foo">
         <div id="bar">
           Baz
         </div>
@@ -3526,11 +3462,7 @@ comment -->`)
   it('#180 handles invalid character error with angle brackets', () => {
     render(compiler('1<2 or 2>1'))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
-        1&lt;2 or 2&gt;1
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"1&lt;2 or 2&gt;1"`)
   })
 
   it('#181 handling of figure blocks', () => {
@@ -3546,7 +3478,11 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <figure data-reactroot>
+      <link rel="preload"
+            as="image"
+            href="//placehold.it/300x200"
+      >
+      <figure>
         <img src="//placehold.it/300x200">
         <figcaption>
           This is a placeholder image
@@ -3569,7 +3505,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <details data-reactroot>
+      <details>
         <summary>
           Solution
         </summary>
@@ -3597,7 +3533,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <details data-reactroot>
+      <details>
         <summary>
           Click here
         </summary>
@@ -3649,7 +3585,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <details data-reactroot>
+      <details>
         <summary>
           View collapsed content
         </summary>
@@ -3691,7 +3627,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <pre>
           <code class="lang-kotlin">
             fun main() {
@@ -3715,7 +3651,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <ul>
           <li>
             hi
@@ -3745,7 +3681,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           Hello
         </p>
@@ -3762,7 +3698,7 @@ comment -->`)
     render(compiler('<Foo/> World!', { overrides: { Foo } }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
+      <span>
         <span>
           Hello
         </span>
@@ -3781,7 +3717,7 @@ comment -->`)
       )
     )
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           Text
         </p>
@@ -3798,11 +3734,9 @@ comment -->`)
         disableParsingRawHTML: true,
       })
     )
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
-        Text with &lt;span&gt;html&lt;/span&gt; inside
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"Text with &lt;span&gt;html&lt;/span&gt; inside"`
+    )
   })
 
   it('should render html if disableParsingRawHTML is false', () => {
@@ -3812,7 +3746,7 @@ comment -->`)
       })
     )
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
+      <span>
         Text with
         <span>
           html
@@ -3826,7 +3760,7 @@ comment -->`)
     render(compiler('hello [h]:m **world**'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
+      <span>
         hello [h]:m
         <strong>
           world
@@ -3845,7 +3779,7 @@ print("hello world")
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           Hello world example
         </p>
@@ -3876,7 +3810,7 @@ print("hello world")
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <ol start="1">
           <li>
             One
@@ -3911,7 +3845,7 @@ print("hello world")
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
+      <span>
         Hello, I think that
         <a href="http://daringfireball.net/projects/markdown/">
           6. Markdown
@@ -3942,7 +3876,7 @@ Item detail
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         Item detail
         <span style="color:#fddb67;font-size:11px;font-style:normal;font-weight:500;line-height:18px;text-decoration-line:underline">
           debug item 1
@@ -3994,7 +3928,7 @@ Each span you copy above increases the time it takes by 2. Also, writing text he
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <span class="oh"
               data-self-closing="yes"
         >
@@ -4103,7 +4037,7 @@ Each span you copy above increases the time it takes by 2. Also, writing text he
     render(compiler(`<tag1><tag2>text1</tag2>text2</tag1>`))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <tag1 data-reactroot>
+      <tag1>
         <tag2>
           text1
         </tag2>
@@ -4124,7 +4058,7 @@ _world_.
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <table data-reactroot>
+      <table>
         <tr>
           <td>
             <pre>
@@ -4156,7 +4090,7 @@ describe('horizontal rules', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <hr>
         <hr>
         <hr>
@@ -4172,7 +4106,7 @@ describe('line breaks', () => {
     render(compiler(['hello  ', 'there'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         hello
         <br>
         there
@@ -4186,7 +4120,7 @@ describe('fenced code blocks', () => {
     render(compiler(['```js', 'foo', '```'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <pre data-reactroot>
+      <pre>
         <code class="lang-js">
           foo
         </code>
@@ -4207,7 +4141,7 @@ Yeah boi
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <pre data-reactroot>
+      <pre>
         <code class="lang-html">
           &lt;!-- something --&gt;
       Yeah boi
@@ -4220,7 +4154,7 @@ Yeah boi
     render(compiler('```\nfoo'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <pre data-reactroot>
+      <pre>
         <code>
           foo
         </code>
@@ -4232,7 +4166,7 @@ Yeah boi
     render(compiler('```\n\\%\n```'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <pre data-reactroot>
+      <pre>
         <code>
           \\%
         </code>
@@ -4246,7 +4180,7 @@ describe('indented code blocks', () => {
     render(compiler('    foo\n\n'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <pre data-reactroot>
+      <pre>
         <code>
           foo
         </code>
@@ -4260,7 +4194,7 @@ describe('inline code blocks', () => {
     render(compiler('`foo`'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <code data-reactroot>
+      <code>
         foo
       </code>
     `)
@@ -4270,7 +4204,7 @@ describe('inline code blocks', () => {
     render(compiler('``hi `foo` there``'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <code data-reactroot>
+      <code>
         hi \`foo\` there
       </code>
     `)
@@ -4288,7 +4222,7 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           foo
           <a href="#abc">
@@ -4300,8 +4234,8 @@ describe('footnotes', () => {
         </p>
         <footer>
           <div id="abc">
-            abc
-            : Baz baz
+            abc:
+            Baz baz
           </div>
         </footer>
       </div>
@@ -4318,7 +4252,7 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           foo
           <a href="#reference-here-123">
@@ -4330,8 +4264,8 @@ describe('footnotes', () => {
         </p>
         <footer>
           <div id="reference-here-123">
-            referencé heré 123
-            : Baz baz
+            referencé heré 123:
+            Baz baz
           </div>
         </footer>
       </div>
@@ -4349,7 +4283,7 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           foo
           <a href="#abc">
@@ -4366,12 +4300,12 @@ describe('footnotes', () => {
         </p>
         <footer>
           <div id="abc">
-            abc
-            : Baz baz
+            abc:
+            Baz baz
           </div>
           <div id="def">
-            def
-            : Def
+            def:
+            Def
           </div>
         </footer>
       </div>
@@ -4388,7 +4322,7 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           foo
           <a href="#abc">
@@ -4400,8 +4334,8 @@ describe('footnotes', () => {
         </p>
         <footer>
           <div id="abc">
-            abc
-            : Baz baz
+            abc:
+            Baz baz
           </div>
         </footer>
       </div>
@@ -4418,7 +4352,7 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           foo
           <a href="#abc">
@@ -4430,8 +4364,8 @@ describe('footnotes', () => {
         </p>
         <footer>
           <div id="abc">
-            abc
-            : Baz
+            abc:
+            Baz
           </div>
         </footer>
       </div>
@@ -4441,7 +4375,7 @@ describe('footnotes', () => {
   it('should not blow up if footnote syntax is seen but no matching footnote was found', () => {
     expect(() => render(compiler('[one] [two]'))).not.toThrow()
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
+      <span>
         [one] [two]
       </span>
     `)
@@ -4461,7 +4395,7 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           foo
           <a href="#abc">
@@ -4476,8 +4410,8 @@ describe('footnotes', () => {
         </p>
         <footer>
           <div id="abc">
-            abc
-            : Baz
+            abc:
+            Baz
         line2
         line3
           </div>
@@ -4500,7 +4434,7 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           a
           <a href="#a">
@@ -4523,18 +4457,18 @@ describe('footnotes', () => {
         </p>
         <footer>
           <div id="a">
-            a
-            : single
+            a:
+            single
           </div>
           <div id="b">
-            b
-            : bbbb
+            b:
+            bbbb
         bbbb
         bbbb
           </div>
           <div id="c">
-            c
-            : single-c
+            c:
+            single-c
           </div>
         </footer>
       </div>
@@ -4559,7 +4493,7 @@ describe('footnotes', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           Here&#x27;s a simple footnote,
           <a href="#1">
@@ -4576,12 +4510,12 @@ describe('footnotes', () => {
         </p>
         <footer>
           <div id="1">
-            1
-            : This is the first footnote.
+            1:
+            This is the first footnote.
           </div>
           <div id="bignote">
-            bignote
-            : Here&#x27;s one with multiple paragraphs and code.
+            bignote:
+            Here&#x27;s one with multiple paragraphs and code.
 
           Indent paragraphs to include them in the footnote.
             <code>
@@ -4670,11 +4604,9 @@ describe('options.namedCodesToUnicode', () => {
 
   it('should replace special HTML characters', () => {
     render(compiler(content, { namedCodesToUnicode }))
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
-        Æ,Á,Â,À,Å,Ã,Ä,Ç,É,Ê,È,Ë,Í,Î,Ì,Ï,Ñ,Ó,Ô,Ò,Ø,Õ,Ö,Ú,Û,Ù,Ü,Ý,á,â,æ,à,å,ã,ä,ç,©,é,ê,è,ë,≥,í,î,ì,ï,«,≤, ,ñ,ó,ô,ò,ø,õ,ö,§,&quot;,»,ß,ú,û,ù,ü,ý
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"Æ,Á,Â,À,Å,Ã,Ä,Ç,É,Ê,È,Ë,Í,Î,Ì,Ï,Ñ,Ó,Ô,Ò,Ø,Õ,Ö,Ú,Û,Ù,Ü,Ý,á,â,æ,à,å,ã,ä,ç,©,é,ê,è,ë,≥,í,î,ì,ï,«,≤, ,ñ,ó,ô,ò,ø,õ,ö,§,&quot;,»,ß,ú,û,ù,ü,ý"`
+    )
   })
 })
 
@@ -4687,7 +4619,7 @@ describe('options.forceBlock', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         Hello.
         <em>
           Beautiful
@@ -4702,11 +4634,7 @@ describe('options.forceInline', () => {
   it('treats given markdown as inline-context, passing through any block-level markdown syntax', () => {
     render(compiler('# You got it babe!', { forceInline: true }))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
-        # You got it babe!
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"# You got it babe!"`)
   })
 })
 
@@ -4714,18 +4642,14 @@ describe('options.wrapper', () => {
   it('is ignored when there is a single child', () => {
     render(compiler('Hello, world!', { wrapper: 'article' }))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
-        Hello, world!
-      </span>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Hello, world!"`)
   })
 
   it('overrides the wrapper element when there are multiple children', () => {
     render(compiler('Hello\n\nworld!', { wrapper: 'article' }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <article data-reactroot>
+      <article>
         <p>
           Hello
         </p>
@@ -4740,12 +4664,32 @@ describe('options.wrapper', () => {
     expect(compiler('Hello\n\nworld!', { wrapper: null }))
       .toMatchInlineSnapshot(`
       [
-        <p>
-          Hello
-        </p>,
-        <p>
-          world!
-        </p>,
+        {
+          "$$typeof": Symbol(react.transitional.element),
+          "_owner": null,
+          "_store": {},
+          "key": "0",
+          "props": {
+            "children": [
+              "Hello",
+            ],
+            "className": undefined,
+          },
+          "type": "p",
+        },
+        {
+          "$$typeof": Symbol(react.transitional.element),
+          "_owner": null,
+          "_store": {},
+          "key": "1",
+          "props": {
+            "children": [
+              "world!",
+            ],
+            "className": undefined,
+          },
+          "type": "p",
+        },
       ]
     `)
   })
@@ -4754,10 +4698,10 @@ describe('options.wrapper', () => {
     render(compiler('Hello\n\nworld!', { wrapper: React.Fragment }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p data-reactroot>
+      <p>
         Hello
       </p>
-      <p data-reactroot>
+      <p>
         world!
       </p>
     `)
@@ -4769,7 +4713,7 @@ describe('options.forceWrapper', () => {
     render(compiler('Hi Evan', { wrapper: 'aside', forceWrapper: true }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <aside data-reactroot>
+      <aside>
         Hi Evan
       </aside>
     `)
@@ -4786,11 +4730,7 @@ describe('options.createElement', () => {
       })
     )
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <custom data-reactroot>
-        Hello
-      </custom>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Hello"`)
   })
 
   it('should render an empty <div> element', () => {
@@ -4802,10 +4742,7 @@ describe('options.createElement', () => {
       })
     )
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
-      </div>
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Hello"`)
   })
 })
 
@@ -4824,7 +4761,7 @@ describe('options.renderRule', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           Hello.
         </p>
@@ -4867,7 +4804,7 @@ describe('options.renderRule', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
+      <span>
         Hey there!
         <span>
           🙂
@@ -4882,9 +4819,7 @@ describe('options.slugify', () => {
     render(compiler('# 中文', { slugify: str => str }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h1 id="中文"
-          data-reactroot
-      >
+      <h1 id="中文">
         中文
       </h1>
     `)
@@ -4894,9 +4829,7 @@ describe('options.slugify', () => {
     render(compiler('# 中文'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <h1 id
-          data-reactroot
-      >
+      <h1 id>
         中文
       </h1>
     `)
@@ -4925,18 +4858,16 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p class="foo"
-         data-reactroot
-      >
+      <p class="foo">
         Hello.
       </p>
     `)
   })
 
   it('should substitute custom components when found', () => {
-    const CustomButton: React.FC<JSX.IntrinsicElements['button']> = props => (
-      <button {...props} />
-    )
+    const CustomButton: React.FC<
+      React.JSX.IntrinsicElements['button']
+    > = props => <button {...props} />
 
     render(
       compiler('<CustomButton>Click me!</CustomButton>', {
@@ -4945,7 +4876,7 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <button data-reactroot>
+      <button>
         Click me!
       </button>
     `)
@@ -4976,9 +4907,7 @@ describe('overrides', () => {
     render(compiler('Hello.\n\n', { overrides: { p: FakeParagraph } }))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p class="foo"
-         data-reactroot
-      >
+      <p class="foo">
         Hello.
       </p>
     `)
@@ -4994,7 +4923,6 @@ describe('overrides', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <p class="abc"
          title="foo"
-         data-reactroot
       >
         Hello.
       </p>
@@ -5018,9 +4946,7 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <a title="foo"
-         data-reactroot
-      >
+      <a title="foo">
         link
       </a>
     `)
@@ -5046,9 +4972,7 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <pre class="abc"
-           data-reactroot
-      >
+      <pre class="abc">
         <code data-foo="bar">
           foo
         </code>
@@ -5104,7 +5028,6 @@ describe('overrides', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <pre class="abc"
            data-bar="baz"
-           data-reactroot
       >
         <code data-foo="bar"
               data-baz="fizz"
@@ -5123,10 +5046,10 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ul data-reactroot>
+      <ul>
         <li class="foo">
-          <input type="checkbox"
-                 readonly
+          <input readonly
+                 type="checkbox"
           >
           foo
         </li>
@@ -5142,10 +5065,10 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <ul data-reactroot>
+      <ul>
         <li>
-          <input type="checkbox"
-                 readonly
+          <input readonly
+                 type="checkbox"
                  class="foo"
           >
           foo
@@ -5165,9 +5088,7 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <p class="foo"
-         data-reactroot
-      >
+      <p class="foo">
         Hello.
       </p>
     `)
@@ -5184,7 +5105,7 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <p>
           Hello.
         </p>
@@ -5212,7 +5133,7 @@ describe('overrides', () => {
     render(compiler('<div><div><div></div></div></div>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <div data-reactroot>
+      <div>
         <div>
           <div>
           </div>
@@ -5233,11 +5154,7 @@ it('should remove YAML front matter', () => {
     `)
   )
 
-  expect(root.innerHTML).toMatchInlineSnapshot(`
-    <span data-reactroot>
-      Hello.
-    </span>
-  `)
+  expect(root.innerHTML).toMatchInlineSnapshot(`"Hello."`)
 })
 
 it('correctly parses YAML front matter inside a code block', () => {
@@ -5254,7 +5171,7 @@ it('correctly parses YAML front matter inside a code block', () => {
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <pre data-reactroot>
+    <pre>
       <code>
         ---
     key: value
@@ -5266,20 +5183,11 @@ it('correctly parses YAML front matter inside a code block', () => {
   `)
 })
 
-it('handles a holistic example', () => {
-  const md = fs.readFileSync(__dirname + '/fixture.md', 'utf8')
-  render(compiler(md))
-
-  expect(root.innerHTML).toMatchSnapshot()
-})
-
 it('handles <code> brackets in link text', () => {
   render(compiler('[`[text]`](https://example.com)'))
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <a href="https://example.com"
-       data-reactroot
-    >
+    <a href="https://example.com">
       <code>
         [text]
       </code>
@@ -5291,9 +5199,7 @@ it('handles naked brackets in link text', () => {
   render(compiler('[[text]](https://example.com)'))
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <a href="https://example.com"
-       data-reactroot
-    >
+    <a href="https://example.com">
       [text]
     </a>
   `)
@@ -5303,9 +5209,7 @@ it('handles multiple nested brackets in link text', () => {
   render(compiler('[title[bracket1][bracket2][3]](https://example.com)'))
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <a href="https://example.com"
-       data-reactroot
-    >
+    <a href="https://example.com">
       title[bracket1][bracket2][3]
     </a>
   `)
@@ -5315,9 +5219,96 @@ it('#597 handles script tag with empty content', () => {
   render(compiler('<script src="dummy.js"></script>'))
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <script src="dummy.js"
-            data-reactroot
-    >
+    <script src="dummy.js">
     </script>
   `)
+})
+
+it('#678 handles various combinations of inline markup and html', () => {
+  render(
+    compiler(`
+**bold** *italic*
+
+*italic* **bold**
+
+*italic* <u>underline</u>
+
+<u>underline</u> *italic*
+
+~~strikethrough~~ **bold*
+
+*italic* ~~strikethrough~~
+
+**bold** ~~strikethrough~~
+  `)
+  )
+
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+    <div>
+      <p>
+        <strong>
+          bold
+        </strong>
+        <em>
+          italic
+        </em>
+      </p>
+      <p>
+        <em>
+          italic
+        </em>
+        <strong>
+          bold
+        </strong>
+      </p>
+      <p>
+        <em>
+          italic
+        </em>
+        <u>
+          underline
+        </u>
+      </p>
+      <p>
+        <u>
+          underline
+        </u>
+        <em>
+          italic
+        </em>
+      </p>
+      <p>
+        <del>
+          strikethrough
+        </del>
+        *
+        <em>
+          bold
+        </em>
+      </p>
+      <p>
+        <em>
+          italic
+        </em>
+        <del>
+          strikethrough
+        </del>
+      </p>
+      <p>
+        <strong>
+          bold
+        </strong>
+        <del>
+          strikethrough
+        </del>
+      </p>
+    </div>
+  `)
+})
+
+it('handles a holistic example', () => {
+  const md = fs.readFileSync(__dirname + '/fixture.md', 'utf8')
+  render(compiler(md))
+
+  expect(root.innerHTML).toMatchSnapshot()
 })
