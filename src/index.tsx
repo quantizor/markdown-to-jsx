@@ -253,9 +253,6 @@ function render(
       )
     }
 
-    case RuleType.newlineCoalescer:
-      return '\n'
-
     case RuleType.paragraph:
       return <p key={state.key}>{output(node.children, state)}</p>
 

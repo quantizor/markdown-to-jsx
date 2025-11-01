@@ -25,7 +25,6 @@ const RuleTypeConst = {
   linkAngleBraceStyleDetector: '16',
   linkBareUrlDetector: '17',
   linkMailtoDetector: '18',
-  newlineCoalescer: '19',
   orderedList: '20',
   paragraph: '21',
   ref: '22',
@@ -190,10 +189,6 @@ export namespace MarkdownToJSX {
     ordered: false
   }
 
-  export interface NewlineNode {
-    type: typeof RuleType.newlineCoalescer
-  }
-
   export interface ParagraphNode {
     type: typeof RuleType.paragraph
     children: MarkdownToJSX.ASTNode[]
@@ -283,7 +278,6 @@ export namespace MarkdownToJSX {
     | LinkMailtoNode
     | OrderedListNode
     | UnorderedListNode
-    | NewlineNode
     | ParagraphNode
     | ReferenceNode
     | ReferenceImageNode
