@@ -3346,7 +3346,7 @@ export function parseHTMLSelfClosing(
   }
 
   // Remove trailing / from attributes if present (from self-closing tag)
-  let attrs = (match[2] || '').replace(/\s*\/\s*$/, '')
+  let attrs = (match[2] || '').replace(/\/\s*$/, '')
   const endPos = pos + match[0].length
 
   const attributes = parseHTMLAttributes(
