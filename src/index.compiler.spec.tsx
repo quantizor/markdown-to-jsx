@@ -733,7 +733,7 @@ describe('headings', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <div>
-        <h1>
+        <h1 id="hello-world">
           Hello World
         </h1>
         <p>
@@ -748,7 +748,7 @@ describe('headings', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       <div>
-        <h2>
+        <h2 id="hello-world">
           Hello World
         </h2>
         <p>

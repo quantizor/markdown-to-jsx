@@ -406,10 +406,7 @@ function parseHTMLAttributes(
 /**
  * Result of a streaming parser
  */
-export type ParseResult = {
-  node: MarkdownToJSX.ASTNode
-  endPos: number
-} | null
+export type ParseResult = (MarkdownToJSX.ASTNode & { endPos: number }) | null
 
 /**
  * Options passed to parsers
@@ -503,7 +500,7 @@ export function parseInlineSpan(
           }
           flushText(pos, false)
           // Push escaped character as separate node (don't merge with next text)
-          result.push(escapedResult.node)
+          result.push(escapedResult)
           pos = escapedResult.endPos
           // After escaped char, next text should NOT merge with it
           // Set textStart to current pos so next accumulation starts fresh
@@ -538,7 +535,7 @@ export function parseInlineSpan(
                 parseMetrics.inlineParsers.footnoteRef.hits++
               }
               flushText(pos)
-              result.push(footnoteResult.node)
+              result.push(footnoteResult)
               pos = footnoteResult.endPos
               textStart = pos
               matched = true
@@ -576,7 +573,7 @@ export function parseInlineSpan(
                 parseMetrics.inlineParsers.gfmTask.hits++
               }
               flushText(pos)
-              result.push(taskResult.node)
+              result.push(taskResult)
               pos = taskResult.endPos
               textStart = pos
               matched = true
@@ -593,7 +590,7 @@ export function parseInlineSpan(
               parseMetrics.inlineParsers.refLink.hits++
             }
             flushText(pos)
-            result.push(refLinkResult.node)
+            result.push(refLinkResult)
             pos = refLinkResult.endPos
             textStart = pos
             matched = true
@@ -609,7 +606,7 @@ export function parseInlineSpan(
               parseMetrics.inlineParsers.link.hits++
             }
             flushText(pos)
-            result.push(linkResult.node)
+            result.push(linkResult)
             pos = linkResult.endPos
             textStart = pos
             matched = true
@@ -642,7 +639,7 @@ export function parseInlineSpan(
               parseMetrics.inlineParsers.angleBraceLink.hits++
             }
             flushText(pos)
-            result.push(angleBraceResult.node)
+            result.push(angleBraceResult)
             pos = angleBraceResult.endPos
             textStart = pos
             matched = true
@@ -659,7 +656,7 @@ export function parseInlineSpan(
                 parseMetrics.inlineParsers.htmlComment.hits++
               }
               flushText(pos)
-              result.push(htmlCommentResult.node)
+              result.push(htmlCommentResult)
               pos = htmlCommentResult.endPos
               textStart = pos
               matched = true
@@ -676,7 +673,7 @@ export function parseInlineSpan(
               parseMetrics.inlineParsers.htmlElement.hits++
             }
             flushText(pos)
-            result.push(htmlResult.node)
+            result.push(htmlResult)
             pos = htmlResult.endPos
             textStart = pos
             matched = true
@@ -696,7 +693,7 @@ export function parseInlineSpan(
               parseMetrics.inlineParsers.htmlSelfClosing.hits++
             }
             flushText(pos)
-            result.push(htmlSelfClosingResult.node)
+            result.push(htmlSelfClosingResult)
             pos = htmlSelfClosingResult.endPos
             textStart = pos
             matched = true
@@ -774,7 +771,7 @@ export function parseInlineSpan(
               parseMetrics.inlineParsers.breakLine.hits++
             }
             flushText(pos)
-            result.push(breakResult.node)
+            result.push(breakResult)
             pos = breakResult.endPos
             textStart = pos
             matched = true
@@ -799,7 +796,7 @@ export function parseInlineSpan(
             parseMetrics.inlineParsers.codeInline.hits++
           }
           flushText(pos)
-          result.push(codeResult.node)
+          result.push(codeResult)
           pos = codeResult.endPos
           textStart = pos
           matched = true
@@ -825,7 +822,7 @@ export function parseInlineSpan(
               parseMetrics.inlineParsers.refImage.hits++
             }
             flushText(pos)
-            result.push(refImageResult.node)
+            result.push(refImageResult)
             pos = refImageResult.endPos
             textStart = pos
             matched = true
@@ -840,7 +837,7 @@ export function parseInlineSpan(
               parseMetrics.inlineParsers.image.hits++
             }
             flushText(pos)
-            result.push(imageResult.node)
+            result.push(imageResult)
             pos = imageResult.endPos
             textStart = pos
             matched = true
@@ -886,7 +883,7 @@ export function parseInlineSpan(
               parseMetrics.inlineParsers.bareUrl.hits++
             }
             flushText(pos)
-            result.push(bareUrlResult.node)
+            result.push(bareUrlResult)
             pos = bareUrlResult.endPos
             textStart = pos
             matched = true
@@ -1019,12 +1016,10 @@ export function parseText(
     }
 
     return {
-      node: {
-        type: RuleType.text,
-        text: processedText,
-      } as MarkdownToJSX.TextNode,
+      type: RuleType.text,
+      text: processedText,
       endPos: pos,
-    }
+    } as MarkdownToJSX.TextNode & { endPos: number }
   }
 
   return null
@@ -1037,12 +1032,10 @@ export function parseTextEscaped(source: string, pos: number): ParseResult {
   if (!includes('*_~`[]()#\\+-.!{}|<>\n', nextChar)) return null
 
   return {
-    node: {
-      type: RuleType.text,
-      text: nextChar,
-    } as MarkdownToJSX.TextNode,
+    type: RuleType.text,
+    text: nextChar,
     endPos: pos + 2,
-  }
+  } as MarkdownToJSX.TextNode & { endPos: number }
 }
 
 export function parseCodeInline(source: string, pos: number): ParseResult {
@@ -1099,12 +1092,10 @@ export function parseCodeInline(source: string, pos: number): ParseResult {
   const content = rawContent.replace(UNESCAPE_R, '$1')
 
   return {
-    node: {
-      type: RuleType.codeInline,
-      text: content,
-    } as MarkdownToJSX.CodeInlineNode,
+    type: RuleType.codeInline,
+    text: content,
     endPos: i,
-  }
+  } as MarkdownToJSX.CodeInlineNode & { endPos: number }
 }
 
 export function parseBreakLine(source: string, pos: number): ParseResult {
@@ -1116,9 +1107,9 @@ export function parseBreakLine(source: string, pos: number): ParseResult {
     source[pos + 2] === '\n'
   ) {
     return {
-      node: { type: RuleType.breakLine } as MarkdownToJSX.BreakLineNode,
+      type: RuleType.breakLine,
       endPos: pos + 3,
-    }
+    } as MarkdownToJSX.BreakLineNode & { endPos: number }
   }
 
   return null
@@ -1274,14 +1265,12 @@ export function parseLink(
   }
 
   return {
-    node: {
-      type: RuleType.link,
-      children,
-      target,
-      title,
-    } as MarkdownToJSX.LinkNode,
+    type: RuleType.link,
+    children,
+    target,
+    title,
     endPos: urlResult.endPos,
-  }
+  } as MarkdownToJSX.LinkNode & { endPos: number }
 }
 
 export function parseImage(
@@ -1334,14 +1323,12 @@ export function parseImage(
     : undefined
 
   return {
-    node: {
-      type: RuleType.image,
-      alt: unescapedAlt || undefined,
-      target: unescapedTarget,
-      title: unescapedTitle,
-    } as MarkdownToJSX.ImageNode,
+    type: RuleType.image,
+    alt: unescapedAlt || undefined,
+    target: unescapedTarget,
+    title: unescapedTitle,
     endPos: urlResult.endPos,
-  }
+  } as MarkdownToJSX.ImageNode & { endPos: number }
 }
 
 export function parseLinkAngleBrace(
@@ -1398,18 +1385,16 @@ export function parseLinkAngleBrace(
   if (safeHrefAuto == null)
     console.warn && console.warn('Stripped unsafe href in autolink')
   return {
-    node: {
-      children: [
-        {
-          text: target,
-          type: RuleType.text,
-        },
-      ],
-      target: finalTarget,
-      type: RuleType.link,
-    } as MarkdownToJSX.LinkNode,
+    children: [
+      {
+        text: target,
+        type: RuleType.text,
+      },
+    ],
+    target: finalTarget,
+    type: RuleType.link,
     endPos: endPos + 1,
-  }
+  } as MarkdownToJSX.LinkNode & { endPos: number }
 }
 
 export function parseLinkBareUrl(
@@ -1465,19 +1450,17 @@ export function parseLinkBareUrl(
   }
 
   return {
-    node: {
-      children: [
-        {
-          text: url,
-          type: RuleType.text,
-        },
-      ],
-      target: url,
-      title: undefined,
-      type: RuleType.link,
-    } as MarkdownToJSX.LinkNode,
+    children: [
+      {
+        text: url,
+        type: RuleType.text,
+      },
+    ],
+    target: url,
+    title: undefined,
+    type: RuleType.link,
     endPos: urlEnd,
-  }
+  } as MarkdownToJSX.LinkNode & { endPos: number }
 }
 
 export function parseRefLink(
@@ -1536,14 +1519,12 @@ export function parseRefLink(
   const children = parseInlineSpan(source, pos + 1, textEnd, state, options)
 
   return {
-    node: {
-      type: RuleType.refLink,
-      children,
-      fallbackChildren: source.slice(pos, i + 1),
-      ref: ref || undefined,
-    } as MarkdownToJSX.ReferenceLinkNode,
+    type: RuleType.refLink,
+    children,
+    fallbackChildren: source.slice(pos, i + 1),
+    ref: ref || undefined,
     endPos: i + 1,
-  }
+  } as MarkdownToJSX.ReferenceLinkNode & { endPos: number }
 }
 
 export function parseRefImage(
@@ -1592,13 +1573,11 @@ export function parseRefImage(
   const ref = source.slice(refStart + 1, refEnd) // +1 to skip the '['
 
   return {
-    node: {
-      type: RuleType.refImage,
-      alt: alt ? alt.replace(UNESCAPE_R, '$1') : undefined,
-      ref: ref || undefined,
-    } as MarkdownToJSX.ReferenceImageNode,
+    type: RuleType.refImage,
+    alt: alt ? alt.replace(UNESCAPE_R, '$1') : undefined,
+    ref: ref || undefined,
     endPos: i + 1,
-  }
+  } as MarkdownToJSX.ReferenceImageNode & { endPos: number }
 }
 
 export function parseFootnoteReference(
@@ -1630,13 +1609,11 @@ export function parseFootnoteReference(
   const slugifiedId = options.slugify(identifier)
 
   return {
-    node: {
-      type: RuleType.footnoteReference,
-      target: `#${slugifiedId}`,
-      text: identifier,
-    } as MarkdownToJSX.FootnoteReferenceNode,
+    type: RuleType.footnoteReference,
+    target: `#${slugifiedId}`,
+    text: identifier,
     endPos: endPos + 1,
-  }
+  } as MarkdownToJSX.FootnoteReferenceNode & { endPos: number }
 }
 
 export function parseGFMTask(source: string, pos: number): ParseResult {
@@ -1653,12 +1630,10 @@ export function parseGFMTask(source: string, pos: number): ParseResult {
   if (endPos >= source.length || source[endPos] !== ']') return null
 
   return {
-    node: {
-      type: RuleType.gfmTask,
-      completed: marker.toLowerCase() === 'x',
-    } as MarkdownToJSX.GFMTaskNode,
+    type: RuleType.gfmTask,
+    completed: marker.toLowerCase() === 'x',
     endPos: endPos + 1,
-  }
+  } as MarkdownToJSX.GFMTaskNode & { endPos: number }
 }
 
 /**
@@ -1717,7 +1692,7 @@ function parseBlocksInHTML(
       for (let i = 0; i < parsers.length; i++) {
         const parseResult = parsers[i](input, pos, state, options)
         if (parseResult) {
-          result.push(parseResult.node)
+          result.push(parseResult)
           pos = parseResult.endPos
           matched = true
           break
@@ -1729,7 +1704,7 @@ function parseBlocksInHTML(
       for (let i = 0; i < numericParsers.length; i++) {
         const parseResult = numericParsers[i](input, pos, state, options)
         if (parseResult) {
-          result.push(parseResult.node)
+          result.push(parseResult)
           pos = parseResult.endPos
           matched = true
           break
@@ -1740,7 +1715,7 @@ function parseBlocksInHTML(
     if (!matched) {
       const parseResult = parseHeadingSetext(input, pos, state, options)
       if (parseResult) {
-        result.push(parseResult.node)
+        result.push(parseResult)
         pos = parseResult.endPos
         matched = true
       }
@@ -1751,7 +1726,7 @@ function parseBlocksInHTML(
       if (remaining) {
         const parseResult = parseParagraph(input, pos, state, options)
         if (parseResult) {
-          result.push(parseResult.node)
+          result.push(parseResult)
           pos = parseResult.endPos
           matched = true
         }
@@ -1803,16 +1778,14 @@ export function parseHeading(
   state.inline = originalInline
 
   return {
-    node: {
-      type: RuleType.heading,
-      level,
-      children,
-      id: options.slugify(content),
-    } as MarkdownToJSX.HeadingNode,
+    type: RuleType.heading,
+    level,
+    children,
+    id: options.slugify(content),
     endPos:
       contentEnd +
       (contentEnd < source.length && source[contentEnd] === '\n' ? 1 : 0),
-  }
+  } as MarkdownToJSX.HeadingNode & { endPos: number }
 }
 
 export function parseHeadingSetext(
@@ -1865,13 +1838,12 @@ export function parseHeadingSetext(
   state.inline = originalInline
 
   return {
-    node: {
-      type: RuleType.heading,
-      level,
-      children,
-    } as MarkdownToJSX.HeadingNode,
+    type: RuleType.heading,
+    level,
+    children,
+    id: options.slugify(content),
     endPos: i + (i < source.length && source[i] === '\n' ? 1 : 0),
-  }
+  } as MarkdownToJSX.HeadingNode & { endPos: number }
 }
 
 export function parseParagraph(
@@ -2060,12 +2032,10 @@ export function parseParagraph(
   state.preserveNewlines = originalPreserveNewlines
 
   return {
-    node: {
-      type: RuleType.paragraph,
-      children,
-    } as MarkdownToJSX.ParagraphNode,
+    type: RuleType.paragraph,
+    children,
     endPos,
-  }
+  } as MarkdownToJSX.ParagraphNode & { endPos: number }
 }
 
 export function parseBreakThematic(source: string, pos: number): ParseResult {
@@ -2090,11 +2060,9 @@ export function parseBreakThematic(source: string, pos: number): ParseResult {
   if (count < 3) return null
 
   return {
-    node: {
-      type: RuleType.breakThematic,
-    } as MarkdownToJSX.BreakThematicNode,
+    type: RuleType.breakThematic,
     endPos: lineEnd + (lineEnd < source.length ? 1 : 0),
-  }
+  } as MarkdownToJSX.BreakThematicNode & { endPos: number }
 }
 
 /**
@@ -2230,12 +2198,10 @@ export function parseCodeBlock(source: string, pos: number): ParseResult {
   content = content.replace(ESCAPE_SEQUENCE_R, '$1')
 
   return {
-    node: {
-      type: RuleType.codeBlock,
-      text: content,
-    } as MarkdownToJSX.CodeBlockNode,
+    type: RuleType.codeBlock,
+    text: content,
     endPos,
-  }
+  } as MarkdownToJSX.CodeBlockNode & { endPos: number }
 }
 
 export function parseCodeFenced(
@@ -2359,14 +2325,12 @@ export function parseCodeFenced(
   }
 
   return {
-    node: {
-      type: RuleType.codeBlock,
-      text: content,
-      lang: lang || undefined,
-      attrs: Object.keys(parsedAttrs).length > 0 ? parsedAttrs : undefined,
-    } as MarkdownToJSX.CodeBlockNode,
+    type: RuleType.codeBlock,
+    text: content,
+    lang: lang || undefined,
+    attrs: Object.keys(parsedAttrs).length > 0 ? parsedAttrs : undefined,
     endPos,
-  }
+  } as MarkdownToJSX.CodeBlockNode & { endPos: number }
 }
 
 export function parseBlockQuote(
@@ -2485,13 +2449,11 @@ export function parseBlockQuote(
   }
 
   return {
-    node: {
-      type: RuleType.blockQuote,
-      children,
-      alert: alertType,
-    } as MarkdownToJSX.BlockQuoteNode,
+    type: RuleType.blockQuote,
+    children,
+    alert: alertType,
     endPos,
-  }
+  } as MarkdownToJSX.BlockQuoteNode & { endPos: number }
 }
 
 function appendListContinuation(
@@ -2607,7 +2569,7 @@ function parseList(
       task &&
       (task.endPos < content.length ? content[task.endPos] === ' ' : true)
     ) {
-      children.push(task.node)
+      children.push(task)
       const restStart =
         task.endPos < content.length && content[task.endPos] === ' '
           ? task.endPos + 1
@@ -2698,7 +2660,7 @@ function parseList(
           )
           if (nestedResult) {
             const lastItem = items[items.length - 1]
-            lastItem.push(nestedResult.node)
+            lastItem.push(nestedResult)
             currentPos = nestedResult.endPos
           } else {
             const continuationContent = nextLine.slice(nextIndent)
@@ -2726,7 +2688,7 @@ function parseList(
         )
         if (nestedUnorderedResult) {
           const lastItem = items[items.length - 1]
-          lastItem.push(nestedUnorderedResult.node)
+          lastItem.push(nestedUnorderedResult)
           currentPos = nestedUnorderedResult.endPos
         } else {
           const nestedOrderedResult = parseList(
@@ -2738,7 +2700,7 @@ function parseList(
           )
           if (nestedOrderedResult) {
             const lastItem = items[items.length - 1]
-            lastItem.push(nestedOrderedResult.node)
+            lastItem.push(nestedOrderedResult)
             currentPos = nestedOrderedResult.endPos
           } else if (nextIndent >= baseIndent + 4) {
             const continuationContent = nextLine.slice(nextIndent)
@@ -2760,20 +2722,23 @@ function parseList(
     }
   }
 
+  const listNode = ordered
+    ? ({
+        type: RuleType.orderedList,
+        items,
+        ordered: true,
+        start,
+      } as MarkdownToJSX.OrderedListNode)
+    : ({
+        type: RuleType.unorderedList,
+        items,
+        ordered: false,
+      } as MarkdownToJSX.UnorderedListNode)
   return {
-    node: ordered
-      ? ({
-          type: RuleType.orderedList,
-          items,
-          ordered: true,
-          start,
-        } as MarkdownToJSX.OrderedListNode)
-      : ({
-          type: RuleType.unorderedList,
-          items,
-          ordered: false,
-        } as MarkdownToJSX.UnorderedListNode),
+    ...listNode,
     endPos: currentPos,
+  } as (MarkdownToJSX.OrderedListNode | MarkdownToJSX.UnorderedListNode) & {
+    endPos: number
   }
 }
 
@@ -2914,14 +2879,12 @@ export function parseTable(
   })
 
   return {
-    node: {
-      type: RuleType.table,
-      header,
-      cells,
-      align: alignments,
-    } as MarkdownToJSX.TableNode,
+    type: RuleType.table,
+    header,
+    cells,
+    align: alignments,
     endPos: currentPos,
-  }
+  } as MarkdownToJSX.TableNode & { endPos: number }
 }
 
 // Import matchHTMLBlock from index.tsx - reuse proven HTML block matching logic
@@ -3249,20 +3212,15 @@ export function parseHTMLBlock(
     }
   }
 
-  const node: MarkdownToJSX.HTMLNode = {
+  return {
     type: RuleType.htmlBlock,
     // For noInnerParse tags, use lowercase tag name (like old parser)
     // Otherwise preserve original case
     tag: (noInnerParse ? tagName : tagNameOriginal) as MarkdownToJSX.HTMLTags,
     attrs: attributes,
     children,
+    text: noInnerParse ? content : undefined,
     noInnerParse,
-  }
-  if (noInnerParse) {
-    node.text = content
-  }
-  return {
-    node,
     endPos: endPos,
   }
 }
@@ -3315,13 +3273,11 @@ export function parseHTMLElement(
     )
 
     return {
-      node: {
-        type: RuleType.htmlSelfClosing,
-        tag: tagName,
-        attrs: attributes,
-      } as MarkdownToJSX.HTMLSelfClosingNode,
+      type: RuleType.htmlSelfClosing,
+      tag: tagName,
+      attrs: attributes,
       endPos: pos + fullMatch.length,
-    }
+    } as MarkdownToJSX.HTMLSelfClosingNode & { endPos: number }
   }
 
   // For complete HTML elements with nested tags, use the same logic as parseHTMLBlock
@@ -3366,13 +3322,11 @@ export function parseHTMLSelfClosing(
       )
 
       return {
-        node: {
-          type: RuleType.htmlSelfClosing,
-          tag: tagNameOriginal,
-          attrs: attributes,
-        } as MarkdownToJSX.HTMLSelfClosingNode,
+        type: RuleType.htmlSelfClosing,
+        tag: tagNameOriginal,
+        attrs: attributes,
         endPos,
-      }
+      } as MarkdownToJSX.HTMLSelfClosingNode & { endPos: number }
     }
     return null
   }
@@ -3403,13 +3357,11 @@ export function parseHTMLSelfClosing(
   )
 
   return {
-    node: {
-      type: RuleType.htmlSelfClosing,
-      tag: tagNameOriginal,
-      attrs: attributes,
-    } as MarkdownToJSX.HTMLSelfClosingNode,
+    type: RuleType.htmlSelfClosing,
+    tag: tagNameOriginal,
+    attrs: attributes,
     endPos,
-  }
+  } as MarkdownToJSX.HTMLSelfClosingNode & { endPos: number }
 }
 
 export function parseHTMLComment(source: string, pos: number): ParseResult {
@@ -3419,11 +3371,9 @@ export function parseHTMLComment(source: string, pos: number): ParseResult {
   while (endPos + 2 < source.length) {
     if (startsWith(source, '-->', endPos)) {
       return {
-        node: {
-          type: RuleType.htmlComment,
-        } as MarkdownToJSX.HTMLCommentNode,
+        type: RuleType.htmlComment,
         endPos: endPos + 3,
-      }
+      } as MarkdownToJSX.HTMLCommentNode & { endPos: number }
     }
     endPos++
   }
@@ -3453,11 +3403,9 @@ export function parseRef(
   refs[ref] = { target, title }
 
   return {
-    node: {
-      type: RuleType.ref,
-    } as MarkdownToJSX.ReferenceNode,
+    type: RuleType.ref,
     endPos: pos + match[0].length,
-  }
+  } as MarkdownToJSX.ReferenceNode & { endPos: number }
 }
 
 export function parseFootnote(
@@ -3634,11 +3582,9 @@ export function parseFootnote(
   })
 
   return {
-    node: {
-      type: RuleType.footnote,
-    } as MarkdownToJSX.FootnoteNode,
+    type: RuleType.footnote,
     endPos: contentEnd,
-  }
+  } as MarkdownToJSX.FootnoteNode & { endPos: number }
 }
 
 const T = ['strong', 'em', 'del', 'mark']

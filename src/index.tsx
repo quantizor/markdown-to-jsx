@@ -676,7 +676,7 @@ export function compiler(
           if (isDebug && parseMetrics) {
             parseMetrics.blockParsers.codeBlock.hits++
           }
-          result.push(parseResult.node)
+          result.push(parseResult)
           pos = parseResult.endPos
           matched = true
         }
@@ -694,7 +694,7 @@ export function compiler(
             if (isDebug && parseMetrics) {
               parseMetrics.blockParsers.blockQuote.hits++
             }
-            result.push(parseResult.node)
+            result.push(parseResult)
             pos = parseResult.endPos
             matched = true
           }
@@ -712,7 +712,7 @@ export function compiler(
             if (isDebug && parseMetrics) {
               parseMetrics.blockParsers.heading.hits++
             }
-            result.push(parseResult.node)
+            result.push(parseResult)
             pos = parseResult.endPos
             matched = true
           }
@@ -729,7 +729,7 @@ export function compiler(
           if (isDebug && parseMetrics) {
             parseMetrics.blockParsers.headingSetext.hits++
           }
-          result.push(parseResult.node)
+          result.push(parseResult)
           pos = parseResult.endPos
           matched = true
         }
@@ -746,7 +746,7 @@ export function compiler(
             if (isDebug && parseMetrics) {
               parseMetrics.blockParsers.breakThematic.hits++
             }
-            result.push(parseResult.node)
+            result.push(parseResult)
             pos = parseResult.endPos
             matched = true
           }
@@ -764,7 +764,7 @@ export function compiler(
             if (isDebug && parseMetrics) {
               parseMetrics.blockParsers.codeFenced.hits++
             }
-            result.push(parseResult.node)
+            result.push(parseResult)
             pos = parseResult.endPos
             matched = true
           }
@@ -788,7 +788,7 @@ export function compiler(
             if (isDebug && parseMetrics) {
               parseMetrics.blockParsers.unorderedList.hits++
             }
-            result.push(parseResult.node)
+            result.push(parseResult)
             pos = parseResult.endPos
             matched = true
           } else {
@@ -801,7 +801,7 @@ export function compiler(
               if (isDebug && parseMetrics) {
                 parseMetrics.blockParsers.orderedList.hits++
               }
-              result.push(parseResult.node)
+              result.push(parseResult)
               pos = parseResult.endPos
               matched = true
             }
@@ -820,7 +820,7 @@ export function compiler(
             if (isDebug && parseMetrics) {
               parseMetrics.blockParsers.table.hits++
             }
-            result.push(parseResult.node)
+            result.push(parseResult)
             pos = parseResult.endPos
             matched = true
           }
@@ -839,7 +839,7 @@ export function compiler(
             if (isDebug && parseMetrics) {
               parseMetrics.blockParsers.htmlComment.hits++
             }
-            result.push(parseResult.node)
+            result.push(parseResult)
             pos = parseResult.endPos
             matched = true
           } else {
@@ -852,7 +852,7 @@ export function compiler(
               if (isDebug && parseMetrics) {
                 parseMetrics.blockParsers.htmlBlock.hits++
               }
-              result.push(parseResult.node)
+              result.push(parseResult)
               pos = parseResult.endPos
               matched = true
             } else {
@@ -865,7 +865,7 @@ export function compiler(
                 if (isDebug && parseMetrics) {
                   parseMetrics.blockParsers.htmlSelfClosing.hits++
                 }
-                result.push(parseResult.node)
+                result.push(parseResult)
                 pos = parseResult.endPos
                 matched = true
               }
@@ -932,7 +932,7 @@ export function compiler(
           if (isDebug && parseMetrics) {
             parseMetrics.blockParsers.paragraph.hits++
           }
-          result.push(parseResult.node)
+          result.push(parseResult)
           pos = parseResult.endPos
           matched = true
         }

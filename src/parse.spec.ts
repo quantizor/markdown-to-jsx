@@ -151,9 +151,9 @@ describe('parseInlineSpan', () => {
     )
     expect(result).toEqual([
       { type: RuleType.text, text: 'Hello ' },
-      { type: RuleType.text, text: '*' },
+      { type: RuleType.text, text: '*', endPos: 8 },
       { type: RuleType.text, text: 'world' },
-      { type: RuleType.text, text: '*' },
+      { type: RuleType.text, text: '*', endPos: 15 },
     ])
   })
 
@@ -167,7 +167,7 @@ describe('parseInlineSpan', () => {
     )
     expect(result).toEqual([
       { type: RuleType.text, text: 'Hello' },
-      { type: RuleType.breakLine },
+      { type: RuleType.breakLine, endPos: 8 },
       { type: RuleType.text, text: 'world' },
     ])
   })
@@ -189,10 +189,8 @@ describe('parseText', () => {
   it('should parse plain text', () => {
     const result = parseText('Hello world', 0, 11)
     expect(result).toEqual({
-      node: {
-        type: RuleType.text,
-        text: 'Hello world',
-      },
+      type: RuleType.text,
+      text: 'Hello world',
       endPos: 11,
     })
   })
@@ -200,10 +198,8 @@ describe('parseText', () => {
   it('should handle HTML entities', () => {
     const result = parseText('Hello &amp; world', 0, 17)
     expect(result).toEqual({
-      node: {
-        type: RuleType.text,
-        text: 'Hello & world',
-      },
+      type: RuleType.text,
+      text: 'Hello & world',
       endPos: 17,
     })
   })
@@ -211,10 +207,8 @@ describe('parseText', () => {
   it('should handle standard HTML entities', () => {
     const result = parseText('Foo &nbsp; bar&amp;baz.', 0, 23)
     expect(result).toEqual({
-      node: {
-        type: RuleType.text,
-        text: 'Foo \u00a0 bar&baz.',
-      },
+      type: RuleType.text,
+      text: 'Foo \u00a0 bar&baz.',
       endPos: 23,
     })
   })
@@ -229,21 +223,19 @@ describe('parseText', () => {
     )
     expect(result).toEqual([
       { type: RuleType.text, text: 'Hello.' },
-      { type: RuleType.text, text: '_' },
-      { type: RuleType.text, text: '_' },
+      { type: RuleType.text, text: '_', endPos: 8 },
+      { type: RuleType.text, text: '_', endPos: 10 },
       { type: RuleType.text, text: 'foo' },
-      { type: RuleType.text, text: '_' },
-      { type: RuleType.text, text: '_' },
+      { type: RuleType.text, text: '_', endPos: 15 },
+      { type: RuleType.text, text: '_', endPos: 17 },
     ])
   })
 
   it('should stop at special characters', () => {
     const result = parseText('Hello [world]', 0, 13)
     expect(result).toEqual({
-      node: {
-        type: RuleType.text,
-        text: 'Hello ',
-      },
+      type: RuleType.text,
+      text: 'Hello ',
       endPos: 6,
     })
   })
@@ -251,10 +243,8 @@ describe('parseText', () => {
   it('should stop at newlines', () => {
     const result = parseText('Hello\nworld', 0, 11)
     expect(result).toEqual({
-      node: {
-        type: RuleType.text,
-        text: 'Hello',
-      },
+      type: RuleType.text,
+      text: 'Hello',
       endPos: 5,
     })
   })
@@ -269,10 +259,8 @@ describe('parseTextEscaped', () => {
   it('should parse escaped asterisk', () => {
     const result = parseTextEscaped('\\*', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.text,
-        text: '*',
-      },
+      type: RuleType.text,
+      text: '*',
       endPos: 2,
     })
   })
@@ -280,10 +268,8 @@ describe('parseTextEscaped', () => {
   it('should parse escaped backtick', () => {
     const result = parseTextEscaped('\\`', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.text,
-        text: '`',
-      },
+      type: RuleType.text,
+      text: '`',
       endPos: 2,
     })
   })
@@ -308,10 +294,8 @@ describe('parseCodeInline', () => {
   it('should parse single backtick code', () => {
     const result = parseCodeInline('`code`', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.codeInline,
-        text: 'code',
-      },
+      type: RuleType.codeInline,
+      text: 'code',
       endPos: 6,
     })
   })
@@ -319,10 +303,8 @@ describe('parseCodeInline', () => {
   it('should parse triple backtick code', () => {
     const result = parseCodeInline('```code```', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.codeInline,
-        text: 'code',
-      },
+      type: RuleType.codeInline,
+      text: 'code',
       endPos: 10,
     })
   })
@@ -330,10 +312,8 @@ describe('parseCodeInline', () => {
   it('should handle backticks in code with double backticks', () => {
     const result = parseCodeInline('``code`more``', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.codeInline,
-        text: 'code`more',
-      },
+      type: RuleType.codeInline,
+      text: 'code`more',
       endPos: 13,
     })
   })
@@ -341,10 +321,8 @@ describe('parseCodeInline', () => {
   it('should handle naked backticks inside double backticks', () => {
     const result = parseCodeInline('``hi `foo` there``', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.codeInline,
-        text: 'hi `foo` there',
-      },
+      type: RuleType.codeInline,
+      text: 'hi `foo` there',
       endPos: 18,
     })
   })
@@ -364,9 +342,7 @@ describe('parseBreakLine', () => {
   it('should parse line break', () => {
     const result = parseBreakLine('  \n', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.breakLine,
-      },
+      type: RuleType.breakLine,
       endPos: 3,
     })
   })
@@ -393,12 +369,10 @@ describe('parseLink', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.link,
-        children: [{ type: RuleType.text, text: 'text' }],
-        target: 'url',
-        title: 'title',
-      },
+      type: RuleType.link,
+      children: [{ type: RuleType.text, text: 'text' }],
+      target: 'url',
+      title: 'title',
       endPos: 19,
     })
   })
@@ -406,12 +380,10 @@ describe('parseLink', () => {
   it('should parse link without title', () => {
     const result = parseLink('[text](url)', 0, 11, mockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.link,
-        children: [{ type: RuleType.text, text: 'text' }],
-        target: 'url',
-        title: undefined,
-      },
+      type: RuleType.link,
+      children: [{ type: RuleType.text, text: 'text' }],
+      target: 'url',
+      title: undefined,
       endPos: 11,
     })
   })
@@ -426,12 +398,10 @@ describe('parseImage', () => {
   it('should parse image with alt and title', () => {
     const result = parseImage('![alt](url "title")', 0, mockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.image,
-        alt: 'alt',
-        target: 'url',
-        title: 'title',
-      },
+      type: RuleType.image,
+      alt: 'alt',
+      target: 'url',
+      title: 'title',
       endPos: 19,
     })
   })
@@ -439,12 +409,10 @@ describe('parseImage', () => {
   it('should parse image without title', () => {
     const result = parseImage('![alt](url)', 0, mockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.image,
-        alt: 'alt',
-        target: 'url',
-        title: undefined,
-      },
+      type: RuleType.image,
+      alt: 'alt',
+      target: 'url',
+      title: undefined,
       endPos: 11,
     })
   })
@@ -464,11 +432,9 @@ describe('parseLinkAngleBrace', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.link,
-        children: [{ type: RuleType.text, text: 'http://example.com' }],
-        target: 'http://example.com',
-      },
+      type: RuleType.link,
+      children: [{ type: RuleType.text, text: 'http://example.com' }],
+      target: 'http://example.com',
       endPos: 20,
     })
   })
@@ -481,11 +447,9 @@ describe('parseLinkAngleBrace', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.link,
-        children: [{ type: RuleType.text, text: 'user@example.com' }],
-        target: 'mailto:user@example.com',
-      },
+      type: RuleType.link,
+      children: [{ type: RuleType.text, text: 'user@example.com' }],
+      target: 'mailto:user@example.com',
       endPos: 18,
     })
   })
@@ -511,12 +475,10 @@ describe('parseLinkBareUrl', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.link,
-        children: [{ type: RuleType.text, text: 'http://example.com' }],
-        target: 'http://example.com',
-        title: undefined,
-      },
+      type: RuleType.link,
+      children: [{ type: RuleType.text, text: 'http://example.com' }],
+      target: 'http://example.com',
+      title: undefined,
       endPos: 18,
     })
   })
@@ -529,12 +491,10 @@ describe('parseLinkBareUrl', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.link,
-        children: [{ type: RuleType.text, text: 'http://example.com.' }],
-        target: 'http://example.com.',
-        title: undefined,
-      },
+      type: RuleType.link,
+      children: [{ type: RuleType.text, text: 'http://example.com.' }],
+      target: 'http://example.com.',
+      title: undefined,
       endPos: 19,
     })
   })
@@ -552,12 +512,10 @@ describe('parseRefLink', () => {
   it('should parse reference link with ref', () => {
     const result = parseRefLink('[text][ref]', 0, mockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.refLink,
-        children: [{ type: RuleType.text, text: 'text' }],
-        fallbackChildren: '[text][ref]',
-        ref: 'ref',
-      },
+      type: RuleType.refLink,
+      children: [{ type: RuleType.text, text: 'text' }],
+      fallbackChildren: '[text][ref]',
+      ref: 'ref',
       endPos: 11,
     })
   })
@@ -565,12 +523,10 @@ describe('parseRefLink', () => {
   it('should parse reference link with empty ref', () => {
     const result = parseRefLink('[text][]', 0, mockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.refLink,
-        children: [{ type: RuleType.text, text: 'text' }],
-        fallbackChildren: '[text][]',
-        ref: undefined,
-      },
+      type: RuleType.refLink,
+      children: [{ type: RuleType.text, text: 'text' }],
+      fallbackChildren: '[text][]',
+      ref: undefined,
       endPos: 8,
     })
   })
@@ -592,12 +548,10 @@ describe('parseLink edge cases', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.link,
-        children: [{ type: RuleType.text, text: '[text]' }],
-        target: 'https://example.com',
-        title: undefined,
-      },
+      type: RuleType.link,
+      children: [{ type: RuleType.text, text: '[text]' }],
+      target: 'https://example.com',
+      title: undefined,
       endPos: 29,
     })
   })
@@ -607,11 +561,9 @@ describe('parseRefImage', () => {
   it('should parse reference image', () => {
     const result = parseRefImage('![alt][ref]', 0, mockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.refImage,
-        alt: 'alt',
-        ref: 'ref',
-      },
+      type: RuleType.refImage,
+      alt: 'alt',
+      ref: 'ref',
       endPos: 11,
     })
   })
@@ -619,11 +571,9 @@ describe('parseRefImage', () => {
   it('should parse reference image with empty ref', () => {
     const result = parseRefImage('![alt][]', 0, mockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.refImage,
-        alt: 'alt',
-        ref: undefined,
-      },
+      type: RuleType.refImage,
+      alt: 'alt',
+      ref: undefined,
       endPos: 8,
     })
   })
@@ -639,12 +589,10 @@ describe('parseHeading', () => {
   it('should parse ATX heading level 1', () => {
     const result = parseHeading('# Hello World', 0, mockBlockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.heading,
-        level: 1,
-        children: [{ type: RuleType.text, text: 'Hello World' }],
-        id: 'hello-world',
-      },
+      type: RuleType.heading,
+      level: 1,
+      children: [{ type: RuleType.text, text: 'Hello World' }],
+      id: 'hello-world',
       endPos: 13,
     })
   })
@@ -657,12 +605,10 @@ describe('parseHeading', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.heading,
-        level: 2,
-        children: [{ type: RuleType.text, text: 'Hello World' }],
-        id: 'hello-world',
-      },
+      type: RuleType.heading,
+      level: 2,
+      children: [{ type: RuleType.text, text: 'Hello World' }],
+      id: 'hello-world',
       endPos: 14,
     })
   })
@@ -670,12 +616,10 @@ describe('parseHeading', () => {
   it('should strip trailing #', () => {
     const result = parseHeading('# Hello #', 0, mockBlockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.heading,
-        level: 1,
-        children: [{ type: RuleType.text, text: 'Hello' }],
-        id: 'hello',
-      },
+      type: RuleType.heading,
+      level: 1,
+      children: [{ type: RuleType.text, text: 'Hello' }],
+      id: 'hello',
       endPos: 9,
     })
   })
@@ -696,10 +640,8 @@ describe('parseParagraph', () => {
   it('should parse simple paragraph', () => {
     const result = parseParagraph('Hello world', 0, mockBlockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.paragraph,
-        children: [{ type: RuleType.text, text: 'Hello world' }],
-      },
+      type: RuleType.paragraph,
+      children: [{ type: RuleType.text, text: 'Hello world' }],
       endPos: 11,
     })
   })
@@ -712,10 +654,8 @@ describe('parseParagraph', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.paragraph,
-        children: [{ type: RuleType.text, text: 'Hello' }],
-      },
+      type: RuleType.paragraph,
+      children: [{ type: RuleType.text, text: 'Hello' }],
       endPos: 5,
     })
   })
@@ -736,9 +676,7 @@ describe('parseBreakThematic', () => {
   it('should parse dash thematic break', () => {
     const result = parseBreakThematic('---', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.breakThematic,
-      },
+      type: RuleType.breakThematic,
       endPos: 3,
     })
   })
@@ -746,9 +684,7 @@ describe('parseBreakThematic', () => {
   it('should parse asterisk thematic break', () => {
     const result = parseBreakThematic('***', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.breakThematic,
-      },
+      type: RuleType.breakThematic,
       endPos: 3,
     })
   })
@@ -761,9 +697,7 @@ describe('parseBreakThematic', () => {
   it('should handle whitespace', () => {
     const result = parseBreakThematic('---   ', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.breakThematic,
-      },
+      type: RuleType.breakThematic,
       endPos: 6,
     })
   })
@@ -783,11 +717,10 @@ describe('parseHeadingSetext', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.heading,
-        level: 1,
-        children: [{ type: RuleType.text, text: 'Hello World' }],
-      },
+      type: RuleType.heading,
+      level: 1,
+      children: [{ type: RuleType.text, text: 'Hello World' }],
+      id: 'hello-world',
       endPos: 15,
     })
   })
@@ -800,11 +733,10 @@ describe('parseHeadingSetext', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.heading,
-        level: 2,
-        children: [{ type: RuleType.text, text: 'Hello World' }],
-      },
+      type: RuleType.heading,
+      level: 2,
+      children: [{ type: RuleType.text, text: 'Hello World' }],
+      id: 'hello-world',
       endPos: 15,
     })
   })
@@ -825,10 +757,8 @@ describe('parseCodeBlock', () => {
   it('should parse indented code block', () => {
     const result = parseCodeBlock('    code line 1\n    code line 2', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.codeBlock,
-        text: 'code line 1\ncode line 2',
-      },
+      type: RuleType.codeBlock,
+      text: 'code line 1\ncode line 2',
       endPos: 31,
     })
   })
@@ -836,10 +766,8 @@ describe('parseCodeBlock', () => {
   it('should parse tab-indented code', () => {
     const result = parseCodeBlock('\tcode line', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.codeBlock,
-        text: 'code line',
-      },
+      type: RuleType.codeBlock,
+      text: 'code line',
       endPos: 10,
     })
   })
@@ -870,8 +798,8 @@ describe('parseCodeBlock', () => {
     // Start parsing after the initial newline (position 1)
     const result = parseCodeBlock(input, 1)
     expect(result).not.toBeNull()
-    expect(result?.node.type).toBe(RuleType.codeBlock)
-    const codeNode = result?.node as MarkdownToJSX.CodeBlockNode
+    expect(result?.type).toBe(RuleType.codeBlock)
+    const codeNode = result as MarkdownToJSX.CodeBlockNode
     expect(codeNode.text).toBe(`\\   backslash
 \`   backtick
 *   asterisk
@@ -895,8 +823,8 @@ not indented - stops here
 `
     const result = parseCodeBlock(input, 0)
     expect(result).not.toBeNull()
-    expect(result?.node.type).toBe(RuleType.codeBlock)
-    const codeNode = result?.node as MarkdownToJSX.CodeBlockNode
+    expect(result?.type).toBe(RuleType.codeBlock)
+    const codeNode = result as MarkdownToJSX.CodeBlockNode
     expect(codeNode.text).toBe(`code line 1
 code line 2`)
     // Should stop before the non-indented line
@@ -908,11 +836,9 @@ describe('parseCodeFenced', () => {
   it('should parse fenced code block', () => {
     const result = parseCodeFenced('```\ncode\n```', 0, mockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.codeBlock,
-        text: 'code',
-        lang: undefined,
-      },
+      type: RuleType.codeBlock,
+      text: 'code',
+      lang: undefined,
       endPos: 12,
     })
   })
@@ -925,11 +851,9 @@ describe('parseCodeFenced', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.codeBlock,
-        text: 'code',
-        lang: 'javascript',
-      },
+      type: RuleType.codeBlock,
+      text: 'code',
+      lang: 'javascript',
       endPos: 22,
     })
   })
@@ -947,11 +871,9 @@ describe('parseCodeFenced', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.codeBlock,
-        text: 'line1\n\nline2',
-        lang: undefined,
-      },
+      type: RuleType.codeBlock,
+      text: 'line1\n\nline2',
+      lang: undefined,
       endPos: 20,
     })
   })
@@ -964,11 +886,9 @@ describe('parseCodeFenced', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.codeBlock,
-        text: '**bold**\n_italic_\n[link](url)',
-        lang: undefined,
-      },
+      type: RuleType.codeBlock,
+      text: '**bold**\n_italic_\n[link](url)',
+      lang: undefined,
       endPos: 37,
     })
   })
@@ -984,15 +904,13 @@ describe('parseBlockQuote', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.blockQuote,
-        children: [
-          {
-            type: RuleType.paragraph,
-            children: [{ type: RuleType.text, text: 'Hello world' }],
-          },
-        ],
-      },
+      type: RuleType.blockQuote,
+      children: [
+        {
+          type: RuleType.paragraph,
+          children: [{ type: RuleType.text, text: 'Hello world' }],
+        },
+      ],
       endPos: 13,
     })
   })
@@ -1005,19 +923,17 @@ describe('parseBlockQuote', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.blockQuote,
-        children: [
-          {
-            type: RuleType.paragraph,
-            children: [
-              { type: RuleType.text, text: 'Line 1' },
-              { type: RuleType.text, text: '\n' },
-              { type: RuleType.text, text: 'Line 2' },
-            ],
-          },
-        ],
-      },
+      type: RuleType.blockQuote,
+      children: [
+        {
+          type: RuleType.paragraph,
+          children: [
+            { type: RuleType.text, text: 'Line 1' },
+            { type: RuleType.text, text: '\n' },
+            { type: RuleType.text, text: 'Line 2' },
+          ],
+        },
+      ],
       endPos: 17,
     })
   })
@@ -1042,15 +958,13 @@ describe('parseOrderedList', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.orderedList,
-        items: [
-          [{ type: RuleType.text, text: 'First item' }],
-          [{ type: RuleType.text, text: 'Second item' }],
-        ],
-        ordered: true,
-        start: 1,
-      },
+      type: RuleType.orderedList,
+      items: [
+        [{ type: RuleType.text, text: 'First item' }],
+        [{ type: RuleType.text, text: 'Second item' }],
+      ],
+      ordered: true,
+      start: 1,
       endPos: 28,
     })
   })
@@ -1063,12 +977,10 @@ describe('parseOrderedList', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.orderedList,
-        items: [[{ type: RuleType.text, text: 'Fifth item' }]],
-        ordered: true,
-        start: 5,
-      },
+      type: RuleType.orderedList,
+      items: [[{ type: RuleType.text, text: 'Fifth item' }]],
+      ordered: true,
+      start: 5,
       endPos: 13,
     })
   })
@@ -1098,14 +1010,12 @@ describe('parseUnorderedList', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.unorderedList,
-        items: [
-          [{ type: RuleType.text, text: 'First item' }],
-          [{ type: RuleType.text, text: 'Second item' }],
-        ],
-        ordered: false,
-      },
+      type: RuleType.unorderedList,
+      items: [
+        [{ type: RuleType.text, text: 'First item' }],
+        [{ type: RuleType.text, text: 'Second item' }],
+      ],
+      ordered: false,
       endPos: 26,
     })
   })
@@ -1118,14 +1028,12 @@ describe('parseUnorderedList', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.unorderedList,
-        items: [
-          [{ type: RuleType.text, text: 'Item 1' }],
-          [{ type: RuleType.text, text: 'Item 2' }],
-        ],
-        ordered: false,
-      },
+      type: RuleType.unorderedList,
+      items: [
+        [{ type: RuleType.text, text: 'Item 1' }],
+        [{ type: RuleType.text, text: 'Item 2' }],
+      ],
+      ordered: false,
       endPos: 17,
     })
   })
@@ -1141,20 +1049,18 @@ describe('parseTable', () => {
     const table = 'Header 1|Header 2\n---|---\nCell 1|Cell 2'
     const result = parseTable(table, 0, mockBlockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.table,
-        header: [
-          [{ type: RuleType.text, text: 'Header 1' }],
-          [{ type: RuleType.text, text: 'Header 2' }],
+      type: RuleType.table,
+      header: [
+        [{ type: RuleType.text, text: 'Header 1' }],
+        [{ type: RuleType.text, text: 'Header 2' }],
+      ],
+      cells: [
+        [
+          [{ type: RuleType.text, text: 'Cell 1' }],
+          [{ type: RuleType.text, text: 'Cell 2' }],
         ],
-        cells: [
-          [
-            [{ type: RuleType.text, text: 'Cell 1' }],
-            [{ type: RuleType.text, text: 'Cell 2' }],
-          ],
-        ],
-        align: [null, null],
-      },
+      ],
+      align: [null, null],
       endPos: 39,
     })
   })
@@ -1163,22 +1069,20 @@ describe('parseTable', () => {
     const table = 'Left|Center|Right\n:-|:-:|-:\nL|C|R'
     const result = parseTable(table, 0, mockBlockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.table,
-        header: [
-          [{ type: RuleType.text, text: 'Left' }],
-          [{ type: RuleType.text, text: 'Center' }],
-          [{ type: RuleType.text, text: 'Right' }],
+      type: RuleType.table,
+      header: [
+        [{ type: RuleType.text, text: 'Left' }],
+        [{ type: RuleType.text, text: 'Center' }],
+        [{ type: RuleType.text, text: 'Right' }],
+      ],
+      cells: [
+        [
+          [{ type: RuleType.text, text: 'L' }],
+          [{ type: RuleType.text, text: 'C' }],
+          [{ type: RuleType.text, text: 'R' }],
         ],
-        cells: [
-          [
-            [{ type: RuleType.text, text: 'L' }],
-            [{ type: RuleType.text, text: 'C' }],
-            [{ type: RuleType.text, text: 'R' }],
-          ],
-        ],
-        align: ['left', 'center', 'right'],
-      },
+      ],
+      align: ['left', 'center', 'right'],
       endPos: 33,
     })
   })
@@ -1198,27 +1102,25 @@ describe('parseTable', () => {
       '| Foo | Bar | Baz |\n| --- | --- | --- |\n|   | 2   | 3   |\n|   | 5   | 6   |'
     const result = parseTable(table, 0, mockBlockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.table,
-        header: [
-          [{ type: RuleType.text, text: 'Foo' }],
-          [{ type: RuleType.text, text: 'Bar' }],
-          [{ type: RuleType.text, text: 'Baz' }],
+      type: RuleType.table,
+      header: [
+        [{ type: RuleType.text, text: 'Foo' }],
+        [{ type: RuleType.text, text: 'Bar' }],
+        [{ type: RuleType.text, text: 'Baz' }],
+      ],
+      cells: [
+        [
+          [], // empty cell
+          [{ type: RuleType.text, text: '2' }],
+          [{ type: RuleType.text, text: '3' }],
         ],
-        cells: [
-          [
-            [], // empty cell
-            [{ type: RuleType.text, text: '2' }],
-            [{ type: RuleType.text, text: '3' }],
-          ],
-          [
-            [], // empty cell
-            [{ type: RuleType.text, text: '5' }],
-            [{ type: RuleType.text, text: '6' }],
-          ],
+        [
+          [], // empty cell
+          [{ type: RuleType.text, text: '5' }],
+          [{ type: RuleType.text, text: '6' }],
         ],
-        align: [null, null, null],
-      },
+      ],
+      align: [null, null, null],
       endPos: 75,
     })
   })
@@ -1229,9 +1131,7 @@ describe('parseHTMLComment', () => {
   it('should parse HTML comments', () => {
     const result = parseHTMLComment('<!-- comment -->', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.htmlComment,
-      },
+      type: RuleType.htmlComment,
       endPos: 16,
     })
   })
@@ -1239,9 +1139,7 @@ describe('parseHTMLComment', () => {
   it('should parse multiline HTML comments', () => {
     const result = parseHTMLComment('<!-- multi\nline\ncomment -->', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.htmlComment,
-      },
+      type: RuleType.htmlComment,
       endPos: 27,
     })
   })
@@ -1261,11 +1159,9 @@ describe('parseHTMLSelfClosing', () => {
   it('should parse self-closing tags', () => {
     const result = parseHTMLSelfClosing('<br />', 0, mockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.htmlSelfClosing,
-        tag: 'br',
-        attrs: {},
-      },
+      type: RuleType.htmlSelfClosing,
+      tag: 'br',
+      attrs: {},
       endPos: 6,
     })
   })
@@ -1278,13 +1174,11 @@ describe('parseHTMLSelfClosing', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.htmlSelfClosing,
-        tag: 'img',
-        attrs: {
-          src: 'test.jpg',
-          alt: 'test',
-        },
+      type: RuleType.htmlSelfClosing,
+      tag: 'img',
+      attrs: {
+        src: 'test.jpg',
+        alt: 'test',
       },
       endPos: 33,
     })
@@ -1293,11 +1187,9 @@ describe('parseHTMLSelfClosing', () => {
   it('should parse self-closing tags without trailing slash', () => {
     const result = parseHTMLSelfClosing('<br>', 0, mockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.htmlSelfClosing,
-        tag: 'br',
-        attrs: {},
-      },
+      type: RuleType.htmlSelfClosing,
+      tag: 'br',
+      attrs: {},
       endPos: 4,
     })
   })
@@ -1316,8 +1208,8 @@ describe('parseHTMLSelfClosing', () => {
         mockOptions
       )
       expect(result).not.toBeNull()
-      expect(result?.node.type).toBe(RuleType.htmlSelfClosing)
-      const node = result?.node as MarkdownToJSX.HTMLSelfClosingNode
+      expect(result?.type).toBe(RuleType.htmlSelfClosing)
+      const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('circle')
       expect((node.attrs as any).cx).toBe('50')
     })
@@ -1330,7 +1222,7 @@ describe('parseHTMLSelfClosing', () => {
         mockOptions
       )
       expect(result).not.toBeNull()
-      const node = result?.node as MarkdownToJSX.HTMLSelfClosingNode
+      const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('path')
     })
 
@@ -1342,7 +1234,7 @@ describe('parseHTMLSelfClosing', () => {
         mockOptions
       )
       expect(result).not.toBeNull()
-      const node = result?.node as MarkdownToJSX.HTMLSelfClosingNode
+      const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('rect')
     })
 
@@ -1354,7 +1246,7 @@ describe('parseHTMLSelfClosing', () => {
         mockOptions
       )
       expect(result).not.toBeNull()
-      const node = result?.node as MarkdownToJSX.HTMLSelfClosingNode
+      const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('line')
     })
 
@@ -1366,7 +1258,7 @@ describe('parseHTMLSelfClosing', () => {
         mockOptions
       )
       expect(result).not.toBeNull()
-      const node = result?.node as MarkdownToJSX.HTMLSelfClosingNode
+      const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('polygon')
     })
 
@@ -1378,7 +1270,7 @@ describe('parseHTMLSelfClosing', () => {
         mockOptions
       )
       expect(result).not.toBeNull()
-      const node = result?.node as MarkdownToJSX.HTMLSelfClosingNode
+      const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('ellipse')
     })
 
@@ -1390,7 +1282,7 @@ describe('parseHTMLSelfClosing', () => {
         mockOptions
       )
       expect(result).not.toBeNull()
-      const node = result?.node as MarkdownToJSX.HTMLSelfClosingNode
+      const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('stop')
     })
   })
@@ -1404,7 +1296,7 @@ describe('parseHTMLSelfClosing', () => {
         mockOptions
       )
       expect(result).not.toBeNull()
-      const node = result?.node as MarkdownToJSX.HTMLSelfClosingNode
+      const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('my-component')
       expect((node.attrs as any).attr).toBe('value')
     })
@@ -1417,7 +1309,7 @@ describe('parseHTMLSelfClosing', () => {
         mockOptions
       )
       expect(result).not.toBeNull()
-      const node = result?.node as MarkdownToJSX.HTMLSelfClosingNode
+      const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('my-custom-element')
     })
 
@@ -1431,7 +1323,7 @@ describe('parseHTMLSelfClosing', () => {
       // Custom components without /> can be treated as void
       // The parent component will be parsed as void, child will be handled separately
       expect(result).not.toBeNull()
-      const node = result?.node as MarkdownToJSX.HTMLSelfClosingNode
+      const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('parent-component')
     })
 
@@ -1443,7 +1335,7 @@ describe('parseHTMLSelfClosing', () => {
         mockOptions
       )
       expect(result1).not.toBeNull()
-      const node1 = result1?.node as MarkdownToJSX.HTMLSelfClosingNode
+      const node1 = result1 as MarkdownToJSX.HTMLSelfClosingNode
       expect(node1.tag).toBe('ui-button')
 
       const result2 = parseHTMLSelfClosing(
@@ -1453,7 +1345,7 @@ describe('parseHTMLSelfClosing', () => {
         mockOptions
       )
       expect(result2).not.toBeNull()
-      const node2 = result2?.node as MarkdownToJSX.HTMLSelfClosingNode
+      const node2 = result2 as MarkdownToJSX.HTMLSelfClosingNode
       expect(node2.tag).toBe('data-table-cell')
     })
 
@@ -1465,7 +1357,7 @@ describe('parseHTMLSelfClosing', () => {
         mockOptions
       )
       expect(result).not.toBeNull()
-      const node = result?.node as MarkdownToJSX.HTMLSelfClosingNode
+      const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('custom-input')
       expect((node.attrs as any).type).toBe('text')
       expect((node.attrs as any).placeholder).toBe('Enter text')
@@ -1514,7 +1406,7 @@ describe('parseHTMLSelfClosing', () => {
         mockOptions
       )
       expect(result).not.toBeNull()
-      const node = result?.node as MarkdownToJSX.HTMLSelfClosingNode
+      const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('my-component-v2')
     })
 
@@ -1526,7 +1418,7 @@ describe('parseHTMLSelfClosing', () => {
         mockOptions
       )
       expect(result).not.toBeNull()
-      const node = result?.node as MarkdownToJSX.HTMLSelfClosingNode
+      const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('my-custom-web-component')
     })
 
@@ -1584,13 +1476,11 @@ describe('parseHTMLBlock', () => {
   it('should parse HTML blocks', () => {
     const result = parseHTMLBlock('<div>Hello</div>', 0, mockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.htmlBlock,
-        tag: 'div',
-        attrs: {},
-        children: [{ type: RuleType.text, text: 'Hello' }],
-        noInnerParse: false,
-      },
+      type: RuleType.htmlBlock,
+      tag: 'div',
+      attrs: {},
+      children: [{ type: RuleType.text, text: 'Hello' }],
+      noInnerParse: false,
       endPos: 16,
     })
   })
@@ -1603,13 +1493,11 @@ describe('parseHTMLBlock', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.htmlBlock,
-        tag: 'p',
-        attrs: { className: 'test' },
-        children: [{ type: RuleType.text, text: 'Content' }],
-        noInnerParse: false,
-      },
+      type: RuleType.htmlBlock,
+      tag: 'p',
+      attrs: { className: 'test' },
+      children: [{ type: RuleType.text, text: 'Content' }],
+      noInnerParse: false,
       endPos: 27,
     })
   })
@@ -1628,14 +1516,14 @@ describe('parseHTMLBlock', () => {
     const mathMarkup = `<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow>a</mrow><mrow>2</mrow></mfrac></mrow><annotation encoding="application/x-tex">\\frac{a}{2}</annotation></semantics></math>`
     const result = parseHTMLBlock(mathMarkup, 0, mockState, mockOptions)
     expect(result).not.toBeNull()
-    expect(result?.node.type).toBe(RuleType.htmlBlock)
-    if (result?.node.type === RuleType.htmlBlock) {
-      expect(result.node.tag).toBe('math')
-      expect(result.node.attrs).toHaveProperty(
+    expect(result?.type).toBe(RuleType.htmlBlock)
+    if (result?.type === RuleType.htmlBlock) {
+      expect(result.tag).toBe('math')
+      expect(result.attrs).toHaveProperty(
         'xmlns',
         'http://www.w3.org/1998/Math/MathML'
       )
-      expect(result.node.attrs).toHaveProperty('display', 'block')
+      expect(result.attrs).toHaveProperty('display', 'block')
     }
   })
 
@@ -1648,14 +1536,14 @@ describe('parseHTMLBlock', () => {
 </math>`
     const result = parseHTMLBlock(mathMarkup, 0, mockState, mockOptions)
     expect(result).not.toBeNull()
-    expect(result?.node.type).toBe(RuleType.htmlBlock)
-    if (result?.node.type === RuleType.htmlBlock) {
-      expect(result.node.tag).toBe('math')
-      expect(result.node.attrs).toHaveProperty(
+    expect(result?.type).toBe(RuleType.htmlBlock)
+    if (result?.type === RuleType.htmlBlock) {
+      expect(result.tag).toBe('math')
+      expect(result.attrs).toHaveProperty(
         'xmlns',
         'http://www.w3.org/1998/Math/MathML'
       )
-      expect(result.node.attrs).toHaveProperty('display', 'block')
+      expect(result.attrs).toHaveProperty('display', 'block')
     }
   })
 })
@@ -1665,10 +1553,8 @@ describe('parseGFMTask', () => {
   it('should parse unchecked task', () => {
     const result = parseGFMTask('[ ]', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.gfmTask,
-        completed: false,
-      },
+      type: RuleType.gfmTask,
+      completed: false,
       endPos: 3,
     })
   })
@@ -1676,10 +1562,8 @@ describe('parseGFMTask', () => {
   it('should parse checked task with lowercase x', () => {
     const result = parseGFMTask('[x]', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.gfmTask,
-        completed: true,
-      },
+      type: RuleType.gfmTask,
+      completed: true,
       endPos: 3,
     })
   })
@@ -1687,10 +1571,8 @@ describe('parseGFMTask', () => {
   it('should parse checked task with uppercase X', () => {
     const result = parseGFMTask('[X]', 0)
     expect(result).toEqual({
-      node: {
-        type: RuleType.gfmTask,
-        completed: true,
-      },
+      type: RuleType.gfmTask,
+      completed: true,
       endPos: 3,
     })
   })
@@ -1710,11 +1592,9 @@ describe('parseFootnoteReference', () => {
   it('should parse footnote reference', () => {
     const result = parseFootnoteReference('[^abc]', 0, mockState, mockOptions)
     expect(result).toEqual({
-      node: {
-        type: RuleType.footnoteReference,
-        target: '#abc',
-        text: 'abc',
-      },
+      type: RuleType.footnoteReference,
+      target: '#abc',
+      text: 'abc',
       endPos: 6,
     })
   })
@@ -1727,11 +1607,9 @@ describe('parseFootnoteReference', () => {
       mockOptions
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.footnoteReference,
-        target: '#ref-erence-123',
-        text: 'ref-erence_123',
-      },
+      type: RuleType.footnoteReference,
+      target: '#ref-erence-123',
+      text: 'ref-erence_123',
       endPos: 17,
     })
   })
@@ -1753,9 +1631,7 @@ describe('parseRef', () => {
   it('should parse reference definition', () => {
     const result = parseRef('[ref]: http://example.com', 0, mockRefs)
     expect(result).toEqual({
-      node: {
-        type: RuleType.ref,
-      },
+      type: RuleType.ref,
       endPos: 25,
     })
     expect(mockRefs).toEqual({
@@ -1766,9 +1642,7 @@ describe('parseRef', () => {
   it('should parse reference definition with title', () => {
     const result = parseRef('[ref2]: http://example.com "title"', 0, mockRefs)
     expect(result).toEqual({
-      node: {
-        type: RuleType.ref,
-      },
+      type: RuleType.ref,
       endPos: 34,
     })
     expect(mockRefs).toEqual({
@@ -1780,9 +1654,7 @@ describe('parseRef', () => {
   it('should parse reference definition with angle brackets', () => {
     const result = parseRef('[ref3]: <http://example.com>', 0, mockRefs)
     expect(result).toEqual({
-      node: {
-        type: RuleType.ref,
-      },
+      type: RuleType.ref,
       endPos: 28,
     })
     expect(mockRefs).toEqual({
@@ -2038,9 +1910,7 @@ describe('parseFootnote', () => {
   it('should parse footnote definition', () => {
     const result = parseFootnote('[^abc]: This is a footnote', 0, mockFootnotes)
     expect(result).toEqual({
-      node: {
-        type: RuleType.footnote,
-      },
+      type: RuleType.footnote,
       endPos: 26,
     })
     expect(mockFootnotes).toEqual([
@@ -2055,9 +1925,7 @@ describe('parseFootnote', () => {
       mockFootnotes
     )
     expect(result).toEqual({
-      node: {
-        type: RuleType.footnote,
-      },
+      type: RuleType.footnote,
       endPos: 49,
     })
     expect(mockFootnotes).toEqual([
@@ -2189,8 +2057,8 @@ describe('Unicode support', () => {
       const state = { inline: false }
       const result = parseParagraph('日本語の段落です。', 0, state, mockOptions)
       expect(result).not.toBeNull()
-      expect(result?.node.type).toBe(RuleType.paragraph)
-      const para = result?.node as MarkdownToJSX.ParagraphNode
+      expect(result?.type).toBe(RuleType.paragraph)
+      const para = result as MarkdownToJSX.ParagraphNode
       expect(para.children.length).toBeGreaterThan(0)
       const textNodes = para.children.filter(
         node => node.type === RuleType.text
@@ -2203,8 +2071,8 @@ describe('Unicode support', () => {
       const state = { inline: false }
       const result = parseHeading('# 日本語の見出し', 0, state, mockOptions)
       expect(result).not.toBeNull()
-      expect(result?.node.type).toBe(RuleType.heading)
-      const heading = result?.node as MarkdownToJSX.HeadingNode
+      expect(result?.type).toBe(RuleType.heading)
+      const heading = result as MarkdownToJSX.HeadingNode
       expect(heading.children.length).toBeGreaterThan(0)
       const textNodes = heading.children.filter(
         node => node.type === RuleType.text
@@ -2328,8 +2196,8 @@ describe('Unicode support', () => {
     it('should preserve Unicode in inline code', () => {
       const result = parseCodeInline('`日本語`', 0)
       expect(result).not.toBeNull()
-      expect(result?.node.type).toBe(RuleType.codeInline)
-      expect((result?.node as MarkdownToJSX.CodeInlineNode).text).toBe('日本語')
+      expect(result?.type).toBe(RuleType.codeInline)
+      expect((result as MarkdownToJSX.CodeInlineNode).text).toBe('日本語')
     })
 
     it('should preserve Unicode in fenced code blocks', () => {
@@ -2338,9 +2206,7 @@ describe('Unicode support', () => {
       const result = parseCodeFenced(code, 0, state, mockOptions)
       expect(result).not.toBeNull()
       // parseCodeFenced may return codeBlock or codeFenced depending on implementation
-      expect([RuleType.codeFenced, RuleType.codeBlock]).toContain(
-        result?.node.type
-      )
+      expect([RuleType.codeFenced, RuleType.codeBlock]).toContain(result?.type)
       expect(result?.endPos).toBeGreaterThan(0)
     })
   })
@@ -2350,8 +2216,8 @@ describe('Unicode support', () => {
       const state = { inline: false }
       const result = parseUnorderedList('- 日本語の項目', 0, state, mockOptions)
       expect(result).not.toBeNull()
-      expect(result?.node.type).toBe(RuleType.unorderedList)
-      const list = result?.node as MarkdownToJSX.UnorderedListNode
+      expect(result?.type).toBe(RuleType.unorderedList)
+      const list = result as MarkdownToJSX.UnorderedListNode
       expect(list.items.length).toBeGreaterThan(0)
       expect(list.items[0].length).toBeGreaterThan(0)
     })
@@ -2360,8 +2226,8 @@ describe('Unicode support', () => {
       const state = { inline: false }
       const result = parseOrderedList('1. 日本語の項目', 0, state, mockOptions)
       expect(result).not.toBeNull()
-      expect(result?.node.type).toBe(RuleType.orderedList)
-      const list = result?.node as MarkdownToJSX.OrderedListNode
+      expect(result?.type).toBe(RuleType.orderedList)
+      const list = result as MarkdownToJSX.OrderedListNode
       expect(list.items.length).toBeGreaterThan(0)
       expect(list.items[0].length).toBeGreaterThan(0)
     })

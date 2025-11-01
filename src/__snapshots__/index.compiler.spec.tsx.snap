@@ -2,7 +2,7 @@
 
 exports[`handles a holistic example 1`] = `
 <div>
-  <h1>
+  <h1 id="markdown-syntax">
     Markdown: Syntax
   </h1>
   <ul id="ProjectSubmenu">
