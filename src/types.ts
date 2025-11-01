@@ -148,6 +148,7 @@ export namespace MarkdownToJSX {
 
   export interface HTMLCommentNode {
     type: typeof RuleType.htmlComment
+    text: string
   }
 
   export interface ImageNode {

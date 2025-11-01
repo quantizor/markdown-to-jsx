@@ -1131,6 +1131,7 @@ describe('parseHTMLComment', () => {
     const result = parseHTMLComment('<!-- comment -->', 0)
     expect(result).toEqual({
       type: RuleType.htmlComment,
+      text: ' comment ',
       endPos: 16,
     })
   })
@@ -1139,6 +1140,7 @@ describe('parseHTMLComment', () => {
     const result = parseHTMLComment('<!-- multi\nline\ncomment -->', 0)
     expect(result).toEqual({
       type: RuleType.htmlComment,
+      text: ' multi\nline\ncomment ',
       endPos: 27,
     })
   })

@@ -3448,11 +3448,14 @@ export function parseHTML(
 export function parseHTMLComment(source: string, pos: number): ParseResult {
   if (!startsWith(source, '<!--', pos)) return null
 
-  let endPos = pos + 4
+  const contentStart = pos + 4
+  let endPos = contentStart
   while (endPos + 2 < source.length) {
     if (startsWith(source, '-->', endPos)) {
+      const content = source.slice(contentStart, endPos)
       return {
         type: RuleType.htmlComment,
+        text: content,
         endPos: endPos + 3,
       } as MarkdownToJSX.HTMLCommentNode & { endPos: number }
     }
