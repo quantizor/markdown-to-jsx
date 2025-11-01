@@ -159,14 +159,96 @@ const ORDERED_LIST_ITEM_R = /^(\d+)\.\s+(.*)$/
 const UNORDERED_LIST_ITEM_R = /^\s*([-*+])\s+(.*)$/
 const TABLE_ALIGN_R = /^:?-+:?$/
 export const HTML_SELF_CLOSING_ELEMENT_R =
-  /^ *<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*))?\/?>(?!<\/\1>)(\s*\n)?/i
+  /^<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*))?\/?>(?!<\/\1>)(\s*\n)?/i
 export const HTML_BLOCK_ELEMENT_START_R =
   /^<([a-z][^ >/\n\r]*) ?((?:[^>]*[^/])?)>/i
 export const HTML_BLOCK_ELEMENT_START_R_ATTR =
   /^<([a-z][^ >/]*) ?(?:[^>/]+[^/]|)>/i
-export const ATTR_EXTRACTOR_R =
-  /([-A-Z0-9_:]+)(?:\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|(?:\{((?:\\.|{[^}]*?}|[^}])*)\})))?/gi
 export const HTML_CUSTOM_ATTR_R = /^(data|aria|x)-[a-z_][a-z\d_.-]*$/
+
+const code = (c: string) => c.charCodeAt(0)
+const isWS = (c: string) => {
+  const n = code(c)
+  return n === 32 || n === 9 || n === 10 || n === 13 || n === 12
+}
+const isNameChar = (c: string) => {
+  const n = code(c)
+  return (
+    (n >= 48 && n <= 57) ||
+    (n >= 65 && n <= 90) ||
+    (n >= 97 && n <= 122) ||
+    n === 45 ||
+    n === 95 ||
+    n === 58
+  )
+}
+
+function extractHTMLAttributes(attrs: string): string[] {
+  const matches: string[] = []
+  let i = 0
+  const len = attrs.length
+
+  while (i < len) {
+    while (i < len && isWS(attrs[i])) i++
+    if (i >= len) break
+
+    const nameStart = i
+    while (i < len && isNameChar(attrs[i])) i++
+    if (i === nameStart) {
+      i++
+      continue
+    }
+
+    const name = attrs.slice(nameStart, i)
+    while (i < len && isWS(attrs[i])) i++
+
+    if (i >= len || attrs[i] !== '=') {
+      matches.push(name)
+      continue
+    }
+
+    i++
+    while (i < len && isWS(attrs[i])) i++
+    if (i >= len) {
+      matches.push(name + '=')
+      break
+    }
+
+    const valueStart = i
+    const q = attrs[i]
+    if (q === '"' || q === "'") {
+      i++
+      while (i < len) {
+        if (attrs[i] === '\\' && i + 1 < len) i += 2
+        else if (attrs[i] === q) {
+          i++
+          break
+        } else i++
+      }
+    } else if (q === '{') {
+      let depth = 1
+      i++
+      while (i < len && depth > 0) {
+        if (attrs[i] === '\\' && i + 1 < len) i += 2
+        else if (attrs[i] === '{') depth++
+        else if (attrs[i] === '}') {
+          depth--
+          if (depth === 0) {
+            i++
+            break
+          }
+        }
+        i++
+      }
+    } else {
+      while (i < len && !isWS(attrs[i])) i++
+    }
+
+    matches.push(name + '=' + attrs.slice(valueStart, i))
+  }
+
+  return matches
+}
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi
 export const INTERPOLATION_R = /^\{.*\}$/
 const DOUBLE_NEWLINE_R = /\n\n/
@@ -338,8 +420,8 @@ function parseHTMLAttributes(
   const attributes: { [key: string]: any } = {}
   if (!attrs || !attrs.trim()) return attributes
 
-  const attrMatches = attrs.match(ATTR_EXTRACTOR_R)
-  if (!attrMatches) return attributes
+  const attrMatches = extractHTMLAttributes(attrs)
+  if (!attrMatches || attrMatches.length === 0) return attributes
 
   const tagNameLower = tagName.toLowerCase()
 
@@ -2294,8 +2376,8 @@ export function parseCodeFenced(
   // Parse attributes if present (same as old parser)
   let parsedAttrs: { [key: string]: any } = {}
   if (attrs && attrs.trim()) {
-    const attrMatches = attrs.match(ATTR_EXTRACTOR_R)
-    if (attrMatches) {
+    const attrMatches = extractHTMLAttributes(attrs)
+    if (attrMatches && attrMatches.length > 0) {
       for (let j = 0; j < attrMatches.length; j++) {
         const raw = attrMatches[j]
         const delimiterIdx = raw.indexOf('=')
