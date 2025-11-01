@@ -994,15 +994,18 @@ export function parseInlineSpan(
       }
 
       case '\n': {
-        flushText(pos)
+        // When preserveNewlines is true, create separate text node to preserve newline structure
+        // When false, just accumulate in text (will collapse to whitespace in React/HTML)
+        // Only '  \n' (two spaces + newline) creates a hard line break via parseBreakLine
         if (state.preserveNewlines) {
+          flushText(pos)
           result.push({
             type: RuleType.text,
             text: '\n',
           } as MarkdownToJSX.TextNode)
+          textStart = pos + 1
         }
         pos++
-        textStart = pos
         break
       }
 

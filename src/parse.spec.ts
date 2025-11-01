@@ -255,11 +255,7 @@ describe('parseText', () => {
     expect(result).toEqual([
       {
         type: RuleType.text,
-        text: 'Hello ',
-      },
-      {
-        type: RuleType.text,
-        text: '[world]',
+        text: 'Hello [world]',
       },
     ])
   })
@@ -272,11 +268,7 @@ describe('parseText', () => {
       mockState,
       mockOptions
     )
-    expect(result).toEqual([
-      { text: 'Hello', type: 'text' },
-      { type: 'breakLine' },
-      { text: 'world', type: 'text' },
-    ])
+    expect(result).toEqual([{ text: 'Hello\nworld', type: 'text' }])
   })
 
   it('should return nothing for empty text', () => {

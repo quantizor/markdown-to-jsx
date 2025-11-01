@@ -133,17 +133,15 @@ function render(
       )
 
     case RuleType.htmlBlock: {
-      const attrsBlock = normalizeHtmlAttributes(node.attrs)
       return h(
         node.tag,
-        { key: state.key, ...attrsBlock },
+        { key: state.key, ...node.attrs },
         node.text || (node.children ? output(node.children, state) : '')
       )
     }
 
     case RuleType.htmlSelfClosing: {
-      const attrsSelf = normalizeHtmlAttributes(node.attrs)
-      return h(node.tag, { key: state.key, ...attrsSelf })
+      return h(node.tag, { key: state.key, ...node.attrs })
     }
 
     case RuleType.image:
