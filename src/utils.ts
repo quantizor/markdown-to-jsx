@@ -21,7 +21,7 @@ export function camelCaseCss(prop: string): string {
 
 const SANITIZE_R = /(javascript|vbscript|data(?!:image)):/i
 
-export function sanitizer(input: string): string {
+export function sanitizer(input: string): string | null {
   try {
     const decoded = decodeURIComponent(input).replace(/[^A-Za-z0-9/:]/g, '')
 
@@ -69,5 +69,3 @@ export function slugify(str: string) {
     .replace(/ /gi, '-')
     .toLowerCase()
 }
-
-
