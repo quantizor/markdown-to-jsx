@@ -78,7 +78,6 @@ export namespace MarkdownToJSX {
     list?: boolean
     /** used for lookbacks */
     prevCapture?: string
-    preserveNewlines?: boolean
     /** footnotes collected during parsing */
     footnotes?: { footnote: string; identifier: string }[]
     /** reference definitions */

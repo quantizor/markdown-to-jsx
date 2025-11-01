@@ -554,11 +554,10 @@ export function compiler(
       arr.push(
         <footer key="footer">
           {footnotes.map(function createFootnote(def) {
-            // Footnotes are parsed with preserveNewlines to match old parser behavior
-            // This preserves newlines and indentation in the rendered output
+            // Footnotes are parsed inline (newlines are preserved by default)
             const footnoteAstNodes = parseMarkdown(
               def.footnote,
-              { inline: true, refs: refs, preserveNewlines: true },
+              { inline: true, refs: refs },
               parseOptions
             )
             return h(

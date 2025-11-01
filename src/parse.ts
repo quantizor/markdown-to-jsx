@@ -871,8 +871,6 @@ export function parseInlineSpan(
           }
           flushText(pos)
           const content = match[2]
-          const originalPreserveNewlines = state.preserveNewlines
-          state.preserveNewlines = true
           const children = parseInlineSpan(
             content,
             0,
@@ -880,7 +878,6 @@ export function parseInlineSpan(
             state,
             options
           )
-          state.preserveNewlines = originalPreserveNewlines
           result.push({
             type: RuleType.textFormatted,
             tag: match[1],
@@ -994,17 +991,15 @@ export function parseInlineSpan(
       }
 
       case '\n': {
-        // When preserveNewlines is true, create separate text node to preserve newline structure
-        // When false, just accumulate in text (will collapse to whitespace in React/HTML)
+        // Always create separate text node for newlines - matches CommonMark AST structure
+        // React/HTML will collapse newlines to whitespace regardless, so this preserves AST fidelity
         // Only '  \n' (two spaces + newline) creates a hard line break via parseBreakLine
-        if (state.preserveNewlines) {
-          flushText(pos)
-          result.push({
-            type: RuleType.text,
-            text: '\n',
-          } as MarkdownToJSX.TextNode)
-          textStart = pos + 1
-        }
+        flushText(pos)
+        result.push({
+          type: RuleType.text,
+          text: '\n',
+        } as MarkdownToJSX.TextNode)
+        textStart = pos + 1
         pos++
         break
       }
@@ -1274,12 +1269,9 @@ export function parseLink(
 
   // Parse the link text (content between [ and ]); disable nested link/ref parsing
   const originalInAnchor = state.inAnchor
-  const originalPreserveNewlines = state.preserveNewlines
   state.inAnchor = true
-  state.preserveNewlines = true
   const children = parseInlineSpan(source, pos + 1, linkTextEnd, state, options)
   state.inAnchor = originalInAnchor
-  state.preserveNewlines = originalPreserveNewlines
 
   // Parse the URL and optional title inside ( )
   const urlResult = parseUrlAndTitle(source, linkTextEnd + 2, true)
@@ -2057,14 +2049,11 @@ export function parseParagraph(
 
   const content = source.slice(contentStart, contentEnd)
 
-  // Parse with preserveNewlines to keep newlines as text nodes
+  // Parse as inline (newlines are preserved by default)
   const originalInline = state.inline
-  const originalPreserveNewlines = state.preserveNewlines
   state.inline = true
-  state.preserveNewlines = true
   const children = parseInlineSpan(content, 0, content.length, state, options)
   state.inline = originalInline
-  state.preserveNewlines = originalPreserveNewlines
 
   return {
     type: RuleType.paragraph,
@@ -2459,13 +2448,11 @@ export function parseBlockQuote(
   const children: MarkdownToJSX.ASTNode[] = []
 
   if (content.trim()) {
-    // Parse the entire content as inline with newlines preserved
+    // Parse the entire content as inline (newlines are preserved by default)
     const originalInAnchor = state.inAnchor
     const originalInline = state.inline
-    const originalPreserveNewlines = state.preserveNewlines
     state.inAnchor = false
     state.inline = true
-    state.preserveNewlines = true
     const inlineChildren = parseInlineSpan(
       content,
       0,
@@ -2475,7 +2462,6 @@ export function parseBlockQuote(
     )
     state.inAnchor = originalInAnchor
     state.inline = originalInline
-    state.preserveNewlines = originalPreserveNewlines
 
     children.push({
       type: RuleType.paragraph,
@@ -2497,41 +2483,27 @@ function appendListContinuation(
   state: MarkdownToJSX.State,
   options: ParseOptions
 ): void {
+  // Parse continuation content once (extract common logic)
+  const originalInline = state.inline
+  state.inline = true
+  const continuationInline = parseInlineSpan(
+    '\n' + continuationContent,
+    0,
+    continuationContent.length + 1,
+    state,
+    options
+  )
+  state.inline = originalInline
+
+  // Append to either paragraph children or item directly
   if (
     lastItem.length > 0 &&
     lastItem[lastItem.length - 1].type === RuleType.paragraph
   ) {
-    const lastParagraph = lastItem[
-      lastItem.length - 1
-    ] as MarkdownToJSX.ParagraphNode
-    const originalInline = state.inline
-    const originalPreserveNewlines = state.preserveNewlines
-    state.inline = true
-    state.preserveNewlines = true
-    const continuationInline = parseInlineSpan(
-      '\n' + continuationContent,
-      0,
-      continuationContent.length + 1,
-      state,
-      options
-    )
-    state.inline = originalInline
-    state.preserveNewlines = originalPreserveNewlines
-    lastParagraph.children.push(...continuationInline)
+    ;(
+      lastItem[lastItem.length - 1] as MarkdownToJSX.ParagraphNode
+    ).children.push(...continuationInline)
   } else {
-    const originalInline = state.inline
-    const originalPreserveNewlines = state.preserveNewlines
-    state.inline = true
-    state.preserveNewlines = true
-    const continuationInline = parseInlineSpan(
-      '\n' + continuationContent,
-      0,
-      continuationContent.length + 1,
-      state,
-      options
-    )
-    state.inline = originalInline
-    state.preserveNewlines = originalPreserveNewlines
     lastItem.push(...continuationInline)
   }
 }
@@ -3620,14 +3592,13 @@ export function matchInlineFormatting(
   state?: { inline?: boolean; simple?: boolean }
 ): RegExpMatchArray | null {
   if (!state || (!state.inline && !state.simple)) return null
-
   var c = source[start]
   if (c !== '*' && c !== '_' && c !== '~' && c !== '=') return null
 
+  // Find matching delimiter
   var delimiter = ''
   var startLength = 0
   var tag = ''
-
   for (var i = 0; i < 6; i++) {
     var d = DELS[i][0]
     if (startsWith(source, d, start) && end - start >= d.length * 2) {
@@ -3637,47 +3608,75 @@ export function matchInlineFormatting(
       break
     }
   }
-
   if (!delimiter) return null
 
-  // Maximum delimiter run length to prevent exponential backtracking
-  // Real markdown formatting rarely exceeds this length
   var MAX_DELIMITER_RUN = 100
-
   var pos = start + startLength
   var inCode = false
   var inHTMLTag = false
   var inHTMLQuote = ''
   var htmlDepth = 0
   var contentStart = pos
-  var lastWasEscape = false
   var lastChar = ''
+  var canMatch = true // !inCode && htmlDepth === 0
+  var delimiterChar = delimiter[0] // Cache to avoid repeated indexing
 
   while (pos < end) {
     var char = source[pos]
 
-    if (lastWasEscape) {
-      lastWasEscape = false
+    // Fast path: skip all delimiter checks when in code/HTML
+    if (!canMatch) {
+      if (char === '`' && htmlDepth === 0) {
+        inCode = !inCode
+        canMatch = !inCode && htmlDepth === 0
+      } else if (inHTMLTag) {
+        if (inHTMLQuote) {
+          if (char === inHTMLQuote) inHTMLQuote = ''
+        } else if (char === '"' || char === "'") {
+          inHTMLQuote = char
+        } else if (char === '>') {
+          inHTMLTag = false
+          canMatch = !inCode && htmlDepth === 0
+        }
+      } else if (char === '<' && !inCode) {
+        var nextChar = pos + 1 < end ? source[pos + 1] : ''
+        var tagEnd = source.indexOf('>', pos)
+        if (tagEnd !== -1 && tagEnd < end) {
+          var tagEndChar = tagEnd - 1
+          var isSelfClosing =
+            tagEndChar >= pos &&
+            source[tagEndChar] === '/' &&
+            tagEndChar - 1 >= pos &&
+            source[tagEndChar - 1] !== '='
+          if (nextChar === '/') {
+            htmlDepth = Math.max(0, htmlDepth - 1)
+            canMatch = !inCode && htmlDepth === 0
+          } else if (!isSelfClosing) {
+            htmlDepth++
+            canMatch = false
+          }
+        }
+        inHTMLTag = true
+        canMatch = false
+      }
       lastChar = char
       pos++
       continue
     }
 
+    // Handle escape, code, links, HTML tags
     if (char === '\\') {
-      lastWasEscape = true
+      lastChar = pos + 1 < end ? source[pos + 1] : char
+      pos += pos + 1 < end ? 2 : 1
+      continue
+    }
+    if (char === '`') {
+      canMatch = !(inCode = !inCode) && htmlDepth === 0
       lastChar = char
       pos++
       continue
     }
-
-    if (char === '`' && htmlDepth === 0) {
-      inCode = !inCode
-      lastChar = char
-      pos++
-      continue
-    }
-
-    if (char === '[' && !inCode && htmlDepth === 0) {
+    if (char === '[') {
       var linkEnd = skipLinkOrImage(source, pos)
       if (linkEnd !== -1 && linkEnd <= end) {
         pos = linkEnd
@@ -3685,96 +3684,84 @@ export function matchInlineFormatting(
         continue
       }
     }
-
-    if (inHTMLTag) {
-      if (inHTMLQuote) {
-        if (char === inHTMLQuote) inHTMLQuote = ''
-      } else if (char === '"' || char === "'") {
-        inHTMLQuote = char
-      } else if (char === '>') {
-        inHTMLTag = false
-      }
-      lastChar = char
-      pos++
-      continue
-    }
-
-    if (char === '<' && !inCode) {
-      var nextChar = pos + 1 < end ? source[pos + 1] : ''
+    if (char === '<') {
       var tagEnd = source.indexOf('>', pos)
       if (tagEnd !== -1 && tagEnd < end) {
+        var nextChar = pos + 1 < end ? source[pos + 1] : ''
         var tagEndChar = tagEnd - 1
         var isSelfClosing =
           tagEndChar >= pos &&
           source[tagEndChar] === '/' &&
           tagEndChar - 1 >= pos &&
           source[tagEndChar - 1] !== '='
-
         if (nextChar === '/') {
-          htmlDepth = Math.max(0, htmlDepth - 1)
+          htmlDepth = htmlDepth > 0 ? htmlDepth - 1 : 0
+          canMatch = !inCode && htmlDepth === 0
         } else if (!isSelfClosing) {
           htmlDepth++
+          canMatch = false
         }
       }
-
       inHTMLTag = true
+      canMatch = false
+      lastChar = char
+      pos++
+      continue
+    }
+    if (char === '\n' && lastChar === '\n') return null
+
+    // Early exit: only check delimiter if char matches (most common case)
+    if (char !== delimiterChar) {
       lastChar = char
       pos++
       continue
     }
 
-    if (char === '\n' && lastChar === '\n' && !inCode && htmlDepth === 0) {
-      return null
+    // Calculate delimiter run length
+    var delimiterRunLength = 0
+    var checkPos = pos
+    while (
+      checkPos < end &&
+      checkPos - pos < MAX_DELIMITER_RUN &&
+      source[checkPos] === delimiterChar
+    ) {
+      delimiterRunLength++
+      checkPos++
     }
 
-    if (!inCode && htmlDepth === 0) {
-      var delimiterRunLength = 0
-      var checkPos = pos
-      while (
-        checkPos < end &&
-        checkPos - pos < MAX_DELIMITER_RUN &&
-        source[checkPos] === delimiter[0]
-      ) {
-        delimiterRunLength++
-        checkPos++
-      }
+    // Skip long runs to avoid exponential behavior
+    if (
+      checkPos - pos >= MAX_DELIMITER_RUN &&
+      checkPos < end &&
+      source[checkPos] === delimiterChar
+    ) {
+      while (checkPos < end && source[checkPos] === delimiterChar) checkPos++
+      pos = checkPos
+      lastChar = delimiterChar
+      continue
+    }
 
-      // If we hit the max delimiter run length, skip ahead to avoid exponential behavior
-      // This prevents character-by-character scanning of very long delimiter sequences
+    if (delimiterRunLength >= startLength) {
+      // Simplified validation: single-char delimiters (*, _) need word boundary check
+      var needsWordBoundary =
+        startLength === 1 && (delimiterChar === '*' || delimiterChar === '_')
       if (
-        checkPos - pos >= MAX_DELIMITER_RUN &&
-        checkPos < end &&
-        source[checkPos] === delimiter[0]
+        !needsWordBoundary ||
+        ((pos === start || source[pos - 1] !== delimiterChar) &&
+          (pos + delimiterRunLength >= end ||
+            source[pos + delimiterRunLength] !== delimiterChar))
       ) {
-        // Skip ahead through the entire long delimiter run at once
-        while (checkPos < end && source[checkPos] === delimiter[0]) {
-          checkPos++
-        }
-        pos = checkPos
-        lastChar = delimiter[0]
-        continue
-      }
-
-      if (delimiterRunLength >= startLength) {
-        if (
-          startLength !== 1 ||
-          (delimiter !== '*' && delimiter !== '_') ||
-          ((pos - 1 < start || source[pos - 1] !== delimiter) &&
-            (pos + delimiterRunLength >= end ||
-              source[pos + delimiterRunLength] !== delimiter))
-        ) {
-          var matchEnd = pos + delimiterRunLength
-          var fullMatch = source.slice(start, matchEnd)
-          var contentStr = source.slice(contentStart, pos)
-          var result = [
-            fullMatch,
-            tag,
-            contentStr + source.slice(pos + startLength, matchEnd),
-          ] as unknown as RegExpMatchArray
-          result.index = start
-          result.input = source
-          return result
-        }
+        var matchEnd = pos + delimiterRunLength
+        var fullMatch = source.slice(start, matchEnd)
+        var contentStr = source.slice(contentStart, pos)
+        var result = [
+          fullMatch,
+          tag,
+          contentStr + source.slice(pos + startLength, matchEnd),
+        ] as unknown as RegExpMatchArray
+        result.index = start
+        result.input = source
+        return result
       }
     }
 

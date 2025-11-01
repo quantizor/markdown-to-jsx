@@ -268,7 +268,11 @@ describe('parseText', () => {
       mockState,
       mockOptions
     )
-    expect(result).toEqual([{ text: 'Hello\nworld', type: 'text' }])
+    expect(result).toEqual([
+      { text: 'Hello', type: 'text' },
+      { text: '\n', type: 'text' },
+      { text: 'world', type: 'text' },
+    ])
   })
 
   it('should return nothing for empty text', () => {
