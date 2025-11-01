@@ -1055,113 +1055,6 @@ export function parseInlineSpan(
   return result
 }
 
-// Placeholder implementations - will be implemented in later phases
-export function parseText(
-  source: string,
-  pos: number,
-  end: number,
-  state?: MarkdownToJSX.State,
-  options?: { namedCodesToUnicode?: { [key: string]: string } }
-): ParseResult {
-  let textStart = pos
-
-  // Accumulate until we hit a special character
-  while (pos < end) {
-    const currentChar = source[pos]
-
-    if (
-      !state?.inAnchor &&
-      currentChar === 'h' &&
-      startsWith(source, 'http', pos)
-    ) {
-      break
-    }
-
-    // Stop at backslashes (escape sequences)
-    if (currentChar === '\\') {
-      break
-    }
-
-    // Stop at special inline characters that might start formatting/links/etc
-    if (isSpecialInlineChar(currentChar)) {
-      break
-    }
-
-    // Stop at '[' to allow link parsing in parseInlineSpan
-    // But if '[' is not followed by '](' (link pattern), include it as text
-    if (currentChar === '[') {
-      // Look ahead to see if this might be a link
-      let lookAhead = pos + 1
-      while (lookAhead < end && lookAhead < pos + 100) {
-        if (source[lookAhead] === ']') {
-          // Check if it's followed by '(' which would make it a link
-          if (lookAhead + 1 < end && source[lookAhead + 1] === '(') {
-            break // This looks like a link, stop accumulating
-          }
-          // Found ']' but not followed by '(', include '[' as text
-          pos++
-          continue
-        }
-        if (source[lookAhead] === '\n') break // Stop at newlines
-        lookAhead++
-      }
-      // If we didn't find a '](' pattern, include '[' as text
-      if (
-        lookAhead >= end ||
-        lookAhead >= pos + 100 ||
-        source[lookAhead] !== ']' ||
-        lookAhead + 1 >= end ||
-        source[lookAhead + 1] !== '('
-      ) {
-        pos++
-        continue
-      }
-      // Potential link, stop here
-      break
-    }
-
-    // Stop before potential line breaks (2 spaces + newline)
-    if (
-      currentChar === ' ' &&
-      pos + 2 < end &&
-      source[pos + 1] === ' ' &&
-      source[pos + 2] === '\n'
-    ) {
-      break
-    }
-
-    // Stop at newlines (they're handled separately)
-    if (currentChar === '\n') {
-      break
-    }
-
-    pos++
-  }
-
-  if (pos > textStart) {
-    const text = source.slice(textStart, pos)
-
-    // OPTIMIZATION: Skip regex entirely if no '&' is present (common case)
-    let processedText = text
-    if (includes(text, '&')) {
-      // Only process HTML entities if '&' is actually present
-      processedText = text.replace(HTML_CHAR_CODE_R, (full, inner) => {
-        const namedCodes =
-          options?.namedCodesToUnicode || NAMED_CODES_TO_UNICODE
-        return namedCodes[inner] || full
-      })
-    }
-
-    return {
-      type: RuleType.text,
-      text: processedText,
-      endPos: pos,
-    } as MarkdownToJSX.TextNode & { endPos: number }
-  }
-
-  return null
-}
-
 export function parseTextEscaped(source: string, pos: number): ParseResult {
   if (source[pos] !== '\\' || pos + 1 >= source.length) return null
 
@@ -3026,7 +2919,6 @@ export function parseTable(
   } as MarkdownToJSX.TableNode & { endPos: number }
 }
 
-// Import matchHTMLBlock from index.tsx - reuse proven HTML block matching logic
 function matchHTMLBlock(source: string): RegExpMatchArray | null {
   // Tag name should not include newlines - exclude \n and \r from [^ >/]
   const m = HTML_BLOCK_ELEMENT_START_R.exec(source)
