@@ -8,9 +8,8 @@ import {
   parseFootnote,
   parseHeading,
   parseHeadingSetext,
-  parseHTMLBlock,
+  parseHTML,
   parseHTMLComment,
-  parseHTMLSelfClosing,
   parseInlineSpan,
   ParseOptions,
   parseOrderedList,
@@ -843,32 +842,23 @@ export function compiler(
             pos = parseResult.endPos
             matched = true
           } else {
-            // Try HTML block first (handles both self-closing and block tags)
+            // Try HTML (handles both self-closing and block tags)
             if (isDebug && parseMetrics) {
               parseMetrics.blockParsers.htmlBlock.attempts++
             }
-            parseResult = parseHTMLBlock(input, pos, state, options)
+            parseResult = parseHTML(input, pos, state, options)
             if (parseResult) {
               if (isDebug && parseMetrics) {
                 parseMetrics.blockParsers.htmlBlock.hits++
+                // Track self-closing separately if it's a self-closing tag
+                if (parseResult.type === RuleType.htmlSelfClosing) {
+                  parseMetrics.blockParsers.htmlSelfClosing.attempts++
+                  parseMetrics.blockParsers.htmlSelfClosing.hits++
+                }
               }
               result.push(parseResult)
               pos = parseResult.endPos
               matched = true
-            } else {
-              // Fallback to self-closing HTML
-              if (isDebug && parseMetrics) {
-                parseMetrics.blockParsers.htmlSelfClosing.attempts++
-              }
-              parseResult = parseHTMLSelfClosing(input, pos, state, options)
-              if (parseResult) {
-                if (isDebug && parseMetrics) {
-                  parseMetrics.blockParsers.htmlSelfClosing.hits++
-                }
-                result.push(parseResult)
-                pos = parseResult.endPos
-                matched = true
-              }
             }
           }
         }

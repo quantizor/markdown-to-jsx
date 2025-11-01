@@ -133,8 +133,8 @@ function isVoidElement(tagName: string): boolean {
   let lowerTag = tagName.toLowerCase()
 
   // Handle namespace prefixes (e.g., svg:circle -> circle)
-  const colonIndex = lowerTag.indexOf(':')
-  if (colonIndex !== -1) {
+  if (includes(lowerTag, ':')) {
+    const colonIndex = lowerTag.indexOf(':')
     lowerTag = lowerTag.slice(colonIndex + 1)
   }
 
@@ -158,8 +158,6 @@ const HEADING_TRAILING_HASHES_R = /\s+#+\s*$/
 const ORDERED_LIST_ITEM_R = /^(\d+)\.\s+(.*)$/
 const UNORDERED_LIST_ITEM_R = /^\s*([-*+])\s+(.*)$/
 const TABLE_ALIGN_R = /^:?-+:?$/
-export const HTML_SELF_CLOSING_ELEMENT_R =
-  /^<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*))?\/?>(?!<\/\1>)(\s*\n)?/i
 export const HTML_BLOCK_ELEMENT_START_R =
   /^<([a-z][^ >/\n\r]*) ?((?:[^>]*[^/])?)>/i
 export const HTML_BLOCK_ELEMENT_START_R_ATTR =
@@ -249,6 +247,99 @@ function extractHTMLAttributes(attrs: string): string[] {
 
   return matches
 }
+
+function parseHTMLSelfClosingTag(
+  source: string,
+  pos: number
+): {
+  tagName: string
+  attrs: string
+  fullMatch: string
+  endsWithSlash: boolean
+} | null {
+  if (source[pos] !== '<') return null
+
+  let i = pos + 1
+  const len = source.length
+  const tagStart = i
+
+  const isTagNameChar = (c: string) => {
+    const n = code(c)
+    return (n >= 97 && n <= 122) || (n >= 48 && n <= 57) || n === 45 || n === 58
+  }
+
+  if (i >= len || !isTagNameChar(source[i].toLowerCase())) return null
+
+  while (i < len && isTagNameChar(source[i].toLowerCase())) i++
+  if (i === tagStart) return null
+
+  const tagName = source.slice(tagStart, i)
+  while (i < len && isWS(source[i])) i++
+
+  const attrsStart = i
+  let hasSlash = false
+  let inQuotes = false
+  let quoteChar = ''
+  let braceDepth = 0
+
+  while (i < len) {
+    const ch = source[i]
+    if (ch === '>') {
+      if (braceDepth === 0 && !inQuotes) {
+        if (i > attrsStart && source[i - 1] === '/') {
+          hasSlash = true
+        }
+        const attrsEnd = hasSlash ? i - 1 : i
+        const attrs = source.slice(attrsStart, attrsEnd).trim()
+        const afterAngle = i + 1
+
+        let checkIdx = afterAngle
+        while (checkIdx < len && isWS(source[checkIdx])) checkIdx++
+        const hasTrailingNewline = checkIdx < len && source[checkIdx] === '\n'
+        const matchEnd = hasTrailingNewline ? checkIdx + 1 : afterAngle
+
+        if (!hasSlash) {
+          let checkPos = hasTrailingNewline ? checkIdx + 1 : checkIdx
+          while (checkPos < len && isWS(source[checkPos])) checkPos++
+          const closeTagPattern = '</' + tagName.toLowerCase() + '>'
+          const foundIdx = source
+            .toLowerCase()
+            .indexOf(closeTagPattern, checkPos)
+          if (foundIdx !== -1) {
+            const between = source.slice(checkPos, foundIdx).trim()
+            if (between) {
+              return null
+            }
+          }
+        }
+
+        return {
+          tagName,
+          attrs,
+          fullMatch: source.slice(pos, matchEnd),
+          endsWithSlash: hasSlash,
+        }
+      }
+    } else if ((ch === '"' || ch === "'") && !inQuotes) {
+      inQuotes = true
+      quoteChar = ch
+    } else if (
+      ch === quoteChar &&
+      inQuotes &&
+      (i === 0 || source[i - 1] !== '\\')
+    ) {
+      inQuotes = false
+      quoteChar = ''
+    } else if (ch === '{' && !inQuotes) {
+      braceDepth++
+    } else if (ch === '}' && !inQuotes && braceDepth > 0) {
+      braceDepth--
+    }
+    i++
+  }
+
+  return null
+}
 const CAPTURE_LETTER_AFTER_HYPHEN = /-([a-z])?/gi
 export const INTERPOLATION_R = /^\{.*\}$/
 const DOUBLE_NEWLINE_R = /\n\n/
@@ -317,9 +408,8 @@ function unquote(str: string): string {
 }
 
 function normalizeAttributeKey(key: string): string {
-  const hyphenIndex = key.indexOf('-')
-
-  if (hyphenIndex !== -1 && key.match(HTML_CUSTOM_ATTR_R) === null) {
+  if (includes(key, '-') && key.match(HTML_CUSTOM_ATTR_R) === null) {
+    const hyphenIndex = key.indexOf('-')
     key = key.replace(CAPTURE_LETTER_AFTER_HYPHEN, function (_, letter) {
       return letter ? letter.toUpperCase() : ''
     })
@@ -470,7 +560,7 @@ function parseHTMLAttributes(
         if (
           typeof normalizedValue === 'string' &&
           options.compile &&
-          (hasBlockMatch || HTML_SELF_CLOSING_ELEMENT_R.test(normalizedValue))
+          (hasBlockMatch || parseHTMLSelfClosingTag(normalizedValue, 0))
         ) {
           attributes[mappedKey] = options.compile(normalizedValue.trim())
         } else {
@@ -530,8 +620,7 @@ export function parseInlineSpan(
   let textStart = start // Track start of accumulated text
 
   // Helper to flush accumulated text inline (avoid parseText function call)
-  // forceNewNode: if true, always create a new node even if last node is text
-  const flushText = (endPos: number, forceNewNode: boolean = false) => {
+  const flushText = (endPos: number) => {
     if (endPos > textStart) {
       const text = source.slice(textStart, endPos)
 
@@ -565,7 +654,6 @@ export function parseInlineSpan(
     }
 
     const char = source[pos]
-    let matched = false
 
     // Character-based dispatch: use switch to jump directly to relevant parsers
     // This eliminates ~90% of sequential if checks
@@ -580,14 +668,13 @@ export function parseInlineSpan(
           if (isDebug && parseMetrics) {
             parseMetrics.inlineParsers.escaped.hits++
           }
-          flushText(pos, false)
+          flushText(pos)
           // Push escaped character as separate node (don't merge with next text)
           result.push(escapedResult)
           pos = escapedResult.endPos
           // After escaped char, next text should NOT merge with it
           // Set textStart to current pos so next accumulation starts fresh
           textStart = pos
-          matched = true
         } else {
           // Not a valid escape, accumulate as text
           if (isDebug && parseMetrics) {
@@ -620,7 +707,6 @@ export function parseInlineSpan(
               result.push(footnoteResult)
               pos = footnoteResult.endPos
               textStart = pos
-              matched = true
               break
             }
           }
@@ -636,7 +722,6 @@ export function parseInlineSpan(
             flushText(pos)
             pos = refResult.endPos
             textStart = pos
-            matched = true
             break
           }
           // Try GFM task checkbox
@@ -658,7 +743,6 @@ export function parseInlineSpan(
               result.push(taskResult)
               pos = taskResult.endPos
               textStart = pos
-              matched = true
               break
             }
           }
@@ -675,7 +759,6 @@ export function parseInlineSpan(
             result.push(refLinkResult)
             pos = refLinkResult.endPos
             textStart = pos
-            matched = true
             break
           }
           // Try regular link
@@ -691,7 +774,6 @@ export function parseInlineSpan(
             result.push(linkResult)
             pos = linkResult.endPos
             textStart = pos
-            matched = true
             break
           }
         }
@@ -724,7 +806,6 @@ export function parseInlineSpan(
             result.push(angleBraceResult)
             pos = angleBraceResult.endPos
             textStart = pos
-            matched = true
             break
           }
           // Try HTML comment
@@ -741,7 +822,6 @@ export function parseInlineSpan(
               result.push(htmlCommentResult)
               pos = htmlCommentResult.endPos
               textStart = pos
-              matched = true
               break
             }
           }
@@ -749,36 +829,20 @@ export function parseInlineSpan(
           if (isDebug && parseMetrics) {
             parseMetrics.inlineParsers.htmlElement.attempts++
           }
-          const htmlResult = parseHTMLElement(source, pos, state, options)
+          const htmlResult = parseHTML(source, pos, state, options)
           if (htmlResult) {
             if (isDebug && parseMetrics) {
               parseMetrics.inlineParsers.htmlElement.hits++
+              // Track self-closing separately if it's a self-closing tag
+              if (htmlResult.type === RuleType.htmlSelfClosing) {
+                parseMetrics.inlineParsers.htmlSelfClosing.attempts++
+                parseMetrics.inlineParsers.htmlSelfClosing.hits++
+              }
             }
             flushText(pos)
             result.push(htmlResult)
             pos = htmlResult.endPos
             textStart = pos
-            matched = true
-            break
-          }
-          if (isDebug && parseMetrics) {
-            parseMetrics.inlineParsers.htmlSelfClosing.attempts++
-          }
-          const htmlSelfClosingResult = parseHTMLSelfClosing(
-            source,
-            pos,
-            state,
-            options
-          )
-          if (htmlSelfClosingResult) {
-            if (isDebug && parseMetrics) {
-              parseMetrics.inlineParsers.htmlSelfClosing.hits++
-            }
-            flushText(pos)
-            result.push(htmlSelfClosingResult)
-            pos = htmlSelfClosingResult.endPos
-            textStart = pos
-            matched = true
             break
           }
         }
@@ -825,7 +889,6 @@ export function parseInlineSpan(
           } as MarkdownToJSX.FormattedTextNode)
           pos += match[0].length
           textStart = pos
-          matched = true
         } else {
           // Not valid formatting, accumulate as text
           if (isDebug && parseMetrics) {
@@ -856,7 +919,6 @@ export function parseInlineSpan(
             result.push(breakResult)
             pos = breakResult.endPos
             textStart = pos
-            matched = true
             break
           }
         }
@@ -881,7 +943,6 @@ export function parseInlineSpan(
           result.push(codeResult)
           pos = codeResult.endPos
           textStart = pos
-          matched = true
         } else {
           // Not valid code, accumulate as text
           if (isDebug && parseMetrics) {
@@ -907,7 +968,6 @@ export function parseInlineSpan(
             result.push(refImageResult)
             pos = refImageResult.endPos
             textStart = pos
-            matched = true
             break
           }
           if (isDebug && parseMetrics) {
@@ -922,7 +982,6 @@ export function parseInlineSpan(
             result.push(imageResult)
             pos = imageResult.endPos
             textStart = pos
-            matched = true
             break
           }
         }
@@ -945,7 +1004,6 @@ export function parseInlineSpan(
         }
         pos++
         textStart = pos
-        matched = true
         break
       }
 
@@ -968,7 +1026,6 @@ export function parseInlineSpan(
             result.push(bareUrlResult)
             pos = bareUrlResult.endPos
             textStart = pos
-            matched = true
             break
           }
         }
@@ -1036,33 +1093,32 @@ export function parseText(
     if (currentChar === '[') {
       // Look ahead to see if this might be a link
       let lookAhead = pos + 1
-      let foundClosingBracket = false
       while (lookAhead < end && lookAhead < pos + 100) {
         if (source[lookAhead] === ']') {
-          foundClosingBracket = true
           // Check if it's followed by '(' which would make it a link
           if (lookAhead + 1 < end && source[lookAhead + 1] === '(') {
             break // This looks like a link, stop accumulating
           }
-          break
+          // Found ']' but not followed by '(', include '[' as text
+          pos++
+          continue
         }
         if (source[lookAhead] === '\n') break // Stop at newlines
         lookAhead++
       }
-      // If it doesn't look like a link, include '[' as text and continue
-      // Otherwise stop to allow link parsing
+      // If we didn't find a '](' pattern, include '[' as text
       if (
-        !foundClosingBracket ||
+        lookAhead >= end ||
+        lookAhead >= pos + 100 ||
+        source[lookAhead] !== ']' ||
         lookAhead + 1 >= end ||
         source[lookAhead + 1] !== '('
       ) {
-        // Not a link pattern, include '[' as text
         pos++
         continue
-      } else {
-        // Potential link, stop here
-        break
       }
+      // Potential link, stop here
+      break
     }
 
     // Stop before potential line breaks (2 spaces + newline)
@@ -1457,7 +1513,9 @@ export function parseLinkAngleBrace(
 
   if (isMailto || (isEmailLike && !includes(content, '//'))) {
     isEmail = true
-    target = target.replace(/^mailto:/, '')
+    if (startsWith(target, 'mailto:')) {
+      target = target.slice(7)
+    }
   }
 
   // Sanitize autolink target
@@ -1754,7 +1812,7 @@ function parseBlocksInHTML(
     '*': [breakThematicWrapper, parseUnorderedList],
     _: [breakThematicWrapper],
     '+': [parseUnorderedList],
-    '<': [htmlCommentWrapper, parseHTMLBlock, parseHTMLSelfClosing],
+    '<': [htmlCommentWrapper, parseHTML],
   }
 
   const numericParsers: ParserFn[] = [parseOrderedList]
@@ -2982,7 +3040,7 @@ function matchHTMLBlock(source: string): RegExpMatchArray | null {
   // This prevents <https://example.com> from being parsed as HTML tag
   // Only check if tag name itself ends with : and is followed by // (not in attributes)
   const sourceAfterMatch = source.slice(m.index + m[0].length)
-  if (tagName.endsWith(':') && sourceAfterMatch.startsWith('//')) {
+  if (endsWith(tagName, ':') && startsWith(sourceAfterMatch, '//')) {
     return null
   }
   // Also check the immediate source context for URL pattern (not in attributes)
@@ -3125,76 +3183,52 @@ function matchHTMLBlock(source: string): RegExpMatchArray | null {
   ] as RegExpMatchArray
 }
 
-export function parseHTMLBlock(
+function processHTMLBlock(
+  tagNameOriginal: string,
+  tagName: string,
+  attrs: string,
+  content: string,
+  fullMatch: string,
+  endPos: number,
   source: string,
   pos: number,
   state: MarkdownToJSX.State,
+  parentInAnchor: boolean,
   options: ParseOptions
-): ParseResult {
-  // Must start with '<'
-  if (source[pos] !== '<') return null
-
-  // Preserve inAnchor state from parent for nested HTML parsing
-  const parentInAnchor = state.inAnchor || false
-
-  // Use the proven matchHTMLBlock function from the old parser
-  const match = matchHTMLBlock(source.slice(pos))
-  if (!match) return null
-
-  const tagNameOriginal = match[1]
-  const tagName = tagNameOriginal.toLowerCase()
-  const attrs = match[2] || ''
-  let content = match[3]
-  const fullMatch = match[0]
-  const endPos = pos + fullMatch.length
-
-  // Heuristic: At the start of a new line (block level), if HTML is at the start, check
-  // if it should be wrapped in a paragraph. After consuming the HTML, check if there's
-  // any non-whitespace content before a blank line or end of input.
-  // Per CommonMark: HTML blocks continue until a blank line. If there's content
-  // (text/markdown, not just other HTML tags) before a blank line, wrap in paragraph.
-  // Note: matchHTMLBlock includes trailing newlines, so if fullMatch ends with newline(s),
-  // the HTML block already ended at a blank line - treat it as a block.
-  // Only apply this at block level - if already inline, parse the HTML normally.
+): MarkdownToJSX.HTMLNode & { endPos: number } {
+  // Apply block-level paragraph wrapping heuristics
   if (!state.inHTML && !state.inline && !endsWith(fullMatch, '\n')) {
-    // HTML doesn't end with newline - check what comes after until blank line or end
     let checkPos = endPos
     const sourceLen = source.length
 
     while (checkPos < sourceLen) {
       if (source[checkPos] === '\n') {
-        // Skip whitespace after newline (including \r for Windows line endings)
-        let pos = checkPos + 1
+        let p = checkPos + 1
         while (
-          pos < sourceLen &&
-          (source[pos] === ' ' || source[pos] === '\t' || source[pos] === '\r')
+          p < sourceLen &&
+          (source[p] === ' ' || source[p] === '\t' || source[p] === '\r')
         ) {
-          pos++
+          p++
         }
-        // If next char is newline after whitespace, it's a blank line - treat as block
-        if (pos < sourceLen && source[pos] === '\n') break
-        checkPos = pos
+        if (p < sourceLen && source[p] === '\n') break
+        checkPos = p
       } else if (
         source[checkPos] !== ' ' &&
         source[checkPos] !== '\t' &&
         source[checkPos] !== '\r'
       ) {
-        // Found non-whitespace - check if it's an HTML tag
         if (source[checkPos] === '<') {
           const htmlMatch = matchHTMLBlock(source.slice(checkPos))
           if (htmlMatch) {
             checkPos += htmlMatch[0].length
             continue
           }
-          const selfClosingMatch = source
-            .slice(checkPos)
-            .match(HTML_SELF_CLOSING_ELEMENT_R)
+          const selfClosingMatch = parseHTMLSelfClosingTag(source, checkPos)
           if (selfClosingMatch) {
-            checkPos += selfClosingMatch[0].length
+            checkPos += selfClosingMatch.fullMatch.length
             continue
           }
         }
-        // Found text/markdown content (not HTML tag) - wrap in paragraph
         return null
       } else {
         checkPos++
@@ -3209,21 +3243,15 @@ export function parseHTMLBlock(
     options
   )
 
-  // Decide inner parsing policy
   const lowerTag = tagName
   const noInnerParse =
     lowerTag === 'pre' || lowerTag === 'script' || lowerTag === 'style'
 
-  // For noInnerParse tags, store content as-is (no left-trimming)
-  // The old parser uses capture[3] directly without left-trimming for noInnerParse
   if (noInnerParse) {
-    // Just trim leading/trailing newlines to match old parser behavior
     let finalContent = content
-    // Remove leading newline if present (from after opening tag)
     if (finalContent.length > 0 && finalContent[0] === '\n') {
       finalContent = finalContent.slice(1)
     }
-    // Remove trailing newline if present (before closing tag)
     if (
       finalContent.length > 0 &&
       finalContent[finalContent.length - 1] === '\n'
@@ -3233,7 +3261,6 @@ export function parseHTMLBlock(
     content = finalContent
   }
 
-  // Left-trim content similar to old parser (only for parsing, not for noInnerParse)
   const leftTrimMatch = content.match(/^([ \t]*)/)
   const leftTrimAmount = leftTrimMatch ? leftTrimMatch[1] : ''
   const trimmer = new RegExp(
@@ -3242,34 +3269,19 @@ export function parseHTMLBlock(
   )
   const trimmed = content.replace(trimmer, '')
 
-  // Check if content contains block syntax (double newlines indicate block content)
-  // Also check for block syntax patterns even without double newlines
-  // Include HTML block elements (like the old parser's BLOCK_SYNTAXES)
-  // But note: the old parser only uses parseBlock if there are double newlines OR
-  // non-paragraph block syntaxes (headings, lists, etc.), not just HTML blocks
-  // However, HTML blocks WITHIN HTML blocks should trigger block parsing
   const hasDoubleNewline = DOUBLE_NEWLINE_R.test(trimmed)
   const hasNonParagraphBlockSyntax = BLOCK_SYNTAX_R.test(trimmed)
-  // For <p> tags, parse as inline to avoid nested paragraphs (matching old parser behavior)
-  // The old parser uses parseInline for <p> tags unless there are double newlines
-  // Only use block parsing if there are actual block elements (headings, lists, etc.)
   const isParagraphTag = lowerTag === 'p'
   const hasBlockSyntax = isParagraphTag
-    ? hasDoubleNewline // For <p>, only use blocks if double newlines
+    ? hasDoubleNewline
     : hasDoubleNewline ||
       hasNonParagraphBlockSyntax ||
       (state.inHTML && HTML_BLOCK_ELEMENT_START_R.test(trimmed))
-  // HTML blocks alone don't force block parsing unless we're already in HTML context
-  // But if parent is <p>, always parse as inline to avoid nested paragraphs
-  // This matches the old parser: parseFunc = some(BLOCK_SYNTAXES, trimmed) ? parseBlock : parseInline
-  // where BLOCK_SYNTAXES includes HTML_BLOCK_ELEMENT_START_R, but parseInline is used for <p> unless double newlines
 
   let children: MarkdownToJSX.ASTNode[] = []
 
   if (!noInnerParse && trimmed) {
     if (hasBlockSyntax) {
-      // Parse as blocks using full block parser logic
-      // Set inHTML state to allow HTML parsing inside
       const blockState = {
         ...state,
         inline: false,
@@ -3278,7 +3290,6 @@ export function parseHTMLBlock(
       }
       children = parseBlocksInHTML(trimmed, blockState, options)
     } else {
-      // Parse as inline content - don't trim, preserve newlines for proper parsing
       const childState = {
         ...state,
         inline: true,
@@ -3296,18 +3307,16 @@ export function parseHTMLBlock(
 
   return {
     type: RuleType.htmlBlock,
-    // For noInnerParse tags, use lowercase tag name (like old parser)
-    // Otherwise preserve original case
     tag: (noInnerParse ? tagName : tagNameOriginal) as MarkdownToJSX.HTMLTags,
     attrs: attributes,
     children,
     text: noInnerParse ? content : undefined,
     noInnerParse,
     endPos: endPos,
-  }
+  } as MarkdownToJSX.HTMLNode & { endPos: number }
 }
 
-export function parseHTMLElement(
+export function parseHTML(
   source: string,
   pos: number,
   state: MarkdownToJSX.State,
@@ -3316,131 +3325,121 @@ export function parseHTMLElement(
   // Must start with '<'
   if (source[pos] !== '<') return null
 
-  // Check for anchor tags first (avoid slice - use direct char checks with Unicode-aware word boundary)
-  // Anchor tags always use parseHTMLBlock to handle nested content properly
-  // Check for <a followed by word boundary using Unicode-aware check
-  if (
+  // Preserve inAnchor state from parent for nested HTML parsing
+  const parentInAnchor = state.inAnchor || false
+
+  // Quick check: try self-closing tag detection first (fast path for void elements)
+  // Only do this if we're not likely to be an anchor tag
+  const isLikelyAnchor =
     pos + 1 < source.length &&
-    (source[pos + 1] === 'a' || source[pos + 1] === 'A')
-  ) {
-    const nextPos = pos + 2
-    if (nextPos >= source.length || !/\w/u.test(source[nextPos])) {
-      return parseHTMLBlock(source, pos, state, options)
+    (source[pos + 1] === 'a' || source[pos + 1] === 'A') &&
+    (pos + 2 >= source.length || !/\w/u.test(source[pos + 2]))
+
+  if (!isLikelyAnchor) {
+    const selfClosingMatch = parseHTMLSelfClosingTag(source, pos)
+    if (selfClosingMatch) {
+      const tagNameLower = selfClosingMatch.tagName.toLowerCase()
+      const isVoid = isVoidElement(selfClosingMatch.tagName)
+
+      // If it's an anchor tag or non-void without />, we need block parsing
+      // Otherwise, it's a valid self-closing tag
+      if (tagNameLower !== 'a' && (isVoid || selfClosingMatch.endsWithSlash)) {
+        // Valid self-closing tag (void or has />)
+        const tagName = selfClosingMatch.tagName
+        const attrs = selfClosingMatch.attrs.replace(/\/\s*$/, '')
+
+        const attributes = parseHTMLAttributes(
+          attrs,
+          tagNameLower,
+          tagName,
+          options
+        )
+
+        return {
+          type: RuleType.htmlSelfClosing,
+          tag: tagName,
+          attrs: attributes,
+          endPos: pos + selfClosingMatch.fullMatch.length,
+        } as MarkdownToJSX.HTMLSelfClosingNode & { endPos: number }
+      }
+      // Fall through to block parsing if it's an anchor or non-void without />
     }
   }
 
-  const selfClosingMatch = source.slice(pos).match(HTML_SELF_CLOSING_ELEMENT_R)
-  if (selfClosingMatch) {
-    const tagNameLower = selfClosingMatch[1].toLowerCase()
-    const isVoid = isVoidElement(selfClosingMatch[1])
-    const fullMatch = selfClosingMatch[0]
-    const endsWithSlash = endsWith(fullMatch.trim(), '/>')
+  // Try block parsing (for full tags with nested content, or anchor tags)
+  const blockMatch = matchHTMLBlock(source.slice(pos))
+  if (blockMatch) {
+    const tagNameOriginal = blockMatch[1]
+    const tagName = tagNameOriginal.toLowerCase()
+    const attrs = blockMatch[2] || ''
+    const content = blockMatch[3]
+    const fullMatch = blockMatch[0]
+    const endPos = pos + fullMatch.length
 
-    // If it's not void and doesn't end with />, it's an opening tag that needs block parsing
-    // Also, for anchor tags, always use block parsing to handle nested content with inAnchor state
-    if (tagNameLower === 'a' || (!isVoid && !endsWithSlash)) {
-      // Try parsing as HTML block instead
-      return parseHTMLBlock(source, pos, state, options)
-    }
-
-    const tagName = selfClosingMatch[1]
-    const attrs = selfClosingMatch[2] || ''
-
-    // Parse attributes using shared helper function
-    const attributes = parseHTMLAttributes(
-      attrs,
-      tagNameLower,
+    return processHTMLBlock(
+      tagNameOriginal,
       tagName,
+      attrs,
+      content,
+      fullMatch,
+      endPos,
+      source,
+      pos,
+      state,
+      parentInAnchor,
       options
     )
-
-    return {
-      type: RuleType.htmlSelfClosing,
-      tag: tagName,
-      attrs: attributes,
-      endPos: pos + fullMatch.length,
-    } as MarkdownToJSX.HTMLSelfClosingNode & { endPos: number }
   }
 
-  // For complete HTML elements with nested tags, use the same logic as parseHTMLBlock
-  // This handles nested tags correctly (e.g., <Tooltip><TooltipTrigger>...</TooltipTrigger></Tooltip>)
-  // Note: void elements without /> are handled by parseHTMLSelfClosing fallback
-  return parseHTMLBlock(source, pos, state, options)
-}
+  // Fallback: Try void element without /> (manual parsing)
+  // Only try this if self-closing didn't match
+  let i = pos + 1
+  const len = source.length
+  const tagStart = i
 
-export function parseHTMLSelfClosing(
-  source: string,
-  pos: number,
-  state: MarkdownToJSX.State,
-  options: ParseOptions
-): ParseResult {
-  // Must start with '<'
-  if (source[pos] !== '<') return null
+  const isTagNameChar = (c: string) => {
+    const n = code(c)
+    return (n >= 97 && n <= 122) || (n >= 48 && n <= 57) || n === 45 || n === 58
+  }
 
-  // Use the same multiline-capable regex as parseHTMLElement
-  const selfClosingMatch = source.slice(pos).match(HTML_SELF_CLOSING_ELEMENT_R)
-  if (!selfClosingMatch) {
-    // Try void element (without />) - only for void elements
-    // Allow hyphens for custom web components: [a-z][a-z0-9:-]*
-    const voidMatch = source
-      .slice(pos)
-      .match(/^<([a-z][a-z0-9:-]*)(?:\s+([^>]*?))?>(\s*\n)?/i)
-    if (voidMatch) {
-      const tagName = voidMatch[1]
-      if (!isVoidElement(tagName)) {
-        return null
-      }
-      // Process as self-closing void element
-      const tagNameOriginal = voidMatch[1]
-      const attrs = voidMatch[2] || ''
-      const endPos = pos + voidMatch[0].length
+  if (i >= len || !isTagNameChar(source[i].toLowerCase())) return null
 
-      // Parse attributes using shared helper function
-      const attributes = parseHTMLAttributes(
-        attrs,
-        tagName,
-        tagNameOriginal,
-        options
-      )
+  while (i < len && isTagNameChar(source[i].toLowerCase())) i++
+  if (i === tagStart) return null
 
-      return {
-        type: RuleType.htmlSelfClosing,
-        tag: tagNameOriginal,
-        attrs: attributes,
-        endPos,
-      } as MarkdownToJSX.HTMLSelfClosingNode & { endPos: number }
+  const tagName = source.slice(tagStart, i)
+  if (!isVoidElement(tagName)) return null
+
+  while (i < len && isWS(source[i])) i++
+  const attrsStart = i
+
+  while (i < len && source[i] !== '>') i++
+  if (i >= len) return null
+
+  const attrs = source.slice(attrsStart, i).trim()
+  const afterAngle = i + 1
+
+  let checkIdx = afterAngle
+  while (checkIdx < len && isWS(source[checkIdx])) checkIdx++
+  const closeTagPattern = '</' + tagName.toLowerCase() + '>'
+  const foundIdx = source.toLowerCase().indexOf(closeTagPattern, checkIdx)
+  if (foundIdx !== -1) {
+    const between = source.slice(checkIdx, foundIdx).trim()
+    if (between) {
+      return null
     }
-    return null
   }
 
-  const match = selfClosingMatch
+  i++
+  const endPos = i
+  while (i < len && isWS(source[i])) i++
+  if (i < len && source[i] === '\n') i++
 
-  const tagNameOriginal = match[1]
-  const tagName = tagNameOriginal.toLowerCase()
-  const fullMatch = match[0]
-  const endsWithSlash = endsWith(fullMatch.trim(), '/>')
-  const isVoid = isVoidElement(tagNameOriginal)
-
-  // If it's not void and doesn't end with />, it's not actually self-closing
-  // Fall back to parseHTMLBlock to handle it as a regular element
-  if (!isVoid && !endsWithSlash) {
-    return null
-  }
-
-  // Remove trailing / from attributes if present (from self-closing tag)
-  let attrs = (match[2] || '').replace(/\/\s*$/, '')
-  const endPos = pos + match[0].length
-
-  const attributes = parseHTMLAttributes(
-    attrs,
-    tagName,
-    tagNameOriginal,
-    options
-  )
+  const attributes = parseHTMLAttributes(attrs, tagName, tagName, options)
 
   return {
     type: RuleType.htmlSelfClosing,
-    tag: tagNameOriginal,
+    tag: tagName,
     attrs: attributes,
     endPos,
   } as MarkdownToJSX.HTMLSelfClosingNode & { endPos: number }
@@ -3507,11 +3506,14 @@ export function parseFootnote(
   while (bracketEnd < source.length && source[bracketEnd] !== ']') {
     bracketEnd++
   }
-  if (bracketEnd >= source.length || source[bracketEnd] !== ']') return null
-
-  // Must be followed by ':'
-  if (bracketEnd + 1 >= source.length || source[bracketEnd + 1] !== ':')
+  if (
+    bracketEnd >= source.length ||
+    source[bracketEnd] !== ']' ||
+    bracketEnd + 1 >= source.length ||
+    source[bracketEnd + 1] !== ':'
+  ) {
     return null
+  }
 
   const identifier = source.slice(pos + 2, bracketEnd)
 
@@ -3629,14 +3631,10 @@ export function parseFootnote(
       return line
     } else if (leadingSpaces === 4 && !prevWasBlank) {
       // Exactly 4 spaces without blank line - remove (markdown continuation indentation)
-      return line.replace(/^ {4}/, '')
-    } else if (leadingSpaces > 4 && !prevWasBlank) {
-      // More than 4 spaces - preserve (paragraph in footnote)
-      return line
-    } else {
-      // Less than 4 spaces - preserve (intentional content indentation like 2 spaces)
-      return line
+      return line.slice(4)
     }
+    // Otherwise preserve (less than 4 spaces or more than 4 spaces without blank line)
+    return line
   })
   footnoteContent = processedLines.join('\n')
 

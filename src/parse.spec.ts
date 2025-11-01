@@ -20,8 +20,7 @@ import {
   parseOrderedList,
   parseUnorderedList,
   parseTable,
-  parseHTMLBlock,
-  parseHTMLSelfClosing,
+  parseHTML,
   parseHTMLComment,
   parseRef,
   parseFootnote,
@@ -1155,9 +1154,9 @@ describe('parseHTMLComment', () => {
   })
 })
 
-describe('parseHTMLSelfClosing', () => {
+describe('parseHTML (self-closing)', () => {
   it('should parse self-closing tags', () => {
-    const result = parseHTMLSelfClosing('<br />', 0, mockState, mockOptions)
+    const result = parseHTML('<br />', 0, mockState, mockOptions)
     expect(result).toEqual({
       type: RuleType.htmlSelfClosing,
       tag: 'br',
@@ -1167,7 +1166,7 @@ describe('parseHTMLSelfClosing', () => {
   })
 
   it('should parse self-closing tags with attributes', () => {
-    const result = parseHTMLSelfClosing(
+    const result = parseHTML(
       '<img src="test.jpg" alt="test" />',
       0,
       mockState,
@@ -1185,7 +1184,7 @@ describe('parseHTMLSelfClosing', () => {
   })
 
   it('should parse self-closing tags without trailing slash', () => {
-    const result = parseHTMLSelfClosing('<br>', 0, mockState, mockOptions)
+    const result = parseHTML('<br>', 0, mockState, mockOptions)
     expect(result).toEqual({
       type: RuleType.htmlSelfClosing,
       tag: 'br',
@@ -1195,13 +1194,13 @@ describe('parseHTMLSelfClosing', () => {
   })
 
   it('should return null if not starting with <', () => {
-    const result = parseHTMLSelfClosing('div>', 0, mockState, mockOptions)
+    const result = parseHTML('div>', 0, mockState, mockOptions)
     expect(result).toBeNull()
   })
 
   describe('SVG void elements', () => {
     it('should parse SVG circle without closing tag', () => {
-      const result = parseHTMLSelfClosing(
+      const result = parseHTML(
         '<circle cx="50" cy="50" r="40">',
         0,
         mockState,
@@ -1215,7 +1214,7 @@ describe('parseHTMLSelfClosing', () => {
     })
 
     it('should parse SVG path without closing tag', () => {
-      const result = parseHTMLSelfClosing(
+      const result = parseHTML(
         '<path d="M10 10"/>',
         0,
         mockState,
@@ -1227,7 +1226,7 @@ describe('parseHTMLSelfClosing', () => {
     })
 
     it('should parse SVG rect without closing tag', () => {
-      const result = parseHTMLSelfClosing(
+      const result = parseHTML(
         '<rect x="10" y="10" width="100" height="100">',
         0,
         mockState,
@@ -1239,7 +1238,7 @@ describe('parseHTMLSelfClosing', () => {
     })
 
     it('should parse SVG line without closing tag', () => {
-      const result = parseHTMLSelfClosing(
+      const result = parseHTML(
         '<line x1="0" y1="0" x2="100" y2="100">',
         0,
         mockState,
@@ -1251,7 +1250,7 @@ describe('parseHTMLSelfClosing', () => {
     })
 
     it('should parse SVG polygon without closing tag', () => {
-      const result = parseHTMLSelfClosing(
+      const result = parseHTML(
         '<polygon points="10,10 50,50 10,50">',
         0,
         mockState,
@@ -1263,7 +1262,7 @@ describe('parseHTMLSelfClosing', () => {
     })
 
     it('should parse SVG ellipse without closing tag', () => {
-      const result = parseHTMLSelfClosing(
+      const result = parseHTML(
         '<ellipse cx="50" cy="50" rx="40" ry="30">',
         0,
         mockState,
@@ -1275,7 +1274,7 @@ describe('parseHTMLSelfClosing', () => {
     })
 
     it('should parse SVG stop without closing tag', () => {
-      const result = parseHTMLSelfClosing(
+      const result = parseHTML(
         '<stop offset="0%" stop-color="red">',
         0,
         mockState,
@@ -1289,7 +1288,7 @@ describe('parseHTMLSelfClosing', () => {
 
   describe('Custom web components (hyphenated)', () => {
     it('should parse custom web component without closing tag', () => {
-      const result = parseHTMLSelfClosing(
+      const result = parseHTML(
         '<my-component attr="value">',
         0,
         mockState,
@@ -1302,7 +1301,7 @@ describe('parseHTMLSelfClosing', () => {
     })
 
     it('should parse custom web component with self-closing syntax', () => {
-      const result = parseHTMLSelfClosing(
+      const result = parseHTML(
         '<my-custom-element />',
         0,
         mockState,
@@ -1314,7 +1313,7 @@ describe('parseHTMLSelfClosing', () => {
     })
 
     it('should parse nested custom components', () => {
-      const result = parseHTMLSelfClosing(
+      const result = parseHTML(
         '<parent-component><child-component>',
         0,
         mockState,
@@ -1328,7 +1327,7 @@ describe('parseHTMLSelfClosing', () => {
     })
 
     it('should parse multiple hyphenated custom components', () => {
-      const result1 = parseHTMLSelfClosing(
+      const result1 = parseHTML(
         '<ui-button>',
         0,
         mockState,
@@ -1338,7 +1337,7 @@ describe('parseHTMLSelfClosing', () => {
       const node1 = result1 as MarkdownToJSX.HTMLSelfClosingNode
       expect(node1.tag).toBe('ui-button')
 
-      const result2 = parseHTMLSelfClosing(
+      const result2 = parseHTML(
         '<data-table-cell>',
         0,
         mockState,
@@ -1350,7 +1349,7 @@ describe('parseHTMLSelfClosing', () => {
     })
 
     it('should parse custom component with attributes', () => {
-      const result = parseHTMLSelfClosing(
+      const result = parseHTML(
         '<custom-input type="text" placeholder="Enter text">',
         0,
         mockState,
@@ -1366,29 +1365,29 @@ describe('parseHTMLSelfClosing', () => {
 
   describe('Non-void elements should not parse as void', () => {
     it('should return null for div without closing tag', () => {
-      const result = parseHTMLSelfClosing('<div>', 0, mockState, mockOptions)
-      expect(result).toBeNull() // div is not void, should fall back to parseHTMLBlock
+      const result = parseHTML('<div>', 0, mockState, mockOptions)
+      expect(result).toBeNull() // div is not void, should return null (no closing tag found)
     })
 
     it('should return null for span without closing tag', () => {
-      const result = parseHTMLSelfClosing('<span>', 0, mockState, mockOptions)
-      expect(result).toBeNull() // span is not void
+      const result = parseHTML('<span>', 0, mockState, mockOptions)
+      expect(result).toBeNull() // span is not void, should return null (no closing tag found)
     })
 
     it('should return null for p without closing tag', () => {
-      const result = parseHTMLSelfClosing('<p>', 0, mockState, mockOptions)
+      const result = parseHTML('<p>', 0, mockState, mockOptions)
       expect(result).toBeNull() // p is not void
     })
 
     it('should return null for h1 without closing tag', () => {
-      const result = parseHTMLSelfClosing('<h1>', 0, mockState, mockOptions)
+      const result = parseHTML('<h1>', 0, mockState, mockOptions)
       expect(result).toBeNull() // h1 is not void
     })
   })
 
   describe('Void element edge cases', () => {
     it('should handle SVG elements with namespace prefixes', () => {
-      const result = parseHTMLSelfClosing(
+      const result = parseHTML(
         '<svg:circle cx="50" cy="50" r="40">',
         0,
         mockState,
@@ -1399,7 +1398,7 @@ describe('parseHTMLSelfClosing', () => {
     })
 
     it('should handle custom components with numbers', () => {
-      const result = parseHTMLSelfClosing(
+      const result = parseHTML(
         '<my-component-v2>',
         0,
         mockState,
@@ -1411,7 +1410,7 @@ describe('parseHTMLSelfClosing', () => {
     })
 
     it('should handle custom components with multiple hyphens', () => {
-      const result = parseHTMLSelfClosing(
+      const result = parseHTML(
         '<my-custom-web-component>',
         0,
         mockState,
@@ -1472,9 +1471,9 @@ describe('parseHTMLSelfClosing', () => {
   })
 })
 
-describe('parseHTMLBlock', () => {
+describe('parseHTML (block)', () => {
   it('should parse HTML blocks', () => {
-    const result = parseHTMLBlock('<div>Hello</div>', 0, mockState, mockOptions)
+    const result = parseHTML('<div>Hello</div>', 0, mockState, mockOptions)
     expect(result).toEqual({
       type: RuleType.htmlBlock,
       tag: 'div',
@@ -1486,7 +1485,7 @@ describe('parseHTMLBlock', () => {
   })
 
   it('should parse HTML blocks with attributes', () => {
-    const result = parseHTMLBlock(
+    const result = parseHTML(
       '<p class="test">Content</p>',
       0,
       mockState,
@@ -1503,18 +1502,18 @@ describe('parseHTMLBlock', () => {
   })
 
   it('should return null for unmatched tags', () => {
-    const result = parseHTMLBlock('<div>Hello', 0, mockState, mockOptions)
+    const result = parseHTML('<div>Hello', 0, mockState, mockOptions)
     expect(result).toBeNull()
   })
 
   it('should return null if not starting with <', () => {
-    const result = parseHTMLBlock('div>Hello</div>', 0, mockState, mockOptions)
+    const result = parseHTML('div>Hello</div>', 0, mockState, mockOptions)
     expect(result).toBeNull()
   })
 
   it('should parse math tag with nested elements', () => {
     const mathMarkup = `<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow>a</mrow><mrow>2</mrow></mfrac></mrow><annotation encoding="application/x-tex">\\frac{a}{2}</annotation></semantics></math>`
-    const result = parseHTMLBlock(mathMarkup, 0, mockState, mockOptions)
+    const result = parseHTML(mathMarkup, 0, mockState, mockOptions)
     expect(result).not.toBeNull()
     expect(result?.type).toBe(RuleType.htmlBlock)
     if (result?.type === RuleType.htmlBlock) {
@@ -1534,7 +1533,7 @@ describe('parseHTMLBlock', () => {
   <annotation encoding="application/x-tex">\\frac{\\sqrt{a}}{2}</annotation>
 </semantics>
 </math>`
-    const result = parseHTMLBlock(mathMarkup, 0, mockState, mockOptions)
+    const result = parseHTML(mathMarkup, 0, mockState, mockOptions)
     expect(result).not.toBeNull()
     expect(result?.type).toBe(RuleType.htmlBlock)
     if (result?.type === RuleType.htmlBlock) {
