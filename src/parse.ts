@@ -3663,6 +3663,10 @@ export function matchInlineFormatting(
 
   if (!delimiter) return null
 
+  // Maximum delimiter run length to prevent exponential backtracking
+  // Real markdown formatting rarely exceeds this length
+  var MAX_DELIMITER_RUN = 100
+
   var pos = start + startLength
   var inCode = false
   var inHTMLTag = false
@@ -3748,11 +3752,30 @@ export function matchInlineFormatting(
 
     if (!inCode && htmlDepth === 0) {
       var delimiterRunLength = 0
+      var checkPos = pos
       while (
-        pos + delimiterRunLength < end &&
-        source[pos + delimiterRunLength] === delimiter[0]
+        checkPos < end &&
+        checkPos - pos < MAX_DELIMITER_RUN &&
+        source[checkPos] === delimiter[0]
       ) {
         delimiterRunLength++
+        checkPos++
+      }
+
+      // If we hit the max delimiter run length, skip ahead to avoid exponential behavior
+      // This prevents character-by-character scanning of very long delimiter sequences
+      if (
+        checkPos - pos >= MAX_DELIMITER_RUN &&
+        checkPos < end &&
+        source[checkPos] === delimiter[0]
+      ) {
+        // Skip ahead through the entire long delimiter run at once
+        while (checkPos < end && source[checkPos] === delimiter[0]) {
+          checkPos++
+        }
+        pos = checkPos
+        lastChar = delimiter[0]
+        continue
       }
 
       if (delimiterRunLength >= startLength) {
