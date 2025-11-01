@@ -1,6 +1,5 @@
 import {
   parseInlineSpan,
-  parseText,
   parseTextEscaped,
   parseCodeInline,
   parseBreakLine,
@@ -186,30 +185,45 @@ describe('parseInlineSpan', () => {
 // Unit tests for individual parsers
 describe('parseText', () => {
   it('should parse plain text', () => {
-    const result = parseText('Hello world', 0, 11)
-    expect(result).toEqual({
-      type: RuleType.text,
-      text: 'Hello world',
-      endPos: 11,
-    })
+    const result = parseInlineSpan('Hello world', 0, 11, mockState, mockOptions)
+    expect(result).toEqual([
+      {
+        type: RuleType.text,
+        text: 'Hello world',
+      },
+    ])
   })
 
   it('should handle HTML entities', () => {
-    const result = parseText('Hello &amp; world', 0, 17)
-    expect(result).toEqual({
-      type: RuleType.text,
-      text: 'Hello & world',
-      endPos: 17,
-    })
+    const result = parseInlineSpan(
+      'Hello &amp; world',
+      0,
+      17,
+      mockState,
+      mockOptions
+    )
+    expect(result).toEqual([
+      {
+        type: RuleType.text,
+        text: 'Hello & world',
+      },
+    ])
   })
 
   it('should handle standard HTML entities', () => {
-    const result = parseText('Foo &nbsp; bar&amp;baz.', 0, 23)
-    expect(result).toEqual({
-      type: RuleType.text,
-      text: 'Foo \u00a0 bar&baz.',
-      endPos: 23,
-    })
+    const result = parseInlineSpan(
+      'Foo &nbsp; bar&amp;baz.',
+      0,
+      23,
+      mockState,
+      mockOptions
+    )
+    expect(result).toEqual([
+      {
+        type: RuleType.text,
+        text: 'Foo &nbsp; bar&baz.',
+      },
+    ])
   })
 
   it('should handle escaped underscores', () => {
@@ -231,26 +245,43 @@ describe('parseText', () => {
   })
 
   it('should stop at special characters', () => {
-    const result = parseText('Hello [world]', 0, 13)
-    expect(result).toEqual({
-      type: RuleType.text,
-      text: 'Hello ',
-      endPos: 6,
-    })
+    const result = parseInlineSpan(
+      'Hello [world]',
+      0,
+      13,
+      mockState,
+      mockOptions
+    )
+    expect(result).toEqual([
+      {
+        type: RuleType.text,
+        text: 'Hello ',
+      },
+      {
+        type: RuleType.text,
+        text: '[world]',
+      },
+    ])
   })
 
   it('should stop at newlines', () => {
-    const result = parseText('Hello\nworld', 0, 11)
-    expect(result).toEqual({
-      type: RuleType.text,
-      text: 'Hello',
-      endPos: 5,
-    })
+    const result = parseInlineSpan(
+      'Hello\nworld',
+      0,
+      11,
+      mockState,
+      mockOptions
+    )
+    expect(result).toEqual([
+      { text: 'Hello', type: 'text' },
+      { type: 'breakLine' },
+      { text: 'world', type: 'text' },
+    ])
   })
 
-  it('should return null for empty text', () => {
-    const result = parseText('', 0, 0)
-    expect(result).toBeNull()
+  it('should return nothing for empty text', () => {
+    const result = parseInlineSpan('', 0, 0, mockState, mockOptions)
+    expect(result).toEqual([])
   })
 })
 
@@ -1216,12 +1247,7 @@ describe('parseHTML (self-closing)', () => {
     })
 
     it('should parse SVG path without closing tag', () => {
-      const result = parseHTML(
-        '<path d="M10 10"/>',
-        0,
-        mockState,
-        mockOptions
-      )
+      const result = parseHTML('<path d="M10 10"/>', 0, mockState, mockOptions)
       expect(result).not.toBeNull()
       const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('path')
@@ -1329,22 +1355,12 @@ describe('parseHTML (self-closing)', () => {
     })
 
     it('should parse multiple hyphenated custom components', () => {
-      const result1 = parseHTML(
-        '<ui-button>',
-        0,
-        mockState,
-        mockOptions
-      )
+      const result1 = parseHTML('<ui-button>', 0, mockState, mockOptions)
       expect(result1).not.toBeNull()
       const node1 = result1 as MarkdownToJSX.HTMLSelfClosingNode
       expect(node1.tag).toBe('ui-button')
 
-      const result2 = parseHTML(
-        '<data-table-cell>',
-        0,
-        mockState,
-        mockOptions
-      )
+      const result2 = parseHTML('<data-table-cell>', 0, mockState, mockOptions)
       expect(result2).not.toBeNull()
       const node2 = result2 as MarkdownToJSX.HTMLSelfClosingNode
       expect(node2.tag).toBe('data-table-cell')
@@ -1400,12 +1416,7 @@ describe('parseHTML (self-closing)', () => {
     })
 
     it('should handle custom components with numbers', () => {
-      const result = parseHTML(
-        '<my-component-v2>',
-        0,
-        mockState,
-        mockOptions
-      )
+      const result = parseHTML('<my-component-v2>', 0, mockState, mockOptions)
       expect(result).not.toBeNull()
       const node = result as MarkdownToJSX.HTMLSelfClosingNode
       expect(node.tag).toBe('my-component-v2')
