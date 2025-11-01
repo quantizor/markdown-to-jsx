@@ -1,20 +1,22 @@
 import Markdown from './index'
 import * as React from 'react'
-import * as ReactDOM from 'react-dom'
+import { renderToString } from 'react-dom/server'
 
-const root = document.body.appendChild(document.createElement('div'))
+const root = { innerHTML: '' }
 
-function render(jsx) {
-  return ReactDOM.render(jsx, root)
+function render(jsx: React.ReactElement) {
+  root.innerHTML = renderToString(jsx)
 }
 
-afterEach(() => ReactDOM.unmountComponentAtNode(root))
+afterEach(() => {
+  root.innerHTML = ''
+})
 
 it('accepts markdown content', () => {
   render(<Markdown>_Hello._</Markdown>)
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <em>
+    <em data-reactroot>
       Hello.
     </em>
   `)
@@ -24,7 +26,7 @@ it('handles a no-children scenario', () => {
   render(<Markdown>{''}</Markdown>)
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <span>
+    <span data-reactroot>
     </span>
   `)
 })
@@ -39,7 +41,7 @@ it('handles a null-children scenario', () => {
 
   try {
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span>
+      <span data-reactroot>
       </span>
     `)
   } catch (error) {
@@ -63,7 +65,7 @@ it('accepts options', () => {
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <em>
+    <em data-reactroot>
       Hello.
     </em>
   `)
@@ -83,7 +85,7 @@ it('merges className overrides, rather than overwriting', () => {
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <pre>
+    <pre data-reactroot>
       <code class="lang-js foo">
         foo
       </code>
@@ -95,7 +97,9 @@ it('passes along any additional props to the rendered wrapper element', () => {
   render(<Markdown className="foo"># Hello</Markdown>)
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <h1 id="hello">
+    <h1 id="hello"
+        data-reactroot
+    >
       Hello
     </h1>
   `)
@@ -109,6 +113,7 @@ it('can render simple math', () => {
   expect(root.innerHTML).toMatchInlineSnapshot(`
     <math xmlns="http://www.w3.org/1998/Math/MathML"
           display="block"
+          data-reactroot
     >
       <semantics>
         <mrow>
@@ -142,6 +147,7 @@ it('can render complex math', () => {
   expect(root.innerHTML).toMatchInlineSnapshot(`
     <math xmlns="http://www.w3.org/1998/Math/MathML"
           display="block"
+          data-reactroot
     >
       <semantics>
         <mrow>

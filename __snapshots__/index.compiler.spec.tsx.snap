@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`handles a holistic example 1`] = `
-<div>
+<div data-reactroot>
   <h1>
     Markdown: Syntax
   </h1>
@@ -154,7 +154,7 @@ exports[`handles a holistic example 1`] = `
     This document is itself written using Markdown; you
 can
     <a href="/projects/markdown/syntax.text">
-      see the source for it by adding '.text' to the URL
+      see the source for it by adding &#x27;.text&#x27; to the URL
     </a>
     .
   </p>
@@ -173,8 +173,8 @@ can
   <p>
     Readability, however, is emphasized above all else. A Markdown-formatted
 document should be publishable as-is, as plain text, without looking
-like it's been marked up with tags or formatting instructions. While
-Markdown's syntax has been influenced by several existing text-to-HTML
+like it&#x27;s been marked up with tags or formatting instructions. While
+Markdown&#x27;s syntax has been influenced by several existing text-to-HTML
 filters -- including
     <a href="http://docutils.sourceforge.net/mirror/setext.html">
       Setext
@@ -200,23 +200,23 @@ filters -- including
       EtText
     </a>
     -- the single biggest source of
-inspiration for Markdown's syntax is the format of plain text email.
+inspiration for Markdown&#x27;s syntax is the format of plain text email.
   </p>
   <p>
   </p>
   <p>
-    To this end, Markdown's syntax is comprised entirely of punctuation
+    To this end, Markdown&#x27;s syntax is comprised entirely of punctuation
 characters, which punctuation characters have been carefully chosen so
 as to look like what they mean. E.g., asterisks around a word actually
 look like *emphasis*. Markdown lists look like, well, lists. Even
-blockquotes look like quoted passages of text, assuming you've ever
+blockquotes look like quoted passages of text, assuming you&#x27;ve ever
 used email.
   </p>
   <h3 id="html">
     Inline HTML
   </h3>
   <p>
-    Markdown's syntax is intended for one purpose: to be used as a
+    Markdown&#x27;s syntax is intended for one purpose: to be used as a
 format for
     <em>
       writing
@@ -241,13 +241,13 @@ edit prose. HTML is a
     <em>
       writing
     </em>
-    format. Thus, Markdown's formatting syntax only addresses issues that
+    format. Thus, Markdown&#x27;s formatting syntax only addresses issues that
 can be conveyed in plain text.
   </p>
   <p>
-    For any markup that is not covered by Markdown's syntax, you simply
-use HTML itself. There's no need to preface it or delimit it to
-indicate that you're switching from Markdown to HTML; you just use
+    For any markup that is not covered by Markdown&#x27;s syntax, you simply
+use HTML itself. There&#x27;s no need to preface it or delimit it to
+indicate that you&#x27;re switching from Markdown to HTML; you just use
 the tags.
   </p>
   <p>
@@ -294,7 +294,7 @@ This is another regular paragraph.
   </pre>
   <p>
     Note that Markdown formatting syntax is not processed within block-level
-HTML tags. E.g., you can't use Markdown-style
+HTML tags. E.g., you can&#x27;t use Markdown-style
     <code>
       *emphasis*
     </code>
@@ -317,7 +317,7 @@ HTML block.
     -- can be
 used anywhere in a Markdown paragraph, list item, or header. If you
 want, you can even use HTML tags instead of Markdown formatting; e.g. if
-you'd prefer to use HTML
+you&#x27;d prefer to use HTML
     <code>
       &lt;a&gt;
     </code>
@@ -325,7 +325,7 @@ you'd prefer to use HTML
     <code>
       &lt;img&gt;
     </code>
-    tags instead of Markdown's
+    tags instead of Markdown&#x27;s
 link or image syntax, go right ahead.
   </p>
   <p>
@@ -362,11 +362,11 @@ characters, you must escape them as entities, e.g.
   </p>
   <p>
     Ampersands in particular are bedeviling for web writers. If you want to
-write about 'AT&amp;T', you need to write '
+write about &#x27;AT&amp;T&#x27;, you need to write &#x27;
     <code>
       AT&amp;amp;T
     </code>
-    '. You even need to
+    &#x27;. You even need to
 escape ampersands within URLs. Thus, if you want to link to:
   </p>
   <pre>
@@ -479,10 +479,10 @@ blank line -- a line containing nothing but spaces or tabs is considered
 blank.) Normal paragraphs should not be indented with spaces or tabs.
   </p>
   <p>
-    The implication of the "one or more consecutive lines of text" rule is
-that Markdown supports "hard-wrapped" text paragraphs. This differs
+    The implication of the &quot;one or more consecutive lines of text&quot; rule is
+that Markdown supports &quot;hard-wrapped&quot; text paragraphs. This differs
 significantly from most other text-to-HTML formatters (including Movable
-Type's "Convert Line Breaks" option) which translate every line break
+Type&#x27;s &quot;Convert Line Breaks&quot; option) which translate every line break
 character in a paragraph into a
     <code>
       &lt;br /&gt;
@@ -507,12 +507,12 @@ end a line with two or more spaces, then type return.
       &lt;br /&gt;
     </code>
     , but a simplistic
-"every line break is a
+&quot;every line break is a
     <code>
       &lt;br /&gt;
     </code>
-    " rule wouldn't work for Markdown.
-Markdown's email-style
+    &quot; rule wouldn&#x27;t work for Markdown.
+Markdown&#x27;s email-style
     <a href="#blockquote">
       blockquoting
     </a>
@@ -539,7 +539,7 @@ Markdown's email-style
     .
   </p>
   <p>
-    Setext-style headers are "underlined" using equal signs (for first-level
+    Setext-style headers are &quot;underlined&quot; using equal signs (for first-level
 headers) and dashes (for second-level headers). For example:
   </p>
   <pre>
@@ -556,11 +556,11 @@ This is an H2
     <code>
       =
     </code>
-    's or
+    &#x27;s or
     <code>
       -
     </code>
-    's will work.
+    &#x27;s will work.
   </p>
   <p>
     Atx-style headers use 1-6 hash characters at the start of the line,
@@ -576,9 +576,9 @@ corresponding to header levels 1-6. For example:
     </code>
   </pre>
   <p>
-    Optionally, you may "close" atx-style headers. This is purely
+    Optionally, you may &quot;close&quot; atx-style headers. This is purely
 cosmetic -- you can use this if you think it looks better. The
-closing hashes don't even need to match the number of hashes
+closing hashes don&#x27;t even need to match the number of hashes
 used to open the header. (The number of opening hashes
 determines the header level.) :
   </p>
@@ -599,7 +599,7 @@ determines the header level.) :
     <code>
       &gt;
     </code>
-    characters for blockquoting. If you're
+    characters for blockquoting. If you&#x27;re
 familiar with quoting passages of text in an email message, then you
 know how to create a blockquote in Markdown. It looks best if you hard
 wrap the text and put a
@@ -664,9 +664,9 @@ and code blocks:
 &gt; 1.   This is the first list item.
 &gt; 2.   This is the second list item.
 &gt;
-&gt; Here's some example code:
+&gt; Here&#x27;s some example code:
 &gt;
-&gt;     return shell_exec("echo $input | $markdown_script");
+&gt;     return shell_exec(&quot;echo $input | $markdown_script&quot;);
     </code>
   </pre>
   <p>
@@ -722,7 +722,7 @@ Quote Level from the Text menu.
     </code>
   </pre>
   <p>
-    It's important to note that the actual numbers you use to mark the
+    It&#x27;s important to note that the actual numbers you use to mark the
 list have no effect on the HTML output Markdown produces. The HTML
 Markdown produces from the above list is:
   </p>
@@ -756,10 +756,10 @@ Markdown produces from the above list is:
     </code>
   </pre>
   <p>
-    you'd get the exact same HTML output. The point is, if you want to,
+    you&#x27;d get the exact same HTML output. The point is, if you want to,
 you can use ordinal numbers in your ordered Markdown lists, so that
 the numbers in your source match the numbers in your published HTML.
-But if you want to be lazy, you don't have to.
+But if you want to be lazy, you don&#x27;t have to.
   </p>
   <p>
     If you do use lazy list numbering, however, you should still start the
@@ -784,7 +784,7 @@ or a tab.
     </code>
   </pre>
   <p>
-    But if you want to be lazy, you don't have to:
+    But if you want to be lazy, you don&#x27;t have to:
   </p>
   <pre>
     <code>
@@ -868,7 +868,7 @@ lazy:
     <code>
       *   This is a list item with two paragraphs.
 
-    This is the second paragraph in the list item. You're
+    This is the second paragraph in the list item. You&#x27;re
 only required to indent the first line. Lorem ipsum dolor
 sit amet, consectetuer adipiscing elit.
 
@@ -876,7 +876,7 @@ sit amet, consectetuer adipiscing elit.
     </code>
   </pre>
   <p>
-    To put a blockquote within a list item, the blockquote's
+    To put a blockquote within a list item, the blockquote&#x27;s
     <code>
       &gt;
     </code>
@@ -906,7 +906,7 @@ to be indented
     </code>
   </pre>
   <p>
-    It's worth noting that it's possible to trigger an ordered list by
+    It&#x27;s worth noting that it&#x27;s possible to trigger an ordered list by
 accident, by writing something like this:
   </p>
   <pre>
@@ -974,7 +974,7 @@ line of the code block. For example, this:
     <code>
       Here is an example of AppleScript:
 
-    tell application "Foo"
+    tell application &quot;Foo&quot;
         beep
     end tell
     </code>
@@ -986,7 +986,7 @@ line of the code block. For example, this:
     <code>
       &lt;p&gt;Here is an example of AppleScript:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code&gt;tell application "Foo"
+&lt;pre&gt;&lt;code&gt;tell application &quot;Foo&quot;
     beep
 end tell
 &lt;/code&gt;&lt;/pre&gt;
@@ -1017,7 +1017,7 @@ ampersands and angle brackets. For example, this:
   </p>
   <pre>
     <code>
-      &lt;div class="footer"&gt;
+      &lt;div class=&quot;footer&quot;&gt;
         &amp;copy; 2004 Foo Corporation
     &lt;/div&gt;
     </code>
@@ -1027,7 +1027,7 @@ ampersands and angle brackets. For example, this:
   </p>
   <pre>
     <code>
-      &lt;pre&gt;&lt;code&gt;&amp;lt;div class="footer"&amp;gt;
+      &lt;pre&gt;&lt;code&gt;&amp;lt;div class=&quot;footer&quot;&amp;gt;
     &amp;amp;copy; 2004 Foo Corporation
 &amp;lt;/div&amp;gt;
 &lt;/code&gt;&lt;/pre&gt;
@@ -1036,7 +1036,7 @@ ampersands and angle brackets. For example, this:
   <p>
     Regular Markdown syntax is not processed within code blocks. E.g.,
 asterisks are just literal asterisks within a code block. This means
-it's also easy to use Markdown to write about Markdown's own syntax.
+it&#x27;s also easy to use Markdown to write about Markdown&#x27;s own syntax.
   </p>
   <h3 id="hr">
     Horizontal Rules
@@ -1087,7 +1087,7 @@ following lines will produce a horizontal rule:
   </p>
   <p>
     To create an inline link, use a set of regular parentheses immediately
-after the link text's closing square bracket. Inside the parentheses,
+after the link text&#x27;s closing square bracket. Inside the parentheses,
 put the URL where you want the link to point, along with an
     <em>
       optional
@@ -1096,7 +1096,7 @@ put the URL where you want the link to point, along with an
   </p>
   <pre>
     <code>
-      This is [an example](http://example.com/ "Title") inline link.
+      This is [an example](http://example.com/ &quot;Title&quot;) inline link.
 
 [This link](http://example.net/) has no title attribute.
     </code>
@@ -1106,15 +1106,15 @@ put the URL where you want the link to point, along with an
   </p>
   <pre>
     <code>
-      &lt;p&gt;This is &lt;a href="http://example.com/" title="Title"&gt;
+      &lt;p&gt;This is &lt;a href=&quot;http://example.com/&quot; title=&quot;Title&quot;&gt;
 an example&lt;/a&gt; inline link.&lt;/p&gt;
 
-&lt;p&gt;&lt;a href="http://example.net/"&gt;This link&lt;/a&gt; has no
+&lt;p&gt;&lt;a href=&quot;http://example.net/&quot;&gt;This link&lt;/a&gt; has no
 title attribute.&lt;/p&gt;
     </code>
   </pre>
   <p>
-    If you're referring to a local resource on the same server, you can
+    If you&#x27;re referring to a local resource on the same server, you can
 use relative paths:
   </p>
   <pre>
@@ -1145,7 +1145,7 @@ on a line by itself:
   </p>
   <pre>
     <code>
-      [id]: http://example.com/  "Optional Title Here"
+      [id]: http://example.com/  &quot;Optional Title Here&quot;
     </code>
   </pre>
   <p>
@@ -1175,8 +1175,8 @@ in double or single quotes, or enclosed in parentheses.
   </p>
   <pre>
     <code>
-      [foo]: http://example.com/  "Optional Title Here"
-[foo]: http://example.com/  'Optional Title Here'
+      [foo]: http://example.com/  &quot;Optional Title Here&quot;
+[foo]: http://example.com/  &#x27;Optional Title Here&#x27;
 [foo]: http://example.com/  (Optional Title Here)
     </code>
   </pre>
@@ -1192,7 +1192,7 @@ single quotes from being used to delimit link titles.
   </p>
   <pre>
     <code>
-      [id]: &lt;http://example.com/&gt;  "Optional Title Here"
+      [id]: &lt;http://example.com/&gt;  &quot;Optional Title Here&quot;
     </code>
   </pre>
   <p>
@@ -1202,7 +1202,7 @@ or tabs for padding, which tends to look better with longer URLs:
   <pre>
     <code>
       [id]: http://example.com/longish/path/to/resource/here
-    "Optional Title Here"
+    &quot;Optional Title Here&quot;
     </code>
   </pre>
   <p>
@@ -1235,7 +1235,7 @@ links:
     shortcut allows you to omit the name of the
 link, in which case the link text itself is used as the name.
 Just use an empty set of square brackets -- e.g., to link the word
-"Google" to the google.com web site, you could simply write:
+&quot;Google&quot; to the google.com web site, you could simply write:
   </p>
   <pre>
     <code>
@@ -1269,21 +1269,21 @@ multiple words in the link text:
   </pre>
   <p>
     Link definitions can be placed anywhere in your Markdown document. I
-tend to put them immediately after each paragraph in which they're
+tend to put them immediately after each paragraph in which they&#x27;re
 used, but if you want, you can put them all at the end of your
 document, sort of like footnotes.
   </p>
   <p>
-    Here's an example of reference links in action:
+    Here&#x27;s an example of reference links in action:
   </p>
   <pre>
     <code>
       I get 10 times more traffic from [Google] [1] than from
 [Yahoo] [2] or [MSN] [3].
 
-  [1]: http://google.com/        "Google"
-  [2]: http://search.yahoo.com/  "Yahoo Search"
-  [3]: http://search.msn.com/    "MSN Search"
+  [1]: http://google.com/        &quot;Google&quot;
+  [2]: http://search.yahoo.com/  &quot;Yahoo Search&quot;
+  [3]: http://search.msn.com/    &quot;MSN Search&quot;
     </code>
   </pre>
   <p>
@@ -1294,9 +1294,9 @@ document, sort of like footnotes.
       I get 10 times more traffic from [Google][] than from
 [Yahoo][] or [MSN][].
 
-  [google]: http://google.com/        "Google"
-  [yahoo]:  http://search.yahoo.com/  "Yahoo Search"
-  [msn]:    http://search.msn.com/    "MSN Search"
+  [google]: http://google.com/        &quot;Google&quot;
+  [yahoo]:  http://search.yahoo.com/  &quot;Yahoo Search&quot;
+  [msn]:    http://search.msn.com/    &quot;MSN Search&quot;
     </code>
   </pre>
   <p>
@@ -1304,34 +1304,34 @@ document, sort of like footnotes.
   </p>
   <pre>
     <code>
-      &lt;p&gt;I get 10 times more traffic from &lt;a href="http://google.com/"
-title="Google"&gt;Google&lt;/a&gt; than from
-&lt;a href="http://search.yahoo.com/" title="Yahoo Search"&gt;Yahoo&lt;/a&gt;
-or &lt;a href="http://search.msn.com/" title="MSN Search"&gt;MSN&lt;/a&gt;.&lt;/p&gt;
+      &lt;p&gt;I get 10 times more traffic from &lt;a href=&quot;http://google.com/&quot;
+title=&quot;Google&quot;&gt;Google&lt;/a&gt; than from
+&lt;a href=&quot;http://search.yahoo.com/&quot; title=&quot;Yahoo Search&quot;&gt;Yahoo&lt;/a&gt;
+or &lt;a href=&quot;http://search.msn.com/&quot; title=&quot;MSN Search&quot;&gt;MSN&lt;/a&gt;.&lt;/p&gt;
     </code>
   </pre>
   <p>
     For comparison, here is the same paragraph written using
-Markdown's inline link style:
+Markdown&#x27;s inline link style:
   </p>
   <pre>
     <code>
-      I get 10 times more traffic from [Google](http://google.com/ "Google")
-than from [Yahoo](http://search.yahoo.com/ "Yahoo Search") or
-[MSN](http://search.msn.com/ "MSN Search").
+      I get 10 times more traffic from [Google](http://google.com/ &quot;Google&quot;)
+than from [Yahoo](http://search.yahoo.com/ &quot;Yahoo Search&quot;) or
+[MSN](http://search.msn.com/ &quot;MSN Search&quot;).
     </code>
   </pre>
   <p>
-    The point of reference-style links is not that they're easier to
+    The point of reference-style links is not that they&#x27;re easier to
 write. The point is that with reference-style links, your document
 source is vastly more readable. Compare the above examples: using
 reference-style links, the paragraph itself is only 81 characters
-long; with inline-style links, it's 176 characters; and as raw HTML,
-it's 234 characters. In the raw HTML, there's more markup than there
+long; with inline-style links, it&#x27;s 176 characters; and as raw HTML,
+it&#x27;s 234 characters. In the raw HTML, there&#x27;s more markup than there
 is text.
   </p>
   <p>
-    With Markdown's reference-style links, a source document much more
+    With Markdown&#x27;s reference-style links, a source document much more
 closely resembles the final output, as rendered in a browser. By
 allowing you to move the markup-related metadata out of the paragraph,
 you can add links without interrupting the narrative flow of your
@@ -1367,11 +1367,11 @@ HTML
     <code>
       *
     </code>
-    's or
+    &#x27;s or
     <code>
       _
     </code>
-    's will be wrapped with an HTML
+    &#x27;s will be wrapped with an HTML
     <code>
       &lt;strong&gt;
     </code>
@@ -1423,7 +1423,7 @@ the same character must be used to open and close an emphasis span.
     <code>
       _
     </code>
-    with spaces, it'll be treated as a
+    with spaces, it&#x27;ll be treated as a
 literal asterisk or underscore.
   </p>
   <p>
@@ -1507,7 +1507,7 @@ tags. Markdown will turn this:
   </p>
   <pre>
     <code>
-      Please don't use any \`&lt;blink&gt;\` tags.
+      Please don&#x27;t use any \`&lt;blink&gt;\` tags.
     </code>
   </pre>
   <p>
@@ -1515,7 +1515,7 @@ tags. Markdown will turn this:
   </p>
   <pre>
     <code>
-      &lt;p&gt;Please don't use any &lt;code&gt;&amp;lt;blink&amp;gt;&lt;/code&gt; tags.&lt;/p&gt;
+      &lt;p&gt;Please don&#x27;t use any &lt;code&gt;&amp;lt;blink&amp;gt;&lt;/code&gt; tags.&lt;/p&gt;
     </code>
   </pre>
   <p>
@@ -1539,7 +1539,7 @@ equivalent of &lt;code&gt;&amp;amp;mdash;&lt;/code&gt;.&lt;/p&gt;
     Images
   </h3>
   <p>
-    Admittedly, it's fairly difficult to devise a "natural" syntax for
+    Admittedly, it&#x27;s fairly difficult to devise a &quot;natural&quot; syntax for
 placing images into a plain text document format.
   </p>
   <p>
@@ -1561,7 +1561,7 @@ for links, allowing for two styles:
     <code>
       ![Alt text](/path/to/img.jpg)
 
-![Alt text](/path/to/img.jpg "Optional title")
+![Alt text](/path/to/img.jpg &quot;Optional title&quot;)
     </code>
   </pre>
   <p>
@@ -1601,12 +1601,12 @@ or single quotes.
     </code>
   </pre>
   <p>
-    Where "id" is the name of a defined image reference. Image references
+    Where &quot;id&quot; is the name of a defined image reference. Image references
 are defined using syntax identical to link references:
   </p>
   <pre>
     <code>
-      [id]: url/to/image  "Optional title attribute"
+      [id]: url/to/image  &quot;Optional title attribute&quot;
     </code>
   </pre>
   <p>
@@ -1626,7 +1626,7 @@ use regular HTML
     Automatic Links
   </h3>
   <p>
-    Markdown supports a shortcut style for creating "automatic" links for URLs and email addresses: simply surround the URL or email address with angle brackets. What this means is that if you want to show the actual text of a URL or email address, and also have it be a clickable link, you can do this:
+    Markdown supports a shortcut style for creating &quot;automatic&quot; links for URLs and email addresses: simply surround the URL or email address with angle brackets. What this means is that if you want to show the actual text of a URL or email address, and also have it be a clickable link, you can do this:
   </p>
   <pre>
     <code>
@@ -1638,7 +1638,7 @@ use regular HTML
   </p>
   <pre>
     <code>
-      &lt;a href="http://example.com/"&gt;http://example.com/&lt;/a&gt;
+      &lt;a href=&quot;http://example.com/&quot;&gt;http://example.com/&lt;/a&gt;
     </code>
   </pre>
   <p>
@@ -1657,19 +1657,19 @@ spambots. For example, Markdown will turn this:
   </p>
   <pre>
     <code>
-      &lt;a href="&amp;#x6D;&amp;#x61;i&amp;#x6C;&amp;#x74;&amp;#x6F;:&amp;#x61;&amp;#x64;&amp;#x64;&amp;#x72;&amp;#x65;
+      &lt;a href=&quot;&amp;#x6D;&amp;#x61;i&amp;#x6C;&amp;#x74;&amp;#x6F;:&amp;#x61;&amp;#x64;&amp;#x64;&amp;#x72;&amp;#x65;
 &amp;#115;&amp;#115;&amp;#64;&amp;#101;&amp;#120;&amp;#x61;&amp;#109;&amp;#x70;&amp;#x6C;e&amp;#x2E;&amp;#99;&amp;#111;
-&amp;#109;"&gt;&amp;#x61;&amp;#x64;&amp;#x64;&amp;#x72;&amp;#x65;&amp;#115;&amp;#115;&amp;#64;&amp;#101;&amp;#120;&amp;#x61;
+&amp;#109;&quot;&gt;&amp;#x61;&amp;#x64;&amp;#x64;&amp;#x72;&amp;#x65;&amp;#115;&amp;#115;&amp;#64;&amp;#101;&amp;#120;&amp;#x61;
 &amp;#109;&amp;#x70;&amp;#x6C;e&amp;#x2E;&amp;#99;&amp;#111;&amp;#109;&lt;/a&gt;
     </code>
   </pre>
   <p>
-    which will render in a browser as a clickable link to "address@example.com".
+    which will render in a browser as a clickable link to &quot;address@example.com&quot;.
   </p>
   <p>
     (This sort of entity-encoding trick will indeed fool many, if not
-most, address-harvesting bots, but it definitely won't fool all of
-them. It's better than nothing, but an address published in this way
+most, address-harvesting bots, but it definitely won&#x27;t fool all of
+them. It&#x27;s better than nothing, but an address published in this way
 will probably eventually start receiving spam.)
   </p>
   <h3 id="backslash">
@@ -1677,7 +1677,7 @@ will probably eventually start receiving spam.)
   </h3>
   <p>
     Markdown allows you to use backslash escapes to generate literal
-characters which would otherwise have special meaning in Markdown's
+characters which would otherwise have special meaning in Markdown&#x27;s
 formatting syntax. For example, if you wanted to surround a word
 with literal asterisks (instead of an HTML
     <code>
