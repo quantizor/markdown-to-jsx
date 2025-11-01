@@ -159,11 +159,11 @@ const ORDERED_LIST_ITEM_R = /^(\d+)\.\s+(.*)$/
 const UNORDERED_LIST_ITEM_R = /^\s*([-*+])\s+(.*)$/
 const TABLE_ALIGN_R = /^:?-+:?$/
 export const HTML_SELF_CLOSING_ELEMENT_R =
-  /^<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*))?\/?>(?!<\/\1>)(\s*\n)?/i
+  /^ *<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*))?\/?>(?!<\/\1>)(\s*\n)?/i
 export const HTML_BLOCK_ELEMENT_START_R =
   /^<([a-z][^ >/\n\r]*) ?((?:[^>]*[^/])?)>/i
 export const HTML_BLOCK_ELEMENT_START_R_ATTR =
-  /^<([a-z][^ >/]*) ?((?:[^>]*[^/])?)>/i
+  /^<([a-z][^ >/]*) ?(?:[^>/]+[^/]|)>/i
 export const ATTR_EXTRACTOR_R =
   /([-A-Z0-9_:]+)(?:\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|(?:\{((?:\\.|{[^}]*?}|[^}])*)\})))?/gi
 export const HTML_CUSTOM_ATTR_R = /^(data|aria|x)-[a-z_][a-z\d_.-]*$/
@@ -380,8 +380,11 @@ function parseHTMLAttributes(
           options.sanitizer
         )
         const hasBlockMatch =
-          HTML_BLOCK_ELEMENT_START_R_ATTR.test(normalizedValue) ||
-          UPPERCASE_TAG_R.test(normalizedValue)
+          typeof normalizedValue === 'string' &&
+          normalizedValue.length > 0 &&
+          normalizedValue[0] === '<' &&
+          (HTML_BLOCK_ELEMENT_START_R_ATTR.test(normalizedValue) ||
+            UPPERCASE_TAG_R.test(normalizedValue))
         if (
           typeof normalizedValue === 'string' &&
           options.compile &&
