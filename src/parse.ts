@@ -158,8 +158,7 @@ const HEADING_TRAILING_HASHES_R = /\s+#+\s*$/
 const ORDERED_LIST_ITEM_R = /^(\d+)\.\s+(.*)$/
 const UNORDERED_LIST_ITEM_R = /^\s*([-*+])\s+(.*)$/
 const TABLE_ALIGN_R = /^:?-+:?$/
-export const HTML_BLOCK_ELEMENT_START_R =
-  /^<([a-z][^ >/\n\r]*) ?((?:[^>]*[^/])?)>/i
+export const HTML_BLOCK_ELEMENT_START_R = /^<([a-z][^ >/\n\r]*) ?([^>]*?)>/i
 export const HTML_BLOCK_ELEMENT_START_R_ATTR =
   /^<([a-z][^ >/]*) ?(?:[^>/]+[^/]|)>/i
 export const HTML_CUSTOM_ATTR_R = /^(data|aria|x)-[a-z_][a-z\d_.-]*$/
