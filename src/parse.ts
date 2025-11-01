@@ -159,7 +159,7 @@ const ORDERED_LIST_ITEM_R = /^(\d+)\.\s+(.*)$/
 const UNORDERED_LIST_ITEM_R = /^\s*([-*+])\s+(.*)$/
 const TABLE_ALIGN_R = /^:?-+:?$/
 export const HTML_SELF_CLOSING_ELEMENT_R =
-  /^ *<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*))?\/?>(?!<\/\1>)(\s*\n)?/i
+  /^<([a-z][a-z0-9:]*)(?:\s+((?:<.*?>|[^>])*))?\/?>(?!<\/\1>)(\s*\n)?/i
 export const HTML_BLOCK_ELEMENT_START_R =
   /^<([a-z][^ >/\n\r]*) ?((?:[^>]*[^/])?)>/i
 export const HTML_BLOCK_ELEMENT_START_R_ATTR =
