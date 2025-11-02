@@ -247,6 +247,62 @@ function extractHTMLAttributes(attrs: string): string[] {
   return matches
 }
 
+function parseHTMLTagName(
+  source: string,
+  pos: number
+): { tagName: string; tagLower: string; nextPos: number } | null {
+  var sourceLen = source.length
+  if (pos >= sourceLen) return null
+
+  // Check first char of tag name (must be letter)
+  var firstChar = source[pos]
+  var firstCharCode = firstChar.charCodeAt(0)
+  if (
+    !(
+      (firstCharCode >= 97 && firstCharCode <= 122) ||
+      (firstCharCode >= 65 && firstCharCode <= 90)
+    )
+  ) {
+    return null
+  }
+
+  // Parse tag name (linear scan - no backtracking)
+  var tagNameStart = pos
+  var tagNameEnd = pos
+  while (tagNameEnd < sourceLen) {
+    var char = source[tagNameEnd]
+    var charCode = char.charCodeAt(0)
+    // Tag name can be: letter, digit, hyphen, colon
+    if (
+      (charCode >= 97 && charCode <= 122) || // a-z
+      (charCode >= 65 && charCode <= 90) || // A-Z
+      (charCode >= 48 && charCode <= 57) || // 0-9
+      charCode === 45 || // -
+      charCode === 58 // :
+    ) {
+      tagNameEnd++
+    } else if (
+      char === ' ' ||
+      char === '\t' ||
+      char === '\n' ||
+      char === '\r' ||
+      char === '>' ||
+      char === '/'
+    ) {
+      break
+    } else {
+      // Invalid character in tag name
+      return null
+    }
+  }
+
+  if (tagNameEnd === tagNameStart) return null
+  var tagName = source.slice(tagNameStart, tagNameEnd)
+  var tagLower = tagName.toLowerCase()
+
+  return { tagName, tagLower, nextPos: tagNameEnd }
+}
+
 function parseHTMLSelfClosingTag(
   source: string,
   pos: number
@@ -258,21 +314,13 @@ function parseHTMLSelfClosingTag(
 } | null {
   if (source[pos] !== '<') return null
 
-  let i = pos + 1
-  const len = source.length
-  const tagStart = i
+  var tagNameResult = parseHTMLTagName(source, pos + 1)
+  if (!tagNameResult) return null
 
-  const isTagNameChar = (c: string) => {
-    const n = code(c)
-    return (n >= 97 && n <= 122) || (n >= 48 && n <= 57) || n === 45 || n === 58
-  }
+  var tagName = tagNameResult.tagName
+  var i = tagNameResult.nextPos
+  var len = source.length
 
-  if (i >= len || !isTagNameChar(source[i].toLowerCase())) return null
-
-  while (i < len && isTagNameChar(source[i].toLowerCase())) i++
-  if (i === tagStart) return null
-
-  const tagName = source.slice(tagStart, i)
   while (i < len && isWS(source[i])) i++
 
   const attrsStart = i
@@ -2895,56 +2943,96 @@ export function parseTable(
 }
 
 function matchHTMLBlock(source: string): RegExpMatchArray | null {
-  // Tag name should not include newlines - exclude \n and \r from [^ >/]
-  const m = HTML_BLOCK_ELEMENT_START_R.exec(source)
-  if (!m) return null
+  // Backtracking-proof parser: linear scan instead of regex
+  // Avoids polynomial time on patterns like '<a!!!...!!!'
+  if (source[0] !== '<') return null
 
-  const tagName = m[1]
-  const tagLower = tagName.toLowerCase()
+  var tagNameResult = parseHTMLTagName(source, 1)
+  if (!tagNameResult) return null
 
-  // Skip HTML parsing if it looks like a URL (autolink) - check for :// pattern
-  // This prevents <https://example.com> from being parsed as HTML tag
-  // Only check if tag name itself ends with : and is followed by // (not in attributes)
-  const sourceAfterMatch = source.slice(m.index + m[0].length)
-  if (endsWith(tagName, ':') && startsWith(sourceAfterMatch, '//')) {
-    return null
-  }
-  // Also check the immediate source context for URL pattern (not in attributes)
-  const immediateContext = source.slice(
-    m.index,
-    Math.min(m.index + 50, source.length)
-  )
-  // Only match :// if it appears right after the tag name (not in attribute values)
-  const tagEndMatch = immediateContext.match(/^<[^>]*?>/)
-  if (
-    tagEndMatch &&
-    includes(tagEndMatch[0], '://') &&
-    !includes(tagEndMatch[0], '=')
+  var tagName = tagNameResult.tagName
+  var tagLower = tagNameResult.tagLower
+  var sourceLen = source.length
+
+  // Skip whitespace after tag name
+  var attrsStart = tagNameResult.nextPos
+  while (
+    attrsStart < sourceLen &&
+    (source[attrsStart] === ' ' || source[attrsStart] === '\t')
   ) {
-    // :// appears in the tag itself, not in an attribute value
+    attrsStart++
+  }
+
+  // Parse attributes (linear scan to find closing >)
+  var attrs = ''
+  var tagEnd = attrsStart
+  var inQuotes = false
+  var quoteChar = ''
+
+  while (tagEnd < sourceLen) {
+    var char = source[tagEnd]
+    if (inQuotes) {
+      if (char === quoteChar && (tagEnd === 0 || source[tagEnd - 1] !== '\\')) {
+        inQuotes = false
+        quoteChar = ''
+      }
+    } else if (char === '"' || char === "'") {
+      inQuotes = true
+      quoteChar = char
+    } else if (char === '>') {
+      attrs = source.slice(attrsStart, tagEnd)
+      tagEnd++
+      break
+    }
+    tagEnd++
+  }
+
+  // Check if we successfully found '>' (tagEnd > attrsStart means we broke after finding '>')
+  if (tagEnd > sourceLen || source[tagEnd - 1] !== '>') return null
+
+  // Skip HTML parsing if it looks like a URL (autolink)
+  if (endsWith(tagName, ':') && startsWith(source.slice(tagEnd), '//')) {
     return null
   }
 
-  const openTagLen = tagLower.length + 1
+  // Check for URL pattern in tag itself (not in attributes) - linear scan
+  if (tagEnd <= 50) {
+    var tagContent = source.slice(0, tagEnd)
+    // Linear scan for :// pattern (no regex backtracking)
+    var colonIdx = tagContent.indexOf(':')
+    if (colonIdx !== -1 && colonIdx + 2 < tagContent.length) {
+      if (
+        tagContent[colonIdx + 1] === '/' &&
+        tagContent[colonIdx + 2] === '/'
+      ) {
+        // Check if it's not in an attribute (no = before it)
+        var beforeColon = tagContent.slice(0, colonIdx)
+        if (!includes(beforeColon, '=')) {
+          return null
+        }
+      }
+    }
+  }
 
-  let pos = m[0].length
-  if (source[pos] === '\n') pos++
-  const contentStart = pos
-  let contentEnd = pos
-  let depth = 1
-  const sourceLen = source.length
+  var openTagLen = tagLower.length + 1
+
+  var contentPos = tagEnd
+  if (source[contentPos] === '\n') contentPos++
+  var contentStart = contentPos
+  var contentEnd = contentPos
+  var depth = 1
 
   while (depth > 0) {
-    const idx = source.indexOf('<', pos)
+    var idx = source.indexOf('<', contentPos)
     if (idx === -1) {
       // No closing tag found - check if we should parse it anyway
-      const hasAttrs = m[2] && m[2].trim().length > 0
+      var hasAttrs = attrs && attrs.trim().length > 0
 
       if (hasAttrs) {
         // Tag has attributes - parse it anyway (needed for sanitization)
         // Treat everything after opening tag as content
         contentEnd = sourceLen
-        pos = sourceLen
+        contentPos = sourceLen
         break
       }
 
@@ -2952,8 +3040,8 @@ function matchHTMLBlock(source: string): RegExpMatchArray | null {
       return null
     }
 
-    let openIdx = -1
-    let closeIdx = -1
+    var openIdx = -1
+    var closeIdx = -1
 
     if (source[idx + 1] === '/') {
       closeIdx = idx
@@ -2961,7 +3049,7 @@ function matchHTMLBlock(source: string): RegExpMatchArray | null {
       idx + openTagLen + 1 <= sourceLen &&
       (source[idx + 1] === tagLower[0] || source[idx + 1] === tagName[0])
     ) {
-      const tagCandidate = source.substring(idx + 1, idx + openTagLen)
+      var tagCandidate = source.substring(idx + 1, idx + openTagLen)
       if (
         tagCandidate.toLowerCase() === tagLower &&
         (source[idx + openTagLen] === ' ' || source[idx + openTagLen] === '>')
@@ -2971,15 +3059,14 @@ function matchHTMLBlock(source: string): RegExpMatchArray | null {
     }
 
     if (openIdx === -1 && closeIdx === -1) {
-      pos = idx + 1
+      contentPos = idx + 1
       continue
     }
 
     if (openIdx !== -1 && (closeIdx === -1 || openIdx < closeIdx)) {
       // Check if this is a sibling tag (same name) at the same nesting level with newlines
       // Only for SVG <g> tags (known case where sibling closing is expected)
-      const currentTagHasAttrs =
-        m[2] && typeof m[2] === 'string' && m[2].trim().length > 0
+      var currentTagHasAttrs = attrs && attrs.trim().length > 0
       if (
         depth === 1 &&
         openIdx === idx &&
@@ -2987,66 +3074,84 @@ function matchHTMLBlock(source: string): RegExpMatchArray | null {
         tagLower === 'g'
       ) {
         // Check if there's ONLY whitespace/newlines between the opening tag end and the sibling tag
-        // We need to check from the end of the opening tag (m[0].length) to the sibling tag (idx)
-        // because pos might have already skipped a newline
-        const openingTagEnd = m[0].length
-        const betweenContent = source.slice(openingTagEnd, idx)
-        const hasNewlineBetween = includes(betweenContent, '\n')
+        var openingTagEnd = tagEnd
+        var betweenContent = source.slice(openingTagEnd, idx)
+        var hasNewlineBetween = includes(betweenContent, '\n')
         // Make sure there's no other tags between them (which would indicate nesting)
-        const hasOtherTagsBetween = /<[^\/]/.test(betweenContent)
+        // Linear scan for < followed by non-/ (no regex backtracking)
+        var hasOtherTagsBetween = false
+        for (
+          var checkIdx = 0;
+          checkIdx < betweenContent.length - 1;
+          checkIdx++
+        ) {
+          if (
+            betweenContent[checkIdx] === '<' &&
+            betweenContent[checkIdx + 1] !== '/'
+          ) {
+            hasOtherTagsBetween = true
+            break
+          }
+        }
         if (hasNewlineBetween && !hasOtherTagsBetween) {
           // This is a sibling <g> tag with newline and no intervening tags - close the current tag with empty content
           contentEnd = idx
-          pos = idx
+          contentPos = idx
           depth = 0
           break
         }
       }
-      pos = openIdx + openTagLen + 1
+      contentPos = openIdx + openTagLen + 1
       depth++
     } else {
-      let p = closeIdx + 2
+      var p = closeIdx + 2
       while (p < sourceLen) {
-        const c = source[p]
+        var c = source[p]
         if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') break
         p++
       }
       if (p + tagLower.length > sourceLen) return null
 
-      const closeTagCandidate = source.substring(p, p + tagLower.length)
+      var closeTagCandidate = source.substring(p, p + tagLower.length)
       if (closeTagCandidate.toLowerCase() !== tagLower) {
-        pos = p
+        contentPos = p
         continue
       }
 
       p += tagLower.length
       // Skip whitespace before '>' (matching old parser behavior)
       while (p < sourceLen) {
-        const c = source[p]
+        var c = source[p]
         if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') break
         p++
       }
       if (p >= sourceLen || source[p] !== '>') {
-        pos = p
+        contentPos = p
         continue
       }
 
       contentEnd = closeIdx
-      pos = p + 1
+      contentPos = p + 1
       depth--
     }
   }
 
-  let trailingNl = 0
-  while (pos + trailingNl < sourceLen && source[pos + trailingNl] === '\n')
+  var trailingNl = 0
+  while (
+    contentPos + trailingNl < sourceLen &&
+    source[contentPos + trailingNl] === '\n'
+  )
     trailingNl++
 
-  return [
-    source.slice(0, pos + trailingNl),
+  var result = [
+    source.slice(0, contentPos + trailingNl),
     tagName,
-    m[2],
+    attrs,
     source.slice(contentStart, contentEnd),
-  ] as RegExpMatchArray
+  ] as unknown as RegExpMatchArray
+  result.index = 0
+  result.input = source
+  return result
 }
 
 function processHTMLBlock(
@@ -3259,25 +3364,16 @@ export function parseHTML(
 
   // Fallback: Try void element without /> (manual parsing)
   // Only try this if self-closing didn't match
-  let i = pos + 1
-  const len = source.length
-  const tagStart = i
+  var tagNameResult = parseHTMLTagName(source, pos + 1)
+  if (!tagNameResult) return null
 
-  const isTagNameChar = (c: string) => {
-    const n = code(c)
-    return (n >= 97 && n <= 122) || (n >= 48 && n <= 57) || n === 45 || n === 58
-  }
-
-  if (i >= len || !isTagNameChar(source[i].toLowerCase())) return null
-
-  while (i < len && isTagNameChar(source[i].toLowerCase())) i++
-  if (i === tagStart) return null
-
-  const tagName = source.slice(tagStart, i)
+  var tagName = tagNameResult.tagName
   if (!isVoidElement(tagName)) return null
 
+  var i = tagNameResult.nextPos
+  var len = source.length
   while (i < len && isWS(source[i])) i++
-  const attrsStart = i
+  var attrsStart = i
 
   while (i < len && source[i] !== '>') i++
   if (i >= len) return null
