@@ -20,7 +20,7 @@ async function main() {
 
   // Run compiler multiple times to get good sampling
   for (let i = 0; i < 100; i++) {
-    compiler(markdown)
+    compiler(markdown, { ast: true })
   }
 
   const t1 = performance.now()
