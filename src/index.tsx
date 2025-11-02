@@ -155,11 +155,9 @@ function render(
       )
 
     case RuleType.link: {
-      const href =
-        node.target !== null ? sanitize(node.target, 'a', 'href') : null
       const props: Record<string, unknown> = { key: state.key }
-      if (href != null) {
-        props.href = href
+      if (node.target != null) {
+        props.href = node.target
       }
       if (node.title) {
         props.title = node.title

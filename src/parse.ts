@@ -254,7 +254,6 @@ function parseHTMLTagName(
   var sourceLen = source.length
   if (pos >= sourceLen) return null
 
-  // Check first char of tag name (must be letter)
   var firstChar = source[pos]
   var firstCharCode = firstChar.charCodeAt(0)
   if (
@@ -266,7 +265,6 @@ function parseHTMLTagName(
     return null
   }
 
-  // Parse tag name (linear scan - no backtracking)
   var tagNameStart = pos
   var tagNameEnd = pos
   while (tagNameEnd < sourceLen) {
@@ -349,9 +347,27 @@ function parseHTMLSelfClosingTag(
           let checkPos = hasTrailingNewline ? checkIdx + 1 : checkIdx
           while (checkPos < len && isWS(source[checkPos])) checkPos++
           const closeTagPattern = '</' + tagName.toLowerCase() + '>'
-          const foundIdx = source
-            .toLowerCase()
-            .indexOf(closeTagPattern, checkPos)
+          // Case-insensitive search without lowercasing entire source
+          // Pattern is already lowercase, only lowercase source chars for comparison
+          const patternLen = closeTagPattern.length
+          var foundIdx = -1
+          for (
+            var searchPos = checkPos;
+            searchPos <= len - patternLen;
+            searchPos++
+          ) {
+            var matches = true
+            for (var p = 0; p < patternLen; p++) {
+              if (source[searchPos + p].toLowerCase() !== closeTagPattern[p]) {
+                matches = false
+                break
+              }
+            }
+            if (matches) {
+              foundIdx = searchPos
+              break
+            }
+          }
           if (foundIdx !== -1) {
             const between = source.slice(checkPos, foundIdx).trim()
             if (between) {
@@ -397,7 +413,6 @@ const WHITESPACE_CHAR_R = /\s/
 const TRAILING_NEWLINE_R = /\n$/
 const TAB_TO_SPACES_R = /\t/g
 const ESCAPE_SEQUENCE_R = /\\([^0-9A-Za-z\s])/g
-// Use Sets for O(1) character lookups (optimization for large documents)
 const SPECIAL_INLINE_CHARS_SET = new Set([
   '*',
   '_',
@@ -568,33 +583,33 @@ function parseHTMLAttributes(
 
     if (delimiterIdx !== -1) {
       const key = normalizeAttributeKey(raw.slice(0, delimiterIdx).trim())
-      const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[key.toLowerCase()] || key
+      const keyLower = key.toLowerCase()
+      const mappedKey = ATTRIBUTE_TO_JSX_PROP_MAP[keyLower] || key
 
       if (mappedKey === 'ref') continue
 
       const rawValue = raw.slice(delimiterIdx + 1).trim()
       const value = unquote(rawValue)
-      const lower = key.toLowerCase()
 
       if (
-        (lower === 'href' && tagNameLower === 'a') ||
-        (lower === 'src' && tagNameLower === 'img')
+        (keyLower === 'href' && tagNameLower === 'a') ||
+        (keyLower === 'src' && tagNameLower === 'img')
       ) {
         const safe = options.sanitizer(
           unescape(value),
           tagNameLower as MarkdownToJSX.HTMLTags,
-          lower
+          keyLower
         )
         if (safe == null) {
           console.warn &&
-            console.warn(`Stripped unsafe ${lower} on <${tagNameOriginal}>`)
+            console.warn(`Stripped unsafe ${keyLower} on <${tagNameOriginal}>`)
           continue
         }
         attributes[mappedKey] = safe
       } else {
         const normalizedValue = attributeValueToJSXPropValue(
           tagNameLower as MarkdownToJSX.HTMLTags,
-          key.toLowerCase(),
+          keyLower,
           value,
           options.sanitizer
         )
@@ -666,15 +681,12 @@ export function parseInlineSpan(
   let pos = start
   let textStart = start // Track start of accumulated text
 
-  // Helper to flush accumulated text inline (avoid parseText function call)
   const flushText = (endPos: number) => {
     if (endPos > textStart) {
       const text = source.slice(textStart, endPos)
 
-      // OPTIMIZATION: Skip regex entirely if no '&' is present (common case)
       let processedText = text
       if (includes(text, '&')) {
-        // Only process HTML entities if '&' is actually present
         processedText = text.replace(HTML_CHAR_CODE_R, (full, inner) => {
           const namedCodes =
             options.namedCodesToUnicode || NAMED_CODES_TO_UNICODE
@@ -683,8 +695,6 @@ export function parseInlineSpan(
       }
 
       if (processedText) {
-        // Don't merge text nodes - each flush creates a new node
-        // This matches the old parser behavior and test expectations
         result.push({
           type: RuleType.text,
           text: processedText,
@@ -702,8 +712,6 @@ export function parseInlineSpan(
 
     const char = source[pos]
 
-    // Character-based dispatch: use switch to jump directly to relevant parsers
-    // This eliminates ~90% of sequential if checks
     switch (char) {
       case '\\': {
         // Escaped characters (highest priority)
@@ -735,7 +743,6 @@ export function parseInlineSpan(
 
       case '[': {
         if (!state.inAnchor) {
-          // Try footnote reference first
           if (pos + 1 < end && source[pos + 1] === '^') {
             if (isDebug && parseMetrics) {
               parseMetrics.inlineParsers.footnoteRef.attempts++
@@ -757,7 +764,6 @@ export function parseInlineSpan(
               break
             }
           }
-          // Try reference definition
           if (isDebug && parseMetrics) {
             parseMetrics.inlineParsers.ref.attempts++
           }
@@ -771,7 +777,6 @@ export function parseInlineSpan(
             textStart = pos
             break
           }
-          // Try GFM task checkbox
           if (
             state.list &&
             pos + 2 < end &&
@@ -793,7 +798,6 @@ export function parseInlineSpan(
               break
             }
           }
-          // Try reference link
           if (isDebug && parseMetrics) {
             parseMetrics.inlineParsers.refLink.attempts++
           }
@@ -808,7 +812,6 @@ export function parseInlineSpan(
             textStart = pos
             break
           }
-          // Try regular link
           if (isDebug && parseMetrics) {
             parseMetrics.inlineParsers.link.attempts++
           }
@@ -835,8 +838,7 @@ export function parseInlineSpan(
 
       case '<': {
         if (!options.disableParsingRawHTML) {
-          // Try angle-bracket autolink first
-          if (isDebug && parseMetrics) {
+            if (isDebug && parseMetrics) {
             parseMetrics.inlineParsers.angleBraceLink.attempts++
           }
           const angleBraceResult = parseLinkAngleBrace(
@@ -855,7 +857,6 @@ export function parseInlineSpan(
             textStart = pos
             break
           }
-          // Try HTML comment
           if (startsWith(source, '<!--', pos)) {
             if (isDebug && parseMetrics) {
               parseMetrics.inlineParsers.htmlComment.attempts++
@@ -872,7 +873,6 @@ export function parseInlineSpan(
               break
             }
           }
-          // Try HTML elements
           if (isDebug && parseMetrics) {
             parseMetrics.inlineParsers.htmlElement.attempts++
           }
@@ -1039,9 +1039,6 @@ export function parseInlineSpan(
       }
 
       case '\n': {
-        // Always create separate text node for newlines - matches CommonMark AST structure
-        // React/HTML will collapse newlines to whitespace regardless, so this preserves AST fidelity
-        // Only '  \n' (two spaces + newline) creates a hard line break via parseBreakLine
         flushText(pos)
         result.push({
           type: RuleType.text,
@@ -1053,7 +1050,6 @@ export function parseInlineSpan(
       }
 
       case 'h': {
-        // Check for bare URLs starting with 'http'
         if (
           !state.inAnchor &&
           !options.disableAutoLink &&
@@ -1127,7 +1123,6 @@ export function parseCodeInline(source: string, pos: number): ParseResult {
 
   if (backtickCount < 1) return null
 
-  // Find matching closing backticks
   const contentStart = i
   let contentEnd = -1
 
@@ -1163,7 +1158,6 @@ export function parseCodeInline(source: string, pos: number): ParseResult {
 
   if (contentEnd === -1) return null // No matching closing backticks
 
-  // Extract content and unescape all escaped characters (like the old parser)
   const rawContent = source.slice(contentStart, contentEnd)
   const content = rawContent.replace(UNESCAPE_R, '$1')
 
@@ -1175,7 +1169,6 @@ export function parseCodeInline(source: string, pos: number): ParseResult {
 }
 
 export function parseBreakLine(source: string, pos: number): ParseResult {
-  // Check for 2+ spaces followed by newline
   if (
     pos + 2 < source.length &&
     source[pos] === ' ' &&
@@ -1202,16 +1195,13 @@ function parseUrlAndTitle(
 ): { target: string; title: string | undefined; endPos: number } | null {
   let i = urlStart
 
-  // Skip leading whitespace
   while (i < source.length && (source[i] === ' ' || source[i] === '\t')) i++
 
-  // Skip optional '<'
   const hasAngleBrackets = source[i] === '<'
   if (hasAngleBrackets) i++
 
   const actualUrlStart = i
 
-  // Find URL end
   let parenDepth = 0
   while (i < source.length) {
     const c = source[i]
@@ -1247,10 +1237,8 @@ function parseUrlAndTitle(
   const urlEnd = i
   const target = source.slice(actualUrlStart, urlEnd)
 
-  // Skip whitespace after URL
   while (i < source.length && (source[i] === ' ' || source[i] === '\t')) i++
 
-  // Check for title
   let title: string | undefined = undefined
   if (i < source.length && (source[i] === '"' || source[i] === "'")) {
     const quoteChar = source[i]
@@ -1266,10 +1254,8 @@ function parseUrlAndTitle(
     }
   }
 
-  // Skip trailing whitespace
   while (i < source.length && (source[i] === ' ' || source[i] === '\t')) i++
 
-  // Must end with ')'
   if (i >= source.length || source[i] !== ')') return null
 
   return {
@@ -1286,13 +1272,11 @@ export function parseLink(
   state: MarkdownToJSX.State,
   options: ParseOptions
 ): ParseResult {
-  // Must start with '['
   if (source[pos] !== '[') return null
 
   let bracketDepth = 0
   let i = pos
 
-  // Find the matching closing ']'
   let linkTextEnd = -1
   while (i < source.length) {
     if (source[i] === '[') {
@@ -1315,17 +1299,14 @@ export function parseLink(
     return null
   }
 
-  // Parse the link text (content between [ and ]); disable nested link/ref parsing
   const originalInAnchor = state.inAnchor
   state.inAnchor = true
   const children = parseInlineSpan(source, pos + 1, linkTextEnd, state, options)
   state.inAnchor = originalInAnchor
 
-  // Parse the URL and optional title inside ( )
   const urlResult = parseUrlAndTitle(source, linkTextEnd + 2, true)
   if (!urlResult) return null
 
-  // Unescape then sanitize the target and title
   let target = urlResult.target.replace(UNESCAPE_R, '$1')
   let title = urlResult.title
     ? urlResult.title.replace(UNESCAPE_R, '$1')
@@ -1352,7 +1333,6 @@ export function parseImage(
   state: MarkdownToJSX.State,
   options: ParseOptions
 ): ParseResult {
-  // Must start with '!['
   if (
     source[pos] !== '!' ||
     pos + 1 >= source.length ||
@@ -1381,14 +1361,11 @@ export function parseImage(
     return null
   }
 
-  // Extract alt text
   const alt = source.slice(pos + 2, altEnd)
 
-  // Parse the URL and optional title inside ( )
   const urlResult = parseUrlAndTitle(source, altEnd + 2, false)
   if (!urlResult) return null
 
-  // Unescape the alt, target, and title
   const unescapedAlt = alt.replace(UNESCAPE_R, '$1')
   const unescapedTarget = urlResult.target.replace(UNESCAPE_R, '$1')
   const unescapedTitle = urlResult.title
@@ -1410,12 +1387,10 @@ export function parseLinkAngleBrace(
   state: MarkdownToJSX.State,
   options: ParseOptions
 ): ParseResult {
-  // Must start with '<' and be in inline mode and not in anchor
   if (source[pos] !== '<' || !state.inline || state.inAnchor) {
     return null
   }
 
-  // Find the closing '>'
   let endPos = pos + 1
   while (endPos < source.length && source[endPos] !== '>') {
     endPos++
@@ -1680,7 +1655,6 @@ export function parseFootnoteReference(
   // Extract the identifier
   const identifier = source.slice(pos + 2, endPos)
 
-  // Create a slug from the identifier using the slugify function (same as old parser)
   const slugifiedId = options.slugify(identifier)
 
   return {
@@ -1937,7 +1911,6 @@ export function parseParagraph(
   const sourceLen = source.length
 
   while (endPos < sourceLen) {
-    // Find line end and check if empty in one pass (early exit optimization)
     let lineEnd = endPos
     let isEmptyLine = true
     while (lineEnd < sourceLen && source[lineEnd] !== '\n') {
@@ -2204,7 +2177,6 @@ export function parseCodeBlock(source: string, pos: number): ParseResult {
 
   // Extract the line content (remove exactly 4 space-equivalent characters)
   const indentSize = removeIndent(source, pos, lineEnd)
-  // Use array for efficient string building in loops (optimization for large documents)
   const contentParts = [source.slice(pos + indentSize, lineEnd)]
 
   // Continue collecting lines until we hit a non-indented line or end
@@ -2297,8 +2269,6 @@ export function parseCodeFenced(
   // Must have at least 3 backticks
   if (fenceLength < 3) return null
 
-  // Extract language specifier and optional attributes (same format as old parser)
-  // Format: ```lang attr1="value1" attr2="value2"
   let lang = ''
   let attrs = ''
   i = skipWhitespace(source, i)
@@ -2318,7 +2288,6 @@ export function parseCodeFenced(
   // Find the closing fence
   let contentStart =
     lineEnd + (lineEnd < source.length && source[lineEnd] === '\n' ? 1 : 0)
-  // Use array for efficient string building in loops (optimization for large documents)
   const contentParts: string[] = []
   let endPos = contentStart
 
@@ -2363,7 +2332,6 @@ export function parseCodeFenced(
   let content = contentParts.join('')
   content = content.replace(/\n$/, '')
 
-  // Parse attributes if present (same as old parser)
   let parsedAttrs: { [key: string]: any } = {}
   if (attrs && attrs.trim()) {
     const attrMatches = extractHTMLAttributes(attrs)
@@ -2416,7 +2384,6 @@ export function parseBlockQuote(
 
   // Find the end of the blockquote (next non-blockquote line or end of content)
   let endPos = pos
-  // Use array for efficient string building in loops (optimization for large documents)
   const rawContentParts: string[] = []
 
   while (endPos < source.length) {
@@ -2481,8 +2448,6 @@ export function parseBlockQuote(
 
   if (!rawContent.trim()) return null
 
-  // Apply the same processing as the old parser
-  // Remove leading '> ' from each line
   const trimmedContent = rawContent.replace(/^ *> ?/gm, '')
 
   // Extract alert type and content
@@ -2531,13 +2496,13 @@ function appendListContinuation(
   state: MarkdownToJSX.State,
   options: ParseOptions
 ): void {
-  // Parse continuation content once (extract common logic)
   const originalInline = state.inline
   state.inline = true
+  const sourceWithNewline = '\n' + continuationContent
   const continuationInline = parseInlineSpan(
-    '\n' + continuationContent,
+    sourceWithNewline,
     0,
-    continuationContent.length + 1,
+    sourceWithNewline.length,
     state,
     options
   )
@@ -2943,8 +2908,6 @@ export function parseTable(
 }
 
 function matchHTMLBlock(source: string): RegExpMatchArray | null {
-  // Backtracking-proof parser: linear scan instead of regex
-  // Avoids polynomial time on patterns like '<a!!!...!!!'
   if (source[0] !== '<') return null
 
   var tagNameResult = parseHTMLTagName(source, 1)
@@ -3119,7 +3082,6 @@ function matchHTMLBlock(source: string): RegExpMatchArray | null {
       }
 
       p += tagLower.length
-      // Skip whitespace before '>' (matching old parser behavior)
       while (p < sourceLen) {
         var c = source[p]
         if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') break
@@ -3557,7 +3519,6 @@ export function parseFootnote(
   let footnoteContent = source.slice(bracketEnd + 2, extractEnd) // Everything after ']:'
 
   // Skip whitespace immediately after ']:' (colon and space)
-  // The old parser's capture[2] includes ": " but we want just the content
   let startIdx = 0
   if (startIdx < footnoteContent.length && footnoteContent[startIdx] === ':') {
     startIdx++
@@ -3565,14 +3526,10 @@ export function parseFootnote(
   startIdx = skipWhitespace(footnoteContent, startIdx)
   footnoteContent = footnoteContent.slice(startIdx)
 
-  // Handle multiline footnotes with indentation
-  // The old parser's regex has two patterns:
-  // - (\n+ {4,}.*) - matches paragraphs (4+ spaces, preserved)
-  // - (\n(?!\[\^).+) - matches continuation lines (indentation removed)
-  // In practice: lines with 4 spaces that follow immediately are continuation (remove indentation)
-  // Lines with 4+ spaces after a blank line are paragraphs (preserve indentation)
-  // For simplicity, preserve 4+ spaces, remove < 4 spaces
   const lines = footnoteContent.split('\n')
+  const trimmedLines = lines.map(function (line) {
+    return line.trim()
+  })
   let prevWasBlank = false
   const processedLines = lines.map((line, index) => {
     if (index === 0) {
@@ -3580,8 +3537,8 @@ export function parseFootnote(
       return line.trimEnd()
     }
 
-    // Check if previous line was blank
-    if (index > 0 && lines[index - 1].trim() === '') {
+    // Check if previous line was blank (use cached trimmed line)
+    if (index > 0 && trimmedLines[index - 1] === '') {
       prevWasBlank = true
     } else {
       prevWasBlank = false
@@ -3609,16 +3566,18 @@ export function parseFootnote(
     // Remove trailing newline if present (but preserve newlines between lines)
     footnoteContent = footnoteContent.replace(/\n$/, '')
   }
-  // Remove trailing blank lines (multiple consecutive newlines at the end)
-  // Use a more specific pattern to avoid issues
-  while (
-    endsWith(footnoteContent, '\n\n') ||
-    endsWith(footnoteContent, '\n ')
-  ) {
-    footnoteContent = footnoteContent.slice(0, -1)
+  var contentLen = footnoteContent.length
+  while (contentLen > 0) {
+    var lastChar = footnoteContent[contentLen - 1]
+    if (lastChar === '\n' || lastChar === ' ') {
+      contentLen--
+    } else {
+      break
+    }
   }
-  // Then trim any remaining trailing whitespace
-  footnoteContent = footnoteContent.replace(/\s+$/, '')
+  if (contentLen < footnoteContent.length) {
+    footnoteContent = footnoteContent.slice(0, contentLen)
+  }
 
   // Store the footnote
   footnotes.push({
@@ -3715,7 +3674,7 @@ export function matchInlineFormatting(
   var contentStart = pos
   var lastChar = ''
   var canMatch = true // !inCode && htmlDepth === 0
-  var delimiterChar = delimiter[0] // Cache to avoid repeated indexing
+  var delimiterChar = delimiter[0]
 
   while (pos < end) {
     var char = source[pos]
@@ -3825,7 +3784,6 @@ export function matchInlineFormatting(
       checkPos++
     }
 
-    // Skip long runs to avoid exponential behavior
     if (
       checkPos - pos >= MAX_DELIMITER_RUN &&
       checkPos < end &&
