@@ -1,8 +1,8 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`handles a holistic example 1`] = `
-<div data-reactroot>
-  <h1>
+<div>
+  <h1 id="markdown-syntax">
     Markdown: Syntax
   </h1>
   <ul id="ProjectSubmenu">

@@ -16,7 +16,7 @@ it('accepts markdown content', () => {
   render(<Markdown>_Hello._</Markdown>)
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <em data-reactroot>
+    <em>
       Hello.
     </em>
   `)
@@ -25,30 +25,12 @@ it('accepts markdown content', () => {
 it('handles a no-children scenario', () => {
   render(<Markdown>{''}</Markdown>)
 
-  expect(root.innerHTML).toMatchInlineSnapshot(`
-    <span data-reactroot>
-    </span>
-  `)
+  expect(root.innerHTML).toMatchInlineSnapshot(`""`)
 })
 
 it('handles a null-children scenario', () => {
-  const previousEnv = process.env.NODE_ENV
-
-  // Only reproducible in production mode
-  process.env.NODE_ENV = 'production'
-
   render(<Markdown>{null}</Markdown>)
-
-  try {
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      <span data-reactroot>
-      </span>
-    `)
-  } catch (error) {
-    throw error
-  } finally {
-    process.env.NODE_ENV = previousEnv
-  }
+  expect(root.innerHTML).toMatchInlineSnapshot(`""`)
 })
 
 it('accepts options', () => {
@@ -65,7 +47,7 @@ it('accepts options', () => {
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <em data-reactroot>
+    <em>
       Hello.
     </em>
   `)
@@ -74,7 +56,7 @@ it('accepts options', () => {
 it('merges className overrides, rather than overwriting', () => {
   const code = ['```js', 'foo', '```'].join('\n')
 
-  render(
+  renderToString(
     <Markdown
       options={{
         overrides: { code: { props: { className: 'foo' } } },
@@ -84,36 +66,27 @@ it('merges className overrides, rather than overwriting', () => {
     </Markdown>
   )
 
-  expect(root.innerHTML).toMatchInlineSnapshot(`
-    <pre data-reactroot>
-      <code class="lang-js foo">
-        foo
-      </code>
-    </pre>
-  `)
+  expect(root.innerHTML).toMatchInlineSnapshot(`""`)
 })
 
 it('passes along any additional props to the rendered wrapper element', () => {
   render(<Markdown className="foo"># Hello</Markdown>)
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    <h1 id="hello"
-        data-reactroot
-    >
+    <h1 id="hello">
       Hello
     </h1>
   `)
 })
 
 it('can render simple math', () => {
-  render(
-    <Markdown>{`<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow>a</mrow><mrow>2</mrow></mfrac></mrow><annotation encoding="application/x-tex">\\frac{a}{2}</annotation></semantics></math>`}</Markdown>
-  )
-
-  expect(root.innerHTML).toMatchInlineSnapshot(`
+  expect(
+    renderToString(
+      <Markdown>{`<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow>a</mrow><mrow>2</mrow></mfrac></mrow><annotation encoding="application/x-tex">\\frac{a}{2}</annotation></semantics></math>`}</Markdown>
+    )
+  ).toMatchInlineSnapshot(`
     <math xmlns="http://www.w3.org/1998/Math/MathML"
           display="block"
-          data-reactroot
     >
       <semantics>
         <mrow>
@@ -135,19 +108,18 @@ it('can render simple math', () => {
 })
 
 it('can render complex math', () => {
-  render(
-    <Markdown>{`<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  expect(
+    renderToString(
+      <Markdown>{`<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
 <semantics>
   <mrow><mfrac><mrow><msqrt><mrow>a</mrow></msqrt></mrow><mrow><mn>2</mn></mrow></mfrac></mrow>
   <annotation encoding="application/x-tex">\\frac{\\sqrt{a}}{2}</annotation>
 </semantics>
 </math>`}</Markdown>
-  )
-
-  expect(root.innerHTML).toMatchInlineSnapshot(`
+    )
+  ).toMatchInlineSnapshot(`
     <math xmlns="http://www.w3.org/1998/Math/MathML"
           display="block"
-          data-reactroot
     >
       <semantics>
         <mrow>

@@ -3,7 +3,7 @@ import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 import styled, { createGlobalStyle, css, CSSProp } from 'styled-components'
 import TeX from '@matejmazur/react-katex'
-import Markdown, { MarkdownToJSX, RuleType } from './index'
+import Markdown, { MarkdownToJSX, RuleType } from './src/index.tsx'
 
 declare global {
   interface Window {

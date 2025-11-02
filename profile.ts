@@ -2,7 +2,7 @@ import fs from 'fs'
 import { performance } from 'perf_hooks'
 
 async function main() {
-  const markdown = fs.readFileSync('fixture.md', 'utf8')
+  const markdown = fs.readFileSync('./src/fixture.md', 'utf8')
 
   console.log('Importing markdown-to-jsx...')
   const { compiler } = await import('./dist/debug.module.js')
@@ -20,7 +20,7 @@ async function main() {
 
   // Run compiler multiple times to get good sampling
   for (let i = 0; i < 100; i++) {
-    compiler(markdown)
+    compiler(markdown, { ast: true })
   }
 
   const t1 = performance.now()

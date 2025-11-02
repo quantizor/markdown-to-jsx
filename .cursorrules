@@ -2,3 +2,6 @@
 - When debugging, you can directly import index.tsx if using the bun CLI without needing a build step to run experimental scripts.
 - All scripts can be written in TypeScript since Bun handles it natively.
 - Use `bun run test` to run the tests.
+- NEVER UPDATE TEST SNAPSHOTS UNDER ANY CIRCUMSTANCES.
+- When running experiments, use bun cli to run a script instead of node because it can handle importing typescript files directly without needing to build the library first.
+- When you run CLI benchmarking and tests do not use `tail` to limit the output.
