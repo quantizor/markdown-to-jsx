@@ -13,9 +13,10 @@ import remarkGfm from 'remark-gfm'
 import remarkRehype from 'remark-rehype'
 import SimpleMarkdown from 'simple-markdown'
 // @ts-ignore - react/jsx-runtime types may be incomplete
+import Benchmark from 'benchmark'
+import { marked } from 'marked'
 import * as prod from 'react/jsx-runtime'
 import { compiler, parser } from '../dist/react.js'
-import Benchmark from 'benchmark'
 
 const { version: latestVersion } = JSON.parse(
   fs.readFileSync(
@@ -94,6 +95,10 @@ const parseTests = [
   isAll && {
     name: 'markdown-it [parse]',
     fn: input => mdIt.parse(input, {}),
+  },
+  {
+    name: 'marked [parse]',
+    fn: input => marked.parse(input, {}),
   },
 ].filter(Boolean) as Test[]
 
