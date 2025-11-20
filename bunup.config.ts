@@ -17,7 +17,7 @@ export default defineConfig([
   {
     ...common,
     name: 'main',
-    entry: ['src/index.tsx', 'src/react.tsx', 'src/html.ts'],
+    entry: ['src/index.tsx', 'src/react.tsx', 'src/html.ts', 'src/markdown.ts'],
     outDir: 'dist',
     format: ['esm', 'cjs'],
     dts: true,

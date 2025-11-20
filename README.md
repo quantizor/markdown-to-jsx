@@ -42,9 +42,10 @@ A very fast and versatile markdown toolchain.
   - [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
     - [Code blocks](#code-blocks)
 - [Entry Points](#entry-points)
-  - [Main Entry Point markdown-to-jsx](#main-entry-point-markdown-to-jsx)
-  - [React Entry Point markdown-to-jsx/react](#react-entry-point-markdown-to-jsxreact)
-  - [HTML Entry Point markdown-to-jsx/html](#html-entry-point-markdown-to-jsxhtml)
+  - [Main](#main)
+  - [React](#react)
+  - [HTML](#html)
+  - [Markdown](#markdown)
 - [Using The Parser Low-Level AST API](#using-the-parser-low-level-ast-api)
 - [AST Anatomy](#ast-anatomy)
   - [Node Types](#node-types)
@@ -103,14 +104,17 @@ compiler('&le; symbol') // All entities supported automatically
 
 - **New `parser` function**: Provides direct access to the parsed AST without rendering. This is the recommended way to get AST nodes.
 
-- **New entry points**: React-specific and HTML-specific entry points are now available for better tree-shaking and separation of concerns.
+- **New entry points**: React-specific, HTML-specific, and markdown-specific entry points are now available for better tree-shaking and separation of concerns.
 
 ```typescript
-// React-specific usage (recommended)
+// React-specific usage
 import Markdown, { compiler, parser } from 'markdown-to-jsx/react'
 
 // HTML string output
-import { compiler, parser } from 'markdown-to-jsx/html'
+import { compiler, astToHTML, parser } from 'markdown-to-jsx/html'
+
+// Markdown string output (round-trip compilation)
+import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
 ```
 
 **Migration Guide:**
@@ -867,21 +871,21 @@ var some = code();
 
 `markdown-to-jsx` provides multiple entry points for different use cases:
 
-### Main Entry Point (`markdown-to-jsx`)
+### Main
 
 The legacy\*default entry point exports everything, including the React compiler and component:
 
-```jsx
+```tsx
 import Markdown, { compiler, parser } from 'markdown-to-jsx'
 ```
 
 _The React code in this entry point is deprecated and will be removed in a future major release, migrate to `markdown-to-jsx/react`._
 
-### React Entry Point (`markdown-to-jsx/react`)
+### React
 
 For React-specific usage, import from the `/react` entry point:
 
-```jsx
+```tsx
 import Markdown, { compiler, parser } from 'markdown-to-jsx/react'
 
 // Use compiler for markdown → JSX
@@ -897,7 +901,7 @@ function App() {
 const ast = parser('# Hello world')
 ```
 
-### HTML Entry Point (`markdown-to-jsx/html`)
+### HTML
 
 For HTML string output (server-side rendering), import from the `/html` entry point:
 
@@ -911,6 +915,23 @@ const htmlString = compiler('# Hello world')
 // Or use parser + html separately for more control
 const ast = parser('# Hello world')
 const htmlString2 = html(ast)
+```
+
+### Markdown
+
+For markdown-to-markdown compilation (normalization and formatting), import from the `/markdown` entry point:
+
+```typescript
+import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
+
+// Convenience function that parses and recompiles markdown
+const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
+// Returns: '# Hello world\n\nExtra spaces!\n'
+
+// Or work with AST directly
+const ast = parser('# Hello  world')
+const normalizedMarkdown2 = astToMarkdown(ast)
+// Returns: '# Hello world\n'
 ```
 
 ## Using The Parser (Low-Level AST API)
@@ -1100,6 +1121,4 @@ See [Github Releases](https://github.com/quantizor/markdown-to-jsx/releases).
 
 ## Donate
 
-Like this library? It's developed entirely on a volunteer basis; chip in a few bucks if you can via the Sponsor link!
-
-MIT
+Like this library? It's developed entirely on a volunteer basis; chip in a few bucks if you can via the [Sponsor link](https://github.com/sponsors/quantizor)!
