@@ -202,7 +202,7 @@ export namespace MarkdownToJSX {
 
   export interface HTMLNode {
     type: typeof RuleType.htmlBlock
-    attrs: React.JSX.IntrinsicAttributes
+    attrs: Record<string, any>
     children?: ASTNode[] | undefined
     noInnerParse: Boolean
     tag: string
@@ -211,7 +211,7 @@ export namespace MarkdownToJSX {
 
   export interface HTMLSelfClosingNode {
     type: typeof RuleType.htmlSelfClosing
-    attrs: React.JSX.IntrinsicAttributes
+    attrs: Record<string, any>
     tag: string
   }
 

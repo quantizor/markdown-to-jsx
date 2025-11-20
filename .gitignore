@@ -8,5 +8,4 @@ package-lock.json
 
 # ephemeral files
 dist/
-docs/*.js
-docs/*.js.map
+dist-site/

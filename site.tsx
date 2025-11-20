@@ -1,9 +1,12 @@
-/* @jsx React.createElement */
+import TeX from '@matejmazur/react-katex'
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
-import styled, { createGlobalStyle, css, CSSProp } from 'styled-components'
-import TeX from '@matejmazur/react-katex'
-import Markdown, { MarkdownToJSX, RuleType } from './src/react.tsx'
+
+import Markdown, { MarkdownToJSX, RuleType } from './src/react'
+import { LavaLamp } from './src/site/lava-lamp'
+import { presets, type Preset } from './src/site/presets'
+// @ts-ignore
+import readmeContentRaw from './README.md?raw'
 
 declare global {
   interface Window {
@@ -11,367 +14,37 @@ declare global {
       highlightElement: (element: HTMLElement) => void
     }
   }
+
+  const VERSION: string
 }
 
-declare module 'react' {
-  interface Attributes {
-    css?: CSSProp
-  }
-}
-
-function TryItLive() {
-  const [markdown, setMarkdown] = React.useState(
-    document.getElementById('sample-content')!.textContent!.trim()
-  )
-
-  const handleInput = React.useCallback(e => setMarkdown(e.target.value), [])
-
-  return (
-    <main>
-      <GlobalStyles />
-
-      <Header>
-        <a
-          target="_blank"
-          href="https://github.com/quantizor/markdown-to-jsx"
-          title="Check out the markdown-to-jsx source code"
-          rel="noopener noreferrer"
-        >
-          <img src="./images/logo.svg" alt="markdown-to-jsx logo" />
-        </a>
-
-        <Description>
-          <h1>
-            <code>markdown-to-jsx</code> is an easy-to-use markdown component
-            that takes Github-flavored Markdown (GFM) and makes native JSX
-            without dangerous hacks.&nbsp;
-          </h1>
-          <h2>
-            It&apos;s lightweight, customizable, and happily supports React-like
-            libraries.
-          </h2>
-        </Description>
-
-        <LearnMore>
-          See the{' '}
-          <a
-            target="_blank"
-            href="https://github.com/quantizor/markdown-to-jsx/blob/main/README.md"
-            rel="noopener noreferrer"
-          >
-            project README
-          </a>{' '}
-          for detailed installation &amp; usage instructions.
-        </LearnMore>
-      </Header>
-
-      <Demo>
-        <Textarea onInput={handleInput} value={markdown} />
-
-        <Compiled>
-          <Markdown options={options}>{markdown}</Markdown>
-        </Compiled>
-      </Demo>
-    </main>
-  )
-}
-
-const COLOR_ACCENT = 'wheat'
-const COLOR_BODY = '#fefefe'
-
-const GlobalStyles = createGlobalStyle`
-	*,
-	*::before,
-	*::after {
-		box-sizing: border-box;
-		outline-color: ${COLOR_ACCENT};
-	}
-
-	html,
-	body,
-	#root,
-	main {
-		margin: 0;
-		min-height: 100vh;
-	}
-
-	html {
-		background: #1a1c23;
-		color: ${COLOR_BODY};
-		font-family: Inter, Helvetica Neue, Helvetica, sans-serif;
-		font-size: 14px;
-		line-height: 1.5;
-	}
-
-	h1,
-	h2,
-	h3,
-	h4,
-	h5,
-	h6 {
-		margin: 0 0 1rem;
-    text-wrap: balance;
-	}
-
-	h1 {
-		font-size: 2rem;
-	}
-
-	h2 {
-		font-size: 1.8rem;
-	}
-
-	h3 {
-		font-size: 1.6rem;
-	}
-
-	h4 {
-		font-size: 1.4rem;
-	}
-
-	h5 {
-		font-size: 1.2rem;
-	}
-
-	h6 {
-		font-size: 1rem;
-	}
-
-	a {
-		color: ${COLOR_ACCENT};
-		transition: color 200ms ease;
-
-		&:hover,
-		&:focus {
-			color: color-mix(in srgb, ${COLOR_ACCENT} 75%, transparent);
-		}
-	}
-
-  :root {
-    --code-bg: color-mix(in srgb, ${COLOR_ACCENT} 15%, transparent);
-  }
-
-	code {
-    background: var(--code-bg) !important;
-    border-radius: 2px;
-		display: inline-block;
-    font-family: 'Jetbrains Mono', Consolas, Monaco, monospace;
-    font-size: 0.9em;
-		padding: 0 4px;
-    text-decoration: inherit;
-	}
-
-	pre code {
-		border: 0;
-		display: block;
-		padding: 1em;
-	}
-
-	main {
-		display: flex;
-		flex-direction: column;
-		padding: 3rem 1.5rem 0;
-		margin: 0;
-
-		@media all and (min-width: 1024px) {
-			padding: 3rem;
-		}
-	}
-
-  p {
-    text-wrap: balance;
-  }
-
-  blockquote {
-    border-left: 1px solid #333;
-    margin: 1.5em 0;
-    padding-left: 1em;
-
-    &.markdown-alert-tip header {
-      color: limegreen;
-
-      &::before {
-        content: '★';
-        margin-right: 4px;
-      }
-    }
-
-    &.markdown-alert-note header {
-      color: cornflowerblue;
-
-      &::before {
-        content: 'ⓘ';
-        margin-right: 4px;
-      }
-    }
-
-    &.markdown-alert-important header {
-      color: darkorchid;
-
-      &::before {
-        content: '❕';
-        margin-right: 4px;
-      }
-    }
-
-    &.markdown-alert-warning header {
-      color: gold;
-
-      &::before {
-        content: '⚠️';
-        margin-right: 4px;
-      }
-    }
-
-    &.markdown-alert-caution header {
-      color: red;
-
-      &::before {
-        content: '🛑';
-        margin-right: 4px;
-      }
-    }
-
-    header + * {
-      margin-top: 0.25em;
-    }
-  }
-`
-
-const Header = styled.header`
-  flex-shrink: 0;
-  margin-bottom: 2em;
-  text-align: center;
-
-  img {
-    height: 100px;
-  }
-`
-
-const Description = styled.p`
-  font-size: 16px;
-  margin-left: auto;
-  margin-right: auto;
-  max-width: 100ch;
-
-  h1,
-  h2 {
-    font: inherit;
-  }
-
-  @media all and (max-width: 500px) {
-    max-width: none;
-  }
-
-  @media all and (max-width: 1023px) {
-    h1,
-    h2 {
-      display: block;
-      margin-bottom: 1.5rem;
-    }
-  }
-`
-
-const LearnMore = styled.p`
-  color: color-mix(in srgb, ${COLOR_BODY} 20%, white);
-`
-
-const sharedCss = css`
-  flex: 0 0 50%;
-  padding: 1em;
-`
-
-const Demo = styled.section`
-  display: flex;
-  flex-grow: 1;
-  margin-left: -1.5rem;
-  margin-right: -1.5rem;
-
-  @media all and (min-width: 1024px) {
-    margin-left: 0;
-    margin-right: 0;
-  }
-
-  @media all and (max-width: 500px) {
-    flex-direction: column;
-  }
-`
-
-const Textarea = styled.textarea`
-  ${sharedCss};
-  background: color-mix(in srgb, ${COLOR_ACCENT} 10%, transparent);
-  border: 0;
-  color: inherit;
-  position: sticky;
-  top: 0;
-  flex-shrink: 0;
-  font-family: 'Jetbrains Mono', Consolas, Monaco, monospace;
-  font-size: inherit;
-  max-height: 100vh;
-  resize: vertical;
-
-  @media all and (max-width: 500px) {
-    field-sizing: content;
-    max-height: 300px;
-    position: relative;
-  }
-`
-
-const Compiled = styled.div`
-  ${sharedCss};
-  padding-left: 2rem;
-  padding-right: 1rem;
-  padding-top: 2rem;
-  padding-bottom: 2rem;
-  overflow: auto;
-  overflow-x: hidden;
-`
-
-const ShinyButton = styled.button`
-  background: color-mix(in srgb, ${COLOR_ACCENT} 50%, black);
-  border: 1px solid color-mix(in srgb, ${COLOR_ACCENT} 50%, transparent);
-  border-radius: 2px;
-  color: #fff;
-  cursor: pointer;
-  padding: 0.25em 0.75em;
-  font: inherit;
-  transition: background 200ms ease;
-
-  &:hover,
-  &:focus {
-    background: ${COLOR_ACCENT};
-  }
-
-  &:active {
-    background: color-mix(in srgb, ${COLOR_ACCENT} 80%, black);
-  }
-`
-
-function MyComponent(props) {
-  return (
-    <ShinyButton
-      {...props}
-      onClick={function () {
-        alert("Look ma, I'm a real component!")
-      }}
-    />
-  )
-}
-
-function SyntaxHighlightedCode(props) {
+function SyntaxHighlightedCode(props: any) {
   const ref = React.useRef<HTMLElement | null>(null)
 
   React.useEffect(() => {
     if (ref.current && props.className?.includes('lang-') && window.hljs) {
       window.hljs.highlightElement(ref.current)
-
-      // hljs won't reprocess the element unless this attribute is removed
       ref.current.removeAttribute('data-highlighted')
     }
   }, [props.className, props.children])
 
   return <code {...props} ref={ref} />
 }
+
+function MyComponent(props: any) {
+  return (
+    <button
+      {...props}
+      className="px-3 py-1 rounded bg-accent/50 border border-accent/50 text-white cursor-pointer transition-colors hover:bg-accent active:bg-accent/80"
+      onClick={() => {
+        alert("Look ma, I'm a real component!")
+      }}
+    />
+  )
+}
+
+const gradient =
+  'font-semibold rounded-lg from-0% from-accent to-100% to-green-300 bg-linear-120/increasing bg-size-[200%_200%] animate-gradient text-black hover:bg-none hover:animate-none hover:bg-accent'
 
 const options = {
   overrides: {
@@ -390,9 +63,149 @@ const options = {
         )
       }
     }
-
     return defaultOutput()
   },
 } as MarkdownToJSX.Options
+
+function PresetSelector({
+  onSelect,
+  selectedId,
+}: {
+  onSelect: (preset: Preset) => void
+  selectedId: string | null
+}) {
+  const [loading, setLoading] = React.useState<string | null>(null)
+
+  const handleSelect = React.useCallback(
+    async (preset: Preset) => {
+      setLoading(preset.id)
+      try {
+        const content = await preset.load()
+        onSelect(preset)
+        const event = new CustomEvent('preset-loaded', { detail: content })
+        window.dispatchEvent(event)
+      } catch (error) {
+        console.error('Failed to load preset:', error)
+      } finally {
+        setLoading(null)
+      }
+    },
+    [onSelect]
+  )
+
+  return (
+    <div className="flex flex-wrap gap-2 justify-center mb-6 text-sm items-center">
+      Other examples →
+      <div className="flex flex-wrap gap-2">
+        {presets.map(preset => (
+          <button
+            key={preset.id}
+            onClick={() => handleSelect(preset)}
+            disabled={loading === preset.id}
+            className={`py-1 px-2 text-xs ${
+              selectedId === preset.id || loading === preset.id
+                ? 'bg-accent text-black'
+                : `${gradient}`
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {loading === preset.id ? 'Loading...' : preset.name}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function TryItLive() {
+  const [markdown, setMarkdown] = React.useState(
+    document.getElementById('sample-content')?.textContent?.trim() || ''
+  )
+  const [selectedPresetId, setSelectedPresetId] = React.useState<string | null>(
+    null
+  )
+  const readmeContent = readmeContentRaw
+
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent<string>
+      setMarkdown(customEvent.detail)
+    }
+    window.addEventListener('preset-loaded', handler)
+    return () => window.removeEventListener('preset-loaded', handler)
+  }, [])
+
+  const handleInput = React.useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => setMarkdown(e.target.value),
+    []
+  )
+
+  return (
+    <main className="flex flex-col items-center justify-center gap-7 pb-20">
+      <header className="text-center px-6 pt-20 pb-4">
+        <div className=" mx-auto text-base space-y-6">
+          <h1 className="text-accent leading-tight">
+            <span className="font-display tracking-widest text-[9vw]">
+              markdown-to-jsx
+              <span className="text-[max(1vw,16px)] font-sans tracking-wider">
+                v{VERSION}
+              </span>
+            </span>
+            <div className="text-base mt-2">
+              (now also to html, ast, and markdown)
+            </div>
+          </h1>
+          <p className="text-lg text-fg/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)] max-w-3xl mx-auto leading-relaxed">
+            A fast and versatile markdown toolchain, 100% GFM-CommonMark
+            compliant.
+          </p>
+          <a
+            className={`no-underline py-1 px-3 backdrop-blur-xs rounded-xl text-sm ${gradient}`}
+            href="#docs"
+          >
+            Jump to docs
+          </a>
+        </div>
+      </header>
+
+      {/* Full screen lava lamp background */}
+      <LavaLamp className="w-full h-full" />
+
+      {/* Editor and Preview positioned over canvas */}
+      <section className="flex justify-center gap-0 w-[95%] items-start max-h-[80vh]">
+        <div className="flex-1 flex flex-col gap-6 max-w-2xl self-stretch">
+          <div className="text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.5 pb-1 rounded-xl leading-none self-center sticky top-2 z-10">
+            Input
+          </div>
+          <textarea
+            onInput={handleInput}
+            value={markdown}
+            className="flex-1 p-4 backdrop-blur-md rounded-l-2xl border-2 border-accent/20 text-fg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 shadow-xl h-full min-h-[400px] border-r-0 selection:bg-accent/40 selection:text-inherit"
+          />
+        </div>
+
+        <div className="flex-1 flex flex-col gap-6 max-w-2xl self-stretch">
+          <div className="text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.5 pb-1 rounded-xl leading-none self-center w-auto sticky top-2 z-10">
+            Output
+          </div>
+          <div className="prose prose-invert prose-sm p-4 backdrop-blur-md rounded-r-2xl border-2 border-accent/20 border-l-0 h-full overflow-auto w-full max-w-none">
+            <Markdown options={options}>{markdown}</Markdown>
+          </div>
+        </div>
+      </section>
+
+      <PresetSelector
+        onSelect={preset => setSelectedPresetId(preset.id)}
+        selectedId={selectedPresetId}
+      />
+
+      <Markdown
+        className="max-w-2xl prose prose-invert prose-sm center"
+        options={options}
+      >
+        {readmeContent}
+      </Markdown>
+    </main>
+  )
+}
 
 createRoot(document.getElementById('root')!).render(<TryItLive />)

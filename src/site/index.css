@@ -1,0 +1,245 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+@font-face {
+  font-family: 'Super Liquida';
+  src:
+    url('/fonts/SuperLiquida.woff2') format('woff2'),
+    url('/fonts/SuperLiquida.woff') format('woff');
+}
+@theme {
+  --font-sans: 'Noto Sans', Helvetica, sans-serif;
+  --font-mono: 'JetBrains Mono', Consolas, Monaco, monospace;
+  --font-display: 'Super Liquida', sans-serif;
+
+  --color-bg: #1a1c23;
+  --color-fg: #fefefe;
+  --color-accent: #ff5a00;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root,
+  main {
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  html {
+    background: var(--color-bg, #1a1c23);
+    color: var(--color-fg, #fefefe);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: 0 0 1rem;
+    text-wrap: balance;
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+
+  h2 {
+    font-size: 1.8rem;
+  }
+
+  h3 {
+    font-size: 1.6rem;
+  }
+
+  h4 {
+    font-size: 1.4rem;
+  }
+
+  h5 {
+    font-size: 1.2rem;
+  }
+
+  h6 {
+    font-size: 1rem;
+  }
+
+  summary h1,
+  summary h2,
+  summary h3,
+  summary h4,
+  summary h5,
+  summary h6 {
+    display: inline-block;
+  }
+
+  a {
+    color: theme(colors.accent);
+    display: inline-block;
+    transition: color 200ms ease;
+    font-weight: 500;
+    word-break: break-word;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  a:hover,
+  a:focus {
+    color: theme(colors.accent);
+  }
+
+  code {
+    color: theme(colors.accent);
+    border-radius: 4px;
+    display: inline-block;
+    font-family: var(--font-mono);
+    padding: 0px 3px;
+    text-decoration: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  pre code {
+    border: 0;
+    display: block;
+    padding: 1em;
+  }
+
+  p {
+    text-wrap: pretty;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+
+  blockquote {
+    border-left: 1px solid #333;
+    margin: 1.5em 0;
+    padding-left: 1em;
+  }
+
+  li {
+    text-wrap: pretty;
+  }
+
+  blockquote.markdown-alert-tip header {
+    color: limegreen;
+  }
+
+  blockquote.markdown-alert-tip header::before {
+    content: '★';
+    margin-right: 4px;
+  }
+
+  blockquote.markdown-alert-note header {
+    color: cornflowerblue;
+  }
+
+  blockquote.markdown-alert-note header::before {
+    content: 'ⓘ';
+    margin-right: 4px;
+  }
+
+  blockquote.markdown-alert-important header {
+    color: darkorchid;
+  }
+
+  blockquote.markdown-alert-important header::before {
+    content: '❕';
+    margin-right: 4px;
+  }
+
+  blockquote.markdown-alert-warning header {
+    color: gold;
+  }
+
+  blockquote.markdown-alert-warning header::before {
+    content: '⚠️';
+    margin-right: 4px;
+  }
+
+  blockquote.markdown-alert-caution header {
+    color: red;
+  }
+
+  blockquote.markdown-alert-caution header::before {
+    content: '🛑';
+    margin-right: 4px;
+  }
+
+  blockquote header + * {
+    margin-top: 0.25em;
+  }
+}
+
+.prose :is(h2, h3, h4, h5, h6) {
+  margin: 3em 0 1em;
+}
+
+.prose :is(h1, h2, h3, h4, h5, h6) + :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 0;
+}
+
+.prose p,
+.prose li {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.prose li::marker {
+  color: white;
+}
+
+.prose pre {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+}
+
+.prose code {
+  border: none;
+  color: theme(colors.accent);
+  font-size: 1em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.prose pre code {
+  @apply backdrop-blur-sm;
+  border: 1px solid theme(colors.accent);
+  border-radius: 12px;
+  color: theme(colors.accent);
+  background: rgba(0, 0, 0, 0.1) !important;
+  font-size: 0.85rem;
+  padding: 0.75rem;
+  text-shadow: none;
+}
+
+.prose code::before,
+.prose code::after {
+  content: none;
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient {
+  animation: gradient-shift 6s ease-in-out infinite alternate;
+  background-size: 200% 200%;
+}

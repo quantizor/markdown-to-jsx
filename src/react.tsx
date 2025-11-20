@@ -1,4 +1,6 @@
-/* @jsx h */
+/** @jsxRuntime classic */
+/** @jsx h */
+
 import * as React from 'react'
 import * as $ from './constants'
 import * as parse from './parse'
@@ -161,7 +163,9 @@ function render(
         <pre key={state.key}>
           <code
             {...htmlAttrsToJSXProps(node.attrs || {})}
-            className={decodedLang ? `language-${decodedLang}` : ''}
+            className={
+              decodedLang ? `language-${decodedLang} lang-${decodedLang}` : ''
+            }
           >
             {node.text}
           </code>

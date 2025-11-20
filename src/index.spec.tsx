@@ -1,6 +1,8 @@
+import { describe, expect, it } from 'bun:test'
 import * as React from 'react'
 import { renderToString } from 'react-dom/server'
-import { compiler, parser, Markdown, RuleType } from './index'
+
+import { compiler, Markdown, parser, RuleType } from './index'
 
 describe('index.tsx exports', () => {
   it('should export parser and it should work', () => {

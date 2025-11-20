@@ -1,23 +1,17 @@
+**markdown-to-jsx**
+
+A very fast and versatile markdown toolchain.
+
 [![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) [![downloads](https://badgen.net/npm/dy/markdown-to-jsx)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
 
-`markdown-to-jsx` is a gfm+commonmark compliant markdown parser and compiler toolchain for JavaScript and TypeScript-based projects. It is extremely fast, capable of processing large documents fast enough for real-time interactivity.
+<div align="center">
 
-Some special features of the library:
+**100% GFM-CommonMark Compliant**
 
-- Arbitrary HTML is supported and parsed into the appropriate JSX representation
-  without `dangerouslySetInnerHTML`
-
-- Any HTML tags rendered by the compiler and/or `<Markdown>` component can be overridden to include additional props or even a different HTML representation entirely.
-
-- All GFM special syntaxes are supported, including tables, task lists, strikethrough, autolinks, and more.
-
-- Fenced code blocks with [highlight.js](https://highlightjs.org/) support; see [Syntax highlighting](#syntax-highlighting) for instructions on setting up highlight.js.
-
-## Table of Contents
+</div>
 
 <!-- TOC -->
 
-- [Table of Contents](#table-of-contents)
 - [Upgrading](#upgrading)
   - [From v8.x to v9.x](#from-v8x-to-v9x)
   - [From v7.x to v8.x](#from-v7x-to-v8x)
@@ -48,10 +42,9 @@ Some special features of the library:
   - [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
     - [Code blocks](#code-blocks)
 - [Entry Points](#entry-points)
-  - [Main](#main)
-  - [React](#react)
-  - [HTML](#html)
-  - [Markdown](#markdown)
+  - [Main Entry Point markdown-to-jsx](#main-entry-point-markdown-to-jsx)
+  - [React Entry Point markdown-to-jsx/react](#react-entry-point-markdown-to-jsxreact)
+  - [HTML Entry Point markdown-to-jsx/html](#html-entry-point-markdown-to-jsxhtml)
 - [Using The Parser Low-Level AST API](#using-the-parser-low-level-ast-api)
 - [AST Anatomy](#ast-anatomy)
   - [Node Types](#node-types)
@@ -61,6 +54,20 @@ Some special features of the library:
 - [Donate](#donate)
 
 <!-- /TOC -->
+
+---
+
+`markdown-to-jsx` offers the following additional benefits over simple markdown parsing:
+
+- Arbitrary HTML is supported and parsed into the appropriate JSX representation
+  without `dangerouslySetInnerHTML`
+
+- Any HTML tags rendered by the compiler and/or `<Markdown>` component can be overridden to include additional
+  props or even a different HTML representation entirely.
+
+- GFM task list support.
+
+- Fenced code blocks with [highlight.js](https://highlightjs.org/) support; see [Syntax highlighting](#syntax-highlighting) for instructions on setting up highlight.js.
 
 ## Upgrading
 
@@ -96,17 +103,14 @@ compiler('&le; symbol') // All entities supported automatically
 
 - **New `parser` function**: Provides direct access to the parsed AST without rendering. This is the recommended way to get AST nodes.
 
-- **New entry points**: React-specific, HTML-specific, and markdown-specific entry points are now available for better tree-shaking and separation of concerns.
+- **New entry points**: React-specific and HTML-specific entry points are now available for better tree-shaking and separation of concerns.
 
 ```typescript
-// React-specific usage
+// React-specific usage (recommended)
 import Markdown, { compiler, parser } from 'markdown-to-jsx/react'
 
 // HTML string output
-import { compiler, astToHTML, parser } from 'markdown-to-jsx/html'
-
-// Markdown string output (round-trip compilation)
-import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
+import { compiler, parser } from 'markdown-to-jsx/html'
 ```
 
 **Migration Guide:**
@@ -145,9 +149,6 @@ compiler('&le; symbol') // Works automatically
 
 **Note:** The main entry point (`markdown-to-jsx`) continues to work for backward compatibility, but React code there is deprecated and will be removed in a future major release. Consider migrating to `markdown-to-jsx/react` for React-specific usage.
 
-<details>
-<summary>### Older Migration Guides</summary>
-
 ### From v7.x to v8.x
 
 **Breaking Changes:**
@@ -172,8 +173,6 @@ if (node.type === RuleType.textBolded) { ... }
 if (node.type === RuleType.textFormatted && node.bold) { ... }
 ```
 
-</details>
-
 ## Installation
 
 Install `markdown-to-jsx` with your favorite package manager.
@@ -188,7 +187,7 @@ npm i markdown-to-jsx
 
 ES6-style usage\*:
 
-```tsx
+```jsx
 import Markdown from 'markdown-to-jsx'
 import React from 'react'
 import { render } from 'react-dom'
@@ -222,36 +221,37 @@ But this string would be considered "block" due to the existence of a header tag
 
 However, if you really want all input strings to be treated as "block" layout, simply pass `options.forceBlock = true` like this:
 
-```tsx
-<Markdown options={{ forceBlock: true }}>Hello there old chap!</Markdown>
+```jsx
+;<Markdown options={{ forceBlock: true }}>Hello there old chap!</Markdown>
 
 // or
 
 compiler('Hello there old chap!', { forceBlock: true })
 
 // renders
-<p>Hello there old chap!</p>
+;<p>Hello there old chap!</p>
 ```
 
 #### options.forceInline
 
 The inverse is also available by passing `options.forceInline = true`:
 
-```tsx
-<Markdown options={{ forceInline: true }}># You got it babe!</Markdown>
+```jsx
+;<Markdown options={{ forceInline: true }}># You got it babe!</Markdown>
 
 // or
+
 compiler('# You got it babe!', { forceInline: true })
 
 // renders
-<span># You got it babe!</span>
+;<span># You got it babe!</span>
 ```
 
 #### options.wrapper
 
 When there are multiple children to be rendered, the compiler will wrap the output in a `div` by default. You can override this default by setting the `wrapper` option to either a string (React Element) or a component.
 
-```tsx
+```jsx
 const str = '# Heck Yes\n\nThis is great!'
 
 <Markdown options={{ wrapper: 'article' }}>
@@ -274,7 +274,7 @@ compiler(str, { wrapper: 'article' });
 
 To get an array of children back without a wrapper, set `wrapper` to `null`. This is particularly useful when using `compiler(…)` directly.
 
-```tsx
+```jsx
 compiler('One\n\nTwo\n\nThree', { wrapper: null })
 
 // returns
@@ -287,7 +287,7 @@ To render children at the same DOM level as `<Markdown>` with no HTML wrapper, s
 
 By default, the compiler does not wrap the rendered contents if there is only a single child. You can change this by setting `forceWrapper` to `true`. If the child is inline, it will not necessarily be wrapped in a `span`.
 
-```tsx
+```jsx
 // Using `forceWrapper` with a single, inline child…
 <Markdown options={{ wrapper: 'aside', forceWrapper: true }}>
   Mumble, mumble…
@@ -323,7 +323,7 @@ The library does not void any tags by default to avoid surprising behavior for p
 
 Pass the `options.overrides` prop to the compiler or `<Markdown>` component to seamlessly revise the rendered representation of any HTML tag. You can choose to change the component itself, add/change props, or both.
 
-```tsx
+```jsx
 import Markdown from 'markdown-to-jsx'
 import React from 'react'
 import { render } from 'react-dom'
@@ -391,7 +391,7 @@ One of the most interesting use cases enabled by the HTML syntax processing in `
 
 By adding an override for the components you plan to use in markdown documents, it's possible to dynamically render almost anything. One possible scenario could be writing documentation:
 
-```tsx
+```jsx
 import Markdown from 'markdown-to-jsx'
 import React from 'react'
 import { render } from 'react-dom'
@@ -426,7 +426,7 @@ render(
 
 In the following case, `DatePicker` could simply run `parseInt()` on the passed `startTime` for example:
 
-```tsx
+```jsx
 import Markdown from 'markdown-to-jsx'
 import React from 'react'
 import { render } from 'react-dom'
@@ -463,7 +463,7 @@ render(
 
 Another possibility is to use something like [recompose's `withProps()` HOC](https://github.com/acdlite/recompose/blob/main/docs/API.md#withprops) to create various pregenerated scenarios and then reference them by name in the markdown:
 
-```tsx
+```jsx
 import Markdown from 'markdown-to-jsx'
 import React from 'react'
 import { render } from 'react-dom'
@@ -583,7 +583,7 @@ By default a lightweight URL sanitizer function is provided to avoid common atta
 
 This can be overridden and replaced with a custom sanitizer if desired via `options.sanitizer`:
 
-```tsx
+```jsx
 // sanitizer in this situation would receive:
 // ('javascript:alert("foo")', 'a', 'href')
 
@@ -602,7 +602,7 @@ compiler('[foo](javascript:alert("foo"))', {
 
 By default, a [lightweight deburring function](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate an HTML id from headings. You can override this by passing a function to `options.slugify`. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
 
-```tsx
+```jsx
 <Markdown options={{ slugify: str => str }}># 中文</Markdown>
 
 // or
@@ -619,7 +619,7 @@ The original function is available as a library export called `slugify`.
 
 By default, bare URLs in the markdown document will be converted into an anchor tag. This behavior can be disabled if desired.
 
-```tsx
+```jsx
 <Markdown options={{ disableAutoLink: true }}>
   The URL https://quantizor.dev will not be rendered as an anchor tag.
 </Markdown>
@@ -642,7 +642,7 @@ compiler(
 
 By default, raw HTML is parsed to JSX. This behavior can be disabled if desired.
 
-```tsx
+```jsx
 <Markdown options={{ disableParsingRawHTML: true }}>
     This text has <span>html</span> in it but it won't be rendered
 </Markdown>;
@@ -660,7 +660,7 @@ compiler('This text has <span>html</span> in it but it won't be rendered', { dis
 
 When using [fenced code blocks](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) with language annotation, that language will be added to the `<code>` element as `class="lang-${language}"`. For best results, you can use `options.overrides` to provide an appropriate syntax highlighting integration like this one using `highlight.js`:
 
-````tsx
+````jsx
 import { Markdown, RuleType } from 'markdown-to-jsx'
 
 const mdContainingFencedCodeBlock = '```js\nconsole.log("Hello world!");\n```\n'
@@ -867,21 +867,21 @@ var some = code();
 
 `markdown-to-jsx` provides multiple entry points for different use cases:
 
-### Main
+### Main Entry Point (`markdown-to-jsx`)
 
 The legacy\*default entry point exports everything, including the React compiler and component:
 
-```tsx
+```jsx
 import Markdown, { compiler, parser } from 'markdown-to-jsx'
 ```
 
 _The React code in this entry point is deprecated and will be removed in a future major release, migrate to `markdown-to-jsx/react`._
 
-### React
+### React Entry Point (`markdown-to-jsx/react`)
 
 For React-specific usage, import from the `/react` entry point:
 
-```tsx
+```jsx
 import Markdown, { compiler, parser } from 'markdown-to-jsx/react'
 
 // Use compiler for markdown → JSX
@@ -897,7 +897,7 @@ function App() {
 const ast = parser('# Hello world')
 ```
 
-### HTML
+### HTML Entry Point (`markdown-to-jsx/html`)
 
 For HTML string output (server-side rendering), import from the `/html` entry point:
 
@@ -911,23 +911,6 @@ const htmlString = compiler('# Hello world')
 // Or use parser + html separately for more control
 const ast = parser('# Hello world')
 const htmlString2 = html(ast)
-```
-
-### Markdown
-
-For markdown-to-markdown compilation (normalization and formatting), import from the `/markdown` entry point:
-
-```typescript
-import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
-
-// Convenience function that parses and recompiles markdown
-const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
-// Returns: '# Hello world\n\nExtra spaces!\n'
-
-// Or work with AST directly
-const ast = parser('# Hello  world')
-const normalizedMarkdown2 = astToMarkdown(ast)
-// Returns: '# Hello world\n'
 ```
 
 ## Using The Parser (Low-Level AST API)
@@ -1117,4 +1100,6 @@ See [Github Releases](https://github.com/quantizor/markdown-to-jsx/releases).
 
 ## Donate
 
-Like this library? It's developed entirely on a volunteer basis; chip in a few bucks if you can via the [Sponsor link](https://github.com/sponsors/quantizor)!
+Like this library? It's developed entirely on a volunteer basis; chip in a few bucks if you can via the Sponsor link!
+
+MIT

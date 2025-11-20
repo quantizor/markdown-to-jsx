@@ -153,10 +153,7 @@ function formatAttributes(attrs: Record<string, any> = {}): string {
   return parts.length > 0 ? ' ' + parts.join(' ') : ''
 }
 
-/**
- * Convert AST nodes to HTML string output.
- */
-export function html(
+export function astToHTML(
   nodes: MarkdownToJSX.ASTNode[],
   options: {
     sanitizer?: (value: string, tag: string, attribute: string) => string | null
@@ -275,7 +272,9 @@ export function html(
             'markdown-alert-' + slug(node.alert.toLowerCase(), util.slugify)
         }
         const attrStr = formatAttributes(attrs)
-        let children = node.children ? html(node.children, updatedOptions) : ''
+        let children = node.children
+          ? astToHTML(node.children, updatedOptions)
+          : ''
         if (node.alert) {
           const alertText = escapeHtml(node.alert)
           children = `<header>${alertText}</header>` + children
@@ -333,7 +332,7 @@ export function html(
         if (node.id && node.id.trim() !== '') attrs.id = node.id
         const attrStr = formatAttributes(attrs)
         const children = node.children
-          ? html(node.children, updatedOptions)
+          ? astToHTML(node.children, updatedOptions)
           : ''
         return `<h${level}${attrStr}>${children}</h${level}>`
       }
@@ -440,7 +439,7 @@ export function html(
           return `<${tag}${attrs}>${textContent}</${tag}>`
         }
         const children = htmlNode.children
-          ? html(htmlNode.children, updatedOptions)
+          ? astToHTML(htmlNode.children, updatedOptions)
           : ''
         if (isClosingTag) return `</${tag}>${children}`
         const hasContent = children && children.trim().length > 0
@@ -493,7 +492,7 @@ export function html(
           attrs.title = util.decodeEntityReferences(node.title)
         }
         const children = node.children
-          ? html(node.children, updatedOptions)
+          ? astToHTML(node.children, updatedOptions)
           : ''
         return `<a${formatAttributes(attrs)}>${children}</a>`
       }
@@ -503,7 +502,7 @@ export function html(
         const alignments = tableNode.align || []
         const header = (tableNode.header || [])
           .map((cell: MarkdownToJSX.ASTNode[], i: number) => {
-            const content = html(cell, updatedOptions)
+            const content = astToHTML(cell, updatedOptions)
             const align = alignments[i]
             const alignAttr = align ? ` align="${align}"` : ''
             return `<th${alignAttr}>${content}</th>`
@@ -513,7 +512,7 @@ export function html(
           .map((row: MarkdownToJSX.ASTNode[][]) => {
             const cells = (row || [])
               .map((cell: MarkdownToJSX.ASTNode[], i: number) => {
-                const content = html(cell, updatedOptions)
+                const content = astToHTML(cell, updatedOptions)
                 const align = alignments[i]
                 const alignAttr = align ? ` align="${align}"` : ''
                 return `<td${alignAttr}>${content}</td>`
@@ -534,7 +533,7 @@ export function html(
       case RuleType.textFormatted: {
         const tag = node.tag || 'strong'
         const children = node.children
-          ? html(node.children, updatedOptions)
+          ? astToHTML(node.children, updatedOptions)
           : ''
         return `<${tag}>${children}</${tag}>`
       }
@@ -547,7 +546,7 @@ export function html(
         const attrStr = formatAttributes(attrs)
         const items = (node.items || [])
           .map((item: any) => {
-            const content = html(item, updatedOptions)
+            const content = astToHTML(item, updatedOptions)
             return `<li>${content}</li>`
           })
           .join('')
@@ -557,7 +556,7 @@ export function html(
       case RuleType.unorderedList: {
         const items = (node.items || [])
           .map((item: any) => {
-            const content = html(item, updatedOptions)
+            const content = astToHTML(item, updatedOptions)
             return `<li>${content}</li>`
           })
           .join('')
@@ -565,7 +564,9 @@ export function html(
       }
 
       case RuleType.paragraph: {
-        var children = node.children ? html(node.children, updatedOptions) : ''
+        var children = node.children
+          ? astToHTML(node.children, updatedOptions)
+          : ''
         // Per CommonMark: collapse trailing spaces before newlines (soft line breaks)
         // Replace " \n" pattern with just "\n" or remove entirely if followed by certain content
         // This handles cases like "![foo] \n[]" where the space should be collapsed
@@ -645,5 +646,5 @@ export function compiler(
   } & MarkdownToJSX.Options
 ): string {
   const ast = parser(markdown, options)
-  return html(ast, options)
+  return astToHTML(ast, options)
 }

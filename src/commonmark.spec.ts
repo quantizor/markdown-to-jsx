@@ -1,6 +1,8 @@
+import { describe, expect, it } from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
-import { html } from './html'
+
+import { astToHTML } from './html'
 import { parser } from './parse'
 
 type SpecExample = {
@@ -180,7 +182,7 @@ describe('CommonMark 0.31.2 Specification', () => {
       })
 
       const actualHtml = postProcessHTML(
-        html(ast, { tagfilter: isTagfilterTest })
+        astToHTML(ast, { tagfilter: isTagfilterTest })
       )
 
       expect(normalizeHtml(actualHtml)).toBe(normalizeHtml(expectedHtml))
