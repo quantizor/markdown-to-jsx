@@ -4296,6 +4296,20 @@ function addListItem(
 }
 
 // Helper function to process list item continuation lines
+function checkHTMLTagInterruptsList(
+  source: string,
+  pos: number,
+  indentChars: number,
+  baseIndent: number,
+  indent: number,
+  options: ParseOptions
+): boolean {
+  if (indent > baseIndent || options.disableParsingRawHTML) return false
+  const lineStartPos = pos + indentChars
+  if (lineStartPos >= source.length || source[lineStartPos] !== '<') return false
+  return parseHTMLTag(source, lineStartPos) !== null
+}
+
 function processContinuation(
   source: string,
   item: MarkdownToJSX.ASTNode[],
@@ -4324,6 +4338,11 @@ function processContinuation(
     }
 
     const lineWithoutIndent = source.slice(pos + indentInfo.charCount, lineEnd)
+
+    if (checkHTMLTagInterruptsList(source, pos, indentInfo.charCount, baseIndent, indent, options)) {
+      break
+    }
+
     if (
       indent <= baseIndent &&
       isMatchingListItem(
@@ -4368,7 +4387,9 @@ function processContinuation(
         item,
         prevLineWasBlank,
         state,
-        options
+        options,
+        undefined,
+        baseIndent
       )
       if (result.processed) {
         pos = result.newPos
@@ -4541,13 +4562,18 @@ function processListContinuationLine(
   prevLineWasBlank: boolean,
   state: MarkdownToJSX.State,
   options: ParseOptions,
-  unwrapParagraphs?: boolean
+  unwrapParagraphs?: boolean,
+  baseIndent?: number
 ): { processed: boolean; newPos: number; wasBlank: boolean } {
   const nextIndent = nextIndentInfo.spaceEquivalent
   const continuationContent = source.slice(
     currentPos + nextIndentInfo.charCount,
     nextLineEnd
   )
+
+  if (baseIndent !== undefined && checkHTMLTagInterruptsList(source, currentPos, nextIndentInfo.charCount, baseIndent, nextIndent, options)) {
+    return { processed: false, newPos: currentPos, wasBlank: false }
+  }
 
   if (nextIndent >= continuationColumn + 4) {
     const blockResult = parseCodeBlock(source, currentPos, state)
@@ -5262,8 +5288,9 @@ function parseList(
           baseIndent,
           listItemRegex
         )
-      )
+      ) {
         break
+      }
       actualFirstItemContent += '\n' + lineWithoutIndent
       currentPos = pos = skipToNextLine(source, lineEnd)
     }
@@ -5341,7 +5368,8 @@ function parseList(
         false,
         state,
         options,
-        true
+        true,
+        baseIndent
       )
       if (result.processed) {
         currentPos = result.newPos
@@ -5367,6 +5395,10 @@ function parseList(
       prevLineWasBlank = true
       currentPos = skipToNextLine(source, nextLineEnd)
     } else if (nextIndent < baseIndent) {
+      if (checkHTMLTagInterruptsList(source, currentPos, nextIndentChars, baseIndent, nextIndent, options)) {
+        break
+      }
+
       // Less indented - check if this is a lazy continuation line
       // Per CommonMark: lazy continuation lines can have all indentation deleted
       // They are still part of the list item if they are paragraph continuation text
@@ -5478,19 +5510,24 @@ function parseList(
       }
 
       // If line is at base indentation and not a list item, end the list
-      if (
-        nextIndent <= baseIndent &&
-        !isMatchingListItem(
-          nextLineWithoutIndent,
-          nextIndentInfo,
-          ordered,
-          marker,
-          delimiter,
-          baseIndent,
-          listItemRegex
-        )
-      ) {
-        break
+      if (nextIndent <= baseIndent) {
+        if (checkHTMLTagInterruptsList(source, currentPos, nextIndentChars, baseIndent, nextIndent, options)) {
+          break
+        }
+
+        if (
+          !isMatchingListItem(
+            nextLineWithoutIndent,
+            nextIndentInfo,
+            ordered,
+            marker,
+            delimiter,
+            baseIndent,
+            listItemRegex
+          )
+        ) {
+          break
+        }
       }
 
       // Check for empty items with blank lines
@@ -5741,7 +5778,9 @@ function parseList(
                 getLastItem(),
                 prevLineWasBlank,
                 state,
-                options
+                options,
+                undefined,
+                baseIndent
               )
               if (result.processed) {
                 prevLineWasBlank = result.wasBlank
@@ -5875,7 +5914,9 @@ function parseList(
             getLastItem(),
             prevLineWasBlank,
             state,
-            options
+            options,
+            undefined,
+            baseIndent
           )
           if (result.processed) {
             prevLineWasBlank = result.wasBlank

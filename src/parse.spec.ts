@@ -1234,6 +1234,51 @@ describe('parseStyleAttribute', () => {
   })
 })
 
+describe('HTML tags interrupting lists', () => {
+  it('should interrupt list when HTML tag appears at base indent or less', () => {
+    const md = '- foo\n\n\n\n<small>Hi</small>'
+    const result = p.parser(md)
+    
+    // Should have a list with one item, then an HTML block
+    expect(result.length).toBe(2)
+    expect(result[0].type).toBe('unorderedList')
+    expect(result[1].type).toBe('paragraph') // HTML tag wrapped in paragraph
+    
+    const list = result[0] as MarkdownToJSX.UnorderedListNode
+    expect(list.items.length).toBe(1)
+    expect(list.items[0][0].type).toBe('text')
+    expect((list.items[0][0] as MarkdownToJSX.TextNode).text).toBe('foo')
+  })
+
+  it('should interrupt indented list when HTML tag appears at column 0', () => {
+    const md = '  * You can have lists, like this one\n\n  * Make things **bold** or *italic*\n\n  * Embed snippets of `code`\n\n  * Create [links](/)\n\n  * ...\n\n\n\n<small>Sample content borrowed with thanks from [elm-markdown](http://elm-lang.org/examples/markdown) ❤️</small>'
+    const result = p.parser(md)
+    
+    // Should have a list, then HTML content (not inside the list)
+    expect(result.length).toBeGreaterThan(1)
+    expect(result[0].type).toBe('unorderedList')
+    
+    const list = result[0] as MarkdownToJSX.UnorderedListNode
+    // The last item should NOT contain the <small> tag
+    const lastItem = list.items[list.items.length - 1]
+    const lastItemText = JSON.stringify(lastItem)
+    expect(lastItemText).not.toContain('small')
+    expect(lastItemText).not.toContain('Sample content')
+  })
+
+  it('should interrupt list with block-level HTML tag', () => {
+    const md = '- item 1\n- item 2\n<div>test</div>\n- item 3'
+    const result = p.parser(md)
+    
+    // Should have a list with 2 items, then HTML block, then another list
+    expect(result.length).toBeGreaterThan(1)
+    expect(result[0].type).toBe('unorderedList')
+    
+    const list = result[0] as MarkdownToJSX.UnorderedListNode
+    expect(list.items.length).toBe(2) // Should only have 2 items, not 3
+  })
+})
+
 describe('initializeParseMetrics', () => {
   it('should initialize parse metrics', () => {
     p.initializeParseMetrics()
