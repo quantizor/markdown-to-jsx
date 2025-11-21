@@ -116,6 +116,56 @@ function PresetSelector({
   )
 }
 
+function FloatingText({ text }: { text: string }) {
+  const letters = React.useMemo(() => {
+    return text.split('').map((char, index) => {
+      const maxOffset = 3
+      const duration = 6 + Math.random() * 4
+      const delay = Math.random() * 2
+
+      const offsets = [
+        {
+          x: (Math.random() - 0.5) * maxOffset * 2,
+          y: (Math.random() - 0.5) * maxOffset * 2,
+        },
+        {
+          x: (Math.random() - 0.5) * maxOffset * 2,
+          y: (Math.random() - 0.5) * maxOffset * 2,
+        },
+        {
+          x: (Math.random() - 0.5) * maxOffset * 2,
+          y: (Math.random() - 0.5) * maxOffset * 2,
+        },
+      ]
+
+      return {
+        char,
+        key: index,
+        style: {
+          '--offset-x-1': `${offsets[0].x}px`,
+          '--offset-y-1': `${offsets[0].y}px`,
+          '--offset-x-2': `${offsets[1].x}px`,
+          '--offset-y-2': `${offsets[1].y}px`,
+          '--offset-x-3': `${offsets[2].x}px`,
+          '--offset-y-3': `${offsets[2].y}px`,
+          '--duration': `${duration}s`,
+          '--delay': `${delay}s`,
+        } as React.CSSProperties,
+      }
+    })
+  }, [text])
+
+  return (
+    <>
+      {letters.map(({ char, key, style }) => (
+        <span key={key} className="float-letter" style={style}>
+          {char === ' ' ? '\u00A0' : char}
+        </span>
+      ))}
+    </>
+  )
+}
+
 function TryItLive() {
   const [markdown, setMarkdown] = React.useState(
     document.getElementById('sample-content')?.textContent?.trim() || ''
@@ -145,7 +195,7 @@ function TryItLive() {
         <div className=" mx-auto text-base space-y-6">
           <h1 className="text-accent leading-tight">
             <span className="font-display tracking-widest text-[9vw]">
-              markdown-to-jsx
+              <FloatingText text="markdown-to-jsx" />
               <span className="text-[max(1vw,16px)] font-sans tracking-wider">
                 v{VERSION}
               </span>
@@ -158,12 +208,32 @@ function TryItLive() {
             A fast and versatile markdown toolchain, 100% GFM-CommonMark
             compliant.
           </p>
-          <a
-            className={`no-underline py-1 px-3 backdrop-blur-xs rounded-xl text-sm ${gradient}`}
-            href="#docs"
-          >
-            Jump to docs
-          </a>
+
+          <div className="flex gap-2 justify-center">
+            <a
+              className={`no-underline py-1 px-3 backdrop-blur-xs rounded-xl text-sm ${gradient}`}
+              href="#docs"
+              onClick={e => {
+                e.preventDefault()
+                const element = document.getElementById('docs')
+                if (element) {
+                  element.scrollIntoView({ behavior: 'smooth' })
+                }
+              }}
+            >
+              Jump to docs
+            </a>
+            <a
+              className={`no-underline  py-1 px-3 backdrop-blur-xs rounded-xl text-sm bg-[#2b3137] hover:bg-accent transition-colors`}
+              href="https://github.com/quantizor/markdown-to-jsx"
+            >
+              <img
+                src="/images/github.svg"
+                alt="GitHub"
+                className="h-4 inline-block align-middle -translate-y-0.25"
+              />
+            </a>
+          </div>
         </div>
       </header>
 
@@ -200,6 +270,7 @@ function TryItLive() {
 
       <Markdown
         className="max-w-2xl prose prose-invert prose-sm center"
+        id="docs"
         options={options}
       >
         {readmeContent}

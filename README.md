@@ -660,6 +660,19 @@ compiler('This text has <span>html</span> in it but it won't be rendered', { dis
 
 When using [fenced code blocks](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) with language annotation, that language will be added to the `<code>` element as `class="lang-${language}"`. For best results, you can use `options.overrides` to provide an appropriate syntax highlighting integration like this one using `highlight.js`:
 
+```html
+<!-- Add the following tags to your page <head> to automatically load hljs and styles: -->
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/obsidian.min.css"
+/>
+
+<script
+  crossorigin
+  src="https://unpkg.com/@highlightjs/cdn-assets@11.9.0/highlight.min.js"
+></script>
+```
+
 ````tsx
 import { Markdown, RuleType } from 'markdown-to-jsx'
 
@@ -677,23 +690,6 @@ function App() {
     />
   )
 }
-
-/**
- * Add the following tags to your page <head> to automatically load hljs and styles:
-
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/@highlightjs/cdn-assets@11.9.0/styles/nord.min.css"
-  />
-
-  * NOTE: for best performance, load individual languages you need instead of all
-          of them. See their docs for more info: https://highlightjs.org/
-
-  <script
-    crossorigin
-    src="https://unpkg.com/@highlightjs/cdn-assets@11.9.0/highlight.min.js"
-  ></script>
- */
 
 function SyntaxHighlightedCode(props) {
   const ref = (React.useRef < HTMLElement) | (null > null)
@@ -859,7 +855,7 @@ The two leading spaces in front of "# Hello" would be left-trimmed from all line
 <div>
 ```js
 var some = code();
-``\`
+```
 </div>
 ````
 
@@ -1037,7 +1033,7 @@ The AST consists of the following node types (use `RuleType` to check node types
 
 ### Example AST Structure
 
-```tsx
+````tsx
 import { parser, RuleType } from 'markdown-to-jsx'
 
 const ast = parser(`# Hello World
@@ -1046,9 +1042,10 @@ This is a **paragraph** with [a link](https://example.com).
 
 [linkref]: https://example.com
 
-\`\`\`javascript
+```javascript
 console.log('code')
-\`\`\`
+```
+
 `)
 
 // AST structure:
@@ -1057,8 +1054,8 @@ console.log('code')
   {
     type: RuleType.refCollection,
     refs: {
-      "linkref": { target: "https://example.com", title: undefined }
-    }
+      linkref: { target: 'https://example.com', title: undefined },
+    },
   },
   {
     type: RuleType.heading,
@@ -1088,9 +1085,10 @@ console.log('code')
     type: RuleType.codeBlock,
     lang: 'javascript',
     text: "console.log('code')",
-  })
+  },
 ]
-```
+
+````
 
 ### Type Checking
 

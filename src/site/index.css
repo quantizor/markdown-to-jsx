@@ -37,7 +37,7 @@
     color: var(--color-fg, #fefefe);
     font-family: var(--font-sans);
     font-size: 16px;
-    line-height: 1.5;
+    line-height: 1.375;
   }
 
   h1,
@@ -181,6 +181,10 @@
   }
 }
 
+.prose {
+  line-height: inherit;
+}
+
 .prose :is(h2, h3, h4, h5, h6) {
   margin: 3em 0 1em;
 }
@@ -242,4 +246,27 @@
 .animate-gradient {
   animation: gradient-shift 6s ease-in-out infinite alternate;
   background-size: 200% 200%;
+}
+
+@keyframes float-wander {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(var(--offset-x-1), var(--offset-y-1));
+  }
+  50% {
+    transform: translate(var(--offset-x-2), var(--offset-y-2));
+  }
+  75% {
+    transform: translate(var(--offset-x-3), var(--offset-y-3));
+  }
+}
+
+.float-letter {
+  display: inline-block;
+  animation: float-wander var(--duration, 4s)
+    cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+  animation-delay: var(--delay, 0s);
 }
