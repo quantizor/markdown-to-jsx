@@ -987,7 +987,7 @@ The AST consists of the following node types (use `RuleType` to check node types
 - `RuleType.orderedList` / `RuleType.unorderedList` - Lists
   ```tsx
   { type: RuleType.orderedList, items: [[...]], start?: 1 }
-  { type: RuleType.unorderedList, items: [[...]], ordered: false }
+  { type: RuleType.unorderedList, items: [[...]] }
   ```
 - `RuleType.table` - Tables
   ```tsx
