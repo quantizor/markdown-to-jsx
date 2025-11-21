@@ -163,6 +163,6 @@
     "analyze": "bun scripts/analyze-patterns.ts",
     "bench:all": "bun scripts/benchmark.ts --all",
     "bench:jsx": "bun scripts/benchmark.ts --jsx",
-    "changeset-publish": "bun run build && changeset publish"
+    "changeset-publish": "bun run build && bun build-site && changeset publish"
   }
 }
