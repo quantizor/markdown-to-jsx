@@ -62,7 +62,7 @@ export function astToMarkdown(
 }
 
 // Alias for backwards compatibility
-export const markdown = astToMarkdown
+export const markdown: typeof astToMarkdown = astToMarkdown
 
 /**
  * Internal compiler state
