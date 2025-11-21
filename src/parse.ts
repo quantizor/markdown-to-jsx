@@ -162,7 +162,7 @@ function countConsecutiveChars(
   while (
     count < max &&
     pos + count < len &&
-    source.charCodeAt(pos + count) === targetCode
+    charCode(source, pos + count) === targetCode
   )
     count++
   return count
@@ -598,7 +598,7 @@ function attributeValueToJSXPropValue(
     )
   }
 
-  if (util.ATTRIBUTES_TO_SANITIZE.includes(key)) {
+  if (util.ATTRIBUTES_TO_SANITIZE.indexOf(key) !== -1) {
     return sanitizeUrlFn(
       value ? value.replace(UNESCAPE_R, '$1') : value,
       tag,
@@ -957,7 +957,7 @@ function parseInlineSpan(
       if (angleBraceResult) {
         trackHit('linkAngleBrace')
         flushText(pos)
-        result.push(angleBraceResult as any)
+        result.push(angleBraceResult)
         pos = angleBraceResult.endPos
         textStart = pos
         return true
@@ -968,7 +968,7 @@ function parseInlineSpan(
     if (htmlResult) {
       trackHit('htmlElement')
       flushText(pos)
-      result.push(htmlResult as any)
+      result.push(htmlResult)
       pos = htmlResult.endPos
       textStart = pos
       return true
@@ -1042,7 +1042,7 @@ function parseInlineSpan(
       endPos: tagCheckResult.endPos,
     } as MarkdownToJSX.HTMLNode & { endPos: number }
     flushText(pos)
-    result.push(htmlBlockResult as any)
+    result.push(htmlBlockResult)
     pos = htmlBlockResult.endPos
     textStart = pos
     return true
@@ -1067,12 +1067,14 @@ function parseInlineSpan(
     if (charType === 0) {
       if (code === $.CHAR_AMPERSAND) hasAmpersand = true
       pos++
+      // Fast path for ASCII text - avoid repeated charCode calls and lookups
       while (pos < end) {
-        var code = charCode(source, pos)
+        code = charCode(source, pos)
         if (code >= $.CHAR_ASCII_BOUNDARY) break
         if (code === $.CHAR_AMPERSAND) hasAmpersand = true
         var lookupCharType = util.inlineCharTypeTable[code]
         if (lookupCharType !== 0) {
+          // Check for autolink exception
           if (
             skipAutoLink &&
             lookupCharType === 1 &&
@@ -1102,22 +1104,29 @@ function parseInlineSpan(
         var contentStart = pos + backtickCount
         var contentEnd = -1
         var i = contentStart
+        // Scan character by character for closing backticks - faster than indexOf
         while (i < end) {
-          var nextBacktick = source.indexOf('`', i)
-          if (nextBacktick === -1 || nextBacktick >= end) break
-          i = nextBacktick
+          // Find next backtick
+          while (i < end && charCode(source, i) !== $.CHAR_BACKTICK) i++
+          if (i >= end) break
+
+          // Count consecutive backticks
           var closingCount = 0
           while (
             i + closingCount < end &&
             charCode(source, i + closingCount) === $.CHAR_BACKTICK
-          )
+          ) {
             closingCount++
+          }
           if (closingCount > backtickCount) closingCount = backtickCount
           var j = i + closingCount
+
+          // Check if this is a valid closing sequence
           if (
             closingCount === backtickCount &&
-            (i <= contentStart || source[i - 1] !== '`') &&
-            (j >= end || source[j] !== '`')
+            (i <= contentStart ||
+              charCode(source, i - 1) !== $.CHAR_BACKTICK) &&
+            (j >= end || charCode(source, j) !== $.CHAR_BACKTICK)
           ) {
             contentEnd = i
             i = j
@@ -1136,9 +1145,14 @@ function parseInlineSpan(
               break
             }
           }
-          var content = hasNewline
-            ? rawContent.replace(/\r\n|\r|\n/g, ' ')
-            : rawContent
+          var content = rawContent
+          if (hasNewline) {
+            // Optimize newline replacement by avoiding regex
+            content = rawContent
+              .replace(/\r\n/g, ' ')
+              .replace(/\r/g, ' ')
+              .replace(/\n/g, ' ')
+          }
           if (content.length > 0) {
             var firstChar = charCode(content, 0)
             var lastChar = charCode(content, content.length - 1)
@@ -1174,30 +1188,34 @@ function parseInlineSpan(
       (code === $.CHAR_F || code === $.CHAR_H || code === $.CHAR_W)
     ) {
       var autolinkType: 'h' | 'w' | 'f' | null = null
+      // Cache character codes to avoid repeated function calls
+      var c1 = pos + 1 < end ? charCode(source, pos + 1) : 0
+      var c2 = pos + 2 < end ? charCode(source, pos + 2) : 0
+      var c3 = pos + 3 < end ? charCode(source, pos + 3) : 0
+      var c4 = pos + 4 < end ? charCode(source, pos + 4) : 0
+      var c5 = pos + 5 < end ? charCode(source, pos + 5) : 0
+
       if (
         code === $.CHAR_H &&
-        pos + 3 < end &&
-        charCode(source, pos + 1) === $.CHAR_t &&
-        charCode(source, pos + 2) === $.CHAR_t &&
-        charCode(source, pos + 3) === $.CHAR_p
+        c1 === $.CHAR_t &&
+        c2 === $.CHAR_t &&
+        c3 === $.CHAR_p
       ) {
         autolinkType = 'h'
       } else if (
         code === $.CHAR_W &&
-        pos + 3 < end &&
-        charCode(source, pos + 1) === $.CHAR_W &&
-        charCode(source, pos + 2) === $.CHAR_W &&
-        charCode(source, pos + 3) === $.CHAR_PERIOD
+        c1 === $.CHAR_W &&
+        c2 === $.CHAR_W &&
+        c3 === $.CHAR_PERIOD
       ) {
         autolinkType = 'w'
       } else if (
         code === $.CHAR_F &&
-        pos + 5 < end &&
-        charCode(source, pos + 1) === $.CHAR_t &&
-        charCode(source, pos + 2) === $.CHAR_p &&
-        charCode(source, pos + 3) === $.CHAR_COLON &&
-        charCode(source, pos + 4) === $.CHAR_SLASH &&
-        charCode(source, pos + 5) === $.CHAR_SLASH
+        c1 === $.CHAR_t &&
+        c2 === $.CHAR_p &&
+        c3 === $.CHAR_COLON &&
+        c4 === $.CHAR_SLASH &&
+        c5 === $.CHAR_SLASH
       ) {
         autolinkType = 'f'
       }
@@ -1213,7 +1231,7 @@ function parseInlineSpan(
         if (bareUrlResult) {
           trackHit('linkBareUrl')
           flushText(pos)
-          result.push(bareUrlResult as any)
+          result.push(bareUrlResult)
           pos = bareUrlResult.endPos
           textStart = pos
           continue
@@ -1310,7 +1328,7 @@ function parseInlineSpan(
       var nextChar = pos + 1 < end ? source[pos + 1] : ''
       if (
         nextChar &&
-        util.includes('!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~', nextChar)
+        '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~'.indexOf(nextChar) !== -1
       ) {
         trackHit('escaped')
         flushText(pos)
@@ -2029,7 +2047,7 @@ function isValidAutolinkContext(
 ): boolean {
   if (start === 0) return true
   let validChars = includeCR ? ' \t\n\r*_~(' : ' \t\n*_~('
-  return util.includes(validChars, source[start - 1])
+  return validChars.indexOf(source[start - 1]) !== -1
 }
 
 function sanitizeAndCreate(
@@ -2074,7 +2092,7 @@ function parseAutolink(
     let content = source.slice(pos + 1, end)
     if (!content.length) return null
 
-    let hasBackslash = util.includes(content, '\\')
+    let hasBackslash = content.indexOf('\\') !== -1
     let hasValidUriScheme = isValidUriScheme(content)
     let isHttp =
       util.startsWith(content, 'http://') ||
@@ -2083,8 +2101,8 @@ function parseAutolink(
     let isMailto = util.startsWith(contentLower, 'mailto:')
     let isEmailLike =
       !hasBackslash &&
-      util.includes(content, '@') &&
-      !util.includes(content, '//') &&
+      content.indexOf('@') !== -1 &&
+      content.indexOf('//') === -1 &&
       !hasValidUriScheme
 
     if (!isHttp && !isMailto && !isEmailLike && !hasValidUriScheme) return null
@@ -2109,7 +2127,7 @@ function parseAutolink(
     while (
       emailStart > 0 &&
       (isAlnum(source[emailStart - 1]) ||
-        util.includes('.+-_', source[emailStart - 1]))
+        '.+-_'.indexOf(source[emailStart - 1]) !== -1)
     )
       emailStart--
     if (emailStart >= pos || !isValidAutolinkContext(source, emailStart, true))
@@ -2143,7 +2161,7 @@ function parseAutolink(
       )
         return null
     } else {
-      if (!util.includes(source.slice(pos + 1, emailEnd), '.')) return null
+      if (source.slice(pos + 1, emailEnd).indexOf('.') === -1) return null
     }
 
     let email = source.slice(emailStart, emailEnd)
@@ -2301,7 +2319,7 @@ function parseLinkOrImage(
 function normalizeReferenceLabel(label: string): string {
   var trimmed = label.trim()
   var normalized = trimmed.replace(/[\s\t\n\r]+/g, ' ')
-  if (util.includes(normalized, '\u1E9E')) {
+  if (normalized.indexOf('\u1E9E') !== -1) {
     return normalized.replace(/\u1E9E/g, 'ss').toLowerCase()
   }
   return normalized.toLowerCase()
@@ -2665,9 +2683,9 @@ function parseHeadingSetext(
     var i = underlineLineStart
     while (
       i < lineEnd &&
-      (source.charCodeAt(i) === $.CHAR_SPACE ||
-        source.charCodeAt(i) === $.CHAR_TAB ||
-        source.charCodeAt(i) === $.CHAR_CR)
+      (charCode(source, i) === $.CHAR_SPACE ||
+        charCode(source, i) === $.CHAR_TAB ||
+        charCode(source, i) === $.CHAR_CR)
     )
       i++
     if (i >= lineEnd) break
@@ -2678,14 +2696,14 @@ function parseHeadingSetext(
     while (
       checkPos < lineEnd &&
       indentCount < 3 &&
-      source.charCodeAt(checkPos) === $.CHAR_SPACE
+      charCode(source, checkPos) === $.CHAR_SPACE
     ) {
       indentCount++
       checkPos++
     }
 
     if (checkPos < lineEnd) {
-      const code = source.charCodeAt(checkPos)
+      const code = charCode(source, checkPos)
       if (code === $.CHAR_EQ || code === $.CHAR_DASH) {
         // Validate underline: only = or - with optional trailing spaces, no internal spaces
         const char = source[checkPos]
@@ -2693,7 +2711,7 @@ function parseHeadingSetext(
           hasSeenWS = false,
           p = checkPos
         while (p < lineEnd) {
-          const c = source.charCodeAt(p)
+          const c = charCode(source, p)
           if (c === code) {
             if (hasSeenWS) {
               underlineCount = 0
@@ -2723,7 +2741,7 @@ function parseHeadingSetext(
   if (!underlineChar) return null
 
   // Quick validation: content cannot start with certain block characters
-  const firstCharCode = source.charCodeAt(pos)
+  const firstCharCode = charCode(source, pos)
   if (
     firstCharCode === $.CHAR_HASH ||
     firstCharCode === $.CHAR_GT ||
@@ -2744,9 +2762,9 @@ function parseHeadingSetext(
     var j = currentPos
     while (
       j < lineEnd &&
-      (source.charCodeAt(j) === $.CHAR_SPACE ||
-        source.charCodeAt(j) === $.CHAR_TAB ||
-        source.charCodeAt(j) === $.CHAR_CR)
+      (charCode(source, j) === $.CHAR_SPACE ||
+        charCode(source, j) === $.CHAR_TAB ||
+        charCode(source, j) === $.CHAR_CR)
     )
       j++
     if (j < lineEnd) {
@@ -2817,7 +2835,7 @@ function parseParagraph(
     let isEmptyLine = true
 
     for (let i = endPos; i < lineEnd; i++) {
-      const code = source.charCodeAt(i)
+      const code = charCode(source, i)
       if (code !== $.CHAR_SPACE && code !== $.CHAR_TAB && code !== $.CHAR_CR) {
         isEmptyLine = false
         break
@@ -2845,7 +2863,7 @@ function parseParagraph(
     let nextLineFirstChar = ''
 
     for (let i = nextLineStart; i < nextLineEnd; i++) {
-      const code = source.charCodeAt(i)
+      const code = charCode(source, i)
       if (code !== $.CHAR_SPACE && code !== $.CHAR_TAB && code !== $.CHAR_CR) {
         nextLineIsEmpty = false
         if (nextLineFirstChar === '') nextLineFirstChar = source[i]
@@ -2877,7 +2895,7 @@ function parseParagraph(
       let htmlLineStart = htmlCheckPos
       let htmlIndent = 0
       while (htmlLineStart < nextLineEnd && htmlIndent < 3) {
-        const code = source.charCodeAt(htmlLineStart)
+        const code = charCode(source, htmlLineStart)
         if (code === $.CHAR_SPACE || code === $.CHAR_TAB) {
           htmlIndent++
           htmlLineStart++
@@ -3023,7 +3041,7 @@ function parseParagraph(
   var contentEnd = endPos
 
   while (contentStart < contentEnd) {
-    const code = source.charCodeAt(contentStart)
+    const code = charCode(source, contentStart)
     if (code === $.CHAR_SPACE || code === $.CHAR_TAB) {
       contentStart++
     } else {
@@ -3057,7 +3075,7 @@ function parseParagraph(
         // Check for exactly 4 leading spaces
         var spaceCount = 0
         while (spaceCount < 4 && lineStart + spaceCount < lineEnd) {
-          if (source.charCodeAt(lineStart + spaceCount) === $.CHAR_SPACE) {
+          if (charCode(source, lineStart + spaceCount) === $.CHAR_SPACE) {
             spaceCount++
           } else {
             break
@@ -3069,7 +3087,7 @@ function parseParagraph(
 
       if (
         lineEnd < contentEnd &&
-        source.charCodeAt(lineEnd) === $.CHAR_NEWLINE
+        charCode(source, lineEnd) === $.CHAR_NEWLINE
       ) {
         processedParts.push('\n')
         lineStart = lineEnd + 1
@@ -3120,7 +3138,7 @@ function parseParagraph(
   var lastNewlinePos = -1
   var searchPos = endPos - 1
   while (searchPos >= contentStart) {
-    if (source.charCodeAt(searchPos) === $.CHAR_NEWLINE) {
+    if (charCode(source, searchPos) === $.CHAR_NEWLINE) {
       lastNewlinePos = searchPos
       break
     }
@@ -3132,7 +3150,7 @@ function parseParagraph(
     // Check if there's any non-whitespace content before the last newline
     var hasContentBeforeNewline = false
     for (var checkPos = contentStart; checkPos < lastNewlinePos; checkPos++) {
-      const code = source.charCodeAt(checkPos)
+      const code = charCode(source, checkPos)
       if (
         code !== $.CHAR_SPACE &&
         code !== $.CHAR_TAB &&
@@ -3151,7 +3169,7 @@ function parseParagraph(
       var refDefStartPos = lastNewlinePos + 1
       // Skip any leading whitespace
       while (refDefStartPos < source.length) {
-        const code = source.charCodeAt(refDefStartPos)
+        const code = charCode(source, refDefStartPos)
         if (code === $.CHAR_SPACE || code === $.CHAR_TAB) {
           refDefStartPos++
         } else {
@@ -3245,7 +3263,7 @@ function parseParagraph(
       var child = children[i]
       if (
         child.type === RuleType.htmlSelfClosing &&
-        (child as any).isClosingTag === true
+        child.isClosingTag === true
       ) {
         closingTagIndices.push(i)
       } else if (child.type === RuleType.text) {
@@ -3350,7 +3368,7 @@ export function calculateIndent(
   let charCount = 0
   let i = pos
   while (i < maxPos) {
-    var iCode = source.charCodeAt(i)
+    var iCode = charCode(source, i)
     if (iCode !== $.CHAR_SPACE && iCode !== $.CHAR_TAB) break
     if (maxSpaces !== undefined && spaceEquivalent >= maxSpaces) break
     if (iCode === $.CHAR_TAB) {
@@ -3374,7 +3392,7 @@ function extractCodeBlockLineContent(
   let indentSpaceEquivalent = 0
   let currentColumn = startColumn
   for (let i = lineStart; i < lineEnd && indentSpaceEquivalent < 4; i++) {
-    var iCode = source.charCodeAt(i)
+    var iCode = charCode(source, i)
     if (iCode === $.CHAR_TAB) {
       const spaces = 4 - (currentColumn % 4)
       indentSpaceEquivalent += spaces
@@ -3525,7 +3543,7 @@ export function parseCodeFenced(
 
   // Find line start for indentation calculation
   let lineStart = pos
-  while (lineStart > 0 && source.charCodeAt(lineStart - 1) !== $.CHAR_NEWLINE)
+  while (lineStart > 0 && charCode(source, lineStart - 1) !== $.CHAR_NEWLINE)
     lineStart--
 
   // Calculate indentation (caller already verified <= 3, but we need exact value)
@@ -3547,7 +3565,7 @@ export function parseCodeFenced(
   const lineEnd = util.findLineEnd(source, i)
   let langAndAttrs = source.slice(i, lineEnd).trim()
 
-  if (fenceChar === '`' && util.includes(langAndAttrs, '`')) return null
+  if (fenceChar === '`' && langAndAttrs.indexOf('`') !== -1) return null
 
   langAndAttrs = langAndAttrs.replace(UNESCAPE_R, '$1')
   const langSpaceIdx = langAndAttrs.indexOf(' ')
@@ -3569,7 +3587,7 @@ export function parseCodeFenced(
     let fenceStart = endPos
     let indentCount = 0
     while (fenceStart < lineEndPos) {
-      const code = source.charCodeAt(fenceStart)
+      const code = charCode(source, fenceStart)
       if (code === $.CHAR_SPACE) {
         indentCount++
         fenceStart++
@@ -3593,7 +3611,7 @@ export function parseCodeFenced(
       if (closeLen >= fenceLength) {
         let afterFence = fenceStart + closeLen
         while (afterFence < lineEndPos) {
-          const code = source.charCodeAt(afterFence)
+          const code = charCode(source, afterFence)
           if (code === $.CHAR_SPACE || code === $.CHAR_TAB) {
             afterFence++
           } else {
@@ -3665,7 +3683,9 @@ function parseBlockQuoteChildren(
       })
       // Remove endPos property efficiently without creating intermediate objects
       for (var j = 0; j < blockChildren.length; j++) {
-        const node = blockChildren[j] as any
+        const node = blockChildren[j] as MarkdownToJSX.ASTNode & {
+          endPos?: number
+        }
         if ('endPos' in node) {
           delete node.endPos
         }
@@ -4306,8 +4326,95 @@ function checkHTMLTagInterruptsList(
 ): boolean {
   if (indent > baseIndent || options.disableParsingRawHTML) return false
   const lineStartPos = pos + indentChars
-  if (lineStartPos >= source.length || source[lineStartPos] !== '<') return false
-  return parseHTMLTag(source, lineStartPos) !== null
+  if (lineStartPos >= source.length || source[lineStartPos] !== '<')
+    return false
+  return isValidHTMLTagStart(source, lineStartPos)
+}
+
+// Lightweight check for HTML tag validity without full parsing
+function isValidHTMLTagStart(source: string, pos: number): boolean {
+  if (pos >= source.length || source[pos] !== '<') return false
+  const len = source.length
+  let i = pos + 1
+
+  // Handle closing tags
+  if (i < len && source[i] === '/') {
+    i++
+  }
+
+  // Must have at least one character for tag name
+  if (i >= len) return false
+
+  // First character of tag name must be letter
+  const firstChar = charCode(source, i)
+  if (!isAlphaCode(firstChar)) return false
+  i++
+
+  // Rest of tag name can be letters, digits, hyphens, underscores
+  // Use early return to avoid nested conditionals
+  while (i < len) {
+    const ch = source[i]
+    const code = charCode(source, i)
+
+    // Break conditions (valid tag name terminators)
+    if (
+      ch === '>' ||
+      ch === ' ' ||
+      ch === '\t' ||
+      ch === '\n' ||
+      ch === '\r' ||
+      ch === '/'
+    ) {
+      break
+    }
+
+    // Valid tag name characters - continue
+    if (
+      ch === '-' ||
+      ch === '_' ||
+      isAlphaCode(code) ||
+      (code >= 48 && code <= 57)
+    ) {
+      i++
+    } else {
+      return false // Invalid character in tag name
+    }
+  }
+
+  // Find the end of the tag - use state machine approach to reduce branching
+  let state = 0 // 0: normal, 1: in double quotes, 2: in single quotes
+  while (i < len) {
+    const ch = source[i]
+    const code = charCode(source, i)
+
+    // State machine for quote handling
+    if (state === 1) {
+      // in double quotes
+      if (ch === '"') state = 0
+      i++
+    } else if (state === 2) {
+      // in single quotes
+      if (ch === "'") state = 0
+      i++
+    } else if (ch === '"') {
+      state = 1
+      i++
+    } else if (ch === "'") {
+      state = 2
+      i++
+    } else if (ch === '>') {
+      return true // Found valid closing >
+    } else if (ch === '/' && i + 1 < len && source[i + 1] === '>') {
+      return true // Found valid self-closing />
+    } else if (code === 10 || code === 13) {
+      // \n or \r
+      return false // No multiline tags in this context
+    } else {
+      i++
+    }
+  }
+
+  return false // No closing > found
 }
 
 function processContinuation(
@@ -4338,10 +4445,6 @@ function processContinuation(
     }
 
     const lineWithoutIndent = source.slice(pos + indentInfo.charCount, lineEnd)
-
-    if (checkHTMLTagInterruptsList(source, pos, indentInfo.charCount, baseIndent, indent, options)) {
-      break
-    }
 
     if (
       indent <= baseIndent &&
@@ -4570,10 +4673,6 @@ function processListContinuationLine(
     currentPos + nextIndentInfo.charCount,
     nextLineEnd
   )
-
-  if (baseIndent !== undefined && checkHTMLTagInterruptsList(source, currentPos, nextIndentInfo.charCount, baseIndent, nextIndent, options)) {
-    return { processed: false, newPos: currentPos, wasBlank: false }
-  }
 
   if (nextIndent >= continuationColumn + 4) {
     const blockResult = parseCodeBlock(source, currentPos, state)
@@ -5395,14 +5494,24 @@ function parseList(
       prevLineWasBlank = true
       currentPos = skipToNextLine(source, nextLineEnd)
     } else if (nextIndent < baseIndent) {
-      if (checkHTMLTagInterruptsList(source, currentPos, nextIndentChars, baseIndent, nextIndent, options)) {
+      const nextLineWithoutIndent = nextLine.slice(nextIndentChars)
+      if (
+        nextLineWithoutIndent.startsWith('<') &&
+        checkHTMLTagInterruptsList(
+          source,
+          currentPos,
+          nextIndentChars,
+          baseIndent,
+          nextIndent,
+          options
+        )
+      ) {
         break
       }
 
       // Less indented - check if this is a lazy continuation line
       // Per CommonMark: lazy continuation lines can have all indentation deleted
       // They are still part of the list item if they are paragraph continuation text
-      const nextLineWithoutIndent = nextLine.slice(nextIndentChars)
       const trimmed = nextLineWithoutIndent.trim()
       if (
         trimmed.length > 0 &&
@@ -5511,7 +5620,17 @@ function parseList(
 
       // If line is at base indentation and not a list item, end the list
       if (nextIndent <= baseIndent) {
-        if (checkHTMLTagInterruptsList(source, currentPos, nextIndentChars, baseIndent, nextIndent, options)) {
+        if (
+          nextLineWithoutIndent.startsWith('<') &&
+          checkHTMLTagInterruptsList(
+            source,
+            currentPos,
+            nextIndentChars,
+            baseIndent,
+            nextIndent,
+            options
+          )
+        ) {
           break
         }
 
@@ -6020,7 +6139,7 @@ function parseTable(
 
     const line = source.slice(currentPos, lineEnd).trim()
     const isTableLine =
-      line.includes('|') ||
+      line.indexOf('|') !== -1 ||
       (lines.length >= 3 && line && !isBlockStartChar(line[0]))
 
     if (!isTableLine) break
@@ -6083,7 +6202,8 @@ function parseTable(
   const header = parseRow(headerCells)
 
   const body = lines.slice(2).map(line => {
-    const cells = line.includes('|') ? splitCells(unwrap(line)) : [line.trim()]
+    const cells =
+      line.indexOf('|') !== -1 ? splitCells(unwrap(line)) : [line.trim()]
 
     // Normalize cell count
     const count = headerCells.length
@@ -6150,10 +6270,10 @@ var TYPE6_TAGS = [
 const TYPE1_TAGS_SET = new Set(['pre', 'script', 'style', 'textarea'])
 
 function isType6Tag(tagName: string): boolean {
-  return TYPE6_TAGS.includes(tagName.toLowerCase())
+  return TYPE6_TAGS.indexOf(tagName.toLowerCase()) !== -1
 }
 
-function isType1Block(tagLower: string): boolean {
+export function isType1Block(tagLower: string): boolean {
   return TYPE1_TAGS_SET.has(tagLower)
 }
 
@@ -6163,7 +6283,7 @@ function isBlankLineCheck(
   lineEnd: number
 ): boolean {
   for (var i = lineStart; i < lineEnd; i++) {
-    const code = source.charCodeAt(i)
+    const code = charCode(source, i)
     if (code !== $.CHAR_SPACE && code !== $.CHAR_TAB && code !== $.CHAR_CR)
       return false
   }
@@ -6236,7 +6356,7 @@ function createVerbatimHTMLBlock(
     type: RuleType.htmlBlock,
     tag: tagName as MarkdownToJSX.HTMLTags,
     attrs: attrs || {},
-    __rawAttrs: rawAttrs,
+    rawAttrs: rawAttrs,
     children: [],
     text: text,
     noInnerParse: true,
@@ -6319,7 +6439,7 @@ function processHTMLBlock(
     if (openingTagEnd !== -1) {
       var openingTagSlice = fullMatch.slice(0, openingTagEnd + 1)
       // Check if opening tag has newlines (for rawOpeningTag preservation)
-      if (util.includes(openingTagSlice, '\n')) {
+      if (openingTagSlice.indexOf('\n') !== -1) {
         rawOpeningTag = openingTagSlice
       }
       // Always extract raw attributes from the opening tag slice for consistency
@@ -6341,7 +6461,7 @@ function processHTMLBlock(
   // Parse attributes, but always preserve raw attributes for consistency
   // Per CommonMark spec Example 153: newlines and spaces between attributes should be removed
   // (not converted to spaces) when rendering. Store raw attributes so html() can handle this.
-  // Trim leading whitespace for parsing, but preserve full attrs (with whitespace) for __rawAttrs
+  // Trim leading whitespace for parsing, but preserve full attrs (with whitespace) for rawAttrs
   var attrsTrimmed = attrs.replace(/^[\s\n\r\t]+/, '')
   var parsedAttributes = parseHTMLAttributes(
     attrsTrimmed,
@@ -6351,7 +6471,7 @@ function processHTMLBlock(
   )
   var attributes: Record<string, any> = {
     ...parsedAttributes,
-  } as any
+  }
 
   // For type 6 blocks, check if content ends with blank line or if there's no closing tag
   // Both cases mean content should be verbatim
@@ -6485,7 +6605,7 @@ function processHTMLBlock(
       ? tagName
       : tagNameOriginal) as MarkdownToJSX.HTMLTags,
     attrs: attributes,
-    __rawAttrs: attrs,
+    rawAttrs: attrs,
     children,
     text: finalText,
     noInnerParse: shouldTreatAsVerbatim,
@@ -6586,7 +6706,7 @@ function parseHTML(
     var contentBetween = source.slice(pos + 1, closeIdx)
     // Check for spaces - if found, might be failed autolink
     var hasSpace =
-      util.includes(contentBetween, ' ') || util.includes(contentBetween, '\t')
+      contentBetween.indexOf(' ') !== -1 || contentBetween.indexOf('\t') !== -1
 
     // Check for HTTP(S) URLs - these should be autolinks, not HTML tags
     if (
@@ -6755,8 +6875,8 @@ function parseHTML(
     if (
       (util.startsWith(contentBetweenCheck, 'http://') ||
         util.startsWith(contentBetweenCheck, 'https://')) &&
-      (util.includes(contentBetweenCheck, ' ') ||
-        util.includes(contentBetweenCheck, '\t'))
+      (contentBetweenCheck.indexOf(' ') !== -1 ||
+        contentBetweenCheck.indexOf('\t') !== -1)
     ) {
       return null // Failed autolink - reject as HTML tag
     }
@@ -6969,7 +7089,7 @@ function parseHTML(
     )
     var inlineAttrs: Record<string, any> = {
       ...parsedInlineAttrs,
-    } as any
+    }
 
     // For non-void inline tags, find matching closing tag and parse content
     var inlineEndPos = tagResult.endPos
@@ -7018,7 +7138,7 @@ function parseHTML(
       type: RuleType.htmlBlock,
       tag: tagResult.tagName as MarkdownToJSX.HTMLTags,
       attrs: inlineAttrs,
-      __rawAttrs: rawAttrsWithWhitespace,
+      rawAttrs: rawAttrsWithWhitespace,
       children: children,
       noInnerParse: false,
       endPos: inlineEndPos,
@@ -7238,7 +7358,7 @@ function parseHTML(
       if (blockType === 'type7' && blockContent.trim() === '') {
         // Check if the tag itself contains a newline (inside the tag, not after it)
         var rawTagText = source.slice(pos, tagResult.endPos)
-        var tagContainsNewline = util.includes(rawTagText, '\n')
+        var tagContainsNewline = rawTagText.indexOf('\n') !== -1
 
         if (tagContainsNewline) {
           // Tag has newline inside it (in attribute) - should be wrapped in paragraph
@@ -7294,7 +7414,7 @@ function parseHTML(
       )
       var blockAttributes: Record<string, any> = {
         ...parsedBlockAttributes,
-      } as any
+      }
 
       // For type 6 blocks with block syntax, parse through processHTMLBlock
       if (blockType === 'type6') {
@@ -7522,15 +7642,16 @@ function scanTagLike(source: string, pos: number): HTMLToken | null {
   // Capture whitespace after tag name (including newlines per CommonMark spec)
   var whitespaceStart = attrsStart
   var hasNewline = false
-  while (
-    attrsStart < sourceLen &&
-    (source[attrsStart] === ' ' ||
-      source[attrsStart] === '\t' ||
-      source[attrsStart] === '\n' ||
-      source[attrsStart] === '\r')
-  ) {
-    if (source[attrsStart] === '\n' || source[attrsStart] === '\r') {
+  while (attrsStart < sourceLen) {
+    var ch = source[attrsStart]
+    var code = charCode(source, attrsStart)
+    if (ch === ' ' || ch === '\t') {
+      // Space or tab - continue
+    } else if (code === 10 || code === 13) {
+      // \n or \r
       hasNewline = true
+    } else {
+      break // Not whitespace
     }
     attrsStart++
   }
@@ -7544,22 +7665,34 @@ function scanTagLike(source: string, pos: number): HTMLToken | null {
   var hasSlash = false
   var hasSpaceBeforeSlash = false
 
+  // State machine for attribute parsing: 0=normal, 1=inDoubleQuotes, 2=inSingleQuotes
+  var parseState = 0
   while (tagEnd < sourceLen) {
     var char = source[tagEnd]
-    if (inQuotes) {
-      // Inside quotes: consume until matching quote
-      if (char === quoteChar) {
-        // Check for consecutive quotes (e.g., href="""") - invalid HTML
-        if (tagEnd + 1 < sourceLen && source[tagEnd + 1] === quoteChar) {
+    var code = charCode(source, tagEnd)
+
+    // Handle quotes state machine
+    if (parseState === 1) {
+      // in double quotes
+      if (char === '"') {
+        // Check for consecutive quotes (invalid HTML)
+        if (tagEnd + 1 < sourceLen && source[tagEnd + 1] === '"') {
           return null
         }
-        inQuotes = false
-        quoteChar = ''
+        parseState = 0
       }
       tagEnd++
-    } else if (char === '"' || char === "'") {
-      inQuotes = true
-      quoteChar = char
+    } else if (parseState === 2) {
+      // in single quotes
+      if (char === "'") {
+        parseState = 0
+      }
+      tagEnd++
+    } else if (char === '"') {
+      parseState = 1
+      tagEnd++
+    } else if (char === "'") {
+      parseState = 2
       tagEnd++
     } else if (char === '{' || (char === '}' && braceDepth > 0)) {
       // Track JSX expression brace depth
@@ -7569,10 +7702,9 @@ function scanTagLike(source: string, pos: number): HTMLToken | null {
       // Found closing > - check for self-closing / and space before >
       if (tagEnd > attrsStart) {
         var checkBack = tagEnd - 1
-        while (
-          checkBack >= attrsStart &&
-          (source[checkBack] === ' ' || source[checkBack] === '\t')
-        ) {
+        while (checkBack >= attrsStart) {
+          var backChar = source[checkBack]
+          if (backChar !== ' ' && backChar !== '\t') break
           checkBack--
         }
         if (checkBack >= attrsStart && source[checkBack] === '/') {
@@ -7583,26 +7715,30 @@ function scanTagLike(source: string, pos: number): HTMLToken | null {
       tagEnd++
       break
     } else {
-      // Minimal validation: reject invalid chars (*, #, !) in attribute names (outside quotes)
+      // Check for invalid attribute name characters (*, #, !)
       if (char === '*' || char === '#' || char === '!') {
         var checkAhead = tagEnd + 1
-        while (
-          checkAhead < sourceLen &&
-          source[checkAhead] !== '=' &&
-          source[checkAhead] !== ' ' &&
-          source[checkAhead] !== '\t' &&
-          source[checkAhead] !== '\n' &&
-          source[checkAhead] !== '\r' &&
-          source[checkAhead] !== '>'
-        ) {
+        while (checkAhead < sourceLen) {
+          var aheadChar = source[checkAhead]
+          if (
+            aheadChar === '=' ||
+            aheadChar === ' ' ||
+            aheadChar === '\t' ||
+            aheadChar === '\n' ||
+            aheadChar === '\r' ||
+            aheadChar === '>'
+          ) {
+            break
+          }
           checkAhead++
         }
         if (checkAhead < sourceLen && source[checkAhead] === '=') {
-          // Invalid char in attribute name - reject tag (will be escaped)
-          return null
+          return null // Invalid char in attribute name
         }
       }
-      if (char === '\n' || char === '\r') {
+      // Track newlines
+      if (code === 10 || code === 13) {
+        // \n or \r
         hasNewline = true
       }
       tagEnd++
@@ -7615,7 +7751,7 @@ function scanTagLike(source: string, pos: number): HTMLToken | null {
   }
 
   // Reject tags with unclosed quotes
-  if (inQuotes) {
+  if (parseState === 1 || parseState === 2) {
     return null
   }
 
@@ -8937,7 +9073,7 @@ export function parseMarkdown(
       ) {
         const isSelfClosingClosingTag =
           parseResult.type === RuleType.htmlSelfClosing &&
-          (parseResult as any).isClosingTag === true
+          parseResult.isClosingTag === true
         if (isSelfClosingClosingTag && !state.inline && !state.inHTML) {
           // Don't match, fall through to other parsers
         } else {
@@ -9075,15 +9211,13 @@ export function parseMarkdown(
 
   // Collect all refs from state.refs (populated during parsing) and create a reference collection node
   // Reference nodes stay in their original positions, but we prepend a collection node
-  // Note: Footnotes (keys starting with '^') are excluded from refCollection
+  // Include footnotes (keys starting with '^') so the renderer can handle them
   const allRefs = state.refs || {}
   const collectedRefs: {
     [key: string]: { target: string; title: string | undefined }
   } = {}
   for (const key in allRefs) {
-    if (key[0] !== '^') {
-      collectedRefs[key] = allRefs[key]
-    }
+    collectedRefs[key] = allRefs[key]
   }
 
   // Prepend reference collection node if we have any refs

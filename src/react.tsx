@@ -12,7 +12,6 @@ export { parser } from './parse'
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
-const SHOULD_RENDER_AS_BLOCK_R = /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/
 const TRIM_STARTING_NEWLINES = /^\n+/
 
 // Mapping of lowercase HTML attributes to JSX prop names
@@ -205,13 +204,9 @@ function render(
         // Type 1 blocks (script, style, pre, textarea) must have verbatim text content
         // React requires these tags to have a single string child, not parsed elements
         const tagLower = (htmlNode.tag as string).toLowerCase()
-        const isType1Block =
-          tagLower === 'pre' ||
-          tagLower === 'script' ||
-          tagLower === 'style' ||
-          tagLower === 'textarea'
+        const isType1Block = parse.isType1Block(tagLower)
 
-        const containsHTMLTags = /<[a-z][^>]*>/i.test(htmlNode.text)
+        const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(htmlNode.text)
         const containsPreTags = /<\/?pre\b/i.test(htmlNode.text)
 
         if (isType1Block && !containsHTMLTags) {
@@ -249,7 +244,12 @@ function render(
         ): MarkdownToJSX.ASTNode[] {
           if (
             node.type === RuleType.htmlSelfClosing &&
-            (node as any).isClosingTag
+            'isClosingTag' in node &&
+            (
+              node as MarkdownToJSX.HTMLSelfClosingNode & {
+                isClosingTag?: boolean
+              }
+            ).isClosingTag
           )
             return []
           if (node.type === RuleType.paragraph) {
@@ -374,7 +374,7 @@ function render(
 
     case RuleType.orderedList:
     case RuleType.unorderedList: {
-      const Tag = node.ordered ? 'ol' : 'ul'
+      const Tag = node.type === RuleType.orderedList ? 'ol' : 'ul'
 
       return (
         <Tag
@@ -477,6 +477,7 @@ const get = (source, path, fallback) => {
   }
   return result || fallback
 }
+
 const getTag = (tag, overrides) => {
   const override = get(overrides, tag, undefined)
   return !override
@@ -487,26 +488,10 @@ const getTag = (tag, overrides) => {
       : get(overrides, `${tag}.component`, tag)
 }
 
-export function compiler(
-  markdown: string,
-  options: MarkdownToJSX.Options & {
-    ast: true
-  }
-): MarkdownToJSX.ASTNode[]
-export function compiler(
-  markdown: string,
-  options: MarkdownToJSX.Options & {
-    wrapper: null
-  }
-): React.ReactNode
-export function compiler(
-  markdown: string,
+export function astToJSX(
+  ast: MarkdownToJSX.ASTNode[],
   options?: MarkdownToJSX.Options
-): React.JSX.Element
-export function compiler(
-  markdown: string = '',
-  options: MarkdownToJSX.Options = {}
-): React.ReactNode | MarkdownToJSX.ASTNode[] {
+): React.ReactNode {
   options.overrides = options.overrides || {}
 
   const slug = options.slugify || util.slugify
@@ -559,10 +544,182 @@ export function compiler(
     )
   }
 
-  function compile(input: string): React.ReactNode | MarkdownToJSX.ASTNode[] {
+  // Post-process AST for JSX compatibility: combine HTML blocks with following paragraphs
+  // when the HTML block contains <pre> tags (to keep pre content as plain text)
+  const postProcessedAst: MarkdownToJSX.ASTNode[] = []
+  for (let i = 0; i < ast.length; i++) {
+    const node = ast[i]
+    if (
+      node.type === RuleType.htmlBlock &&
+      'text' in node &&
+      node.text &&
+      /<\/?pre\b/i.test(node.text) &&
+      i + 1 < ast.length &&
+      ast[i + 1].type === RuleType.paragraph &&
+      'removedClosingTags' in ast[i + 1] &&
+      (
+        ast[i + 1] as MarkdownToJSX.ParagraphNode & {
+          removedClosingTags?: MarkdownToJSX.ASTNode[]
+        }
+      ).removedClosingTags
+    ) {
+      const htmlNode = node as MarkdownToJSX.HTMLNode,
+        paragraphNode = ast[i + 1] as MarkdownToJSX.ParagraphNode & {
+          removedClosingTags?: MarkdownToJSX.ASTNode[]
+        }
+      function extractText(nodes: MarkdownToJSX.ASTNode[]): string {
+        let text = ''
+        for (const n of nodes) {
+          const type = n.type
+          if (type === RuleType.text) text += (n as MarkdownToJSX.TextNode).text
+          else if (
+            type === RuleType.htmlSelfClosing &&
+            'rawText' in n &&
+            (n as MarkdownToJSX.HTMLSelfClosingNode & { rawText?: string })
+              .rawText
+          )
+            text += (
+              n as MarkdownToJSX.HTMLSelfClosingNode & { rawText?: string }
+            ).rawText!
+          else if (type === RuleType.textFormatted) {
+            const formattedNode = n as MarkdownToJSX.FormattedTextNode
+            const marker =
+              formattedNode.tag === 'em'
+                ? '_'
+                : formattedNode.tag === 'strong'
+                  ? '**'
+                  : ''
+            text += marker + extractText(formattedNode.children) + marker
+          } else if ('children' in n && n.children)
+            text += extractText(n.children)
+        }
+        return text
+      }
+      let combinedText = extractText(paragraphNode.children)
+      if (paragraphNode.removedClosingTags) {
+        combinedText += paragraphNode.removedClosingTags
+          .filter(
+            (tag: MarkdownToJSX.ASTNode) =>
+              tag.type === RuleType.htmlSelfClosing &&
+              'rawText' in tag &&
+              (
+                tag as MarkdownToJSX.HTMLSelfClosingNode & {
+                  rawText?: string
+                }
+              ).rawText &&
+              (
+                tag as MarkdownToJSX.HTMLSelfClosingNode & {
+                  rawText?: string
+                }
+              ).rawText!.indexOf(`</${htmlNode.tag}>`) === -1
+          )
+          .map((tag: MarkdownToJSX.ASTNode) =>
+            tag.type === RuleType.htmlSelfClosing && 'rawText' in tag
+              ? (
+                  tag as MarkdownToJSX.HTMLSelfClosingNode & {
+                    rawText?: string
+                  }
+                ).rawText || ''
+              : ''
+          )
+          .join('')
+      }
+      htmlNode.text += '\n' + combinedText
+      i++ // Skip paragraph
+    }
+    postProcessedAst.push(node)
+  }
+  ast = postProcessedAst
+
+  const parseOptions: parse.ParseOptions = {
+    ...options,
+    slugify: i => slug(i, util.slugify),
+    sanitizer: sanitize,
+    tagfilter: options.tagfilter !== false,
+  }
+
+  const refs =
+    ast[0] && ast[0].type === RuleType.refCollection
+      ? (ast[0] as MarkdownToJSX.ReferenceCollectionNode).refs
+      : {}
+
+  const emitter = createRenderer(options.renderRule, h, sanitize, slug, refs)
+
+  const arr = emitter(ast, {
+    inline: options.forceInline,
+    refs: refs,
+  }) as React.ReactNode[]
+
+  // Extract footnotes from refs (keys starting with '^')
+  const footnoteEntries: { identifier: string; footnote: string }[] = []
+  for (const key in refs) {
+    if (key.charCodeAt(0) === $.CHAR_CARET) {
+      footnoteEntries.push({ identifier: key, footnote: refs[key].target })
+    }
+  }
+
+  if (footnoteEntries.length) {
+    arr.push(
+      <footer key="footer">
+        {footnoteEntries.map(function createFootnote(def) {
+          const identifierWithoutCaret =
+            def.identifier.charCodeAt(0) === $.CHAR_CARET
+              ? def.identifier.slice(1)
+              : def.identifier
+          const footnoteAstNodes = parse.parseMarkdown(
+            def.footnote,
+            { inline: true, refs: refs },
+            parseOptions
+          )
+          return h(
+            'div',
+            {
+              id: slug(identifierWithoutCaret, util.slugify),
+              key: def.identifier,
+            },
+            identifierWithoutCaret + ': ',
+            emitter(footnoteAstNodes, { inline: true, refs: refs })
+          )
+        })}
+      </footer>
+    )
+  }
+
+  if (options.wrapper === null) {
+    return arr
+  }
+
+  const wrapper = options.wrapper || (options.forceInline ? 'span' : 'div')
+  let jsx: React.ReactNode
+
+  if (arr.length > 1 || options.forceWrapper) {
+    jsx = arr
+  } else if (arr.length === 1) {
+    return arr[0]
+  } else {
+    return null
+  }
+
+  return createElement(
+    wrapper,
+    { key: 'outer', ...options.wrapperProps },
+    jsx
+  ) as React.JSX.Element
+}
+
+export function compiler(
+  markdown: string = '',
+  options: MarkdownToJSX.Options = {}
+): React.ReactNode {
+  options.overrides = options.overrides || {}
+
+  const slug = options.slugify || util.slugify
+  const sanitize = options.sanitizer || util.sanitizer
+
+  function compile(input: string): React.ReactNode {
     const inline =
       options.forceInline ||
-      (!options.forceBlock && !SHOULD_RENDER_AS_BLOCK_R.test(input))
+      (!options.forceBlock && !util.SHOULD_RENDER_AS_BLOCK_R.test(input))
     const parseOptions: parse.ParseOptions = {
       ...options,
       slugify: i => slug(i, util.slugify),
@@ -588,115 +745,17 @@ export function compiler(
       processedInput = processedInput.slice(0, e)
       processedInput = `${processedInput.replace(TRIM_STARTING_NEWLINES, '')}\n\n`
     }
+
     let astNodes = parse.parseMarkdown(
       inline ? input : processedInput,
       { inline: inline, refs: refs },
       parseOptions
     )
 
-    // Post-process AST for JSX compatibility: combine HTML blocks with following paragraphs
-    // when the HTML block contains <pre> tags (to keep pre content as plain text)
-    const postProcessedAst: MarkdownToJSX.ASTNode[] = []
-    for (let i = 0; i < astNodes.length; i++) {
-      const node = astNodes[i]
-      if (
-        node.type === RuleType.htmlBlock &&
-        (node as any).text &&
-        /<\/?pre\b/i.test((node as any).text) &&
-        i + 1 < astNodes.length &&
-        astNodes[i + 1].type === RuleType.paragraph &&
-        (astNodes[i + 1] as any).removedClosingTags
-      ) {
-        const htmlNode = node as any,
-          paragraphNode = astNodes[i + 1] as any
-        function extractText(nodes: any[]): string {
-          let text = ''
-          for (const n of nodes) {
-            const type = n.type
-            if (type === RuleType.text) text += n.text
-            else if (type === RuleType.htmlSelfClosing && n.rawText)
-              text += n.rawText
-            else if (type === RuleType.textFormatted) {
-              const marker =
-                n.tag === 'em' ? '_' : n.tag === 'strong' ? '**' : ''
-              text += marker + extractText(n.children) + marker
-            } else if (n.children) text += extractText(n.children)
-          }
-          return text
-        }
-        let combinedText = extractText(paragraphNode.children)
-        if (paragraphNode.removedClosingTags) {
-          combinedText += paragraphNode.removedClosingTags
-            .filter(
-              (tag: any) =>
-                tag.rawText && tag.rawText.indexOf(`</${htmlNode.tag}>`) === -1
-            )
-            .map((tag: any) => tag.rawText)
-            .join('')
-        }
-        htmlNode.text += '\n' + combinedText
-        i++ // Skip paragraph
-      }
-      postProcessedAst.push(node)
-    }
-    astNodes = postProcessedAst
-
-    const arr = emitter(astNodes, {
-      inline: inline,
-      refs: refs,
-    }) as React.ReactNode[]
-
-    // Extract footnotes from refs (keys starting with '^')
-    const footnoteEntries: { identifier: string; footnote: string }[] = []
-    for (const key in refs) {
-      if (key.charCodeAt(0) === $.CHAR_CARET) {
-        const identifier = key.slice(1) // Remove '^' prefix
-        const ref = refs[key]
-        footnoteEntries.push({ identifier: identifier, footnote: ref.target })
-      }
-    }
-
-    if (footnoteEntries.length) {
-      arr.push(
-        <footer key="footer">
-          {footnoteEntries.map(function createFootnote(def) {
-            // Footnotes are parsed inline (newlines are preserved by default)
-            const footnoteAstNodes = parse.parseMarkdown(
-              def.footnote,
-              { inline: true, refs: refs },
-              parseOptions
-            )
-            return h(
-              'div',
-              { id: slug(def.identifier, util.slugify), key: def.identifier },
-              def.identifier + ': ',
-              emitter(footnoteAstNodes, { inline: true, refs: refs })
-            )
-          })}
-        </footer>
-      )
-    }
-
-    if (options.wrapper === null) {
-      return arr
-    }
-
-    const wrapper = options.wrapper || (inline ? 'span' : 'div')
-    let jsx: React.ReactNode
-
-    if (arr.length > 1 || options.forceWrapper) {
-      jsx = arr
-    } else if (arr.length === 1) {
-      return arr[0]
-    } else {
-      return null
-    }
-
-    return createElement(
-      wrapper,
-      { key: 'outer', ...options.wrapperProps },
-      jsx
-    ) as React.JSX.Element
+    return astToJSX(astNodes, {
+      ...parseOptions,
+      forceInline: inline,
+    })
   }
 
   if (process.env.NODE_ENV !== 'production') {
@@ -721,8 +780,6 @@ export function compiler(
 
   const refs: { [key: string]: { target: string; title: string | undefined } } =
     {}
-
-  const emitter = createRenderer(options.renderRule, h, sanitize, slug, refs)
 
   const jsx = compile(markdown)
 

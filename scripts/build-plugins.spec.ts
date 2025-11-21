@@ -246,7 +246,7 @@ function parseInlineSpan(
   if (angleBrace) {
     trackHit('angleBraceLink')
     result.push(angleBrace)
-    pos = angleBrace.endPos
+    pos = angleBrace.end
   }
 
   trackAttempt('htmlComment')
@@ -254,7 +254,7 @@ function parseInlineSpan(
   if (comment) {
     trackHit('htmlComment')
     result.push(comment)
-    pos = comment.endPos
+    pos = comment.end
   }
 
   return result
@@ -314,7 +314,7 @@ function trackHit(key: string): void {
   items.push(hasTask
     ? (trackBlockAttempt('listGfmTask'), trackBlockHit('listGfmTask'), [
         task,
-        ...parseContentWithParagraphHandling(actualItemContent.slice(task.endPos), itemHasBlankLine, state, options)
+        ...parseContentWithParagraphHandling(actualItemContent.slice(task.end), itemHasBlankLine, state, options)
       ])
     : parseContentWithParagraphHandling(actualItemContent, itemHasBlankLine, state, options))
 `

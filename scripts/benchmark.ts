@@ -96,7 +96,7 @@ const parseTests = [
     name: 'markdown-it [parse]',
     fn: input => mdIt.parse(input, {}),
   },
-  {
+  isAll && {
     name: 'marked [parse]',
     fn: input => marked.parse(input, {}),
   },

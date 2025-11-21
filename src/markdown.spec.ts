@@ -2,12 +2,17 @@ import { describe, expect, it } from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { compiler, markdown, type MarkdownCompilerOptions } from './markdown'
+import {
+  astToMarkdown,
+  compiler,
+  markdown,
+  type MarkdownCompilerOptions,
+} from './markdown'
 import { parser } from './parse'
 import type { MarkdownToJSX } from './types'
 import { RuleType } from './types'
 
-describe('compiler', () => {
+describe('markdown compiler', () => {
   describe('basic text and paragraphs', () => {
     it('should compile plain text', () => {
       const ast: MarkdownToJSX.TextNode = {
@@ -286,7 +291,6 @@ describe('compiler', () => {
     it('should compile unordered list', () => {
       const ast: MarkdownToJSX.UnorderedListNode = {
         type: RuleType.unorderedList,
-        ordered: false,
         items: [
           [{ type: RuleType.text, text: 'First item' }],
           [{ type: RuleType.text, text: 'Second item' }],
@@ -298,7 +302,6 @@ describe('compiler', () => {
     it('should compile ordered list', () => {
       const ast: MarkdownToJSX.OrderedListNode = {
         type: RuleType.orderedList,
-        ordered: true,
         items: [
           [{ type: RuleType.text, text: 'First item' }],
           [{ type: RuleType.text, text: 'Second item' }],
@@ -311,7 +314,6 @@ describe('compiler', () => {
     it('should compile ordered list with custom start', () => {
       const ast: MarkdownToJSX.OrderedListNode = {
         type: RuleType.orderedList,
-        ordered: true,
         items: [
           [{ type: RuleType.text, text: 'First item' }],
           [{ type: RuleType.text, text: 'Second item' }],
@@ -324,7 +326,6 @@ describe('compiler', () => {
     it('should handle multiline list items', () => {
       const ast: MarkdownToJSX.UnorderedListNode = {
         type: RuleType.unorderedList,
-        ordered: false,
         items: [
           [
             { type: RuleType.text, text: 'First line' },
@@ -520,6 +521,7 @@ describe('compiler', () => {
         type: RuleType.frontmatter,
         text: 'title: My Document\nauthor: John Doe',
       }
+      // Frontmatter should be preserved for round-trip compilation
       expect(markdown(ast)).toBe(
         '---\ntitle: My Document\nauthor: John Doe\n---'
       )
@@ -535,6 +537,7 @@ describe('compiler', () => {
           github: { target: 'https://github.com', title: undefined },
         },
       }
+      // Reference collection should be preserved for round-trip compilation
       const result = markdown(ast)
       expect(result).toContain('[example]: https://example.com "Example Site"')
       expect(result).toContain('[github]: https://github.com')
@@ -558,14 +561,20 @@ describe('compiler', () => {
       expect(markdown(ast)).toBe('# Title\n\nParagraph text')
     })
 
-    // TODO: Implement round-trip testing once text node splitting is handled
-    // it('should round-trip basic markdown', () => {
-    //   const input = '# Hello\n\nThis is **bold** and *italic* text.'
-    //   const ast = parser(input)
-    //   const output = markdown(ast)
-    //   const reparsed = parser(output)
-    //   expect(reparsed).toEqual(ast)
-    // })
+    // Note: Round-trip testing is complex due to text node splitting differences
+    // The markdown compiler preserves structure but may format differently
+    // For now, we test that compilation produces valid markdown that can be reparsed
+    it('should produce valid markdown that can be reparsed', () => {
+      const input = '# Hello\n\nThis is **bold** and *italic* text.'
+      const ast = parser(input)
+      const output = markdown(ast)
+      const reparsed = parser(output)
+      // Verify it parses without errors and produces similar structure
+      expect(reparsed.length).toBeGreaterThan(0)
+      expect(output).toContain('# Hello')
+      expect(output).toContain('**bold**')
+      expect(output).toContain('*italic*')
+    })
 
     it('should handle unknown node types gracefully', () => {
       const ast = { type: 999, unknown: 'property' } as any
@@ -575,7 +584,7 @@ describe('compiler', () => {
 
   describe('options', () => {
     it('should respect reference link option', () => {
-      const options: MarkdownToJSX.Options = {} // TODO: Add reference link option to Options type
+      const options: MarkdownCompilerOptions = { useReferenceLinks: false }
 
       const ast: MarkdownToJSX.LinkNode = {
         type: RuleType.link,
@@ -585,11 +594,26 @@ describe('compiler', () => {
       }
 
       const result = markdown(ast, options)
-      expect(result).toBe('[Link](https://example.com "Title")') // For now, just test inline links
+      expect(result).toBe('[Link](https://example.com "Title")')
+    })
+
+    it('should use reference-style links when enabled', () => {
+      const options: MarkdownCompilerOptions = { useReferenceLinks: true }
+
+      const ast: MarkdownToJSX.LinkNode = {
+        type: RuleType.link,
+        target: 'https://example.com',
+        title: 'Title',
+        children: [{ type: RuleType.text, text: 'Link' }],
+      }
+
+      const result = markdown(ast, options)
+      expect(result).toMatch(/\[Link\]\[ref\d+\]/)
+      expect(result).toContain('[ref1]: https://example.com "Title"')
     })
 
     it('should respect enforce atx headers option', () => {
-      const options: MarkdownToJSX.Options = { enforceAtxHeadings: false }
+      const options: MarkdownCompilerOptions = { enforceAtxHeadings: false }
 
       const ast: MarkdownToJSX.HeadingNode = {
         type: RuleType.heading,
@@ -603,7 +627,7 @@ describe('compiler', () => {
 
     describe('disableParsingRawHTML', () => {
       it('should still emit HTML blocks when disableParsingRawHTML is true', () => {
-        const options: MarkdownToJSX.Options = { disableParsingRawHTML: true }
+        const options: MarkdownCompilerOptions = { disableParsingRawHTML: true }
 
         const ast: MarkdownToJSX.HTMLNode = {
           type: RuleType.htmlBlock,
@@ -625,19 +649,18 @@ describe('compiler', () => {
       })
 
       it('should still emit self-closing HTML tags when disableParsingRawHTML is true', () => {
-        const options: MarkdownToJSX.Options = { disableParsingRawHTML: true }
+        const options: MarkdownCompilerOptions = { disableParsingRawHTML: true }
 
         const ast: MarkdownToJSX.HTMLSelfClosingNode = {
           type: RuleType.htmlSelfClosing,
           tag: 'br',
-          attrs: {},
         }
 
         expect(markdown(ast, options)).toBe('<br />')
       })
 
       it('should still emit HTML comments when disableParsingRawHTML is true', () => {
-        const options: MarkdownToJSX.Options = { disableParsingRawHTML: true }
+        const options: MarkdownCompilerOptions = { disableParsingRawHTML: true }
 
         const ast: MarkdownToJSX.HTMLCommentNode = {
           type: RuleType.htmlComment,
@@ -648,12 +671,11 @@ describe('compiler', () => {
       })
 
       it('should still emit HTML blocks with text content when disableParsingRawHTML is true', () => {
-        const options: MarkdownToJSX.Options = { disableParsingRawHTML: true }
+        const options: MarkdownCompilerOptions = { disableParsingRawHTML: true }
 
         const ast: MarkdownToJSX.HTMLNode = {
           type: RuleType.htmlBlock,
           tag: 'script',
-          attrs: {},
           children: undefined,
           noInnerParse: true,
           text: 'console.log("hello");</script>',
@@ -735,6 +757,7 @@ author: Test Author
 
 # Content`
       const output = compiler(input)
+      // Output should match input exactly for round-trip compilation
       expect(output).toContain('title: Test Document')
       expect(output).toContain('author: Test Author')
       expect(output).toContain('# Content')
@@ -875,6 +898,825 @@ More text`
         'title: Comprehensive Markdown Syntax Fixture'
       )
       expect(roundTripMarkdown).toContain('# END OF COMPREHENSIVE FIXTURE FILE')
+    })
+  })
+
+  describe('renderRule', () => {
+    it('allows custom rendering of nodes', () => {
+      const result = astToMarkdown(
+        [{ type: RuleType.codeBlock, text: 'test', lang: 'javascript' }],
+        {
+          renderRule: (next, node) => {
+            if (
+              node.type === RuleType.codeBlock &&
+              node.lang === 'javascript'
+            ) {
+              const text = node.text || ''
+              return `\`\`\`custom\n${text}\n\`\`\``
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('```custom\ntest\n```')
+    })
+
+    it('falls back to default rendering when not matching', () => {
+      const result = astToMarkdown(
+        [{ type: RuleType.codeBlock, text: 'test', lang: 'python' }],
+        {
+          renderRule: (next, node) => {
+            if (
+              node.type === RuleType.codeBlock &&
+              node.lang === 'javascript'
+            ) {
+              const text = node.text || ''
+              return `\`\`\`custom\n${text}\n\`\`\``
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('```python\ntest\n```')
+    })
+
+    it('can use renderChildren for nested content', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.paragraph,
+            children: [
+              { type: RuleType.text, text: 'Hello' },
+              {
+                type: RuleType.textFormatted,
+                tag: 'strong',
+                children: [{ type: RuleType.text, text: 'world' }],
+              },
+            ],
+          },
+        ],
+        {
+          renderRule: (next, node, renderChildren) => {
+            if (node.type === RuleType.paragraph) {
+              return '> ' + renderChildren(node.children || [])
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('> Hello**world**')
+    })
+
+    it('receives state with refs and key', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.refCollection,
+            refs: {
+              'test-ref': { target: 'https://example.com', title: undefined },
+            },
+          },
+          {
+            type: RuleType.heading,
+            level: 1,
+            id: 'test',
+            children: [{ type: RuleType.text, text: 'Test' }],
+          },
+        ],
+        {
+          renderRule: (next, node, renderChildren, state) => {
+            if (node.type === RuleType.heading) {
+              const key = state.key !== undefined ? String(state.key) : 'none'
+              const hasRefs = state.refs ? 'yes' : 'no'
+              return `# [key:${key}][refs:${hasRefs}] ${renderChildren(node.children || [])}`
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toContain('[key:0]')
+      expect(result).toContain('[refs:yes]')
+      expect(result).toContain('Test')
+    })
+
+    it('can customize code block rendering', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.codeBlock,
+            text: 'console.log("hello")',
+            lang: 'js',
+          },
+        ],
+        {
+          renderRule: (next, node) => {
+            if (node.type === RuleType.codeBlock && node.lang === 'js') {
+              return `\`\`\`javascript\n${node.text}\n\`\`\``
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('```javascript\nconsole.log("hello")\n```')
+    })
+
+    it('can customize heading rendering', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.heading,
+            level: 2,
+            id: 'custom-heading',
+            children: [{ type: RuleType.text, text: 'Custom Heading' }],
+          },
+        ],
+        {
+          renderRule: (next, node, renderChildren) => {
+            if (node.type === RuleType.heading && node.level === 2) {
+              return `## ${renderChildren(node.children || [])} (custom)`
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('## Custom Heading (custom)')
+    })
+
+    it('works with multiple nodes', () => {
+      const result = astToMarkdown(
+        [
+          { type: RuleType.text, text: 'First' },
+          { type: RuleType.text, text: 'Second' },
+        ],
+        {
+          renderRule: (next, node) => {
+            if (node.type === RuleType.text && node.text === 'First') {
+              return '**First**'
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('**First**\n\nSecond')
+    })
+
+    it('handles empty children arrays', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.paragraph,
+            children: [],
+          },
+        ],
+        {
+          renderRule: (next, node, renderChildren) => {
+            if (node.type === RuleType.paragraph) {
+              return (
+                'Empty: ' +
+                renderChildren(
+                  (node as MarkdownToJSX.ParagraphNode).children || []
+                )
+              )
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('Empty: ')
+    })
+
+    it('handles null/undefined children', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.heading,
+            level: 1,
+            id: '',
+            children: [],
+          } as MarkdownToJSX.HeadingNode,
+        ],
+        {
+          renderRule: (next, node, renderChildren) => {
+            if (node.type === RuleType.heading) {
+              const headingNode = node as MarkdownToJSX.HeadingNode
+              return '# ' + renderChildren(headingNode.children || [])
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('# ')
+    })
+
+    it('handles renderRule returning empty string', () => {
+      const result = astToMarkdown(
+        [
+          { type: RuleType.text, text: 'Should be hidden' },
+          { type: RuleType.text, text: 'Should be visible' },
+        ],
+        {
+          renderRule: (next, node) => {
+            if (
+              node.type === RuleType.text &&
+              node.text === 'Should be hidden'
+            ) {
+              return ''
+            }
+            return next()
+          },
+        }
+      )
+      // Empty strings are still joined with \n\n, so we get empty line + content
+      expect(result).toBe('\n\nShould be visible')
+    })
+
+    it('handles deeply nested structures', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.blockQuote,
+            children: [
+              {
+                type: RuleType.paragraph,
+                children: [
+                  {
+                    type: RuleType.textFormatted,
+                    tag: 'strong',
+                    children: [
+                      {
+                        type: RuleType.text,
+                        text: 'Nested',
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        {
+          renderRule: (next, node, renderChildren) => {
+            if (node.type === RuleType.blockQuote) {
+              return (
+                '> ' +
+                renderChildren(
+                  (node as MarkdownToJSX.BlockQuoteNode).children || []
+                )
+              )
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('> **Nested**')
+    })
+
+    it('handles renderRule with nodes that have no children property', () => {
+      const result = astToMarkdown(
+        [
+          { type: RuleType.codeBlock, text: 'code', lang: 'js' },
+          { type: RuleType.breakThematic },
+        ],
+        {
+          renderRule: (next, node) => {
+            if (node.type === RuleType.codeBlock) {
+              return '```custom\n' + (node.text || '') + '\n```'
+            }
+            if (node.type === RuleType.breakThematic) {
+              return '---'
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('```custom\ncode\n```\n\n---')
+    })
+
+    it('handles renderRule that accesses state', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.refCollection,
+            refs: {
+              'test-ref': { target: 'https://example.com', title: undefined },
+            },
+          },
+          {
+            type: RuleType.heading,
+            level: 1,
+            id: 'test',
+            children: [{ type: RuleType.text, text: 'Test' }],
+          },
+          {
+            type: RuleType.heading,
+            level: 2,
+            id: 'test',
+            children: [{ type: RuleType.text, text: 'Test' }],
+          },
+        ],
+        {
+          renderRule: (next, node, renderChildren, state) => {
+            if (node.type === RuleType.heading) {
+              const key = state.key !== undefined ? `[${state.key}]` : ''
+              const hasRefs =
+                state.refs && Object.keys(state.refs).length > 0
+                  ? 'refs'
+                  : 'no-refs'
+              const headingNode = node as MarkdownToJSX.HeadingNode
+              return `#${headingNode.level} ${key}${hasRefs} ${renderChildren(headingNode.children || [])}`
+            }
+            return next()
+          },
+        }
+      )
+      // State includes refs from options, but they may not be merged with AST refs
+      // Check that state.key is correctly passed (0 and 1)
+      expect(result).toContain('#1 [0]')
+      expect(result).toContain('#2 [1]')
+      expect(result).toContain('Test')
+      // Note: refs in state may be empty if not extracted from AST
+      // The test verifies state is accessible, not necessarily populated
+    })
+
+    it('handles renderRule with mixed node types in children', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.paragraph,
+            children: [
+              { type: RuleType.text, text: 'Text' },
+              { type: RuleType.codeInline, text: 'code' },
+              {
+                type: RuleType.textFormatted,
+                tag: 'strong',
+                children: [{ type: RuleType.text, text: 'bold' }],
+              },
+            ],
+          },
+        ],
+        {
+          renderRule: (next, node, renderChildren) => {
+            if (node.type === RuleType.paragraph) {
+              return (
+                '[P] ' +
+                renderChildren(
+                  (node as MarkdownToJSX.ParagraphNode).children || []
+                )
+              )
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('[P] Text`code`**bold**')
+    })
+
+    it('handles renderRule skipping certain node types', () => {
+      const result = astToMarkdown(
+        [
+          { type: RuleType.text, text: 'Keep' },
+          { type: RuleType.codeBlock, text: 'skip', lang: 'js' },
+          { type: RuleType.text, text: 'Keep' },
+        ],
+        {
+          renderRule: (next, node) => {
+            // Skip code blocks
+            if (node.type === RuleType.codeBlock) {
+              return ''
+            }
+            return next()
+          },
+        }
+      )
+      // Empty strings are still joined with \n\n
+      expect(result).toBe('Keep\n\n\n\nKeep')
+    })
+
+    it('handles renderRule with recursive custom rendering', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.orderedList,
+            items: [
+              [
+                {
+                  type: RuleType.paragraph,
+                  children: [
+                    {
+                      type: RuleType.textFormatted,
+                      tag: 'strong',
+                      children: [{ type: RuleType.text, text: 'Item' }],
+                    },
+                  ],
+                },
+              ],
+            ],
+          },
+        ],
+        {
+          renderRule: (next, node, renderChildren) => {
+            if (node.type === RuleType.orderedList) {
+              const listNode = node as MarkdownToJSX.OrderedListNode
+              const items = (listNode.items || [])
+                .map((item, i) => {
+                  const itemContent = item
+                    .map(child => {
+                      if (child.type === RuleType.paragraph) {
+                        return renderChildren(
+                          (child as MarkdownToJSX.ParagraphNode).children || []
+                        )
+                      }
+                      return renderChildren([child])
+                    })
+                    .join('')
+                  return `${i + 1}. [CUSTOM] ${itemContent}`
+                })
+                .join('\n')
+              return items
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('1. [CUSTOM] **Item**')
+    })
+
+    it('handles renderRule that transforms text content', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.paragraph,
+            children: [{ type: RuleType.text, text: 'Hello World' }],
+          },
+        ],
+        {
+          renderRule: (next, node, renderChildren) => {
+            if (node.type === RuleType.paragraph) {
+              const content = renderChildren(
+                (node as MarkdownToJSX.ParagraphNode).children || []
+              )
+              return content.toUpperCase()
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('HELLO WORLD')
+    })
+
+    it('handles renderRule with multiple conditions', () => {
+      const result = astToMarkdown(
+        [
+          { type: RuleType.codeBlock, text: 'js', lang: 'javascript' },
+          { type: RuleType.codeBlock, text: 'py', lang: 'python' },
+          { type: RuleType.codeBlock, text: 'ts', lang: 'typescript' },
+        ],
+        {
+          renderRule: (next, node) => {
+            if (node.type === RuleType.codeBlock) {
+              const codeNode = node as MarkdownToJSX.CodeBlockNode
+              if (codeNode.lang === 'javascript') {
+                return `\`\`\`js\n${codeNode.text || ''}\n\`\`\``
+              }
+              if (codeNode.lang === 'python') {
+                return `\`\`\`python\n${codeNode.text || ''}\n\`\`\``
+              }
+              // For typescript, use default
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe(
+        '```js\njs\n```\n\n```python\npy\n```\n\n```typescript\nts\n```'
+      )
+    })
+
+    it('handles renderRule that wraps content multiple times', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.heading,
+            level: 1,
+            id: 'title',
+            children: [{ type: RuleType.text, text: 'Title' }],
+          },
+        ],
+        {
+          renderRule: (next, node, renderChildren) => {
+            if (node.type === RuleType.heading) {
+              const content = renderChildren(
+                (node as MarkdownToJSX.HeadingNode).children || []
+              )
+              return `# [[[${content}]]]`
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('# [[[Title]]]')
+    })
+
+    it('handles renderRule with empty state', () => {
+      const result = astToMarkdown([{ type: RuleType.text, text: 'Test' }], {
+        renderRule: (next, node, renderChildren, state) => {
+          const key = state.key !== undefined ? state.key : -1
+          const refsCount = state.refs ? Object.keys(state.refs).length : 0
+          return `[${key}:${refsCount}]${next()}`
+        },
+      })
+      expect(result).toBe('[0:0]Test')
+    })
+  })
+
+  describe('overrides', () => {
+    it('allows overriding HTML tag names with string', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.htmlBlock,
+            tag: 'div',
+            children: [
+              {
+                type: RuleType.paragraph,
+                children: [{ type: RuleType.text, text: 'Content' }],
+              },
+            ],
+          },
+        ],
+        {
+          overrides: {
+            div: 'section',
+          },
+        }
+      )
+      expect(result).toContain('<section>')
+      expect(result).toContain('</section>')
+      expect(result).toContain('Content')
+    })
+
+    it('allows overriding HTML tag names with component object', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.htmlBlock,
+            tag: 'p',
+            children: [{ type: RuleType.text, text: 'Hello' }],
+          },
+        ],
+        {
+          overrides: {
+            p: {
+              component: 'span',
+            },
+          },
+        }
+      )
+      expect(result).toContain('<span>')
+      expect(result).toContain('</span>')
+      expect(result).toContain('Hello')
+    })
+
+    it('allows adding attributes to HTML tags', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.htmlBlock,
+            tag: 'div',
+            children: [
+              {
+                type: RuleType.paragraph,
+                children: [{ type: RuleType.text, text: 'Content' }],
+              },
+            ],
+          },
+        ],
+        {
+          overrides: {
+            div: {
+              component: 'div',
+              props: {
+                class: 'custom-class',
+                id: 'my-id',
+              },
+            },
+          },
+        }
+      )
+      expect(result).toContain('class="custom-class"')
+      expect(result).toContain('id="my-id"')
+      expect(result).toContain('Content')
+    })
+
+    it('merges override props with existing attributes', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.htmlBlock,
+            tag: 'div',
+            attrs: { id: 'existing-id' },
+            children: [
+              {
+                type: RuleType.paragraph,
+                children: [{ type: RuleType.text, text: 'Content' }],
+              },
+            ],
+          },
+        ],
+        {
+          overrides: {
+            div: {
+              props: {
+                class: 'custom-class',
+              },
+            },
+          },
+        }
+      )
+      expect(result).toContain('id="existing-id"')
+      expect(result).toContain('class="custom-class"')
+    })
+
+    it('works with HTML self-closing tags', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.htmlSelfClosing,
+            tag: 'img',
+            attrs: { src: 'image.jpg', alt: 'Image' },
+          },
+        ],
+        {
+          overrides: {
+            img: {
+              props: {
+                loading: 'lazy',
+              },
+            },
+          },
+        }
+      )
+      expect(result).toContain('src="image.jpg"')
+      expect(result).toContain('alt="Image"')
+      expect(result).toContain('loading="lazy"')
+    })
+
+    it('overrides tag name for self-closing tags', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.htmlSelfClosing,
+            tag: 'br',
+          },
+        ],
+        {
+          overrides: {
+            br: 'hr',
+          },
+        }
+      )
+      expect(result).toContain('<hr')
+      expect(result).not.toContain('<br')
+    })
+
+    it('works with nested HTML blocks', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.htmlBlock,
+            tag: 'div',
+            children: [
+              {
+                type: RuleType.htmlBlock,
+                tag: 'span',
+                children: [{ type: RuleType.text, text: 'Nested' }],
+              },
+            ],
+          },
+        ],
+        {
+          overrides: {
+            div: {
+              props: { class: 'outer' },
+            },
+            span: {
+              props: { class: 'inner' },
+            },
+          },
+        }
+      )
+      expect(result).toContain('class="outer"')
+      expect(result).toContain('class="inner"')
+      expect(result).toContain('Nested')
+    })
+
+    it('override props take precedence over existing attributes', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.htmlBlock,
+            tag: 'div',
+            attrs: { class: 'old-class', id: 'keep-id' },
+            children: [
+              {
+                type: RuleType.paragraph,
+                children: [{ type: RuleType.text, text: 'Content' }],
+              },
+            ],
+          },
+        ],
+        {
+          overrides: {
+            div: {
+              props: {
+                class: 'new-class',
+              },
+            },
+          },
+        }
+      )
+      expect(result).toContain('class="new-class"')
+      expect(result).toContain('id="keep-id"')
+      expect(result).not.toContain('old-class')
+    })
+
+    it('works with void elements', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.htmlBlock,
+            tag: 'img',
+            attrs: { src: 'test.jpg' },
+            text: '<img src="test.jpg">',
+          },
+        ],
+        {
+          overrides: {
+            img: {
+              props: {
+                alt: 'Test',
+              },
+            },
+          },
+        }
+      )
+      expect(result).toContain('src="test.jpg"')
+      expect(result).toContain('alt="Test"')
+    })
+
+    it('handles multiple overrides at once', () => {
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.htmlBlock,
+            tag: 'div',
+            children: [
+              {
+                type: RuleType.htmlBlock,
+                tag: 'span',
+                children: [{ type: RuleType.text, text: 'Text' }],
+              },
+            ],
+          },
+          {
+            type: RuleType.htmlSelfClosing,
+            tag: 'br',
+          },
+        ],
+        {
+          overrides: {
+            div: {
+              props: { class: 'container' },
+            },
+            span: {
+              component: 'strong',
+            },
+            br: {
+              props: { 'data-break': 'true' },
+            },
+          },
+        }
+      )
+      expect(result).toContain('class="container"')
+      expect(result).toContain('<strong>')
+      expect(result).toContain('data-break="true"')
+    })
+
+    it('works with compiler function', () => {
+      const input = '<div>Hello</div>'
+      const result = compiler(input, {
+        overrides: {
+          div: {
+            component: 'section',
+            props: {
+              class: 'content',
+            },
+          },
+        },
+      })
+      expect(result).toContain('<section')
+      expect(result).toContain('class="content"')
+      expect(result).toContain('Hello')
     })
   })
 })

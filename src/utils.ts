@@ -44,6 +44,13 @@ export const HTML_CHAR_CODE_R: RegExp =
   /&([a-zA-Z0-9]+|#[0-9]{1,7}|#x[0-9a-fA-F]{1,6});/gi
 
 /**
+ * Regex for determining if markdown content should be rendered as block-level
+ * Matches: newlines, list items, headings, indented content, thematic breaks, blockquotes
+ */
+export const SHOULD_RENDER_AS_BLOCK_R: RegExp =
+  /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/
+
+/**
  * Decode HTML entity references to Unicode characters
  */
 export function decodeEntityReferences(text: string): string {
@@ -374,6 +381,49 @@ export function hasKeys(obj: Record<string, any> | null | undefined): boolean {
  * Extract plain text from AST nodes (for image alt text, heading slugs, etc.)
  * Shared between JSX and HTML renderers
  */
+/**
+ * Get nested property from object using dot notation path
+ */
+export function get(source: any, path: string, fallback: any): any {
+  var result = source
+  var segments = path.split('.')
+  var i = 0
+  while (i < segments.length) {
+    result = result?.[segments[i]]
+    if (result === undefined) break
+    i++
+  }
+  return result || fallback
+}
+
+/**
+ * Get tag name from override object, supporting both string and component object overrides
+ */
+export function getTag<
+  T extends string | { component?: string; props?: Record<string, any> },
+>(tag: string, overrides?: Record<string, T>): string {
+  if (!overrides) return tag
+  const override = get(overrides, tag, undefined)
+  if (typeof override === 'string') return override
+  if (typeof override === 'object' && override.component)
+    return override.component
+  return tag
+}
+
+/**
+ * Get override props from override object
+ */
+export function getOverrideProps<
+  T extends string | { component?: string; props?: Record<string, any> },
+>(
+  tag: string,
+  overrides?: Record<string, T>
+): Record<string, string | number | boolean> {
+  if (!overrides) return {}
+  const override = get(overrides, tag, undefined)
+  return typeof override === 'object' && override.props ? override.props : {}
+}
+
 export function extractPlainText(nodes: Array<any>, RuleType: any): string {
   var result = ''
   for (var i = 0, len = nodes.length; i < len; i++) {

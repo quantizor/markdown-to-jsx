@@ -1,5 +1,6 @@
+import { describe, it, expect } from 'bun:test'
 import * as p from './parse'
-import { type MarkdownToJSX } from './types'
+import { RuleType, type MarkdownToJSX } from './types'
 
 // Test fixtures factories
 function createBlockState(refs = {}) {
@@ -24,11 +25,13 @@ function createEmptyRefs() {
 
 describe('parser', () => {
   it('should parse basic markdown to paragraph', () => {
-    const result = p.parser('hello world')
+    const result = p.parser('hello world') as (MarkdownToJSX.ParagraphNode & {
+      endPos: number
+    })[]
     expect(result).toEqual([
       {
-        type: 'paragraph',
-        children: [{ type: 'text', text: 'hello world' }],
+        type: RuleType.paragraph,
+        children: [{ type: RuleType.text, text: 'hello world' }],
         endPos: 11,
       },
     ])
@@ -40,12 +43,15 @@ describe('parser', () => {
   })
 
   it('should parse headings with forceBlock option', () => {
-    const result = p.parser('# Hello', createForceBlockOptions())
+    const result = p.parser(
+      '# Hello',
+      createForceBlockOptions()
+    ) as (MarkdownToJSX.HeadingNode & { endPos: number })[]
     expect(result).toEqual([
       {
-        type: 'heading',
+        type: RuleType.heading,
         level: 1,
-        children: [{ type: 'text', text: 'Hello' }],
+        children: [{ type: RuleType.text, text: 'Hello' }],
         endPos: 7,
         id: 'hello',
       },
@@ -53,11 +59,14 @@ describe('parser', () => {
   })
 
   it('should handle null/undefined options', () => {
-    const result = p.parser('test', undefined)
+    const result = p.parser(
+      'test',
+      undefined
+    ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
     expect(result).toEqual([
       {
-        type: 'paragraph',
-        children: [{ type: 'text', text: 'test' }],
+        type: RuleType.paragraph,
+        children: [{ type: RuleType.text, text: 'test' }],
         endPos: 4,
       },
     ])
@@ -70,27 +79,31 @@ describe('parser', () => {
   })
 
   it('should handle input with null bytes', () => {
-    const result = p.parser('hello\x00world')
+    const result = p.parser(
+      'hello\x00world'
+    ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
     expect(result).toEqual([
       {
-        type: 'paragraph',
-        children: [{ type: 'text', text: 'hello\x00world' }],
+        type: RuleType.paragraph,
+        children: [{ type: RuleType.text, text: 'hello\x00world' }],
         endPos: 11,
       },
     ])
   })
 
   it('should handle mixed line endings', () => {
-    const result = p.parser('line1\r\nline2\nline3\rline4')
+    const result = p.parser(
+      'line1\r\nline2\nline3\rline4'
+    ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
     expect(result).toEqual([
       {
-        type: 'paragraph',
+        type: RuleType.paragraph,
         children: [
-          { type: 'text', text: 'line1\r' },
-          { type: 'text', text: '\n' },
-          { type: 'text', text: 'line2' },
-          { type: 'text', text: '\n' },
-          { type: 'text', text: 'line3\rline4' },
+          { type: RuleType.text, text: 'line1\r' },
+          { type: RuleType.text, text: '\n' },
+          { type: RuleType.text, text: 'line2' },
+          { type: RuleType.text, text: '\n' },
+          { type: RuleType.text, text: 'line3\rline4' },
         ],
         endPos: 24,
       },
@@ -98,11 +111,13 @@ describe('parser', () => {
   })
 
   it('should handle Unicode characters', () => {
-    const result = p.parser('Hello 世界 🌍')
+    const result = p.parser('Hello 世界 🌍') as (MarkdownToJSX.ParagraphNode & {
+      endPos: number
+    })[]
     expect(result).toEqual([
       {
-        type: 'paragraph',
-        children: [{ type: 'text', text: 'Hello 世界 🌍' }],
+        type: RuleType.paragraph,
+        children: [{ type: RuleType.text, text: 'Hello 世界 🌍' }],
         endPos: 11,
       },
     ])
@@ -113,11 +128,15 @@ describe('parseMarkdown', () => {
   it('should parse block markdown with state', () => {
     const state = createBlockState()
     const options = createDefaultOptions()
-    const result = p.parseMarkdown('hello world', state, options)
+    const result = p.parseMarkdown(
+      'hello world',
+      state,
+      options
+    ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
     expect(result).toEqual([
       {
-        type: 'paragraph',
-        children: [{ type: 'text', text: 'hello world' }],
+        type: RuleType.paragraph,
+        children: [{ type: RuleType.text, text: 'hello world' }],
         endPos: 11,
       },
     ])
@@ -128,11 +147,11 @@ describe('parseMarkdown', () => {
     const options = createDefaultOptions()
     const result = p.parseMarkdown('hello *world*', state, options)
     expect(result).toEqual([
-      { type: 'text', text: 'hello ' },
+      { type: RuleType.text, text: 'hello ' },
       {
-        type: 'textFormatted',
+        type: RuleType.textFormatted,
         tag: 'em',
-        children: [{ type: 'text', text: 'world' }],
+        children: [{ type: RuleType.text, text: 'world' }],
       },
     ])
   })
@@ -142,13 +161,13 @@ describe('parseMarkdown', () => {
     const options = createDefaultOptions()
     const result = p.parseMarkdown('(*hello* world)', state, options)
     expect(result).toEqual([
-      { type: 'text', text: '(' },
+      { type: RuleType.text, text: '(' },
       {
-        type: 'textFormatted',
+        type: RuleType.textFormatted,
         tag: 'em',
-        children: [{ type: 'text', text: 'hello' }],
+        children: [{ type: RuleType.text, text: 'hello' }],
       },
-      { type: 'text', text: ' world)' },
+      { type: RuleType.text, text: ' world)' },
     ])
   })
 
@@ -158,11 +177,11 @@ describe('parseMarkdown', () => {
     const result = p.parseMarkdown('**bold** text', state, options)
     expect(result).toEqual([
       {
-        type: 'textFormatted',
+        type: RuleType.textFormatted,
         tag: 'strong',
-        children: [{ type: 'text', text: 'bold' }],
+        children: [{ type: RuleType.text, text: 'bold' }],
       },
-      { type: 'text', text: ' text' },
+      { type: RuleType.text, text: ' text' },
     ])
   })
 
@@ -172,14 +191,14 @@ describe('parseMarkdown', () => {
     const result = p.parseMarkdown('`code` and *emphasis*', state, options)
     expect(result).toEqual([
       {
-        type: 'codeInline',
+        type: RuleType.codeInline,
         text: 'code',
       },
-      { type: 'text', text: ' and ' },
+      { type: RuleType.text, text: ' and ' },
       {
-        type: 'textFormatted',
+        type: RuleType.textFormatted,
         tag: 'em',
-        children: [{ type: 'text', text: 'emphasis' }],
+        children: [{ type: RuleType.text, text: 'emphasis' }],
       },
     ])
   })
@@ -190,10 +209,10 @@ describe('parseMarkdown', () => {
     const result = p.parseMarkdown('[link](url)', state, options)
     expect(result).toEqual([
       {
-        type: 'link',
+        type: RuleType.link,
         target: 'url',
         title: undefined,
-        children: [{ type: 'text', text: 'link' }],
+        children: [{ type: RuleType.text, text: 'link' }],
       },
     ])
   })
@@ -207,16 +226,16 @@ describe('parseMarkdown', () => {
       options
     )
     expect(result).toEqual([
-      { type: 'text', text: '[' },
-      { type: 'text', text: 'outer ' },
+      { type: RuleType.text, text: '[' },
+      { type: RuleType.text, text: 'outer ' },
       {
-        type: 'link',
+        type: RuleType.link,
         target: 'url2',
         title: undefined,
-        children: [{ type: 'text', text: 'inner' }],
+        children: [{ type: RuleType.text, text: 'inner' }],
       },
-      { type: 'text', text: ']' },
-      { type: 'text', text: '(url1)' },
+      { type: RuleType.text, text: ']' },
+      { type: RuleType.text, text: '(url1)' },
     ]) // Nested links not allowed - outer brackets treated as literal
   })
 
@@ -225,8 +244,8 @@ describe('parseMarkdown', () => {
     const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
     const result = p.parseMarkdown('[link(url)', state, options)
     expect(result).toEqual([
-      { type: 'text', text: '[' },
-      { type: 'text', text: 'link(url)' }, // Malformed links treated as literal text
+      { type: RuleType.text, text: '[' },
+      { type: RuleType.text, text: 'link(url)' }, // Malformed links treated as literal text
     ])
   })
 
@@ -240,15 +259,15 @@ describe('parseMarkdown', () => {
     )
     expect(result).toEqual([
       {
-        type: 'link',
+        type: RuleType.link,
         target: 'url',
         title: undefined,
         children: [
-          { type: 'text', text: 'link ' },
-          { type: 'text', text: '[' },
-          { type: 'text', text: 'with' },
-          { type: 'text', text: ']' },
-          { type: 'text', text: ' brackets' },
+          { type: RuleType.text, text: 'link ' },
+          { type: RuleType.text, text: '[' },
+          { type: RuleType.text, text: 'with' },
+          { type: RuleType.text, text: ']' },
+          { type: RuleType.text, text: ' brackets' },
         ],
       },
     ])
@@ -260,10 +279,10 @@ describe('parseMarkdown', () => {
     const result = p.parseMarkdown('[text](url[invalid])', state, options)
     expect(result).toEqual([
       {
-        type: 'link',
+        type: RuleType.link,
         target: 'url[invalid]',
         title: undefined,
-        children: [{ type: 'text', text: 'text' }],
+        children: [{ type: RuleType.text, text: 'text' }],
       }, // Brackets in URLs are actually allowed
     ])
   })
@@ -421,7 +440,7 @@ describe('parseDefinition', () => {
       false
     )
     expect(result).toEqual({
-      type: 'ref',
+      type: RuleType.ref,
       endPos: 26,
     })
   })
@@ -436,7 +455,7 @@ describe('parseDefinition', () => {
       false
     )
     expect(result).toEqual({
-      type: 'ref',
+      type: RuleType.ref,
       endPos: 28,
     })
   })
@@ -451,7 +470,7 @@ describe('parseDefinition', () => {
       false
     )
     expect(result).toEqual({
-      type: 'ref',
+      type: RuleType.ref,
       endPos: 50,
     })
   })
@@ -466,7 +485,7 @@ describe('parseDefinition', () => {
       false
     )
     expect(result).toEqual({
-      type: 'ref',
+      type: RuleType.ref,
       endPos: 48,
     })
   })
@@ -481,7 +500,7 @@ describe('parseDefinition', () => {
       false
     )
     expect(result).toEqual({
-      type: 'ref',
+      type: RuleType.ref,
       endPos: 48,
     })
   })
@@ -498,7 +517,7 @@ describe('parseDefinition', () => {
       false
     )
     expect(result).toEqual({
-      type: 'ref',
+      type: RuleType.ref,
       endPos: 67,
     })
   })
@@ -513,7 +532,7 @@ describe('parseDefinition', () => {
       false
     )
     expect(result).toEqual({
-      type: 'ref',
+      type: RuleType.ref,
       endPos: 55,
     })
   })
@@ -528,7 +547,7 @@ describe('parseDefinition', () => {
       false
     )
     expect(result).toEqual({
-      type: 'ref',
+      type: RuleType.ref,
       endPos: 56,
     })
   })
@@ -592,7 +611,7 @@ describe('parseDefinition', () => {
       false
     )
     expect(result).toEqual({
-      type: 'ref',
+      type: RuleType.ref,
       endPos: 56,
     })
   })
@@ -657,7 +676,7 @@ describe('parseCodeFenced', () => {
       options
     )
     expect(result).toEqual({
-      type: 'codeBlock',
+      type: RuleType.codeBlock,
       text: 'code',
       lang: '',
       attrs: undefined,
@@ -674,7 +693,7 @@ describe('parseCodeFenced', () => {
       options
     )
     expect(result).toEqual({
-      type: 'codeBlock',
+      type: RuleType.codeBlock,
       text: 'code',
       lang: '',
       attrs: undefined,
@@ -691,7 +710,7 @@ describe('parseCodeFenced', () => {
       options
     )
     expect(result).toEqual({
-      type: 'codeBlock',
+      type: RuleType.codeBlock,
       text: 'code',
       lang: 'javascript',
       attrs: undefined,
@@ -708,7 +727,7 @@ describe('parseCodeFenced', () => {
       options
     )
     expect(result).toEqual({
-      type: 'codeBlock',
+      type: RuleType.codeBlock,
       text: 'code',
       lang: '',
       attrs: undefined,
@@ -725,7 +744,7 @@ describe('parseCodeFenced', () => {
       options
     )
     expect(result).toEqual({
-      type: 'codeBlock',
+      type: RuleType.codeBlock,
       text: 'code\n~~~',
       lang: 'javascript',
       attrs: undefined,
@@ -764,7 +783,7 @@ describe('parseCodeFenced', () => {
       options
     )
     expect(result).toEqual({
-      type: 'codeBlock',
+      type: RuleType.codeBlock,
       text: 'code',
       lang: 'javascript',
       attrs: undefined,
@@ -776,7 +795,7 @@ describe('parseCodeFenced', () => {
     const options = createDefaultOptions()
     const result = p.parseCodeFenced('```\n```', 0, createBlockState(), options)
     expect(result).toEqual({
-      type: 'codeBlock',
+      type: RuleType.codeBlock,
       text: '',
       lang: '',
       attrs: undefined,
@@ -793,7 +812,7 @@ describe('parseCodeFenced', () => {
       options
     )
     expect(result).toEqual({
-      type: 'codeBlock',
+      type: RuleType.codeBlock,
       text: 'line1\n\nline3',
       lang: '',
       attrs: undefined,
@@ -810,7 +829,7 @@ describe('parseCodeFenced', () => {
       options
     ) // unclosed - should extend to end despite double newlines
     expect(result).toEqual({
-      type: 'codeBlock',
+      type: RuleType.codeBlock,
       text: 'code\n\nmore code\n\nand even more',
       lang: '',
       attrs: undefined,
@@ -827,7 +846,7 @@ describe('parseCodeFenced', () => {
       options
     )
     expect(result).toEqual({
-      type: 'codeBlock',
+      type: RuleType.codeBlock,
       text: 'code\n```',
       lang: '',
       attrs: undefined,
@@ -1241,22 +1260,23 @@ describe('HTML tags interrupting lists', () => {
 
     // Should have a list with one item, then an HTML block
     expect(result.length).toBe(2)
-    expect(result[0].type).toBe('unorderedList')
-    expect(result[1].type).toBe('paragraph') // HTML tag wrapped in paragraph
+    expect(result[0].type).toBe(RuleType.unorderedList)
+    expect(result[1].type).toBe(RuleType.paragraph) // HTML tag wrapped in paragraph
 
     const list = result[0] as MarkdownToJSX.UnorderedListNode
     expect(list.items.length).toBe(1)
-    expect(list.items[0][0].type).toBe('text')
+    expect(list.items[0][0].type).toBe(RuleType.text)
     expect((list.items[0][0] as MarkdownToJSX.TextNode).text).toBe('foo')
   })
 
   it('should interrupt indented list when HTML tag appears at column 0', () => {
-    const md = '  * You can have lists, like this one\n\n  * Make things **bold** or *italic*\n\n  * Embed snippets of `code`\n\n  * Create [links](/)\n\n  * ...\n\n\n\n<small>Sample content borrowed with thanks from [elm-markdown](http://elm-lang.org/examples/markdown) ❤️</small>'
+    const md =
+      '  * You can have lists, like this one\n\n  * Make things **bold** or *italic*\n\n  * Embed snippets of `code`\n\n  * Create [links](/)\n\n  * ...\n\n\n\n<small>Sample content borrowed with thanks from [elm-markdown](http://elm-lang.org/examples/markdown) ❤️</small>'
     const result = p.parser(md)
 
     // Should have a list, then HTML content (not inside the list)
     expect(result.length).toBeGreaterThan(1)
-    expect(result[0].type).toBe('unorderedList')
+    expect(result[0].type).toBe(RuleType.unorderedList)
 
     const list = result[0] as MarkdownToJSX.UnorderedListNode
     // The last item should NOT contain the <small> tag
@@ -1272,7 +1292,7 @@ describe('HTML tags interrupting lists', () => {
 
     // Should have a list with 2 items, then HTML block, then another list
     expect(result.length).toBeGreaterThan(1)
-    expect(result[0].type).toBe('unorderedList')
+    expect(result[0].type).toBe(RuleType.unorderedList)
 
     const list = result[0] as MarkdownToJSX.UnorderedListNode
     expect(list.items.length).toBe(2) // Should only have 2 items, not 3

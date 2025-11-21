@@ -878,7 +878,7 @@ _The React code in this entry point is deprecated and will be removed in a futur
 For React-specific usage, import from the `/react` entry point:
 
 ```tsx
-import Markdown, { compiler, parser } from 'markdown-to-jsx/react'
+import Markdown, { compiler, parser, astToJSX } from 'markdown-to-jsx/react'
 
 // Use compiler for markdown → JSX
 const jsxElement = compiler('# Hello world')
@@ -889,8 +889,9 @@ function App() {
   return <Markdown children={markdown} />
 }
 
-// Or use parser for total control
+// Or use parser + astToJSX for total control
 const ast = parser('# Hello world')
+const jsxElement2 = astToJSX(ast)
 ```
 
 ### HTML
@@ -959,7 +960,7 @@ Use `parser` when you need:
 
 The Abstract Syntax Tree (AST) is a structured representation of parsed markdown. Each node in the AST has a `type` property that identifies its kind, and type-specific properties.
 
-**Important:** The first node in the AST is typically a `RuleType.refCollection` node that contains all reference definitions found in the document. This node is skipped during rendering but is useful for accessing reference data.
+**Important:** The first node in the AST is typically a `RuleType.refCollection` node that contains all reference definitions found in the document, including footnotes (stored with keys prefixed with `^`). This node is skipped during rendering but is useful for accessing reference data. Footnotes are automatically extracted from the refCollection and rendered in a `<footer>` element by both `compiler()` and `astToJSX()`.
 
 ### Node Types
 
@@ -1029,7 +1030,9 @@ The AST consists of the following node types (use `RuleType` to check node types
 - `RuleType.breakLine` - Hard line breaks (`  `)
 - `RuleType.breakThematic` - Horizontal rules (`---`)
 - `RuleType.gfmTask` - GFM task list items (`- [ ]`)
-- `RuleType.refCollection` - Reference definitions collection (appears at AST root)
+- `RuleType.refCollection` - Reference definitions collection (appears at AST root, includes footnotes with `^` prefix)
+- `RuleType.footnote` - Footnote definition node (not rendered, stored in refCollection)
+- `RuleType.footnoteReference` - Footnote reference (`[^identifier]`)
 
 ### Example AST Structure
 
@@ -1105,9 +1108,9 @@ if (node.type === RuleType.heading) {
 
 **When to use `compiler` vs `parser` vs `<Markdown>`:**
 
-- Use `<Markdown>` when you need a simple React component that renders markdown to JSX or HTML.
-- Use `compiler` when you need React JSX or HTML output (the component uses this internally)
-- Use `parser` when you need the AST for custom processing
+- Use `<Markdown>` when you need a simple React component that renders markdown to JSX.
+- Use `compiler` when you need React JSX output from markdown (the component uses this internally).
+- Use `parser` + `astToJSX` when you need the AST for custom processing before rendering to JSX, or just the AST itself.
 
 ## Changelog
 

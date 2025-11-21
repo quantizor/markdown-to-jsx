@@ -390,10 +390,10 @@ describe('sanitizer', () => {
     expect(u.sanitizer('http\n://example.com')).toBe('http\n://example.com') // newline in protocol is allowed
   })
 
-  it('should reject extremely long URLs', () => {
-    const tooLongUrl = 'https://example.com/' + 'a'.repeat(100000)
-    expect(u.sanitizer(tooLongUrl)).toBe(tooLongUrl) // actually this might be allowed
-    // But we should test the limit
+  it('should handle extremely long URLs', () => {
+    // Long URLs are allowed - sanitizer only checks for dangerous protocols
+    const longUrl = 'https://example.com/' + 'a'.repeat(100000)
+    expect(u.sanitizer(longUrl)).toBe(longUrl)
   })
 
   it('should handle URLs with null bytes or control characters gracefully', () => {
@@ -934,15 +934,17 @@ describe('text processing', () => {
 
     it('should handle circular references safely', () => {
       // Note: The function currently doesn't protect against infinite recursion
-      // This test documents the current behavior
+      // This test documents that circular references cause stack overflow
       const node: MarkdownToJSX.FormattedTextNode = {
         type: RuleType.textFormatted,
         children: [],
         tag: 'strong',
       }
       node.children.push(node) // circular reference
-      // This would cause infinite recursion - skipping this test for now
-      expect(true).toBe(true) // placeholder
+      // This will cause infinite recursion - verify it throws RangeError
+      expect(() => {
+        u.extractPlainText([node], RuleType)
+      }).toThrow(RangeError)
     })
 
     it('should handle nodes with unusual type values', () => {

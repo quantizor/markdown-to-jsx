@@ -1,11 +1,28 @@
 import { RuleType, type MarkdownToJSX } from './types'
-import { isVoidElement } from './utils'
+import { isVoidElement, getTag, getOverrideProps } from './utils'
 import { parser } from './parse'
+
+export type MarkdownOverride =
+  | {
+      component?: string
+      props?: Record<string, string | number | boolean>
+    }
+  | string
+
+export type MarkdownOverrides = {
+  [tag in MarkdownToJSX.HTMLTags]?: MarkdownOverride
+} & {
+  [customComponent: string]: MarkdownOverride
+}
 
 /**
  * Markdown-specific compiler options that extend the main MarkdownToJSX options
+ * Excludes React/HTML-specific options (createElement, wrapper, wrapperProps, forceWrapper)
  */
-export interface MarkdownCompilerOptions extends MarkdownToJSX.Options {
+export type MarkdownCompilerOptions = Omit<
+  MarkdownToJSX.Options,
+  'createElement' | 'wrapper' | 'wrapperProps' | 'forceWrapper'
+> & {
   /**
    * Whether to use reference-style links instead of inline links
    * @default false
@@ -17,6 +34,23 @@ export interface MarkdownCompilerOptions extends MarkdownToJSX.Options {
    * @default false
    */
   useSetextHeaders?: boolean
+
+  /**
+   * Allows for full control over rendering of particular rules.
+   * Returns a markdown string instead of JSX.
+   */
+  renderRule?: (
+    next: () => string,
+    node: MarkdownToJSX.ASTNode,
+    renderChildren: (children: MarkdownToJSX.ASTNode[]) => string,
+    state: MarkdownToJSX.State
+  ) => string
+
+  /**
+   * Override HTML tag names and add attributes for HTML blocks and self-closing tags.
+   * Output is markdown string (HTML tags in markdown).
+   */
+  overrides?: MarkdownOverrides
 }
 
 /**
@@ -36,25 +70,77 @@ export function astToMarkdown(
   options?: MarkdownCompilerOptions
 ): string {
   const nodes = Array.isArray(ast) ? ast : [ast]
+  var overrides = options?.overrides || {}
+
+  // Extract refs from reference collection node
+  var refs: { [key: string]: { target: string; title: string | undefined } } =
+    {}
+  var nonRefCollectionNodes: MarkdownToJSX.ASTNode[] = []
+  var foundRefCollection = false
+
+  for (var i = 0; i < nodes.length; i++) {
+    var node = nodes[i]
+    if (node.type === RuleType.refCollection && !foundRefCollection) {
+      refs = (node as MarkdownToJSX.ReferenceCollectionNode).refs || {}
+      foundRefCollection = true
+      nonRefCollectionNodes.push(node)
+    } else if (node.type !== RuleType.footnote && node.type !== RuleType.ref) {
+      nonRefCollectionNodes.push(node)
+    }
+  }
+
   const state: CompilerState = {
     options: options || {},
     references: new Map(),
     referenceIndex: 1,
+    overrides,
   }
 
-  const content = nodes.map(node => compileNode(node, state)).join('\n\n')
+  function renderChildren(children: MarkdownToJSX.ASTNode[]): string {
+    // For inline content (like paragraph children), render without block separators
+    return children.map(child => compileNode(child, state)).join('')
+  }
 
-  // Add reference definitions if using reference-style links
+  function renderNodeWithRule(
+    node: MarkdownToJSX.ASTNode,
+    stateWithKey: MarkdownToJSX.State = {}
+  ): string {
+    if (!node || typeof node !== 'object') return ''
+    if (node.type === RuleType.ref || node.type === RuleType.footnote) return ''
+
+    if (options?.renderRule) {
+      return options.renderRule(
+        () => compileNode(node, state),
+        node,
+        renderChildren,
+        stateWithKey
+      )
+    }
+
+    return compileNode(node, state)
+  }
+
+  // Filter out refCollection from nodes that get keys (it's rendered separately)
+  const renderableNodes = nonRefCollectionNodes.filter(
+    node => node.type !== RuleType.refCollection
+  )
+  const content = nonRefCollectionNodes
+    .map((node, i) => {
+      // Only assign keys to renderable nodes (exclude refCollection from key counting)
+      const keyIndex =
+        node.type === RuleType.refCollection
+          ? undefined
+          : renderableNodes.indexOf(node)
+      return renderNodeWithRule(node, { key: keyIndex, refs })
+    })
+    .join('\n\n')
+
   if (state.options.useReferenceLinks && state.references.size > 0) {
     const references = Array.from(state.references.entries())
-      .map(([key, { url, title }]) => {
-        if (title) {
-          return `[${key}]: ${url} "${title}"`
-        }
-        return `[${key}]: ${url}`
-      })
+      .map(([key, { url, title }]) =>
+        title ? `[${key}]: ${url} "${title}"` : `[${key}]: ${url}`
+      )
       .join('\n')
-
     return content + '\n\n' + references
   }
 
@@ -71,6 +157,7 @@ interface CompilerState {
   options: MarkdownCompilerOptions
   references: Map<string, { url: string; title?: string }>
   referenceIndex: number
+  overrides?: MarkdownOverrides
 }
 
 /**
@@ -130,7 +217,7 @@ function compileNode(
       return compileHTMLSelfClosing(node, state)
 
     case RuleType.htmlComment:
-      return compileHTMLComment(node, state)
+      return compileHTMLComment(node)
 
     case RuleType.footnote:
       return compileFootnote(node)
@@ -156,17 +243,10 @@ function compileNode(
   }
 }
 
-/**
- * Compile text node
- */
 function compileText(node: MarkdownToJSX.TextNode): string {
-  // For round-trip compilation, preserve text as-is
   return node.text
 }
 
-/**
- * Compile paragraph node
- */
 function compileParagraph(
   node: MarkdownToJSX.ParagraphNode,
   state: CompilerState
@@ -174,9 +254,6 @@ function compileParagraph(
   return node.children.map(child => compileNode(child, state)).join('')
 }
 
-/**
- * Compile heading node
- */
 function compileHeading(
   node: MarkdownToJSX.HeadingNode,
   state: CompilerState
@@ -187,59 +264,36 @@ function compileHeading(
     state.options.useSetextHeaders &&
     (node.level === 1 || node.level === 2)
   ) {
-    const underline = node.level === 1 ? '=' : '-'
-    return `${content}\n${underline.repeat(content.length)}`
+    return `${content}\n${(node.level === 1 ? '=' : '-').repeat(content.length)}`
   }
 
-  const hashes = '#'.repeat(node.level)
-  const space = state.options.enforceAtxHeadings !== false ? ' ' : ''
-  return `${hashes}${space}${content}`
+  return `${'#'.repeat(node.level)}${state.options.enforceAtxHeadings !== false ? ' ' : ''}${content}`
 }
 
-/**
- * Compile thematic break
- */
 function compileBreakThematic(_node: MarkdownToJSX.BreakThematicNode): string {
   return '---'
 }
 
-/**
- * Compile line break
- */
 function compileBreakLine(_node: MarkdownToJSX.BreakLineNode): string {
   return '  \n'
 }
 
-/**
- * Compile code block
- */
 function compileCodeBlock(node: MarkdownToJSX.CodeBlockNode): string {
-  const lang = node.lang ? `\`\`\`${node.lang}\n` : '```\n'
-  return `${lang}${node.text}\n\`\`\``
+  return `${node.lang ? `\`\`\`${node.lang}\n` : '```\n'}${node.text}\n\`\`\``
 }
 
-/**
- * Compile inline code
- */
 function compileCodeInline(node: MarkdownToJSX.CodeInlineNode): string {
-  // Use double backticks if the code contains a backtick
-  if (node.text.includes('`')) {
-    return `\`\`${node.text}\`\``
-  }
-  return `\`${node.text}\``
+  return node.text.indexOf('`') !== -1
+    ? `\`\`${node.text}\`\``
+    : `\`${node.text}\``
 }
 
-/**
- * Compile formatted text (emphasis, strong, etc.)
- */
 function compileTextFormatted(
   node: MarkdownToJSX.FormattedTextNode,
   state: CompilerState
 ): string {
   const content = node.children.map(child => compileNode(child, state)).join('')
-  const tag = node.tag
-
-  switch (tag) {
+  switch (node.tag) {
     case 'em':
     case 'i':
       return `*${content}*`
@@ -256,9 +310,6 @@ function compileTextFormatted(
   }
 }
 
-/**
- * Compile link
- */
 function compileLink(
   node: MarkdownToJSX.LinkNode,
   state: CompilerState
@@ -268,7 +319,6 @@ function compileLink(
   const title = node.title
 
   if (state.options.useReferenceLinks) {
-    // Generate reference-style link
     const refKey = generateReferenceKey(url, state)
     if (!state.references.has(refKey)) {
       state.references.set(refKey, { url, title })
@@ -276,16 +326,9 @@ function compileLink(
     return `[${text}][${refKey}]`
   }
 
-  // Inline link
-  if (title) {
-    return `[${text}](${url} "${title}")`
-  }
-  return `[${text}](${url})`
+  return title ? `[${text}](${url} "${title}")` : `[${text}](${url})`
 }
 
-/**
- * Compile image
- */
 function compileImage(
   node: MarkdownToJSX.ImageNode,
   state: CompilerState
@@ -295,7 +338,6 @@ function compileImage(
   const title = node.title
 
   if (state.options.useReferenceLinks) {
-    // Generate reference-style image
     const refKey = generateReferenceKey(url, state)
     if (!state.references.has(refKey)) {
       state.references.set(refKey, { url, title })
@@ -303,16 +345,9 @@ function compileImage(
     return `![${alt}][${refKey}]`
   }
 
-  // Inline image
-  if (title) {
-    return `![${alt}](${url} "${title}")`
-  }
-  return `![${alt}](${url})`
+  return title ? `![${alt}](${url} "${title}")` : `![${alt}](${url})`
 }
 
-/**
- * Compile ordered list
- */
 function compileOrderedList(
   node: MarkdownToJSX.OrderedListNode,
   state: CompilerState
@@ -320,16 +355,12 @@ function compileOrderedList(
   const start = node.start || 1
   return node.items
     .map((item, index) => {
-      const marker = `${start + index}. `
       const content = item.map(child => compileNode(child, state)).join('')
-      return marker + content.replace(/\n/g, '\n    ')
+      return `${start + index}. ${content.replace(/\n/g, '\n    ')}`
     })
     .join('\n')
 }
 
-/**
- * Compile unordered list
- */
 function compileUnorderedList(
   node: MarkdownToJSX.UnorderedListNode,
   state: CompilerState
@@ -342,25 +373,18 @@ function compileUnorderedList(
     .join('\n')
 }
 
-/**
- * Compile blockquote
- */
 function compileBlockQuote(
   node: MarkdownToJSX.BlockQuoteNode,
   state: CompilerState
 ): string {
-  const content = node.children
+  return node.children
     .map(child => compileNode(child, state))
     .join('\n\n')
-  return content
     .split('\n')
     .map(line => (line.trim() ? `> ${line}` : '>'))
     .join('\n')
 }
 
-/**
- * Compile table
- */
 function compileTable(
   node: MarkdownToJSX.TableNode,
   state: CompilerState
@@ -369,26 +393,17 @@ function compileTable(
     .map(cell => cell.map(child => compileNode(child, state)).join(''))
     .join(' | ')
 
-  let finalSeparator: string
-  if (node.align.length > 0) {
-    finalSeparator = node.align
-      .map(align => {
-        switch (align) {
-          case 'left':
-            return ':---'
-          case 'right':
-            return '---:'
-          case 'center':
-            return ':---:'
-          default:
+  const finalSeparator =
+    node.align.length > 0
+      ? node.align
+          .map(align => {
+            if (align === 'left') return ':---'
+            if (align === 'right') return '---:'
+            if (align === 'center') return ':---:'
             return '---'
-        }
-      })
-      .join('|')
-  } else {
-    // No alignment specified, use default --- separators
-    finalSeparator = Array(node.header.length).fill('---').join('|')
-  }
+          })
+          .join('|')
+      : Array(node.header.length).fill('---').join('|')
 
   const dataRows = node.cells
     .map(row =>
@@ -401,30 +416,15 @@ function compileTable(
   return `${headerRow}\n${finalSeparator}\n${dataRows}`
 }
 
-/**
- * Dangerous HTML tags that should be escaped when tagfilter is enabled
- */
-const DANGEROUS_HTML_TAGS = new Set([
-  'title',
-  'textarea',
-  'style',
-  'xmp',
-  'iframe',
-  'noembed',
-  'noframes',
-  'script',
-  'plaintext',
-])
-
-/**
- * Compile HTML block
- */
 function compileHTMLBlock(
   node: MarkdownToJSX.HTMLNode,
   state: CompilerState
 ): string {
-  const tag = node.tag
-  const attrs = compileAttributes(node.attrs)
+  const defaultTag = node.tag || 'div'
+  const tag = getTag(defaultTag, state.overrides)
+  const overrideProps = getOverrideProps(defaultTag, state.overrides)
+  const mergedAttrs = { ...(node.attrs || {}), ...overrideProps }
+  const attrs = compileAttributes(mergedAttrs)
 
   // Check if this is a void element (self-closing)
   const isVoid = isVoidElement(tag)
@@ -450,120 +450,62 @@ function compileHTMLSelfClosing(
   node: MarkdownToJSX.HTMLSelfClosingNode,
   state: CompilerState
 ): string {
-  const tag = node.tag
-  const attrs = compileAttributes(node.attrs)
+  const defaultTag = node.tag || 'div'
+  const tag = getTag(defaultTag, state.overrides)
+  const overrideProps = getOverrideProps(defaultTag, state.overrides)
+  const mergedAttrs = { ...(node.attrs || {}), ...overrideProps }
+  const attrs = compileAttributes(mergedAttrs)
   return `<${tag}${attrs} />`
 }
 
-/**
- * Compile HTML comment
- */
-function compileHTMLComment(
-  node: MarkdownToJSX.HTMLCommentNode,
-  state: CompilerState
-): string {
+function compileHTMLComment(node: MarkdownToJSX.HTMLCommentNode): string {
   return `<!--${node.text}-->`
 }
 
-/**
- * Compile footnote
- */
 function compileFootnote(_node: MarkdownToJSX.FootnoteNode): string {
-  // Footnotes are typically handled separately, return empty for now
   return ''
 }
 
-/**
- * Compile footnote reference
- */
 function compileFootnoteReference(
   node: MarkdownToJSX.FootnoteReferenceNode
 ): string {
   return `[^${node.text}]`
 }
 
-/**
- * Compile frontmatter
- */
 function compileFrontmatter(node: MarkdownToJSX.FrontmatterNode): string {
   return `---\n${node.text}\n---`
 }
 
-/**
- * Compile GFM task list item
- */
 function compileGFMTask(node: MarkdownToJSX.GFMTaskNode): string {
   return node.completed ? '[x]' : '[ ]'
 }
 
-/**
- * Compile reference
- */
 function compileReference(_node: MarkdownToJSX.ReferenceNode): string {
-  // Reference definitions are handled separately
   return ''
 }
 
-/**
- * Compile reference collection
- */
 function compileReferenceCollection(
   node: MarkdownToJSX.ReferenceCollectionNode
 ): string {
   return Object.entries(node.refs)
-    .map(([key, { target, title }]) => {
-      if (title) {
-        return `[${key}]: ${target} "${title}"`
-      }
-      return `[${key}]: ${target}`
-    })
+    .map(([key, { target, title }]) =>
+      title ? `[${key}]: ${target} "${title}"` : `[${key}]: ${target}`
+    )
     .join('\n')
 }
 
-/**
- * Generate a reference key for URLs
- */
 function generateReferenceKey(url: string, state: CompilerState): string {
-  // Simple implementation - use incremental numbers for now
   return `ref${state.referenceIndex++}`
 }
 
-/**
- * Compile HTML attributes to string
- */
 function compileAttributes(attrs: Record<string, any>): string {
   return Object.entries(attrs || {})
-    .map(([key, value]) => {
-      if (typeof value === 'boolean') {
-        return value ? ` ${key}` : ''
-      }
-      return ` ${key}="${String(value).replace(/"/g, '&quot;')}"`
-    })
+    .map(([key, value]) =>
+      typeof value === 'boolean'
+        ? value
+          ? ` ${key}`
+          : ''
+        : ` ${key}="${String(value).replace(/"/g, '&quot;')}"`
+    )
     .join('')
-}
-
-/**
- * Escape special markdown characters in text
- */
-function escapeText(text: string): string {
-  return text
-    .replace(/\\/g, '\\\\') // Escape backslashes first
-    .replace(/\*/g, '\\*') // Escape asterisks
-    .replace(/_/g, '\\_') // Escape underscores
-    .replace(/\[/g, '\\[') // Escape brackets
-    .replace(/\]/g, '\\]') // Escape brackets
-    .replace(/\(/g, '\\(') // Escape parentheses
-    .replace(/\)/g, '\\)') // Escape parentheses
-    .replace(/`/g, '\\`') // Escape backticks
-    .replace(/~/g, '\\~') // Escape tildes
-    .replace(/</g, '\\<') // Escape less-than
-    .replace(/>/g, '\\>') // Escape greater-than
-    .replace(/#/g, '\\#') // Escape hash
-    .replace(/\+/g, '\\+') // Escape plus
-    .replace(/-/g, '\\-') // Escape dash
-    .replace(/\./g, '\\.') // Escape dot
-    .replace(/!/g, '\\!') // Escape exclamation
-    .replace(/\|/g, '\\|') // Escape pipe
-    .replace(/\{/g, '\\{') // Escape braces
-    .replace(/\}/g, '\\}') // Escape braces
 }

@@ -55,7 +55,7 @@ export namespace MarkdownToJSX {
 
   export type CreateElement = typeof React.createElement
 
-  export type HTMLTags = keyof React.JSX.IntrinsicElements
+  export type HTMLTags = keyof React.JSX.IntrinsicElements & (string & {})
 
   export type State = {
     /** true if the current content is inside anchor link grammar */
@@ -152,14 +152,12 @@ export namespace MarkdownToJSX {
   export interface OrderedListNode {
     type: typeof RuleType.orderedList
     items: MarkdownToJSX.ASTNode[][]
-    ordered: true
     start?: number
   }
 
   export interface UnorderedListNode {
     type: typeof RuleType.unorderedList
     items: MarkdownToJSX.ASTNode[][]
-    ordered: false
   }
 
   export interface ParagraphNode {
@@ -202,16 +200,17 @@ export namespace MarkdownToJSX {
 
   export interface HTMLNode {
     type: typeof RuleType.htmlBlock
-    attrs: Record<string, any>
+    attrs?: Record<string, any>
     children?: ASTNode[] | undefined
-    noInnerParse: Boolean
+    noInnerParse?: Boolean
     tag: string
     text?: string | undefined
   }
 
   export interface HTMLSelfClosingNode {
     type: typeof RuleType.htmlSelfClosing
-    attrs: Record<string, any>
+    attrs?: Record<string, any>
+    isClosingTag?: boolean
     tag: string
   }
 

@@ -1,5 +1,5 @@
 import * as $ from './constants'
-import { parser } from './parse'
+import * as parse from './parse'
 import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
 
@@ -54,72 +54,11 @@ function applyTagFilterToText(text: string): string {
  * Only escapes bare & that are not part of valid entities
  */
 function escapeHtmlAttr(value: string): string {
-  // First, escape < > and " (these always need escaping)
-  let escaped = value
+  return value
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-
-  // For &, only escape if it's not part of a valid entity reference
-  // Match entities: &name; or &#123; or &#x1A2B;
-  // Use a more precise pattern that checks for valid entity syntax
-  escaped = escaped.replace(
-    /&(?!([a-zA-Z0-9]+|#[0-9]+|#x[0-9a-fA-F]+);)/g,
-    '&amp;'
-  )
-
-  return escaped
-}
-
-/**
- * Extract markdown representation from inline AST nodes (for image alt text with links)
- * Renders links as [text](url) markdown instead of plain text
- */
-function extractLinkMarkdown(
-  nodes: MarkdownToJSX.ASTNode[],
-  refs: { [key: string]: { target: string; title: string | undefined } }
-): string {
-  var result = ''
-  for (var i = 0; i < nodes.length; i++) {
-    var node = nodes[i]
-    if (node.type === RuleType.text) {
-      result += (node as MarkdownToJSX.TextNode).text || ''
-    } else if (node.type === RuleType.textFormatted) {
-      var formattedNode = node as MarkdownToJSX.FormattedTextNode
-      if (formattedNode.children) {
-        result += extractLinkMarkdown(formattedNode.children, refs)
-      }
-    } else if (node.type === RuleType.link) {
-      var linkNode = node as MarkdownToJSX.LinkNode
-      // For nested links in image alt text, extract the innermost link's text
-      // and use the outermost link's URL
-      var linkText = ''
-      var linkUrl = linkNode.target || ''
-      if (linkNode.children) {
-        // Check if children contain a single link node (nested link)
-        if (
-          linkNode.children.length === 1 &&
-          linkNode.children[0].type === RuleType.link
-        ) {
-          // Nested link: extract text from inner link, use outer link's URL
-          var innerLink = linkNode.children[0] as MarkdownToJSX.LinkNode
-          linkText = extractLinkMarkdown(innerLink.children || [], refs)
-        } else {
-          linkText = extractLinkMarkdown(linkNode.children, refs)
-        }
-      }
-      result += '[' + linkText + '](' + linkUrl + ')'
-    } else if (node.type === RuleType.image) {
-      var imageNode = node as MarkdownToJSX.ImageNode
-      if (imageNode.alt) {
-        result += imageNode.alt
-      }
-    } else if (node.type === RuleType.codeInline) {
-      result += (node as MarkdownToJSX.CodeInlineNode).text || ''
-    }
-    // Ignore other node types
-  }
-  return result
+    .replace(/&(?!([a-zA-Z0-9]+|#[0-9]+|#x[0-9a-fA-F]+);)/g, '&amp;')
 }
 
 function formatAttributes(attrs: Record<string, any> = {}): string {
@@ -153,21 +92,44 @@ function formatAttributes(attrs: Record<string, any> = {}): string {
   return parts.length > 0 ? ' ' + parts.join(' ') : ''
 }
 
+export type HTMLOverride =
+  | {
+      component?: string
+      props?: Record<string, string | number | boolean>
+    }
+  | string
+
+export type HTMLOverrides = {
+  [tag in MarkdownToJSX.HTMLTags]?: HTMLOverride
+} & {
+  [customComponent: string]: HTMLOverride
+}
+
+export type HTMLOptions = Omit<
+  MarkdownToJSX.Options,
+  'createElement' | 'wrapperProps' | 'overrides'
+> & {
+  refs?: { [key: string]: { target: string; title: string | undefined } }
+  renderRule?: (
+    next: () => string,
+    node: MarkdownToJSX.ASTNode,
+    renderChildren: (children: MarkdownToJSX.ASTNode[]) => string,
+    state: MarkdownToJSX.State
+  ) => string
+  overrides?: HTMLOverrides
+  wrapperProps?: Record<string, string | number | boolean>
+}
+
 export function astToHTML(
   nodes: MarkdownToJSX.ASTNode[],
-  options: {
-    sanitizer?: (value: string, tag: string, attribute: string) => string | null
-    slugify?: (input: string, defaultFn: (input: string) => string) => string
-    refs?: { [key: string]: { target: string; title: string | undefined } }
-    tagfilter?: boolean
-  } = {}
+  options: HTMLOptions = {}
 ): string {
   const sanitize = options.sanitizer || util.sanitizer
   const slug = options.slugify || util.slugify
   var refs = options.refs || {}
+  var overrides = options.overrides || {}
 
-  // Extract refs from reference collection node at the head of AST
-  // Reference collection node contains all refs for rendering
+  // Extract refs from reference collection node and filter non-renderable nodes
   var refsFromAST: {
     [key: string]: { target: string; title: string | undefined }
   } = {}
@@ -176,21 +138,22 @@ export function astToHTML(
   for (var i = 0; i < nodes.length; i++) {
     var node = nodes[i]
     if (node.type === RuleType.refCollection && !foundRefCollection) {
-      // Extract refs from reference collection node
-      var refCollectionNode = node as MarkdownToJSX.ReferenceCollectionNode
-      refsFromAST = refCollectionNode.refs || {}
+      refsFromAST = (node as MarkdownToJSX.ReferenceCollectionNode).refs || {}
       foundRefCollection = true
-      continue // Skip reference collection node (it doesn't render)
-    } else {
-      nonRefCollectionNodes.push(node)
+      continue
     }
+    if (
+      node.type === RuleType.footnote ||
+      node.type === RuleType.ref ||
+      node.type === RuleType.frontmatter
+    ) {
+      continue
+    }
+    nonRefCollectionNodes.push(node)
   }
-
-  // Merge AST refs with provided refs (AST refs take precedence)
   refs = Object.assign({}, refs, refsFromAST)
 
-  // Update options with extracted refs for recursive calls
-  var updatedOptions = Object.assign({}, options, { refs: refs })
+  var updatedOptions = Object.assign({}, options, { refs, overrides })
 
   function encodeUrlWithBackslashes(decodedTarget: string): string {
     var encoded = ''
@@ -222,64 +185,60 @@ export function astToHTML(
 
   function sanitizeAndReencodeUrl(url: string): string | null {
     var sanitized = sanitize(url, 'a', 'href')
-    if (sanitized !== null && sanitized !== url) {
-      let needsReencode = false
-      for (let i = 0; i < sanitized.length; i++) {
-        const code = sanitized.charCodeAt(i)
-        if (code === $.CHAR_BACKSLASH || code === $.CHAR_BACKTICK) {
-          needsReencode = true
-          break
-        }
-      }
-      if (needsReencode) {
-        let reencoded = ''
-        for (let i = 0; i < sanitized.length; i++) {
-          const code = sanitized.charCodeAt(i)
-          if (code === $.CHAR_BACKSLASH) {
-            reencoded += '%5C'
-          } else if (code === $.CHAR_BACKTICK) {
-            reencoded += '%60'
-          } else {
-            reencoded += sanitized[i]
-          }
-        }
-        return reencoded
+    if (sanitized === null || sanitized === url) return sanitized
+    var reencoded = ''
+    var needsReencode = false
+    for (var i = 0; i < sanitized.length; i++) {
+      const code = sanitized.charCodeAt(i)
+      if (code === $.CHAR_BACKSLASH) {
+        reencoded += '%5C'
+        needsReencode = true
+      } else if (code === $.CHAR_BACKTICK) {
+        reencoded += '%60'
+        needsReencode = true
+      } else {
+        reencoded += sanitized[i]
       }
     }
-    return sanitized
+    return needsReencode ? reencoded : sanitized
   }
 
-  function extractAltText(node: MarkdownToJSX.ImageNode): string {
-    return node.alt || ''
+  function renderChildren(children: MarkdownToJSX.ASTNode[]): string {
+    return astToHTML(children, updatedOptions)
   }
 
-  function renderNode(node: MarkdownToJSX.ASTNode): string {
+  function renderNode(
+    node: MarkdownToJSX.ASTNode,
+    state: MarkdownToJSX.State = {}
+  ): string {
     if (!node || typeof node !== 'object') return ''
 
     // Skip nodes that don't render
     if (
       node.type === RuleType.ref ||
       node.type === RuleType.refCollection ||
-      node.type === RuleType.frontmatter
+      node.type === RuleType.frontmatter ||
+      node.type === RuleType.footnote
     )
       return ''
 
     switch (node.type) {
       case RuleType.blockQuote: {
-        const attrs: Record<string, any> = {}
+        const tag = util.getTag('blockquote', overrides)
+        const overrideProps = util.getOverrideProps('blockquote', overrides)
+        const attrs: Record<string, any> = { ...overrideProps }
         if (node.alert) {
           attrs.class =
             'markdown-alert-' + slug(node.alert.toLowerCase(), util.slugify)
         }
         const attrStr = formatAttributes(attrs)
-        let children = node.children
+        var children = node.children
           ? astToHTML(node.children, updatedOptions)
           : ''
         if (node.alert) {
-          const alertText = escapeHtml(node.alert)
-          children = `<header>${alertText}</header>` + children
+          children = `<header>${escapeHtml(node.alert)}</header>` + children
         }
-        return `<blockquote${attrStr}>${children}</blockquote>`
+        return `<${tag}${attrStr}>${children}</${tag}>`
       }
 
       case RuleType.breakLine: {
@@ -292,15 +251,11 @@ export function astToHTML(
       case RuleType.codeBlock: {
         const codeAttrs: Record<string, any> = { ...(node.attrs || {}) }
         if (node.lang) {
-          // Decode entity references in language name (per CommonMark spec)
           const decodedLang = util.decodeEntityReferences(node.lang)
           const existingClass = codeAttrs.class || codeAttrs.className || ''
-          // Per CommonMark spec: use "language-" prefix (not "lang-")
-          const langClass = 'language-' + decodedLang
-          const newClass = existingClass
-            ? existingClass + ' ' + langClass
-            : langClass
-          codeAttrs.class = newClass
+          codeAttrs.class = existingClass
+            ? existingClass + ' language-' + decodedLang
+            : 'language-' + decodedLang
           delete codeAttrs.className
         }
         const attrs = formatAttributes(codeAttrs)
@@ -315,10 +270,8 @@ export function astToHTML(
 
       case RuleType.footnoteReference: {
         const href = sanitize(node.target || '', 'a', 'href') || ''
-        const text = node.text || ''
-        return `<a href="${escapeHtml(href)}"><sup>${escapeHtml(
-          text
-        )}</sup></a>`
+        const text = escapeHtml(node.text || '')
+        return `<a href="${escapeHtml(href)}"><sup>${text}</sup></a>`
       }
 
       case RuleType.gfmTask: {
@@ -328,13 +281,16 @@ export function astToHTML(
 
       case RuleType.heading: {
         const level = node.level || 1
-        const attrs: Record<string, any> = {}
-        if (node.id && node.id.trim() !== '') attrs.id = node.id
+        const defaultTag = 'h' + level
+        const tag = util.getTag(defaultTag, overrides)
+        const overrideProps = util.getOverrideProps(defaultTag, overrides)
+        const attrs: Record<string, any> = { ...overrideProps }
+        if (node.id?.trim()) attrs.id = node.id
         const attrStr = formatAttributes(attrs)
         const children = node.children
           ? astToHTML(node.children, updatedOptions)
           : ''
-        return `<h${level}${attrStr}>${children}</h${level}>`
+        return `<${tag}${attrStr}>${children}</${tag}>`
       }
 
       case RuleType.htmlComment: {
@@ -353,30 +309,33 @@ export function astToHTML(
 
       case RuleType.htmlBlock: {
         const htmlNode = node as MarkdownToJSX.HTMLNode & {
-          __rawAttrs?: string
+          rawAttrs?: string
           isClosingTag?: boolean
         }
-        const tag = htmlNode.tag || 'div'
-        // Normalize HTML attributes inline
+        const defaultTag = htmlNode.tag || 'div'
+        const tag = util.getTag(defaultTag, overrides)
+        const overrideProps = util.getOverrideProps(defaultTag, overrides)
+        // Merge override props with base attrs
+        const mergedAttrs = { ...(htmlNode.attrs || {}), ...overrideProps }
         const attrs =
-          htmlNode.__rawAttrs !== undefined
-            ? htmlNode.__rawAttrs
+          htmlNode.rawAttrs !== undefined
+            ? htmlNode.rawAttrs
                 .replace(/\n\s*/g, '')
                 .replace(/\r\s*/g, '')
-                .replace(/\t\s*/g, '')
-            : formatAttributes(htmlNode.attrs || {})
-        const isClosingTag = htmlNode.isClosingTag || false
-        // Render HTML block inline
-        if (node.type !== RuleType.htmlBlock) return ''
+                .replace(/\t\s*/g, '') +
+              (Object.keys(overrideProps).length > 0
+                ? ' ' + formatAttributes(overrideProps).trim()
+                : '')
+            : formatAttributes(mergedAttrs)
         if (options.tagfilter && shouldFilterTag(tag)) {
-          return isClosingTag ? `&lt;/${tag}>` : `&lt;${tag}${attrs}>`
+          return htmlNode.isClosingTag ? `&lt;/${tag}>` : `&lt;${tag}${attrs}>`
         }
         if (htmlNode.text) {
           if (htmlNode.noInnerParse) {
             var textContent = options.tagfilter
               ? applyTagFilterToText(htmlNode.text)
               : htmlNode.text
-            if (isClosingTag) return `</${tag}>${textContent}`
+            if (htmlNode.isClosingTag) return `</${tag}>${textContent}`
             var tagLower = tag.toLowerCase()
             var isType1Block =
               tagLower === 'pre' ||
@@ -384,11 +343,7 @@ export function astToHTML(
               tagLower === 'style' ||
               tagLower === 'textarea'
             if (isType1Block) {
-              if (
-                htmlNode.text &&
-                htmlNode.text.trim().length > 0 &&
-                htmlNode.text[0] === '<'
-              ) {
+              if (htmlNode.text.trim().length > 0 && htmlNode.text[0] === '<') {
                 var openingTagEnd = htmlNode.text.indexOf('>')
                 if (openingTagEnd !== -1) {
                   var rawOpeningTag = htmlNode.text.slice(0, openingTagEnd + 1)
@@ -441,9 +396,8 @@ export function astToHTML(
         const children = htmlNode.children
           ? astToHTML(htmlNode.children, updatedOptions)
           : ''
-        if (isClosingTag) return `</${tag}>${children}`
-        const hasContent = children && children.trim().length > 0
-        return hasContent
+        if (htmlNode.isClosingTag) return `</${tag}>${children}`
+        return children.trim()
           ? `<${tag}${attrs}>${children}</${tag}>`
           : `<${tag}${attrs}>${children}`
       }
@@ -453,40 +407,49 @@ export function astToHTML(
           rawText?: string
           isClosingTag?: boolean
         }
-        const tag = htmlNode.tag || 'div'
+        const defaultTag = htmlNode.tag || 'div'
+        const tag = util.getTag(defaultTag, overrides)
+        const overrideProps = util.getOverrideProps(defaultTag, overrides)
+        const mergedAttrs = { ...(htmlNode.attrs || {}), ...overrideProps }
 
         if (options.tagfilter && shouldFilterTag(tag)) {
           if (htmlNode.rawText) {
             return htmlNode.rawText.replace(/^</, '&lt;')
           }
-          const attrs = formatAttributes(htmlNode.attrs || {})
-          return `&lt;${tag}${attrs} />`
+          return `&lt;${tag}${formatAttributes(mergedAttrs)} />`
         }
 
         if (htmlNode.rawText) {
           return htmlNode.rawText
         }
-        const attrs = formatAttributes(htmlNode.attrs || {})
         if (htmlNode.isClosingTag) {
           return `</${tag}>`
         }
-        return `<${tag}${attrs} />`
+        return `<${tag}${formatAttributes(mergedAttrs)} />`
       }
 
       case RuleType.image: {
+        const tag = util.getTag('img', overrides)
+        const overrideProps = util.getOverrideProps('img', overrides)
         const src = sanitize(node.target || '', 'img', 'src') || ''
-        const attrs: Record<string, any> = { alt: extractAltText(node) }
+        const attrs: Record<string, any> = {
+          ...overrideProps,
+          alt: node.alt || '',
+        }
         if (node.title) attrs.title = node.title
-        return `<img src="${escapeHtml(src)}"${formatAttributes(attrs)} />`
+        return `<${tag} src="${escapeHtml(src)}"${formatAttributes(attrs)} />`
       }
 
       case RuleType.link: {
-        const attrs: Record<string, any> = {}
-        if (node.target !== null) {
+        const tag = util.getTag('a', overrides)
+        const overrideProps = util.getOverrideProps('a', overrides)
+        const attrs: Record<string, any> = { ...overrideProps }
+        if (node.target != null) {
           const decodedTarget = util.decodeEntityReferences(node.target)
-          const encodedTarget = encodeUrlWithBackslashes(decodedTarget)
-          const href = sanitizeAndReencodeUrl(encodedTarget)
-          if (href !== null) attrs.href = href
+          const href = sanitizeAndReencodeUrl(
+            encodeUrlWithBackslashes(decodedTarget)
+          )
+          if (href != null) attrs.href = href
         }
         if (node.title) {
           attrs.title = util.decodeEntityReferences(node.title)
@@ -494,10 +457,13 @@ export function astToHTML(
         const children = node.children
           ? astToHTML(node.children, updatedOptions)
           : ''
-        return `<a${formatAttributes(attrs)}>${children}</a>`
+        return `<${tag}${formatAttributes(attrs)}>${children}</${tag}>`
       }
 
       case RuleType.table: {
+        const tag = util.getTag('table', overrides)
+        const overrideProps = util.getOverrideProps('table', overrides)
+        const attrs = formatAttributes(overrideProps)
         const tableNode = node as MarkdownToJSX.TableNode
         const alignments = tableNode.align || []
         const header = (tableNode.header || [])
@@ -523,7 +489,7 @@ export function astToHTML(
           .join('')
         // Per GFM spec: no tbody if no data rows
         const tbody = rows ? `<tbody>${rows}</tbody>` : ''
-        return `<table><thead><tr>${header}</tr></thead>${tbody}</table>`
+        return `<${tag}${attrs}><thead><tr>${header}</tr></thead>${tbody}</${tag}>`
       }
 
       case RuleType.text: {
@@ -531,18 +497,21 @@ export function astToHTML(
       }
 
       case RuleType.textFormatted: {
-        const tag = node.tag || 'strong'
+        const defaultTag = node.tag || 'strong'
+        const tag = util.getTag(defaultTag, overrides)
+        const overrideProps = util.getOverrideProps(defaultTag, overrides)
+        const attrs = formatAttributes(overrideProps)
         const children = node.children
           ? astToHTML(node.children, updatedOptions)
           : ''
-        return `<${tag}>${children}</${tag}>`
+        return `<${tag}${attrs}>${children}</${tag}>`
       }
 
       case RuleType.orderedList: {
-        const attrs: Record<string, any> = {}
-        // Per CommonMark: only output start attribute if it's not 1
-        if (node.start !== undefined && node.start !== 1)
-          attrs.start = node.start
+        const tag = util.getTag('ol', overrides)
+        const overrideProps = util.getOverrideProps('ol', overrides)
+        const attrs: Record<string, any> = { ...overrideProps }
+        if (node.start != null && node.start !== 1) attrs.start = node.start
         const attrStr = formatAttributes(attrs)
         const items = (node.items || [])
           .map((item: any) => {
@@ -550,23 +519,31 @@ export function astToHTML(
             return `<li>${content}</li>`
           })
           .join('')
-        return `<ol${attrStr}>${items}</ol>`
+        return `<${tag}${attrStr}>${items}</${tag}>`
       }
 
       case RuleType.unorderedList: {
+        const tag = util.getTag('ul', overrides)
+        const overrideProps = util.getOverrideProps('ul', overrides)
+        const attrs = formatAttributes(overrideProps)
         const items = (node.items || [])
           .map((item: any) => {
             const content = astToHTML(item, updatedOptions)
             return `<li>${content}</li>`
           })
           .join('')
-        return `<ul>${items}</ul>`
+        return `<${tag}${attrs}>${items}</${tag}>`
       }
 
       case RuleType.paragraph: {
+        const { forceWrapper, ...paragraphOptions } = updatedOptions
         var children = node.children
-          ? astToHTML(node.children, updatedOptions)
+          ? astToHTML(node.children, { ...paragraphOptions, refs: {} })
           : ''
+        // When forceInline is true, render paragraph children without <p> wrapper
+        if (options.forceInline) {
+          return children
+        }
         // Per CommonMark: collapse trailing spaces before newlines (soft line breaks)
         // Replace " \n" pattern with just "\n" or remove entirely if followed by certain content
         // This handles cases like "![foo] \n[]" where the space should be collapsed
@@ -603,22 +580,22 @@ export function astToHTML(
         result += children.slice(lastIndex)
         children = result
 
+        const tag = util.getTag('p', overrides)
+        const overrideProps = util.getOverrideProps('p', overrides)
+        const attrs = formatAttributes(overrideProps)
+
         // Per CommonMark spec Example 148: if paragraph has removedClosingTags,
         // render them outside the paragraph
         const paragraphNode = node as MarkdownToJSX.ParagraphNode & {
           removedClosingTags?: MarkdownToJSX.ASTNode[]
         }
-        if (
-          paragraphNode.removedClosingTags &&
-          paragraphNode.removedClosingTags.length > 0
-        ) {
+        if (paragraphNode.removedClosingTags?.length) {
           const closingTagsHtml = paragraphNode.removedClosingTags
-            .map(tag => renderNode(tag))
+            .map(tag => renderNode(tag, state))
             .join('')
-          return `<p>${children}</p>${closingTagsHtml}`
+          return `<${tag}${attrs}>${children}</${tag}>${closingTagsHtml}`
         }
-
-        return `<p>${children}</p>`
+        return `<${tag}${attrs}>${children}</${tag}>`
       }
 
       default:
@@ -626,25 +603,167 @@ export function astToHTML(
     }
   }
 
-  if (Array.isArray(nodes)) {
-    return nonRefCollectionNodes.map(renderNode).join('')
+  function renderNodeWithRule(
+    node: MarkdownToJSX.ASTNode,
+    state: MarkdownToJSX.State = {}
+  ): string {
+    if (!node || typeof node !== 'object') return ''
+
+    // Skip nodes that don't render
+    if (
+      node.type === RuleType.ref ||
+      node.type === RuleType.refCollection ||
+      node.type === RuleType.frontmatter ||
+      node.type === RuleType.footnote
+    )
+      return ''
+
+    // Use custom renderRule if provided
+    if (options.renderRule) {
+      const defaultRender = (): string => renderNode(node, state)
+      return options.renderRule(defaultRender, node, renderChildren, state)
+    }
+
+    return renderNode(node, state)
   }
 
-  return renderNode(nodes)
+  var content = Array.isArray(nodes)
+    ? nonRefCollectionNodes
+        .map((node, i) => renderNodeWithRule(node, { key: i, refs }))
+        .join('')
+    : renderNodeWithRule(nodes, { refs })
+
+  // Extract and render footnotes
+  var footnoteFooter = ''
+  for (const key in refs) {
+    if (key.charCodeAt(0) === $.CHAR_CARET) {
+      if (!footnoteFooter) footnoteFooter = '<footer>'
+      const id = key.slice(1)
+      const footnoteContent = astToHTML(
+        parse
+          .parseMarkdown(
+            refs[key].target,
+            { inline: true, refs },
+            {
+              ...updatedOptions,
+              overrides: updatedOptions.overrides as MarkdownToJSX.Overrides,
+              sanitizer: sanitize,
+              slugify: (i: string) => slug(i, util.slugify),
+              tagfilter: updatedOptions.tagfilter !== false,
+            }
+          )
+          .filter(node => node.type !== RuleType.refCollection),
+        { ...updatedOptions, refs: {}, forceInline: true, wrapper: null }
+      )
+      footnoteFooter += `<div id="${escapeHtmlAttr(slug(id, util.slugify))}">${escapeHtml(id)}: ${footnoteContent}</div>`
+    }
+  }
+  if (footnoteFooter) footnoteFooter += '</footer>'
+
+  // Handle wrapper options
+  if (options.wrapper === null) {
+    return content + footnoteFooter
+  }
+
+  // Determine if content should be wrapped (only when explicitly requested)
+  const hasMultipleChildren = nonRefCollectionNodes.length > 1
+  const hasExplicitWrapper = options.wrapper != null
+  const shouldWrap =
+    options.forceWrapper ||
+    (options.forceInline && hasExplicitWrapper) ||
+    (hasMultipleChildren && hasExplicitWrapper)
+
+  if (!shouldWrap) {
+    return content + footnoteFooter
+  }
+
+  // Extract paragraph content when forceInline or forceWrapper with custom wrapper
+  var contentToWrap = content
+  if (
+    (options.forceInline || (options.forceWrapper && hasExplicitWrapper)) &&
+    !hasMultipleChildren &&
+    nonRefCollectionNodes.length === 1 &&
+    nonRefCollectionNodes[0].type === RuleType.paragraph
+  ) {
+    const paragraphNode =
+      nonRefCollectionNodes[0] as MarkdownToJSX.ParagraphNode
+    if (paragraphNode.children) {
+      contentToWrap = astToHTML(paragraphNode.children, {
+        ...updatedOptions,
+        refs: {},
+        forceInline: true,
+        wrapper: null,
+      })
+    }
+  }
+
+  // Determine wrapper tag
+  const wrapperTag =
+    typeof options.wrapper === 'string'
+      ? options.wrapper
+      : options.forceInline
+        ? 'span'
+        : 'div'
+
+  // Format wrapper attributes
+  var wrapperAttrs = ''
+  if (options.wrapperProps) {
+    var sanitizedProps: Record<string, string> = {}
+    for (const key in options.wrapperProps) {
+      const value = options.wrapperProps[key]
+      if (value != null) {
+        const sanitized = sanitize(String(value), wrapperTag, key)
+        if (sanitized !== null) sanitizedProps[key] = sanitized
+      }
+    }
+    wrapperAttrs = formatAttributes(sanitizedProps)
+  }
+
+  return `<${wrapperTag}${wrapperAttrs}>${contentToWrap + footnoteFooter}</${wrapperTag}>`
 }
 
 /**
  * Compiler function that parses markdown and renders to HTML string
  * Convenience function that combines parser() and html()
  */
-export function compiler(
-  markdown: string,
-  options?: {
-    sanitizer?: (value: string, tag: string, attribute: string) => string | null
-    slugify?: (input: string, defaultFn: (input: string) => string) => string
-    tagfilter?: boolean
-  } & MarkdownToJSX.Options
-): string {
-  const ast = parser(markdown, options)
-  return astToHTML(ast, options)
+export function compiler(markdown: string, options?: HTMLOptions): string {
+  // Determine inline mode
+  // HTML compiler defaults to block mode (for valid HTML output)
+  // Only use inline if explicitly requested via forceInline
+  const inline = options?.forceInline || false
+
+  const parseOptions: parse.ParseOptions = {
+    ...options,
+    overrides: options?.overrides as MarkdownToJSX.Overrides,
+    sanitizer: options?.sanitizer,
+    slugify: options?.slugify
+      ? (i: string) => options.slugify!(i, util.slugify)
+      : util.slugify,
+    tagfilter: options?.tagfilter !== false,
+  }
+
+  // Parse with inline mode
+  const ast = parse.parser(markdown, { ...parseOptions, forceInline: inline })
+
+  const htmlOptions: HTMLOptions = {
+    ...options,
+    forceInline: inline,
+  } as HTMLOptions
+
+  if (options?.wrapper === undefined) {
+    const nonRefNodes = ast.filter(
+      n =>
+        n.type !== RuleType.refCollection &&
+        n.type !== RuleType.footnote &&
+        n.type !== RuleType.ref &&
+        n.type !== RuleType.frontmatter
+    )
+    if (nonRefNodes.length > 1) {
+      htmlOptions.wrapper = 'div'
+    } else if (inline && nonRefNodes.length > 0) {
+      htmlOptions.wrapper = 'span'
+    }
+  }
+
+  return astToHTML(ast, htmlOptions)
 }
