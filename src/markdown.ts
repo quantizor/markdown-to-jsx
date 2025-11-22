@@ -84,7 +84,11 @@ export function astToMarkdown(
       refs = (node as MarkdownToJSX.ReferenceCollectionNode).refs || {}
       foundRefCollection = true
       nonRefCollectionNodes.push(node)
-    } else if (node.type !== RuleType.footnote && node.type !== RuleType.ref) {
+    } else if (
+      node.type !== RuleType.footnote &&
+      node.type !== RuleType.ref &&
+      (node.type !== RuleType.frontmatter || options?.preserveFrontmatter !== false)
+    ) {
       nonRefCollectionNodes.push(node)
     }
   }
@@ -106,7 +110,11 @@ export function astToMarkdown(
     stateWithKey: MarkdownToJSX.State = {}
   ): string {
     if (!node || typeof node !== 'object') return ''
-    if (node.type === RuleType.ref || node.type === RuleType.footnote) return ''
+    if (
+      node.type === RuleType.ref ||
+      node.type === RuleType.footnote ||
+      (node.type === RuleType.frontmatter && options?.preserveFrontmatter === false)
+    ) return ''
 
     if (options?.renderRule) {
       return options.renderRule(

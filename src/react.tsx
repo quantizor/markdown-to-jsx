@@ -155,6 +155,12 @@ function render(
     case RuleType.breakThematic:
       return <hr key={state.key} />
 
+    case RuleType.frontmatter:
+      if (options.preserveFrontmatter) {
+        return <pre key={state.key}>{node.text}</pre>
+      }
+      return null
+
     case RuleType.codeBlock:
       // Decode entity references in language name (per CommonMark spec)
       const decodedLang = node.lang

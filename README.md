@@ -43,6 +43,7 @@ Some special features of the library:
     - [options.sanitizer](#optionssanitizer)
     - [options.slugify](#optionsslugify)
     - [options.disableAutoLink](#optionsdisableautolink)
+    - [options.preserveFrontmatter](#optionspreservefrontmatter)
     - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
     - [options.tagfilter](#optionstagfilter)
   - [Syntax highlighting](#syntax-highlighting)
@@ -743,6 +744,61 @@ compiler(
 <span>
   The URL https://quantizor.dev will not be rendered as an anchor tag.
 </span>
+```
+
+#### options.preserveFrontmatter
+
+By default, YAML frontmatter at the beginning of markdown documents is parsed but not rendered in the output. Set this option to `true` to include the frontmatter in the rendered output. For HTML/JSX output, frontmatter is rendered as a `<pre>` element. For markdown-to-markdown compilation, frontmatter is included in the output markdown.
+
+| Compiler Type            | Default Behavior            | When `preserveFrontmatter: true` | When `preserveFrontmatter: false` |
+| ------------------------ | --------------------------- | -------------------------------- | --------------------------------- |
+| **React/HTML**           | ❌ Don't render frontmatter | ✅ Render as `<pre>` element     | ❌ Don't render frontmatter       |
+| **Markdown-to-Markdown** | ✅ Preserve frontmatter     | ✅ Preserve frontmatter          | ❌ Exclude frontmatter            |
+
+```tsx
+<Markdown options={{ preserveFrontmatter: true }}>
+{`---
+title: My Document
+author: John Doe
+---
+
+# Content
+
+This is the main content.`
+}
+</Markdown>
+
+// renders:
+
+<div>
+  <pre>---
+title: My Document
+author: John Doe
+---</pre>
+  <h1>Content</h1>
+  <p>This is the main content.</p>
+</div>
+```
+
+For markdown-to-markdown compilation:
+
+```tsx
+import { compiler } from 'markdown-to-jsx/markdown'
+
+const markdown = `---
+title: My Document
+author: John Doe
+---
+
+# Content`
+
+// With preserveFrontmatter: true (default)
+compiler(markdown, { preserveFrontmatter: true })
+// returns: "---\ntitle: My Document\nauthor: John Doe\n---\n\n# Content"
+
+// With preserveFrontmatter: false
+compiler(markdown, { preserveFrontmatter: false })
+// returns: "# Content"
 ```
 
 #### options.disableParsingRawHTML

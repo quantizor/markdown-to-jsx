@@ -526,6 +526,30 @@ describe('markdown compiler', () => {
         '---\ntitle: My Document\nauthor: John Doe\n---'
       )
     })
+
+    it('should preserve frontmatter by default', () => {
+      const ast: MarkdownToJSX.FrontmatterNode = {
+        type: RuleType.frontmatter,
+        text: 'title: Test\ntags: [a, b]',
+      }
+      expect(markdown(ast)).toBe('---\ntitle: Test\ntags: [a, b]\n---')
+    })
+
+    it('should preserve frontmatter when preserveFrontmatter is true', () => {
+      const ast: MarkdownToJSX.FrontmatterNode = {
+        type: RuleType.frontmatter,
+        text: 'title: Test\ntags: [a, b]',
+      }
+      expect(markdown(ast, { preserveFrontmatter: true })).toBe('---\ntitle: Test\ntags: [a, b]\n---')
+    })
+
+    it('should exclude frontmatter when preserveFrontmatter is false', () => {
+      const ast: MarkdownToJSX.FrontmatterNode = {
+        type: RuleType.frontmatter,
+        text: 'title: Test\ntags: [a, b]',
+      }
+      expect(markdown(ast, { preserveFrontmatter: false })).toBe('')
+    })
   })
 
   describe('reference collection', () => {
@@ -760,6 +784,45 @@ author: Test Author
       // Output should match input exactly for round-trip compilation
       expect(output).toContain('title: Test Document')
       expect(output).toContain('author: Test Author')
+      expect(output).toContain('# Content')
+    })
+
+    it('should preserve frontmatter by default in full compilation', () => {
+      const input = `---
+title: Test Document
+author: Test Author
+---
+
+# Content`
+      const output = compiler(input)
+      expect(output).toContain('title: Test Document')
+      expect(output).toContain('author: Test Author')
+      expect(output).toContain('# Content')
+    })
+
+    it('should preserve frontmatter when preserveFrontmatter is true in full compilation', () => {
+      const input = `---
+title: Test Document
+author: Test Author
+---
+
+# Content`
+      const output = compiler(input, { preserveFrontmatter: true })
+      expect(output).toContain('title: Test Document')
+      expect(output).toContain('author: Test Author')
+      expect(output).toContain('# Content')
+    })
+
+    it('should exclude frontmatter when preserveFrontmatter is false in full compilation', () => {
+      const input = `---
+title: Test Document
+author: Test Author
+---
+
+# Content`
+      const output = compiler(input, { preserveFrontmatter: false })
+      expect(output).not.toContain('title: Test Document')
+      expect(output).not.toContain('author: Test Author')
       expect(output).toContain('# Content')
     })
 

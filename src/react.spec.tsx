@@ -3158,3 +3158,55 @@ it('should handle list item continuation properly without indentation', () => {
     `"<div><ol start="1"><li><strong>A</strong>explanation about a</li><li><strong>B</strong>explanation about b</li></ol><h3 id="h3-title">h3 title</h3></div>"`
   )
 })
+
+describe('frontmatter', () => {
+  it('should not render frontmatter by default', () => {
+    render(compiler('---\ntitle: Test\n---\n\n# Content'))
+
+    expect(root.innerHTML).toBe('<h1 id="content">Content</h1>')
+  })
+
+  it('should render frontmatter when preserveFrontmatter is true', () => {
+    render(
+      compiler('---\ntitle: Test\n---\n\n# Content', {
+        preserveFrontmatter: true,
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `
+        "<div><pre>---
+        title: Test
+        ---</pre><h1 id="content">Content</h1></div>"
+      `
+    )
+  })
+
+  it('should render frontmatter correctly with multiline content', () => {
+    const frontmatter = `---
+title: My Document
+author: John Doe
+date: 2023-11-22
+tags:
+  - test
+  - example
+---`
+
+    render(
+      compiler(`${frontmatter}\n\n# Content`, { preserveFrontmatter: true })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `
+        "<div><pre>---
+        title: My Document
+        author: John Doe
+        date: 2023-11-22
+        tags:
+          - test
+          - example
+        ---</pre><h1 id="content">Content</h1></div>"
+      `
+    )
+  })
+})

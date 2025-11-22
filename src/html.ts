@@ -116,7 +116,7 @@ export function astToHTML(
     if (
       node.type === RuleType.footnote ||
       node.type === RuleType.ref ||
-      node.type === RuleType.frontmatter
+      (node.type === RuleType.frontmatter && !options.preserveFrontmatter)
     ) {
       continue
     }
@@ -188,7 +188,7 @@ export function astToHTML(
     if (
       node.type === RuleType.ref ||
       node.type === RuleType.refCollection ||
-      node.type === RuleType.frontmatter ||
+      (node.type === RuleType.frontmatter && !options.preserveFrontmatter) ||
       node.type === RuleType.footnote
     )
       return ''
@@ -217,6 +217,10 @@ export function astToHTML(
       }
       case RuleType.breakThematic: {
         return '<hr />'
+      }
+
+      case RuleType.frontmatter: {
+        return `<pre>${escapeHtml(node.text)}</pre>`
       }
 
       case RuleType.codeBlock: {
@@ -584,7 +588,7 @@ export function astToHTML(
     if (
       node.type === RuleType.ref ||
       node.type === RuleType.refCollection ||
-      node.type === RuleType.frontmatter ||
+      (node.type === RuleType.frontmatter && !options.preserveFrontmatter) ||
       node.type === RuleType.footnote
     )
       return ''
@@ -727,7 +731,7 @@ export function compiler(markdown: string, options?: HTMLOptions): string {
         n.type !== RuleType.refCollection &&
         n.type !== RuleType.footnote &&
         n.type !== RuleType.ref &&
-        n.type !== RuleType.frontmatter
+        (n.type !== RuleType.frontmatter || !options?.preserveFrontmatter)
     )
     if (nonRefNodes.length > 1) {
       htmlOptions.wrapper = 'div'

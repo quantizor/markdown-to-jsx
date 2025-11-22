@@ -1296,4 +1296,33 @@ describe('html compiler', () => {
       expect(result).toContain('inside')
     })
   })
+
+  describe('frontmatter', () => {
+    it('should not render frontmatter by default', () => {
+      const result = compiler('---\ntitle: Test\n---\n\n# Content')
+
+      expect(result).toBe('<h1 id="content">Content</h1>')
+    })
+
+    it('should render frontmatter when preserveFrontmatter is true', () => {
+      const result = compiler('---\ntitle: Test\n---\n\n# Content', { preserveFrontmatter: true })
+
+      expect(result).toBe('<pre>---\ntitle: Test\n---</pre><h1 id="content">Content</h1>')
+    })
+
+    it('should render frontmatter correctly with multiline content', () => {
+      const frontmatter = `---
+title: My Document
+author: John Doe
+date: 2023-11-22
+tags:
+  - test
+  - example
+---`
+
+      const result = compiler(`${frontmatter}\n\n# Content`, { preserveFrontmatter: true })
+
+      expect(result).toBe('<pre>---\ntitle: My Document\nauthor: John Doe\ndate: 2023-11-22\ntags:\n  - test\n  - example\n---</pre><h1 id="content">Content</h1>')
+    })
+  })
 })
