@@ -149,7 +149,7 @@ export default defineConfig({
   root: '.',
   publicDir: 'public',
   build: {
-    outDir: 'dist-site',
+    outDir: 'docs',
     emptyOutDir: false,
     rollupOptions: {
       input: resolve(__dirname, 'index.html'),
