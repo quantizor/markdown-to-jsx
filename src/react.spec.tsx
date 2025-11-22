@@ -3154,7 +3154,7 @@ it('should handle list item continuation properly without indentation', () => {
     ### h3 title
   `)
   )
-  expect(root.innerHTML).toMatchInlineSnapshot(`
-    "<div><ol start="1"><li><strong>A</strong>explanation about a</li><li><strong>B</strong>explanation about b</li></ol><h3>h3 title</h3></div>"
-  `)
+  expect(root.innerHTML).toMatchInlineSnapshot(
+    `"<div><ol start="1"><li><strong>A</strong>explanation about a</li><li><strong>B</strong>explanation about b</li></ol><h3 id="h3-title">h3 title</h3></div>"`
+  )
 })
