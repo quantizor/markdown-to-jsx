@@ -1,5 +1,215 @@
 # markdown-to-jsx
 
+## 9.0.0
+
+### Major Changes
+
+- 1ce83eb: Complete GFM+CommonMark specification compliance
+  - **Full CommonMark compliance**: All 652 official test cases now pass
+  - **Verified GFM extensions**: Tables, task lists, strikethrough, autolinks with spec compliance
+  - **Tag filtering**: Default filtering of dangerous HTML tags (`<script>`, `<iframe>`, etc.) in both HTML string output and React JSX output
+  - **URL sanitization**: Protection against `javascript:`, `vbscript:`, and malicious `data:` URLs
+
+  Default filtering of dangerous HTML tags:
+  - `<script>`, `<iframe>`, `<object>`, `<embed>`
+  - `<title>`, `<textarea>`, `<style>`, `<xmp>`
+  - `<plaintext>`, `<noembed>`, `<noframes>`
+
+  ## ⚠️ Breaking Changes
+  - **Tagfilter enabled by default**: Dangerous HTML tags are now escaped by default in both HTML and React output
+  - **Inline formatting restrictions**: Inline formatting delimiters (emphasis, bold, strikethrough, mark) can no longer span across newlines, per CommonMark specification
+
+  ## 📋 Migration
+
+  ### Tagfilter Migration
+
+  No changes necessary in most cases, but if you need to render potentially dangerous HTML tags, you can disable tag filtering:
+
+  ```ts
+  compiler(markdown, { tagfilter: false })
+  ```
+
+  ### Inline Formatting Migration
+
+  **Previous Behavior (Non-Compliant):**
+  The library previously allowed inline formatting to span multiple lines:
+
+  ```markdown
+  _Hello
+  World._
+  ```
+
+  This was parsed as a single `<em>` element containing the newline.
+
+  **New Behavior (CommonMark Compliant):**
+  Per CommonMark specification, inline formatting cannot span newlines. The above example is now parsed as literal underscores:
+
+  ```markdown
+  _Hello
+  World._
+  ```
+
+  Renders as: `<p>_Hello World._</p>`
+
+  **Impact:**
+  - Single-line formatting still works: `*Hello World*` → `<em>Hello World</em>`
+  - Multi-line formatting is now rejected: `*Hello\nWorld*` → literal asterisks
+  - Affects all inline formatting: `*emphasis*`, `**bold**`, `~~strikethrough~~`, `==mark==`
+
+  **Migration Options:**
+  If you have markdown with multi-line inline formatting:
+  1. Keep formatting on a single line: `*Hello World*`
+  2. Use HTML tags: `<em>Hello\nWorld</em>`
+  3. Accept that multi-line formatting renders as literal delimiters
+
+  **Examples:**
+
+  ```markdown
+  # Works (single line)
+
+  _This is emphasized_
+  **This is bold**
+
+  # No longer works (multi-line)
+
+  _This is
+  emphasized_
+  **This is
+  bold**
+
+  # Renders as literal delimiters:
+
+  <p>_This is
+  emphasized_</p>
+  <p>**This is
+  bold**</p>
+
+  # Workaround: Use HTML tags
+
+  <em>This is
+  emphasized</em>
+  <strong>This is
+  bold</strong>
+  ```
+
+- 1ce83eb: Remove internal type definitions and rename `MarkdownToJSX.RuleOutput` to `MarkdownToJSX.ASTRender`
+
+  This change removes internal type definitions from the `MarkdownToJSX` namespace:
+  - Removed `NestedParser` type
+  - Removed `Parser` type
+  - Removed `Rule` type
+  - Removed `Rules` type
+  - Renamed `RuleOutput` to `ASTRender` for clarity
+
+  **Breaking changes:**
+
+  If you are using the internal types directly:
+  - Code referencing `MarkdownToJSX.NestedParser`, `MarkdownToJSX.Parser`, `MarkdownToJSX.Rule`, or `MarkdownToJSX.Rules` will need to be updated
+  - The `renderRule` option in `MarkdownToJSX.Options` now uses `ASTRender` instead of `RuleOutput` for the `renderChildren` parameter type
+  - `HTMLNode.children` type changed from `ReturnType<MarkdownToJSX.NestedParser>` to `ASTNode[]` (semantically equivalent, but requires updates if using the old type)
+
+- 1ce83eb: Remove `options.namedCodesToUnicode`. The library now encodes the full HTML entity list by default per CommonMark specification requirements.
+
+  **Migration:**
+
+  If you were using `options.namedCodesToUnicode` to add custom entity mappings, you can remove the option entirely as all specified HTML entities are now supported automatically.
+
+- 1ce83eb: Drop support for React versions less than 16
+  - Update peer dependency requirement from `>= 0.14.0` to `>= 16.0.0`
+  - Remove legacy code that wrapped string children in `<span>` elements for React < 16 compatibility
+  - Directly return single children and null without wrapper elements
+
+- 1ce83eb: Upgrade to React 19 types
+  - Update to `@types/react@^19.2.2` and `@types/react-dom@^19.2.2`
+  - Use `React.JSX.*` namespace instead of `JSX.*` for React 19 compatibility
+
+### Minor Changes
+
+- 1ce83eb: Adopt CommonMark-compliant class naming for code blocks
+
+  Code blocks now use both the `language-` and `lang-` class name prefixes to match the CommonMark specification for compatibility.
+
+  ### Before
+
+  ````md
+  ```js
+  console.log('hello')
+  ```
+  ````
+
+  Generated:
+
+  ```html
+  <pre><code class="lang-js">console.log('hello');</code></pre>
+  ```
+
+  ### After
+
+  ````md
+  ```js
+  console.log('hello')
+  ```
+  ````
+
+  Generated:
+
+  ```html
+  <pre><code class="language-js lang-js">console.log('hello');</code></pre>
+  ```
+
+- 1ce83eb: Separate JSX renderer from compiler and add new entry points
+
+  ## New Features
+  - **New `parser` function**: Low-level API that returns AST nodes. Exported from main entry point and all sub-entry points.
+
+    ```tsx
+    import { parser } from 'markdown-to-jsx'
+    const source = '# Hello world'
+    const ast = parser(source)
+    ```
+
+  - **New `/react` entry point**: React-specific entry point that exports compiler, Markdown component, parser, types, and utils.
+
+    ```tsx
+    import Markdown, { astToJSX, compiler, parser } from 'markdown-to-jsx/react'
+
+    const source = '# Hello world'
+    const oneStepJSX = compiler(source)
+    const twoStepJSX = astToJSX(parser(source))
+
+    function App() {
+      return <Markdown children={source} />
+      // or
+      // return <Markdown>{source}</Markdown>
+    }
+    ```
+
+  - **New `/html` entry point**: HTML string output entry point that exports html function, parser, types, and utils.
+
+    ```tsx
+    import { astToHTML, compiler, parser } from 'markdown-to-jsx/html'
+    const source = '# Hello world'
+    const oneStepHTML = compiler(source)
+    const twoStepHTML = astToHTML(parser(source))
+    ```
+
+  - **New `/markdown` entry point**: Useful for situations where editing of the markdown is desired without resorting to gnarly regex-based parsing.
+    ```tsx
+    import { astToMarkdown, compiler, parser } from 'markdown-to-jsx/markdown'
+    const source = '# Hello world'
+    const oneStepMarkdown = compiler(source)
+    const twoStepMarkdown = astToMarkdown(parser(source))
+    ```
+
+  ## Deprecations
+
+  React code in the main entry point `markdown-to-jsx` is deprecated and will be removed in a future major release. In v10, the main entry point will only export the parser function, the types, and any exposed utility functions.
+
+  ## Migration
+  - For React-specific usage, switch imports to `markdown-to-jsx/react`
+  - For HTML output, use `markdown-to-jsx/html` entry point
+  - Use `parser()` for direct acces to AST
+
 ## 8.0.0
 
 ### Major Changes
@@ -7,11 +217,9 @@
 - 450d2bb: Added `ast` option to compiler to expose the parsed AST directly. When `ast: true`, the compiler returns the AST structure (`ASTNode[]`) instead of rendered JSX.
 
   **Breaking Changes:**
-
   - The internal type `ParserResult` has been renamed to `ASTNode` for clarity. If you were accessing this type directly (e.g., via module augmentation or type manipulation), you'll need to update references from `MarkdownToJSX.ParserResult` to `MarkdownToJSX.ASTNode`.
 
   **First time the AST is accessible to users!** This enables:
-
   - AST manipulation and transformation before rendering
   - Custom rendering logic without parsing
   - Caching parsed AST for performance
@@ -43,7 +251,6 @@
   **Breaking Changes:**
 
   The following `RuleType` enum values have been removed and consolidated into a single `RuleType.textFormatted`:
-
   - `RuleType.textBolded`
   - `RuleType.textEmphasized`
   - `RuleType.textMarked`
@@ -58,7 +265,6 @@
   Replaced the complex nested regex `HTML_BLOCK_ELEMENT_R` with an efficient iterative depth-counting algorithm that maintains O(n) complexity. The new implementation uses stateful regex matching with `lastIndex` to avoid exponential backtracking on nested HTML elements while preserving all existing functionality.
 
   **Performance improvements:**
-
   - Eliminates O(2^n) worst-case exponential backtracking
   - Linear O(n) time complexity regardless of nesting depth
 
@@ -69,7 +275,6 @@
   Previously, rendering markdown with extremely deeply nested content (e.g., thousands of nested bold markers like `****************...text...****************`) would cause a stack overflow crash. The renderer now gracefully handles such edge cases by falling back to plain text rendering instead of crashing.
 
   **Technical details:**
-
   - Added render depth tracking to prevent stack overflow
   - Graceful fallback at 2500 levels of nesting (way beyond normal usage)
   - Try/catch safety net as additional protection for unexpected errors
