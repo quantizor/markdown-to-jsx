@@ -1,1 +1,3 @@
-fixture.md
+src/gfm-spec.md
+src/markdown-spec.md
+src/*.generated.*

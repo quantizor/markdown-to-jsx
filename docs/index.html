@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <title>markdown-to-jsx: try it live!</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono&family=Fredoka:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <link
@@ -16,18 +16,7 @@
       rel="stylesheet"
       href="https://unpkg.com/@highlightjs/cdn-assets@11.9.0/styles/nord.min.css"
     />
-    <script
-      crossorigin
-      src="https://unpkg.com/react@18/umd/react.production.min.js"
-    ></script>
-    <script
-      crossorigin
-      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
-    ></script>
-    <script
-      crossorigin
-      src="https://unpkg.com/styled-components@6/dist/styled-components.min.js"
-    ></script>
+    <link rel="stylesheet" href="/src/site/index.css" />
     <script
       crossorigin
       src="https://unpkg.com/katex@0.16.9/dist/katex.js"
@@ -79,6 +68,6 @@ You can even include custom React components if you declare them in the [`overri
 <MyComponent>Isn't _that_ cool?</MyComponent>
 </script>
 
-    <script src="./markdown-to-jsx.js"></script>
+    <script src="/site.tsx" type="module"></script>
   </body>
 </html>

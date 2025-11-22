@@ -1,0 +1,129 @@
+sequenceDiagram
+    participant Input as Markdown Input
+    participant Parser as parser()
+    participant CollectRefs as collectReferenceDefinitions()
+    participant ParseMarkdown as parseMarkdown()
+    participant ParseBlock as parseBlock()
+    participant InlineParser as parseInlineSpan()
+    participant BlockLoop as Block Parsing Loop
+    participant BlockParser as Block Parser Functions
+    participant RefCollection as Reference Collection
+    participant BracketStack as Bracket/Delimiter Stacks
+    participant AST as Final AST
+
+    Input->>Parser: Markdown text
+
+    alt Inline Mode
+        Parser->>ParseMarkdown: Call parseMarkdown (inline mode)
+        ParseMarkdown->>InlineParser: Parse entire input as inline content
+        InlineParser-->>ParseMarkdown: Inline AST nodes
+        ParseMarkdown-->>Parser: Return inline nodes
+        Parser->>AST: Final AST
+    else Block Mode
+        Parser->>CollectRefs: Collect reference definitions first
+        CollectRefs->>CollectRefs: Scan input for [label]: url patterns and [^label]: footnote patterns
+        CollectRefs->>CollectRefs: Store refs and footnotes in state.refs
+        CollectRefs-->>Parser: Refs collected
+        Parser->>ParseMarkdown: Call parseMarkdown (block mode)
+
+        ParseMarkdown->>ParseMarkdown: Check frontmatter (if pos === 0 and starts with ---)
+        alt Frontmatter found
+            ParseMarkdown->>BlockParser: parseFrontmatter
+            BlockParser-->>ParseMarkdown: Frontmatter node
+        end
+
+        ParseMarkdown->>BlockLoop: Enter block parsing loop
+
+        loop while pos < input.length
+            BlockLoop->>BlockLoop: Skip leading newlines
+            BlockLoop->>BlockLoop: Get first character and check indentation
+
+            BlockLoop->>ParseBlock: Try parseBlock (dispatch based on first character)
+            Note over ParseBlock: Character Dispatch:<br/>Space/Tab: parseCodeBlock (indented)<br/>>: parseBlockQuote<br/>#: parseHeading (ATX)<br/>`/~: parseCodeFenced<br/>|: parseTable<br/>-/*: parseBreakThematic, parseList<br/>_: parseBreakThematic<br/>+: parseList<br/><: parseHTML<br/>[: parseDefinition (ref/footnote)<br/>0-9: parseList
+
+            alt ParseBlock matched
+                ParseBlock->>BlockLoop: Parse result
+                BlockLoop->>BlockLoop: Add node to result
+            else No block match
+                alt Reference/Footnote check
+                    BlockLoop->>BlockParser: Try parseDefinition ([label] or [^label])
+                    alt Reference/Footnote matched
+                        BlockParser-->>BlockLoop: Reference/Footnote node
+                    else Invalid reference (Example 208/210)
+                        BlockLoop->>BlockLoop: Skip invalid pattern
+                    end
+                end
+
+                alt Still nothing matched
+                    BlockLoop->>BlockParser: Try parseHeadingSetext
+                    alt Setext heading matched
+                        BlockParser->>InlineParser: Parse heading content inline
+                        BlockParser-->>BlockLoop: Setext heading node
+                    end
+                end
+
+                alt Still nothing matched
+                    BlockLoop->>BlockParser: Try parseParagraph (fallback)
+                    alt Paragraph matched
+                        BlockParser->>InlineParser: Parse paragraph content inline
+                        BlockParser-->>BlockLoop: Paragraph node
+                    end
+                end
+
+                alt Nothing matched at all
+                    BlockLoop->>BlockLoop: Advance pos by 1 char (avoid infinite loop)
+                end
+            end
+
+            BlockLoop->>BlockLoop: Add matched node to result array
+        end
+
+        BlockLoop-->>ParseMarkdown: Block AST nodes
+        ParseMarkdown->>RefCollection: Collect all refs from state.refs (exclude footnotes)
+        RefCollection->>RefCollection: Create refCollection node
+        RefCollection->>RefCollection: Prepend to AST if refs exist
+        RefCollection-->>ParseMarkdown: Block AST with refCollection
+        ParseMarkdown-->>Parser: Final AST
+        Parser->>AST: Final AST
+    end
+
+    Note over InlineParser: ✅ INLINE PARSING: Priority-based processing<br/>Uses bracket/delimiter stacks<br/>Single pass, O(n) parsing
+
+    Note over InlineParser: Priority-based Character Processing
+    loop while pos < end
+            InlineParser->>InlineParser: Get character and type
+
+            alt Code spans (highest priority)
+                InlineParser->>InlineParser: Parse fenced code spans with backticks
+                InlineParser->>InlineParser: Create code node
+            else Autolinks (bare URLs/email)
+                InlineParser->>InlineParser: Check http://, ftp://, www., email patterns
+                InlineParser->>InlineParser: Parse autolink inline
+            else HTML tags and angle bracket autolinks
+                InlineParser->>InlineParser: Parse HTML tags, comments, autolinks
+            else Backslash escapes
+                InlineParser->>InlineParser: Process escapes and hard breaks
+            else Opening brackets [ (links/images)
+                InlineParser->>InlineParser: Handle [^] footnotes, [ ]/[x] GFM tasks
+                InlineParser->>BracketStack: Push bracket to stack
+            else Closing brackets ] (links/images)
+                InlineParser->>BracketStack: Pop bracket and resolve links/images
+                BracketStack->>InlineParser: Check (url), [ref], or [] patterns
+            else Emphasis delimiters (* _ ~ =)
+                InlineParser->>InlineParser: Check flanking rules for emphasis/strikethrough/mark
+                InlineParser->>BracketStack: Push delimiter to stack
+            else Line breaks
+                InlineParser->>InlineParser: Check for hard breaks (2+ spaces + newline)
+            else Newlines
+                InlineParser->>InlineParser: Flush text and add newline
+            else Default (text)
+                InlineParser->>InlineParser: Accumulate text characters
+            end
+        end
+
+        InlineParser->>InlineParser: Flush any remaining text
+        InlineParser->>InlineParser: Process HTML entities
+        InlineParser->>BracketStack: Process emphasis using delimiter stack
+        BracketStack->>BracketStack: Apply CommonMark rules (9/10/11/12)
+        BracketStack-->>InlineParser: Emphasis nodes created
+        InlineParser-->>ParseMarkdown: Inline AST nodes

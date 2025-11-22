@@ -1,0 +1,53 @@
+// Character codes
+export const CHAR_SPACE = 32
+export const CHAR_TAB = 9
+export const CHAR_CR = 13
+export const CHAR_NEWLINE = 10
+export const CHAR_BACKTICK = 96
+export const CHAR_TILDE = 126
+export const CHAR_BRACKET_OPEN = 91
+export const CHAR_CARET = 94
+export const CHAR_GT = 62
+export const CHAR_HASH = 35
+export const CHAR_DASH = 45
+export const CHAR_EQ = 61
+export const CHAR_BACKSLASH = 92
+export const CHAR_ASTERISK = 42
+export const CHAR_UNDERSCORE = 95
+export const CHAR_LT = 60
+export const CHAR_AT = 64
+export const CHAR_BRACKET_CLOSE = 93
+export const CHAR_EXCLAMATION = 33
+export const CHAR_AMPERSAND = 38
+export const CHAR_COLON = 58
+export const CHAR_F = 102
+export const CHAR_H = 104
+export const CHAR_W = 119
+export const CHAR_t = 116
+export const CHAR_p = 112
+export const CHAR_s = 115
+export const CHAR_NBSP = 160
+export const CHAR_FF = 12
+export const CHAR_COMMA = 44
+export const CHAR_SEMICOLON = 59
+export const CHAR_QUESTION = 63
+export const CHAR_PERIOD = 46
+export const CHAR_SLASH = 47
+export const CHAR_SINGLE_QUOTE = 39
+export const CHAR_DOUBLE_QUOTE = 34
+export const CHAR_PLUS = 43
+export const CHAR_PIPE = 124
+export const CHAR_BRACE_OPEN = 123 // {
+export const CHAR_BRACE_CLOSE = 125 // }
+export const CHAR_x = 120
+export const CHAR_X = 88
+// Character code ranges for common character classes
+export const CHAR_DIGIT_0 = 48
+export const CHAR_DIGIT_9 = 57
+export const CHAR_A = 65
+export const CHAR_Z = 90
+export const CHAR_a = 97
+export const CHAR_z = 122
+export const CHAR_ASCII_BOUNDARY = 128
+// Case conversion offset: difference between uppercase and lowercase ASCII letters
+export const CHAR_CASE_OFFSET = 32 // 'A' (65) to 'a' (97) = 32
