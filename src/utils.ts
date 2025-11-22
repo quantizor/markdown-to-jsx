@@ -442,3 +442,36 @@ export function extractPlainText(nodes: Array<any>, RuleType: any): string {
   }
   return result
 }
+
+/**
+ * Check if tag should be filtered per GFM tagfilter extension
+ */
+export function shouldFilterTag(tagName: string): boolean {
+  var lowerTag = tagName.toLowerCase()
+  return (
+    lowerTag === 'title' ||
+    lowerTag === 'textarea' ||
+    lowerTag === 'style' ||
+    lowerTag === 'xmp' ||
+    lowerTag === 'iframe' ||
+    lowerTag === 'noembed' ||
+    lowerTag === 'noframes' ||
+    lowerTag === 'script' ||
+    lowerTag === 'plaintext'
+  )
+}
+
+/**
+ * Apply tagfilter to text content - escape dangerous tags
+ */
+export function applyTagFilterToText(text: string): string {
+  // Escape dangerous tags in raw HTML text
+  // Matches opening tags like <tag> or <tag attr="val">
+  return text.replace(
+    /<(\/?)(title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext)(\s|>|\/)/gi,
+    function (match, slash, tagName, after) {
+      // Only escape the opening <
+      return '&lt;' + slash + tagName + after
+    }
+  )
+}

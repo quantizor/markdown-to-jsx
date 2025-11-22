@@ -60,6 +60,7 @@ const HTML_TO_JSX_MAP: Record<string, string> = {
   usemap: 'useMap',
 }
 
+
 /**
  * Convert HTML attributes to JSX props
  * Maps HTML attribute names (e.g., "class", "for") to JSX prop names (e.g., "className", "htmlFor")
@@ -123,7 +124,8 @@ function render(
   h: (tag: any, props: any, ...children: any[]) => any,
   sanitize: (value: string, tag: string, attribute: string) => string | null,
   slug: (input: string, defaultFn: (input: string) => string) => string,
-  refs: { [key: string]: { target: string; title: string } }
+  refs: { [key: string]: { target: string; title: string } },
+  options: MarkdownToJSX.Options
 ): React.ReactNode {
   switch (node.type) {
     case RuleType.blockQuote: {
@@ -200,6 +202,29 @@ function render(
 
     case RuleType.htmlBlock: {
       const htmlNode = node as MarkdownToJSX.HTMLNode
+
+      // Apply options.tagfilter: escape dangerous tags
+      if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
+        let escapedTag: string
+        if (htmlNode.rawText) {
+          escapedTag = htmlNode.rawText.replace(/^</, '&lt;')
+        } else {
+          // Simple attribute formatting for filtered tags
+          let attrStr = ''
+          if (htmlNode.attrs) {
+            for (const [key, value] of Object.entries(htmlNode.attrs)) {
+              if (value === true) {
+                attrStr += ` ${key}`
+              } else if (value !== undefined && value !== null && value !== false) {
+                attrStr += ` ${key}="${String(value)}"`
+              }
+            }
+          }
+          escapedTag = `&lt;${htmlNode.tag}${attrStr}&gt;`
+        }
+        return h('span', { key: state.key, dangerouslySetInnerHTML: { __html: escapedTag } })
+      }
+
       if (htmlNode.text && htmlNode.noInnerParse) {
         // Type 1 blocks (script, style, pre, textarea) must have verbatim text content
         // React requires these tags to have a single string child, not parsed elements
@@ -210,18 +235,22 @@ function render(
         const containsPreTags = /<\/?pre\b/i.test(htmlNode.text)
 
         if (isType1Block && !containsHTMLTags) {
-          const textContent = htmlNode.text.replace(
+          let textContent = htmlNode.text.replace(
             new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
             ''
           )
+          if (options.tagfilter) {
+            textContent = util.applyTagFilterToText(textContent)
+          }
           return h(node.tag, { key: state.key, ...node.attrs }, textContent)
         }
 
         if (containsPreTags) {
+          const innerHtml = options.tagfilter ? util.applyTagFilterToText(htmlNode.text) : htmlNode.text
           return h(node.tag, {
             key: state.key,
             ...node.attrs,
-            dangerouslySetInnerHTML: { __html: htmlNode.text },
+            dangerouslySetInnerHTML: { __html: innerHtml },
           })
         }
         // This handles JSX compilation where HTML content should be parsed
@@ -285,8 +314,33 @@ function render(
       )
     }
 
-    case RuleType.htmlSelfClosing:
+    case RuleType.htmlSelfClosing: {
+      const htmlNode = node as MarkdownToJSX.HTMLSelfClosingNode
+
+      // Apply options.tagfilter: escape dangerous self-closing tags
+      if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
+        let escapedTag: string
+        if (htmlNode.rawText) {
+          escapedTag = htmlNode.rawText.replace(/^</, '&lt;')
+        } else {
+          // Simple attribute formatting for filtered self-closing tags
+          let attrStr = ''
+          if (htmlNode.attrs) {
+            for (const [key, value] of Object.entries(htmlNode.attrs)) {
+              if (value === true) {
+                attrStr += ` ${key}`
+              } else if (value !== undefined && value !== null && value !== false) {
+                attrStr += ` ${key}="${String(value)}"`
+              }
+            }
+          }
+          escapedTag = `&lt;${htmlNode.tag}${attrStr} />`
+        }
+        return h('span', { key: state.key, dangerouslySetInnerHTML: { __html: escapedTag } })
+      }
+
       return h(node.tag, { key: state.key, ...node.attrs })
+    }
 
     case RuleType.image: {
       return (
@@ -412,7 +466,8 @@ const createRenderer = (
   ) => any,
   sanitize: (value: string, tag: string, attribute: string) => string | null,
   slug: (input: string, defaultFn: (input: string) => string) => string,
-  refs: { [key: string]: { target: string; title: string } }
+  refs: { [key: string]: { target: string; title: string } },
+  options: MarkdownToJSX.Options
 ) => {
   const renderRule = (
     node: MarkdownToJSX.ASTNode,
@@ -420,7 +475,7 @@ const createRenderer = (
     state: MarkdownToJSX.State
   ) => {
     const defaultRender = () =>
-      render(node, renderChildren, state, h, sanitize, slug, refs)
+      render(node, renderChildren, state, h, sanitize, slug, refs, options)
     return userRender
       ? userRender(defaultRender, node, renderChildren, state)
       : defaultRender()
@@ -643,7 +698,7 @@ export function astToJSX(
       ? (ast[0] as MarkdownToJSX.ReferenceCollectionNode).refs
       : {}
 
-  const emitter = createRenderer(options.renderRule, h, sanitize, slug, refs)
+  const emitter = createRenderer(options.renderRule, h, sanitize, slug, refs, options)
 
   const arr = emitter(ast, {
     inline: options.forceInline,

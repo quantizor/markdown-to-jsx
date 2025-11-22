@@ -19,35 +19,6 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
-/**
- * Check if tag should be filtered per GFM tagfilter extension
- */
-function shouldFilterTag(tagName: string): boolean {
-  var lowerTag = tagName.toLowerCase()
-  return (
-    lowerTag === 'title' ||
-    lowerTag === 'textarea' ||
-    lowerTag === 'style' ||
-    lowerTag === 'xmp' ||
-    lowerTag === 'iframe' ||
-    lowerTag === 'noembed' ||
-    lowerTag === 'noframes' ||
-    lowerTag === 'script' ||
-    lowerTag === 'plaintext'
-  )
-}
-
-function applyTagFilterToText(text: string): string {
-  // Escape dangerous tags in raw HTML text
-  // Matches opening tags like <tag> or <tag attr="val">
-  return text.replace(
-    /<(\/?)(title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext)(\s|>|\/)/gi,
-    function (match, slash, tagName, after) {
-      // Only escape the opening <
-      return '&lt;' + slash + tagName + after
-    }
-  )
-}
 
 /**
  * Escape HTML for attribute values, preserving entity references
@@ -327,13 +298,13 @@ export function astToHTML(
                 ? ' ' + formatAttributes(overrideProps).trim()
                 : '')
             : formatAttributes(mergedAttrs)
-        if (options.tagfilter && shouldFilterTag(tag)) {
+        if (options.tagfilter && util.shouldFilterTag(tag)) {
           return htmlNode.isClosingTag ? `&lt;/${tag}>` : `&lt;${tag}${attrs}>`
         }
         if (htmlNode.text) {
           if (htmlNode.noInnerParse) {
             var textContent = options.tagfilter
-              ? applyTagFilterToText(htmlNode.text)
+              ? util.applyTagFilterToText(htmlNode.text)
               : htmlNode.text
             if (htmlNode.isClosingTag) return `</${tag}>${textContent}`
             var tagLower = tag.toLowerCase()
@@ -351,7 +322,7 @@ export function astToHTML(
                   if (tagMatch && tagMatch[1].toLowerCase() === tagLower) {
                     var innerText = htmlNode.text.slice(openingTagEnd + 1)
                     var filteredInner = options.tagfilter
-                      ? applyTagFilterToText(innerText)
+                      ? util.applyTagFilterToText(innerText)
                       : innerText
                     return `${rawOpeningTag}${filteredInner}`
                   }
@@ -389,7 +360,7 @@ export function astToHTML(
             return `<${tag}${attrs}>${textContent.replace(/^\s+/, '')}`
           }
           var textContent = options.tagfilter
-            ? applyTagFilterToText(htmlNode.text)
+            ? util.applyTagFilterToText(htmlNode.text)
             : htmlNode.text
           return `<${tag}${attrs}>${textContent}</${tag}>`
         }
@@ -412,7 +383,7 @@ export function astToHTML(
         const overrideProps = util.getOverrideProps(defaultTag, overrides)
         const mergedAttrs = { ...(htmlNode.attrs || {}), ...overrideProps }
 
-        if (options.tagfilter && shouldFilterTag(tag)) {
+        if (options.tagfilter && util.shouldFilterTag(tag)) {
           if (htmlNode.rawText) {
             return htmlNode.rawText.replace(/^</, '&lt;')
           }

@@ -4,6 +4,7 @@ you are helping to maintain the markdown-to-jsx library. it is a 100% gfm-common
 
 ## Notes
 
+- always write tests prior to changing the code if there are no applicable tests (TDD)
 - Uses bun; scripts in TypeScript, import source directly (no build needed)
 - Test and check performace after each change. No regressions allowed.
 - Use `bun -e` for experiments. Always escape backticks in CLI scripts
