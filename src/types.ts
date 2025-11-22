@@ -41,7 +41,7 @@ type RuleTypeValue = (typeof RuleTypeConst)[keyof typeof RuleTypeConst]
 /**
  * markdown-to-jsx types and interfaces
  */
-export namespace MarkdownToJSX {
+declare namespace MarkdownToJSX {
   /**
    * RequireAtLeastOne<{ ... }> <- only requires at least one key
    */
@@ -393,3 +393,5 @@ export namespace MarkdownToJSX {
 
 export const RuleType: typeof RuleTypeConst = RuleTypeConst
 export type RuleType = RuleTypeValue
+
+export { MarkdownToJSX }
