@@ -1,5 +1,21 @@
 # markdown-to-jsx
 
+## 9.1.0
+
+### Minor Changes
+
+- 0ba757d: Add `preserveFrontmatter` option to control whether YAML frontmatter is rendered in the output. When set to `true`, frontmatter is rendered as a `<pre>` element in HTML/JSX output. For markdown-to-markdown compilation, frontmatter is preserved by default but can be excluded with `preserveFrontmatter: false`.
+
+  | Compiler Type            | Default Behavior            | When `preserveFrontmatter: true` | When `preserveFrontmatter: false` |
+  | ------------------------ | --------------------------- | -------------------------------- | --------------------------------- |
+  | **React/HTML**           | ❌ Don't render frontmatter | ✅ Render as `<pre>` element     | ❌ Don't render frontmatter       |
+  | **Markdown-to-Markdown** | ✅ Preserve frontmatter     | ✅ Preserve frontmatter          | ❌ Exclude frontmatter            |
+
+### Patch Changes
+
+- f945132: Fix lazy continuation lines for list items when continuation text appears at base indentation without a blank line before it. Previously, such lines were incorrectly parsed as separate paragraphs instead of being appended to the list item content.
+- 36ef089: yWork around a bundling bug with exporting TypeScript namespaces directly. Bonus: MarkdownToJSX is now declared ambiently so you may not need to import it.
+
 ## 9.0.0
 
 ### Major Changes
