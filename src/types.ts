@@ -381,6 +381,13 @@ export namespace MarkdownToJSX {
      * Props to apply to the wrapper element.
      */
     wrapperProps?: React.JSX.IntrinsicAttributes
+
+    /**
+     * Preserve frontmatter in the output by rendering it as a <pre> element.
+     * By default, frontmatter is parsed but not rendered.
+     * @default false
+     */
+    preserveFrontmatter?: boolean
   }>
 }
 
