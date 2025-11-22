@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 9.1.1
+
+### Patch Changes
+
+- 733f10e: Fix lazy continuation lines for list items when continuation text appears at base indentation without a blank line. Previously, continuation text was incorrectly appended inline to the list item. Now both the existing inline content and the continuation text are properly wrapped in separate paragraphs.
+
 ## 9.1.0
 
 ### Minor Changes
