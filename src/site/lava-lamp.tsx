@@ -625,8 +625,8 @@ export function LavaLamp({ className }: { className?: string }) {
 
         const updateCanvasSize = () => {
           if (isDestroyed) return
-          const width = window.innerWidth
-          const height = window.innerHeight
+          const width = window.visualViewport?.width || window.innerWidth
+          const height = window.visualViewport?.height || window.innerHeight
           if (width > 0 && height > 0) {
             const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
             const renderWidth = width * dpr
@@ -662,8 +662,8 @@ export function LavaLamp({ className }: { className?: string }) {
           }
           lastFrameTime = time - (elapsed % frameInterval)
 
-          const width = window.innerWidth
-          const height = window.innerHeight
+          const width = window.visualViewport?.width || window.innerWidth
+          const height = window.visualViewport?.height || window.innerHeight
           const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
           const renderWidth = width * dpr
           const renderHeight = height * dpr
