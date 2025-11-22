@@ -3964,13 +3964,14 @@ function appendListContinuation(
   continuationContent: string,
   lastItem: MarkdownToJSX.ASTNode[],
   state: MarkdownToJSX.State,
-  options: ParseOptions
+  options: ParseOptions,
+  addNewline: boolean = true
 ): void {
-  const sourceWithNewline = '\n' + continuationContent
+  const sourceToParse = (addNewline ? '\n' : '') + continuationContent
   const continuationInline = parseInlineWithState(
-    sourceWithNewline,
+    sourceToParse,
     0,
-    sourceWithNewline.length,
+    sourceToParse.length,
     state,
     options
   )
@@ -5618,7 +5619,7 @@ function parseList(
         }
       }
 
-      // If line is at base indentation and not a list item, end the list
+      // If line is at base indentation and not a list item, check for lazy continuation first
       if (nextIndent <= baseIndent) {
         if (
           nextLineWithoutIndent.startsWith('<') &&
@@ -5645,6 +5646,36 @@ function parseList(
             listItemRegex
           )
         ) {
+          // Check for lazy continuation when nextIndent === baseIndent
+          // Per CommonMark: lazy continuation lines can have all indentation deleted
+          // BUT: only if there was no blank line before (lazy continuation requires no blank line)
+          // AND: only if it's truly paragraph continuation text (not a block start)
+          if (nextIndent === baseIndent && !prevLineWasBlank) {
+            const trimmed = nextLineWithoutIndent.trim()
+            if (trimmed.length > 0 && !isBlockStartChar(trimmed[0])) {
+              // Check if this line would start a block (like HTML comment, thematic break, etc.)
+              // If so, it should break the list, not continue it
+              const blockResult = parseBlock(source, currentPos, state, options)
+              if (blockResult && blockResult.type !== RuleType.paragraph) {
+                break
+              }
+              const lastItem = getLastItem()
+              if (lastItem.length > 0 && !listItemHasBlockContent(lastItem)) {
+                // This is a lazy continuation line - continue the inline content
+                // Lazy continuation lines don't add a newline (no space in output)
+                appendListContinuation(
+                  nextLineWithoutIndent,
+                  lastItem,
+                  state,
+                  options,
+                  false
+                )
+                prevLineWasBlank = false
+                currentPos = skipToNextLine(source, nextLineEnd)
+                continue
+              }
+            }
+          }
           break
         }
       }
