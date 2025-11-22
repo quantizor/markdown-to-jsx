@@ -8,4 +8,3 @@ package-lock.json
 
 # ephemeral files
 dist/
-dist-site/

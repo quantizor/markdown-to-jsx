@@ -85,8 +85,6 @@
   "sideEffects": false,
   "main": "dist/index.cjs",
   "module": "dist/index.js",
-  "source": "index.tsx",
-  "unpkg": "./dist/index.global.js",
   "types": "dist/index.d.ts",
   "devDependencies": {
     "@babel/plugin-proposal-nullish-coalescing-operator": "^7.18.6",
@@ -150,10 +148,9 @@
   },
   "scripts": {
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
-    "prebuild": "rimraf dist",
-    "build": "bunup",
-    "build:debug": "bunup --filter main --minifyIdentifiers=false --minifyWhitespace=false",
-    "build-site": "vite build",
+    "build": "rimraf dist && bunup",
+    "build:debug": "rimraf dist && bunup --filter main --minifyIdentifiers=false --minifyWhitespace=false",
+    "build-site": "rimraf dist-site && vite build",
     "dev": "vite dev --host",
     "entities": "bun scripts/generate-entities.ts",
     "fixture": "bun scripts/generate-fixture.ts",

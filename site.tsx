@@ -7,7 +7,6 @@ import { LavaLamp } from './src/site/lava-lamp'
 import { presets, type Preset } from './src/site/presets'
 // @ts-ignore
 import readmeContentRaw from './README.md?raw'
-import { get } from './src/utils'
 
 declare global {
   interface Window {
