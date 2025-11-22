@@ -880,8 +880,8 @@ export function LavaLamp({ className }: { className?: string }) {
       style={{
         pointerEvents: 'auto',
         display: 'block',
-        width: '100dvw',
-        height: '100dvh',
+        width: '100svw',
+        height: '100svh',
         imageRendering: 'auto',
         WebkitFontSmoothing: 'antialiased',
         MozOsxFontSmoothing: 'grayscale',
