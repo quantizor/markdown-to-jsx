@@ -9,7 +9,7 @@ Some special features of the library:
 
 - Any HTML tags rendered by the compiler and/or `<Markdown>` component can be overridden to include additional props or even a different HTML representation entirely.
 
-- All GFM special syntaxes are supported, including tables, task lists, strikethrough, autolinks, and more.
+- All GFM special syntaxes are supported, including tables, task lists, strikethrough, autolinks, tag filtering, and more.
 
 - Fenced code blocks with [highlight.js](https://highlightjs.org/) support; see [Syntax highlighting](#syntax-highlighting) for instructions on setting up highlight.js.
 
@@ -23,11 +23,17 @@ Some special features of the library:
   - [From v7.x to v8.x](#from-v7x-to-v8x)
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Parsing Options](#parsing-options)
+  - [Entry Points](#entry-points)
+    - [Main](#main)
+    - [React](#react)
+    - [HTML](#html)
+    - [Markdown](#markdown)
+  - [Library Options](#library-options)
     - [options.forceBlock](#optionsforceblock)
     - [options.forceInline](#optionsforceinline)
     - [options.wrapper](#optionswrapper)
       - [Other useful recipes](#other-useful-recipes)
+    - [options.wrapperProps](#optionswrapperprops)
     - [options.forceWrapper](#optionsforcewrapper)
     - [options.overrides - Void particular banned tags](#optionsoverrides---void-particular-banned-tags)
     - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
@@ -39,24 +45,19 @@ Some special features of the library:
     - [options.slugify](#optionsslugify)
     - [options.disableAutoLink](#optionsdisableautolink)
     - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
+    - [options.tagfilter](#optionstagfilter)
   - [Syntax highlighting](#syntax-highlighting)
   - [Handling shortcodes](#handling-shortcodes)
   - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
   - [Usage with Preact](#usage-with-preact)
-- [Gotchas](#gotchas)
-  - [Passing props to stringified React components](#passing-props-to-stringified-react-components)
-  - [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
+  - [AST Anatomy](#ast-anatomy)
+    - [Node Types](#node-types)
+    - [Example AST Structure](#example-ast-structure)
+    - [Type Checking](#type-checking)
+  - [Gotchas](#gotchas)
+    - [Passing props to stringified React components](#passing-props-to-stringified-react-components)
+    - [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
     - [Code blocks](#code-blocks)
-- [Entry Points](#entry-points)
-  - [Main](#main)
-  - [React](#react)
-  - [HTML](#html)
-  - [Markdown](#markdown)
-- [Using The Parser Low-Level AST API](#using-the-parser-low-level-ast-api)
-- [AST Anatomy](#ast-anatomy)
-  - [Node Types](#node-types)
-  - [Example AST Structure](#example-ast-structure)
-  - [Type Checking](#type-checking)
 - [Changelog](#changelog)
 - [Donate](#donate)
 
@@ -90,6 +91,19 @@ compiler('&le; symbol', { namedCodesToUnicode: { le: '\u2264' } })
 // After (v9)
 import { compiler } from 'markdown-to-jsx'
 compiler('&le; symbol') // All entities supported automatically
+```
+
+- **`tagfilter` enabled by default**: Dangerous HTML tags (`script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`) are now escaped by default in both HTML string output and React JSX output. Previously these tags were rendered as JSX elements in React output.
+
+```typescript
+// Before (v8) - tags rendered as JSX elements
+compiler('<script>alert("xss")</script>') // Rendered as <script> element
+
+// After (v9) - tags escaped by default
+compiler('<script>alert("xss")</script>') // Renders as <span>&lt;script&gt;</span>
+
+// To restore old behavior:
+compiler('<script>alert("xss")</script>', { tagfilter: false })
 ```
 
 **New Features:**
@@ -204,7 +218,75 @@ render(<Markdown># Hello world!</Markdown>, document.body)
 
 \* **NOTE: JSX does not natively preserve newlines in multiline text. In general, writing markdown directly in JSX is discouraged and it's a better idea to keep your content in separate .md files and require them, perhaps using webpack's [raw-loader](https://github.com/webpack-contrib/raw-loader).**
 
-### Parsing Options
+### Entry Points
+
+`markdown-to-jsx` provides multiple entry points for different use cases:
+
+#### Main
+
+The legacy\*default entry point exports everything, including the React compiler and component:
+
+```tsx
+import Markdown, { compiler, parser } from 'markdown-to-jsx'
+```
+
+_The React code in this entry point is deprecated and will be removed in a future major release, migrate to `markdown-to-jsx/react`._
+
+#### React
+
+For React-specific usage, import from the `/react` entry point:
+
+```tsx
+import Markdown, { compiler, parser, astToJSX } from 'markdown-to-jsx/react'
+
+// Use compiler for markdown → JSX
+const jsxElement = compiler('# Hello world')
+
+const markdown = `# Hello world`
+
+function App() {
+  return <Markdown children={markdown} />
+}
+
+// Or use parser + astToJSX for total control
+const ast = parser('# Hello world')
+const jsxElement2 = astToJSX(ast)
+```
+
+#### HTML
+
+For HTML string output (server-side rendering), import from the `/html` entry point:
+
+```tsx
+import { compiler, html, parser } from 'markdown-to-jsx/html'
+
+// Convenience function that combines parsing and HTML rendering
+const htmlString = compiler('# Hello world')
+// Returns: '<h1>Hello world</h1>'
+
+// Or use parser + html separately for more control
+const ast = parser('# Hello world')
+const htmlString2 = html(ast)
+```
+
+#### Markdown
+
+For markdown-to-markdown compilation (normalization and formatting), import from the `/markdown` entry point:
+
+```typescript
+import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
+
+// Convenience function that parses and recompiles markdown
+const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
+// Returns: '# Hello world\n\nExtra spaces!\n'
+
+// Or work with AST directly
+const ast = parser('# Hello  world')
+const normalizedMarkdown2 = astToMarkdown(ast)
+// Returns: '# Hello world\n'
+```
+
+### Library Options
 
 #### options.forceBlock
 
@@ -283,6 +365,24 @@ compiler('One\n\nTwo\n\nThree', { wrapper: null })
 
 To render children at the same DOM level as `<Markdown>` with no HTML wrapper, set `wrapper` to `React.Fragment`. This will still wrap your children in a React node for the purposes of rendering, but the wrapper element won't show up in the DOM.
 
+#### options.wrapperProps
+
+Props to apply to the wrapper element when `wrapper` is used.
+
+```tsx
+<Markdown options={{
+  wrapper: 'article',
+  wrapperProps: { className: 'post', 'data-testid': 'markdown-content' }
+}}>
+  # Hello World
+</Markdown>
+
+// renders
+<article class="post" data-testid="markdown-content">
+  <h1>Hello World</h1>
+</article>
+```
+
 #### options.forceWrapper
 
 By default, the compiler does not wrap the rendered contents if there is only a single child. You can change this by setting `forceWrapper` to `true`. If the child is inline, it will not necessarily be wrapped in a `span`.
@@ -300,7 +400,15 @@ By default, the compiler does not wrap the rendered contents if there is only a 
 
 #### options.overrides - Void particular banned tags
 
-Pass the `options.overrides` prop to the compiler or `<Markdown>` component with an implementation that return `null` for tags you wish to exclude from the rendered output. It is recommended to void `script`, `iframe`, `object`, and `style` tags to avoid XSS attacks when working with user-generated content. For example, to void the `iframe` tag:
+Pass the `options.overrides` prop to the compiler or `<Markdown>` component with an implementation that return `null` for tags you wish to exclude from the rendered output. This provides complete removal of tags from the output.
+
+**Note**: The `tagfilter` option provides default escaping of dangerous tags (`script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`). Use `overrides` when you need to:
+
+- Remove additional tags not covered by `tagfilter` (like `object`)
+- Have more control over tag removal vs. escaping
+- Disable `tagfilter` but still want to remove specific tags
+
+For example, to void the `iframe` tag:
 
 ```tsx
 import Markdown from 'markdown-to-jsx'
@@ -317,7 +425,7 @@ render(
 // renders: ""
 ```
 
-The library does not void any tags by default to avoid surprising behavior for personal use cases.
+The library does not void any tags by default (except through `tagfilter` escaping), allowing you to choose the appropriate security approach for your use case.
 
 #### options.overrides - Override Any HTML Tag's Representation
 
@@ -656,6 +764,27 @@ compiler('This text has <span>html</span> in it but it won't be rendered', { dis
 <span>This text has &lt;span&gt;html&lt;/span&gt; in it but it won't be rendered</span>
 ```
 
+#### options.tagfilter
+
+By default, dangerous HTML tags are filtered and escaped to prevent XSS attacks. This applies to both HTML string output and React JSX output. The following tags are filtered: `script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`.
+
+```tsx
+// Tags are escaped by default (GFM-compliant)
+compiler('<script>alert("xss")</script>')
+// HTML output: '<span>&lt;script&gt;</span>'
+// React output: <span>&lt;script&gt;</span>
+
+// Disable tag filtering:
+compiler('<script>alert("xss")</script>', { tagfilter: false })
+// HTML output: '<script></script>'
+// React output: <script></script>
+```
+
+**Note**: Even when `tagfilter` is disabled, other security measures remain active:
+
+- URL sanitization preventing `javascript:` and `vbscript:` schemes in `href` and `src` attributes
+- Protection against `data:` URLs (except safe `data:image/*` MIME types)
+
 ### Syntax highlighting
 
 When using [fenced code blocks](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) with language annotation, that language will be added to the `<code>` element as `class="lang-${language}"`. For best results, you can use `options.overrides` to provide an appropriate syntax highlighting integration like this one using `highlight.js`:
@@ -771,198 +900,13 @@ Here are instructions for some of the popular bundlers:
 
 Everything will work just fine! Simply [Alias `react` to `preact/compat`](https://preactjs.com/guide/v10/switching-to-preact#setting-up-compat) like you probably already are doing.
 
-## Gotchas
-
-### Passing props to stringified React components
-
-Using the [`options.overrides`](#optionsoverrides---rendering-arbitrary-react-components) functionality to render React components, props are passed into the component in stringifed form. It is up to you to parse the string to make use of the data.
-
-```tsx
-const Table: React.FC<
-  JSX.IntrinsicElements['table'] & {
-    columns: string
-    dataSource: string
-  }
-> = ({ columns, dataSource, ...props }) => {
-  const parsedColumns = JSON.parse(columns)
-  const parsedData = JSON.parse(dataSource)
-
-  return (
-    <div {...props}>
-      <h1>Columns</h1>
-      {parsedColumns.map(column => (
-        <span key={column.key}>{column.title}</span>
-      ))}
-
-      <h2>Data</h2>
-      {parsedData.map(datum => (
-        <span key={datum.key}>{datum.Month}</span>
-      ))}
-    </div>
-  )
-}
-
-/**
- * Example HTML in markdown:
- *
- * <Table
- *    columns={[{ title: 'Month', dataIndex: 'Month', key: 'Month' }]}
- *    dataSource={[
- *      {
- *        Month: '2024-09-01',
- *        'Forecasted Revenue': '$3,137,678.85',
- *        'Forecasted Expenses': '$2,036,660.28',
- *        key: 0,
- *      },
- *    ]}
- *  />
- */
-```
-
-### Significant indentation inside arbitrary HTML
-
-People usually write HTML like this:
-
-```html
-<div>Hey, how are you?</div>
-```
-
-Note the leading spaces before the inner content. This sort of thing unfortunately clashes with existing markdown syntaxes since 4 spaces === a code block and other similar collisions.
-
-To get around this, `markdown-to-jsx` left-trims approximately as much whitespace as the first line inside the HTML block. So for example:
-
-```html
-<div># Hello How are you?</div>
-```
-
-The two leading spaces in front of "# Hello" would be left-trimmed from all lines inside the HTML block. In the event that there are varying amounts of indentation, only the amount of the first line is trimmed.
-
-> NOTE! These syntaxes work just fine when you aren't writing arbitrary HTML wrappers inside your markdown. This is very much an edge case of an edge case. 🙃
-
-#### Code blocks
-
-⛔️
-
-```md
-<div>
-    var some = code();
-</div>
-```
-
-✅
-
-````md
-<div>
-```js
-var some = code();
-```
-</div>
-````
-
-## Entry Points
-
-`markdown-to-jsx` provides multiple entry points for different use cases:
-
-### Main
-
-The legacy\*default entry point exports everything, including the React compiler and component:
-
-```tsx
-import Markdown, { compiler, parser } from 'markdown-to-jsx'
-```
-
-_The React code in this entry point is deprecated and will be removed in a future major release, migrate to `markdown-to-jsx/react`._
-
-### React
-
-For React-specific usage, import from the `/react` entry point:
-
-```tsx
-import Markdown, { compiler, parser, astToJSX } from 'markdown-to-jsx/react'
-
-// Use compiler for markdown → JSX
-const jsxElement = compiler('# Hello world')
-
-const markdown = `# Hello world`
-
-function App() {
-  return <Markdown children={markdown} />
-}
-
-// Or use parser + astToJSX for total control
-const ast = parser('# Hello world')
-const jsxElement2 = astToJSX(ast)
-```
-
-### HTML
-
-For HTML string output (server-side rendering), import from the `/html` entry point:
-
-```tsx
-import { compiler, html, parser } from 'markdown-to-jsx/html'
-
-// Convenience function that combines parsing and HTML rendering
-const htmlString = compiler('# Hello world')
-// Returns: '<h1>Hello world</h1>'
-
-// Or use parser + html separately for more control
-const ast = parser('# Hello world')
-const htmlString2 = html(ast)
-```
-
-### Markdown
-
-For markdown-to-markdown compilation (normalization and formatting), import from the `/markdown` entry point:
-
-```typescript
-import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
-
-// Convenience function that parses and recompiles markdown
-const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
-// Returns: '# Hello world\n\nExtra spaces!\n'
-
-// Or work with AST directly
-const ast = parser('# Hello  world')
-const normalizedMarkdown2 = astToMarkdown(ast)
-// Returns: '# Hello world\n'
-```
-
-## Using The Parser (Low-Level AST API)
-
-The `parser` function provides direct access to the parsed AST without rendering:
-
-```tsx
-import { parser } from 'markdown-to-jsx'
-import type { MarkdownToJSX } from 'markdown-to-jsx'
-
-// Parse markdown to AST
-const ast = parser('# Hello world')
-
-// TypeScript: AST is MarkdownToJSX.ASTNode[]
-console.log(ast) // Array of parsed nodes
-
-// You can then render with html() or compiler()
-```
-
-The `parser` function accepts:
-
-- `source: string` - markdown source
-- `state?: MarkdownToJSX.State` - parsing state (defaults: `{ inline: false, refs: {} }`)
-- `options?: MarkdownToJSX.Options` - parsing options
-
-Use `parser` when you need:
-
-- Direct AST access without React rendering
-- Custom rendering logic
-- AST manipulation before rendering
-
-## AST Anatomy
+### AST Anatomy
 
 The Abstract Syntax Tree (AST) is a structured representation of parsed markdown. Each node in the AST has a `type` property that identifies its kind, and type-specific properties.
 
 **Important:** The first node in the AST is typically a `RuleType.refCollection` node that contains all reference definitions found in the document, including footnotes (stored with keys prefixed with `^`). This node is skipped during rendering but is useful for accessing reference data. Footnotes are automatically extracted from the refCollection and rendered in a `<footer>` element by both `compiler()` and `astToJSX()`.
 
-### Node Types
+#### Node Types
 
 The AST consists of the following node types (use `RuleType` to check node types):
 
@@ -1020,21 +964,30 @@ The AST consists of the following node types (use `RuleType` to check node types
   ```tsx
   { type: RuleType.image, target: "image.png", alt: "description" }
   ```
-- `RuleType.refLink` / `RuleType.refImage` - Reference-style links/images
-  ```tsx
-  { type: RuleType.refLink, ref: "linkref", children: [...] }
-  ```
 
 **Other nodes:**
 
 - `RuleType.breakLine` - Hard line breaks (`  `)
 - `RuleType.breakThematic` - Horizontal rules (`---`)
 - `RuleType.gfmTask` - GFM task list items (`- [ ]`)
+- `RuleType.ref` - Reference definition node (not rendered, stored in refCollection)
 - `RuleType.refCollection` - Reference definitions collection (appears at AST root, includes footnotes with `^` prefix)
 - `RuleType.footnote` - Footnote definition node (not rendered, stored in refCollection)
 - `RuleType.footnoteReference` - Footnote reference (`[^identifier]`)
+- `RuleType.frontmatter` - YAML frontmatter blocks
+  ```tsx
+  { type: RuleType.frontmatter, text: "---\ntitle: My Title\n---" }
+  ```
+- `RuleType.htmlComment` - HTML comment nodes
+  ```tsx
+  { type: RuleType.htmlComment, text: "<!-- comment -->" }
+  ```
+- `RuleType.htmlSelfClosing` - Self-closing HTML tags
+  ```tsx
+  { type: RuleType.htmlSelfClosing, tag: "img", attrs: { src: "image.png" } }
+  ```
 
-### Example AST Structure
+#### Example AST Structure
 
 ````tsx
 import { parser, RuleType } from 'markdown-to-jsx'
@@ -1093,9 +1046,9 @@ console.log('code')
 
 ````
 
-### Type Checking
+#### Type Checking
 
-Use `RuleType` constants to check node types:
+Use the `RuleType` enum to identify AST nodes:
 
 ```tsx
 import { RuleType } from 'markdown-to-jsx'
@@ -1111,6 +1064,94 @@ if (node.type === RuleType.heading) {
 - Use `<Markdown>` when you need a simple React component that renders markdown to JSX.
 - Use `compiler` when you need React JSX output from markdown (the component uses this internally).
 - Use `parser` + `astToJSX` when you need the AST for custom processing before rendering to JSX, or just the AST itself.
+
+### Gotchas
+
+#### Passing props to stringified React components
+
+Using the [`options.overrides`](#optionsoverrides---rendering-arbitrary-react-components) functionality to render React components, props are passed into the component in stringifed form. It is up to you to parse the string to make use of the data.
+
+```tsx
+const Table: React.FC<
+  JSX.IntrinsicElements['table'] & {
+    columns: string
+    dataSource: string
+  }
+> = ({ columns, dataSource, ...props }) => {
+  const parsedColumns = JSON.parse(columns)
+  const parsedData = JSON.parse(dataSource)
+
+  return (
+    <div {...props}>
+      <h1>Columns</h1>
+      {parsedColumns.map(column => (
+        <span key={column.key}>{column.title}</span>
+      ))}
+
+      <h2>Data</h2>
+      {parsedData.map(datum => (
+        <span key={datum.key}>{datum.Month}</span>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Example HTML in markdown:
+ *
+ * <Table
+ *    columns={[{ title: 'Month', dataIndex: 'Month', key: 'Month' }]}
+ *    dataSource={[
+ *      {
+ *        Month: '2024-09-01',
+ *        'Forecasted Revenue': '$3,137,678.85',
+ *        'Forecasted Expenses': '$2,036,660.28',
+ *        key: 0,
+ *      },
+ *    ]}
+ *  />
+ */
+```
+
+#### Significant indentation inside arbitrary HTML
+
+People usually write HTML like this:
+
+```html
+<div>Hey, how are you?</div>
+```
+
+Note the leading spaces before the inner content. This sort of thing unfortunately clashes with existing markdown syntaxes since 4 spaces === a code block and other similar collisions.
+
+To get around this, `markdown-to-jsx` left-trims approximately as much whitespace as the first line inside the HTML block. So for example:
+
+```html
+<div># Hello How are you?</div>
+```
+
+The two leading spaces in front of "# Hello" would be left-trimmed from all lines inside the HTML block. In the event that there are varying amounts of indentation, only the amount of the first line is trimmed.
+
+> NOTE! These syntaxes work just fine when you aren't writing arbitrary HTML wrappers inside your markdown. This is very much an edge case of an edge case. 🙃
+
+#### Code blocks
+
+⛔️
+
+```md
+<div>
+    var some = code();
+</div>
+```
+
+✅
+
+````md
+<div>
+```js
+var some = code();
+```
+</div>
+````
 
 ## Changelog
 

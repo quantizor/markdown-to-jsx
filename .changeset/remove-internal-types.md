@@ -2,7 +2,7 @@
 'markdown-to-jsx': major
 ---
 
-Remove internal type definitions and rename RuleOutput to ASTRender
+Remove internal type definitions and rename `MarkdownToJSX.RuleOutput` to `MarkdownToJSX.ASTRender`
 
 This change removes internal type definitions from the `MarkdownToJSX` namespace:
 
@@ -13,6 +13,8 @@ This change removes internal type definitions from the `MarkdownToJSX` namespace
 - Renamed `RuleOutput` to `ASTRender` for clarity
 
 **Breaking changes:**
+
+If you are using the internal types directly:
 
 - Code referencing `MarkdownToJSX.NestedParser`, `MarkdownToJSX.Parser`, `MarkdownToJSX.Rule`, or `MarkdownToJSX.Rules` will need to be updated
 - The `renderRule` option in `MarkdownToJSX.Options` now uses `ASTRender` instead of `RuleOutput` for the `renderChildren` parameter type

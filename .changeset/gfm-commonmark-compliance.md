@@ -2,130 +2,95 @@
 'markdown-to-jsx': major
 ---
 
-Complete GFM+CommonMark specification compliance with comprehensive testing and refinements
+Complete GFM+CommonMark specification compliance
 
-This major version achieves full compliance with both GitHub Flavored Markdown (GFM) and CommonMark specifications through comprehensive testing, parser refinements, and specification alignment. All existing GFM features are now verified against official specifications and edge cases are properly handled.
-
-## ✅ Specification Compliance Achievements
-
-### GFM Extensions (All Previously Implemented)
-
-- **Tables**: Pipe-delimited tables with alignment support and inline markdown content
-- **Task Lists**: `[ ]` and `[x]` checkbox syntax in unordered lists
-- **Strikethrough**: `~~text~~` syntax with proper nesting and precedence rules
-- **Autolinks**: Bare URLs (including `www.` domains) and enhanced email detection
-- **HTML Filtering**: GitHub-compatible tag filtering for security
-
-### CommonMark Compatibility
-
-- **Verified against 652 official CommonMark test cases**
-- **Complete spec coverage** including edge cases and error conditions
-- **Consistent parsing behavior** across all markdown constructs
-
-## 🔧 Technical Improvements
-
-### Parser Refinements
-
-- **Edge case handling**: Improved parsing of malformed and edge-case markdown
-- **Performance optimizations**: Enhanced efficiency for complex markdown structures
-- **Memory safety**: Better handling of deeply nested and pathological inputs
-
-### Security Enhancements
-
-- **HTML tag filtering**: Default filtering of dangerous tags (`<script>`, `<iframe>`, etc.)
+- **Full CommonMark compliance**: All 652 official test cases now pass
+- **Verified GFM extensions**: Tables, task lists, strikethrough, autolinks with spec compliance
+- **Tag filtering**: Default filtering of dangerous HTML tags (`<script>`, `<iframe>`, etc.) in both HTML string output and React JSX output
 - **URL sanitization**: Protection against `javascript:`, `vbscript:`, and malicious `data:` URLs
-- **Autolink safety**: Secure bare URL detection without false positives
 
-## 📋 Compliance Status
-
-| Feature Area      | Previous Status | New Status           | Details                        |
-| ----------------- | --------------- | -------------------- | ------------------------------ |
-| CommonMark Core   | 268/652 tests   | 652/652 tests        | Complete spec compliance       |
-| GFM Tables        | ✅ Implemented  | ✅ Spec-verified     | Official test suite compliance |
-| GFM Task Lists    | ✅ Implemented  | ✅ Spec-verified     | Full syntax support            |
-| GFM Strikethrough | ✅ Implemented  | ✅ Spec-verified     | Proper precedence and nesting  |
-| GFM Autolinks     | ✅ Implemented  | ✅ Spec-verified     | Enhanced URL pattern detection |
-| HTML Security     | ✅ Basic        | ✅ GitHub-compatible | Complete tag filtering         |
-
-## 🧪 Testing & Validation
-
-### Comprehensive Test Coverage
-
-- **Official CommonMark test suite**: All 652 specification tests now pass
-- **GFM specification tests**: Complete coverage of GFM extensions
-- **Security regression tests**: Protection against XSS and injection attacks
-- **Performance benchmarks**: Maintained parsing speed despite increased compliance
-
-### Edge Case Handling
-
-- **Pathological inputs**: Protection against malicious or malformed markdown
-- **Deep nesting**: Safe handling of extremely nested structures
-- **Unicode support**: Proper handling of international characters and emojis
-- **Mixed syntax**: Correct precedence resolution in complex combinations
-
-## 🔒 Security & Safety
-
-### HTML Content Filtering
-
-Default filtering of potentially dangerous HTML tags:
+Default filtering of dangerous HTML tags:
 
 - `<script>`, `<iframe>`, `<object>`, `<embed>`
 - `<title>`, `<textarea>`, `<style>`, `<xmp>`
 - `<plaintext>`, `<noembed>`, `<noframes>`
 
-### URL Security
+## ⚠️ Breaking Changes
 
-Protection against malicious URL schemes:
+- **Tagfilter enabled by default**: Dangerous HTML tags are now escaped by default in both HTML and React output
+- **Inline formatting restrictions**: Inline formatting delimiters (emphasis, bold, strikethrough, mark) can no longer span across newlines, per CommonMark specification
 
-- `javascript:` and `vbscript:` protocol handlers
-- Malicious `data:` URLs (except safe `data:image/*`)
-- URL-encoded attack vectors
+## 📋 Migration
 
-## 📚 Documentation Updates
+### Tagfilter Migration
 
-- **GFM feature documentation**: Comprehensive examples and usage patterns
-- **Security guidelines**: Best practices for safe markdown processing
-- **Specification references**: Links to official CommonMark and GFM specs
-- **Migration notes**: Handling of edge cases and breaking changes
+No changes necessary in most cases, but if you need to render potentially dangerous HTML tags, you can disable tag filtering:
 
-## 🎯 Migration Considerations
-
-### No Breaking Changes for Typical Usage
-
-Most users will experience no changes in behavior. Existing markdown content continues to work exactly as before.
-
-### Potential Edge Case Changes
-
-- **Malformed HTML**: Previously accepted invalid HTML may now be filtered or escaped
-- **Edge case parsing**: Some ambiguous markdown constructs now follow strict specification rules
-- **Security filtering**: Previously allowed dangerous HTML/URLs may now be blocked
-
-### Configuration Options
-
-All security features can be customized or disabled via options:
-
-```typescript
-compiler(markdown, {
-  tagfilter: false, // Disable HTML tag filtering
-  sanitizer: customFn, // Custom URL sanitization
-})
+```ts
+compiler(markdown, { tagfilter: false })
 ```
 
-## Bundle Size Impact
+### Inline Formatting Migration
 
-The library is now ~27kB minzipped, up from ~6.75kB. Being spec-compliant for a complex DSL like markdown is quite hard to achieve in a generalized way, but I'm confident there will be further opportunities to trim down the bundle size down the road. In exchange for the extra bytes, the library is quite a bit faster now as well.
+**Previous Behavior (Non-Compliant):**
+The library previously allowed inline formatting to span multiple lines:
 
-## 📈 Performance Impact
+```markdown
+_Hello
+World._
+```
 
-### Benchmark Results
+This was parsed as a single `<em>` element containing the newline.
 
-Performance maintained with improvements in complex markdown parsing:
+**New Behavior (CommonMark Compliant):**
+Per CommonMark specification, inline formatting cannot span newlines. The above example is now parsed as literal underscores:
 
-| Input Type                             | Operations/sec    | Performance                |
-| -------------------------------------- | ----------------- | -------------------------- |
-| Simple markdown (`_Hello_ **world**!`) | 1,090,276 ops/sec | **6x faster than v8.0.0**  |
-| Large markdown (27KB spec)             | 1,889 ops/sec     | **28% faster than v8.0.0** |
+```markdown
+_Hello
+World._
+```
 
-## ✅ Quality Assurance
+Renders as: `<p>_Hello World._</p>`
 
-This release represents the most thoroughly tested and specification-compliant version of `markdown-to-jsx` to date, with complete coverage of both CommonMark and GFM specifications.
+**Impact:**
+
+- Single-line formatting still works: `*Hello World*` → `<em>Hello World</em>`
+- Multi-line formatting is now rejected: `*Hello\nWorld*` → literal asterisks
+- Affects all inline formatting: `*emphasis*`, `**bold**`, `~~strikethrough~~`, `==mark==`
+
+**Migration Options:**
+If you have markdown with multi-line inline formatting:
+
+1. Keep formatting on a single line: `*Hello World*`
+2. Use HTML tags: `<em>Hello\nWorld</em>`
+3. Accept that multi-line formatting renders as literal delimiters
+
+**Examples:**
+
+```markdown
+# Works (single line)
+
+_This is emphasized_
+**This is bold**
+
+# No longer works (multi-line)
+
+_This is
+emphasized_
+**This is
+bold**
+
+# Renders as literal delimiters:
+
+<p>_This is
+emphasized_</p>
+<p>**This is
+bold**</p>
+
+# Workaround: Use HTML tags
+
+<em>This is
+emphasized</em>
+<strong>This is
+bold</strong>
+```
