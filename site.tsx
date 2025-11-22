@@ -95,7 +95,7 @@ function PresetSelector({
   )
 
   return (
-    <div className="flex flex-wrap gap-2 justify-center mb-6 text-sm items-center">
+    <div className="hidden md:flex flex-wrap gap-2 justify-center mb-6 text-sm items-center">
       Other examples →
       <div className="flex flex-wrap gap-2">
         {presets.map(preset => (
@@ -209,11 +209,11 @@ function TryItLive() {
   )
 
   return (
-    <main className="flex flex-col items-center justify-center gap-7 pb-20">
-      <header className="text-center px-6 pt-20 pb-4">
+    <main className="flex flex-col items-center justify-center gap-7 pb-20 px-6 lg:px-0">
+      <header className="text-center pt-20 pb-4">
         <div className=" mx-auto text-base space-y-6">
           <h1 className="text-accent leading-tight">
-            <span className="font-display tracking-widest text-[9vw]">
+            <span className="font-display tracking-widest text-[15vw] lg:text-[9vw]">
               <FloatingText text="markdown-to-jsx" />
               <span className="text-[max(1vw,16px)] font-sans tracking-wider">
                 v{VERSION}
@@ -230,7 +230,7 @@ function TryItLive() {
 
           <div className="flex gap-2 justify-center">
             <a
-              className={`no-underline py-1 px-3 backdrop-blur-xs rounded-xl text-sm ${gradient}`}
+              className={`hidden md:inline-block no-underline py-1 px-3 backdrop-blur-xs rounded-xl text-sm ${gradient}`}
               href="#docs"
             >
               Jump to docs
@@ -253,7 +253,7 @@ function TryItLive() {
       <LavaLamp className="w-full h-full" />
 
       {/* Editor and Preview positioned over canvas */}
-      <section className="flex justify-center gap-0 w-[95%] items-start min-h-[400px] max-h-[80vh]">
+      <section className="hidden md:flex justify-center gap-0 w-[95%] items-start min-h-[400px] max-h-[80vh]">
         <div className="flex-1 flex flex-col gap-6 max-w-2xl self-stretch">
           <div className="text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.5 pb-1 rounded-xl leading-none self-center sticky top-2 z-10">
             Input
@@ -281,7 +281,7 @@ function TryItLive() {
       />
 
       <Markdown
-        className="max-w-2xl prose prose-invert prose-sm center"
+        className="max-w-full lg:max-w-2xl prose prose-invert prose-sm center"
         id="docs"
         options={options}
       >

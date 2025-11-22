@@ -150,7 +150,7 @@
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
     "build": "rimraf dist && bunup",
     "build:debug": "rimraf dist && bunup --filter main --minifyIdentifiers=false --minifyWhitespace=false",
-    "build-site": "rimraf dist-site && vite build",
+    "build-site": "rimraf docs && vite build",
     "dev": "vite dev --host",
     "entities": "bun scripts/generate-entities.ts",
     "fixture": "bun scripts/generate-fixture.ts",

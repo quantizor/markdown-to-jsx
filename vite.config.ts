@@ -157,6 +157,7 @@ export default defineConfig({
     copyPublicDir: true,
   },
   server: {
+    allowedHosts: ['dev.local'],
     port: 3000,
     open: false,
     fs: {
