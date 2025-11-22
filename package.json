@@ -100,9 +100,9 @@
     "@types/benchmark": "^2.1.5",
     "@types/bun": "^1.3.2",
     "@types/node": "^24.10.1",
-    "@types/react": "^19.2.5",
+    "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@vitejs/plugin-react": "^5.1.1",
     "acorn": "^8.15.0",
     "acorn-typescript": "^1.4.13",
     "benchtable": "^0.1.0",
@@ -137,7 +137,7 @@
     "three": "^0.181.1",
     "twgl": "^7.0.3",
     "typescript": "^5.9.3",
-    "vite": "^5.2.0",
+    "vite": "^7.2.2",
     "yaml-js": "^0.3.1"
   },
   "peerDependencies": {

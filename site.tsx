@@ -7,6 +7,7 @@ import { LavaLamp } from './src/site/lava-lamp'
 import { presets, type Preset } from './src/site/presets'
 // @ts-ignore
 import readmeContentRaw from './README.md?raw'
+import { get } from './src/utils'
 
 declare global {
   interface Window {
@@ -63,6 +64,7 @@ const options = {
         )
       }
     }
+
     return defaultOutput()
   },
 } as MarkdownToJSX.Options
@@ -184,6 +186,24 @@ function TryItLive() {
     return () => window.removeEventListener('preset-loaded', handler)
   }, [])
 
+  React.useEffect(() => {
+    const handleHashLink = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      const anchor = target.closest('a') as HTMLAnchorElement
+
+      if (anchor && anchor.hash && anchor.hash.startsWith('#')) {
+        const element = document.getElementById(anchor.hash.slice(1))
+        if (element) {
+          e.preventDefault()
+          element.scrollIntoView({ behavior: 'smooth' })
+        }
+      }
+    }
+
+    document.addEventListener('click', handleHashLink)
+    return () => document.removeEventListener('click', handleHashLink)
+  }, [])
+
   const handleInput = React.useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => setMarkdown(e.target.value),
     []
@@ -213,13 +233,6 @@ function TryItLive() {
             <a
               className={`no-underline py-1 px-3 backdrop-blur-xs rounded-xl text-sm ${gradient}`}
               href="#docs"
-              onClick={e => {
-                e.preventDefault()
-                const element = document.getElementById('docs')
-                if (element) {
-                  element.scrollIntoView({ behavior: 'smooth' })
-                }
-              }}
             >
               Jump to docs
             </a>
@@ -241,7 +254,7 @@ function TryItLive() {
       <LavaLamp className="w-full h-full" />
 
       {/* Editor and Preview positioned over canvas */}
-      <section className="flex justify-center gap-0 w-[95%] items-start max-h-[80vh]">
+      <section className="flex justify-center gap-0 w-[95%] items-start min-h-[400px] max-h-[80vh]">
         <div className="flex-1 flex flex-col gap-6 max-w-2xl self-stretch">
           <div className="text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.5 pb-1 rounded-xl leading-none self-center sticky top-2 z-10">
             Input
@@ -249,7 +262,7 @@ function TryItLive() {
           <textarea
             onInput={handleInput}
             value={markdown}
-            className="flex-1 p-4 backdrop-blur-md rounded-l-2xl border-2 border-accent/20 text-fg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 shadow-xl h-full min-h-[400px] border-r-0 selection:bg-accent/40 selection:text-inherit"
+            className="flex-1 p-4 backdrop-blur-md rounded-l-2xl border-2 border-accent/20 text-fg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 shadow-xl h-full border-r-0 selection:bg-accent/40 selection:text-inherit"
           />
         </div>
 

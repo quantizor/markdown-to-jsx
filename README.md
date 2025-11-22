@@ -13,11 +13,10 @@ Some special features of the library:
 
 - Fenced code blocks with [highlight.js](https://highlightjs.org/) support; see [Syntax highlighting](#syntax-highlighting) for instructions on setting up highlight.js.
 
-## Table of Contents
+<h2>Table of Contents</h2>
 
 <!-- TOC -->
 
-- [Table of Contents](#table-of-contents)
 - [Upgrading](#upgrading)
   - [From v8.x to v9.x](#from-v8x-to-v9x)
   - [From v7.x to v8.x](#from-v7x-to-v8x)
