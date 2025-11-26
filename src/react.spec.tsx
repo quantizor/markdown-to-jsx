@@ -3028,7 +3028,7 @@ describe('tagfilter option', () => {
 
     it('should escape iframe tags when tagfilter is enabled', () => {
       render(compiler('<iframe src="evil.com"></iframe>', { tagfilter: true }))
-      expect(root.innerHTML).toBe('<span>&lt;iframe src="evil.com"&gt;</span>')
+      expect(root.innerHTML).toBe('<span>&lt;iframe src=&quot;evil.com&quot;&gt;</span>')
     })
 
     it('should escape all filtered tags when tagfilter is enabled', () => {
@@ -3067,7 +3067,7 @@ describe('tagfilter option', () => {
         })
       )
       expect(root.innerHTML).toBe(
-        '<span>&lt;script src="evil.js" type="text/javascript"&gt;</span>'
+        '<span>&lt;script src=&quot;evil.js&quot; type=&quot;text/javascript&quot;&gt;</span>'
       )
     })
   })
@@ -3092,7 +3092,7 @@ describe('tagfilter option', () => {
 
     it('should escape iframe tags by default (tagfilter default is true)', () => {
       render(compiler('<iframe src="evil.com"></iframe>'))
-      expect(root.innerHTML).toBe('<span>&lt;iframe src="evil.com"&gt;</span>')
+      expect(root.innerHTML).toBe('<span>&lt;iframe src=&quot;evil.com&quot;&gt;</span>')
     })
   })
 
@@ -3136,7 +3136,7 @@ describe('tagfilter option', () => {
       )
       expect(root.innerHTML).toContain('<span>&lt;script&gt;</span>')
       expect(root.innerHTML).toContain(
-        '<span>&lt;iframe src="evil.com"&gt;</span>'
+        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;</span>'
       )
       expect(root.innerHTML).not.toContain('<script>')
       expect(root.innerHTML).not.toContain('<iframe>')
