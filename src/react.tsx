@@ -343,9 +343,10 @@ function render(
 
       // Apply options.tagfilter: escape dangerous self-closing tags
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
-        let escapedTag: string
+        let tagText: string
         if ('rawText' in htmlNode && typeof htmlNode.rawText === 'string') {
-          escapedTag = htmlNode.rawText.replace(/^</, '&lt;')
+          // Use raw text as-is, React will escape it
+          tagText = htmlNode.rawText
         } else {
           // Simple attribute formatting for filtered self-closing tags
           let attrStr = ''
@@ -362,12 +363,10 @@ function render(
               }
             }
           }
-          escapedTag = `&lt;${htmlNode.tag}${attrStr} />`
+          tagText = `<${htmlNode.tag}${attrStr} />`
         }
-        return h('span', {
-          key: state.key,
-          dangerouslySetInnerHTML: { __html: escapedTag },
-        })
+        // Pass unescaped tag as text child - React will escape it automatically
+        return h('span', { key: state.key }, tagText)
       }
 
       return h(node.tag, { key: state.key, ...node.attrs })

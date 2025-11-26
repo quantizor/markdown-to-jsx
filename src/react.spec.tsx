@@ -3099,12 +3099,12 @@ describe('tagfilter option', () => {
   describe('HTML self-closing with tagfilter', () => {
     it('should escape self-closing script tags when tagfilter is enabled', () => {
       render(compiler('<script src="evil.js" />', { tagfilter: true }))
-      expect(root.innerHTML).toBe('<span>&lt;script src="evil.js" /></span>')
+      expect(root.innerHTML).toBe('<span>&lt;script src=&quot;evil.js&quot; /&gt;</span>')
     })
 
     it('should escape self-closing iframe tags when tagfilter is enabled', () => {
       render(compiler('<iframe src="evil.com" />', { tagfilter: true }))
-      expect(root.innerHTML).toBe('<span>&lt;iframe src="evil.com" /></span>')
+      expect(root.innerHTML).toBe('<span>&lt;iframe src=&quot;evil.com&quot; /&gt;</span>')
     })
 
     it('should not escape self-closing non-filtered tags when tagfilter is enabled', () => {
