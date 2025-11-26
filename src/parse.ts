@@ -6377,19 +6377,34 @@ function createVerbatimHTMLBlock(
   attrs?: { [key: string]: any },
   rawAttrs?: string,
   isClosingTag?: boolean,
-  canInterruptParagraph?: boolean
+  canInterruptParagraph?: boolean,
+  options?: ParseOptions
 ): MarkdownToJSX.HTMLNode & {
   endPos: number
   isClosingTag?: boolean
   canInterruptParagraph?: boolean
 } {
+  // Detect empty unclosed HTML tags when forceBlock is used to avoid infinite recursion
+  // For empty unclosed tags like <var>, the text field contains the opening tag itself
+  // When forceBlock is used, this would cause recursion if the tag is parsed again
+  var finalText = text
+  if (options && options.forceBlock && text && !isClosingTag) {
+    var openingTagPattern = new RegExp(
+      '^<' + tagName.toLowerCase() + '(\\s[^>]*)?>$',
+      'i'
+    )
+    if (openingTagPattern.test(text.trim())) {
+      // Empty unclosed tag detected - render as empty element to avoid recursion
+      finalText = ''
+    }
+  }
   return {
     type: RuleType.htmlBlock,
     tag: tagName as MarkdownToJSX.HTMLTags,
     attrs: attrs || {},
     rawAttrs: rawAttrs,
     children: [],
-    text: text,
+    text: finalText,
     noInnerParse: true,
     isClosingTag: isClosingTag,
     canInterruptParagraph: canInterruptParagraph,
@@ -6420,7 +6435,6 @@ function processHTMLBlock(
   fullMatch: string,
   endPos: number,
   source: string,
-  pos: number,
   state: MarkdownToJSX.State,
   parentInAnchor: boolean,
   options: ParseOptions
@@ -6556,7 +6570,7 @@ function processHTMLBlock(
 
   // If type 6 block ended at blank line (or has no closing tag), treat content as verbatim (no parsing)
   // But if content has block-worthy content, parse it even if it ends with blank lines
-  const shouldTreatAsVerbatim =
+  var shouldTreatAsVerbatim =
     noInnerParse ||
     (isType6Block && endedAtBlankLine && !hasBlockContent(content))
 
@@ -6875,7 +6889,8 @@ function parseHTML(
             {},
             undefined,
             isClosingTag,
-            false // type 7 blocks cannot interrupt paragraphs
+            false, // type 7 blocks cannot interrupt paragraphs
+            options
           )
         }
 
@@ -6888,7 +6903,8 @@ function parseHTML(
           {},
           undefined,
           isClosingTag,
-          blockType === 'type6' // type 6 can interrupt, type 7 cannot
+          blockType === 'type6', // type 6 can interrupt, type 7 cannot
+          options
         )
       }
     }
@@ -7328,7 +7344,6 @@ function parseHTML(
         type1FullMatch,
         type1EndPos,
         source,
-        pos,
         state,
         false,
         options
@@ -7408,7 +7423,8 @@ function parseHTML(
           {},
           undefined,
           isClosingTag,
-          false // type 7 blocks cannot interrupt paragraphs
+          false, // type 7 blocks cannot interrupt paragraphs
+          options
         )
       }
 
@@ -7430,7 +7446,8 @@ function parseHTML(
           {},
           undefined,
           isClosingTag,
-          false // type 7 blocks cannot interrupt paragraphs
+          false, // type 7 blocks cannot interrupt paragraphs
+          options
         )
       }
 
@@ -7475,7 +7492,6 @@ function parseHTML(
             source.slice(pos, tagResult.endPos),
             blockEnd,
             source,
-            pos,
             state,
             false,
             options
@@ -7525,7 +7541,8 @@ function parseHTML(
         blockAttributes,
         blockAttrs,
         isClosingTag,
-        blockType === 'type6' ? true : false // type 6 can interrupt, type 7 cannot
+        blockType === 'type6' ? true : false, // type 6 can interrupt, type 7 cannot
+        options
       )
     }
   }

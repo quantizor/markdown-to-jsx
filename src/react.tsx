@@ -60,7 +60,6 @@ const HTML_TO_JSX_MAP: Record<string, string> = {
   usemap: 'useMap',
 }
 
-
 /**
  * Convert HTML attributes to JSX props
  * Maps HTML attribute names (e.g., "class", "for") to JSX prop names (e.g., "className", "htmlFor")
@@ -212,7 +211,7 @@ function render(
       // Apply options.tagfilter: escape dangerous tags
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
         let escapedTag: string
-        if (htmlNode.rawText) {
+        if ('rawText' in htmlNode && typeof htmlNode.rawText === 'string') {
           escapedTag = htmlNode.rawText.replace(/^</, '&lt;')
         } else {
           // Simple attribute formatting for filtered tags
@@ -221,14 +220,21 @@ function render(
             for (const [key, value] of Object.entries(htmlNode.attrs)) {
               if (value === true) {
                 attrStr += ` ${key}`
-              } else if (value !== undefined && value !== null && value !== false) {
+              } else if (
+                value !== undefined &&
+                value !== null &&
+                value !== false
+              ) {
                 attrStr += ` ${key}="${String(value)}"`
               }
             }
           }
           escapedTag = `&lt;${htmlNode.tag}${attrStr}&gt;`
         }
-        return h('span', { key: state.key, dangerouslySetInnerHTML: { __html: escapedTag } })
+        return h('span', {
+          key: state.key,
+          dangerouslySetInnerHTML: { __html: escapedTag },
+        })
       }
 
       if (htmlNode.text && htmlNode.noInnerParse) {
@@ -252,7 +258,9 @@ function render(
         }
 
         if (containsPreTags) {
-          const innerHtml = options.tagfilter ? util.applyTagFilterToText(htmlNode.text) : htmlNode.text
+          const innerHtml = options.tagfilter
+            ? util.applyTagFilterToText(htmlNode.text)
+            : htmlNode.text
           return h(node.tag, {
             key: state.key,
             ...node.attrs,
@@ -269,6 +277,17 @@ function render(
           .replace(/>\s+</g, '><')
           .replace(/\n+/g, ' ')
           .trim()
+
+        // Avoid infinite recursion: if cleanedText is just the same HTML tag we're processing,
+        // render as an empty element
+        const selfTagRegex = new RegExp(
+          `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,
+          'i'
+        )
+        if (selfTagRegex.test(cleanedText)) {
+          return h(node.tag, { key: state.key, ...node.attrs })
+        }
+
         const astNodes = parse.parseMarkdown(
           cleanedText,
           { inline: false, refs: refs, inHTML: false },
@@ -326,7 +345,7 @@ function render(
       // Apply options.tagfilter: escape dangerous self-closing tags
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
         let escapedTag: string
-        if (htmlNode.rawText) {
+        if ('rawText' in htmlNode && typeof htmlNode.rawText === 'string') {
           escapedTag = htmlNode.rawText.replace(/^</, '&lt;')
         } else {
           // Simple attribute formatting for filtered self-closing tags
@@ -335,14 +354,21 @@ function render(
             for (const [key, value] of Object.entries(htmlNode.attrs)) {
               if (value === true) {
                 attrStr += ` ${key}`
-              } else if (value !== undefined && value !== null && value !== false) {
+              } else if (
+                value !== undefined &&
+                value !== null &&
+                value !== false
+              ) {
                 attrStr += ` ${key}="${String(value)}"`
               }
             }
           }
           escapedTag = `&lt;${htmlNode.tag}${attrStr} />`
         }
-        return h('span', { key: state.key, dangerouslySetInnerHTML: { __html: escapedTag } })
+        return h('span', {
+          key: state.key,
+          dangerouslySetInnerHTML: { __html: escapedTag },
+        })
       }
 
       return h(node.tag, { key: state.key, ...node.attrs })
@@ -704,7 +730,14 @@ export function astToJSX(
       ? (ast[0] as MarkdownToJSX.ReferenceCollectionNode).refs
       : {}
 
-  const emitter = createRenderer(options.renderRule, h, sanitize, slug, refs, options)
+  const emitter = createRenderer(
+    options.renderRule,
+    h,
+    sanitize,
+    slug,
+    refs,
+    options
+  )
 
   const arr = emitter(ast, {
     inline: options.forceInline,
