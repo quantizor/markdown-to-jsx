@@ -1,0 +1,6 @@
+---
+alwaysApply: true
+---
+
+Use `bun` instead of `npm`.
+Use `bunx` instead of `npx`.
