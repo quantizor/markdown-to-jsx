@@ -210,9 +210,10 @@ function render(
 
       // Apply options.tagfilter: escape dangerous tags
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
-        let escapedTag: string
+        let tagText: string
         if ('rawText' in htmlNode && typeof htmlNode.rawText === 'string') {
-          escapedTag = htmlNode.rawText.replace(/^</, '&lt;')
+          // Use raw text as-is, React will escape it
+          tagText = htmlNode.rawText
         } else {
           // Simple attribute formatting for filtered tags
           let attrStr = ''
@@ -229,12 +230,10 @@ function render(
               }
             }
           }
-          escapedTag = `&lt;${htmlNode.tag}${attrStr}&gt;`
+          tagText = `<${htmlNode.tag}${attrStr}>`
         }
-        return h('span', {
-          key: state.key,
-          dangerouslySetInnerHTML: { __html: escapedTag },
-        })
+        // Pass unescaped tag as text child - React will escape it automatically
+        return h('span', { key: state.key }, tagText)
       }
 
       if (htmlNode.text && htmlNode.noInnerParse) {
