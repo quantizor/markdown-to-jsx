@@ -2829,6 +2829,27 @@ describe('overrides', () => {
       `"<div><div><div></div></div></div>"`
     )
   })
+
+  it('should pass complex data prop to custom CodeBlock component', () => {
+    const expectedData = [{ a: [{ b: 1 }] }]
+    let receivedData: unknown
+
+    const CodeBlock: React.FC<{ data?: string }> = ({ data }) => {
+      receivedData = data ? JSON.parse(data) : null
+      return <pre>{data}</pre>
+    }
+
+    render(
+      compiler(
+        `<CodeBlock data='${JSON.stringify(expectedData)}' />`,
+        {
+          overrides: { CodeBlock },
+        }
+      )
+    )
+
+    expect(receivedData).toEqual(expectedData)
+  })
 })
 
 it('should remove YAML front matter', () => {
