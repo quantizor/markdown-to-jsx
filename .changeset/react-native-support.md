@@ -13,4 +13,3 @@ Add comprehensive React Native support with new `/native` export. Includes:
 - **Performance**: Optimized rendering with proper React Native best practices and component lifecycle
 
 React Native is an optional peer dependency, making this a zero-dependency addition for existing users.
-
