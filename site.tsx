@@ -225,7 +225,7 @@ function TryItLive() {
           </h1>
           <p className="text-lg text-fg/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)] max-w-3xl mx-auto leading-relaxed">
             A fast and versatile markdown toolchain, 100% GFM-CommonMark
-            compliant.
+            compliant. AST, React, React Native, Markdown, and HTML output.
           </p>
 
           <div className="flex gap-2 justify-center">

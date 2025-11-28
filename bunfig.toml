@@ -3,3 +3,4 @@ minimumReleaseAge = 259200                      # 3d
 minimumReleaseAgeExcludes = ["markdown-to-jsx"]
 
 [test]
+preload = ["./src/__mocks__/react-native.ts"]

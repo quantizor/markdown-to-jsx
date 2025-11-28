@@ -1,0 +1,8 @@
+---
+globs: *.spec.ts,*.spec.tsx
+alwaysApply: false
+---
+
+- Test assertions may only have a single possible result.
+- Test assertions should be as specific as is practical.
+- Renderer suites should focus exclusively on renderer behavior, with the parser suite handling common parsing scenarios.
