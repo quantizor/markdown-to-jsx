@@ -32,9 +32,7 @@ Some special features of the library:
     - [All Options](#all-options)
     - [options.createElement](#optionscreateelement)
     - [options.forceWrapper](#optionsforcewrapper)
-    - [options.overrides - Void particular banned tags](#optionsoverrides---void-particular-banned-tags)
-    - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
-    - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
+    - [options.overrides](#optionsoverrides)
     - [options.renderRule](#optionsrenderrule)
     - [options.sanitizer](#optionssanitizer)
     - [options.slugify](#optionsslugify)
@@ -49,9 +47,6 @@ Some special features of the library:
     - [Example AST Structure](#example-ast-structure)
     - [Type Checking](#type-checking)
   - [Gotchas](#gotchas)
-    - [Passing props to stringified React components](#passing-props-to-stringified-react-components)
-    - [Significant indentation inside arbitrary HTML](#significant-indentation-inside-arbitrary-html)
-    - [Code blocks](#code-blocks)
 - [Changelog](#changelog)
 - [Donate](#donate)
 
@@ -66,37 +61,25 @@ Some special features of the library:
 - **`ast` option removed**: The `ast: true` option on `compiler()` has been removed. Use the new `parser()` function instead to access the AST directly.
 
 ```typescript
-// Before (v8)
-import { compiler } from 'markdown-to-jsx'
-const ast = compiler('# Hello world', { ast: true })
-
-// After (v9)
-import { parser } from 'markdown-to-jsx'
-const ast = parser('# Hello world')
+/** v8 */ compiler('# Hello world', { ast: true })
+/** v9 */ parser('# Hello world')
 ```
 
 - **`namedCodesToUnicode` option removed**: The `namedCodesToUnicode` option has been removed. All named HTML entities are now supported by default via the full entity list, so custom entity mappings are no longer needed.
 
 ```typescript
-// Before (v8)
-import { compiler } from 'markdown-to-jsx'
-compiler('&le; symbol', { namedCodesToUnicode: { le: '\u2264' } })
-
-// After (v9)
-import { compiler } from 'markdown-to-jsx'
-compiler('&le; symbol') // All entities supported automatically
+/** v8 */ compiler('&le; symbol', { namedCodesToUnicode: { le: '\u2264' } })
+/** v9 */ compiler('&le; symbol')
 ```
 
 - **`tagfilter` enabled by default**: Dangerous HTML tags (`script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`) are now escaped by default in both HTML string output and React JSX output. Previously these tags were rendered as JSX elements in React output.
 
 ```typescript
-// Before (v8) - tags rendered as JSX elements
-compiler('<script>alert("xss")</script>') // Rendered as <script> element
+/** v8 */ tags rendered as JSX elements
+/** v9 */ tags escaped by default
+compiler('<script>alert("xss")</script>') // <span>&lt;script&gt;</span>
 
-// After (v9) - tags escaped by default
-compiler('<script>alert("xss")</script>') // Renders as <span>&lt;script&gt;</span>
-
-// To restore old behavior:
+/** Restore old behavior */
 compiler('<script>alert("xss")</script>', { tagfilter: false })
 ```
 
@@ -122,33 +105,22 @@ import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
 1. **Replace `compiler(..., { ast: true })` with `parser()`**:
 
 ```typescript
-// Before
-import { compiler } from 'markdown-to-jsx'
-const ast = compiler(markdown, { ast: true })
-
-// After
-import { parser } from 'markdown-to-jsx'
-const ast = parser(markdown)
+/** v8 */ compiler(markdown, { ast: true })
+/** v9 */ parser(markdown)
 ```
 
 2. **Migrate React imports to `/react` entry point** (optional but recommended):
 
 ```typescript
-// Before
-import Markdown, { compiler } from 'markdown-to-jsx'
-
-// After (recommended)
-import Markdown, { compiler } from 'markdown-to-jsx/react'
+/** Legacy */ import from 'markdown-to-jsx'
+/** Recommended */ import from 'markdown-to-jsx/react'
 ```
 
 3. **Remove `namedCodesToUnicode` option**: All named HTML entities are now supported automatically, so you can remove any custom entity mappings.
 
 ```typescript
-// Before
-compiler('&le; symbol', { namedCodesToUnicode: { le: '\u2264' } })
-
-// After
-compiler('&le; symbol') // Works automatically
+/** v8 */ compiler('&le; symbol', { namedCodesToUnicode: { le: '\u2264' } })
+/** v9 */ compiler('&le; symbol')
 ```
 
 **Note:** The main entry point (`markdown-to-jsx`) continues to work for backward compatibility, but React code there is deprecated and will be removed in a future major release. Consider migrating to `markdown-to-jsx/react` for React-specific usage.
@@ -163,21 +135,15 @@ compiler('&le; symbol') // Works automatically
 - Type `ParserResult` renamed to `ASTNode` - If you were using `MarkdownToJSX.ParserResult` in your code, update to `MarkdownToJSX.ASTNode`
 
 ```typescript
-// Before
-const nodes: MarkdownToJSX.ParserResult[] = parse(markdown)
-
-// After
-const nodes: MarkdownToJSX.ASTNode[] = parse(markdown)
+/** v7 */ MarkdownToJSX.ParserResult[]
+/** v8+ */ MarkdownToJSX.ASTNode[]
 ```
 
 - Multiple `RuleType` enums consolidated into `RuleType.textFormatted` - If you were checking for `RuleType.textBolded`, `RuleType.textEmphasized`, `RuleType.textMarked`, or `RuleType.textStrikethroughed`, update to check for `RuleType.textFormatted` and inspect the node's boolean flags:
 
 ```typescript
-// Before
-if (node.type === RuleType.textBolded) { ... }
-
-// After
-if (node.type === RuleType.textFormatted && node.bold) { ... }
+/** v7 */ RuleType.textBolded
+/** v8+ */ RuleType.textFormatted && node.bold
 ```
 
 </details>
@@ -233,16 +199,13 @@ For React-specific usage, import from the `/react` entry point:
 ```tsx
 import Markdown, { compiler, parser, astToJSX } from 'markdown-to-jsx/react'
 
-// Use compiler for markdown → JSX
 const jsxElement = compiler('# Hello world')
 
-const markdown = `# Hello world`
-
 function App() {
-  return <Markdown children={markdown} />
+  return <Markdown children="# Hello world" />
 }
 
-// Or use parser + astToJSX for total control
+/** Or use parser + astToJSX */
 const ast = parser('# Hello world')
 const jsxElement2 = astToJSX(ast)
 ```
@@ -255,7 +218,6 @@ For React Native usage, import from the `/native` entry point:
 import Markdown, { compiler, parser, astToNative } from 'markdown-to-jsx/native'
 import { View, Text, StyleSheet, Linking } from 'react-native'
 
-// Use compiler for markdown → React Native components
 const nativeElement = compiler('# Hello world', {
   styles: {
     heading1: { fontSize: 32, fontWeight: 'bold' },
@@ -317,11 +279,9 @@ For HTML string output (server-side rendering), import from the `/html` entry po
 ```tsx
 import { compiler, html, parser } from 'markdown-to-jsx/html'
 
-// Convenience function that combines parsing and HTML rendering
 const htmlString = compiler('# Hello world')
-// Returns: '<h1>Hello world</h1>'
 
-// Or use parser + html separately for more control
+/** Or use parser + html */
 const ast = parser('# Hello world')
 const htmlString2 = html(ast)
 ```
@@ -333,14 +293,11 @@ For markdown-to-markdown compilation (normalization and formatting), import from
 ```typescript
 import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
 
-// Convenience function that parses and recompiles markdown
 const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
-// Returns: '# Hello world\n\nExtra spaces!\n'
 
-// Or work with AST directly
+/** Or work with AST */
 const ast = parser('# Hello  world')
 const normalizedMarkdown2 = astToMarkdown(ast)
-// Returns: '# Hello world\n'
 ```
 
 ### Library Options
@@ -410,225 +367,46 @@ By default, the compiler does not wrap the rendered contents if there is only a 
 <aside>Mumble, mumble…</aside>
 ```
 
-#### options.overrides - Void particular banned tags
+#### options.overrides
 
-Pass the `options.overrides` prop to the compiler or `<Markdown>` component with an implementation that return `null` for tags you wish to exclude from the rendered output. This provides complete removal of tags from the output.
+Override HTML tag rendering or render custom React components. Three use cases:
 
-**Note**: The `tagfilter` option provides default escaping of dangerous tags (`script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`). Use `overrides` when you need to:
-
-- Remove additional tags not covered by `tagfilter` (like `object`)
-- Have more control over tag removal vs. escaping
-- Disable `tagfilter` but still want to remove specific tags
-
-For example, to void the `iframe` tag:
+**1. Remove tags:** Return `null` to completely remove tags (beyond `tagfilter` escaping):
 
 ```tsx
-import Markdown from 'markdown-to-jsx'
-import React from 'react'
-import { render } from 'react-dom'
-
-render(
-  <Markdown options={{ overrides: { iframe: () => null } }}>
-    <iframe src="https://potentially-malicious-web-page.com/"></iframe>
-  </Markdown>,
-  document.body
-)
-
-// renders: ""
+<Markdown options={{ overrides: { iframe: () => null } }}>
+  <iframe src="..."></iframe>
+</Markdown>
 ```
 
-The library does not void any tags by default (except through `tagfilter` escaping), allowing you to choose the appropriate security approach for your use case.
-
-#### options.overrides - Override Any HTML Tag's Representation
-
-Pass the `options.overrides` prop to the compiler or `<Markdown>` component to seamlessly revise the rendered representation of any HTML tag. You can choose to change the component itself, add/change props, or both.
+**2. Override HTML tags:** Change component, props, or both:
 
 ```tsx
-import Markdown from 'markdown-to-jsx'
-import React from 'react'
-import { render } from 'react-dom'
-
-// surprise, it's a div instead!
 const MyParagraph = ({ children, ...props }) => <div {...props}>{children}</div>
 
-render(
-  <Markdown
-    options={{
-      overrides: {
-        h1: {
-          component: MyParagraph,
-          props: {
-            className: 'foo',
-          },
-        },
-      },
-    }}
-  >
-    # Hello world!
-  </Markdown>,
-  document.body
-)
+<Markdown options={{ overrides: { h1: { component: MyParagraph, props: { className: 'foo' } } } }}>
+  # Hello
+</Markdown>
 
-/*
-    renders:
-
-    <div class="foo">
-        Hello World
-    </div>
- */
+/** Simplified */ { overrides: { h1: MyParagraph } }
 ```
 
-If you only wish to provide a component override, a simplified syntax is available:
-
-```js
-{
-    overrides: {
-        h1: MyParagraph,
-    },
-}
-```
-
-Depending on the type of element, there are some props that must be preserved to ensure the markdown is converted as intended. They are:
-
-- `a`: `title`, `href`
-- `img`: `title`, `alt`, `src`
-- `input[type="checkbox"]`: `checked`, `readonly` (specifically, the one rendered by a GFM task list)
-- `ol`: `start`
-- `td`: `style`
-- `th`: `style`
-
-Any conflicts between passed `props` and the specific properties above will be resolved in favor of `markdown-to-jsx`'s code.
-
-Some element mappings are a bit different from other libraries, in particular:
-
-- `span`: Used for inline text.
-- `code`: Used for inline code.
-- `pre > code`: Code blocks are a `code` element with a `pre` as its direct ancestor.
-
-#### options.overrides - Rendering Arbitrary React Components
-
-One of the most interesting use cases enabled by the HTML syntax processing in `markdown-to-jsx` is the ability to use any kind of element, even ones that aren't real HTML tags like React component classes.
-
-By adding an override for the components you plan to use in markdown documents, it's possible to dynamically render almost anything. One possible scenario could be writing documentation:
+**3. Render React components:** Use custom components in markdown:
 
 ```tsx
-import Markdown from 'markdown-to-jsx'
-import React from 'react'
-import { render } from 'react-dom'
-
 import DatePicker from './date-picker'
 
-const md = `
-# DatePicker
+const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
 
-The DatePicker works by supplying a date to bias towards,
-as well as a default timezone.
-
-<DatePicker biasTowardDateTime="2017-12-05T07:39:36.091Z" timezone="UTC+5" />
-`
-
-render(
-  <Markdown
-    children={md}
-    options={{
-      overrides: {
-        DatePicker: {
-          component: DatePicker,
-        },
-      },
-    }}
-  />,
-  document.body
-)
+<Markdown options={{ overrides: { DatePicker } }}>{md}</Markdown>
 ```
 
-`markdown-to-jsx` also handles JSX interpolation syntax, but in a minimal way to not introduce a potential attack vector. Interpolations are sent to the component as their raw string, which the consumer can then `eval()` or process as desired to their security needs.
+**Important notes:**
 
-In the following case, `DatePicker` could simply run `parseInt()` on the passed `startTime` for example:
-
-```tsx
-import Markdown from 'markdown-to-jsx'
-import React from 'react'
-import { render } from 'react-dom'
-
-import DatePicker from './date-picker'
-
-const md = `
-# DatePicker
-
-The DatePicker works by supplying a date to bias towards,
-as well as a default timezone.
-
-<DatePicker
-  biasTowardDateTime="2017-12-05T07:39:36.091Z"
-  timezone="UTC+5"
-  startTime={1514579720511}
-/>
-`
-
-render(
-  <Markdown
-    children={md}
-    options={{
-      overrides: {
-        DatePicker: {
-          component: DatePicker,
-        },
-      },
-    }}
-  />,
-  document.body
-)
-```
-
-Another possibility is to use something like [recompose's `withProps()` HOC](https://github.com/acdlite/recompose/blob/main/docs/API.md#withprops) to create various pregenerated scenarios and then reference them by name in the markdown:
-
-```tsx
-import Markdown from 'markdown-to-jsx'
-import React from 'react'
-import { render } from 'react-dom'
-import withProps from 'recompose/withProps'
-
-import DatePicker from './date-picker'
-
-const DecemberDatePicker = withProps({
-  range: {
-    start: new Date('2017-12-01'),
-    end: new Date('2017-12-31'),
-  },
-  timezone: 'UTC+5',
-})(DatePicker)
-
-const md = `
-# DatePicker
-
-The DatePicker works by supplying a date to bias towards,
-as well as a default timezone.
-
-<DatePicker
-  biasTowardDateTime="2017-12-05T07:39:36.091Z"
-  timezone="UTC+5"
-  startTime={1514579720511}
-/>
-
-Here's an example of a DatePicker pre-set to only the month of December:
-
-<DecemberDatePicker />
-`
-
-render(
-  <Markdown
-    children={md}
-    options={{
-      overrides: {
-        DatePicker,
-        DecemberDatePicker,
-      },
-    }}
-  />,
-  document.body
-)
-```
+- Props are passed as strings; parse them in your component (e.g., `JSON.parse(columns)`)
+- JSX interpolations (`{value}`) are passed as raw strings
+- Some props are preserved: `a` (`href`, `title`), `img` (`src`, `alt`, `title`), `input[type="checkbox"]` (`checked`, `readonly`), `ol` (`start`), `td`/`th` (`style`)
+- Element mappings: `span` for inline text, `code` for inline code, `pre > code` for code blocks
 
 #### options.renderRule
 
@@ -678,7 +456,7 @@ This can be overridden and replaced with a custom sanitizer if desired via `opti
 // or
 
 compiler('[foo](javascript:alert("foo"))', {
-  sanitizer: (value, tag, attribute) => value,
+  sanitizer: value => value,
 })
 ```
 
@@ -687,14 +465,8 @@ compiler('[foo](javascript:alert("foo"))', {
 By default, a [lightweight deburring function](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate an HTML id from headings. You can override this by passing a function to `options.slugify`. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
 
 ```tsx
-<Markdown options={{ slugify: str => str }}># 中文</Markdown>
-
-// or
-
+;<Markdown options={{ slugify: str => str }}># 中文</Markdown>
 compiler('# 中文', { slugify: str => str })
-
-// renders:
-<h1 id="中文">中文</h1>
 ```
 
 The original function is available as a library export called `slugify`.
@@ -706,20 +478,9 @@ When there are multiple children to be rendered, the compiler will wrap the outp
 ```tsx
 const str = '# Heck Yes\n\nThis is great!'
 
-<Markdown options={{ wrapper: 'article' }}>
-  {str}
-</Markdown>;
+<Markdown options={{ wrapper: 'article' }}>{str}</Markdown>
 
-// or
-
-compiler(str, { wrapper: 'article' });
-
-// renders
-
-<article>
-  <h1>Heck Yes</h1>
-  <p>This is great!</p>
-</article>
+compiler(str, { wrapper: 'article' })
 ```
 
 ##### Other useful recipes
@@ -727,10 +488,9 @@ compiler(str, { wrapper: 'article' });
 To get an array of children back without a wrapper, set `wrapper` to `null`. This is particularly useful when using `compiler(…)` directly.
 
 ```tsx
-compiler('One\n\nTwo\n\nThree', { wrapper: null })
-
-// returns
-;[<p>One</p>, <p>Two</p>, <p>Three</p>]
+compiler('One\n\nTwo\n\nThree', { wrapper: null })[
+  /** Returns */ ((<p>One</p>), (<p>Two</p>), (<p>Three</p>))
+]
 ```
 
 To render children at the same DOM level as `<Markdown>` with no HTML wrapper, set `wrapper` to `React.Fragment`. This will still wrap your children in a React node for the purposes of rendering, but the wrapper element won't show up in the DOM.
@@ -740,17 +500,14 @@ To render children at the same DOM level as `<Markdown>` with no HTML wrapper, s
 Props to apply to the wrapper element when `wrapper` is used.
 
 ```tsx
-<Markdown options={{
-  wrapper: 'article',
-  wrapperProps: { className: 'post', 'data-testid': 'markdown-content' }
-}}>
+<Markdown
+  options={{
+    wrapper: 'article',
+    wrapperProps: { className: 'post', 'data-testid': 'markdown-content' },
+  }}
+>
   # Hello World
 </Markdown>
-
-// renders
-<article class="post" data-testid="markdown-content">
-  <h1>Hello World</h1>
-</article>
 ```
 
 ### Syntax highlighting
@@ -846,9 +603,6 @@ function Example() {
     </Markdown>
   )
 }
-
-// renders
-// <span>On a beautiful summer day, all I want to do is <span>🙂</span>.</span>
 ```
 
 When you use `options.renderRule`, any React-renderable JSX may be returned including images and GIFs. Ensure you benchmark your solution as the `text` rule is one of the hottest paths in the system!
@@ -1024,91 +778,28 @@ if (node.type === RuleType.heading) {
 
 ### Gotchas
 
-#### Passing props to stringified React components
-
-Using the [`options.overrides`](#optionsoverrides---rendering-arbitrary-react-components) functionality to render React components, props are passed into the component in stringifed form. It is up to you to parse the string to make use of the data.
+**Props are stringified:** When using `overrides` with React components, props are passed as strings. Parse them in your component:
 
 ```tsx
-const Table: React.FC<
-  JSX.IntrinsicElements['table'] & {
-    columns: string
-    dataSource: string
-  }
-> = ({ columns, dataSource, ...props }) => {
+const Table = ({ columns, dataSource, ...props }) => {
   const parsedColumns = JSON.parse(columns)
   const parsedData = JSON.parse(dataSource)
-
-  return (
-    <div {...props}>
-      <h1>Columns</h1>
-      {parsedColumns.map(column => (
-        <span key={column.key}>{column.title}</span>
-      ))}
-
-      <h2>Data</h2>
-      {parsedData.map(datum => (
-        <span key={datum.key}>{datum.Month}</span>
-      ))}
-    </div>
-  )
+  // ... use parsed data
 }
-
-/**
- * Example HTML in markdown:
- *
- * <Table
- *    columns={[{ title: 'Month', dataIndex: 'Month', key: 'Month' }]}
- *    dataSource={[
- *      {
- *        Month: '2024-09-01',
- *        'Forecasted Revenue': '$3,137,678.85',
- *        'Forecasted Expenses': '$2,036,660.28',
- *        key: 0,
- *      },
- *    ]}
- *  />
- */
 ```
 
-#### Significant indentation inside arbitrary HTML
+**HTML indentation:** Leading whitespace in HTML blocks is auto-trimmed based on the first line's indentation to avoid markdown syntax conflicts.
 
-People usually write HTML like this:
-
-```html
-<div>Hey, how are you?</div>
-```
-
-Note the leading spaces before the inner content. This sort of thing unfortunately clashes with existing markdown syntaxes since 4 spaces === a code block and other similar collisions.
-
-To get around this, `markdown-to-jsx` left-trims approximately as much whitespace as the first line inside the HTML block. So for example:
-
-```html
-<div># Hello How are you?</div>
-```
-
-The two leading spaces in front of "# Hello" would be left-trimmed from all lines inside the HTML block. In the event that there are varying amounts of indentation, only the amount of the first line is trimmed.
-
-> NOTE! These syntaxes work just fine when you aren't writing arbitrary HTML wrappers inside your markdown. This is very much an edge case of an edge case. 🙃
-
-#### Code blocks
-
-⛔️
-
-```md
-<div>
-    var some = code();
-</div>
-```
-
-✅
+**Code in HTML:** Don't put code directly in HTML divs. Use fenced code blocks instead:
 
 ````md
 <div>
 ```js
-var some = code();
-```
-</div>
+var code = here();
 ````
+
+</div>
+```
 
 ## Changelog
 
