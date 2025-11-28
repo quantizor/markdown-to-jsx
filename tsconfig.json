@@ -13,5 +13,6 @@
     "preserveConstEnums": true,
     "target": "ESNext"
   },
-  "files": ["src/index.tsx"]
+  "files": ["src/index.tsx"],
+  "exclude": ["**/*.spec.ts", "**/*.spec.tsx"]
 }
