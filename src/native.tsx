@@ -750,13 +750,17 @@ export function astToNative(
             inline: true,
             refs: refs,
           })
+          const wrappedContent =
+            typeof footnoteContent === 'string'
+              ? createElement(Text, {}, footnoteContent)
+              : footnoteContent
           return createElement(
             View,
             {
               key: def.identifier,
             },
             createElement(Text, {}, identifierWithoutCaret + ': '),
-            footnoteContent
+            wrappedContent
           )
         })
       )

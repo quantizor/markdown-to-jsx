@@ -945,3 +945,16 @@ describe('edge cases - HTML tag rendering', () => {
     expect(isComponentType(element, View)).toBe(true)
   })
 })
+
+describe('footnotes', () => {
+  it('should render plain text footnote content wrapped in Text component', () => {
+    const result = compiler(`foo[^1] bar\n\n[^1]: Simple text`)
+    const textContent = extractTextContent(result)
+    expect(textContent).toContain('Simple text')
+    expect(() => {
+      // This should not throw "Text strings must be rendered within a Text component"
+      const element = getFirstElement(result)
+      expect(element).toBeDefined()
+    }).not.toThrow()
+  })
+})
