@@ -29,27 +29,20 @@ Some special features of the library:
     - [HTML](#html)
     - [Markdown](#markdown)
   - [Library Options](#library-options)
-    - [options.forceBlock](#optionsforceblock)
-    - [options.forceInline](#optionsforceinline)
-    - [options.wrapper](#optionswrapper)
-      - [Other useful recipes](#other-useful-recipes)
-    - [options.wrapperProps](#optionswrapperprops)
+    - [All Options](#all-options)
+    - [options.createElement](#optionscreateelement)
     - [options.forceWrapper](#optionsforcewrapper)
     - [options.overrides - Void particular banned tags](#optionsoverrides---void-particular-banned-tags)
     - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
     - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
-    - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
-    - [options.enforceAtxHeadings](#optionsenforceatxheadings)
     - [options.renderRule](#optionsrenderrule)
     - [options.sanitizer](#optionssanitizer)
     - [options.slugify](#optionsslugify)
-    - [options.disableAutoLink](#optionsdisableautolink)
-    - [options.preserveFrontmatter](#optionspreservefrontmatter)
-    - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
-    - [options.tagfilter](#optionstagfilter)
+    - [options.wrapper](#optionswrapper)
+      - [Other useful recipes](#other-useful-recipes)
+    - [options.wrapperProps](#optionswrapperprops)
   - [Syntax highlighting](#syntax-highlighting)
   - [Handling shortcodes](#handling-shortcodes)
-  - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
   - [Usage with Preact](#usage-with-preact)
   - [AST Anatomy](#ast-anatomy)
     - [Node Types](#node-types)
@@ -309,6 +302,7 @@ function App() {
 
 **HTML Tag Mapping:**
 HTML tags are automatically mapped to React Native components:
+
 - `<img>` → `Image` component
 - Block elements (`<div>`, `<section>`, `<article>`, `<blockquote>`, `<ul>`, `<ol>`, `<li>`, `<table>`, etc.) → `View` component
 - Inline elements (`<span>`, `<strong>`, `<em>`, `<a>`, etc.) → `Text` component
@@ -351,99 +345,54 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 
 ### Library Options
 
-#### options.forceBlock
+#### All Options
 
-By default, the compiler will try to make an intelligent guess about the content passed and wrap it in a `<div>`, `<p>`, or `<span>` as needed to satisfy the "inline"-ness of the markdown. For instance, this string would be considered "inline":
+| Option                  | Type                          | Default  | Description                                                                                                               |
+| ----------------------- | ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `createElement`         | `function`                    | -        | Custom React.createElement behavior (React/React Native only). See [createElement](#optionscreateelement) for details.    |
+| `disableAutoLink`       | `boolean`                     | `false`  | Disable automatic conversion of bare URLs to anchor tags.                                                                 |
+| `disableParsingRawHTML` | `boolean`                     | `false`  | Disable parsing of raw HTML into JSX.                                                                                     |
+| `enforceAtxHeadings`    | `boolean`                     | `false`  | Require space between `#` and header text (GFM spec compliance).                                                          |
+| `forceBlock`            | `boolean`                     | `false`  | Force all content to be treated as block-level.                                                                           |
+| `forceInline`           | `boolean`                     | `false`  | Force all content to be treated as inline.                                                                                |
+| `forceWrapper`          | `boolean`                     | `false`  | Force wrapper even with single child (React/React Native only). See [forceWrapper](#optionsforcewrapper) for details.     |
+| `overrides`             | `object`                      | -        | Override HTML tag rendering. See [overrides](#optionsoverrides) for details.                                              |
+| `preserveFrontmatter`   | `boolean`                     | `false`  | Include frontmatter in rendered output (as `<pre>` for HTML/JSX, included in markdown). Behavior varies by compiler type. |
+| `renderRule`            | `function`                    | -        | Custom rendering for AST rules. See [renderRule](#optionsrenderrule) for details.                                         |
+| `sanitizer`             | `function`                    | built-in | Custom URL sanitizer function. See [sanitizer](#optionssanitizer) for details.                                            |
+| `slugify`               | `function`                    | built-in | Custom slug generation for heading IDs. See [slugify](#optionsslugify) for details.                                       |
+| `tagfilter`             | `boolean`                     | `true`   | Escape dangerous HTML tags (`script`, `iframe`, `style`, etc.) to prevent XSS.                                            |
+| `wrapper`               | `string \| component \| null` | `'div'`  | Wrapper element for multiple children (React/React Native only). See [wrapper](#optionswrapper) for details.              |
+| `wrapperProps`          | `object`                      | -        | Props for wrapper element (React/React Native only). See [wrapperProps](#optionswrapperprops) for details.                |
 
-```md
-Hello. _Beautiful_ day isn't it?
-```
+#### options.createElement
 
-But this string would be considered "block" due to the existence of a header tag, which is a block-level HTML element:
+Sometimes, you might want to override the `React.createElement` default behavior to hook into the rendering process before the JSX gets rendered. This might be useful to add extra children or modify some props based on runtime conditions. The function mirrors the `React.createElement` function, so the params are [`type, [props], [...children]`](https://reactjs.org/docs/react-api.html#createelement):
 
-```md
-# Whaddup?
-```
+```javascript
+import Markdown from 'markdown-to-jsx'
+import React from 'react'
+import { render } from 'react-dom'
 
-However, if you really want all input strings to be treated as "block" layout, simply pass `options.forceBlock = true` like this:
+const md = `
+# Hello world
+`
 
-```tsx
-<Markdown options={{ forceBlock: true }}>Hello there old chap!</Markdown>
-
-// or
-
-compiler('Hello there old chap!', { forceBlock: true })
-
-// renders
-<p>Hello there old chap!</p>
-```
-
-#### options.forceInline
-
-The inverse is also available by passing `options.forceInline = true`:
-
-```tsx
-<Markdown options={{ forceInline: true }}># You got it babe!</Markdown>
-
-// or
-compiler('# You got it babe!', { forceInline: true })
-
-// renders
-<span># You got it babe!</span>
-```
-
-#### options.wrapper
-
-When there are multiple children to be rendered, the compiler will wrap the output in a `div` by default. You can override this default by setting the `wrapper` option to either a string (React Element) or a component.
-
-```tsx
-const str = '# Heck Yes\n\nThis is great!'
-
-<Markdown options={{ wrapper: 'article' }}>
-  {str}
-</Markdown>;
-
-// or
-
-compiler(str, { wrapper: 'article' });
-
-// renders
-
-<article>
-  <h1>Heck Yes</h1>
-  <p>This is great!</p>
-</article>
-```
-
-##### Other useful recipes
-
-To get an array of children back without a wrapper, set `wrapper` to `null`. This is particularly useful when using `compiler(…)` directly.
-
-```tsx
-compiler('One\n\nTwo\n\nThree', { wrapper: null })
-
-// returns
-;[<p>One</p>, <p>Two</p>, <p>Three</p>]
-```
-
-To render children at the same DOM level as `<Markdown>` with no HTML wrapper, set `wrapper` to `React.Fragment`. This will still wrap your children in a React node for the purposes of rendering, but the wrapper element won't show up in the DOM.
-
-#### options.wrapperProps
-
-Props to apply to the wrapper element when `wrapper` is used.
-
-```tsx
-<Markdown options={{
-  wrapper: 'article',
-  wrapperProps: { className: 'post', 'data-testid': 'markdown-content' }
-}}>
-  # Hello World
-</Markdown>
-
-// renders
-<article class="post" data-testid="markdown-content">
-  <h1>Hello World</h1>
-</article>
+render(
+  <Markdown
+    children={md}
+    options={{
+      createElement(type, props, children) {
+        return (
+          <div className="parent">
+            {React.createElement(type, props, children)}
+          </div>
+        )
+      },
+    }}
+  />,
+  document.body
+)
 ```
 
 #### options.forceWrapper
@@ -681,42 +630,6 @@ render(
 )
 ```
 
-#### options.createElement - Custom React.createElement behavior
-
-Sometimes, you might want to override the `React.createElement` default behavior to hook into the rendering process before the JSX gets rendered. This might be useful to add extra children or modify some props based on runtime conditions. The function mirrors the `React.createElement` function, so the params are [`type, [props], [...children]`](https://reactjs.org/docs/react-api.html#createelement):
-
-```javascript
-import Markdown from 'markdown-to-jsx'
-import React from 'react'
-import { render } from 'react-dom'
-
-const md = `
-# Hello world
-`
-
-render(
-  <Markdown
-    children={md}
-    options={{
-      createElement(type, props, children) {
-        return (
-          <div className="parent">
-            {React.createElement(type, props, children)}
-          </div>
-        )
-      },
-    }}
-  />,
-  document.body
-)
-```
-
-#### options.enforceAtxHeadings
-
-Forces the compiler to have space between hash sign `#` and the header text which is explicitly stated in the most of the [markdown specs](https://github.github.com/gfm/#atx-heading).
-
-> The opening sequence of `#` characters must be followed by a space or by the end of line.
-
 #### options.renderRule
 
 Supply your own rendering function that can selectively override how _rules_ are rendered (note, this is different than _`options.overrides`_ which operates at the HTML tag level and is more general). You can use this functionality to do pretty much anything with an established AST node; here's an example of selectively overriding the "codeBlock" rule to process LaTeX syntax using the `@matejmazur/react-katex` library:
@@ -786,123 +699,59 @@ compiler('# 中文', { slugify: str => str })
 
 The original function is available as a library export called `slugify`.
 
-#### options.disableAutoLink
+#### options.wrapper
 
-By default, bare URLs in the markdown document will be converted into an anchor tag. This behavior can be disabled if desired.
-
-```tsx
-<Markdown options={{ disableAutoLink: true }}>
-  The URL https://quantizor.dev will not be rendered as an anchor tag.
-</Markdown>
-
-// or
-
-compiler(
-  'The URL https://quantizor.dev will not be rendered as an anchor tag.',
-  { disableAutoLink: true }
-)
-
-// renders:
-
-<span>
-  The URL https://quantizor.dev will not be rendered as an anchor tag.
-</span>
-```
-
-#### options.preserveFrontmatter
-
-By default, YAML frontmatter at the beginning of markdown documents is parsed but not rendered in the output. Set this option to `true` to include the frontmatter in the rendered output. For HTML/JSX output, frontmatter is rendered as a `<pre>` element. For markdown-to-markdown compilation, frontmatter is included in the output markdown.
-
-| Compiler Type    | Default Behavior            | When `preserveFrontmatter: true`                  | When `preserveFrontmatter: false` |
-| ---------------- | --------------------------- | ------------------------------------------------- | --------------------------------- |
-| **React/HTML**   | ❌ Don't render frontmatter | ✅ Render as `<pre>` element                      | ❌ Don't render frontmatter       |
-| **React Native** | ❌ Don't render frontmatter | ✅ Render as `<View><Text>` with frontmatter text | ❌ Don't render frontmatter       |
-| **Markdown**     | ✅ Preserve frontmatter     | ✅ Preserve frontmatter                           | ❌ Exclude frontmatter            |
+When there are multiple children to be rendered, the compiler will wrap the output in a `div` by default. You can override this default by setting the `wrapper` option to either a string (React Element) or a component.
 
 ```tsx
-<Markdown options={{ preserveFrontmatter: true }}>
-{`---
-title: My Document
-author: John Doe
----
+const str = '# Heck Yes\n\nThis is great!'
 
-# Content
-
-This is the main content.`
-}
-</Markdown>
-
-// renders:
-
-<div>
-  <pre>---
-title: My Document
-author: John Doe
----</pre>
-  <h1>Content</h1>
-  <p>This is the main content.</p>
-</div>
-```
-
-For markdown-to-markdown compilation:
-
-```tsx
-import { compiler } from 'markdown-to-jsx/markdown'
-
-const markdown = `---
-title: My Document
-author: John Doe
----
-
-# Content`
-
-// With preserveFrontmatter: true (default)
-compiler(markdown, { preserveFrontmatter: true })
-// returns: "---\ntitle: My Document\nauthor: John Doe\n---\n\n# Content"
-
-// With preserveFrontmatter: false
-compiler(markdown, { preserveFrontmatter: false })
-// returns: "# Content"
-```
-
-#### options.disableParsingRawHTML
-
-By default, raw HTML is parsed to JSX. This behavior can be disabled if desired.
-
-```tsx
-<Markdown options={{ disableParsingRawHTML: true }}>
-    This text has <span>html</span> in it but it won't be rendered
+<Markdown options={{ wrapper: 'article' }}>
+  {str}
 </Markdown>;
 
 // or
 
-compiler('This text has <span>html</span> in it but it won't be rendered', { disableParsingRawHTML: true });
+compiler(str, { wrapper: 'article' });
 
-// renders:
+// renders
 
-<span>This text has &lt;span&gt;html&lt;/span&gt; in it but it won't be rendered</span>
+<article>
+  <h1>Heck Yes</h1>
+  <p>This is great!</p>
+</article>
 ```
 
-#### options.tagfilter
+##### Other useful recipes
 
-By default, dangerous HTML tags are filtered and escaped to prevent XSS attacks. This applies to both HTML string output and React JSX output. The following tags are filtered: `script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`.
+To get an array of children back without a wrapper, set `wrapper` to `null`. This is particularly useful when using `compiler(…)` directly.
 
 ```tsx
-// Tags are escaped by default (GFM-compliant)
-compiler('<script>alert("xss")</script>')
-// HTML output: '<span>&lt;script&gt;</span>'
-// React output: <span>&lt;script&gt;</span>
+compiler('One\n\nTwo\n\nThree', { wrapper: null })
 
-// Disable tag filtering:
-compiler('<script>alert("xss")</script>', { tagfilter: false })
-// HTML output: '<script></script>'
-// React output: <script></script>
+// returns
+;[<p>One</p>, <p>Two</p>, <p>Three</p>]
 ```
 
-**Note**: Even when `tagfilter` is disabled, other security measures remain active:
+To render children at the same DOM level as `<Markdown>` with no HTML wrapper, set `wrapper` to `React.Fragment`. This will still wrap your children in a React node for the purposes of rendering, but the wrapper element won't show up in the DOM.
 
-- URL sanitization preventing `javascript:` and `vbscript:` schemes in `href` and `src` attributes
-- Protection against `data:` URLs (except safe `data:image/*` MIME types)
+#### options.wrapperProps
+
+Props to apply to the wrapper element when `wrapper` is used.
+
+```tsx
+<Markdown options={{
+  wrapper: 'article',
+  wrapperProps: { className: 'post', 'data-testid': 'markdown-content' }
+}}>
+  # Hello World
+</Markdown>
+
+// renders
+<article class="post" data-testid="markdown-content">
+  <h1>Hello World</h1>
+</article>
+```
 
 ### Syntax highlighting
 
@@ -940,7 +789,7 @@ function App() {
 }
 
 function SyntaxHighlightedCode(props) {
-  const ref = (React.useRef < HTMLElement) | (null > null)
+  const ref = React.useRef<HTMLElement | null>(null)
 
   React.useEffect(() => {
     if (ref.current && props.className?.includes('lang-') && window.hljs) {
@@ -1003,17 +852,6 @@ function Example() {
 ```
 
 When you use `options.renderRule`, any React-renderable JSX may be returned including images and GIFs. Ensure you benchmark your solution as the `text` rule is one of the hottest paths in the system!
-
-### Getting the smallest possible bundle size
-
-Many development conveniences are placed behind `process.env.NODE_ENV !== "production"` conditionals. When bundling your app, it's a good idea to replace these code snippets such that a minifier (like uglify) can sweep them away and leave a smaller overall bundle.
-
-Here are instructions for some of the popular bundlers:
-
-- [webpack](https://webpack.js.org/guides/production/#specify-the-environment)
-- [browserify plugin](https://github.com/hughsk/envify)
-- [parcel](https://parceljs.org/production.html)
-- [fuse-box](http://fuse-box.org/plugins/replace-plugin#notes)
 
 ### Usage with Preact
 
