@@ -5,6 +5,8 @@ import * as recast from 'recast'
 import { createRequire } from 'module'
 import tailwindcss from '@tailwindcss/vite'
 import packageJson from './package.json'
+import { readFileSync, writeFileSync } from 'fs'
+import { join } from 'path'
 
 const require = createRequire(import.meta.url)
 
@@ -133,6 +135,18 @@ function removeDebugVitePlugin(): Plugin {
   }
 }
 
+function copyLlmsTxtPlugin(): Plugin {
+  return {
+    name: 'copy-llms-txt',
+    closeBundle() {
+      var readmePath = join(process.cwd(), 'README.md')
+      var outputPath = join(process.cwd(), 'docs', 'llms.txt')
+      var readmeContent = readFileSync(readmePath, 'utf-8')
+      writeFileSync(outputPath, readmeContent, 'utf-8')
+    },
+  }
+}
+
 export default defineConfig({
   appType: 'spa',
   plugins: [
@@ -142,6 +156,7 @@ export default defineConfig({
     }),
     tailwindcss(),
     removeDebugVitePlugin(),
+    copyLlmsTxtPlugin(),
   ],
   define: {
     VERSION: JSON.stringify(packageJson.version.split('.')[0]),
