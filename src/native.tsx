@@ -484,7 +484,7 @@ function render(
         { key: state.key, style: listStyle },
         listNode.items.map((item, i) => {
           const number =
-            isOrdered && 'start' in listNode && listNode.start
+            isOrdered && 'start' in listNode && listNode.start != null
               ? listNode.start + i
               : i + 1
           const bullet = isOrdered ? `${number}.` : '•'

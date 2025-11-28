@@ -483,6 +483,28 @@ describe('AST node rendering', () => {
     expect(text).toContain('Item 2')
   })
 
+  it('should render ordered list with start=0 correctly', () => {
+    const ast: MarkdownToJSX.OrderedListNode = {
+      type: RuleType.orderedList,
+      items: [
+        [{ type: RuleType.text, text: 'Item 0' }],
+        [{ type: RuleType.text, text: 'Item 1' }],
+        [{ type: RuleType.text, text: 'Item 2' }],
+      ],
+      start: 0,
+    }
+    const result = astToNative([ast])
+    const element = getFirstElement(result)
+    expect(isComponentType(element, View)).toBe(true)
+    const text = extractTextContent(element)
+    expect(text).toContain('0.')
+    expect(text).toContain('Item 0')
+    expect(text).toContain('1.')
+    expect(text).toContain('Item 1')
+    expect(text).toContain('2.')
+    expect(text).toContain('Item 2')
+  })
+
   it('should render unordered list as View with Text bullets', () => {
     const ast = parser('- Item 1\n- Item 2')
     const result = astToNative(ast)
