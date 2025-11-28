@@ -1522,30 +1522,24 @@ Some special features of the library:
   - [Entry Points](#entry-points)
     - [Main](#main)
     - [React](#react)
+    - [React Native](#react-native)
     - [HTML](#html)
     - [Markdown](#markdown)
   - [Library Options](#library-options)
-    - [options.forceBlock](#optionsforceblock)
-    - [options.forceInline](#optionsforceinline)
-    - [options.wrapper](#optionswrapper)
-      - [Other useful recipes](#other-useful-recipes)
-    - [options.wrapperProps](#optionswrapperprops)
+    - [All Options](#all-options)
+    - [options.createElement](#optionscreateelement)
     - [options.forceWrapper](#optionsforcewrapper)
     - [options.overrides - Void particular banned tags](#optionsoverrides---void-particular-banned-tags)
     - [options.overrides - Override Any HTML Tag's Representation](#optionsoverrides---override-any-html-tags-representation)
     - [options.overrides - Rendering Arbitrary React Components](#optionsoverrides---rendering-arbitrary-react-components)
-    - [options.createElement - Custom React.createElement behavior](#optionscreateelement---custom-reactcreateelement-behavior)
-    - [options.enforceAtxHeadings](#optionsenforceatxheadings)
     - [options.renderRule](#optionsrenderrule)
     - [options.sanitizer](#optionssanitizer)
     - [options.slugify](#optionsslugify)
-    - [options.disableAutoLink](#optionsdisableautolink)
-    - [options.preserveFrontmatter](#optionspreservefrontmatter)
-    - [options.disableParsingRawHTML](#optionsdisableparsingrawhtml)
-    - [options.tagfilter](#optionstagfilter)
+    - [options.wrapper](#optionswrapper)
+      - [Other useful recipes](#other-useful-recipes)
+    - [options.wrapperProps](#optionswrapperprops)
   - [Syntax highlighting](#syntax-highlighting)
   - [Handling shortcodes](#handling-shortcodes)
-  - [Getting the smallest possible bundle size](#getting-the-smallest-possible-bundle-size)
   - [Usage with Preact](#usage-with-preact)
   - [AST Anatomy](#ast-anatomy)
     - [Node Types](#node-types)
@@ -1750,6 +1744,69 @@ const ast = parser('# Hello world')
 const jsxElement2 = astToJSX(ast)
 \`\`\`
 
+#### React Native
+
+For React Native usage, import from the \`/native\` entry point:
+
+\`\`\`tsx
+import Markdown, { compiler, parser, astToNative } from 'markdown-to-jsx/native'
+import { View, Text, StyleSheet, Linking } from 'react-native'
+
+// Use compiler for markdown → React Native components
+const nativeElement = compiler('# Hello world', {
+  styles: {
+    heading1: { fontSize: 32, fontWeight: 'bold' },
+    paragraph: { marginVertical: 8 },
+    link: { color: 'blue', textDecorationLine: 'underline' },
+  },
+  onLinkPress: url => {
+    Linking.openURL(url)
+  },
+})
+
+const markdown = \`# Hello world
+
+This is a [link](https://example.com) with **bold** and *italic* text.
+\`
+
+function App() {
+  return (
+    <View>
+      <Markdown
+        children={markdown}
+        options={{
+          styles: StyleSheet.create({
+            heading1: { fontSize: 32, fontWeight: 'bold' },
+            paragraph: { marginVertical: 8 },
+            link: { color: 'blue', textDecorationLine: 'underline' },
+          }),
+          onLinkPress: url => {
+            Linking.openURL(url)
+          },
+        }}
+      />
+    </View>
+  )
+}
+\`\`\`
+
+**React Native-specific options:**
+
+- \`onLinkPress?: (url: string, title?: string) => void\` - Custom handler for link presses (defaults to \`Linking.openURL\`)
+- \`onLinkLongPress?: (url: string, title?: string) => void\` - Handler for link long presses
+- \`styles?: Partial<Record<NativeStyleKey, StyleProp<ViewStyle | TextStyle | ImageStyle>>>\` - Style overrides for each element type
+- \`wrapperProps?: ViewProps | TextProps\` - Props for the wrapper component (defaults to \`View\` for block, \`Text\` for inline)
+
+**HTML Tag Mapping:**
+HTML tags are automatically mapped to React Native components:
+
+- \`<img>\` → \`Image\` component
+- Block elements (\`<div>\`, \`<section>\`, \`<article>\`, \`<blockquote>\`, \`<ul>\`, \`<ol>\`, \`<li>\`, \`<table>\`, etc.) → \`View\` component
+- Inline elements (\`<span>\`, \`<strong>\`, \`<em>\`, \`<a>\`, etc.) → \`Text\` component
+- Type 1 blocks (\`<pre>\`, \`<script>\`, \`<style>\`, \`<textarea>\`) → \`View\` component
+
+**Note:** Links are underlined by default for better accessibility and discoverability. You can override this via the \`styles.link\` option.
+
 #### HTML
 
 For HTML string output (server-side rendering), import from the \`/html\` entry point:
@@ -1785,99 +1842,54 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 
 ### Library Options
 
-#### options.forceBlock
+#### All Options
 
-By default, the compiler will try to make an intelligent guess about the content passed and wrap it in a \`<div>\`, \`<p>\`, or \`<span>\` as needed to satisfy the "inline"-ness of the markdown. For instance, this string would be considered "inline":
+| Option                  | Type                          | Default  | Description                                                                                                               |
+| ----------------------- | ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| \`createElement\`         | \`function\`                    | -        | Custom React.createElement behavior (React/React Native only). See [createElement](#optionscreateelement) for details.    |
+| \`disableAutoLink\`       | \`boolean\`                     | \`false\`  | Disable automatic conversion of bare URLs to anchor tags.                                                                 |
+| \`disableParsingRawHTML\` | \`boolean\`                     | \`false\`  | Disable parsing of raw HTML into JSX.                                                                                     |
+| \`enforceAtxHeadings\`    | \`boolean\`                     | \`false\`  | Require space between \`#\` and header text (GFM spec compliance).                                                          |
+| \`forceBlock\`            | \`boolean\`                     | \`false\`  | Force all content to be treated as block-level.                                                                           |
+| \`forceInline\`           | \`boolean\`                     | \`false\`  | Force all content to be treated as inline.                                                                                |
+| \`forceWrapper\`          | \`boolean\`                     | \`false\`  | Force wrapper even with single child (React/React Native only). See [forceWrapper](#optionsforcewrapper) for details.     |
+| \`overrides\`             | \`object\`                      | -        | Override HTML tag rendering. See [overrides](#optionsoverrides) for details.                                              |
+| \`preserveFrontmatter\`   | \`boolean\`                     | \`false\`  | Include frontmatter in rendered output (as \`<pre>\` for HTML/JSX, included in markdown). Behavior varies by compiler type. |
+| \`renderRule\`            | \`function\`                    | -        | Custom rendering for AST rules. See [renderRule](#optionsrenderrule) for details.                                         |
+| \`sanitizer\`             | \`function\`                    | built-in | Custom URL sanitizer function. See [sanitizer](#optionssanitizer) for details.                                            |
+| \`slugify\`               | \`function\`                    | built-in | Custom slug generation for heading IDs. See [slugify](#optionsslugify) for details.                                       |
+| \`tagfilter\`             | \`boolean\`                     | \`true\`   | Escape dangerous HTML tags (\`script\`, \`iframe\`, \`style\`, etc.) to prevent XSS.                                            |
+| \`wrapper\`               | \`string \\| component \\| null\` | \`'div'\`  | Wrapper element for multiple children (React/React Native only). See [wrapper](#optionswrapper) for details.              |
+| \`wrapperProps\`          | \`object\`                      | -        | Props for wrapper element (React/React Native only). See [wrapperProps](#optionswrapperprops) for details.                |
 
-\`\`\`md
-Hello. _Beautiful_ day isn't it?
-\`\`\`
+#### options.createElement
 
-But this string would be considered "block" due to the existence of a header tag, which is a block-level HTML element:
+Sometimes, you might want to override the \`React.createElement\` default behavior to hook into the rendering process before the JSX gets rendered. This might be useful to add extra children or modify some props based on runtime conditions. The function mirrors the \`React.createElement\` function, so the params are [\`type, [props], [...children]\`](https://reactjs.org/docs/react-api.html#createelement):
 
-\`\`\`md
-# Whaddup?
-\`\`\`
+\`\`\`javascript
+import Markdown from 'markdown-to-jsx'
+import React from 'react'
+import { render } from 'react-dom'
 
-However, if you really want all input strings to be treated as "block" layout, simply pass \`options.forceBlock = true\` like this:
+const md = \`
+# Hello world
+\`
 
-\`\`\`tsx
-<Markdown options={{ forceBlock: true }}>Hello there old chap!</Markdown>
-
-// or
-
-compiler('Hello there old chap!', { forceBlock: true })
-
-// renders
-<p>Hello there old chap!</p>
-\`\`\`
-
-#### options.forceInline
-
-The inverse is also available by passing \`options.forceInline = true\`:
-
-\`\`\`tsx
-<Markdown options={{ forceInline: true }}># You got it babe!</Markdown>
-
-// or
-compiler('# You got it babe!', { forceInline: true })
-
-// renders
-<span># You got it babe!</span>
-\`\`\`
-
-#### options.wrapper
-
-When there are multiple children to be rendered, the compiler will wrap the output in a \`div\` by default. You can override this default by setting the \`wrapper\` option to either a string (React Element) or a component.
-
-\`\`\`tsx
-const str = '# Heck Yes\\n\\nThis is great!'
-
-<Markdown options={{ wrapper: 'article' }}>
-  {str}
-</Markdown>;
-
-// or
-
-compiler(str, { wrapper: 'article' });
-
-// renders
-
-<article>
-  <h1>Heck Yes</h1>
-  <p>This is great!</p>
-</article>
-\`\`\`
-
-##### Other useful recipes
-
-To get an array of children back without a wrapper, set \`wrapper\` to \`null\`. This is particularly useful when using \`compiler(…)\` directly.
-
-\`\`\`tsx
-compiler('One\\n\\nTwo\\n\\nThree', { wrapper: null })
-
-// returns
-;[<p>One</p>, <p>Two</p>, <p>Three</p>]
-\`\`\`
-
-To render children at the same DOM level as \`<Markdown>\` with no HTML wrapper, set \`wrapper\` to \`React.Fragment\`. This will still wrap your children in a React node for the purposes of rendering, but the wrapper element won't show up in the DOM.
-
-#### options.wrapperProps
-
-Props to apply to the wrapper element when \`wrapper\` is used.
-
-\`\`\`tsx
-<Markdown options={{
-  wrapper: 'article',
-  wrapperProps: { className: 'post', 'data-testid': 'markdown-content' }
-}}>
-  # Hello World
-</Markdown>
-
-// renders
-<article class="post" data-testid="markdown-content">
-  <h1>Hello World</h1>
-</article>
+render(
+  <Markdown
+    children={md}
+    options={{
+      createElement(type, props, children) {
+        return (
+          <div className="parent">
+            {React.createElement(type, props, children)}
+          </div>
+        )
+      },
+    }}
+  />,
+  document.body
+)
 \`\`\`
 
 #### options.forceWrapper
@@ -2115,42 +2127,6 @@ render(
 )
 \`\`\`
 
-#### options.createElement - Custom React.createElement behavior
-
-Sometimes, you might want to override the \`React.createElement\` default behavior to hook into the rendering process before the JSX gets rendered. This might be useful to add extra children or modify some props based on runtime conditions. The function mirrors the \`React.createElement\` function, so the params are [\`type, [props], [...children]\`](https://reactjs.org/docs/react-api.html#createelement):
-
-\`\`\`javascript
-import Markdown from 'markdown-to-jsx'
-import React from 'react'
-import { render } from 'react-dom'
-
-const md = \`
-# Hello world
-\`
-
-render(
-  <Markdown
-    children={md}
-    options={{
-      createElement(type, props, children) {
-        return (
-          <div className="parent">
-            {React.createElement(type, props, children)}
-          </div>
-        )
-      },
-    }}
-  />,
-  document.body
-)
-\`\`\`
-
-#### options.enforceAtxHeadings
-
-Forces the compiler to have space between hash sign \`#\` and the header text which is explicitly stated in the most of the [markdown specs](https://github.github.com/gfm/#atx-heading).
-
-> The opening sequence of \`#\` characters must be followed by a space or by the end of line.
-
 #### options.renderRule
 
 Supply your own rendering function that can selectively override how _rules_ are rendered (note, this is different than _\`options.overrides\`_ which operates at the HTML tag level and is more general). You can use this functionality to do pretty much anything with an established AST node; here's an example of selectively overriding the "codeBlock" rule to process LaTeX syntax using the \`@matejmazur/react-katex\` library:
@@ -2220,122 +2196,59 @@ compiler('# 中文', { slugify: str => str })
 
 The original function is available as a library export called \`slugify\`.
 
-#### options.disableAutoLink
+#### options.wrapper
 
-By default, bare URLs in the markdown document will be converted into an anchor tag. This behavior can be disabled if desired.
-
-\`\`\`tsx
-<Markdown options={{ disableAutoLink: true }}>
-  The URL https://quantizor.dev will not be rendered as an anchor tag.
-</Markdown>
-
-// or
-
-compiler(
-  'The URL https://quantizor.dev will not be rendered as an anchor tag.',
-  { disableAutoLink: true }
-)
-
-// renders:
-
-<span>
-  The URL https://quantizor.dev will not be rendered as an anchor tag.
-</span>
-\`\`\`
-
-#### options.preserveFrontmatter
-
-By default, YAML frontmatter at the beginning of markdown documents is parsed but not rendered in the output. Set this option to \`true\` to include the frontmatter in the rendered output. For HTML/JSX output, frontmatter is rendered as a \`<pre>\` element. For markdown-to-markdown compilation, frontmatter is included in the output markdown.
-
-| Compiler Type            | Default Behavior            | When \`preserveFrontmatter: true\` | When \`preserveFrontmatter: false\` |
-| ------------------------ | --------------------------- | -------------------------------- | --------------------------------- |
-| **React/HTML**           | ❌ Don't render frontmatter | ✅ Render as \`<pre>\` element     | ❌ Don't render frontmatter       |
-| **Markdown-to-Markdown** | ✅ Preserve frontmatter     | ✅ Preserve frontmatter          | ❌ Exclude frontmatter            |
+When there are multiple children to be rendered, the compiler will wrap the output in a \`div\` by default. You can override this default by setting the \`wrapper\` option to either a string (React Element) or a component.
 
 \`\`\`tsx
-<Markdown options={{ preserveFrontmatter: true }}>
-{\`---
-title: My Document
-author: John Doe
----
+const str = '# Heck Yes\\n\\nThis is great!'
 
-# Content
-
-This is the main content.\`
-}
-</Markdown>
-
-// renders:
-
-<div>
-  <pre>---
-title: My Document
-author: John Doe
----</pre>
-  <h1>Content</h1>
-  <p>This is the main content.</p>
-</div>
-\`\`\`
-
-For markdown-to-markdown compilation:
-
-\`\`\`tsx
-import { compiler } from 'markdown-to-jsx/markdown'
-
-const markdown = \`---
-title: My Document
-author: John Doe
----
-
-# Content\`
-
-// With preserveFrontmatter: true (default)
-compiler(markdown, { preserveFrontmatter: true })
-// returns: "---\\ntitle: My Document\\nauthor: John Doe\\n---\\n\\n# Content"
-
-// With preserveFrontmatter: false
-compiler(markdown, { preserveFrontmatter: false })
-// returns: "# Content"
-\`\`\`
-
-#### options.disableParsingRawHTML
-
-By default, raw HTML is parsed to JSX. This behavior can be disabled if desired.
-
-\`\`\`tsx
-<Markdown options={{ disableParsingRawHTML: true }}>
-    This text has <span>html</span> in it but it won't be rendered
+<Markdown options={{ wrapper: 'article' }}>
+  {str}
 </Markdown>;
 
 // or
 
-compiler('This text has <span>html</span> in it but it won't be rendered', { disableParsingRawHTML: true });
+compiler(str, { wrapper: 'article' });
 
-// renders:
+// renders
 
-<span>This text has &lt;span&gt;html&lt;/span&gt; in it but it won't be rendered</span>
+<article>
+  <h1>Heck Yes</h1>
+  <p>This is great!</p>
+</article>
 \`\`\`
 
-#### options.tagfilter
+##### Other useful recipes
 
-By default, dangerous HTML tags are filtered and escaped to prevent XSS attacks. This applies to both HTML string output and React JSX output. The following tags are filtered: \`script\`, \`iframe\`, \`style\`, \`title\`, \`textarea\`, \`xmp\`, \`noembed\`, \`noframes\`, \`plaintext\`.
+To get an array of children back without a wrapper, set \`wrapper\` to \`null\`. This is particularly useful when using \`compiler(…)\` directly.
 
 \`\`\`tsx
-// Tags are escaped by default (GFM-compliant)
-compiler('<script>alert("xss")<\/script>')
-// HTML output: '<span>&lt;script&gt;</span>'
-// React output: <span>&lt;script&gt;</span>
+compiler('One\\n\\nTwo\\n\\nThree', { wrapper: null })
 
-// Disable tag filtering:
-compiler('<script>alert("xss")<\/script>', { tagfilter: false })
-// HTML output: '<script><\/script>'
-// React output: <script><\/script>
+// returns
+;[<p>One</p>, <p>Two</p>, <p>Three</p>]
 \`\`\`
 
-**Note**: Even when \`tagfilter\` is disabled, other security measures remain active:
+To render children at the same DOM level as \`<Markdown>\` with no HTML wrapper, set \`wrapper\` to \`React.Fragment\`. This will still wrap your children in a React node for the purposes of rendering, but the wrapper element won't show up in the DOM.
 
-- URL sanitization preventing \`javascript:\` and \`vbscript:\` schemes in \`href\` and \`src\` attributes
-- Protection against \`data:\` URLs (except safe \`data:image/*\` MIME types)
+#### options.wrapperProps
+
+Props to apply to the wrapper element when \`wrapper\` is used.
+
+\`\`\`tsx
+<Markdown options={{
+  wrapper: 'article',
+  wrapperProps: { className: 'post', 'data-testid': 'markdown-content' }
+}}>
+  # Hello World
+</Markdown>
+
+// renders
+<article class="post" data-testid="markdown-content">
+  <h1>Hello World</h1>
+</article>
+\`\`\`
 
 ### Syntax highlighting
 
@@ -2373,7 +2286,7 @@ function App() {
 }
 
 function SyntaxHighlightedCode(props) {
-  const ref = (React.useRef < HTMLElement) | (null > null)
+  const ref = React.useRef<HTMLElement | null>(null)
 
   React.useEffect(() => {
     if (ref.current && props.className?.includes('lang-') && window.hljs) {
@@ -2436,17 +2349,6 @@ function Example() {
 \`\`\`
 
 When you use \`options.renderRule\`, any React-renderable JSX may be returned including images and GIFs. Ensure you benchmark your solution as the \`text\` rule is one of the hottest paths in the system!
-
-### Getting the smallest possible bundle size
-
-Many development conveniences are placed behind \`process.env.NODE_ENV !== "production"\` conditionals. When bundling your app, it's a good idea to replace these code snippets such that a minifier (like uglify) can sweep them away and leave a smaller overall bundle.
-
-Here are instructions for some of the popular bundlers:
-
-- [webpack](https://webpack.js.org/guides/production/#specify-the-environment)
-- [browserify plugin](https://github.com/hughsk/envify)
-- [parcel](https://parceljs.org/production.html)
-- [fuse-box](http://fuse-box.org/plugins/replace-plugin#notes)
 
 ### Usage with Preact
 
@@ -2712,4 +2614,4 @@ See [Github Releases](https://github.com/quantizor/markdown-to-jsx/releases).
 ## Donate
 
 Like this library? It's developed entirely on a volunteer basis; chip in a few bucks if you can via the [Sponsor link](https://github.com/sponsors/quantizor)!
-`;function z6(t){const a=gn.useRef(null);return gn.useEffect(()=>{a.current&&t.className?.includes("lang-")&&window.hljs&&(window.hljs.highlightElement(a.current),a.current.removeAttribute("data-highlighted"))},[t.className,t.children]),en.jsx("code",{...t,ref:a})}function q6(t){return en.jsx("button",{...t,className:"px-3 py-1 rounded bg-accent/50 border border-accent/50 text-white cursor-pointer transition-colors hover:bg-accent active:bg-accent/80",onClick:()=>{alert("Look ma, I'm a real component!")}})}const Zb="font-semibold rounded-lg from-0% from-accent to-100% to-green-300 bg-linear-120/increasing bg-size-[200%_200%] animate-gradient text-black hover:bg-none hover:animate-none hover:bg-accent",C4={overrides:{code:z6,MyComponent:{component:q6}},renderRule(t,a,l,i){return a.type===Z.codeBlock&&a.lang==="latex"?en.jsx(tv,{as:"div",style:{margin:"1.5em 0"},children:String.raw`${a.text}`},i.key):t()}};function C6({onSelect:t,selectedId:a}){const[l,i]=gn.useState(null),s=gn.useCallback(async c=>{i(c.id);try{const f=await c.load();t(c);const p=new CustomEvent("preset-loaded",{detail:f});window.dispatchEvent(p)}catch(f){console.error("Failed to load preset:",f)}finally{i(null)}},[t]);return en.jsxs("div",{className:"hidden md:flex flex-wrap gap-2 justify-center mb-6 text-sm items-center",children:["Other examples →",en.jsx("div",{className:"flex flex-wrap gap-2",children:A6.map(c=>en.jsx("button",{onClick:()=>s(c),disabled:l===c.id,className:`py-1 px-2 text-xs ${a===c.id||l===c.id?"bg-accent text-black":`${Zb}`} disabled:opacity-50 disabled:cursor-not-allowed`,children:l===c.id?"Loading...":c.name},c.id))})]})}function E6({text:t}){const a=gn.useMemo(()=>t.split("").map((l,i)=>{const c=6+Math.random()*4,f=Math.random()*2,p=[{x:(Math.random()-.5)*3*2,y:(Math.random()-.5)*3*2},{x:(Math.random()-.5)*3*2,y:(Math.random()-.5)*3*2},{x:(Math.random()-.5)*3*2,y:(Math.random()-.5)*3*2}];return{char:l,key:i,style:{"--offset-x-1":`${p[0].x}px`,"--offset-y-1":`${p[0].y}px`,"--offset-x-2":`${p[1].x}px`,"--offset-y-2":`${p[1].y}px`,"--offset-x-3":`${p[2].x}px`,"--offset-y-3":`${p[2].y}px`,"--duration":`${c}s`,"--delay":`${f}s`}}}),[t]);return en.jsx(en.Fragment,{children:a.map(({char:l,key:i,style:s})=>en.jsx("span",{className:"float-letter",style:s,children:l===" "?" ":l},i))})}function _6(){const[t,a]=gn.useState(document.getElementById("sample-content")?.textContent?.trim()||""),[l,i]=gn.useState(null),s=M6;gn.useEffect(()=>{const f=p=>{a(p.detail)};return window.addEventListener("preset-loaded",f),()=>window.removeEventListener("preset-loaded",f)},[]),gn.useEffect(()=>{const f=p=>{const b=p.target.closest("a");if(b&&b.hash&&b.hash.startsWith("#")){const w=document.getElementById(b.hash.slice(1));w&&(p.preventDefault(),w.scrollIntoView({behavior:"smooth"}))}};return document.addEventListener("click",f),()=>document.removeEventListener("click",f)},[]);const c=gn.useCallback(f=>a(f.target.value),[]);return en.jsxs("main",{className:"flex flex-col items-center justify-center gap-7 pb-20 px-6 lg:px-0",children:[en.jsx("header",{className:"text-center pt-20 pb-4",children:en.jsxs("div",{className:" mx-auto text-base space-y-6",children:[en.jsxs("h1",{className:"text-accent leading-tight",children:[en.jsxs("span",{className:"font-display tracking-widest text-[15vw] lg:text-[9vw]",children:[en.jsx(E6,{text:"markdown-to-jsx"}),en.jsxs("span",{className:"text-[max(1vw,16px)] font-sans tracking-wider",children:["v","9"]})]}),en.jsx("div",{className:"text-base mt-2",children:"(now also to html, ast, and markdown)"})]}),en.jsx("p",{className:"text-lg text-fg/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)] max-w-3xl mx-auto leading-relaxed",children:"A fast and versatile markdown toolchain, 100% GFM-CommonMark compliant."}),en.jsxs("div",{className:"flex gap-2 justify-center",children:[en.jsx("a",{className:`hidden md:inline-block no-underline py-1 px-3 backdrop-blur-xs rounded-xl text-sm ${Zb}`,href:"#docs",children:"Jump to docs"}),en.jsx("a",{className:"no-underline  py-1 px-3 backdrop-blur-xs rounded-xl text-sm bg-[#2b3137] hover:bg-accent transition-colors",href:"https://github.com/quantizor/markdown-to-jsx",children:en.jsx("img",{src:"/images/github.svg",alt:"GitHub",className:"h-4 inline-block align-middle -translate-y-0.25"})})]})]})}),en.jsx(k6,{className:"w-full h-full"}),en.jsxs("section",{className:"hidden md:flex justify-center gap-0 w-[95%] items-start min-h-[400px] max-h-[80vh]",children:[en.jsxs("div",{className:"flex-1 flex flex-col gap-6 max-w-2xl self-stretch",children:[en.jsx("div",{className:"text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.5 pb-1 rounded-xl leading-none self-center sticky top-2 z-10",children:"Input"}),en.jsx("textarea",{onInput:c,value:t,className:"flex-1 p-4 backdrop-blur-md rounded-l-2xl border-2 border-accent/20 text-fg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 shadow-xl h-full border-r-0 selection:bg-accent/40 selection:text-inherit"})]}),en.jsxs("div",{className:"flex-1 flex flex-col gap-6 max-w-2xl self-stretch",children:[en.jsx("div",{className:"text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.5 pb-1 rounded-xl leading-none self-center w-auto sticky top-2 z-10",children:"Output"}),en.jsx("div",{className:"prose prose-invert prose-sm p-4 backdrop-blur-md rounded-r-2xl border-2 border-accent/20 border-l-0 h-full overflow-auto w-full max-w-none",children:en.jsx(z4,{options:C4,children:t})})]})]}),en.jsx(C6,{onSelect:f=>i(f.id),selectedId:l}),en.jsx(z4,{className:"max-w-full lg:max-w-2xl prose prose-invert prose-sm center",id:"docs",options:C4,children:s})]})}uv.createRoot(document.getElementById("root")).render(en.jsx(_6,{}));
+`;function z6(t){const a=gn.useRef(null);return gn.useEffect(()=>{a.current&&t.className?.includes("lang-")&&window.hljs&&(window.hljs.highlightElement(a.current),a.current.removeAttribute("data-highlighted"))},[t.className,t.children]),en.jsx("code",{...t,ref:a})}function q6(t){return en.jsx("button",{...t,className:"px-3 py-1 rounded bg-accent/50 border border-accent/50 text-white cursor-pointer transition-colors hover:bg-accent active:bg-accent/80",onClick:()=>{alert("Look ma, I'm a real component!")}})}const Zb="font-semibold rounded-lg from-0% from-accent to-100% to-green-300 bg-linear-120/increasing bg-size-[200%_200%] animate-gradient text-black hover:bg-none hover:animate-none hover:bg-accent",C4={overrides:{code:z6,MyComponent:{component:q6}},renderRule(t,a,l,i){return a.type===Z.codeBlock&&a.lang==="latex"?en.jsx(tv,{as:"div",style:{margin:"1.5em 0"},children:String.raw`${a.text}`},i.key):t()}};function C6({onSelect:t,selectedId:a}){const[l,i]=gn.useState(null),s=gn.useCallback(async c=>{i(c.id);try{const f=await c.load();t(c);const p=new CustomEvent("preset-loaded",{detail:f});window.dispatchEvent(p)}catch(f){console.error("Failed to load preset:",f)}finally{i(null)}},[t]);return en.jsxs("div",{className:"hidden md:flex flex-wrap gap-2 justify-center mb-6 text-sm items-center",children:["Other examples →",en.jsx("div",{className:"flex flex-wrap gap-2",children:A6.map(c=>en.jsx("button",{onClick:()=>s(c),disabled:l===c.id,className:`py-1 px-2 text-xs ${a===c.id||l===c.id?"bg-accent text-black":`${Zb}`} disabled:opacity-50 disabled:cursor-not-allowed`,children:l===c.id?"Loading...":c.name},c.id))})]})}function E6({text:t}){const a=gn.useMemo(()=>t.split("").map((l,i)=>{const c=6+Math.random()*4,f=Math.random()*2,p=[{x:(Math.random()-.5)*3*2,y:(Math.random()-.5)*3*2},{x:(Math.random()-.5)*3*2,y:(Math.random()-.5)*3*2},{x:(Math.random()-.5)*3*2,y:(Math.random()-.5)*3*2}];return{char:l,key:i,style:{"--offset-x-1":`${p[0].x}px`,"--offset-y-1":`${p[0].y}px`,"--offset-x-2":`${p[1].x}px`,"--offset-y-2":`${p[1].y}px`,"--offset-x-3":`${p[2].x}px`,"--offset-y-3":`${p[2].y}px`,"--duration":`${c}s`,"--delay":`${f}s`}}}),[t]);return en.jsx(en.Fragment,{children:a.map(({char:l,key:i,style:s})=>en.jsx("span",{className:"float-letter",style:s,children:l===" "?" ":l},i))})}function _6(){const[t,a]=gn.useState(document.getElementById("sample-content")?.textContent?.trim()||""),[l,i]=gn.useState(null),s=M6;gn.useEffect(()=>{const f=p=>{a(p.detail)};return window.addEventListener("preset-loaded",f),()=>window.removeEventListener("preset-loaded",f)},[]),gn.useEffect(()=>{const f=p=>{const b=p.target.closest("a");if(b&&b.hash&&b.hash.startsWith("#")){const w=document.getElementById(b.hash.slice(1));w&&(p.preventDefault(),w.scrollIntoView({behavior:"smooth"}))}};return document.addEventListener("click",f),()=>document.removeEventListener("click",f)},[]);const c=gn.useCallback(f=>a(f.target.value),[]);return en.jsxs("main",{className:"flex flex-col items-center justify-center gap-7 pb-20 px-6 lg:px-0",children:[en.jsx("header",{className:"text-center pt-20 pb-4",children:en.jsxs("div",{className:" mx-auto text-base space-y-6",children:[en.jsxs("h1",{className:"text-accent leading-tight",children:[en.jsxs("span",{className:"font-display tracking-widest text-[15vw] lg:text-[9vw]",children:[en.jsx(E6,{text:"markdown-to-jsx"}),en.jsxs("span",{className:"text-[max(1vw,16px)] font-sans tracking-wider",children:["v","9"]})]}),en.jsx("div",{className:"text-base mt-2",children:"(now also to html, ast, and markdown)"})]}),en.jsx("p",{className:"text-lg text-fg/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)] max-w-3xl mx-auto leading-relaxed",children:"A fast and versatile markdown toolchain, 100% GFM-CommonMark compliant. AST, React, React Native, Markdown, and HTML output."}),en.jsxs("div",{className:"flex gap-2 justify-center",children:[en.jsx("a",{className:`hidden md:inline-block no-underline py-1 px-3 backdrop-blur-xs rounded-xl text-sm ${Zb}`,href:"#docs",children:"Jump to docs"}),en.jsx("a",{className:"no-underline  py-1 px-3 backdrop-blur-xs rounded-xl text-sm bg-[#2b3137] hover:bg-accent transition-colors",href:"https://github.com/quantizor/markdown-to-jsx",children:en.jsx("img",{src:"/images/github.svg",alt:"GitHub",className:"h-4 inline-block align-middle -translate-y-0.25"})})]})]})}),en.jsx(k6,{className:"w-full h-full"}),en.jsxs("section",{className:"hidden md:flex justify-center gap-0 w-[95%] items-start min-h-[400px] max-h-[80vh]",children:[en.jsxs("div",{className:"flex-1 flex flex-col gap-6 max-w-2xl self-stretch",children:[en.jsx("div",{className:"text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.5 pb-1 rounded-xl leading-none self-center sticky top-2 z-10",children:"Input"}),en.jsx("textarea",{onInput:c,value:t,className:"flex-1 p-4 backdrop-blur-md rounded-l-2xl border-2 border-accent/20 text-fg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 shadow-xl h-full border-r-0 selection:bg-accent/40 selection:text-inherit"})]}),en.jsxs("div",{className:"flex-1 flex flex-col gap-6 max-w-2xl self-stretch",children:[en.jsx("div",{className:"text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.5 pb-1 rounded-xl leading-none self-center w-auto sticky top-2 z-10",children:"Output"}),en.jsx("div",{className:"prose prose-invert prose-sm p-4 backdrop-blur-md rounded-r-2xl border-2 border-accent/20 border-l-0 h-full overflow-auto w-full max-w-none",children:en.jsx(z4,{options:C4,children:t})})]})]}),en.jsx(C6,{onSelect:f=>i(f.id),selectedId:l}),en.jsx(z4,{className:"max-w-full lg:max-w-2xl prose prose-invert prose-sm center",id:"docs",options:C4,children:s})]})}uv.createRoot(document.getElementById("root")).render(en.jsx(_6,{}));
