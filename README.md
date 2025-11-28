@@ -25,6 +25,7 @@ Some special features of the library:
   - [Entry Points](#entry-points)
     - [Main](#main)
     - [React](#react)
+    - [React Native](#react-native)
     - [HTML](#html)
     - [Markdown](#markdown)
   - [Library Options](#library-options)
@@ -252,6 +253,68 @@ function App() {
 const ast = parser('# Hello world')
 const jsxElement2 = astToJSX(ast)
 ```
+
+#### React Native
+
+For React Native usage, import from the `/native` entry point:
+
+```tsx
+import Markdown, { compiler, parser, astToNative } from 'markdown-to-jsx/native'
+import { View, Text, StyleSheet, Linking } from 'react-native'
+
+// Use compiler for markdown → React Native components
+const nativeElement = compiler('# Hello world', {
+  styles: {
+    heading1: { fontSize: 32, fontWeight: 'bold' },
+    paragraph: { marginVertical: 8 },
+    link: { color: 'blue', textDecorationLine: 'underline' },
+  },
+  onLinkPress: url => {
+    Linking.openURL(url)
+  },
+})
+
+const markdown = `# Hello world
+
+This is a [link](https://example.com) with **bold** and *italic* text.
+`
+
+function App() {
+  return (
+    <View>
+      <Markdown
+        children={markdown}
+        options={{
+          styles: StyleSheet.create({
+            heading1: { fontSize: 32, fontWeight: 'bold' },
+            paragraph: { marginVertical: 8 },
+            link: { color: 'blue', textDecorationLine: 'underline' },
+          }),
+          onLinkPress: url => {
+            Linking.openURL(url)
+          },
+        }}
+      />
+    </View>
+  )
+}
+```
+
+**React Native-specific options:**
+
+- `onLinkPress?: (url: string, title?: string) => void` - Custom handler for link presses (defaults to `Linking.openURL`)
+- `onLinkLongPress?: (url: string, title?: string) => void` - Handler for link long presses
+- `styles?: Partial<Record<NativeStyleKey, StyleProp<ViewStyle | TextStyle | ImageStyle>>>` - Style overrides for each element type
+- `wrapperProps?: ViewProps | TextProps` - Props for the wrapper component (defaults to `View` for block, `Text` for inline)
+
+**HTML Tag Mapping:**
+HTML tags are automatically mapped to React Native components:
+- `<img>` → `Image` component
+- Block elements (`<div>`, `<section>`, `<article>`, `<blockquote>`, `<ul>`, `<ol>`, `<li>`, `<table>`, etc.) → `View` component
+- Inline elements (`<span>`, `<strong>`, `<em>`, `<a>`, etc.) → `Text` component
+- Type 1 blocks (`<pre>`, `<script>`, `<style>`, `<textarea>`) → `View` component
+
+**Note:** Links are underlined by default for better accessibility and discoverability. You can override this via the `styles.link` option.
 
 #### HTML
 
@@ -750,10 +813,11 @@ compiler(
 
 By default, YAML frontmatter at the beginning of markdown documents is parsed but not rendered in the output. Set this option to `true` to include the frontmatter in the rendered output. For HTML/JSX output, frontmatter is rendered as a `<pre>` element. For markdown-to-markdown compilation, frontmatter is included in the output markdown.
 
-| Compiler Type            | Default Behavior            | When `preserveFrontmatter: true` | When `preserveFrontmatter: false` |
-| ------------------------ | --------------------------- | -------------------------------- | --------------------------------- |
-| **React/HTML**           | ❌ Don't render frontmatter | ✅ Render as `<pre>` element     | ❌ Don't render frontmatter       |
-| **Markdown-to-Markdown** | ✅ Preserve frontmatter     | ✅ Preserve frontmatter          | ❌ Exclude frontmatter            |
+| Compiler Type    | Default Behavior            | When `preserveFrontmatter: true`                  | When `preserveFrontmatter: false` |
+| ---------------- | --------------------------- | ------------------------------------------------- | --------------------------------- |
+| **React/HTML**   | ❌ Don't render frontmatter | ✅ Render as `<pre>` element                      | ❌ Don't render frontmatter       |
+| **React Native** | ❌ Don't render frontmatter | ✅ Render as `<View><Text>` with frontmatter text | ❌ Don't render frontmatter       |
+| **Markdown**     | ✅ Preserve frontmatter     | ✅ Preserve frontmatter                           | ❌ Exclude frontmatter            |
 
 ```tsx
 <Markdown options={{ preserveFrontmatter: true }}>

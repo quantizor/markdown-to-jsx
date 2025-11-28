@@ -1,6 +1,6 @@
 {
   "name": "markdown-to-jsx",
-  "description": "A very fast and versatile markdown toolchain. AST, React, and HTML output available with full customization.",
+  "description": "A very fast and versatile markdown toolchain. AST, React, React Native, Markdown, and HTML output available with full customization.",
   "homepage": "https://markdown-to-jsx.quantizor.dev",
   "license": "MIT",
   "version": "9.1.2",
@@ -80,6 +80,16 @@
         "types": "./dist/markdown.d.cts",
         "default": "./dist/markdown.cjs"
       }
+    },
+    "./native": {
+      "import": {
+        "types": "./dist/native.d.ts",
+        "default": "./dist/native.js"
+      },
+      "require": {
+        "types": "./dist/native.d.cts",
+        "default": "./dist/native.cjs"
+      }
     }
   },
   "sideEffects": false,
@@ -95,11 +105,13 @@
     "@matejmazur/react-katex": "^3.1.3",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.1.17",
+    "@testing-library/react-native": "^13.3.3",
     "@types/benchmark": "^2.1.5",
     "@types/bun": "^1.3.2",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
+    "@types/react-native": "^0.73.0",
     "@vitejs/plugin-react": "^5.1.1",
     "acorn": "^8.15.0",
     "acorn-typescript": "^1.4.13",
@@ -143,6 +155,9 @@
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "react-native": {
       "optional": true
     }
   },
