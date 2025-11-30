@@ -1584,6 +1584,28 @@ describe('innerHTML handling', () => {
       },
     })
   })
+
+  it('should respect user-provided innerHTML in override props', () => {
+    // Test that user-provided innerHTML in overrides takes precedence over parser-generated innerHTML
+    const result = compiler('<div><pre>original</pre></div>', {
+      overrides: {
+        div: { props: { innerHTML: '<span>override</span>' } },
+      },
+    })
+    // Helper to extract innerHTML from JSX structure
+    function getInnerHTML(element: JSX.Element | JSX.Element[] | null | undefined): string | undefined {
+      if (!element || Array.isArray(element)) return undefined
+      if (typeof element === 'object' && 'p' in element && element.p && typeof element.p === 'object') {
+        const props = element.p as Record<string, unknown>
+        return typeof props.innerHTML === 'string' ? props.innerHTML : undefined
+      }
+      return undefined
+    }
+    const innerHTML = getInnerHTML(result as JSX.Element)
+    // User-provided innerHTML should be used, not the original content
+    expect(innerHTML).toBe('<span>override</span>')
+    expect(innerHTML).not.toContain('original')
+  })
 })
 
 describe('post-processing AST extractText', () => {

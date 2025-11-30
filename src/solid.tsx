@@ -145,7 +145,9 @@ const isComponent = (
   (typeof value === 'object' && value !== null && 'render' in value)
 
 // Format HTML attributes for filtered tags
-function formatFilteredTagAttrs(attrs: Record<string, unknown> | undefined): string {
+function formatFilteredTagAttrs(
+  attrs: Record<string, unknown> | undefined
+): string {
   if (!attrs) return ''
   let attrStr = ''
   for (const [key, value] of Object.entries(attrs)) {
@@ -172,7 +174,8 @@ function render(
     case RuleType.blockQuote: {
       const props = {} as Record<string, unknown>
       if (node.alert) {
-        props.className = 'markdown-alert-' + slug(node.alert.toLowerCase(), util.slugify)
+        props.className =
+          'markdown-alert-' + slug(node.alert.toLowerCase(), util.slugify)
         node.children.unshift({
           attrs: {},
           children: [{ type: RuleType.text, text: node.alert }],
@@ -197,10 +200,14 @@ function render(
       return null
 
     case RuleType.codeBlock: {
-      const decodedLang = node.lang ? util.decodeEntityReferences(node.lang) : ''
+      const decodedLang = node.lang
+        ? util.decodeEntityReferences(node.lang)
+        : ''
       const codeProps = {
         ...htmlAttrsToJSXProps((node.attrs || {}) as Record<string, unknown>),
-        className: decodedLang ? `language-${decodedLang} lang-${decodedLang}` : '',
+        className: decodedLang
+          ? `language-${decodedLang} lang-${decodedLang}`
+          : '',
       } as Record<string, unknown>
       return h('pre', {}, h('code', codeProps, node.text))
     }
@@ -223,16 +230,21 @@ function render(
       })
 
     case RuleType.heading:
-      return h(`h${node.level}`, { id: node.id }, ...toArray(output(node.children, state)))
+      return h(
+        `h${node.level}`,
+        { id: node.id },
+        ...toArray(output(node.children, state))
+      )
 
     case RuleType.htmlBlock: {
       const htmlNode = node as MarkdownToJSX.HTMLNode
 
       // Apply options.tagfilter: escape dangerous tags
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
-        const tagText = ('rawText' in htmlNode && typeof htmlNode.rawText === 'string')
-          ? htmlNode.rawText
-          : `<${htmlNode.tag}${formatFilteredTagAttrs(htmlNode.attrs)}>`
+        const tagText =
+          'rawText' in htmlNode && typeof htmlNode.rawText === 'string'
+            ? htmlNode.rawText
+            : `<${htmlNode.tag}${formatFilteredTagAttrs(htmlNode.attrs)}>`
         return h('span', {}, tagText)
       }
 
@@ -326,7 +338,11 @@ function render(
         const processedChildren = output(astNodes.flatMap(processNode), state)
         return h(node.tag, { ...node.attrs }, ...toArray(processedChildren))
       }
-      return h(node.tag, { ...node.attrs }, ...(node.children ? toArray(output(node.children, state)) : []))
+      return h(
+        node.tag,
+        { ...node.attrs },
+        ...(node.children ? toArray(output(node.children, state)) : [])
+      )
     }
 
     case RuleType.htmlSelfClosing: {
@@ -334,9 +350,10 @@ function render(
 
       // Apply options.tagfilter: escape dangerous self-closing tags
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
-        const tagText = ('rawText' in htmlNode && typeof htmlNode.rawText === 'string')
-          ? htmlNode.rawText
-          : `<${htmlNode.tag}${formatFilteredTagAttrs(htmlNode.attrs)} />`
+        const tagText =
+          'rawText' in htmlNode && typeof htmlNode.rawText === 'string'
+            ? htmlNode.rawText
+            : `<${htmlNode.tag}${formatFilteredTagAttrs(htmlNode.attrs)} />`
         return h('span', {}, tagText)
       }
 
@@ -586,12 +603,27 @@ export function astToJSX(
     props: Record<string, unknown>,
     ...children: HChildren[]
   ): JSX.Element {
-    const childrenValue = children.length === 0 ? undefined : (children.length === 1 ? children[0] : children)
+    const childrenValue =
+      children.length === 0
+        ? undefined
+        : children.length === 1
+          ? children[0]
+          : children
     if (typeof tag === 'string') {
-      return { t: tag, p: childrenValue === undefined ? props : { ...props, children: childrenValue } } as JSX.Element
+      return {
+        t: tag,
+        p:
+          childrenValue === undefined
+            ? props
+            : { ...props, children: childrenValue },
+      } as unknown as JSX.Element
     }
     if (typeof tag === 'function') {
-      return (tag as Component<Record<string, unknown>>)((childrenValue === undefined ? props : { ...props, children: childrenValue }) as Record<string, unknown>)
+      return (tag as Component<Record<string, unknown>>)(
+        (childrenValue === undefined
+          ? props
+          : { ...props, children: childrenValue }) as Record<string, unknown>
+      )
     }
     return tag as JSX.Element
   }
@@ -606,10 +638,11 @@ export function astToJSX(
     },
     ...children: HChildren[]
   ): JSX.Element {
-    const overrideProps = util.get(opts.overrides, `${tag}.props`, {}) as Record<
-      string,
-      unknown
-    >
+    const overrideProps = util.get(
+      opts.overrides,
+      `${tag}.props`,
+      {}
+    ) as Record<string, unknown>
 
     // Convert HTML attributes to JSX props and compile any HTML content
     const jsxProps = htmlAttrsToJSXProps(props || {}) as Record<string, unknown>
@@ -636,10 +669,14 @@ export function astToJSX(
       ) || undefined
 
     // Build finalProps efficiently
-    const finalProps: Record<string, unknown> = { ...jsxProps, ...overrideProps }
+    const finalProps: Record<string, unknown> = {
+      ...jsxProps,
+      ...overrideProps,
+    }
     if (mergedClassName) finalProps.className = mergedClassName
     // Handle innerHTML for SolidJS (move from jsxProps to finalProps)
-    if (jsxProps.innerHTML) {
+    // Only set innerHTML from jsxProps if user didn't provide it in overrides
+    if (jsxProps.innerHTML && overrideProps.innerHTML === undefined) {
       finalProps.innerHTML = jsxProps.innerHTML
       delete jsxProps.innerHTML
     }
@@ -648,7 +685,10 @@ export function astToJSX(
   }
 
   // SolidJS createElement helper - uses createSolidElement
-  const createElement = opts.createElement || ((tag: HTag, props: HProps, ...children: HChildren[]): JSX.Element => createSolidElement(tag, props || {}, ...children))
+  const createElement =
+    opts.createElement ||
+    ((tag: HTag, props: HProps, ...children: HChildren[]): JSX.Element =>
+      createSolidElement(tag, props || {}, ...children))
 
   // Extract text from AST nodes recursively
   function extractText(nodes: MarkdownToJSX.ASTNode[]): string {
@@ -658,11 +698,18 @@ export function astToJSX(
       if (type === RuleType.text) {
         text += (n as MarkdownToJSX.TextNode).text
       } else if (type === RuleType.htmlSelfClosing && 'rawText' in n) {
-        const rawText = (n as MarkdownToJSX.HTMLSelfClosingNode & { rawText?: string }).rawText
+        const rawText = (
+          n as MarkdownToJSX.HTMLSelfClosingNode & { rawText?: string }
+        ).rawText
         if (rawText) text += rawText
       } else if (type === RuleType.textFormatted) {
         const formattedNode = n as MarkdownToJSX.FormattedTextNode
-        const marker = formattedNode.tag === 'em' ? '_' : formattedNode.tag === 'strong' ? '**' : ''
+        const marker =
+          formattedNode.tag === 'em'
+            ? '_'
+            : formattedNode.tag === 'strong'
+              ? '**'
+              : ''
         text += marker + extractText(formattedNode.children) + marker
       } else if ('children' in n && n.children) {
         text += extractText(n.children)
@@ -700,11 +747,10 @@ export function astToJSX(
         const closingTagText: string[] = []
         const closingTagEnd = `</${htmlNode.tag}>`
         for (const tag of paragraphNode.removedClosingTags) {
-          if (
-            tag.type === RuleType.htmlSelfClosing &&
-            'rawText' in tag
-          ) {
-            const rawText = (tag as MarkdownToJSX.HTMLSelfClosingNode & { rawText?: string }).rawText
+          if (tag.type === RuleType.htmlSelfClosing && 'rawText' in tag) {
+            const rawText = (
+              tag as MarkdownToJSX.HTMLSelfClosingNode & { rawText?: string }
+            ).rawText
             if (rawText && rawText.indexOf(closingTagEnd) === -1) {
               closingTagText.push(rawText)
             }
@@ -906,7 +952,9 @@ export function compiler(
 }
 
 // Context for default options
-export const MarkdownContext: Context<SolidOptions | undefined> = createContext<SolidOptions | undefined>(undefined)
+export const MarkdownContext: Context<SolidOptions | undefined> = createContext<
+  SolidOptions | undefined
+>(undefined)
 
 // Module-level h function for components that use JSX
 // This is used by the @jsx pragma for JSX in MarkdownProvider and Markdown components
@@ -915,12 +963,27 @@ function h(
   props: Record<string, unknown>,
   ...children: (JSX.Element | string)[]
 ): JSX.Element {
-  const childrenValue = children.length === 0 ? undefined : (children.length === 1 ? children[0] : children)
+  const childrenValue =
+    children.length === 0
+      ? undefined
+      : children.length === 1
+        ? children[0]
+        : children
   if (typeof tag === 'string') {
-    return { t: tag, p: childrenValue === undefined ? props : { ...props, children: childrenValue } } as JSX.Element
+    return {
+      t: tag,
+      p:
+        childrenValue === undefined
+          ? props
+          : { ...props, children: childrenValue },
+    } as unknown as JSX.Element
   }
   if (typeof tag === 'function') {
-    return (tag as Component<Record<string, unknown>>)((childrenValue === undefined ? props : { ...props, children: childrenValue }) as Record<string, unknown>)
+    return (tag as Component<Record<string, unknown>>)(
+      (childrenValue === undefined
+        ? props
+        : { ...props, children: childrenValue }) as Record<string, unknown>
+    )
   }
   return tag as JSX.Element
 }
