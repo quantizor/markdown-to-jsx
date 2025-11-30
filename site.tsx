@@ -206,13 +206,11 @@ function TryItLive() {
                 v{VERSION}
               </span>
             </span>
-            <div className="text-base mt-2">
-              (now also to html, ast, and markdown)
-            </div>
           </h1>
           <p className="text-lg text-fg/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)] max-w-3xl mx-auto leading-relaxed">
             A fast and versatile markdown toolchain, 100% GFM-CommonMark
-            compliant. AST, React, React Native, Markdown, and HTML output.
+            compliant. AST, React, React Native, SolidJS, Vue, Markdown, HTML,
+            and round-trip Markdown output.
           </p>
 
           <div className="flex gap-2 justify-center">
