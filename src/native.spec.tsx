@@ -958,3 +958,46 @@ describe('footnotes', () => {
     }).not.toThrow()
   })
 })
+
+describe('options immutability', () => {
+  it('should not mutate options object when calling astToNative multiple times', () => {
+    // Test that astToNative doesn't mutate the options object when called multiple times
+    // This is important for memoization - if the same options object is reused,
+    // mutations could cause unexpected side effects
+    const markdown = '# Hello world'
+    const ast = parser(markdown)
+    const options = { slugify: (input: string) => input.toLowerCase() }
+    const originalOverrides = options.overrides
+
+    // First call
+    astToNative(ast, options)
+
+    // Verify options object wasn't mutated
+    expect(options.overrides).toBe(originalOverrides)
+
+    // Second call with same options
+    astToNative(ast, options)
+
+    // Options should still be unchanged
+    expect(options.overrides).toBe(originalOverrides)
+  })
+
+  it('should not mutate options object when calling compiler multiple times', () => {
+    // Test that compiler doesn't mutate the options object when called multiple times
+    const markdown = '# Hello world'
+    const options = { slugify: (input: string) => input.toLowerCase() }
+    const originalOverrides = options.overrides
+
+    // First call
+    compiler(markdown, options)
+
+    // Verify options object wasn't mutated
+    expect(options.overrides).toBe(originalOverrides)
+
+    // Second call with same options
+    compiler(markdown, options)
+
+    // Options should still be unchanged
+    expect(options.overrides).toBe(originalOverrides)
+  })
+})

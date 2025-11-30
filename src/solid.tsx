@@ -173,18 +173,20 @@ function render(
   switch (node.type) {
     case RuleType.blockQuote: {
       const props = {} as Record<string, unknown>
+      let children = node.children
       if (node.alert) {
         props.className =
           'markdown-alert-' + slug(node.alert.toLowerCase(), util.slugify)
-        node.children.unshift({
+        const headerNode: MarkdownToJSX.HTMLNode = {
           attrs: {},
           children: [{ type: RuleType.text, text: node.alert }],
           noInnerParse: true,
           type: RuleType.htmlBlock,
           tag: 'header',
-        })
+        }
+        children = [headerNode, ...children]
       }
-      return h('blockquote', props, ...toArray(output(node.children, state)))
+      return h('blockquote', props, ...toArray(output(children, state)))
     }
 
     case RuleType.breakLine:
@@ -587,7 +589,7 @@ export function astToJSX(
   ast: MarkdownToJSX.ASTNode[],
   options?: SolidOptions
 ): JSX.Element | JSX.Element[] | null {
-  const opts = options || {}
+  const opts = { ...(options || {}) }
   opts.overrides = opts.overrides || {}
 
   const slug = opts.slugify || util.slugify
@@ -758,10 +760,17 @@ export function astToJSX(
         }
         combinedText += closingTagText.join('')
       }
-      htmlNode.text += '\n' + combinedText
+      // Create a new node instead of mutating to avoid issues with memoization
+      // When ast() is cached but jsx() recalculates, mutation would accumulate text
+      const modifiedHtmlNode: MarkdownToJSX.HTMLNode = {
+        ...htmlNode,
+        text: htmlNode.text + '\n' + combinedText,
+      }
+      postProcessedAst.push(modifiedHtmlNode)
       i++ // Skip paragraph
+    } else {
+      postProcessedAst.push(node)
     }
-    postProcessedAst.push(node)
   }
 
   const parseOptions: parse.ParseOptions = {
@@ -872,7 +881,7 @@ export function compiler(
   markdown: string = '',
   options: SolidOptions = {}
 ): JSX.Element | JSX.Element[] | null {
-  const opts = options || {}
+  const opts = { ...(options || {}) }
   opts.overrides = opts.overrides || {}
 
   const slug = opts.slugify || util.slugify
