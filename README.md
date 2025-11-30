@@ -26,6 +26,7 @@ Some special features of the library:
     - [Main](#main)
     - [React](#react)
     - [React Native](#react-native)
+    - [SolidJS](#solidjs)
     - [HTML](#html)
     - [Markdown](#markdown)
   - [Library Options](#library-options)
@@ -849,10 +850,9 @@ const Table = ({ columns, dataSource, ...props }) => {
 <div>
 ```js
 var code = here();
-````
-
-</div>
 ```
+</div>
+````
 
 ## Changelog
 
