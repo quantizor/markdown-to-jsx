@@ -38,7 +38,6 @@ function extractTextContent(
       vnode.props && typeof vnode.props === 'object'
         ? (vnode.props as Record<string, unknown>)
         : null
-    // Check for alt text in img (before children, as images don't have text children)
     if (
       typeof vnode.type === 'string' &&
       vnode.type === 'img' &&
@@ -47,7 +46,6 @@ function extractTextContent(
     ) {
       return props.alt
     }
-    // Check for children in props or directly on vnode
     const children =
       props?.children !== undefined
         ? props.children
@@ -59,19 +57,6 @@ function extractTextContent(
     }
   }
   return ''
-}
-
-// Helper to check if VNode has a property (avoids JSON.stringify)
-function hasProp(vnode: VNode | VNode[] | null, prop: string): boolean {
-  if (!vnode || Array.isArray(vnode)) return false
-  if (
-    typeof vnode === 'object' &&
-    vnode.props &&
-    typeof vnode.props === 'object'
-  ) {
-    return prop in (vnode.props as Record<string, unknown>)
-  }
-  return false
 }
 
 // Helper to get VNode type
@@ -92,6 +77,27 @@ function getProp(vnode: VNode | VNode[] | null, prop: string): unknown {
     typeof vnode.props === 'object'
   ) {
     return (vnode.props as Record<string, unknown>)[prop]
+  }
+  return undefined
+}
+
+// Helper to find a child VNode by tag name
+function findByTag(
+  vnode: VNode | VNode[] | null,
+  tag: string
+): VNode | undefined {
+  if (!vnode || Array.isArray(vnode)) return undefined
+  if (typeof vnode === 'object' && Array.isArray(vnode.children)) {
+    for (let i = 0; i < vnode.children.length; i++) {
+      const child = vnode.children[i]
+      if (
+        typeof child === 'object' &&
+        typeof child.type === 'string' &&
+        child.type === tag
+      ) {
+        return child as VNode
+      }
+    }
   }
   return undefined
 }
@@ -126,9 +132,11 @@ it('wraps multiple block element returns in a div to avoid invalid nesting error
   expect(getVNodeType(result as VNode)).toBe('div')
   const text = extractTextContent(result)
   expect(text).toBe('BoopBlep')
-  // Verify structure: div containing h1 and h2
   const vnode = result as VNode
   expect(Array.isArray(vnode.children)).toBe(true)
+  expect(vnode.children?.length).toBe(2)
+  expect(getVNodeType(vnode.children?.[0] as VNode)).toBe('h1')
+  expect(getVNodeType(vnode.children?.[1] as VNode)).toBe('h2')
 })
 
 it('wraps solely inline elements in a span, rather than a div', () => {
@@ -199,7 +207,6 @@ describe('headings', () => {
   it('should generate IDs for headings', () => {
     const result = compiler('# Hello World')
     expect(getVNodeType(result as VNode)).toBe('h1')
-    expect(hasProp(result as VNode, 'id')).toBe(true)
     const id = getProp(result as VNode, 'id')
     expect(typeof id).toBe('string')
     expect(id).toBe('hello-world')
@@ -256,18 +263,14 @@ describe('links', () => {
     const result = compiler('[Link](path\\to\\file)')
     const href = getProp(result as VNode, 'href')
     expect(typeof href).toBe('string')
-    expect(
-      (href as string).includes('%5C') || (href as string).includes('\\')
-    ).toBe(true)
+    expect(href as string).toContain('%5C')
   })
 
   it('should encode backticks in URLs', () => {
     const result = compiler('[Link](path`to`file)')
     const href = getProp(result as VNode, 'href')
     expect(typeof href).toBe('string')
-    expect(
-      (href as string).includes('%60') || (href as string).includes('`')
-    ).toBe(true)
+    expect(href as string).toContain('%60')
   })
 
   it('should not link bare URL if disabled via options', () => {
@@ -305,6 +308,11 @@ describe('lists', () => {
     expect(getVNodeType(result as VNode)).toBe('ul')
     const text = extractTextContent(result)
     expect(text).toBe('Item 1Item 2')
+    const vnode = result as VNode
+    expect(Array.isArray(vnode.children)).toBe(true)
+    expect(vnode.children?.length).toBe(2)
+    expect(getVNodeType(vnode.children?.[0] as VNode)).toBe('li')
+    expect(getVNodeType(vnode.children?.[1] as VNode)).toBe('li')
   })
 
   it('should render ordered lists', () => {
@@ -312,12 +320,20 @@ describe('lists', () => {
     expect(getVNodeType(result as VNode)).toBe('ol')
     const text = extractTextContent(result)
     expect(text).toBe('Item 1Item 2')
+    const vnode = result as VNode
+    expect(Array.isArray(vnode.children)).toBe(true)
+    expect(vnode.children?.length).toBe(2)
+    expect(getVNodeType(vnode.children?.[0] as VNode)).toBe('li')
+    expect(getVNodeType(vnode.children?.[1] as VNode)).toBe('li')
   })
 
   it('should handle ordered lists with start attribute', () => {
     const result = compiler('3. Item 3\n4. Item 4')
     expect(getVNodeType(result as VNode)).toBe('ol')
     expect(getProp(result as VNode, 'start')).toBe(3)
+    const vnode = result as VNode
+    expect(Array.isArray(vnode.children)).toBe(true)
+    expect(vnode.children?.length).toBe(2)
   })
 })
 
@@ -338,14 +354,11 @@ describe('code blocks', () => {
   it('should handle code blocks with language', () => {
     const result = compiler('```javascript\ncode\n```')
     expect(getVNodeType(result as VNode)).toBe('pre')
-    // Language class may be on code element inside pre, or on pre itself
-    const classProp = getProp(result as VNode, 'class')
-    const hasLanguageClass =
-      classProp &&
-      typeof classProp === 'string' &&
-      ((classProp as string).includes('language-javascript') ||
-        (classProp as string).includes('lang-javascript'))
-    expect(hasLanguageClass || classProp === undefined).toBe(true)
+    const codeElement = (result as VNode).children?.[0] as VNode
+    expect(getVNodeType(codeElement)).toBe('code')
+    const codeClass = getProp(codeElement, 'class')
+    expect(typeof codeClass).toBe('string')
+    expect(codeClass as string).toContain('language-javascript')
     expect(extractTextContent(result)).toBe('code')
   })
 })
@@ -446,6 +459,11 @@ describe('tables', () => {
     expect(getVNodeType(result as VNode)).toBe('table')
     const text = extractTextContent(result)
     expect(text).toBe('HeaderCell')
+    const vnode = result as VNode
+    expect(Array.isArray(vnode.children)).toBe(true)
+    expect(vnode.children?.length).toBe(2)
+    expect(getVNodeType(vnode.children?.[0] as VNode)).toBe('thead')
+    expect(getVNodeType(vnode.children?.[1] as VNode)).toBe('tbody')
   })
 })
 
@@ -461,10 +479,15 @@ describe('blockquotes', () => {
 describe('footnotes', () => {
   it('should handle footnote references', () => {
     const result = compiler('Text[^1]\n\n[^1]: Footnote')
+    expect(getVNodeType(result as VNode)).toBe('div')
     const text = extractTextContent(result)
-    // Footnotes include both the reference and the definition
-    expect(text.includes('Text')).toBe(true)
-    expect(text.includes('Footnote')).toBe(true)
+    expect(text).toContain('Text')
+    expect(text).toContain('Footnote')
+    const vnode = result as VNode
+    expect(Array.isArray(vnode.children)).toBe(true)
+    const footer = findByTag(vnode, 'footer')
+    expect(footer).toBeDefined()
+    expect(getVNodeType(footer)).toBe('footer')
   })
 })
 
@@ -555,9 +578,11 @@ describe('blockquotes with alerts', () => {
     expect(getVNodeType(result as VNode)).toBe('blockquote')
     const classProp = getProp(result as VNode, 'class')
     expect(typeof classProp).toBe('string')
-    expect((classProp as string).includes('markdown-alert-note')).toBe(true)
+    expect(classProp as string).toContain('markdown-alert-note')
     const text = extractTextContent(result)
     expect(text).toBe('NOTESomething important')
+    const vnode = result as VNode
+    expect(Array.isArray(vnode.children)).toBe(true)
   })
 })
 
@@ -566,15 +591,20 @@ describe('frontmatter', () => {
     const result = compiler('---\ntitle: Test\n---\n\nContent', {
       preserveFrontmatter: true,
     })
+    expect(getVNodeType(result as VNode)).toBe('div')
     const text = extractTextContent(result)
-    expect(text.includes('title: Test')).toBe(true)
-    expect(text.includes('Content')).toBe(true)
+    expect(text).toContain('title: Test')
+    expect(text).toContain('Content')
+    const vnode = result as VNode
+    const preElement = findByTag(vnode, 'pre')
+    expect(preElement).toBeDefined()
+    expect(getVNodeType(preElement)).toBe('pre')
   })
 
   it('should not preserve frontmatter by default', () => {
     const result = compiler('---\ntitle: Test\n---\n\nContent')
     const text = extractTextContent(result)
-    expect(text.includes('title: Test')).toBe(false)
+    expect(text).not.toContain('title: Test')
     expect(text).toBe('Content')
   })
 })
@@ -585,9 +615,15 @@ describe('GFM task lists', () => {
     expect(getVNodeType(result as VNode)).toBe('ul')
     const text = extractTextContent(result)
     expect(text).toBe(' Task 1')
-    // Verify checkbox exists in the structure
     const vnode = result as VNode
     expect(Array.isArray(vnode.children)).toBe(true)
+    const li = vnode.children?.[0] as VNode
+    expect(getVNodeType(li)).toBe('li')
+    expect(Array.isArray(li.children)).toBe(true)
+    const checkbox = li.children?.[0] as VNode
+    expect(getVNodeType(checkbox)).toBe('input')
+    expect(getProp(checkbox, 'type')).toBe('checkbox')
+    expect(getProp(checkbox, 'checked')).toBe(false)
   })
 
   it('should handle checked task items', () => {
@@ -595,9 +631,14 @@ describe('GFM task lists', () => {
     expect(getVNodeType(result as VNode)).toBe('ul')
     const text = extractTextContent(result)
     expect(text).toBe(' Task 1')
-    // Verify checkbox exists in the structure
     const vnode = result as VNode
     expect(Array.isArray(vnode.children)).toBe(true)
+    const li = vnode.children?.[0] as VNode
+    expect(getVNodeType(li)).toBe('li')
+    const checkbox = li.children?.[0] as VNode
+    expect(getVNodeType(checkbox)).toBe('input')
+    expect(getProp(checkbox, 'type')).toBe('checkbox')
+    expect(getProp(checkbox, 'checked')).toBe(true)
   })
 })
 
@@ -605,10 +646,11 @@ describe('code blocks with attributes', () => {
   it('should handle code blocks with custom attributes', () => {
     const result = compiler('```js data-line="1"\ncode\n```')
     expect(getVNodeType(result as VNode)).toBe('pre')
-    // Attributes may be on code element inside pre, or on pre itself
-    const dataLine = getProp(result as VNode, 'data-line')
-    // If not on pre, it's on the nested code element (which is acceptable)
-    expect(dataLine === '1' || dataLine === undefined).toBe(true)
+    // Attributes are on code element inside pre, not on pre itself
+    const codeElement = (result as VNode).children?.[0] as VNode
+    expect(getVNodeType(codeElement)).toBe('code')
+    const dataLine = getProp(codeElement, 'data-line')
+    expect(dataLine).toBe('1')
     expect(extractTextContent(result)).toBe('code')
   })
 })
@@ -618,13 +660,9 @@ describe('HTML blocks', () => {
     const result = compiler('<script>alert("xss")</script>', {
       tagfilter: true,
     })
-    // When tagfilter is enabled, dangerous tags are escaped and wrapped in span
     expect(getVNodeType(result as VNode)).toBe('span')
-    // The script tag should be escaped as text content
     const text = extractTextContent(result)
-    expect(text.includes('<script>') || text.includes('&lt;script&gt;')).toBe(
-      true
-    )
+    expect(text).toContain('<script>')
   })
 
   it('should process markdown within HTML blocks', () => {
@@ -648,10 +686,37 @@ describe('HTML blocks', () => {
 
   it('should filter dangerous self-closing tags by wrapping in span when tagfilter is enabled', () => {
     const result = compiler('<script />', { tagfilter: true })
-    // When tagfilter is enabled, dangerous self-closing tags are escaped
     expect(getVNodeType(result as VNode)).toBe('span')
     const text = extractTextContent(result)
-    expect(text.includes('<script') || text.includes('&lt;script')).toBe(true)
+    expect(text).toContain('<script')
+  })
+
+  it('should format filtered tag attributes with boolean values', () => {
+    const result = compiler('<iframe src="test" allowfullscreen />', {
+      tagfilter: true,
+    })
+    expect(getVNodeType(result as VNode)).toBe('span')
+    const text = extractTextContent(result)
+    expect(text).toContain('allowfullscreen')
+    expect(text).toContain('src="test"')
+  })
+
+  it('should handle HTML blocks with pre tags using innerHTML', () => {
+    const result = compiler('<div><pre>code\nhere</pre>text</div>')
+    expect(getVNodeType(result as VNode)).toBe('div')
+    const innerHTML = getProp(result as VNode, 'innerHTML')
+    expect(typeof innerHTML === 'object' && innerHTML !== null).toBe(true)
+    const innerHTMLVNode = innerHTML as VNode
+    expect(getVNodeType(innerHTMLVNode)).toBe('pre')
+    const text = extractTextContent(innerHTMLVNode)
+    expect(text).toContain('code')
+    expect(text).toContain('here')
+  })
+
+  it('should handle self-closing tag regex match with attributes', () => {
+    const result = compiler('<div class="test"></div>')
+    expect(getVNodeType(result as VNode)).toBe('div')
+    expect(getProp(result as VNode, 'class')).toBe('test')
   })
 })
 
@@ -748,6 +813,13 @@ describe('nested lists', () => {
     expect(getVNodeType(result as VNode)).toBe('ul')
     const text = extractTextContent(result)
     expect(text).toBe('Item 1Nested 1Nested 2')
+    const vnode = result as VNode
+    expect(Array.isArray(vnode.children)).toBe(true)
+    const firstLi = vnode.children?.[0] as VNode
+    expect(getVNodeType(firstLi)).toBe('li')
+    expect(Array.isArray(firstLi.children)).toBe(true)
+    const nestedUl = findByTag(firstLi, 'ul')
+    expect(nestedUl).toBeDefined()
   })
 
   it('should handle nested ordered lists', () => {
@@ -755,6 +827,12 @@ describe('nested lists', () => {
     expect(getVNodeType(result as VNode)).toBe('ol')
     const text = extractTextContent(result)
     expect(text).toBe('Item 1Nested 1Nested 2')
+    const vnode = result as VNode
+    expect(Array.isArray(vnode.children)).toBe(true)
+    const firstLi = vnode.children?.[0] as VNode
+    expect(getVNodeType(firstLi)).toBe('li')
+    const nestedOl = findByTag(firstLi, 'ol')
+    expect(nestedOl).toBeDefined()
   })
 })
 
@@ -766,6 +844,12 @@ describe('tables with alignment', () => {
     expect(getVNodeType(result as VNode)).toBe('table')
     const text = extractTextContent(result)
     expect(text).toBe('LeftCenterRightLCR')
+    const vnode = result as VNode
+    const thead = vnode.children?.[0] as VNode
+    const tbody = vnode.children?.[1] as VNode
+    expect(getVNodeType(thead)).toBe('thead')
+    expect(getVNodeType(tbody)).toBe('tbody')
+    expect(Array.isArray(tbody.children)).toBe(true)
   })
 })
 
@@ -812,17 +896,11 @@ describe('text formatting combinations', () => {
 })
 
 describe('URL encoding edge cases', () => {
-  it('should preserve percent-encoded sequences in URLs', () => {
-    const result = compiler('[Link](http://example.com/path%20with%20spaces)')
-    const href = getProp(result as VNode, 'href')
-    expect(href).toBe('http://example.com/path%20with%20spaces')
-  })
-
   it('should encode Unicode characters in URLs', () => {
     const result = compiler('[Link](http://example.com/测试)')
     const href = getProp(result as VNode, 'href')
     expect(typeof href).toBe('string')
-    expect((href as string).includes('%')).toBe(true)
+    expect(href as string).toContain('%')
   })
 
   it('should handle URLs with existing percent encoding', () => {
@@ -839,113 +917,73 @@ describe('URL encoding edge cases', () => {
 })
 
 describe('HTML block processing', () => {
-  it('should handle Type 1 blocks without inner HTML tags', () => {
-    const result = compiler('<pre>code here</pre>')
-    expect(getVNodeType(result as VNode)).toBe('pre')
-    const text = extractTextContent(result)
-    expect(text).toBe('code here')
+  it('should handle Type 1 blocks with and without tagfilter', () => {
+    const result1 = compiler('<pre>code here</pre>')
+    expect(getVNodeType(result1 as VNode)).toBe('pre')
+    expect(extractTextContent(result1)).toBe('code here')
+    const result2 = compiler('<pre>code here</pre>', { tagfilter: true })
+    expect(getVNodeType(result2 as VNode)).toBe('pre')
+    expect(extractTextContent(result2)).toBe('code here')
   })
 
-  it('should handle Type 1 blocks with tagfilter enabled', () => {
-    const result = compiler('<pre>code here</pre>', { tagfilter: true })
-    expect(getVNodeType(result as VNode)).toBe('pre')
-    const text = extractTextContent(result)
-    expect(text).toBe('code here')
+  it('should handle HTML blocks with pre tags', () => {
+    const result1 = compiler('<div><pre>code</pre></div>')
+    expect(getVNodeType(result1 as VNode)).toBe('div')
+    expect(extractTextContent(result1)).toBe('code')
+    const result2 = compiler('<div><pre>code</pre></div>', { tagfilter: true })
+    expect(getVNodeType(result2 as VNode)).toBe('div')
+    expect(extractTextContent(result2)).toBe('code')
   })
 
-  it('should handle HTML blocks with pre tags and innerHTML', () => {
-    const result = compiler('<div><pre>code</pre></div>')
-    expect(getVNodeType(result as VNode)).toBe('div')
-    const text = extractTextContent(result)
-    expect(text).toBe('code')
+  it('should process markdown within HTML blocks', () => {
+    const result1 = compiler('<div>**bold** text</div>')
+    expect(getVNodeType(result1 as VNode)).toBe('div')
+    expect(extractTextContent(result1)).toBe('bold text')
+    const vnode1 = result1 as VNode
+    expect(Array.isArray(vnode1.children)).toBe(true)
+    const strongElement = findByTag(vnode1, 'strong')
+    expect(strongElement).toBeDefined()
+    expect(getVNodeType(strongElement)).toBe('strong')
+    expect(extractTextContent(strongElement)).toBe('bold')
+    const result2 = compiler('<div><p>paragraph</p></div>')
+    expect(getVNodeType(result2 as VNode)).toBe('div')
+    expect(extractTextContent(result2)).toBe('paragraph')
   })
 
-  it('should handle HTML blocks with pre tags and tagfilter', () => {
-    const result = compiler('<div><pre>code</pre></div>', { tagfilter: true })
-    expect(getVNodeType(result as VNode)).toBe('div')
-    const text = extractTextContent(result)
-    expect(text).toBe('code')
+  it('should handle HTML blocks with empty or whitespace-only content', () => {
+    const result1 = compiler('<div><p></p></div>')
+    expect(getVNodeType(result1 as VNode)).toBe('div')
+    expect(extractTextContent(result1).trim()).toBe('')
+    const result2 = compiler('<div>   </div>')
+    expect(getVNodeType(result2 as VNode)).toBe('div')
+    expect(extractTextContent(result2).trim()).toBe('')
   })
 
-  it('should handle self-closing tag regex match', () => {
-    const result = compiler('<div></div>')
-    expect(getVNodeType(result as VNode)).toBe('div')
+  it('should handle HTML blocks with text and nested HTML', () => {
+    const result1 = compiler('<div>text content</div>')
+    expect(getVNodeType(result1 as VNode)).toBe('div')
+    expect(extractTextContent(result1)).toBe('text content')
+    const result2 = compiler('<div><div>nested</div></div>')
+    expect(getVNodeType(result2 as VNode)).toBe('div')
+    expect(extractTextContent(result2)).toBe('nested')
   })
 
-  it('should handle self-closing tag regex with attributes', () => {
-    const result = compiler('<div class="test"></div>')
-    expect(getVNodeType(result as VNode)).toBe('div')
-  })
-
-  it('should process markdown within HTML blocks with processNode', () => {
-    const result = compiler('<div>**bold** text</div>')
-    expect(getVNodeType(result as VNode)).toBe('div')
-    const text = extractTextContent(result)
-    expect(text).toBe('bold text')
-  })
-
-  it('should handle HTML blocks with paragraph children in processNode', () => {
-    const result = compiler('<div><p>paragraph</p></div>')
-    expect(getVNodeType(result as VNode)).toBe('div')
-    const text = extractTextContent(result)
-    expect(text).toBe('paragraph')
-  })
-
-  it('should handle HTML blocks with empty paragraph in processNode', () => {
-    const result = compiler('<div><p></p></div>')
-    const text = extractTextContent(result)
-    expect(text.trim()).toBe('')
-  })
-
-  it('should handle HTML blocks with text nodes in processNode', () => {
-    const result = compiler('<div>   </div>')
-    const text = extractTextContent(result)
-    expect(text.trim()).toBe('')
-  })
-
-  it('should handle HTML blocks with text nodes with content in processNode', () => {
-    const result = compiler('<div>text content</div>')
-    expect(getVNodeType(result as VNode)).toBe('div')
-    const text = extractTextContent(result)
-    expect(text).toBe('text content')
-  })
-
-  it('should handle HTML blocks with nested HTML blocks in processNode', () => {
-    const result = compiler('<div><div>nested</div></div>')
-    expect(getVNodeType(result as VNode)).toBe('div')
-    const text = extractTextContent(result)
-    expect(text).toBe('nested')
-  })
-
-  it('should handle HTML blocks with htmlSelfClosing isClosingTag in processNode', () => {
-    const result = compiler('<div><!-- comment --></div>')
-    const text = extractTextContent(result)
-    expect(text).toBe('')
+  it('should handle HTML blocks with comments and nested structures', () => {
+    const result1 = compiler('<div><!-- comment --></div>')
+    expect(getVNodeType(result1 as VNode)).toBe('div')
+    expect(extractTextContent(result1)).toBe('')
+    const result2 = compiler('<div><div>inner</div>outer</div>')
+    expect(getVNodeType(result2 as VNode)).toBe('div')
+    expect(extractTextContent(result2)).toBe('innerouter')
   })
 })
 
-describe('postProcessAst edge cases', () => {
-  it('should combine HTML blocks with following paragraphs containing removedClosingTags', () => {
-    // This tests the postProcessAst function with removedClosingTags
+describe('HTML block edge cases', () => {
+  it('should combine HTML blocks with following paragraphs', () => {
     const result = compiler('<pre>code</pre>\nparagraph')
     expect(getVNodeType(result as VNode)).toBe('div')
     const text = extractTextContent(result)
     expect(text).toBe('codeparagraph')
-  })
-
-  it('should handle extractText with htmlSelfClosing rawText', () => {
-    // This tests extractText function with rawText
-    const result = compiler('<div>content</div>')
-    expect(getVNodeType(result as VNode)).toBe('div')
-    const text = extractTextContent(result)
-    expect(text).toBe('content')
-  })
-
-  it('should handle extractText with textFormatted nodes', () => {
-    const result = compiler('<div>**bold**</div>')
-    expect(getVNodeType(result as VNode)).toBe('div')
-    const text = extractTextContent(result)
-    expect(text).toBe('bold')
   })
 })
 
