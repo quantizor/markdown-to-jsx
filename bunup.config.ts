@@ -13,15 +13,15 @@ const common = {
 } satisfies DefineConfigItem
 
 export default defineConfig([
-  // Main library build - ESM and CJS (includes index, react, html, markdown, and native entry points)
+  // Main library build - ESM and CJS (includes index, react, html, markdown, native, and solid entry points)
   {
     ...common,
     name: 'main',
-    entry: ['src/index.tsx', 'src/react.tsx', 'src/html.ts', 'src/markdown.ts', 'src/native.tsx'],
+    entry: ['src/index.tsx', 'src/react.tsx', 'src/html.ts', 'src/markdown.ts', 'src/native.tsx', 'src/solid.tsx'],
     outDir: 'dist',
     format: ['esm', 'cjs'],
     dts: true,
-    external: ['react', 'react-native'],
+    external: ['react', 'react-native', 'solid-js'],
     target: 'node',
   },
 ])
