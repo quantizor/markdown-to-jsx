@@ -272,6 +272,59 @@ HTML tags are automatically mapped to React Native components:
 
 **Note:** Links are underlined by default for better accessibility and discoverability. You can override this via the `styles.link` option.
 
+#### SolidJS
+
+For SolidJS usage, import from the `/solid` entry point:
+
+```tsx
+import Markdown, {
+  compiler,
+  parser,
+  astToJSX,
+  MarkdownProvider,
+} from 'markdown-to-jsx/solid'
+import { createSignal } from 'solid-js'
+
+// Static content
+const solidElement = compiler('# Hello world')
+
+function App() {
+  return <Markdown children="# Hello world" />
+}
+
+// Reactive content (automatically updates when content changes)
+function ReactiveApp() {
+  const [content, setContent] = createSignal('# Hello world')
+  return <Markdown>{content}</Markdown>
+}
+
+// Or use parser + astToJSX
+const ast = parser('# Hello world')
+const solidElement2 = astToJSX(ast)
+
+// Use context for default options
+function AppWithContext() {
+  return (
+    <MarkdownProvider options={{ sanitizer: customSanitizer }}>
+      <Markdown># Content</Markdown>
+    </MarkdownProvider>
+  )
+}
+```
+
+**SolidJS-specific features:**
+
+- **Reactive content**: The `Markdown` component accepts signals/accessors for automatic updates when markdown content changes
+- **Memoization**: AST parsing is automatically memoized for optimal performance
+- **Context API**: Use `MarkdownProvider` to provide default options and avoid prop drilling
+
+**SolidJS-specific options:**
+
+- `createElement?: (tag, props, ...children) => JSX.Element` - Custom element creation (defaults to SolidJS's JSX runtime)
+- All other options from the main library are supported
+
+**Note:** SolidJS uses fine-grained reactivity, so elements are tracked automatically without needing `key` props like React.
+
 #### HTML
 
 For HTML string output (server-side rendering), import from the `/html` entry point:
@@ -306,7 +359,7 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 
 | Option                  | Type                          | Default  | Description                                                                                                               |
 | ----------------------- | ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `createElement`         | `function`                    | -        | Custom React.createElement behavior (React/React Native only). See [createElement](#optionscreateelement) for details.    |
+| `createElement`         | `function`                    | -        | Custom createElement behavior (React/React Native/SolidJS only). See [createElement](#optionscreateelement) for details.  |
 | `disableAutoLink`       | `boolean`                     | `false`  | Disable automatic conversion of bare URLs to anchor tags.                                                                 |
 | `disableParsingRawHTML` | `boolean`                     | `false`  | Disable parsing of raw HTML into JSX.                                                                                     |
 | `enforceAtxHeadings`    | `boolean`                     | `false`  | Require space between `#` and header text (GFM spec compliance).                                                          |

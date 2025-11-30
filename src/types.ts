@@ -394,4 +394,9 @@ declare namespace MarkdownToJSX {
 export const RuleType: typeof RuleTypeConst = RuleTypeConst
 export type RuleType = RuleTypeValue
 
+export type RequireAtLeastOne<
+  T,
+  Keys extends keyof T = keyof T,
+> = MarkdownToJSX.RequireAtLeastOne<T, Keys>
+
 export { MarkdownToJSX }

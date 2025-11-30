@@ -6,3 +6,6 @@ alwaysApply: false
 - Test assertions may only have a single possible result.
 - Test assertions should be as specific as is practical.
 - Renderer suites should focus exclusively on renderer behavior, with the parser suite handling common parsing scenarios.
+- 80% or greater branch coverage is required.
+- Tests should always assert a specific result shape, generic existence checks like `toBeTruthy()` or `toBeDefined()` are not allowed.
+- Run coverage with: `bun test --coverage [file]`

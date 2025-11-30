@@ -1,126 +1,637 @@
 {
-  "timestamp": "2025-11-18T02:44:30.087Z",
-  "inputSize": 173,
-  "parseTime": 5.16,
-  "blockParsers": {
-    "blockQuote": {
-      "attempts": 70,
-      "hits": 60
+  "parser": {
+    "timestamp": "2025-11-30T02:39:57.877Z",
+    "target": "parser",
+    "inputSize": 173,
+    "parseTime": 5.38,
+    "blockParsers": {
+      "blockQuote": {
+        "attempts": 70,
+        "hits": 60
+      },
+      "breakThematic": {
+        "attempts": 573,
+        "hits": 55
+      },
+      "codeBlock": {
+        "attempts": 30,
+        "hits": 20
+      },
+      "codeFenced": {
+        "attempts": 184,
+        "hits": 21
+      },
+      "footnote": {
+        "attempts": 15,
+        "hits": 0
+      },
+      "frontmatter": {
+        "attempts": 1,
+        "hits": 1
+      },
+      "heading": {
+        "attempts": 794,
+        "hits": 787
+      },
+      "headingSetext": {
+        "attempts": 1124,
+        "hits": 11
+      },
+      "htmlBlock": {
+        "attempts": 58,
+        "hits": 10
+      },
+      "htmlComment": {
+        "attempts": 6,
+        "hits": 3
+      },
+      "listGfmTask": {
+        "attempts": 20,
+        "hits": 20
+      },
+      "list": {
+        "attempts": 261,
+        "hits": 151
+      },
+      "paragraph": {
+        "attempts": 852,
+        "hits": 301
+      },
+      "table": {
+        "attempts": 40,
+        "hits": 40
+      }
     },
-    "breakThematic": {
-      "attempts": 573,
-      "hits": 55
+    "inlineParsers": {
+      "breakLine": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "codeInline": {
+        "attempts": 50,
+        "hits": 50
+      },
+      "escaped": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "formatting": {
+        "attempts": 390,
+        "hits": 390
+      },
+      "footnoteRef": {
+        "attempts": 15,
+        "hits": 15
+      },
+      "htmlComment": {
+        "attempts": 20,
+        "hits": 10
+      },
+      "htmlElement": {
+        "attempts": 31,
+        "hits": 31
+      },
+      "image": {
+        "attempts": 25,
+        "hits": 25
+      },
+      "link": {
+        "attempts": 50,
+        "hits": 41
+      },
+      "linkAngleBrace": {
+        "attempts": 41,
+        "hits": 10
+      },
+      "linkBareUrl": {
+        "attempts": 25,
+        "hits": 25
+      },
+      "linkEmail": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "linkRef": {
+        "attempts": 44,
+        "hits": 20
+      },
+      "refImage": {
+        "attempts": 0,
+        "hits": 0
+      }
     },
-    "codeBlock": {
-      "attempts": 30,
-      "hits": 20
-    },
-    "codeFenced": {
-      "attempts": 184,
-      "hits": 21
-    },
-    "footnote": {
-      "attempts": 15,
-      "hits": 0
-    },
-    "frontmatter": {
-      "attempts": 1,
-      "hits": 1
-    },
-    "heading": {
-      "attempts": 794,
-      "hits": 787
-    },
-    "headingSetext": {
-      "attempts": 1124,
-      "hits": 11
-    },
-    "htmlBlock": {
-      "attempts": 58,
-      "hits": 10
-    },
-    "htmlComment": {
-      "attempts": 6,
-      "hits": 3
-    },
-    "listGfmTask": {
-      "attempts": 20,
-      "hits": 20
-    },
-    "list": {
-      "attempts": 261,
-      "hits": 151
-    },
-    "paragraph": {
-      "attempts": 852,
-      "hits": 301
-    },
-    "table": {
-      "attempts": 40,
-      "hits": 40
+    "operationCounts": {
+      "totalOperations": 3297,
+      "blockParseIterations": 893,
+      "inlineParseIterations": 1260
     }
   },
-  "inlineParsers": {
-    "breakLine": {
-      "attempts": 5,
-      "hits": 5
+  "react": {
+    "timestamp": "2025-11-30T02:39:58.695Z",
+    "target": "react",
+    "inputSize": 173,
+    "parseTime": 7.15,
+    "blockParsers": {
+      "blockQuote": {
+        "attempts": 70,
+        "hits": 60
+      },
+      "breakThematic": {
+        "attempts": 573,
+        "hits": 55
+      },
+      "codeBlock": {
+        "attempts": 30,
+        "hits": 20
+      },
+      "codeFenced": {
+        "attempts": 184,
+        "hits": 21
+      },
+      "footnote": {
+        "attempts": 15,
+        "hits": 0
+      },
+      "frontmatter": {
+        "attempts": 1,
+        "hits": 1
+      },
+      "heading": {
+        "attempts": 794,
+        "hits": 787
+      },
+      "headingSetext": {
+        "attempts": 1144,
+        "hits": 11
+      },
+      "htmlBlock": {
+        "attempts": 88,
+        "hits": 25
+      },
+      "htmlComment": {
+        "attempts": 6,
+        "hits": 3
+      },
+      "listGfmTask": {
+        "attempts": 20,
+        "hits": 20
+      },
+      "list": {
+        "attempts": 261,
+        "hits": 151
+      },
+      "paragraph": {
+        "attempts": 872,
+        "hits": 311
+      },
+      "table": {
+        "attempts": 40,
+        "hits": 40
+      }
     },
-    "codeInline": {
-      "attempts": 50,
-      "hits": 50
+    "inlineParsers": {
+      "breakLine": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "codeInline": {
+        "attempts": 51,
+        "hits": 51
+      },
+      "escaped": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "formatting": {
+        "attempts": 392,
+        "hits": 392
+      },
+      "footnoteRef": {
+        "attempts": 15,
+        "hits": 15
+      },
+      "htmlComment": {
+        "attempts": 20,
+        "hits": 10
+      },
+      "htmlElement": {
+        "attempts": 66,
+        "hits": 66
+      },
+      "image": {
+        "attempts": 25,
+        "hits": 25
+      },
+      "link": {
+        "attempts": 51,
+        "hits": 42
+      },
+      "linkAngleBrace": {
+        "attempts": 76,
+        "hits": 10
+      },
+      "linkBareUrl": {
+        "attempts": 25,
+        "hits": 25
+      },
+      "linkEmail": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "linkRef": {
+        "attempts": 44,
+        "hits": 20
+      },
+      "refImage": {
+        "attempts": 0,
+        "hits": 0
+      }
     },
-    "escaped": {
-      "attempts": 5,
-      "hits": 5
-    },
-    "formatting": {
-      "attempts": 390,
-      "hits": 390
-    },
-    "footnoteRef": {
-      "attempts": 15,
-      "hits": 15
-    },
-    "htmlComment": {
-      "attempts": 20,
-      "hits": 10
-    },
-    "htmlElement": {
-      "attempts": 31,
-      "hits": 31
-    },
-    "image": {
-      "attempts": 25,
-      "hits": 25
-    },
-    "link": {
-      "attempts": 50,
-      "hits": 41
-    },
-    "linkAngleBrace": {
-      "attempts": 41,
-      "hits": 10
-    },
-    "linkBareUrl": {
-      "attempts": 25,
-      "hits": 25
-    },
-    "linkEmail": {
-      "attempts": 5,
-      "hits": 5
-    },
-    "linkRef": {
-      "attempts": 44,
-      "hits": 20
-    },
-    "refImage": {
-      "attempts": 0,
-      "hits": 0
+    "operationCounts": {
+      "totalOperations": 3348,
+      "blockParseIterations": 919,
+      "inlineParseIterations": 1283
     }
   },
-  "operationCounts": {
-    "totalOperations": 3297,
-    "blockParseIterations": 893,
-    "inlineParseIterations": 1260
+  "html": {
+    "timestamp": "2025-11-30T02:39:59.997Z",
+    "target": "html",
+    "inputSize": 173,
+    "parseTime": 14.74,
+    "blockParsers": {
+      "blockQuote": {
+        "attempts": 70,
+        "hits": 60
+      },
+      "breakThematic": {
+        "attempts": 573,
+        "hits": 55
+      },
+      "codeBlock": {
+        "attempts": 30,
+        "hits": 20
+      },
+      "codeFenced": {
+        "attempts": 184,
+        "hits": 21
+      },
+      "footnote": {
+        "attempts": 15,
+        "hits": 0
+      },
+      "frontmatter": {
+        "attempts": 1,
+        "hits": 1
+      },
+      "heading": {
+        "attempts": 794,
+        "hits": 787
+      },
+      "headingSetext": {
+        "attempts": 1124,
+        "hits": 11
+      },
+      "htmlBlock": {
+        "attempts": 58,
+        "hits": 10
+      },
+      "htmlComment": {
+        "attempts": 6,
+        "hits": 3
+      },
+      "listGfmTask": {
+        "attempts": 20,
+        "hits": 20
+      },
+      "list": {
+        "attempts": 261,
+        "hits": 151
+      },
+      "paragraph": {
+        "attempts": 852,
+        "hits": 301
+      },
+      "table": {
+        "attempts": 40,
+        "hits": 40
+      }
+    },
+    "inlineParsers": {
+      "breakLine": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "codeInline": {
+        "attempts": 1031,
+        "hits": 1031
+      },
+      "escaped": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "formatting": {
+        "attempts": 2352,
+        "hits": 2352
+      },
+      "footnoteRef": {
+        "attempts": 15,
+        "hits": 15
+      },
+      "htmlComment": {
+        "attempts": 20,
+        "hits": 10
+      },
+      "htmlElement": {
+        "attempts": 31,
+        "hits": 31
+      },
+      "image": {
+        "attempts": 25,
+        "hits": 25
+      },
+      "link": {
+        "attempts": 1031,
+        "hits": 1022
+      },
+      "linkAngleBrace": {
+        "attempts": 41,
+        "hits": 10
+      },
+      "linkBareUrl": {
+        "attempts": 25,
+        "hits": 25
+      },
+      "linkEmail": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "linkRef": {
+        "attempts": 44,
+        "hits": 20
+      },
+      "refImage": {
+        "attempts": 0,
+        "hits": 0
+      }
+    },
+    "operationCounts": {
+      "totalOperations": 6240,
+      "blockParseIterations": 893,
+      "inlineParseIterations": 4203
+    }
+  },
+  "solid": {
+    "timestamp": "2025-11-30T02:40:00.805Z",
+    "target": "solid",
+    "inputSize": 173,
+    "parseTime": 6.17,
+    "blockParsers": {
+      "blockQuote": {
+        "attempts": 70,
+        "hits": 60
+      },
+      "breakThematic": {
+        "attempts": 573,
+        "hits": 55
+      },
+      "codeBlock": {
+        "attempts": 30,
+        "hits": 20
+      },
+      "codeFenced": {
+        "attempts": 184,
+        "hits": 21
+      },
+      "footnote": {
+        "attempts": 15,
+        "hits": 0
+      },
+      "frontmatter": {
+        "attempts": 1,
+        "hits": 1
+      },
+      "heading": {
+        "attempts": 794,
+        "hits": 787
+      },
+      "headingSetext": {
+        "attempts": 1144,
+        "hits": 11
+      },
+      "htmlBlock": {
+        "attempts": 88,
+        "hits": 25
+      },
+      "htmlComment": {
+        "attempts": 6,
+        "hits": 3
+      },
+      "listGfmTask": {
+        "attempts": 20,
+        "hits": 20
+      },
+      "list": {
+        "attempts": 261,
+        "hits": 151
+      },
+      "paragraph": {
+        "attempts": 872,
+        "hits": 311
+      },
+      "table": {
+        "attempts": 40,
+        "hits": 40
+      }
+    },
+    "inlineParsers": {
+      "breakLine": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "codeInline": {
+        "attempts": 51,
+        "hits": 51
+      },
+      "escaped": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "formatting": {
+        "attempts": 392,
+        "hits": 392
+      },
+      "footnoteRef": {
+        "attempts": 15,
+        "hits": 15
+      },
+      "htmlComment": {
+        "attempts": 20,
+        "hits": 10
+      },
+      "htmlElement": {
+        "attempts": 66,
+        "hits": 66
+      },
+      "image": {
+        "attempts": 25,
+        "hits": 25
+      },
+      "link": {
+        "attempts": 51,
+        "hits": 42
+      },
+      "linkAngleBrace": {
+        "attempts": 76,
+        "hits": 10
+      },
+      "linkBareUrl": {
+        "attempts": 25,
+        "hits": 25
+      },
+      "linkEmail": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "linkRef": {
+        "attempts": 44,
+        "hits": 20
+      },
+      "refImage": {
+        "attempts": 0,
+        "hits": 0
+      }
+    },
+    "operationCounts": {
+      "totalOperations": 3348,
+      "blockParseIterations": 919,
+      "inlineParseIterations": 1283
+    }
+  },
+  "react-native": {
+    "timestamp": "2025-11-30T02:40:01.633Z",
+    "target": "react-native",
+    "inputSize": 173,
+    "parseTime": 7.56,
+    "blockParsers": {
+      "blockQuote": {
+        "attempts": 70,
+        "hits": 60
+      },
+      "breakThematic": {
+        "attempts": 573,
+        "hits": 55
+      },
+      "codeBlock": {
+        "attempts": 30,
+        "hits": 20
+      },
+      "codeFenced": {
+        "attempts": 184,
+        "hits": 21
+      },
+      "footnote": {
+        "attempts": 15,
+        "hits": 0
+      },
+      "frontmatter": {
+        "attempts": 1,
+        "hits": 1
+      },
+      "heading": {
+        "attempts": 794,
+        "hits": 787
+      },
+      "headingSetext": {
+        "attempts": 1144,
+        "hits": 11
+      },
+      "htmlBlock": {
+        "attempts": 88,
+        "hits": 25
+      },
+      "htmlComment": {
+        "attempts": 6,
+        "hits": 3
+      },
+      "listGfmTask": {
+        "attempts": 20,
+        "hits": 20
+      },
+      "list": {
+        "attempts": 261,
+        "hits": 151
+      },
+      "paragraph": {
+        "attempts": 872,
+        "hits": 311
+      },
+      "table": {
+        "attempts": 40,
+        "hits": 40
+      }
+    },
+    "inlineParsers": {
+      "breakLine": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "codeInline": {
+        "attempts": 51,
+        "hits": 51
+      },
+      "escaped": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "formatting": {
+        "attempts": 392,
+        "hits": 392
+      },
+      "footnoteRef": {
+        "attempts": 15,
+        "hits": 15
+      },
+      "htmlComment": {
+        "attempts": 20,
+        "hits": 10
+      },
+      "htmlElement": {
+        "attempts": 66,
+        "hits": 66
+      },
+      "image": {
+        "attempts": 25,
+        "hits": 25
+      },
+      "link": {
+        "attempts": 51,
+        "hits": 42
+      },
+      "linkAngleBrace": {
+        "attempts": 76,
+        "hits": 10
+      },
+      "linkBareUrl": {
+        "attempts": 25,
+        "hits": 25
+      },
+      "linkEmail": {
+        "attempts": 5,
+        "hits": 5
+      },
+      "linkRef": {
+        "attempts": 44,
+        "hits": 20
+      },
+      "refImage": {
+        "attempts": 0,
+        "hits": 0
+      }
+    },
+    "operationCounts": {
+      "totalOperations": 3348,
+      "blockParseIterations": 919,
+      "inlineParseIterations": 1283
+    }
   }
 }
