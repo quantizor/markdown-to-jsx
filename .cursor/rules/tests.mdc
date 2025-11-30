@@ -1,6 +1,5 @@
 ---
-globs: *.spec.ts,*.spec.tsx
-alwaysApply: false
+alwaysApply: true
 ---
 
 - Test assertions may only have a single possible result.
@@ -8,4 +7,3 @@ alwaysApply: false
 - Renderer suites should focus exclusively on renderer behavior, with the parser suite handling common parsing scenarios.
 - 80% or greater cumulative coverage is required.
 - Tests should always assert a specific result shape, generic existence checks like `toBeTruthy()` or `toBeDefined()` are not allowed.
-- Run coverage with: `bun test --coverage [file]`

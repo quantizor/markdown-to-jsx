@@ -1,0 +1,20 @@
+---
+alwaysApply: true
+---
+
+- Do not create helper functions unless there are at least two instances of the same pattern and overall LOC is reduced
+- Follow through on each refactor to its end, including cleanup of unused code (cleanup should be a separate TODO item)
+- Consider the following dimensions when authoring or refactoring code:
+  - Algorithmic Complexity: Optimize time (e.g., O(n) vs O(n²)) and space usage in loops, recursion, and data processing.
+  - Data Structures: Use efficient types like Arrays for ordered data, Maps/Sets for lookups, avoiding slow object key iterations.
+  - Function Overhead: Minimize deep recursion, excessive closures, or higher-order functions that create unnecessary scopes.
+  - Memory Management: Prevent leaks via weak references (WeakMap/WeakSet), timely nulling variables, and reducing object allocations.
+  - Garbage Collection: Avoid frequent allocations/deallocations that trigger GC pauses; use object pooling for reusables.
+  - Asynchronous Efficiency: Leverage Promises, async/await, or generators to avoid callback hell and unnecessary awaits in loops.
+  - Event Loop Blocking: Keep synchronous code short; offload heavy tasks to Web Workers or setTimeout for non-blocking.
+  - DOM Interactions: Batch updates (e.g., via DocumentFragment), minimize reflows/repaints, use virtual DOM in frameworks.
+  - Rendering Performance: Debounce/throttle event handlers, optimize CSS selectors, and use requestAnimationFrame for animations.
+  - Network I/O: Cache responses (Service Workers, localStorage), minimize requests, compress data, and use lazy loading.
+  - Parsing and Execution: Reduce code size via minification/tree-shaking, avoid eval(), and optimize regex patterns.
+  - Dependency Management: Limit third-party libraries, use tree-shakable imports, and profile for bottlenecks.
+  - Browser-Specific Quirks: Handle engine differences (e.g., V8 optimizations for hot paths), test on target environments.
