@@ -1,0 +1,11 @@
+---
+alwaysApply: true
+---
+
+- Optimize new rules for token efficiency: no bold/emphasis, headers, and stylistic formatting, concise/compact and highly-specific language
+- Remove examples unless critical for understanding
+- Prefer abbreviations and acronyms when unambiguous
+- Use minimal punctuation, only where necessary for clarity
+- Remove meta-commentary about the rule itself
+- Focus on actionable directives, not explanations
+- `.cursor/rules` = best practices, `AGENTS.md` = repository-specific directives
