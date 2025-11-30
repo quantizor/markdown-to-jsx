@@ -15,3 +15,5 @@ determine the chokepoints in the code and resolve them, achieving net-negative L
 test after each change to ensure no regressions. 100% passing tests required.
 
 use existing helpers when it makes sense, but do not use a helper that does more work than the original code.
+
+test after each change to avoid regressions.
