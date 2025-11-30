@@ -70,7 +70,7 @@ declare namespace MarkdownToJSX {
     inline?: boolean
 
     /** use this for the `key` prop */
-    key?: React.Key
+    key?: string | number
     /** reference definitions (footnotes are stored with '^' prefix) */
     refs?: { [key: string]: { target: string; title: string | undefined } }
     /** current recursion depth during rendering */
@@ -212,6 +212,7 @@ declare namespace MarkdownToJSX {
     attrs?: Record<string, any>
     isClosingTag?: boolean
     tag: string
+    rawText?: string
   }
 
   export type ASTNode =
@@ -357,11 +358,7 @@ declare namespace MarkdownToJSX {
      * Override the built-in sanitizer function for URLs, etc if desired. The built-in version is available as a library
      export called `sanitizer`.
      */
-    sanitizer: (
-      value: string,
-      tag: HTMLTags,
-      attribute: string
-    ) => string | null
+    sanitizer: (value: string, tag: string, attribute: string) => string | null
 
     /**
      * Override normalization of non-URI-safe characters for use in generating

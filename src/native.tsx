@@ -267,7 +267,7 @@ function render(
         const parseOptions: parse.ParseOptions = {
           slugify: (input: string) => slug(input, util.slugify),
           sanitizer: (value: string, tag: string, attribute: string) =>
-            sanitize(value, tag as MarkdownToJSX.HTMLTags, attribute),
+            sanitize(value, tag, attribute),
           tagfilter: true,
         }
         const astNodes = parse.parseMarkdown(
@@ -696,7 +696,7 @@ export function astToNative(
   const parseOptions: parse.ParseOptions = {
     slugify: i => slug(i, util.slugify),
     sanitizer: (value: string, tag: string, attribute: string) =>
-      sanitize(value, tag as MarkdownToJSX.HTMLTags, attribute),
+      sanitize(value, tag, attribute),
     tagfilter: opts.tagfilter !== false,
     disableAutoLink: opts.disableAutoLink,
     disableParsingRawHTML: opts.disableParsingRawHTML,
@@ -712,7 +712,7 @@ export function astToNative(
     opts.renderRule,
     h,
     (value: string, tag: string, attribute: string) =>
-      sanitize(value, tag as MarkdownToJSX.HTMLTags, attribute),
+      sanitize(value, tag, attribute),
     slug,
     refs,
     opts
@@ -811,7 +811,7 @@ export function compiler(
     const parseOptions: parse.ParseOptions = {
       slugify: i => slug(i, util.slugify),
       sanitizer: (value: string, tag: string, attribute: string) =>
-        sanitize(value, tag as MarkdownToJSX.HTMLTags, attribute),
+        sanitize(value, tag, attribute),
       tagfilter: opts.tagfilter !== false,
       disableAutoLink: opts.disableAutoLink,
       disableParsingRawHTML: opts.disableParsingRawHTML,

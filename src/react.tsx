@@ -14,69 +14,8 @@ export { sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
-// Mapping of lowercase HTML attributes to JSX prop names
-// Moved outside function to avoid recreation on every call
-const HTML_TO_JSX_MAP: Record<string, string> = {
-  class: 'className',
-  for: 'htmlFor',
-  allowfullscreen: 'allowFullScreen',
-  allowtransparency: 'allowTransparency',
-  autocomplete: 'autoComplete',
-  autofocus: 'autoFocus',
-  autoplay: 'autoPlay',
-  cellpadding: 'cellPadding',
-  cellspacing: 'cellSpacing',
-  charset: 'charSet',
-  classid: 'classId',
-  colspan: 'colSpan',
-  contenteditable: 'contentEditable',
-  contextmenu: 'contextMenu',
-  crossorigin: 'crossOrigin',
-  enctype: 'encType',
-  formaction: 'formAction',
-  formenctype: 'formEncType',
-  formmethod: 'formMethod',
-  formnovalidate: 'formNoValidate',
-  formtarget: 'formTarget',
-  frameborder: 'frameBorder',
-  hreflang: 'hrefLang',
-  inputmode: 'inputMode',
-  keyparams: 'keyParams',
-  keytype: 'keyType',
-  marginheight: 'marginHeight',
-  marginwidth: 'marginWidth',
-  maxlength: 'maxLength',
-  mediagroup: 'mediaGroup',
-  minlength: 'minLength',
-  novalidate: 'noValidate',
-  radiogroup: 'radioGroup',
-  readonly: 'readOnly',
-  rowspan: 'rowSpan',
-  spellcheck: 'spellCheck',
-  srcdoc: 'srcDoc',
-  srclang: 'srcLang',
-  srcset: 'srcSet',
-  tabindex: 'tabIndex',
-  usemap: 'useMap',
-}
-
-/**
- * Convert HTML attributes to JSX props
- * Maps HTML attribute names (e.g., "class", "for") to JSX prop names (e.g., "className", "htmlFor")
- */
-export function htmlAttrsToJSXProps(
-  attrs: Record<string, any>
-): Record<string, any> {
-  var jsxProps: Record<string, any> = {}
-
-  for (var key in attrs) {
-    var keyLower = key.toLowerCase()
-    var mappedKey = HTML_TO_JSX_MAP[keyLower]
-    jsxProps[mappedKey || key] = attrs[key]
-  }
-
-  return jsxProps
-}
+// Import shared HTML to JSX conversion utilities
+import { htmlAttrsToJSXProps } from './utils'
 
 // Helper function for URL encoding backslashes and backticks per CommonMark spec
 function encodeUrlTarget(target: string): string {
