@@ -8,6 +8,7 @@ import {
   createMemo,
   createContext,
   useContext,
+  type Context,
 } from 'solid-js'
 import * as $ from './constants'
 import * as parse from './parse'
@@ -905,7 +906,7 @@ export function compiler(
 }
 
 // Context for default options
-export const MarkdownContext = createContext<SolidOptions | undefined>()
+export const MarkdownContext: Context<SolidOptions | undefined> = createContext<SolidOptions | undefined>(undefined)
 
 // Module-level h function for components that use JSX
 // This is used by the @jsx pragma for JSX in MarkdownProvider and Markdown components
