@@ -1,5 +1,16 @@
 # markdown-to-jsx
 
+## 9.3.0
+
+### Minor Changes
+
+- a482de6: Add SolidJS integration with full JSX output support. Includes compiler, parser, astToJSX, and Markdown component with reactive support via signals/accessors.
+- f9a8fca: Add Vue.js 3+ integration. Includes `compiler`, `parser`, `astToJSX`, and `Markdown` component. Vue uses standard HTML attributes (class, not className) with minimal attribute mapping (only 'for' -> 'htmlFor').
+
+### Patch Changes
+
+- 2bb3f2b: Fix AST and options mutation bugs that could cause unexpected side effects when using memoization or reusing objects across multiple compiler calls.
+
 ## 9.2.0
 
 ### Minor Changes
