@@ -250,7 +250,7 @@ function getCharType(code: number, skipAutoLink: boolean): number {
   if (
     skipAutoLink &&
     type === 1 &&
-    (code === $.CHAR_F || code === $.CHAR_H || code === $.CHAR_W)
+    (code === $.CHAR_f || code === $.CHAR_H || code === $.CHAR_W)
   ) {
     return 0
   }
@@ -1078,7 +1078,7 @@ function parseInlineSpan(
           if (
             skipAutoLink &&
             lookupCharType === 1 &&
-            (code === $.CHAR_F || code === $.CHAR_H || code === $.CHAR_W)
+            (code === $.CHAR_f || code === $.CHAR_H || code === $.CHAR_W)
           ) {
             pos++
             continue
@@ -1185,7 +1185,7 @@ function parseInlineSpan(
     if (
       !inAnchor &&
       !skipAutoLink &&
-      (code === $.CHAR_F || code === $.CHAR_H || code === $.CHAR_W)
+      (code === $.CHAR_f || code === $.CHAR_H || code === $.CHAR_W)
     ) {
       var autolinkType: 'h' | 'w' | 'f' | null = null
       // Cache character codes to avoid repeated function calls
@@ -1210,7 +1210,7 @@ function parseInlineSpan(
       ) {
         autolinkType = 'w'
       } else if (
-        code === $.CHAR_F &&
+        code === $.CHAR_f &&
         c1 === $.CHAR_t &&
         c2 === $.CHAR_p &&
         c3 === $.CHAR_COLON &&
@@ -1662,7 +1662,7 @@ function parseInlineSpan(
       }
       if (
         lookupCharType === 1 &&
-        (code === $.CHAR_F || code === $.CHAR_H || code === $.CHAR_W) &&
+        (code === $.CHAR_f || code === $.CHAR_H || code === $.CHAR_W) &&
         skipAutoLink
       ) {
         pos++

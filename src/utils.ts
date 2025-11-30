@@ -47,6 +47,70 @@ export const HTML_CHAR_CODE_R: RegExp =
  * Regex for determining if markdown content should be rendered as block-level
  * Matches: newlines, list items, headings, indented content, thematic breaks, blockquotes
  */
+// Mapping of lowercase HTML attributes to JSX prop names
+// Shared between React and Solid renderers (Vue uses HTML attributes directly)
+export const HTML_TO_JSX_MAP: Record<string, string> = {
+  class: 'className',
+  for: 'htmlFor',
+  allowfullscreen: 'allowFullScreen',
+  allowtransparency: 'allowTransparency',
+  autocomplete: 'autoComplete',
+  autofocus: 'autoFocus',
+  autoplay: 'autoPlay',
+  cellpadding: 'cellPadding',
+  cellspacing: 'cellSpacing',
+  charset: 'charSet',
+  classid: 'classId',
+  colspan: 'colSpan',
+  contenteditable: 'contentEditable',
+  contextmenu: 'contextMenu',
+  crossorigin: 'crossOrigin',
+  enctype: 'encType',
+  formaction: 'formAction',
+  formenctype: 'formEncType',
+  formmethod: 'formMethod',
+  formnovalidate: 'formNoValidate',
+  formtarget: 'formTarget',
+  frameborder: 'frameBorder',
+  hreflang: 'hrefLang',
+  inputmode: 'inputMode',
+  keyparams: 'keyParams',
+  keytype: 'keyType',
+  marginheight: 'marginHeight',
+  marginwidth: 'marginWidth',
+  maxlength: 'maxLength',
+  mediagroup: 'mediaGroup',
+  minlength: 'minLength',
+  novalidate: 'noValidate',
+  radiogroup: 'radioGroup',
+  readonly: 'readOnly',
+  rowspan: 'rowSpan',
+  spellcheck: 'spellCheck',
+  srcdoc: 'srcDoc',
+  srclang: 'srcLang',
+  srcset: 'srcSet',
+  tabindex: 'tabIndex',
+  usemap: 'useMap',
+}
+
+/**
+ * Convert HTML attributes to JSX props
+ * Maps HTML attribute names (e.g., "class", "for") to JSX prop names (e.g., "className", "htmlFor")
+ */
+export function htmlAttrsToJSXProps(
+  attrs: Record<string, any>
+): Record<string, any> {
+  var jsxProps: Record<string, any> = {}
+
+  for (var key in attrs) {
+    var keyLower = key.toLowerCase()
+    var mappedKey = HTML_TO_JSX_MAP[keyLower]
+    jsxProps[mappedKey || key] = attrs[key]
+  }
+
+  return jsxProps
+}
+
 export const SHOULD_RENDER_AS_BLOCK_R: RegExp =
   /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/
 
@@ -298,7 +362,7 @@ export const inlineCharTypeTable: Uint8Array = (function () {
     t[$.CHAR_SPACE] =
     t[$.CHAR_EXCLAMATION] =
       INLINE_CHAR_TYPE_SPECIAL
-  t[$.CHAR_F] = t[$.CHAR_H] = t[$.CHAR_W] = INLINE_CHAR_TYPE_SPECIAL
+  t[$.CHAR_f] = t[$.CHAR_H] = t[$.CHAR_W] = INLINE_CHAR_TYPE_SPECIAL
   return t
 })()
 

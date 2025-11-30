@@ -2,6 +2,7 @@ import * as $ from './constants'
 import * as parse from './parse'
 import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
+const { hasKeys } = util
 
 // Re-export parser, types, and utils for the /html entry point
 export { parser } from './parse'
@@ -10,21 +11,77 @@ export { sanitizer, slugify } from './utils'
 
 /**
  * Escape HTML entities for text content
+ * Fast path: return early if no escaping needed
  */
 function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+  if (!text) return text
+  var needsEscape = false
+  var i = 0
+  var len = text.length
+  while (i < len) {
+    var code = text.charCodeAt(i)
+    if (
+      code === $.CHAR_AMPERSAND ||
+      code === $.CHAR_LT ||
+      code === $.CHAR_GT ||
+      code === $.CHAR_DOUBLE_QUOTE
+    ) {
+      needsEscape = true
+      break
+    }
+    i++
+  }
+  if (!needsEscape) return text
+  var result = ''
+  i = 0
+  var last = 0
+  while (i < len) {
+    var code = text.charCodeAt(i)
+    var replacement: string | null = null
+    if (code === $.CHAR_AMPERSAND) {
+      replacement = '&amp;'
+    } else if (code === $.CHAR_LT) {
+      replacement = '&lt;'
+    } else if (code === $.CHAR_GT) {
+      replacement = '&gt;'
+    } else if (code === $.CHAR_DOUBLE_QUOTE) {
+      replacement = '&quot;'
+    }
+    if (replacement) {
+      if (i > last) result += text.slice(last, i)
+      result += replacement
+      last = i + 1
+    }
+    i++
+  }
+  if (last < len) result += text.slice(last)
+  return result
 }
-
 
 /**
  * Escape HTML for attribute values, preserving entity references
  * Only escapes bare & that are not part of valid entities
  */
 function escapeHtmlAttr(value: string): string {
+  // Fast-path: check if escaping is needed before regex
+  var needsEscape = false
+  var i = 0
+  var len = value.length
+  while (i < len) {
+    var code = value.charCodeAt(i)
+    if (
+      code === $.CHAR_AMPERSAND ||
+      code === $.CHAR_LT ||
+      code === $.CHAR_GT ||
+      code === $.CHAR_DOUBLE_QUOTE
+    ) {
+      needsEscape = true
+      break
+    }
+    i++
+  }
+  if (!needsEscape) return value
+
   return value
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -33,34 +90,69 @@ function escapeHtmlAttr(value: string): string {
 }
 
 function formatAttributes(attrs: Record<string, any> = {}): string {
-  const parts: string[] = []
-  for (const key in attrs) {
-    const value = attrs[key]
+  // Fast-path: return empty string if no attributes
+  var hasAttrs = false
+  for (var key in attrs) {
+    hasAttrs = true
+    break
+  }
+  if (!hasAttrs) return ''
+
+  var result = ''
+  for (var key in attrs) {
+    var value = attrs[key]
     if (value === undefined || value === null) continue
+    result += ' '
     if (value === true) {
-      parts.push(key)
+      result += key
     } else if (value === '') {
-      // Empty string values should output as key=""
-      parts.push(`${key}=""`)
+      result += key + '=""'
     } else if (key === 'style' && typeof value === 'object' && value !== null) {
-      var styleParts: string[] = []
-      for (const styleKey in value) {
+      var styleStr = ''
+      var styleFirst = true
+      for (var styleKey in value) {
         var styleValue = value[styleKey]
         if (styleValue != null) {
-          var cssKey = styleKey.replace(/[A-Z]/g, m => '-' + m.toLowerCase())
-          styleParts.push(cssKey + ': ' + styleValue)
+          if (styleFirst) styleFirst = false
+          else styleStr += '; '
+          var cssKey = ''
+          for (var i = 0; i < styleKey.length; i++) {
+            var code = styleKey.charCodeAt(i)
+            if (code >= $.CHAR_A && code <= $.CHAR_Z) {
+              cssKey += '-' + String.fromCharCode(code + $.CHAR_CASE_OFFSET)
+            } else {
+              cssKey += styleKey[i]
+            }
+          }
+          styleStr += cssKey + ': ' + styleValue
         }
       }
-      if (styleParts.length > 0) {
-        parts.push('style="' + escapeHtmlAttr(styleParts.join('; ')) + '"')
-      }
+      if (styleStr) result += 'style="' + escapeHtmlAttr(styleStr) + '"'
     } else if (typeof value === 'string') {
-      parts.push(`${key}="${escapeHtmlAttr(value)}"`)
+      result += key + '="' + escapeHtmlAttr(value) + '"'
     } else if (typeof value === 'number') {
-      parts.push(`${key}="${value}"`)
+      result += key + '="' + value + '"'
     }
   }
-  return parts.length > 0 ? ' ' + parts.join(' ') : ''
+  return result
+}
+
+function renderTag(
+  defaultTag: string,
+  children: string,
+  overrides: HTMLOverrides,
+  attrs?: Record<string, any>
+): string {
+  const tag = util.getTag(defaultTag, overrides)
+  const overrideProps = util.getOverrideProps(defaultTag, overrides)
+  if (!attrs || !hasKeys(attrs)) {
+    const attrStr = formatAttributes(overrideProps)
+    return `<${tag}${attrStr}>${children}</${tag}>`
+  }
+  var finalAttrs = { ...overrideProps }
+  for (var aKey in attrs) finalAttrs[aKey] = attrs[aKey]
+  const attrStr = formatAttributes(finalAttrs)
+  return `<${tag}${attrStr}>${children}</${tag}>`
 }
 
 export type HTMLOverride =
@@ -89,6 +181,18 @@ export type HTMLOptions = Omit<
   ) => string
   overrides?: HTMLOverrides
   wrapperProps?: Record<string, string | number | boolean>
+  wrapperWasAutoSet?: boolean
+}
+
+function shouldSkipNode(
+  node: MarkdownToJSX.ASTNode,
+  preserveFrontmatter: boolean
+): boolean {
+  return (
+    node.type === RuleType.footnote ||
+    node.type === RuleType.ref ||
+    (node.type === RuleType.frontmatter && !preserveFrontmatter)
+  )
 }
 
 export function astToHTML(
@@ -113,69 +217,74 @@ export function astToHTML(
       foundRefCollection = true
       continue
     }
-    if (
-      node.type === RuleType.footnote ||
-      node.type === RuleType.ref ||
-      (node.type === RuleType.frontmatter && !options.preserveFrontmatter)
-    ) {
-      continue
-    }
+    if (shouldSkipNode(node, !!options.preserveFrontmatter)) continue
     nonRefCollectionNodes.push(node)
   }
-  refs = Object.assign({}, refs, refsFromAST)
+  for (var key in refsFromAST) refs[key] = refsFromAST[key]
 
-  var updatedOptions = Object.assign({}, options, { refs, overrides })
+  var updatedOptions = { ...options, refs, overrides }
 
-  function encodeUrlWithBackslashes(decodedTarget: string): string {
-    var encoded = ''
+  /**
+   * Encode special characters in URL (backslashes and backticks)
+   * Preserves existing percent-encoded sequences
+   */
+  function encodeUrlSpecialChars(url: string): string {
+    var result = ''
     var i = 0
-    while (i < decodedTarget.length) {
+    var len = url.length
+    while (i < len) {
+      // Preserve existing percent-encoded sequences
       if (
-        decodedTarget[i] === '%' &&
-        i + 2 < decodedTarget.length &&
-        /[0-9A-Fa-f]/.test(decodedTarget[i + 1]) &&
-        /[0-9A-Fa-f]/.test(decodedTarget[i + 2])
+        url[i] === '%' &&
+        i + 2 < len &&
+        isHexChar(url.charCodeAt(i + 1)) &&
+        isHexChar(url.charCodeAt(i + 2))
       ) {
-        encoded +=
-          decodedTarget[i] + decodedTarget[i + 1] + decodedTarget[i + 2]
+        result += url[i] + url[i + 1] + url[i + 2]
         i += 3
       } else {
-        const charCode = decodedTarget.charCodeAt(i)
-        if (charCode === $.CHAR_BACKSLASH) {
-          encoded += '%5C'
-        } else if (charCode === $.CHAR_BACKTICK) {
-          encoded += '%60'
+        var code = url.charCodeAt(i)
+        if (code === $.CHAR_BACKSLASH) {
+          result += '%5C'
+        } else if (code === $.CHAR_BACKTICK) {
+          result += '%60'
         } else {
-          encoded += encodeURI(decodedTarget[i])
+          result += encodeURI(url[i])
         }
         i++
       }
     }
-    return encoded
+    return result
+  }
+
+  function isHexChar(code: number): boolean {
+    return (
+      (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
+      (code >= $.CHAR_a && code <= $.CHAR_f) ||
+      (code >= $.CHAR_A && code <= $.CHAR_F)
+    )
   }
 
   function sanitizeAndReencodeUrl(url: string): string | null {
     var sanitized = sanitize(url, 'a', 'href')
     if (sanitized === null || sanitized === url) return sanitized
-    var reencoded = ''
-    var needsReencode = false
-    for (var i = 0; i < sanitized.length; i++) {
-      const code = sanitized.charCodeAt(i)
-      if (code === $.CHAR_BACKSLASH) {
-        reencoded += '%5C'
-        needsReencode = true
-      } else if (code === $.CHAR_BACKTICK) {
-        reencoded += '%60'
-        needsReencode = true
-      } else {
-        reencoded += sanitized[i]
-      }
+    return encodeUrlSpecialChars(sanitized)
+  }
+
+  function mergeAttrs(
+    base: Record<string, any> | undefined,
+    overrideProps: Record<string, any>
+  ): Record<string, any> {
+    var merged = base || {}
+    if (hasKeys(overrideProps)) {
+      merged = { ...merged }
+      for (var key in overrideProps) merged[key] = overrideProps[key]
     }
-    return needsReencode ? reencoded : sanitized
+    return merged
   }
 
   function renderChildren(children: MarkdownToJSX.ASTNode[]): string {
-    return astToHTML(children, updatedOptions)
+    return children.length ? astToHTML(children, updatedOptions) : ''
   }
 
   function renderNode(
@@ -183,33 +292,26 @@ export function astToHTML(
     state: MarkdownToJSX.State = {}
   ): string {
     if (!node || typeof node !== 'object') return ''
-
-    // Skip nodes that don't render
     if (
       node.type === RuleType.ref ||
       node.type === RuleType.refCollection ||
-      (node.type === RuleType.frontmatter && !options.preserveFrontmatter) ||
-      node.type === RuleType.footnote
+      shouldSkipNode(node, !!options.preserveFrontmatter)
     )
       return ''
 
     switch (node.type) {
       case RuleType.blockQuote: {
-        const tag = util.getTag('blockquote', overrides)
-        const overrideProps = util.getOverrideProps('blockquote', overrides)
-        const attrs: Record<string, any> = { ...overrideProps }
-        if (node.alert) {
-          attrs.class =
-            'markdown-alert-' + slug(node.alert.toLowerCase(), util.slugify)
-        }
-        const attrStr = formatAttributes(attrs)
         var children = node.children
           ? astToHTML(node.children, updatedOptions)
           : ''
         if (node.alert) {
           children = `<header>${escapeHtml(node.alert)}</header>` + children
+          return renderTag('blockquote', children, overrides, {
+            class:
+              'markdown-alert-' + slug(node.alert.toLowerCase(), util.slugify),
+          })
         }
-        return `<${tag}${attrStr}>${children}</${tag}>`
+        return renderTag('blockquote', children, overrides)
       }
 
       case RuleType.breakLine: {
@@ -220,14 +322,16 @@ export function astToHTML(
       }
 
       case RuleType.frontmatter: {
-        return `<pre>${escapeHtml(node.text)}</pre>`
+        return '<pre>' + escapeHtml(node.text) + '</pre>'
       }
 
       case RuleType.codeBlock: {
-        const codeAttrs: Record<string, any> = { ...(node.attrs || {}) }
+        var codeAttrs: Record<string, any> = node.attrs || {}
         if (node.lang) {
+          codeAttrs = { ...codeAttrs }
           const decodedLang = util.decodeEntityReferences(node.lang)
-          const existingClass = codeAttrs.class || codeAttrs.className || ''
+          const existingClass =
+            (codeAttrs.class as string) || (codeAttrs.className as string) || ''
           codeAttrs.class = existingClass
             ? existingClass + ' language-' + decodedLang
             : 'language-' + decodedLang
@@ -239,8 +343,7 @@ export function astToHTML(
       }
 
       case RuleType.codeInline: {
-        const text = node.text || ''
-        return `<code>${escapeHtml(text)}</code>`
+        return '<code>' + escapeHtml(node.text || '') + '</code>'
       }
 
       case RuleType.footnoteReference: {
@@ -250,22 +353,22 @@ export function astToHTML(
       }
 
       case RuleType.gfmTask: {
-        const checked = node.completed ? ' checked=""' : ''
-        return `<input${checked} disabled="" type="checkbox">`
+        return (
+          '<input' +
+          (node.completed ? ' checked=""' : '') +
+          ' disabled="" type="checkbox">'
+        )
       }
 
       case RuleType.heading: {
         const level = node.level || 1
-        const defaultTag = 'h' + level
-        const tag = util.getTag(defaultTag, overrides)
-        const overrideProps = util.getOverrideProps(defaultTag, overrides)
-        const attrs: Record<string, any> = { ...overrideProps }
-        if (node.id?.trim()) attrs.id = node.id
-        const attrStr = formatAttributes(attrs)
-        const children = node.children
-          ? astToHTML(node.children, updatedOptions)
-          : ''
-        return `<${tag}${attrStr}>${children}</${tag}>`
+        const attrs = node.id?.trim() ? { id: node.id } : undefined
+        return renderTag(
+          'h' + level,
+          node.children ? astToHTML(node.children, updatedOptions) : '',
+          overrides,
+          attrs
+        )
       }
 
       case RuleType.htmlComment: {
@@ -290,20 +393,23 @@ export function astToHTML(
         const defaultTag = htmlNode.tag || 'div'
         const tag = util.getTag(defaultTag, overrides)
         const overrideProps = util.getOverrideProps(defaultTag, overrides)
-        // Merge override props with base attrs
-        const mergedAttrs = { ...(htmlNode.attrs || {}), ...overrideProps }
-        const attrs =
-          htmlNode.rawAttrs !== undefined
-            ? htmlNode.rawAttrs
-                .replace(/\n\s*/g, '')
-                .replace(/\r\s*/g, '')
-                .replace(/\t\s*/g, '') +
-              (Object.keys(overrideProps).length > 0
-                ? ' ' + formatAttributes(overrideProps).trim()
-                : '')
-            : formatAttributes(mergedAttrs)
+        var attrsStr: string
+        if (htmlNode.rawAttrs !== undefined) {
+          attrsStr =
+            htmlNode.rawAttrs
+              .replace(/\n\s*/g, '')
+              .replace(/\r\s*/g, '')
+              .replace(/\t\s*/g, '') +
+            (hasKeys(overrideProps)
+              ? ' ' + formatAttributes(overrideProps).trim()
+              : '')
+        } else {
+          attrsStr = formatAttributes(mergeAttrs(htmlNode.attrs, overrideProps))
+        }
         if (options.tagfilter && util.shouldFilterTag(tag)) {
-          return htmlNode.isClosingTag ? `&lt;/${tag}>` : `&lt;${tag}${attrs}>`
+          return htmlNode.isClosingTag
+            ? `&lt;/${tag}>`
+            : `&lt;${tag}${attrsStr}>`
         }
         if (htmlNode.text) {
           if (htmlNode.noInnerParse) {
@@ -318,63 +424,99 @@ export function astToHTML(
               tagLower === 'style' ||
               tagLower === 'textarea'
             if (isType1Block) {
-              if (htmlNode.text.trim().length > 0 && htmlNode.text[0] === '<') {
-                var openingTagEnd = htmlNode.text.indexOf('>')
+              var textLen = htmlNode.text.length
+              var textStart = 0
+              while (
+                textStart < textLen &&
+                htmlNode.text.charCodeAt(textStart) === $.CHAR_SPACE
+              )
+                textStart++
+              if (
+                textStart < textLen &&
+                htmlNode.text.charCodeAt(textStart) === $.CHAR_LT
+              ) {
+                var openingTagEnd = htmlNode.text.indexOf('>', textStart)
                 if (openingTagEnd !== -1) {
-                  var rawOpeningTag = htmlNode.text.slice(0, openingTagEnd + 1)
-                  var tagMatch = rawOpeningTag.match(/^<(\w+)/)
-                  if (tagMatch && tagMatch[1].toLowerCase() === tagLower) {
-                    var innerText = htmlNode.text.slice(openingTagEnd + 1)
-                    var filteredInner = options.tagfilter
-                      ? util.applyTagFilterToText(innerText)
-                      : innerText
-                    return `${rawOpeningTag}${filteredInner}`
+                  var rawOpeningTag = htmlNode.text.slice(
+                    textStart,
+                    openingTagEnd + 1
+                  )
+                  if (
+                    rawOpeningTag.charCodeAt(1) >= $.CHAR_a &&
+                    rawOpeningTag.charCodeAt(1) <= $.CHAR_z
+                  ) {
+                    var tagStart = 1
+                    var tagEnd = tagStart
+                    while (
+                      tagEnd < rawOpeningTag.length &&
+                      rawOpeningTag.charCodeAt(tagEnd) >= $.CHAR_a &&
+                      rawOpeningTag.charCodeAt(tagEnd) <= $.CHAR_z
+                    )
+                      tagEnd++
+                    var foundTag = rawOpeningTag
+                      .slice(tagStart, tagEnd)
+                      .toLowerCase()
+                    if (foundTag === tagLower) {
+                      var innerText = htmlNode.text.slice(openingTagEnd + 1)
+                      return (
+                        rawOpeningTag +
+                        (options.tagfilter
+                          ? util.applyTagFilterToText(innerText)
+                          : innerText)
+                      )
+                    }
                   }
                 }
               }
-              var closingTagPattern = new RegExp(`</${tagLower}>`, 'i')
-              var hasClosingTagInText = closingTagPattern.test(htmlNode.text)
-              if (htmlNode.text === '') return `<${tag}${attrs}></${tag}>`
-              return hasClosingTagInText
-                ? `<${tag}${attrs}>${textContent}`
-                : `<${tag}${attrs}>${textContent}</${tag}>`
+              var closingTag = '</' + tagLower + '>'
+              var hasClosingTag = htmlNode.text.indexOf(closingTag) !== -1
+              return hasClosingTag
+                ? `<${tag}${attrsStr}>${textContent}`
+                : `<${tag}${attrsStr}>${textContent}</${tag}>`
             }
-            var textStart = 0
-            while (
-              textStart < htmlNode.text.length &&
-              htmlNode.text[textStart] === ' '
-            ) {
-              textStart++
-            }
-            if (
-              textStart < htmlNode.text.length &&
-              htmlNode.text[textStart] === '<'
-            ) {
-              var openingTagMatch = htmlNode.text
-                .slice(textStart)
-                .match(/^<(\w+)/)
+            var trimmed = htmlNode.text.trim()
+            if (trimmed.length > 0 && trimmed.charCodeAt(0) === $.CHAR_LT) {
               if (
-                openingTagMatch &&
-                openingTagMatch[1].toLowerCase() === tagLower
+                trimmed.charCodeAt(1) >= $.CHAR_a &&
+                trimmed.charCodeAt(1) <= $.CHAR_z
               ) {
-                return textContent
+                var tagStart = 1
+                var tagEnd = tagStart
+                while (
+                  tagEnd < trimmed.length &&
+                  trimmed.charCodeAt(tagEnd) >= $.CHAR_a &&
+                  trimmed.charCodeAt(tagEnd) <= $.CHAR_z
+                )
+                  tagEnd++
+                var foundTag = trimmed.slice(tagStart, tagEnd).toLowerCase()
+                if (
+                  foundTag === tagLower &&
+                  trimmed.indexOf('</' + tagLower + '>', tagEnd) === -1
+                ) {
+                  return textContent
+                }
               }
             }
-            if (htmlNode.text === '') return `<${tag}${attrs}>`
-            return `<${tag}${attrs}>${textContent.replace(/^\s+/, '')}`
+            var trimmedStart = 0
+            while (
+              trimmedStart < textContent.length &&
+              textContent.charCodeAt(trimmedStart) === $.CHAR_SPACE
+            )
+              trimmedStart++
+            return `<${tag}${attrsStr}>${trimmedStart > 0 ? textContent.slice(trimmedStart) : trimmed ? textContent : ''}`
           }
           var textContent = options.tagfilter
             ? util.applyTagFilterToText(htmlNode.text)
             : htmlNode.text
-          return `<${tag}${attrs}>${textContent}</${tag}>`
+          return `<${tag}${attrsStr}>${textContent}</${tag}>`
         }
         const children = htmlNode.children
           ? astToHTML(htmlNode.children, updatedOptions)
           : ''
         if (htmlNode.isClosingTag) return `</${tag}>${children}`
         return children.trim()
-          ? `<${tag}${attrs}>${children}</${tag}>`
-          : `<${tag}${attrs}>${children}`
+          ? `<${tag}${attrsStr}>${children}</${tag}>`
+          : `<${tag}${attrsStr}>${children}`
       }
 
       case RuleType.htmlSelfClosing: {
@@ -384,30 +526,26 @@ export function astToHTML(
         }
         const defaultTag = htmlNode.tag || 'div'
         const tag = util.getTag(defaultTag, overrides)
-        const overrideProps = util.getOverrideProps(defaultTag, overrides)
-        const mergedAttrs = { ...(htmlNode.attrs || {}), ...overrideProps }
-
-        if (options.tagfilter && util.shouldFilterTag(tag)) {
-          if (htmlNode.rawText) {
-            return htmlNode.rawText.replace(/^</, '&lt;')
-          }
-          return `&lt;${tag}${formatAttributes(mergedAttrs)} />`
-        }
-
         if (htmlNode.rawText) {
-          return htmlNode.rawText
+          return options.tagfilter && util.shouldFilterTag(tag)
+            ? htmlNode.rawText.replace(/^</, '&lt;')
+            : htmlNode.rawText
         }
-        if (htmlNode.isClosingTag) {
-          return `</${tag}>`
+        if (htmlNode.isClosingTag) return `</${tag}>`
+        const overrideProps = util.getOverrideProps(defaultTag, overrides)
+        const mergedAttrs = mergeAttrs(htmlNode.attrs, overrideProps)
+        const attrsStr = formatAttributes(mergedAttrs)
+        if (options.tagfilter && util.shouldFilterTag(tag)) {
+          return `&lt;${tag}${attrsStr} />`
         }
-        return `<${tag}${formatAttributes(mergedAttrs)} />`
+        return `<${tag}${attrsStr} />`
       }
 
       case RuleType.image: {
         const tag = util.getTag('img', overrides)
         const overrideProps = util.getOverrideProps('img', overrides)
         const src = sanitize(node.target || '', 'img', 'src') || ''
-        const attrs: Record<string, any> = {
+        var attrs: Record<string, any> = {
           ...overrideProps,
           alt: node.alt || '',
         }
@@ -418,159 +556,202 @@ export function astToHTML(
       case RuleType.link: {
         const tag = util.getTag('a', overrides)
         const overrideProps = util.getOverrideProps('a', overrides)
-        const attrs: Record<string, any> = { ...overrideProps }
+        var attrs: Record<string, any> = { ...overrideProps }
         if (node.target != null) {
-          const decodedTarget = util.decodeEntityReferences(node.target)
           const href = sanitizeAndReencodeUrl(
-            encodeUrlWithBackslashes(decodedTarget)
+            encodeUrlSpecialChars(util.decodeEntityReferences(node.target))
           )
           if (href != null) attrs.href = href
         }
-        if (node.title) {
-          attrs.title = util.decodeEntityReferences(node.title)
-        }
-        const children = node.children
-          ? astToHTML(node.children, updatedOptions)
-          : ''
-        return `<${tag}${formatAttributes(attrs)}>${children}</${tag}>`
+        if (node.title) attrs.title = util.decodeEntityReferences(node.title)
+        return `<${tag}${formatAttributes(attrs)}>${node.children ? astToHTML(node.children, updatedOptions) : ''}</${tag}>`
       }
 
       case RuleType.table: {
-        const tag = util.getTag('table', overrides)
-        const overrideProps = util.getOverrideProps('table', overrides)
-        const attrs = formatAttributes(overrideProps)
         const tableNode = node as MarkdownToJSX.TableNode
         const alignments = tableNode.align || []
-        const header = (tableNode.header || [])
-          .map((cell: MarkdownToJSX.ASTNode[], i: number) => {
-            const content = astToHTML(cell, updatedOptions)
-            const align = alignments[i]
-            const alignAttr = align ? ` align="${align}"` : ''
-            return `<th${alignAttr}>${content}</th>`
-          })
-          .join('')
-        const rows = (tableNode.cells || [])
-          .map((row: MarkdownToJSX.ASTNode[][]) => {
-            const cells = (row || [])
-              .map((cell: MarkdownToJSX.ASTNode[], i: number) => {
-                const content = astToHTML(cell, updatedOptions)
-                const align = alignments[i]
-                const alignAttr = align ? ` align="${align}"` : ''
-                return `<td${alignAttr}>${content}</td>`
-              })
-              .join('')
-            return `<tr>${cells}</tr>`
-          })
-          .join('')
-        // Per GFM spec: no tbody if no data rows
-        const tbody = rows ? `<tbody>${rows}</tbody>` : ''
-        return `<${tag}${attrs}><thead><tr>${header}</tr></thead>${tbody}</${tag}>`
+        var header = ''
+        var headerCells = tableNode.header || []
+        for (var hi = 0; hi < headerCells.length; hi++) {
+          var align = alignments[hi]
+          header +=
+            '<th' +
+            (align ? ` align="${align}"` : '') +
+            '>' +
+            astToHTML(headerCells[hi], updatedOptions) +
+            '</th>'
+        }
+        var rows = ''
+        var tableRows = tableNode.cells || []
+        for (var ri = 0; ri < tableRows.length; ri++) {
+          var row = tableRows[ri] || []
+          rows += '<tr>'
+          for (var ci = 0; ci < row.length; ci++) {
+            var align = alignments[ci]
+            rows +=
+              '<td' +
+              (align ? ` align="${align}"` : '') +
+              '>' +
+              astToHTML(row[ci], updatedOptions) +
+              '</td>'
+          }
+          rows += '</tr>'
+        }
+        const tag = util.getTag('table', overrides)
+        const attrs = formatAttributes(
+          util.getOverrideProps('table', overrides)
+        )
+        return `<${tag}${attrs}><thead><tr>${header}</tr></thead>${rows ? `<tbody>${rows}</tbody>` : ''}</${tag}>`
       }
 
       case RuleType.text: {
-        return escapeHtml(node.text || '')
+        // Inline escapeHtml for common text node case
+        var text = node.text || ''
+        if (!text) return text
+        var needsEscape = false
+        var i = 0
+        var len = text.length
+        while (i < len) {
+          var code = text.charCodeAt(i)
+          if (
+            code === $.CHAR_AMPERSAND ||
+            code === $.CHAR_LT ||
+            code === $.CHAR_GT ||
+            code === $.CHAR_DOUBLE_QUOTE
+          ) {
+            needsEscape = true
+            break
+          }
+          i++
+        }
+        if (!needsEscape) return text
+        var result = ''
+        i = 0
+        var last = 0
+        while (i < len) {
+          var code = text.charCodeAt(i)
+          var replacement: string | null = null
+          if (code === $.CHAR_AMPERSAND) {
+            replacement = '&amp;'
+          } else if (code === $.CHAR_LT) {
+            replacement = '&lt;'
+          } else if (code === $.CHAR_GT) {
+            replacement = '&gt;'
+          } else if (code === $.CHAR_DOUBLE_QUOTE) {
+            replacement = '&quot;'
+          }
+          if (replacement) {
+            if (i > last) result += text.slice(last, i)
+            result += replacement
+            last = i + 1
+          }
+          i++
+        }
+        if (last < len) result += text.slice(last)
+        return result
       }
 
       case RuleType.textFormatted: {
-        const defaultTag = node.tag || 'strong'
-        const tag = util.getTag(defaultTag, overrides)
-        const overrideProps = util.getOverrideProps(defaultTag, overrides)
-        const attrs = formatAttributes(overrideProps)
-        const children = node.children
-          ? astToHTML(node.children, updatedOptions)
-          : ''
-        return `<${tag}${attrs}>${children}</${tag}>`
+        return renderTag(
+          node.tag || 'strong',
+          node.children ? astToHTML(node.children, updatedOptions) : '',
+          overrides
+        )
       }
 
-      case RuleType.orderedList: {
-        const tag = util.getTag('ol', overrides)
-        const overrideProps = util.getOverrideProps('ol', overrides)
-        const attrs: Record<string, any> = { ...overrideProps }
-        if (node.start != null && node.start !== 1) attrs.start = node.start
-        const attrStr = formatAttributes(attrs)
-        const items = (node.items || [])
-          .map((item: any) => {
-            const content = astToHTML(item, updatedOptions)
-            return `<li>${content}</li>`
-          })
-          .join('')
-        return `<${tag}${attrStr}>${items}</${tag}>`
-      }
-
+      case RuleType.orderedList:
       case RuleType.unorderedList: {
-        const tag = util.getTag('ul', overrides)
-        const overrideProps = util.getOverrideProps('ul', overrides)
-        const attrs = formatAttributes(overrideProps)
-        const items = (node.items || [])
-          .map((item: any) => {
-            const content = astToHTML(item, updatedOptions)
-            return `<li>${content}</li>`
-          })
-          .join('')
-        return `<${tag}${attrs}>${items}</${tag}>`
+        var items = ''
+        var listItems = node.items || []
+        for (var li = 0; li < listItems.length; li++) {
+          items += '<li>' + astToHTML(listItems[li], updatedOptions) + '</li>'
+        }
+        const tag = node.type === RuleType.orderedList ? 'ol' : 'ul'
+        const attrs =
+          node.type === RuleType.orderedList &&
+          node.start != null &&
+          node.start !== 1
+            ? { start: node.start }
+            : undefined
+        return renderTag(tag, items, overrides, attrs)
       }
 
       case RuleType.paragraph: {
-        const { forceWrapper, ...paragraphOptions } = updatedOptions
-        var children = node.children
-          ? astToHTML(node.children, { ...paragraphOptions, refs: {} })
-          : ''
-        // When forceInline is true, render paragraph children without <p> wrapper
+        var paragraphOpts = { ...updatedOptions, refs: {}, wrapper: null }
         if (options.forceInline) {
-          return children
+          return node.children ? astToHTML(node.children, paragraphOpts) : ''
         }
+        var children = node.children
+          ? astToHTML(node.children, paragraphOpts)
+          : ''
         // Per CommonMark: collapse trailing spaces before newlines (soft line breaks)
-        // Replace " \n" pattern with just "\n" or remove entirely if followed by certain content
-        // This handles cases like "![foo] \n[]" where the space should be collapsed
-        // BUT: Don't collapse spaces inside raw HTML tag attributes (preserve spacing per CommonMark spec)
-        // Check if space+newline is inside HTML attribute value (between quotes inside an HTML tag)
-        var spaceNewlinePattern = / \n/g
-        var lastIndex = 0
-        var result = ''
-        var match
-        while ((match = spaceNewlinePattern.exec(children)) !== null) {
-          var pos = match.index
-          // Check if we're inside an HTML tag attribute value
-          // Find the last < before this position
-          var beforePos = children.slice(0, pos)
-          var lastOpenBracket = beforePos.lastIndexOf('<')
-          var lastCloseBracket = beforePos.lastIndexOf('>')
-          // If there's an open bracket after the last close bracket, we're inside a tag
-          var isInsideTag = lastOpenBracket > lastCloseBracket
-          if (isInsideTag) {
-            // Count quotes between the opening < and current position to see if we're in an attribute value
-            var afterOpenBracket = children.slice(lastOpenBracket, pos)
-            var quoteCount = (afterOpenBracket.match(/"/g) || []).length
-            // If odd number of quotes, we're inside an attribute value - preserve the space
-            if (quoteCount % 2 === 1) {
-              result += children.slice(lastIndex, pos) + match[0]
-              lastIndex = pos + match[0].length
-              continue
+        // Don't collapse spaces inside HTML attribute values
+        var hasSpaceNewline = false
+        for (var checki = 0; checki < children.length - 1; checki++) {
+          if (
+            children.charCodeAt(checki) === $.CHAR_SPACE &&
+            children.charCodeAt(checki + 1) === $.CHAR_NEWLINE
+          ) {
+            hasSpaceNewline = true
+            break
+          }
+        }
+        if (hasSpaceNewline) {
+          var result = ''
+          var i = 0
+          var len = children.length
+          var inTag = false
+          var quoteCount = 0
+          while (i < len) {
+            var code = children.charCodeAt(i)
+            if (code === $.CHAR_LT) {
+              inTag = true
+              quoteCount = 0
+            } else if (code === $.CHAR_GT) {
+              inTag = false
+              quoteCount = 0
+            } else if (inTag && code === $.CHAR_DOUBLE_QUOTE) {
+              quoteCount++
+            }
+            if (
+              code === $.CHAR_SPACE &&
+              i + 1 < len &&
+              children.charCodeAt(i + 1) === $.CHAR_NEWLINE
+            ) {
+              if (inTag && quoteCount % 2 === 1) {
+                result += ' \n'
+              } else {
+                result += '\n'
+              }
+              i += 2
+            } else {
+              result += children[i]
+              i++
             }
           }
-          // In text content - collapse the space
-          result += children.slice(lastIndex, pos) + '\n'
-          lastIndex = pos + match[0].length
+          children = result
         }
-        result += children.slice(lastIndex)
-        children = result
 
+        const attrsStr = formatAttributes(util.getOverrideProps('p', overrides))
         const tag = util.getTag('p', overrides)
-        const overrideProps = util.getOverrideProps('p', overrides)
-        const attrs = formatAttributes(overrideProps)
 
-        // Per CommonMark spec Example 148: if paragraph has removedClosingTags,
-        // render them outside the paragraph
         const paragraphNode = node as MarkdownToJSX.ParagraphNode & {
           removedClosingTags?: MarkdownToJSX.ASTNode[]
         }
+        var closingTags = ''
         if (paragraphNode.removedClosingTags?.length) {
-          const closingTagsHtml = paragraphNode.removedClosingTags
-            .map(tag => renderNode(tag, state))
-            .join('')
-          return `<${tag}${attrs}>${children}</${tag}>${closingTagsHtml}`
+          for (
+            var cti = 0;
+            cti < paragraphNode.removedClosingTags.length;
+            cti++
+          ) {
+            closingTags += renderNode(
+              paragraphNode.removedClosingTags[cti],
+              state
+            )
+          }
         }
-        return `<${tag}${attrs}>${children}</${tag}>`
+        return `<${tag}${attrsStr}>${children}</${tag}>${closingTags}`
       }
 
       default:
@@ -583,53 +764,63 @@ export function astToHTML(
     state: MarkdownToJSX.State = {}
   ): string {
     if (!node || typeof node !== 'object') return ''
-
-    // Skip nodes that don't render
     if (
       node.type === RuleType.ref ||
       node.type === RuleType.refCollection ||
-      (node.type === RuleType.frontmatter && !options.preserveFrontmatter) ||
-      node.type === RuleType.footnote
+      shouldSkipNode(node, !!options.preserveFrontmatter)
     )
       return ''
-
-    // Use custom renderRule if provided
     if (options.renderRule) {
-      const defaultRender = (): string => renderNode(node, state)
-      return options.renderRule(defaultRender, node, renderChildren, state)
+      return options.renderRule(
+        () => renderNode(node, state),
+        node,
+        renderChildren,
+        state
+      )
     }
-
     return renderNode(node, state)
   }
 
-  var content = Array.isArray(nodes)
-    ? nonRefCollectionNodes
-        .map((node, i) => renderNodeWithRule(node, { key: i, refs }))
-        .join('')
-    : renderNodeWithRule(nodes, { refs })
+  var content = ''
+  if (Array.isArray(nodes)) {
+    for (var ci = 0; ci < nonRefCollectionNodes.length; ci++) {
+      content += renderNodeWithRule(nonRefCollectionNodes[ci], {
+        key: ci,
+        refs,
+      })
+    }
+  } else {
+    content = renderNodeWithRule(nodes, { refs })
+  }
 
   // Extract and render footnotes
   var footnoteFooter = ''
-  for (const key in refs) {
+  for (var key in refs) {
     if (key.charCodeAt(0) === $.CHAR_CARET) {
       if (!footnoteFooter) footnoteFooter = '<footer>'
       const id = key.slice(1)
-      const footnoteContent = astToHTML(
-        parse
-          .parseMarkdown(
-            refs[key].target,
-            { inline: true, refs },
-            {
-              ...updatedOptions,
-              overrides: updatedOptions.overrides as MarkdownToJSX.Overrides,
-              sanitizer: sanitize,
-              slugify: (i: string) => slug(i, util.slugify),
-              tagfilter: updatedOptions.tagfilter !== false,
-            }
-          )
-          .filter(node => node.type !== RuleType.refCollection),
-        { ...updatedOptions, refs: {}, forceInline: true, wrapper: null }
+      const parsed = parse.parseMarkdown(
+        refs[key].target,
+        { inline: true, refs },
+        {
+          ...updatedOptions,
+          overrides: updatedOptions.overrides as MarkdownToJSX.Overrides,
+          sanitizer: sanitize,
+          slugify: (i: string) => slug(i, util.slugify),
+          tagfilter: updatedOptions.tagfilter !== false,
+        }
       )
+      var filtered: MarkdownToJSX.ASTNode[] = []
+      for (var pi = 0; pi < parsed.length; pi++) {
+        if (parsed[pi].type !== RuleType.refCollection)
+          filtered.push(parsed[pi])
+      }
+      const footnoteContent = astToHTML(filtered, {
+        ...updatedOptions,
+        refs: {},
+        forceInline: true,
+        wrapper: null,
+      })
       footnoteFooter += `<div id="${escapeHtmlAttr(slug(id, util.slugify))}">${escapeHtml(id)}: ${footnoteContent}</div>`
     }
   }
@@ -643,6 +834,8 @@ export function astToHTML(
   // Determine if content should be wrapped (only when explicitly requested)
   const hasMultipleChildren = nonRefCollectionNodes.length > 1
   const hasExplicitWrapper = options.wrapper != null
+  const wrapperWasExplicit =
+    hasExplicitWrapper && typeof options.wrapper === 'string'
   const shouldWrap =
     options.forceWrapper ||
     (options.forceInline && hasExplicitWrapper) ||
@@ -652,23 +845,27 @@ export function astToHTML(
     return content + footnoteFooter
   }
 
-  // Extract paragraph content when forceInline or forceWrapper with custom wrapper
+  // Extract paragraph content when forceInline or forceWrapper with explicit wrapper
   var contentToWrap = content
   if (
-    (options.forceInline || (options.forceWrapper && hasExplicitWrapper)) &&
-    !hasMultipleChildren &&
-    nonRefCollectionNodes.length === 1 &&
-    nonRefCollectionNodes[0].type === RuleType.paragraph
+    options.forceInline ||
+    (options.forceWrapper && wrapperWasExplicit && !options.wrapperWasAutoSet)
   ) {
-    const paragraphNode =
-      nonRefCollectionNodes[0] as MarkdownToJSX.ParagraphNode
-    if (paragraphNode.children) {
-      contentToWrap = astToHTML(paragraphNode.children, {
-        ...updatedOptions,
-        refs: {},
-        forceInline: true,
-        wrapper: null,
-      })
+    if (
+      !hasMultipleChildren &&
+      nonRefCollectionNodes.length === 1 &&
+      nonRefCollectionNodes[0].type === RuleType.paragraph
+    ) {
+      const paragraphNode =
+        nonRefCollectionNodes[0] as MarkdownToJSX.ParagraphNode
+      if (paragraphNode.children) {
+        contentToWrap = astToHTML(paragraphNode.children, {
+          ...updatedOptions,
+          refs: {},
+          forceInline: true,
+          wrapper: null,
+        })
+      }
     }
   }
 
@@ -680,15 +877,14 @@ export function astToHTML(
         ? 'span'
         : 'div'
 
-  // Format wrapper attributes
   var wrapperAttrs = ''
   if (options.wrapperProps) {
     var sanitizedProps: Record<string, string> = {}
-    for (const key in options.wrapperProps) {
-      const value = options.wrapperProps[key]
-      if (value != null) {
-        const sanitized = sanitize(String(value), wrapperTag, key)
-        if (sanitized !== null) sanitizedProps[key] = sanitized
+    for (var wpKey in options.wrapperProps) {
+      var wpValue = options.wrapperProps[wpKey]
+      if (wpValue != null) {
+        var sanitized = sanitize(String(wpValue), wrapperTag, wpKey)
+        if (sanitized !== null) sanitizedProps[wpKey] = sanitized
       }
     }
     wrapperAttrs = formatAttributes(sanitizedProps)
@@ -702,11 +898,7 @@ export function astToHTML(
  * Convenience function that combines parser() and html()
  */
 export function compiler(markdown: string, options?: HTMLOptions): string {
-  // Determine inline mode
-  // HTML compiler defaults to block mode (for valid HTML output)
-  // Only use inline if explicitly requested via forceInline
   const inline = options?.forceInline || false
-
   const parseOptions: parse.ParseOptions = {
     ...options,
     overrides: options?.overrides as MarkdownToJSX.Overrides,
@@ -716,29 +908,33 @@ export function compiler(markdown: string, options?: HTMLOptions): string {
       : util.slugify,
     tagfilter: options?.tagfilter !== false,
   }
-
-  // Parse with inline mode
   const ast = parse.parser(markdown, { ...parseOptions, forceInline: inline })
-
   const htmlOptions: HTMLOptions = {
     ...options,
     forceInline: inline,
   } as HTMLOptions
-
+  var wrapperWasAutoSet = false
   if (options?.wrapper === undefined) {
-    const nonRefNodes = ast.filter(
-      n =>
+    var nonRefCount = 0
+    for (var ni = 0; ni < ast.length; ni++) {
+      var n = ast[ni]
+      if (
         n.type !== RuleType.refCollection &&
         n.type !== RuleType.footnote &&
         n.type !== RuleType.ref &&
         (n.type !== RuleType.frontmatter || !options?.preserveFrontmatter)
-    )
-    if (nonRefNodes.length > 1) {
+      ) {
+        nonRefCount++
+      }
+    }
+    if (nonRefCount > 1 || options?.forceWrapper) {
       htmlOptions.wrapper = 'div'
-    } else if (inline && nonRefNodes.length > 0) {
+      wrapperWasAutoSet = true
+    } else if (inline && nonRefCount > 0) {
       htmlOptions.wrapper = 'span'
+      wrapperWasAutoSet = true
     }
   }
-
+  htmlOptions.wrapperWasAutoSet = wrapperWasAutoSet
   return astToHTML(ast, htmlOptions)
 }

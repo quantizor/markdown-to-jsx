@@ -6,11 +6,11 @@ import { createSignal, type Accessor, type Component, type JSX } from 'solid-js'
 import Markdown, {
   astToJSX,
   compiler,
-  htmlAttrsToJSXProps,
   MarkdownProvider,
   parser,
   RuleType,
 } from './solid'
+import { htmlAttrsToJSXProps } from './utils'
 import type { MarkdownToJSX } from './types'
 
 afterEach(() => {
