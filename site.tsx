@@ -22,9 +22,12 @@ function SyntaxHighlightedCode(props: any) {
   const ref = React.useRef<HTMLElement | null>(null)
 
   React.useEffect(() => {
-    if (ref.current && props.className?.includes('lang-') && window.hljs) {
-      window.hljs.highlightElement(ref.current)
-      ref.current.removeAttribute('data-highlighted')
+    if (ref.current && window.hljs) {
+      const className = props.className
+      if (className && className.indexOf('lang-') !== -1) {
+        window.hljs.highlightElement(ref.current)
+        ref.current.removeAttribute('data-highlighted')
+      }
     }
   }, [props.className, props.children])
 
@@ -45,6 +48,9 @@ function MyComponent(props: any) {
 
 const gradient =
   'font-semibold rounded-lg from-0% from-accent to-100% to-green-300 bg-linear-120/increasing bg-size-[200%_200%] animate-gradient text-black hover:bg-none hover:animate-none hover:bg-accent'
+
+const buttonBase =
+  'font-semibold rounded-lg text-black hover:bg-none hover:animate-none hover:bg-accent'
 
 const options = {
   overrides: {
@@ -72,7 +78,7 @@ function PresetSelector({
   onSelect,
   selectedId,
 }: {
-  onSelect: (preset: Preset) => void
+  onSelect: (id: string) => void
   selectedId: string | null
 }) {
   const [loading, setLoading] = React.useState<string | null>(null)
@@ -82,9 +88,10 @@ function PresetSelector({
       setLoading(preset.id)
       try {
         const content = await preset.load()
-        onSelect(preset)
-        const event = new CustomEvent('preset-loaded', { detail: content })
-        window.dispatchEvent(event)
+        onSelect(preset.id)
+        window.dispatchEvent(
+          new CustomEvent('preset-loaded', { detail: content })
+        )
       } catch (error) {
         console.error('Failed to load preset:', error)
       } finally {
@@ -103,10 +110,10 @@ function PresetSelector({
             key={preset.id}
             onClick={() => handleSelect(preset)}
             disabled={loading === preset.id}
-            className={`py-1 px-2 text-xs ${
+            className={`py-1 px-2 text-xs ${buttonBase} ${
               selectedId === preset.id || loading === preset.id
-                ? 'bg-accent text-black'
-                : `${gradient}`
+                ? 'bg-accent'
+                : 'from-0% from-accent to-100% to-green-300 bg-linear-120/increasing bg-size-[200%_200%] animate-gradient'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {loading === preset.id ? 'Loading...' : preset.name}
@@ -118,53 +125,40 @@ function PresetSelector({
 }
 
 function FloatingText({ text }: { text: string }) {
-  const letters = React.useMemo(() => {
-    return text.split('').map((char, index) => {
-      const maxOffset = 3
-      const duration = 6 + Math.random() * 4
-      const delay = Math.random() * 2
+  const letters = text.split('').map((char, index) => {
+    const maxOffset = 3
+    const duration = 6 + Math.random() * 4
+    const delay = Math.random() * 2
+    const r1 = Math.random() - 0.5
+    const r2 = Math.random() - 0.5
+    const r3 = Math.random() - 0.5
+    const r4 = Math.random() - 0.5
+    const r5 = Math.random() - 0.5
+    const r6 = Math.random() - 0.5
 
-      const offsets = [
-        {
-          x: (Math.random() - 0.5) * maxOffset * 2,
-          y: (Math.random() - 0.5) * maxOffset * 2,
-        },
-        {
-          x: (Math.random() - 0.5) * maxOffset * 2,
-          y: (Math.random() - 0.5) * maxOffset * 2,
-        },
-        {
-          x: (Math.random() - 0.5) * maxOffset * 2,
-          y: (Math.random() - 0.5) * maxOffset * 2,
-        },
-      ]
+    return (
+      <span
+        key={index}
+        className="float-letter"
+        style={
+          {
+            '--offset-x-1': `${r1 * maxOffset * 2}px`,
+            '--offset-y-1': `${r2 * maxOffset * 2}px`,
+            '--offset-x-2': `${r3 * maxOffset * 2}px`,
+            '--offset-y-2': `${r4 * maxOffset * 2}px`,
+            '--offset-x-3': `${r5 * maxOffset * 2}px`,
+            '--offset-y-3': `${r6 * maxOffset * 2}px`,
+            '--duration': `${duration}s`,
+            '--delay': `${delay}s`,
+          } as React.CSSProperties
+        }
+      >
+        {char === ' ' ? '\u00A0' : char}
+      </span>
+    )
+  })
 
-      return {
-        char,
-        key: index,
-        style: {
-          '--offset-x-1': `${offsets[0].x}px`,
-          '--offset-y-1': `${offsets[0].y}px`,
-          '--offset-x-2': `${offsets[1].x}px`,
-          '--offset-y-2': `${offsets[1].y}px`,
-          '--offset-x-3': `${offsets[2].x}px`,
-          '--offset-y-3': `${offsets[2].y}px`,
-          '--duration': `${duration}s`,
-          '--delay': `${delay}s`,
-        } as React.CSSProperties,
-      }
-    })
-  }, [text])
-
-  return (
-    <>
-      {letters.map(({ char, key, style }) => (
-        <span key={key} className="float-letter" style={style}>
-          {char === ' ' ? '\u00A0' : char}
-        </span>
-      ))}
-    </>
-  )
+  return <>{letters}</>
 }
 
 function TryItLive() {
@@ -187,10 +181,8 @@ function TryItLive() {
 
   React.useEffect(() => {
     const handleHashLink = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      const anchor = target.closest('a') as HTMLAnchorElement
-
-      if (anchor && anchor.hash && anchor.hash.startsWith('#')) {
+      const anchor = (e.target as HTMLElement).closest('a') as HTMLAnchorElement
+      if (anchor?.hash) {
         const element = document.getElementById(anchor.hash.slice(1))
         if (element) {
           e.preventDefault()
@@ -202,11 +194,6 @@ function TryItLive() {
     document.addEventListener('click', handleHashLink)
     return () => document.removeEventListener('click', handleHashLink)
   }, [])
-
-  const handleInput = React.useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => setMarkdown(e.target.value),
-    []
-  )
 
   return (
     <main className="flex flex-col items-center justify-center gap-7 pb-20 px-6 lg:px-0">
@@ -255,18 +242,18 @@ function TryItLive() {
       {/* Editor and Preview positioned over canvas */}
       <section className="hidden md:flex justify-center gap-0 w-[95%] items-start min-h-[400px] max-h-[80vh]">
         <div className="flex-1 flex flex-col gap-6 max-w-2xl self-stretch">
-          <div className="text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.5 pb-1 rounded-xl leading-none self-center sticky top-2 z-10">
+          <div className="text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.25 pb-1 rounded-xl leading-none self-center sticky top-2 z-10">
             Input
           </div>
           <textarea
-            onInput={handleInput}
+            onInput={e => setMarkdown(e.currentTarget.value)}
             value={markdown}
             className="flex-1 p-4 backdrop-blur-md rounded-l-2xl border-2 border-accent/20 text-fg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 shadow-xl h-full border-r-0 selection:bg-accent/40 selection:text-inherit"
           />
         </div>
 
         <div className="flex-1 flex flex-col gap-6 max-w-2xl self-stretch">
-          <div className="text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.5 pb-1 rounded-xl leading-none self-center w-auto sticky top-2 z-10">
+          <div className="text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.25 pb-1 rounded-xl leading-none self-center w-auto sticky top-2 z-10">
             Output
           </div>
           <div className="prose prose-invert prose-sm p-4 backdrop-blur-md rounded-r-2xl border-2 border-accent/20 border-l-0 h-full overflow-auto w-full max-w-none">
@@ -276,7 +263,7 @@ function TryItLive() {
       </section>
 
       <PresetSelector
-        onSelect={preset => setSelectedPresetId(preset.id)}
+        onSelect={setSelectedPresetId}
         selectedId={selectedPresetId}
       />
 

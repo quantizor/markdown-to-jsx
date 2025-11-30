@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://markdown-to-jsx.quantizor.dev/sitemap.xml
+
