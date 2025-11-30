@@ -5,3 +5,5 @@ alwaysApply: true
 when writing commit messages on public code, focus on the user-facing change; how does this change benefit them? ensure that noteworthy public changes have a changeset
 
 when writing commit messages on private/infra code, focus on the technical change; how does this change benefit the codebase? keep it short
+
+rebuild the site (`bun build-site`) before committing for public-facing code changes
