@@ -1,136 +1,9 @@
 {
-  "parser": {
-    "timestamp": "2025-11-30T02:39:57.877Z",
-    "target": "parser",
+  "vue": {
+    "timestamp": "2025-11-30T06:45:42.132Z",
+    "target": "vue",
     "inputSize": 173,
-    "parseTime": 5.38,
-    "blockParsers": {
-      "blockQuote": {
-        "attempts": 70,
-        "hits": 60
-      },
-      "breakThematic": {
-        "attempts": 573,
-        "hits": 55
-      },
-      "codeBlock": {
-        "attempts": 30,
-        "hits": 20
-      },
-      "codeFenced": {
-        "attempts": 184,
-        "hits": 21
-      },
-      "footnote": {
-        "attempts": 15,
-        "hits": 0
-      },
-      "frontmatter": {
-        "attempts": 1,
-        "hits": 1
-      },
-      "heading": {
-        "attempts": 794,
-        "hits": 787
-      },
-      "headingSetext": {
-        "attempts": 1124,
-        "hits": 11
-      },
-      "htmlBlock": {
-        "attempts": 58,
-        "hits": 10
-      },
-      "htmlComment": {
-        "attempts": 6,
-        "hits": 3
-      },
-      "listGfmTask": {
-        "attempts": 20,
-        "hits": 20
-      },
-      "list": {
-        "attempts": 261,
-        "hits": 151
-      },
-      "paragraph": {
-        "attempts": 852,
-        "hits": 301
-      },
-      "table": {
-        "attempts": 40,
-        "hits": 40
-      }
-    },
-    "inlineParsers": {
-      "breakLine": {
-        "attempts": 5,
-        "hits": 5
-      },
-      "codeInline": {
-        "attempts": 50,
-        "hits": 50
-      },
-      "escaped": {
-        "attempts": 5,
-        "hits": 5
-      },
-      "formatting": {
-        "attempts": 390,
-        "hits": 390
-      },
-      "footnoteRef": {
-        "attempts": 15,
-        "hits": 15
-      },
-      "htmlComment": {
-        "attempts": 20,
-        "hits": 10
-      },
-      "htmlElement": {
-        "attempts": 31,
-        "hits": 31
-      },
-      "image": {
-        "attempts": 25,
-        "hits": 25
-      },
-      "link": {
-        "attempts": 50,
-        "hits": 41
-      },
-      "linkAngleBrace": {
-        "attempts": 41,
-        "hits": 10
-      },
-      "linkBareUrl": {
-        "attempts": 25,
-        "hits": 25
-      },
-      "linkEmail": {
-        "attempts": 5,
-        "hits": 5
-      },
-      "linkRef": {
-        "attempts": 44,
-        "hits": 20
-      },
-      "refImage": {
-        "attempts": 0,
-        "hits": 0
-      }
-    },
-    "operationCounts": {
-      "totalOperations": 3297,
-      "blockParseIterations": 893,
-      "inlineParseIterations": 1260
-    }
-  },
-  "react": {
-    "timestamp": "2025-11-30T02:39:58.695Z",
-    "target": "react",
-    "inputSize": 173,
-    "parseTime": 7.15,
+    "parseTime": 5.39,
     "blockParsers": {
       "blockQuote": {
         "attempts": 70,
@@ -254,10 +127,10 @@
     }
   },
   "html": {
-    "timestamp": "2025-11-30T02:39:59.997Z",
+    "timestamp": "2025-11-30T05:54:44.455Z",
     "target": "html",
     "inputSize": 173,
-    "parseTime": 14.74,
+    "parseTime": 12.11,
     "blockParsers": {
       "blockQuote": {
         "attempts": 70,
@@ -380,11 +253,11 @@
       "inlineParseIterations": 4203
     }
   },
-  "solid": {
-    "timestamp": "2025-11-30T02:40:00.805Z",
-    "target": "solid",
+  "parser": {
+    "timestamp": "2025-11-30T05:32:36.866Z",
+    "target": "parser",
     "inputSize": 173,
-    "parseTime": 6.17,
+    "parseTime": 5.54,
     "blockParsers": {
       "blockQuote": {
         "attempts": 70,
@@ -415,12 +288,12 @@
         "hits": 787
       },
       "headingSetext": {
-        "attempts": 1144,
+        "attempts": 1124,
         "hits": 11
       },
       "htmlBlock": {
-        "attempts": 88,
-        "hits": 25
+        "attempts": 58,
+        "hits": 10
       },
       "htmlComment": {
         "attempts": 6,
@@ -435,8 +308,8 @@
         "hits": 151
       },
       "paragraph": {
-        "attempts": 872,
-        "hits": 311
+        "attempts": 852,
+        "hits": 301
       },
       "table": {
         "attempts": 40,
@@ -449,16 +322,16 @@
         "hits": 5
       },
       "codeInline": {
-        "attempts": 51,
-        "hits": 51
+        "attempts": 50,
+        "hits": 50
       },
       "escaped": {
         "attempts": 5,
         "hits": 5
       },
       "formatting": {
-        "attempts": 392,
-        "hits": 392
+        "attempts": 390,
+        "hits": 390
       },
       "footnoteRef": {
         "attempts": 15,
@@ -469,19 +342,19 @@
         "hits": 10
       },
       "htmlElement": {
-        "attempts": 66,
-        "hits": 66
+        "attempts": 31,
+        "hits": 31
       },
       "image": {
         "attempts": 25,
         "hits": 25
       },
       "link": {
-        "attempts": 51,
-        "hits": 42
+        "attempts": 50,
+        "hits": 41
       },
       "linkAngleBrace": {
-        "attempts": 76,
+        "attempts": 41,
         "hits": 10
       },
       "linkBareUrl": {
@@ -502,16 +375,16 @@
       }
     },
     "operationCounts": {
-      "totalOperations": 3348,
-      "blockParseIterations": 919,
-      "inlineParseIterations": 1283
+      "totalOperations": 3297,
+      "blockParseIterations": 893,
+      "inlineParseIterations": 1260
     }
   },
-  "react-native": {
-    "timestamp": "2025-11-30T02:40:01.633Z",
-    "target": "react-native",
+  "react": {
+    "timestamp": "2025-11-30T05:32:38.442Z",
+    "target": "react",
     "inputSize": 173,
-    "parseTime": 7.56,
+    "parseTime": 7.86,
     "blockParsers": {
       "blockQuote": {
         "attempts": 70,
