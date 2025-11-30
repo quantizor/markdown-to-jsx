@@ -12,7 +12,7 @@ async function main() {
   const targetIndex = process.argv.indexOf('--target')
   const targetArg =
     targetIndex !== -1 ? process.argv[targetIndex + 1] : 'parser'
-  const validTargets = ['parser', 'react', 'react-native', 'html', 'solid']
+  const validTargets = ['parser', 'react', 'react-native', 'html', 'solid', 'vue']
   if (!validTargets.includes(targetArg)) {
     console.error(
       `Invalid target: ${targetArg}. Valid targets are: ${validTargets.join(', ')}`
@@ -76,6 +76,10 @@ async function main() {
     const solidModule = await import('../src/solid.tsx')
     compiler = solidModule.compiler
     targetName = 'solid'
+  } else if (targetArg === 'vue') {
+    const vueModule = await import('../src/vue.tsx')
+    compiler = vueModule.compiler
+    targetName = 'vue'
   } else {
     // This should never happen due to validation above, but satisfies TypeScript
     throw new Error(`Invalid target: ${targetArg}`)

@@ -27,6 +27,7 @@ Some special features of the library:
     - [React](#react)
     - [React Native](#react-native)
     - [SolidJS](#solidjs)
+    - [Vue.js](#vuejs)
     - [HTML](#html)
     - [Markdown](#markdown)
   - [Library Options](#library-options)
@@ -319,12 +320,31 @@ function AppWithContext() {
 - **Memoization**: AST parsing is automatically memoized for optimal performance
 - **Context API**: Use `MarkdownProvider` to provide default options and avoid prop drilling
 
-**SolidJS-specific options:**
+#### Vue.js
 
-- `createElement?: (tag, props, ...children) => JSX.Element` - Custom element creation (defaults to SolidJS's JSX runtime)
-- All other options from the main library are supported
+For Vue.js 3 usage, import from the `/vue` entry point:
 
-**Note:** SolidJS uses fine-grained reactivity, so elements are tracked automatically without needing `key` props like React.
+```tsx
+import Markdown, { compiler, parser, astToJSX } from 'markdown-to-jsx/vue'
+import { h } from 'vue'
+
+// Using compiler
+const vnode = compiler('# Hello world')
+
+// Using component
+<Markdown children="# Hello world" />
+
+// Or use parser + astToJSX
+const ast = parser('# Hello world')
+const vnode2 = astToJSX(ast)
+```
+
+**Vue.js-specific features:**
+
+- **Vue 3 support**: Uses Vue 3's `h()` render function API
+- **JSX support**: Works with Vue 3 JSX via `@vue/babel-plugin-jsx` or `@vitejs/plugin-vue-jsx`
+- **HTML attributes**: Uses standard HTML attributes (`class` instead of `className`)
+- **Component overrides**: Support for both Options API and Composition API componen
 
 #### HTML
 
@@ -358,23 +378,23 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 
 #### All Options
 
-| Option                  | Type                          | Default  | Description                                                                                                               |
-| ----------------------- | ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `createElement`         | `function`                    | -        | Custom createElement behavior (React/React Native/SolidJS only). See [createElement](#optionscreateelement) for details.  |
-| `disableAutoLink`       | `boolean`                     | `false`  | Disable automatic conversion of bare URLs to anchor tags.                                                                 |
-| `disableParsingRawHTML` | `boolean`                     | `false`  | Disable parsing of raw HTML into JSX.                                                                                     |
-| `enforceAtxHeadings`    | `boolean`                     | `false`  | Require space between `#` and header text (GFM spec compliance).                                                          |
-| `forceBlock`            | `boolean`                     | `false`  | Force all content to be treated as block-level.                                                                           |
-| `forceInline`           | `boolean`                     | `false`  | Force all content to be treated as inline.                                                                                |
-| `forceWrapper`          | `boolean`                     | `false`  | Force wrapper even with single child (React/React Native only). See [forceWrapper](#optionsforcewrapper) for details.     |
-| `overrides`             | `object`                      | -        | Override HTML tag rendering. See [overrides](#optionsoverrides) for details.                                              |
-| `preserveFrontmatter`   | `boolean`                     | `false`  | Include frontmatter in rendered output (as `<pre>` for HTML/JSX, included in markdown). Behavior varies by compiler type. |
-| `renderRule`            | `function`                    | -        | Custom rendering for AST rules. See [renderRule](#optionsrenderrule) for details.                                         |
-| `sanitizer`             | `function`                    | built-in | Custom URL sanitizer function. See [sanitizer](#optionssanitizer) for details.                                            |
-| `slugify`               | `function`                    | built-in | Custom slug generation for heading IDs. See [slugify](#optionsslugify) for details.                                       |
-| `tagfilter`             | `boolean`                     | `true`   | Escape dangerous HTML tags (`script`, `iframe`, `style`, etc.) to prevent XSS.                                            |
-| `wrapper`               | `string \| component \| null` | `'div'`  | Wrapper element for multiple children (React/React Native only). See [wrapper](#optionswrapper) for details.              |
-| `wrapperProps`          | `object`                      | -        | Props for wrapper element (React/React Native only). See [wrapperProps](#optionswrapperprops) for details.                |
+| Option                  | Type                          | Default  | Description                                                                                                                  |
+| ----------------------- | ----------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `createElement`         | `function`                    | -        | Custom createElement behavior (React/React Native/SolidJS/Vue only). See [createElement](#optionscreateelement) for details. |
+| `disableAutoLink`       | `boolean`                     | `false`  | Disable automatic conversion of bare URLs to anchor tags.                                                                    |
+| `disableParsingRawHTML` | `boolean`                     | `false`  | Disable parsing of raw HTML into JSX.                                                                                        |
+| `enforceAtxHeadings`    | `boolean`                     | `false`  | Require space between `#` and header text (GFM spec compliance).                                                             |
+| `forceBlock`            | `boolean`                     | `false`  | Force all content to be treated as block-level.                                                                              |
+| `forceInline`           | `boolean`                     | `false`  | Force all content to be treated as inline.                                                                                   |
+| `forceWrapper`          | `boolean`                     | `false`  | Force wrapper even with single child (React/React Native/Vue only). See [forceWrapper](#optionsforcewrapper) for details.    |
+| `overrides`             | `object`                      | -        | Override HTML tag rendering. See [overrides](#optionsoverrides) for details.                                                 |
+| `preserveFrontmatter`   | `boolean`                     | `false`  | Include frontmatter in rendered output (as `<pre>` for HTML/JSX, included in markdown). Behavior varies by compiler type.    |
+| `renderRule`            | `function`                    | -        | Custom rendering for AST rules. See [renderRule](#optionsrenderrule) for details.                                            |
+| `sanitizer`             | `function`                    | built-in | Custom URL sanitizer function. See [sanitizer](#optionssanitizer) for details.                                               |
+| `slugify`               | `function`                    | built-in | Custom slug generation for heading IDs. See [slugify](#optionsslugify) for details.                                          |
+| `tagfilter`             | `boolean`                     | `true`   | Escape dangerous HTML tags (`script`, `iframe`, `style`, etc.) to prevent XSS.                                               |
+| `wrapper`               | `string \| component \| null` | `'div'`  | Wrapper element for multiple children (React/React Native/Vue only). See [wrapper](#optionswrapper) for details.             |
+| `wrapperProps`          | `object`                      | -        | Props for wrapper element (React/React Native/Vue only). See [wrapperProps](#optionswrapperprops) for details.               |
 
 #### options.createElement
 

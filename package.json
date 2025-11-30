@@ -1,6 +1,6 @@
 {
   "name": "markdown-to-jsx",
-  "description": "A very fast and versatile markdown toolchain. AST, React, React Native, SolidJS, Markdown, and HTML output available with full customization.",
+  "description": "A very fast and versatile markdown toolchain. AST, React, React Native, SolidJS, Vue, Markdown, and HTML output available with full customization.",
   "homepage": "https://markdown-to-jsx.quantizor.dev",
   "license": "MIT",
   "version": "9.2.0",
@@ -25,6 +25,12 @@
     "react",
     "preact",
     "jsx",
+    "vue",
+    "vuejs",
+    "vue3",
+    "solid",
+    "solidjs",
+    "react-native",
     "html"
   ],
   "author": "Evan Jacobs <ej@quantizor.dev> (https://quantizor.dev)",
@@ -100,6 +106,16 @@
         "types": "./dist/solid.d.cts",
         "default": "./dist/solid.cjs"
       }
+    },
+    "./vue": {
+      "import": {
+        "types": "./dist/vue.d.ts",
+        "default": "./dist/vue.js"
+      },
+      "require": {
+        "types": "./dist/vue.d.cts",
+        "default": "./dist/vue.cjs"
+      }
     }
   },
   "sideEffects": false,
@@ -115,6 +131,7 @@
     "@matejmazur/react-katex": "^3.1.3",
     "@solidjs/testing-library": "^0.8.10",
     "@tailwindcss/typography": "^0.5.19",
+    "@vue/test-utils": "^2.4.0",
     "@tailwindcss/vite": "^4.1.17",
     "@testing-library/react-native": "^13.3.3",
     "@types/benchmark": "^2.1.5",
@@ -132,7 +149,7 @@
     "happy-dom": "^20.0.10",
     "in-publish": "^2.0.1",
     "markdown-it": "^14.0.0",
-    "markdown-to-jsx-latest": "npm:markdown-to-jsx@8.0.0",
+    "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.2.0",
     "marked": "^17.0.0",
     "microbundle": "^0.15.1",
     "microtime": "^3.1.1",
@@ -161,11 +178,13 @@
     "twgl": "^7.0.3",
     "typescript": "^5.9.3",
     "vite": "^7.2.2",
+    "vue": "^3.4.0",
     "yaml-js": "^0.3.1"
   },
   "peerDependencies": {
     "react": ">= 16.0.0",
-    "solid-js": ">=1.0.0"
+    "solid-js": ">=1.0.0",
+    "vue": ">=3.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
@@ -175,6 +194,9 @@
       "optional": true
     },
     "solid-js": {
+      "optional": true
+    },
+    "vue": {
       "optional": true
     }
   },
