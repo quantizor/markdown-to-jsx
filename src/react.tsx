@@ -577,15 +577,16 @@ export function astToJSX(
   ast: MarkdownToJSX.ASTNode[],
   options?: MarkdownToJSX.Options
 ): React.ReactNode {
-  options.overrides = options.overrides || {}
+  const opts = { ...(options || {}) }
+  opts.overrides = opts.overrides || {}
 
-  const slug = options.slugify || util.slugify
-  const sanitize = options.sanitizer || util.sanitizer
-  const createElement = options.createElement || React.createElement
+  const slug = opts.slugify || util.slugify
+  const sanitize = opts.sanitizer || util.sanitizer
+  const createElement = opts.createElement || React.createElement
 
   // Recursive compile function for HTML content
   const compileHTML = (input: string) =>
-    compiler(input, { ...options, wrapper: null })
+    compiler(input, { ...opts, wrapper: null })
 
   // JSX custom pragma
   // eslint-disable-next-line no-unused-vars
@@ -598,7 +599,7 @@ export function astToJSX(
     },
     ...children
   ) {
-    const overrideProps = get(options.overrides, `${tag}.props`, {})
+    const overrideProps = get(opts.overrides, `${tag}.props`, {})
 
     // Convert HTML attributes to JSX props and compile any HTML content
     const jsxProps = htmlAttrsToJSXProps(props || {})
@@ -618,7 +619,7 @@ export function astToJSX(
     }
 
     return createElement(
-      getTag(tag, options.overrides),
+      getTag(tag, opts.overrides),
       {
         ...jsxProps,
         ...overrideProps,
@@ -717,10 +718,10 @@ export function astToJSX(
   ast = postProcessedAst
 
   const parseOptions: parse.ParseOptions = {
-    ...options,
+    ...opts,
     slugify: i => slug(i, util.slugify),
     sanitizer: sanitize,
-    tagfilter: options.tagfilter !== false,
+    tagfilter: opts.tagfilter !== false,
   }
 
   const refs =
@@ -729,16 +730,16 @@ export function astToJSX(
       : {}
 
   const emitter = createRenderer(
-    options.renderRule,
+    opts.renderRule,
     h,
     sanitize,
     slug,
     refs,
-    options
+    opts
   )
 
   const arr = emitter(ast, {
-    inline: options.forceInline,
+    inline: opts.forceInline,
     refs: refs,
   }) as React.ReactNode[]
 
@@ -777,14 +778,14 @@ export function astToJSX(
     )
   }
 
-  if (options.wrapper === null) {
+  if (opts.wrapper === null) {
     return arr
   }
 
-  const wrapper = options.wrapper || (options.forceInline ? 'span' : 'div')
+  const wrapper = opts.wrapper || (opts.forceInline ? 'span' : 'div')
   let jsx: React.ReactNode
 
-  if (arr.length > 1 || options.forceWrapper) {
+  if (arr.length > 1 || opts.forceWrapper) {
     jsx = arr
   } else if (arr.length === 1) {
     return arr[0]
@@ -794,7 +795,7 @@ export function astToJSX(
 
   return createElement(
     wrapper,
-    { key: 'outer', ...options.wrapperProps },
+    { key: 'outer', ...opts.wrapperProps },
     jsx
   ) as React.JSX.Element
 }
@@ -803,20 +804,21 @@ export function compiler(
   markdown: string = '',
   options: MarkdownToJSX.Options = {}
 ): React.ReactNode {
-  options.overrides = options.overrides || {}
+  const opts = { ...(options || {}) }
+  opts.overrides = opts.overrides || {}
 
-  const slug = options.slugify || util.slugify
-  const sanitize = options.sanitizer || util.sanitizer
+  const slug = opts.slugify || util.slugify
+  const sanitize = opts.sanitizer || util.sanitizer
 
   function compile(input: string): React.ReactNode {
     const inline =
-      options.forceInline ||
-      (!options.forceBlock && !util.SHOULD_RENDER_AS_BLOCK_R.test(input))
+      opts.forceInline ||
+      (!opts.forceBlock && !util.SHOULD_RENDER_AS_BLOCK_R.test(input))
     const parseOptions: parse.ParseOptions = {
-      ...options,
+      ...opts,
       slugify: i => slug(i, util.slugify),
       sanitizer: sanitize,
-      tagfilter: options.tagfilter !== false,
+      tagfilter: opts.tagfilter !== false,
     }
 
     // First pass: collect all reference definitions
@@ -857,7 +859,7 @@ export function compiler(
     }
 
     if (
-      Object.prototype.toString.call(options.overrides) !== '[object Object]'
+      Object.prototype.toString.call(opts.overrides) !== '[object Object]'
     ) {
       throw new Error(`markdown-to-jsx: options.overrides (second argument property) must be
                              undefined or an object literal with shape:

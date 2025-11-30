@@ -9,7 +9,9 @@ import Markdown, {
   htmlAttrsToJSXProps,
   MarkdownProvider,
   parser,
+  RuleType,
 } from './solid'
+import type { MarkdownToJSX } from './types'
 
 afterEach(() => {
   mock.clearAllMocks()
@@ -370,6 +372,44 @@ describe('Markdown component', () => {
     const result = compiler('')
     expect(result).toBeNull()
     expect(extractTextContent(result)).toBe('')
+  })
+
+  it('should not mutate AST when props change (memoization fix)', () => {
+    // This test verifies that AST mutation doesn't cause duplicate headers
+    // when the Markdown component's memoization reuses the AST
+    const markdown = '> [!NOTE]\n> Something important'
+    const ast = parser(markdown)
+
+    // Store original children count before any rendering
+    const blockquoteNode = ast.find(
+      node => node.type === RuleType.blockQuote && 'alert' in node && node.alert === 'NOTE'
+    ) as MarkdownToJSX.BlockQuoteNode | undefined
+    expect(blockquoteNode).toBeDefined()
+    const originalChildrenCount = blockquoteNode?.children?.length || 0
+
+    // Call astToJSX multiple times with different props but same AST
+    // This simulates what happens when props change but content doesn't
+    const result1 = astToJSX(ast, { wrapperProps: { className: 'first' } })
+    const result2 = astToJSX(ast, { wrapperProps: { className: 'second' } })
+    const result3 = astToJSX(ast, { wrapperProps: { className: 'third' } })
+
+    // Count occurrences of "NOTE" - should be exactly 1 per result
+    const text1 = extractTextContent(result1)
+    const text2 = extractTextContent(result2)
+    const text3 = extractTextContent(result3)
+
+    // Each result should contain "NOTE" exactly once
+    const count1 = (text1.match(/NOTE/g) || []).length
+    const count2 = (text2.match(/NOTE/g) || []).length
+    const count3 = (text3.match(/NOTE/g) || []).length
+
+    expect(count1).toBe(1)
+    expect(count2).toBe(1)
+    expect(count3).toBe(1)
+
+    // Verify the AST wasn't mutated - children count should be unchanged
+    const finalChildrenCount = blockquoteNode?.children?.length || 0
+    expect(finalChildrenCount).toBe(originalChildrenCount)
   })
 })
 
@@ -1683,6 +1723,76 @@ describe('post-processing AST extractText', () => {
     // Test map path where tag is not htmlSelfClosing (line 868 - fallback to empty string)
     const markdown = '<pre>code</pre>\n\nParagraph'
     const result = compiler(markdown)
+  })
+
+  it('should not mutate AST when Markdown component re-renders with different props', () => {
+    // Test that astToJSX doesn't mutate the AST when called multiple times with the same AST
+    // This is critical for memoization - if ast() is cached but jsx() recalculates,
+    // the mutation would accumulate text content
+    const markdown = '<pre>code</pre>\n\nParagraph with </pre></td></tr></table>'
+    const ast = parser(markdown)
+
+    // First call
+    const result1 = astToJSX(ast)
+    const text1 = extractTextContent(result1)
+
+    // Second call with same AST (simulating memoized ast() but recalculated jsx())
+    const result2 = astToJSX(ast)
+    const text2 = extractTextContent(result2)
+
+    // Text should be the same, not accumulated
+    expect(text1).toBe(text2)
+    expect(text1).toContain('code')
+    expect(text1).toContain('Paragraph')
+
+    // Verify AST wasn't mutated by checking the original node
+    const htmlBlock = ast.find(n => n.type === RuleType.htmlBlock) as MarkdownToJSX.HTMLNode
+    if (htmlBlock && htmlBlock.text) {
+      // The text should not contain the paragraph text multiple times
+      const paragraphMatches = (htmlBlock.text.match(/Paragraph/g) || []).length
+      expect(paragraphMatches).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it('should not mutate options object when calling astToJSX multiple times', () => {
+    // Test that astToJSX doesn't mutate the options object when called multiple times
+    // This is important for memoization - if the same options object is reused,
+    // mutations could cause unexpected side effects
+    const markdown = '# Hello world'
+    const ast = parser(markdown)
+    const options = { slugify: (input: string) => input.toLowerCase() }
+    const originalOverrides = options.overrides
+
+    // First call
+    astToJSX(ast, options)
+
+    // Verify options object wasn't mutated
+    expect(options.overrides).toBe(originalOverrides)
+
+    // Second call with same options
+    astToJSX(ast, options)
+
+    // Options should still be unchanged
+    expect(options.overrides).toBe(originalOverrides)
+  })
+
+  it('should not mutate options object when calling compiler multiple times', () => {
+    // Test that compiler doesn't mutate the options object when called multiple times
+    const markdown = '# Hello world'
+    const options = { slugify: (input: string) => input.toLowerCase() }
+    const originalOverrides = options.overrides
+
+    // First call
+    compiler(markdown, options)
+
+    // Verify options object wasn't mutated
+    expect(options.overrides).toBe(originalOverrides)
+
+    // Second call with same options
+    compiler(markdown, options)
+
+    // Options should still be unchanged
+    expect(options.overrides).toBe(originalOverrides)
   })
 })
 

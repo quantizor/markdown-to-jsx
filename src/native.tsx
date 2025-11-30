@@ -651,7 +651,7 @@ export function astToNative(
   ast: MarkdownToJSX.ASTNode[],
   options?: NativeOptions
 ): React.ReactNode {
-  const opts: NativeOptions = options || {}
+  const opts: NativeOptions = { ...(options || {}) }
   opts.overrides = opts.overrides || {}
 
   const slug = opts.slugify || util.slugify
@@ -798,23 +798,24 @@ export function compiler(
   markdown: string = '',
   options: NativeOptions = {}
 ): React.ReactNode {
-  options.overrides = options.overrides || {}
+  const opts = { ...(options || {}) }
+  opts.overrides = opts.overrides || {}
 
-  const slug = options.slugify || util.slugify
-  const sanitize = options.sanitizer || util.sanitizer
+  const slug = opts.slugify || util.slugify
+  const sanitize = opts.sanitizer || util.sanitizer
 
   function compile(input: string): React.ReactNode {
     const inline =
-      options.forceInline ||
-      (!options.forceBlock && !util.SHOULD_RENDER_AS_BLOCK_R.test(input))
+      opts.forceInline ||
+      (!opts.forceBlock && !util.SHOULD_RENDER_AS_BLOCK_R.test(input))
     const parseOptions: parse.ParseOptions = {
       slugify: i => slug(i, util.slugify),
       sanitizer: (value: string, tag: string, attribute: string) =>
         sanitize(value, tag as MarkdownToJSX.HTMLTags, attribute),
-      tagfilter: options.tagfilter !== false,
-      disableAutoLink: options.disableAutoLink,
-      disableParsingRawHTML: options.disableParsingRawHTML,
-      enforceAtxHeadings: options.enforceAtxHeadings,
+      tagfilter: opts.tagfilter !== false,
+      disableAutoLink: opts.disableAutoLink,
+      disableParsingRawHTML: opts.disableParsingRawHTML,
+      enforceAtxHeadings: opts.enforceAtxHeadings,
     }
 
     if (!inline) {
@@ -840,7 +841,7 @@ export function compiler(
     )
 
     return astToNative(astNodes, {
-      ...options,
+      ...opts,
       forceInline: inline,
     })
   }
@@ -851,7 +852,7 @@ export function compiler(
     }
 
     if (
-      Object.prototype.toString.call(options.overrides) !== '[object Object]'
+      Object.prototype.toString.call(opts.overrides) !== '[object Object]'
     ) {
       throw new Error(`markdown-to-jsx: options.overrides (second argument property) must be
                              undefined or an object literal with shape:
