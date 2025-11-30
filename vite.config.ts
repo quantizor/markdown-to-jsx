@@ -147,6 +147,35 @@ function copyLlmsTxtPlugin(): Plugin {
   }
 }
 
+function generateSitemapPlugin(): Plugin {
+  return {
+    name: 'generate-sitemap',
+    closeBundle() {
+      const baseUrl = 'https://markdown-to-jsx.quantizor.dev'
+      const lastmod = new Date().toISOString().split('T')[0]
+      const sitemapPath = join(process.cwd(), 'docs', 'sitemap.xml')
+
+      const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${baseUrl}/</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/llms.txt</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>`
+
+      writeFileSync(sitemapPath, sitemap, 'utf-8')
+    },
+  }
+}
+
 export default defineConfig({
   appType: 'spa',
   plugins: [
@@ -157,6 +186,7 @@ export default defineConfig({
     tailwindcss(),
     removeDebugVitePlugin(),
     copyLlmsTxtPlugin(),
+    generateSitemapPlugin(),
   ],
   define: {
     VERSION: JSON.stringify(packageJson.version.split('.')[0]),
