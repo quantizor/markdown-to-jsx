@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 9.3.2
+
+### Patch Changes
+
+- a84c300: Ensure Solid renderer uses Solid's hyperscript runtime so JSX returns real elements instead of `[object Object]` placeholders
+
 ## 9.3.1
 
 ### Patch Changes
