@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 9.3.1
+
+### Patch Changes
+
+- c1b0ea2: Fix unintended node-specific code from entering browser bundles by changing build target from 'node' to 'browser'
+
 ## 9.3.0
 
 ### Minor Changes
