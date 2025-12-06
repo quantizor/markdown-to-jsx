@@ -10,6 +10,7 @@ import {
   useContext,
   type Context,
 } from 'solid-js'
+import solidH from 'solid-js/h'
 import * as $ from './constants'
 import * as parse from './parse'
 import { MarkdownToJSX, RuleType, RequireAtLeastOne } from './types'
@@ -25,6 +26,9 @@ const TRIM_STARTING_NEWLINES = /^\n+/
 
 // Import shared HTML to JSX conversion utilities
 import { htmlAttrsToJSXProps } from './utils'
+
+// Internal helper to create SolidJS elements
+const hasDOM = typeof document !== 'undefined'
 
 // Helper function for URL encoding backslashes and backticks per CommonMark spec
 function encodeUrlTarget(target: string): string {
@@ -538,35 +542,39 @@ export function astToJSX(
   const compileHTML = (input: string) =>
     compiler(input, { ...opts, wrapper: null })
 
-  // Internal helper to create SolidJS elements
   function createSolidElement(
     tag: string | Component<Record<string, unknown>>,
     props: Record<string, unknown>,
     ...children: HChildren[]
   ): JSX.Element {
-    const childrenValue =
-      children.length === 0
-        ? undefined
-        : children.length === 1
-          ? children[0]
-          : children
-    if (typeof tag === 'string') {
+    if (!hasDOM) {
+      // Non-DOM environments (tests/SSR) get a structural representation or component output
+      const childValue =
+        children.length === 0
+          ? undefined
+          : children.length === 1
+            ? children[0]
+            : children
+      const propsWithChildren =
+        childValue === undefined ? props : { ...props, children: childValue }
+      if (typeof tag === 'function') {
+        return (tag as Component<Record<string, unknown>>)(
+          propsWithChildren as Record<string, unknown>
+        )
+      }
       return {
         t: tag,
-        p:
-          childrenValue === undefined
-            ? props
-            : { ...props, children: childrenValue },
+        p: propsWithChildren,
       } as unknown as JSX.Element
     }
-    if (typeof tag === 'function') {
-      return (tag as Component<Record<string, unknown>>)(
-        (childrenValue === undefined
-          ? props
-          : { ...props, children: childrenValue }) as Record<string, unknown>
-      )
-    }
-    return tag as JSX.Element
+    const elementFactory = solidH(
+      tag as Component<Record<string, unknown>>,
+      props,
+      ...children
+    )
+    return typeof elementFactory === 'function'
+      ? (elementFactory as () => JSX.Element)()
+      : (elementFactory as JSX.Element)
   }
 
   // JSX helper function - this is what @jsx pragma uses
@@ -907,29 +915,33 @@ function h(
   props: Record<string, unknown>,
   ...children: (JSX.Element | string)[]
 ): JSX.Element {
-  const childrenValue =
-    children.length === 0
-      ? undefined
-      : children.length === 1
-        ? children[0]
-        : children
-  if (typeof tag === 'string') {
+  if (typeof document === 'undefined') {
+    const childValue =
+      children.length === 0
+        ? undefined
+        : children.length === 1
+          ? children[0]
+          : children
+    const propsWithChildren =
+      childValue === undefined ? props : { ...props, children: childValue }
+    if (typeof tag === 'function') {
+      return (tag as Component<Record<string, unknown>>)(
+        propsWithChildren as Record<string, unknown>
+      )
+    }
     return {
       t: tag,
-      p:
-        childrenValue === undefined
-          ? props
-          : { ...props, children: childrenValue },
+      p: propsWithChildren,
     } as unknown as JSX.Element
   }
-  if (typeof tag === 'function') {
-    return (tag as Component<Record<string, unknown>>)(
-      (childrenValue === undefined
-        ? props
-        : { ...props, children: childrenValue }) as Record<string, unknown>
-    )
-  }
-  return tag as JSX.Element
+  const elementFactory = solidH(
+    tag as Component<Record<string, unknown>>,
+    props,
+    ...children
+  )
+  return typeof elementFactory === 'function'
+    ? (elementFactory as () => JSX.Element)()
+    : (elementFactory as JSX.Element)
 }
 
 // Context provider component

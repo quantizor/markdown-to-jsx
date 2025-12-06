@@ -29,7 +29,7 @@ export default defineConfig([
     outDir: 'dist',
     format: ['esm', 'cjs'],
     dts: true,
-    external: ['react', 'react-native', 'solid-js', 'vue'],
+    external: ['react', 'react-native', 'solid-js', 'solid-js/h', 'vue'],
     target: 'browser',
   },
 ])
