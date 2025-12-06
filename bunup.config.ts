@@ -17,11 +17,19 @@ export default defineConfig([
   {
     ...common,
     name: 'main',
-    entry: ['src/index.tsx', 'src/react.tsx', 'src/html.ts', 'src/markdown.ts', 'src/native.tsx', 'src/solid.tsx', 'src/vue.tsx'],
+    entry: [
+      'src/index.tsx',
+      'src/react.tsx',
+      'src/html.ts',
+      'src/markdown.ts',
+      'src/native.tsx',
+      'src/solid.tsx',
+      'src/vue.tsx',
+    ],
     outDir: 'dist',
     format: ['esm', 'cjs'],
     dts: true,
     external: ['react', 'react-native', 'solid-js', 'vue'],
-    target: 'node',
+    target: 'browser',
   },
 ])
