@@ -946,11 +946,6 @@ function parseInlineSpan(
     checkType7Block: boolean,
     respectDisableAutoLink: boolean
   ): boolean {
-    // Skip HTML parsing if disableParsingRawHTML is enabled
-    if (disableParsingRawHTML) {
-      return false
-    }
-
     if (!inAnchor && (!respectDisableAutoLink || !options.disableAutoLink)) {
       trackAttempt('linkAngleBrace')
       var angleBraceResult = parseLinkOrImage(source, pos, state, options, '<')
@@ -963,6 +958,12 @@ function parseInlineSpan(
         return true
       }
     }
+
+    // Skip HTML parsing if disableParsingRawHTML is enabled
+    if (disableParsingRawHTML) {
+      return false
+    }
+
     trackAttempt('htmlElement')
     var htmlResult = parseHTML(source, pos, state, options)
     if (htmlResult) {
@@ -2085,7 +2086,15 @@ function parseAutolink(
     if (source[pos] !== '<') return null
     let end = pos + 1
     while (end < source.length && source[end] !== '>') {
-      if (isSpaceOrTab(source[end])) return null
+      const endCode = charCode(source, end)
+      if (
+        endCode === $.CHAR_SPACE ||
+        endCode === $.CHAR_TAB ||
+        endCode === $.CHAR_NEWLINE ||
+        endCode === $.CHAR_CR ||
+        endCode < $.CHAR_SPACE
+      )
+        return null
       end++
     }
     if (end >= source.length || source[end] !== '>') return null
@@ -2097,8 +2106,24 @@ function parseAutolink(
     let isHttp =
       util.startsWith(content, 'http://') ||
       util.startsWith(content, 'https://')
-    let contentLower = content.toLowerCase()
-    let isMailto = util.startsWith(contentLower, 'mailto:')
+    let isMailto = false
+    if (!hasValidUriScheme && !isHttp && content.length >= 7) {
+      const firstChar = content[0]
+      if (firstChar === 'm' || firstChar === 'M') {
+        const contentLower = content.toLowerCase()
+        if (util.startsWith(contentLower, 'mailto:')) {
+          isMailto = true
+          let colonPos = contentLower.indexOf(':')
+          let mailtoText = content.slice(colonPos + 1)
+          return sanitizeAndCreate(
+            'mailto:' + mailtoText,
+            content,
+            end + 1,
+            options.sanitizer
+          )
+        }
+      }
+    }
     let isEmailLike =
       !hasBackslash &&
       content.indexOf('@') !== -1 &&
@@ -2109,13 +2134,7 @@ function parseAutolink(
 
     let target = content,
       linkText = content
-    if (hasValidUriScheme || isHttp) {
-      // URI scheme or HTTP(S) - use content as-is (preserve case)
-    } else if (isMailto) {
-      let colonPos = contentLower.indexOf(':')
-      linkText = content.slice(colonPos + 1)
-      target = 'mailto:' + linkText
-    } else if (isEmailLike) {
+    if (!isMailto && !hasValidUriScheme && !isHttp && isEmailLike) {
       target = 'mailto:' + content
     }
 
@@ -2260,6 +2279,37 @@ function parseAutolink(
   }
   urlEnd = trimmed
   if (urlEnd <= domainStart) return null
+
+  var domainEnd = domainStart
+  var lastDot = -1
+  var secondLastDot = -1
+  while (domainEnd < urlEnd) {
+    const domainCode = charCode(source, domainEnd)
+    if (
+      (domainCode >= $.CHAR_A && domainCode <= $.CHAR_Z) ||
+      (domainCode >= $.CHAR_a && domainCode <= $.CHAR_z) ||
+      (domainCode >= $.CHAR_DIGIT_0 && domainCode <= $.CHAR_DIGIT_9) ||
+      domainCode === $.CHAR_DASH ||
+      domainCode === $.CHAR_UNDERSCORE ||
+      domainCode === $.CHAR_PERIOD
+    ) {
+      if (domainCode === $.CHAR_PERIOD) {
+        secondLastDot = lastDot
+        lastDot = domainEnd
+      }
+      domainEnd++
+      continue
+    }
+    break
+  }
+  if (domainEnd === domainStart || lastDot === -1) return null
+  if (secondLastDot === -1) secondLastDot = domainStart - 1
+  for (let i = secondLastDot + 1; i < lastDot; i++) {
+    if (source[i] === '_') return null
+  }
+  for (let i = lastDot + 1; i < domainEnd; i++) {
+    if (source[i] === '_') return null
+  }
 
   let linkText = source.slice(pos, urlEnd)
   return sanitizeAndCreate(
