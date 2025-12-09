@@ -1,5 +1,12 @@
 # markdown-to-jsx
 
+## 9.3.3
+
+### Patch Changes
+
+- 7ac3408: Restore angle-bracket autolinks when raw HTML parsing is disabled so `<https://...>` still renders as links
+- 7ac3408: Improve autolink parsing: stricter angle controls, domain underscore validation, and added coverage for mailto labels and raw-HTML-disabled cases.
+
 ## 9.3.2
 
 ### Patch Changes
