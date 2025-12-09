@@ -12,7 +12,9 @@ function createInlineState(refs = {}) {
 }
 
 function createDefaultOptions() {
-  return {} as p.ParseOptions
+  return {
+    slugify: (input: string) => input,
+  } as p.ParseOptions
 }
 
 function createForceBlockOptions() {
@@ -285,6 +287,116 @@ describe('parseMarkdown', () => {
         children: [{ type: RuleType.text, text: 'text' }],
       }, // Brackets in URLs are actually allowed
     ])
+  })
+
+  it('parses mailto autolinks with label preserved', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      '<mailto:user@example.com>',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toEqual([
+      {
+        type: RuleType.link,
+        target: 'mailto:user@example.com',
+        endPos: 25,
+        children: [
+          {
+            type: RuleType.text,
+            text: 'mailto:user@example.com',
+          },
+        ],
+      } as MarkdownToJSX.ASTNode,
+    ])
+  })
+
+  it('rejects angle autolinks containing newlines', () => {
+    const state = createInlineState()
+    const options: p.ParseOptions = {
+      disableParsingRawHTML: true,
+      sanitizer: (x: string) => x,
+      slugify: (value: string) => value,
+    }
+    const result = p.parseMarkdown(
+      '<https://example.com\nnext>',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toEqual([
+      { type: RuleType.text, text: '<https://example.com' },
+      { type: RuleType.text, text: '\n' },
+      { type: RuleType.text, text: 'next>' },
+    ])
+  })
+
+  it('rejects bare autolinks with invalid domains', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'https://example.invalid_domain',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toEqual([
+      { type: RuleType.text, text: 'https://example.invalid' },
+      { type: RuleType.text, text: '_' },
+      { type: RuleType.text, text: 'domain' },
+    ])
+  })
+
+  it('rejects bare autolinks when the penultimate domain segment has underscores', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const input = 'https://example_.com'
+    const result = p.parseMarkdown(
+      input,
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toEqual([
+      { type: RuleType.text, text: 'https://example' },
+      { type: RuleType.text, text: '_' },
+      { type: RuleType.text, text: '.com' },
+    ])
+  })
+
+  it('allows underscores outside final domain segments', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const input = 'https://a_b.c_d.example.com/path'
+    const result = p.parseMarkdown(
+      input,
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toEqual([
+      {
+        type: RuleType.link,
+        target: 'https://a_b.c_d.example.com/path',
+        endPos: 32,
+        children: [
+          { type: RuleType.text, text: 'https://a_b.c_d.example.com/path' },
+        ],
+      } as MarkdownToJSX.ASTNode,
+    ])
+  })
+
+  it('rejects angle autolinks containing tabs', () => {
+    const state = createInlineState()
+    const options: p.ParseOptions = {
+      disableParsingRawHTML: true,
+      sanitizer: (x: string) => x,
+      slugify: (value: string) => value,
+    }
+    const input = '<https://example.com\tpath>'
+    const result = p.parseMarkdown(
+      input,
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toEqual([{ type: RuleType.text, text: input }])
   })
 })
 

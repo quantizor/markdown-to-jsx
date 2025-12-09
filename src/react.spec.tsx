@@ -3,7 +3,13 @@ import { afterEach, expect, it, describe, mock, spyOn } from 'bun:test'
 import * as React from 'react'
 import { renderToString } from 'react-dom/server'
 import theredoc from 'theredoc'
-import Markdown, { compiler, astToJSX, parser, RuleType, sanitizer } from './react'
+import Markdown, {
+  compiler,
+  astToJSX,
+  parser,
+  RuleType,
+  sanitizer,
+} from './react'
 
 const root = { innerHTML: '' }
 
@@ -589,11 +595,84 @@ describe('links', () => {
     )
   })
 
+  it('should still parse angle autolinks when raw HTML parsing is disabled', () => {
+    render(
+      compiler('<https://example.com>', {
+        disableParsingRawHTML: true,
+        tagfilter: false,
+      })
+    )
+
+    expect(root.innerHTML).toBe(
+      '<a href="https://example.com">https://example.com</a>'
+    )
+  })
+
+  it('should preserve mailto autolink labels when raw HTML parsing is disabled', () => {
+    render(
+      compiler('<mailto:user@example.com>', {
+        disableParsingRawHTML: true,
+        tagfilter: false,
+      })
+    )
+
+    expect(root.innerHTML).toBe(
+      '<a href="mailto:user@example.com">mailto:user@example.com</a>'
+    )
+  })
+
+  it('should reject angle autolinks containing newlines', () => {
+    render(
+      compiler(
+        theredoc`
+          paragraph
+
+          <https://example.com
+          next>
+        `,
+        {
+          disableParsingRawHTML: true,
+          tagfilter: false,
+        }
+      )
+    )
+
+    expect(root.innerHTML).toBe(
+      '<div><p>paragraph</p><p>&lt;https://example.com\nnext&gt;</p></div>'
+    )
+  })
+
+  it('should keep bare autolinks disabled when requested alongside raw HTML disable', () => {
+    render(
+      compiler('https://example.com', {
+        disableParsingRawHTML: true,
+        disableAutoLink: true,
+        tagfilter: false,
+      })
+    )
+
+    expect(root.innerHTML).toBe('https://example.com')
+  })
+
   it('should automatically link found URLs', () => {
     render(compiler('https://google.com'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<a href="https://google.com">https://google.com</a>"`
+    )
+  })
+
+  it('should not link bare URLs with invalid domains', () => {
+    render(compiler('https://example.invalid_domain'))
+
+    expect(root.innerHTML).toBe('https://example.invalid_domain')
+  })
+
+  it('should allow underscores outside the final two domain segments', () => {
+    render(compiler('https://a_b.c_d.example.com/path'))
+
+    expect(root.innerHTML).toBe(
+      '<a href="https://a_b.c_d.example.com/path">https://a_b.c_d.example.com/path</a>'
     )
   })
 
@@ -2840,12 +2919,9 @@ describe('overrides', () => {
     }
 
     render(
-      compiler(
-        `<CodeBlock data='${JSON.stringify(expectedData)}' />`,
-        {
-          overrides: { CodeBlock },
-        }
-      )
+      compiler(`<CodeBlock data='${JSON.stringify(expectedData)}' />`, {
+        overrides: { CodeBlock },
+      })
     )
 
     expect(receivedData).toEqual(expectedData)
@@ -3049,7 +3125,9 @@ describe('tagfilter option', () => {
 
     it('should escape iframe tags when tagfilter is enabled', () => {
       render(compiler('<iframe src="evil.com"></iframe>', { tagfilter: true }))
-      expect(root.innerHTML).toBe('<span>&lt;iframe src=&quot;evil.com&quot;&gt;</span>')
+      expect(root.innerHTML).toBe(
+        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;</span>'
+      )
     })
 
     it('should escape all filtered tags when tagfilter is enabled', () => {
@@ -3113,19 +3191,25 @@ describe('tagfilter option', () => {
 
     it('should escape iframe tags by default (tagfilter default is true)', () => {
       render(compiler('<iframe src="evil.com"></iframe>'))
-      expect(root.innerHTML).toBe('<span>&lt;iframe src=&quot;evil.com&quot;&gt;</span>')
+      expect(root.innerHTML).toBe(
+        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;</span>'
+      )
     })
   })
 
   describe('HTML self-closing with tagfilter', () => {
     it('should escape self-closing script tags when tagfilter is enabled', () => {
       render(compiler('<script src="evil.js" />', { tagfilter: true }))
-      expect(root.innerHTML).toBe('<span>&lt;script src=&quot;evil.js&quot; /&gt;</span>')
+      expect(root.innerHTML).toBe(
+        '<span>&lt;script src=&quot;evil.js&quot; /&gt;</span>'
+      )
     })
 
     it('should escape self-closing iframe tags when tagfilter is enabled', () => {
       render(compiler('<iframe src="evil.com" />', { tagfilter: true }))
-      expect(root.innerHTML).toBe('<span>&lt;iframe src=&quot;evil.com&quot; /&gt;</span>')
+      expect(root.innerHTML).toBe(
+        '<span>&lt;iframe src=&quot;evil.com&quot; /&gt;</span>'
+      )
     })
 
     it('should not escape self-closing non-filtered tags when tagfilter is enabled', () => {
@@ -3239,7 +3323,9 @@ describe('options immutability', () => {
     // mutations could cause unexpected side effects
     const markdown = '# Hello world'
     const ast = parser(markdown)
-    const options = { slugify: (input: string) => input.toLowerCase() }
+    const options: Parameters<typeof astToJSX>[1] = {
+      slugify: (input: string) => input.toLowerCase(),
+    }
     const originalOverrides = options.overrides
 
     // First call
@@ -3258,7 +3344,9 @@ describe('options immutability', () => {
   it('should not mutate options object when calling compiler multiple times', () => {
     // Test that compiler doesn't mutate the options object when called multiple times
     const markdown = '# Hello world'
-    const options = { slugify: (input: string) => input.toLowerCase() }
+    const options: Parameters<typeof compiler>[1] = {
+      slugify: (input: string) => input.toLowerCase(),
+    }
     const originalOverrides = options.overrides
 
     // First call
