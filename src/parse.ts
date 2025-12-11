@@ -737,8 +737,19 @@ function parseHTMLAttributes(
     } else if (rawAttr !== 'style')
       result[isJSXComponent ? rawAttr : rawAttr.toLowerCase()] = true
   }
-  if (util.SANITIZE_R.test(decodeURIComponent(attrs)))
-    for (const key in result) delete result[key]
+  // Check for URI-encoded malicious content in the raw attributes string
+  // Only decode if % is present (performance optimization)
+  if (attrs.indexOf('%') !== -1) {
+    try {
+      if (util.SANITIZE_R.test(decodeURIComponent(attrs)))
+        for (var key in result) delete result[key]
+    } catch (e) {
+      // Invalid URI encoding (e.g., "100%") - skip the check
+      // Individual attributes were already sanitized above
+    }
+  } else if (util.SANITIZE_R.test(attrs)) {
+    for (var key in result) delete result[key]
+  }
   return result
 }
 
