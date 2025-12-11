@@ -124,6 +124,22 @@ describe('parser', () => {
       },
     ])
   })
+
+  it('should handle HTML with percent character in attributes without throwing URIError', () => {
+    // Regression test for issue #753: URIError when HTML attributes contain % character
+    const result = p.parser(
+      '<iframe src="https://example.com" width="100%"></iframe>'
+    ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
+    expect(result).toHaveLength(1)
+    expect(result[0].type).toBe(RuleType.paragraph)
+    const htmlNode = result[0].children[0] as MarkdownToJSX.HTMLNode
+    expect(htmlNode.type).toBe(RuleType.htmlBlock)
+    expect(htmlNode.tag).toBe('iframe')
+    expect(htmlNode.attrs).toEqual({
+      src: 'https://example.com',
+      width: '100%',
+    })
+  })
 })
 
 describe('parseMarkdown', () => {
@@ -1117,6 +1133,25 @@ describe('parseHTMLTag', () => {
       isClosing: false,
       hasNewline: false,
       endPos: 56,
+    })
+  })
+
+  it('should parse tags with percent character in attributes without throwing URIError', () => {
+    // Regression test for issue #753: URIError when HTML attributes contain % character
+    const result = p.parseHTMLTag(
+      '<iframe src="https://example.com" width="100%"></iframe>',
+      0
+    )
+    expect(result).toEqual({
+      tagName: 'iframe',
+      tagLower: 'iframe',
+      attrs: 'src="https://example.com" width="100%"',
+      whitespaceBeforeAttrs: ' ',
+      isSelfClosing: false,
+      hasSpaceBeforeSlash: false,
+      isClosing: false,
+      hasNewline: false,
+      endPos: 47,
     })
   })
 
