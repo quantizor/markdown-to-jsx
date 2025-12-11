@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 9.3.4
+
+### Patch Changes
+
+- c5b6259: Fixed URIError when parsing HTML attributes containing the % character (e.g., `width="100%"`). The parser now gracefully handles invalid URI encodings in attribute values instead of throwing an error.
+
 ## 9.3.3
 
 ### Patch Changes
