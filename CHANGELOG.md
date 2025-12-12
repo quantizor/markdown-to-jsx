@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 9.3.5
+
+### Patch Changes
+
+- 08dfe8a: Fix regression: Tables within list items are now properly parsed.
+
 ## 9.3.4
 
 ### Patch Changes
