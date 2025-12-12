@@ -4793,6 +4793,21 @@ function processListContinuationLine(
           }
         }
       }
+      // Try parsing as table when line starts with |
+      if (firstCharAfterIndent === '|') {
+        const tableResult = parseTable(source, continuationStart, state, options)
+        if (tableResult) {
+          const tableNode = tableResult as MarkdownToJSX.TableNode & {
+            endPos: number
+          }
+          lastItem.push(tableNode)
+          return {
+            processed: true,
+            newPos: tableNode.endPos,
+            wasBlank: false,
+          }
+        }
+      }
     }
   }
 

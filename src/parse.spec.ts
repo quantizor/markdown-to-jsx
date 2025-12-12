@@ -1446,6 +1446,84 @@ describe('HTML tags interrupting lists', () => {
   })
 })
 
+describe('tables in lists', () => {
+  it('should parse tables within list items (regression test for issue #1)', () => {
+    const md = `- **Browser Stats**:
+
+  | Computer | Memory Usage |
+  | -------- | ------------ |
+  | FireFox  | 86%          |
+  | Chrome   | 80%          |
+  | Safari   | 79%          |
+`
+    const result = p.parser(md)
+
+    // Should have a single unordered list
+    expect(result.length).toBe(1)
+    expect(result[0].type).toBe(RuleType.unorderedList)
+
+    const list = result[0] as MarkdownToJSX.UnorderedListNode
+    expect(list.items.length).toBe(1)
+
+    // The first item should contain both content and a table
+    const item = list.items[0]
+    expect(item.length).toBe(2)
+
+    // First element is the paragraph with "Browser Stats"
+    expect(item[0].type).toBe(RuleType.paragraph)
+    const paragraph = item[0] as MarkdownToJSX.ParagraphNode
+    expect(paragraph.children.length).toBeGreaterThan(0)
+
+    // Second element should be a table
+    expect(item[1].type).toBe(RuleType.table)
+    const table = item[1] as MarkdownToJSX.TableNode
+    expect(table.header.length).toBe(2)
+    expect(table.cells.length).toBe(3) // FireFox, Chrome, Safari rows
+  })
+
+  it('should parse standalone table', () => {
+    const md = `| Computer | Memory Usage |
+| -------- | ------------ |
+| FireFox  | 86%          |
+`
+    const result = p.parser(md)
+
+    expect(result.length).toBe(1)
+    expect(result[0].type).toBe(RuleType.table)
+    const table = result[0] as MarkdownToJSX.TableNode
+    expect(table.header.length).toBe(2)
+    expect(table.cells.length).toBe(1)
+  })
+
+  it('should parse multiple tables in separate list items', () => {
+    const md = `- Item 1:
+
+  | A | B |
+  | - | - |
+  | 1 | 2 |
+
+- Item 2:
+
+  | C | D |
+  | - | - |
+  | 3 | 4 |
+`
+    const result = p.parser(md)
+
+    expect(result.length).toBe(1)
+    expect(result[0].type).toBe(RuleType.unorderedList)
+
+    const list = result[0] as MarkdownToJSX.UnorderedListNode
+    expect(list.items.length).toBe(2)
+
+    // Both items should have tables
+    for (const item of list.items) {
+      const tables = item.filter(node => node.type === RuleType.table)
+      expect(tables.length).toBe(1)
+    }
+  })
+})
+
 describe('initializeParseMetrics', () => {
   it('should initialize parse metrics', () => {
     p.initializeParseMetrics()
