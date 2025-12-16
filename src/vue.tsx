@@ -1,18 +1,31 @@
 /** @jsxRuntime classic */
 /** @jsx h */
 
-import { h, type VNode, type Component } from 'vue'
+import {
+  h,
+  type VNode,
+  type Component,
+  provide,
+  inject,
+  computed,
+  type InjectionKey,
+} from 'vue'
 import * as $ from './constants'
 import * as parse from './parse'
 import { MarkdownToJSX, RuleType, RequireAtLeastOne } from './types'
 import * as util from './utils'
 
 export { parser } from './parse'
+import { parser } from './parse'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
+
+export const MarkdownOptionsKey: InjectionKey<VueOptions> = Symbol(
+  'markdown-options'
+)
 
 // Shared type for Vue child elements
 type VueChild = VNode | string
@@ -894,29 +907,53 @@ export function compiler(
   return astToJSX(astNodes, { ...opts, forceInline: inline } as VueOptions)
 }
 
+export const MarkdownProvider: Component<{
+  options?: VueOptions
+  children?: unknown
+}> = props => {
+  provide(MarkdownOptionsKey, props.options)
+  return props.children as VNode
+}
+
 /**
  * A Vue component for easy markdown rendering. Feed the markdown content as a direct child
- * and the rest is taken care of automatically.
+ * and the rest is taken care of automatically. Supports computed memoization for optimal performance.
  */
 export const Markdown: Component<{
   children?: string | null
   options?: VueOptions
   [key: string]: unknown
 }> = props => {
-  const children =
+  const contextOptions = inject(MarkdownOptionsKey, undefined)
+
+  const mergedOptions = computed(() => {
+    var merged = Object.assign({}, contextOptions, props.options)
+    merged.overrides = Object.assign(
+      {},
+      contextOptions?.overrides,
+      props.options?.overrides
+    )
+    return merged
+  })
+
+  const content =
     props.children === null || props.children === undefined
       ? ''
       : props.children
 
-  const { options, children: _, ...restProps } = props
+  const { options: _, children: __, ...restProps } = props
 
-  return compiler(children, {
-    ...options,
-    wrapperProps: {
-      ...options?.wrapperProps,
-      ...restProps,
-    },
-  })
+  const jsx = computed(() =>
+    compiler(content, {
+      ...mergedOptions.value,
+      wrapperProps: {
+        ...mergedOptions.value?.wrapperProps,
+        ...restProps,
+      },
+    })
+  )
+
+  return jsx.value as VNode
 }
 
 export default Markdown
