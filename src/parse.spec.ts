@@ -1531,3 +1531,236 @@ describe('initializeParseMetrics', () => {
     expect(true).toBe(true)
   })
 })
+
+describe('Unserializable expression evaluation', () => {
+  describe('with evalUnserializableExpressions: false (default)', () => {
+    it('should keep function expressions as strings', () => {
+      const markdown = '<Button onClick={() => alert("test")} />'
+      const result = p.parser(
+        markdown
+      ) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      expect(result[0].attrs?.onClick).toBe('() => alert("test")')
+      expect(typeof result[0].attrs?.onClick).toBe('string')
+    })
+
+    it('should keep arrow functions as strings', () => {
+      const markdown = '<Input onChange={(e) => setValue(e.target.value)} />'
+      const result = p.parser(
+        markdown
+      ) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      expect(result[0].attrs?.onChange).toBe('(e) => setValue(e.target.value)')
+      expect(typeof result[0].attrs?.onChange).toBe('string')
+    })
+
+    it('should keep function declarations as strings', () => {
+      const markdown = '<Component handler={function handleClick() { }} />'
+      const result = p.parser(
+        markdown
+      ) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      expect(typeof result[0].attrs?.handler).toBe('string')
+    })
+
+    it('should keep complex expressions as strings', () => {
+      const markdown = '<Component value={someVar + 10} />'
+      const result = p.parser(
+        markdown
+      ) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      expect(result[0].attrs?.value).toBe('someVar + 10')
+      expect(typeof result[0].attrs?.value).toBe('string')
+    })
+  })
+
+  describe('with evalUnserializableExpressions: true', () => {
+    const options = { evalUnserializableExpressions: true }
+
+    it('should rehydrate simple arrow functions', () => {
+      const markdown = '<Button onClick={() => 42} />'
+      const result = p.parser(
+        markdown,
+        options
+      ) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      expect(typeof result[0].attrs?.onClick).toBe('function')
+      const fn = result[0].attrs?.onClick as () => number
+      expect(fn()).toBe(42)
+    })
+
+    it('should rehydrate arrow functions with parameters', () => {
+      const markdown = '<Input onChange={(x) => x * 2} />'
+      const result = p.parser(
+        markdown,
+        options
+      ) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      expect(typeof result[0].attrs?.onChange).toBe('function')
+      const fn = result[0].attrs?.onChange as (x: number) => number
+      expect(fn(5)).toBe(10)
+    })
+
+    it('should rehydrate function declarations', () => {
+      const markdown = '<Component handler={function(n) { return n + 1; }} />'
+      const result = p.parser(
+        markdown,
+        options
+      ) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      expect(typeof result[0].attrs?.handler).toBe('function')
+      const fn = result[0].attrs?.handler as (n: number) => number
+      expect(fn(10)).toBe(11)
+    })
+
+    it('should handle eval failures gracefully', () => {
+      const markdown = '<Component invalid={this is not valid javascript} />'
+      const result = p.parser(
+        markdown,
+        options
+      ) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      // Should fall back to string on eval failure
+      expect(typeof result[0].attrs?.invalid).toBe('string')
+    })
+
+    it('should still parse arrays and objects normally', () => {
+      const markdown =
+        '<Component data={[1, 2, 3]} config={{"key": "value"}} />'
+      const result = p.parser(
+        markdown,
+        options
+      ) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      expect(result[0].attrs?.data).toEqual([1, 2, 3])
+      expect(result[0].attrs?.config).toEqual({ key: 'value' })
+    })
+
+    it('should handle boolean values', () => {
+      const markdown = '<Input enabled={true} disabled={false} />'
+      const result = p.parser(
+        markdown,
+        options
+      ) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      expect(result[0].attrs?.enabled).toBe(true)
+      expect(result[0].attrs?.disabled).toBe(false)
+    })
+
+    it('should not eval expressions that reference undefined variables', () => {
+      const markdown = '<Component value={someUndefinedVar} />'
+      const result = p.parser(
+        markdown,
+        options
+      ) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      // Should fall back to string when variable is undefined
+      expect(typeof result[0].attrs?.value).toBe('string')
+      expect(result[0].attrs?.value).toBe('someUndefinedVar')
+    })
+  })
+
+  describe('security considerations', () => {
+    it('should document that evalUnserializableExpressions is dangerous', () => {
+      // This test documents the security risk
+      const maliciousMarkdown =
+        '<Component onClick={() => fetch("/admin/delete")} />'
+
+      // Without option: safe, kept as string
+      const safeResult = p.parser(
+        maliciousMarkdown
+      ) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+      expect(typeof safeResult[0].attrs?.onClick).toBe('string')
+
+      // With option: dangerous, function can be executed
+      const dangerousResult = p.parser(maliciousMarkdown, {
+        evalUnserializableExpressions: true,
+      }) as (MarkdownToJSX.HTMLSelfClosingNode & { endPos: number })[]
+      expect(typeof dangerousResult[0].attrs?.onClick).toBe('function')
+    })
+
+    it('should keep functions as strings by default to prevent code execution', () => {
+      const markdown =
+        '<Button onClick={() => window.location.href = "https://evil.com"} />'
+      const result = p.parser(
+        markdown
+      ) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      // Function is not executable, just a string
+      expect(typeof result[0].attrs?.onClick).toBe('string')
+      expect(() => {
+        // This would throw if it were a function - casting to unknown first for type safety
+        ;(result[0].attrs?.onClick as Function)()
+      }).toThrow()
+    })
+  })
+
+  describe('edge cases', () => {
+    it('should handle functions with newlines (as string due to markdown parsing)', () => {
+      // Note: Multiline attribute values in markdown may not be parsed the same way
+      // as single-line values, so they remain as strings
+      const markdown = `<Component handler={() => {
+  const x = 1;
+  return x + 1;
+}} />`
+      const result = p.parser(markdown, {
+        evalUnserializableExpressions: true,
+      }) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      // Multiline functions remain as strings (markdown parsing limitation)
+      expect(typeof result[0].attrs?.handler).toBe('string')
+    })
+
+    it('should handle nested braces in functions', () => {
+      const markdown = '<Component fn={() => { return { nested: true } }} />'
+      const result = p.parser(markdown, {
+        evalUnserializableExpressions: true,
+      }) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      expect(typeof result[0].attrs?.fn).toBe('function')
+      const fn = result[0].attrs?.fn as () => { nested: boolean }
+      expect(fn()).toEqual({ nested: true })
+    })
+
+    it('should handle empty functions', () => {
+      const markdown = '<Component noop={() => {}} />'
+      const result = p.parser(markdown, {
+        evalUnserializableExpressions: true,
+      }) as (MarkdownToJSX.HTMLSelfClosingNode & {
+        endPos: number
+      })[]
+
+      expect(typeof result[0].attrs?.noop).toBe('function')
+    })
+  })
+})

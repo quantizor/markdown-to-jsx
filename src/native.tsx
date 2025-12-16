@@ -851,9 +851,7 @@ export function compiler(
       throw new Error(`markdown-to-jsx: the first argument must be a string`)
     }
 
-    if (
-      Object.prototype.toString.call(opts.overrides) !== '[object Object]'
-    ) {
+    if (Object.prototype.toString.call(opts.overrides) !== '[object Object]') {
       throw new Error(`markdown-to-jsx: options.overrides (second argument property) must be
                              undefined or an object literal with shape:
                              {

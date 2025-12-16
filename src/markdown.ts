@@ -87,7 +87,8 @@ export function astToMarkdown(
     } else if (
       node.type !== RuleType.footnote &&
       node.type !== RuleType.ref &&
-      (node.type !== RuleType.frontmatter || options?.preserveFrontmatter !== false)
+      (node.type !== RuleType.frontmatter ||
+        options?.preserveFrontmatter !== false)
     ) {
       nonRefCollectionNodes.push(node)
     }
@@ -113,8 +114,10 @@ export function astToMarkdown(
     if (
       node.type === RuleType.ref ||
       node.type === RuleType.footnote ||
-      (node.type === RuleType.frontmatter && options?.preserveFrontmatter === false)
-    ) return ''
+      (node.type === RuleType.frontmatter &&
+        options?.preserveFrontmatter === false)
+    )
+      return ''
 
     if (options?.renderRule) {
       return options.renderRule(
