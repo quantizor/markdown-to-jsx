@@ -14,11 +14,16 @@ import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
 
 export { parser } from './parse'
+import { parser } from './parse'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
+
+export const MarkdownContext = React.createContext<NativeOptions | undefined>(
+  undefined
+)
 
 export type NativeStyleKey =
   | 'text'
@@ -872,22 +877,51 @@ export function compiler(
   return jsx
 }
 
+export const MarkdownProvider: React.FC<{
+  options?: NativeOptions
+  children: React.ReactNode
+}> = ({ options, children }) => {
+  return React.createElement(
+    MarkdownContext.Provider,
+    { value: options },
+    children
+  )
+}
+
 export const Markdown: React.FC<
   Omit<ViewProps, 'children'> & {
     children?: string | null
     options?: NativeOptions
   }
 > = ({ children: rawChildren, options, ...props }) => {
-  const children =
+  const contextOptions = React.useContext(MarkdownContext)
+
+  const mergedOptions = React.useMemo(() => {
+    var merged = Object.assign({}, contextOptions, options)
+    merged.styles = Object.assign({}, contextOptions?.styles, options?.styles)
+    merged.overrides = Object.assign(
+      {},
+      contextOptions?.overrides,
+      options?.overrides
+    )
+    merged.wrapperProps = Object.assign(
+      {},
+      contextOptions?.wrapperProps,
+      options?.wrapperProps,
+      props
+    ) as ViewProps | TextProps
+    return merged
+  }, [contextOptions, options, props])
+
+  const content =
     rawChildren === null || rawChildren === undefined ? '' : rawChildren
 
-  return compiler(children, {
-    ...options,
-    wrapperProps: {
-      ...options?.wrapperProps,
-      ...props,
-    } as ViewProps | TextProps,
-  })
+  const jsx = React.useMemo(
+    () => compiler(content, mergedOptions),
+    [content, mergedOptions]
+  )
+
+  return jsx as React.ReactElement
 }
 
 export default Markdown
