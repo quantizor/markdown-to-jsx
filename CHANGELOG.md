@@ -1,5 +1,145 @@
 # markdown-to-jsx
 
+## 9.4.0
+
+### Minor Changes
+
+- c1be885: Added context providers and memoization to all major renderers for better developer experience and performance.
+
+  **React:**
+  - `MarkdownContext` - React context for default options
+  - `MarkdownProvider` - Provider component to avoid prop-drilling
+  - `useMemo` - 3-stage memoization (options, content, JSX)
+
+  **React Native:**
+  - `MarkdownContext` - React context for default options
+  - `MarkdownProvider` - Provider component to avoid prop-drilling
+  - `useMemo` - 3-stage memoization (options, content, JSX)
+
+  **Vue:**
+  - `MarkdownOptionsKey` - InjectionKey for provide/inject pattern
+  - `MarkdownProvider` - Provider component using Vue's provide
+  - `computed` - Reactive memoization for options, content, and JSX
+
+  **Benefits:**
+  1. **Avoid prop-drilling** - Set options once at the top level:
+
+  ```tsx
+  <MarkdownProvider options={commonOptions}>
+    <App>
+      <Markdown>...</Markdown>
+      <Markdown>...</Markdown>
+    </App>
+  </MarkdownProvider>
+  ```
+
+  2. **Performance optimization** - Content is only parsed when it actually changes, not on every render
+  3. **Fully backwards compatible** - Existing usage works unchanged, providers are optional
+
+  **Example:**
+
+  ```tsx
+  import { MarkdownProvider } from 'markdown-to-jsx/react'
+
+  function App() {
+    return (
+      <MarkdownProvider options={{ wrapper: 'article', tagfilter: true }}>
+        <Markdown># Page 1</Markdown>
+        <Markdown># Page 2</Markdown>
+        {/* Both inherit options from provider */}
+      </MarkdownProvider>
+    )
+  }
+  ```
+
+- ef8a002: Added opt-in `options.evalUnserializableExpressions` to eval function expressions and other unserializable JSX props from trusted markdown sources.
+
+  **⚠️ SECURITY WARNING: STRONGLY DISCOURAGED FOR USER INPUTS**
+
+  This option uses `eval()` and should ONLY be used with completely trusted markdown sources (e.g., your own documentation). Never enable this for user-submitted content.
+
+  **Usage:**
+
+  ```tsx
+  // For trusted sources only
+  const markdown = `
+  <Button onPress={() => alert('clicked!')} />
+  <ApiEndpoint url={process.env.API_URL} />
+  `
+
+  parser(markdown, { evalUnserializableExpressions: true })
+
+  // Components receive:
+  // - onPress: actual function () => alert('clicked!')
+  // - url: the value of process.env.API_URL from your environment
+  // Without this option, these would be strings "() => alert('clicked!')" and "process.env.API_URL"
+  ```
+
+  **Safer alternative:** Use `renderRule` to handle stringified expressions on a case-by-case basis with your own validation and allowlists.
+
+  See the README for detailed security considerations and safe alternatives.
+
+- ef8a002: JSX prop values are now intelligently parsed instead of always being strings:
+  - **Arrays and objects** are parsed via `JSON.parse()`: `data={[1, 2, 3]}` → `attrs.data = [1, 2, 3]`
+  - **Booleans** are parsed: `enabled={true}` → `attrs.enabled = true`
+  - **Functions** are kept as strings for security: `onClick={() => ...}` → `attrs.onClick = "() => ..."`
+  - **Complex expressions** are kept as strings: `value={someVar}` → `attrs.value = "someVar"`
+
+  The original raw attribute string is preserved in the `rawAttrs` field.
+
+  **Benefits:**
+  - Type-safe access to structured data without manual parsing
+  - Backwards compatible - check types before using
+  - Secure by default - functions remain as strings
+
+  **Example:**
+
+  <!-- prettier-ignore -->
+  ```tsx
+  // In markdown:
+  <ApiTable
+    rows={[
+      ['Name', 'Value'],
+      ['foo', 'bar'],
+    ]}
+  />
+  
+  // In your component:
+  const ApiTable = ({ rows }) => {
+    // rows is already an array, no JSON.parse needed!
+    return <table>...</table>
+  }
+  
+  // For backwards compatibility:
+  const rows =
+    typeof props.rows === 'string' ? JSON.parse(props.rows) : props.rows
+  ```
+
+  **Security:** Functions remain as strings by default. Use `renderRule` for case-by-case handling, or see the new `options.evalUnserializableExpressions` feature for opt-in eval (not recommended for user inputs).
+
+### Patch Changes
+
+- ef8a002: JSX components with double-newlines (blank lines) between opening and closing tags now properly nest children instead of creating sibling nodes. This fixes incorrect AST structure for JSX/MDX content.
+
+  **Before:**
+
+  <!-- prettier-ignore -->
+  ```jsx
+  <Figure>
+  
+    <div>content</div>
+  
+  </Figure>
+  ```
+
+  Parsed as 3 siblings: `<Figure>`, `<div>`, `</Figure>`
+
+  **After:**
+
+  Parsed as parent-child: `<Figure>` contains `<div>` as a child
+
+  This was a bug where the parser incorrectly treated JSX components as siblings when double-newlines were present between the tags. The fix ensures proper parent-child relationships match expected JSX/MDX semantics.
+
 ## 9.3.5
 
 ### Patch Changes
