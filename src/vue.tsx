@@ -23,9 +23,8 @@ export { sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
-export const MarkdownOptionsKey: InjectionKey<VueOptions> = Symbol(
-  'markdown-options'
-)
+export const MarkdownOptionsKey: InjectionKey<VueOptions | undefined> =
+  Symbol('markdown-options')
 
 // Shared type for Vue child elements
 type VueChild = VNode | string
