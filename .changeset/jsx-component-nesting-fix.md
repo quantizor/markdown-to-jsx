@@ -8,10 +8,11 @@ JSX components with double-newlines (blank lines) between opening and closing ta
 
 **Before:**
 
+<!-- prettier-ignore -->
 ```jsx
 <Figure>
 
-<div>content</div>
+  <div>content</div>
 
 </Figure>
 ```

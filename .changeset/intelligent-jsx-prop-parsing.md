@@ -21,9 +21,10 @@ The original raw attribute string is preserved in the `rawAttrs` field.
 
 **Example:**
 
+<!-- prettier-ignore -->
 ```tsx
 // In markdown:
-;<ApiTable
+<ApiTable
   rows={[
     ['Name', 'Value'],
     ['foo', 'bar'],
