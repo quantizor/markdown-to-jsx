@@ -2,6 +2,7 @@
 alwaysApply: true
 ---
 
+- Do not create summary documents, deliver a concise summary in the chat when appropriate.
 - Do not create helper functions unless there are at least two instances of the same pattern and overall LOC is reduced
 - Follow through on each refactor to its end, including cleanup of unused code (cleanup should be a separate TODO item)
 - Consider the following dimensions when authoring or refactoring code:
@@ -18,3 +19,18 @@ alwaysApply: true
   - Parsing and Execution: Reduce code size via minification/tree-shaking, avoid eval(), and optimize regex patterns.
   - Dependency Management: Limit third-party libraries, use tree-shakable imports, and profile for bottlenecks.
   - Browser-Specific Quirks: Handle engine differences (e.g., V8 optimizations for hot paths), test on target environments.
+- When writing commit messages on public code, focus on the user-facing change; how does this change benefit them? Ensure that noteworthy public changes and bugfixes have a changeset.
+- When writing commit messages on private/infra code, focus on the technical change; how does this change benefit the codebase? Keep it short.
+- Optimize new rules for token efficiency: no bold/emphasis, headers, and stylistic formatting, concise/compact and highly-specific language
+- Remove examples unless critical for understanding
+- Prefer abbreviations and acronyms when unambiguous
+- Use minimal punctuation, only where necessary for clarity
+- Remove meta-commentary about the rule itself
+- Focus on actionable directives, not explanations
+- `.cursor/rules` = best practices, `AGENTS.md` = repository-specific directives
+- Test assertions may only have a single possible result.
+- Test assertions should cover both the content and shape of the result.
+- Renderer suites should focus exclusively on renderer behavior, with the parser suite handling common parsing scenarios.
+- 80% or greater cumulative coverage is required.
+- Tests should always assert a specific result shape, generic existence checks like `toBeTruthy()` or `toBeDefined()` are not allowed.
+- Add tests to existing test files rather than creating new ones.
