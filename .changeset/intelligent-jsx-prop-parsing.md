@@ -15,9 +15,9 @@ The original raw attribute string is preserved in the `rawAttrs` field.
 
 **Benefits:**
 
-- No more unsafe `eval()` needed for array/object props
-- Type-safe access to structured data
+- Type-safe access to structured data without manual parsing
 - Backwards compatible - check types before using
+- Secure by default - functions remain as strings
 
 **Example:**
 
