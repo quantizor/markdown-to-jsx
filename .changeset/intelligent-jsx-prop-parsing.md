@@ -2,8 +2,6 @@
 'markdown-to-jsx': minor
 ---
 
-Add intelligent JSX prop parsing
-
 JSX prop values are now intelligently parsed instead of always being strings:
 
 - **Arrays and objects** are parsed via `JSON.parse()`: `data={[1, 2, 3]}` → `attrs.data = [1, 2, 3]`
@@ -42,4 +40,4 @@ const rows =
   typeof props.rows === 'string' ? JSON.parse(props.rows) : props.rows
 ```
 
-**Security:** Functions remain as strings by default. Use `renderRule` for case-by-case handling, or see the new `evalUnserializableExpressions` option for opt-in eval (not recommended for user inputs).
+**Security:** Functions remain as strings by default. Use `renderRule` for case-by-case handling, or see the new `options.evalUnserializableExpressions` feature for opt-in eval (not recommended for user inputs).

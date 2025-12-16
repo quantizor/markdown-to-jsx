@@ -2,8 +2,6 @@
 'markdown-to-jsx': patch
 ---
 
-Fix JSX component nesting with double-newlines between tags
-
 JSX components with double-newlines (blank lines) between opening and closing tags now properly nest children instead of creating sibling nodes. This fixes incorrect AST structure for JSX/MDX content.
 
 **Before:**
