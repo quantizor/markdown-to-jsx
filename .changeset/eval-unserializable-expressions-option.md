@@ -14,7 +14,17 @@ This option uses `eval()` and should ONLY be used with completely trusted markdo
 
 ```tsx
 // For trusted sources only
-parser(trustedMarkdown, { evalUnserializableExpressions: true })
+const markdown = `
+<Button onPress={() => alert('clicked!')} />
+<ApiEndpoint url={process.env.API_URL} />
+`
+
+parser(markdown, { evalUnserializableExpressions: true })
+
+// Components receive:
+// - onPress: actual function () => alert('clicked!')
+// - url: the value of process.env.API_URL from your environment
+// Without this option, these would be strings "() => alert('clicked!')" and "process.env.API_URL"
 ```
 
 **Safer alternative:** Use `renderRule` to handle stringified expressions on a case-by-case basis with your own validation and allowlists.

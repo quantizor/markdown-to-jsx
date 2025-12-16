@@ -12,7 +12,14 @@ async function main() {
   const targetIndex = process.argv.indexOf('--target')
   const targetArg =
     targetIndex !== -1 ? process.argv[targetIndex + 1] : 'parser'
-  const validTargets = ['parser', 'react', 'react-native', 'html', 'solid', 'vue']
+  const validTargets = [
+    'parser',
+    'react',
+    'react-native',
+    'html',
+    'solid',
+    'vue',
+  ]
   if (!validTargets.includes(targetArg)) {
     console.error(
       `Invalid target: ${targetArg}. Valid targets are: ${validTargets.join(', ')}`

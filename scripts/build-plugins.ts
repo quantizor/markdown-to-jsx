@@ -109,7 +109,6 @@ export function removeDebugCode(code: string, filePath: string): string {
   return code
 }
 
-
 export function removeDebugPlugin(): Plugin {
   return {
     name: 'remove-debug',
@@ -153,7 +152,7 @@ export function removeDebugBunPlugin(): BunPlugin {
   return {
     name: 'remove-debug',
     setup(build) {
-      build.onLoad({ filter: /parse\.ts$/ }, async (args) => {
+      build.onLoad({ filter: /parse\.ts$/ }, async args => {
         const code = await Bun.file(args.path).text()
         const modified = removeDebugCode(code, args.path)
 
@@ -167,7 +166,7 @@ export function removeDebugBunPlugin(): BunPlugin {
         return undefined
       })
 
-      build.onLoad({ filter: /index\.tsx$/ }, async (args) => {
+      build.onLoad({ filter: /index\.tsx$/ }, async args => {
         const code = await Bun.file(args.path).text()
         const modified = removeDebugCode(code, args.path)
 

@@ -100,7 +100,10 @@ function readSourceFile(filePath: string): string {
 }
 
 // Find duplicate patterns
-function findDuplicatePatterns(source: string, filePath: string): DuplicatePattern[] {
+function findDuplicatePatterns(
+  source: string,
+  filePath: string
+): DuplicatePattern[] {
   const lines = source.split('\n')
   const duplicates: DuplicatePattern[] = []
 
@@ -112,10 +115,18 @@ function findDuplicatePatterns(source: string, filePath: string): DuplicatePatte
   const step = lines.length > MAX_SCAN ? Math.floor(lines.length / MAX_SCAN) : 1
 
   for (let i = 0; i < lines.length - 2; i += step) {
-    const block = lines.slice(i, i + 3).join('\n').trim()
-    if (block.length > 20 && block.length < 500 && // Reasonable size
-        !block.includes('function ') && !block.includes('var ') &&
-        !block.includes('const ') && !block.includes('export ')) {
+    const block = lines
+      .slice(i, i + 3)
+      .join('\n')
+      .trim()
+    if (
+      block.length > 20 &&
+      block.length < 500 && // Reasonable size
+      !block.includes('function ') &&
+      !block.includes('var ') &&
+      !block.includes('const ') &&
+      !block.includes('export ')
+    ) {
       if (!codeBlocks.has(block)) {
         codeBlocks.set(block, [])
       }
@@ -141,13 +152,19 @@ function findDuplicatePatterns(source: string, filePath: string): DuplicatePatte
 
 // Check if a line is a function definition
 function isFunctionDefinition(line: string): boolean {
-  return /^\s*(?:function\s+\w+|var\s+\w+\s*=\s*function|const\s+\w+\s*=\s*function|var\s+\w+\s*=\s*\(|const\s+\w+\s*=\s*\()/.test(line)
+  return /^\s*(?:function\s+\w+|var\s+\w+\s*=\s*function|const\s+\w+\s*=\s*function|var\s+\w+\s*=\s*\(|const\s+\w+\s*=\s*\()/.test(
+    line
+  )
 }
 
 // Check if a line is a comment
 function isComment(line: string): boolean {
   const trimmed = line.trim()
-  return trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')
+  return (
+    trimmed.startsWith('//') ||
+    trimmed.startsWith('*') ||
+    trimmed.startsWith('/*')
+  )
 }
 
 // Check if a line is a type definition
@@ -160,7 +177,8 @@ function isAlreadyHelper(source: string, patternName: string): boolean {
   // Check if there's already a helper function for this pattern
   const helperPatterns: Record<string, RegExp> = {
     'skipToNextLine pattern': /(?:function|var|const)\s+skipToNextLine\s*[=\(]/,
-    'whitespace check': /(?:function|var|const)\s+(?:isWS|isSpaceOrTab|isASCIIWhitespace|isUnicodeWhitespace)\s*[=\(]/,
+    'whitespace check':
+      /(?:function|var|const)\s+(?:isWS|isSpaceOrTab|isASCIIWhitespace|isUnicodeWhitespace)\s*[=\(]/,
     'charCodeAt comparison': /(?:function|var|const)\s+charCode\s*[=\(]/,
   }
   const regex = helperPatterns[patternName]
@@ -168,7 +186,10 @@ function isAlreadyHelper(source: string, patternName: string): boolean {
 }
 
 // Find helper opportunities
-function findHelperOpportunities(source: string, filePath: string): HelperOpportunity[] {
+function findHelperOpportunities(
+  source: string,
+  filePath: string
+): HelperOpportunity[] {
   const opportunities: HelperOpportunity[] = []
   const lines = source.split('\n')
 
@@ -187,7 +208,11 @@ function findHelperOpportunities(source: string, filePath: string): HelperOpport
       const line = lines[lineNum - 1] || ''
 
       // Filter out function definitions, comments, and type definitions
-      if (isFunctionDefinition(line) || isComment(line) || isTypeDefinition(line)) {
+      if (
+        isFunctionDefinition(line) ||
+        isComment(line) ||
+        isTypeDefinition(line)
+      ) {
         continue
       }
 
@@ -214,12 +239,16 @@ function findHelperOpportunities(source: string, filePath: string): HelperOpport
 }
 
 // Find function definitions and usages
-function analyzeFunctionUsage(source: string, filePath: string): FunctionUsage[] {
+function analyzeFunctionUsage(
+  source: string,
+  filePath: string
+): FunctionUsage[] {
   const functions: FunctionUsage[] = []
   const lines = source.split('\n')
 
   // Find function definitions
-  const functionDefRegex = /(?:function\s+(\w+)|var\s+(\w+)\s*=\s*function|const\s+(\w+)\s*=\s*function)/g
+  const functionDefRegex =
+    /(?:function\s+(\w+)|var\s+(\w+)\s*=\s*function|const\s+(\w+)\s*=\s*function)/g
   let match: RegExpExecArray | null
 
   while ((match = functionDefRegex.exec(source)) !== null) {
@@ -233,7 +262,9 @@ function analyzeFunctionUsage(source: string, filePath: string): FunctionUsage[]
 
     const sourceAfterDef = source.substring(match.index + match[0].length)
     while ((usageMatch = usageRegex.exec(sourceAfterDef)) !== null) {
-      const usageLineNum = sourceAfterDef.substring(0, usageMatch.index).split('\n').length + lineNum
+      const usageLineNum =
+        sourceAfterDef.substring(0, usageMatch.index).split('\n').length +
+        lineNum
       usages.push({
         file: filePath,
         line: usageLineNum,
@@ -244,7 +275,10 @@ function analyzeFunctionUsage(source: string, filePath: string): FunctionUsage[]
       name: funcName,
       definition: { file: filePath, line: lineNum },
       usages,
-      canInline: usages.length === 1 && !funcName.startsWith('parse') && !funcName.startsWith('create'),
+      canInline:
+        usages.length === 1 &&
+        !funcName.startsWith('parse') &&
+        !funcName.startsWith('create'),
     })
   }
 
@@ -252,14 +286,25 @@ function analyzeFunctionUsage(source: string, filePath: string): FunctionUsage[]
 }
 
 // Find similar code blocks using simple similarity
-function findSimilarBlocks(source: string, filePath: string, minSimilarity = 0.7): PatternMatch[] {
+function findSimilarBlocks(
+  source: string,
+  filePath: string,
+  minSimilarity = 0.7
+): PatternMatch[] {
   const lines = source.split('\n')
-  const blocks: Array<{ start: number; end: number; code: string; hash: string }> = []
+  const blocks: Array<{
+    start: number
+    end: number
+    code: string
+    hash: string
+  }> = []
 
   // Extract code blocks (5-10 lines, more limited to avoid O(n²) explosion)
   const MAX_BLOCKS = 500 // Limit to prevent slowdown
-  for (let i = 0; i < lines.length - 4 && blocks.length < MAX_BLOCKS; i += 3) { // Skip every 3 lines
-    for (let len = 5; len <= 10 && i + len <= lines.length; len += 2) { // Skip odd lengths
+  for (let i = 0; i < lines.length - 4 && blocks.length < MAX_BLOCKS; i += 3) {
+    // Skip every 3 lines
+    for (let len = 5; len <= 10 && i + len <= lines.length; len += 2) {
+      // Skip odd lengths
       const block = lines.slice(i, i + len).join('\n')
       if (block.trim().length > 30 && !block.includes('function ')) {
         // Use a simple hash to quickly identify potential duplicates
@@ -279,11 +324,18 @@ function findSimilarBlocks(source: string, filePath: string, minSimilarity = 0.7
   for (let i = 0; i < blocks.length && comparisons < MAX_COMPARISONS; i++) {
     if (checked.has(blocks[i].hash)) continue
 
-    for (let j = i + 1; j < blocks.length && comparisons < MAX_COMPARISONS; j++) {
+    for (
+      let j = i + 1;
+      j < blocks.length && comparisons < MAX_COMPARISONS;
+      j++
+    ) {
       comparisons++
       // Quick check: if hashes are similar, do deeper comparison
-      if (blocks[i].hash === blocks[j].hash ||
-          Math.abs(blocks[i].code.length - blocks[j].code.length) < blocks[i].code.length * 0.2) {
+      if (
+        blocks[i].hash === blocks[j].hash ||
+        Math.abs(blocks[i].code.length - blocks[j].code.length) <
+          blocks[i].code.length * 0.2
+      ) {
         const similarity = calculateSimilarity(blocks[i].code, blocks[j].code)
         if (similarity >= minSimilarity) {
           similar.push({
@@ -306,7 +358,7 @@ function simpleHash(str: string): string {
   let hash = 0
   const sample = str.replace(/\s+/g, ' ').substring(0, 100) // Sample first 100 chars
   for (let i = 0; i < sample.length; i++) {
-    hash = ((hash << 5) - hash) + sample.charCodeAt(i)
+    hash = (hash << 5) - hash + sample.charCodeAt(i)
     hash = hash & hash // Convert to 32bit integer
   }
   return hash.toString(36)
@@ -352,7 +404,10 @@ function getCharFreq(str: string): Record<string, number> {
 }
 
 // Heuristic analysis functions
-function findRepeatedConditionalPatterns(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedConditionalPatterns(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const conditionals = new Map<string, PatternMatch[]>()
@@ -365,7 +420,11 @@ function findRepeatedConditionalPatterns(source: string, filePath: string): Heur
     const line = lines[i]
 
     // Skip comments, type definitions, and function definitions
-    if (isComment(line) || isTypeDefinition(line) || isFunctionDefinition(line)) {
+    if (
+      isComment(line) ||
+      isTypeDefinition(line) ||
+      isFunctionDefinition(line)
+    ) {
       continue
     }
 
@@ -426,7 +485,10 @@ function findRepeatedConditionalPatterns(source: string, filePath: string): Heur
   return patterns
 }
 
-function findRepeatedStringOperations(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedStringOperations(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const operations = new Map<string, PatternMatch[]>()
@@ -448,11 +510,17 @@ function findRepeatedStringOperations(source: string, filePath: string): Heurist
       const line = lines[lineNum - 1] || ''
 
       // Filter out function definitions, comments, and type definitions
-      if (isFunctionDefinition(line) || isComment(line) || isTypeDefinition(line)) {
+      if (
+        isFunctionDefinition(line) ||
+        isComment(line) ||
+        isTypeDefinition(line)
+      ) {
         continue
       }
 
-      const normalized = match[0].replace(/\d+/g, 'N').replace(/['"][^'"]+['"]/g, 'STR')
+      const normalized = match[0]
+        .replace(/\d+/g, 'N')
+        .replace(/['"][^'"]+['"]/g, 'STR')
 
       if (!found.has(normalized)) {
         found.set(normalized, [])
@@ -485,7 +553,10 @@ function findRepeatedStringOperations(source: string, filePath: string): Heurist
   return patterns
 }
 
-function findRepeatedVariablePatterns(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedVariablePatterns(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const assignments = new Map<string, PatternMatch[]>()
@@ -497,7 +568,11 @@ function findRepeatedVariablePatterns(source: string, filePath: string): Heurist
     const line = lines[i]
 
     // Skip comments, type definitions, and function definitions
-    if (isComment(line) || isTypeDefinition(line) || isFunctionDefinition(line)) {
+    if (
+      isComment(line) ||
+      isTypeDefinition(line) ||
+      isFunctionDefinition(line)
+    ) {
       continue
     }
 
@@ -510,8 +585,11 @@ function findRepeatedVariablePatterns(source: string, filePath: string): Heurist
         .trim()
 
       // Require substantial patterns, exclude generic ones
-      if (normalized.length > 15 && normalized.length < 100 &&
-          !normalized.match(/^VAR\s*=\s*VAR$/)) {
+      if (
+        normalized.length > 15 &&
+        normalized.length < 100 &&
+        !normalized.match(/^VAR\s*=\s*VAR$/)
+      ) {
         if (!assignments.has(normalized)) {
           assignments.set(normalized, [])
         }
@@ -540,7 +618,10 @@ function findRepeatedVariablePatterns(source: string, filePath: string): Heurist
   return patterns
 }
 
-function findRepeatedFunctionCallSequences(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedFunctionCallSequences(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const sequences = new Map<string, PatternMatch[]>()
@@ -560,9 +641,14 @@ function findRepeatedFunctionCallSequences(source: string, filePath: string): He
     const line2 = lines[i + 1] || ''
 
     // Skip comments, type definitions, and function definitions
-    if (isComment(line1) || isComment(line2) ||
-        isTypeDefinition(line1) || isTypeDefinition(line2) ||
-        isFunctionDefinition(line1) || isFunctionDefinition(line2)) {
+    if (
+      isComment(line1) ||
+      isComment(line2) ||
+      isTypeDefinition(line1) ||
+      isTypeDefinition(line2) ||
+      isFunctionDefinition(line1) ||
+      isFunctionDefinition(line2)
+    ) {
       continue
     }
 
@@ -607,13 +693,21 @@ function findRepeatedFunctionCallSequences(source: string, filePath: string): He
   return patterns
 }
 
-function findRepeatedErrorHandling(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedErrorHandling(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const errorPatterns = new Map<string, PatternMatch[]>()
 
   // Find error handling patterns
-  const errorKeywords = ['return null', 'return false', 'if.*return null', 'if.*return false']
+  const errorKeywords = [
+    'return null',
+    'return false',
+    'if.*return null',
+    'if.*return false',
+  ]
 
   for (const keyword of errorKeywords) {
     const regex = new RegExp(keyword, 'gi')
@@ -623,7 +717,11 @@ function findRepeatedErrorHandling(source: string, filePath: string): HeuristicP
       const line = lines[i]
 
       // Skip comments, type definitions, and function definitions
-      if (isComment(line) || isTypeDefinition(line) || isFunctionDefinition(line)) {
+      if (
+        isComment(line) ||
+        isTypeDefinition(line) ||
+        isFunctionDefinition(line)
+      ) {
         continue
       }
 
@@ -671,7 +769,10 @@ function findRepeatedErrorHandling(source: string, filePath: string): HeuristicP
   return patterns
 }
 
-function findRepeatedLoopPatterns(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedLoopPatterns(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const loops = new Map<string, PatternMatch[]>()
@@ -683,7 +784,11 @@ function findRepeatedLoopPatterns(source: string, filePath: string): HeuristicPa
     const line = lines[i]
 
     // Skip comments, type definitions, and function definitions
-    if (isComment(line) || isTypeDefinition(line) || isFunctionDefinition(line)) {
+    if (
+      isComment(line) ||
+      isTypeDefinition(line) ||
+      isFunctionDefinition(line)
+    ) {
       continue
     }
 
@@ -727,13 +832,23 @@ function findRepeatedLoopPatterns(source: string, filePath: string): HeuristicPa
   return patterns
 }
 
-function findRepeatedObjectAccessPatterns(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedObjectAccessPatterns(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const accesses = new Map<string, PatternMatch[]>()
 
   // Common object access patterns to ignore (too generic)
-  const genericPatterns = new Set(['length', 'push', 'pop', 'slice', 'substring', 'trim'])
+  const genericPatterns = new Set([
+    'length',
+    'push',
+    'pop',
+    'slice',
+    'substring',
+    'trim',
+  ])
 
   // Find repeated object property access patterns
   const accessPattern = /(\w+)\.(\w+)(?:\.(\w+))?/g
@@ -742,7 +857,11 @@ function findRepeatedObjectAccessPatterns(source: string, filePath: string): Heu
     const line = lines[i]
 
     // Skip comments, type definitions, and function definitions
-    if (isComment(line) || isTypeDefinition(line) || isFunctionDefinition(line)) {
+    if (
+      isComment(line) ||
+      isTypeDefinition(line) ||
+      isFunctionDefinition(line)
+    ) {
       continue
     }
 
@@ -782,7 +901,10 @@ function findRepeatedObjectAccessPatterns(source: string, filePath: string): Heu
   return patterns
 }
 
-function findRepeatedTypeChecks(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedTypeChecks(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const checks = new Map<string, PatternMatch[]>()
@@ -804,11 +926,17 @@ function findRepeatedTypeChecks(source: string, filePath: string): HeuristicPatt
       const line = lines[lineNum - 1] || ''
 
       // Filter out function definitions, comments, and type definitions
-      if (isFunctionDefinition(line) || isComment(line) || isTypeDefinition(line)) {
+      if (
+        isFunctionDefinition(line) ||
+        isComment(line) ||
+        isTypeDefinition(line)
+      ) {
         continue
       }
 
-      const normalized = match[0].replace(/\d+/g, 'N').replace(/['"][^'"]+['"]/g, 'STR')
+      const normalized = match[0]
+        .replace(/\d+/g, 'N')
+        .replace(/['"][^'"]+['"]/g, 'STR')
 
       if (!found.has(normalized)) {
         found.set(normalized, [])
@@ -841,7 +969,10 @@ function findRepeatedTypeChecks(source: string, filePath: string): HeuristicPatt
   return patterns
 }
 
-function findRepeatedCalculations(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedCalculations(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const calculations = new Map<string, PatternMatch[]>()
@@ -862,11 +993,17 @@ function findRepeatedCalculations(source: string, filePath: string): HeuristicPa
       const line = lines[lineNum - 1] || ''
 
       // Skip comments, type definitions, and function definitions
-      if (isComment(line) || isTypeDefinition(line) || isFunctionDefinition(line)) {
+      if (
+        isComment(line) ||
+        isTypeDefinition(line) ||
+        isFunctionDefinition(line)
+      ) {
         continue
       }
 
-      const normalized = match[0].replace(/\d+/g, 'N').replace(/[a-zA-Z_$][a-zA-Z0-9_$]*/g, 'VAR')
+      const normalized = match[0]
+        .replace(/\d+/g, 'N')
+        .replace(/[a-zA-Z_$][a-zA-Z0-9_$]*/g, 'VAR')
 
       // Require substantial patterns (not just simple arithmetic)
       if (normalized.length < 10) continue
@@ -902,7 +1039,10 @@ function findRepeatedCalculations(source: string, filePath: string): HeuristicPa
   return patterns
 }
 
-function findRepeatedValidationPatterns(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedValidationPatterns(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const validations = new Map<string, PatternMatch[]>()
@@ -925,7 +1065,11 @@ function findRepeatedValidationPatterns(source: string, filePath: string): Heuri
       const line = lines[lineNum - 1] || ''
 
       // Skip comments, type definitions, and function definitions
-      if (isComment(line) || isTypeDefinition(line) || isFunctionDefinition(line)) {
+      if (
+        isComment(line) ||
+        isTypeDefinition(line) ||
+        isFunctionDefinition(line)
+      ) {
         continue
       }
 
@@ -968,7 +1112,10 @@ function findRepeatedValidationPatterns(source: string, filePath: string): Heuri
   return patterns
 }
 
-function findRepeatedEarlyReturns(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedEarlyReturns(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const earlyReturns = new Map<string, PatternMatch[]>()
@@ -991,12 +1138,18 @@ function findRepeatedEarlyReturns(source: string, filePath: string): HeuristicPa
       const lineNum = source.substring(0, match.index).split('\n').length
       const line = lines[lineNum - 1] || ''
 
-      if (isFunctionDefinition(line) || isComment(line) || isTypeDefinition(line)) {
+      if (
+        isFunctionDefinition(line) ||
+        isComment(line) ||
+        isTypeDefinition(line)
+      ) {
         continue
       }
 
       // Get context (2 lines before and after)
-      const context = lines.slice(Math.max(0, lineNum - 2), Math.min(lines.length, lineNum + 2)).join('\n')
+      const context = lines
+        .slice(Math.max(0, lineNum - 2), Math.min(lines.length, lineNum + 2))
+        .join('\n')
       const normalized = context
         .replace(/\s+/g, ' ')
         .replace(/\d+/g, 'N')
@@ -1036,7 +1189,10 @@ function findRepeatedEarlyReturns(source: string, filePath: string): HeuristicPa
   return patterns
 }
 
-function findRepeatedRegexPatterns(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedRegexPatterns(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const regexPatterns = new Map<string, PatternMatch[]>()
@@ -1051,7 +1207,11 @@ function findRepeatedRegexPatterns(source: string, filePath: string): HeuristicP
     const lineNum = source.substring(0, match.index).split('\n').length
     const line = lines[lineNum - 1] || ''
 
-    if (isFunctionDefinition(line) || isComment(line) || isTypeDefinition(line)) {
+    if (
+      isFunctionDefinition(line) ||
+      isComment(line) ||
+      isTypeDefinition(line)
+    ) {
       continue
     }
 
@@ -1078,7 +1238,8 @@ function findRepeatedRegexPatterns(source: string, filePath: string): HeuristicP
   if (regexPatterns.size > 0) {
     patterns.push({
       type: 'repeated-regex',
-      description: 'Repeated regex literal patterns (should be extracted to constants)',
+      description:
+        'Repeated regex literal patterns (should be extracted to constants)',
       occurrences: Array.from(regexPatterns.values()).flat(),
       suggestion: 'Extract regex to constant to avoid recompilation',
       confidence: 0.9,
@@ -1088,7 +1249,10 @@ function findRepeatedRegexPatterns(source: string, filePath: string): HeuristicP
   return patterns
 }
 
-function findRepeatedSwitchPatterns(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedSwitchPatterns(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const switches = new Map<string, PatternMatch[]>()
@@ -1100,7 +1264,11 @@ function findRepeatedSwitchPatterns(source: string, filePath: string): Heuristic
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
 
-    if (isComment(line) || isTypeDefinition(line) || isFunctionDefinition(line)) {
+    if (
+      isComment(line) ||
+      isTypeDefinition(line) ||
+      isFunctionDefinition(line)
+    ) {
       continue
     }
 
@@ -1144,7 +1312,10 @@ function findRepeatedSwitchPatterns(source: string, filePath: string): Heuristic
   return patterns
 }
 
-function findRepeatedArrayMethods(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedArrayMethods(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const methods = new Map<string, PatternMatch[]>()
@@ -1166,11 +1337,17 @@ function findRepeatedArrayMethods(source: string, filePath: string): HeuristicPa
       const lineNum = source.substring(0, match.index).split('\n').length
       const line = lines[lineNum - 1] || ''
 
-      if (isFunctionDefinition(line) || isComment(line) || isTypeDefinition(line)) {
+      if (
+        isFunctionDefinition(line) ||
+        isComment(line) ||
+        isTypeDefinition(line)
+      ) {
         continue
       }
 
-      const normalized = match[0].replace(/\d+/g, 'N').replace(/['"][^'"]+['"]/g, 'STR')
+      const normalized = match[0]
+        .replace(/\d+/g, 'N')
+        .replace(/['"][^'"]+['"]/g, 'STR')
 
       if (!found.has(normalized)) {
         found.set(normalized, [])
@@ -1202,7 +1379,10 @@ function findRepeatedArrayMethods(source: string, filePath: string): HeuristicPa
   return patterns
 }
 
-function findRepeatedPropertyChains(source: string, filePath: string): HeuristicPattern[] {
+function findRepeatedPropertyChains(
+  source: string,
+  filePath: string
+): HeuristicPattern[] {
   const patterns: HeuristicPattern[] = []
   const lines = source.split('\n')
   const chains = new Map<string, PatternMatch[]>()
@@ -1213,7 +1393,11 @@ function findRepeatedPropertyChains(source: string, filePath: string): Heuristic
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
 
-    if (isComment(line) || isTypeDefinition(line) || isFunctionDefinition(line)) {
+    if (
+      isComment(line) ||
+      isTypeDefinition(line) ||
+      isFunctionDefinition(line)
+    ) {
       continue
     }
 
@@ -1251,13 +1435,16 @@ function findRepeatedPropertyChains(source: string, filePath: string): Heuristic
 }
 
 // Main analysis function
-function analyzeFile(filePath: string, options: {
-  duplicates: boolean
-  helpers: boolean
-  unused: boolean
-  similar: boolean
-  heuristics: boolean
-}) {
+function analyzeFile(
+  filePath: string,
+  options: {
+    duplicates: boolean
+    helpers: boolean
+    unused: boolean
+    similar: boolean
+    heuristics: boolean
+  }
+) {
   const source = readSourceFile(filePath)
   const results: {
     duplicates?: DuplicatePattern[]
@@ -1276,7 +1463,9 @@ function analyzeFile(filePath: string, options: {
   }
 
   if (options.unused) {
-    results.unused = analyzeFunctionUsage(source, filePath).filter(f => f.canInline)
+    results.unused = analyzeFunctionUsage(source, filePath).filter(
+      f => f.canInline
+    )
   }
 
   if (options.similar) {
@@ -1308,7 +1497,10 @@ function analyzeFile(filePath: string, options: {
 }
 
 // Format and print results
-function printResults(results: ReturnType<typeof analyzeFile>, filePath: string) {
+function printResults(
+  results: ReturnType<typeof analyzeFile>,
+  filePath: string
+) {
   console.log(`\n📊 Analysis results for ${path.basename(filePath)}\n`)
   console.log('═'.repeat(80))
 
@@ -1340,7 +1532,9 @@ function printResults(results: ReturnType<typeof analyzeFile>, filePath: string)
     console.log('\n📦 FUNCTIONS USED ONLY ONCE (candidate for inlining):')
     console.log('─'.repeat(80))
     for (const func of results.unused.slice(0, 20)) {
-      console.log(`  ${func.name} (defined at line ${func.definition.line}, used at line ${func.usages[0]?.line})`)
+      console.log(
+        `  ${func.name} (defined at line ${func.definition.line}, used at line ${func.usages[0]?.line})`
+      )
     }
   }
 
@@ -1368,7 +1562,9 @@ function printResults(results: ReturnType<typeof analyzeFile>, filePath: string)
     for (const [type, patterns] of byType.entries()) {
       console.log(`\n${type.toUpperCase().replace(/-/g, ' ')}:`)
       for (const pattern of patterns.slice(0, 5)) {
-        console.log(`  ${pattern.description} (${pattern.occurrences.length} occurrences, confidence: ${(pattern.confidence * 100).toFixed(0)}%)`)
+        console.log(
+          `  ${pattern.description} (${pattern.occurrences.length} occurrences, confidence: ${(pattern.confidence * 100).toFixed(0)}%)`
+        )
         console.log(`    Suggestion: ${pattern.suggestion}`)
         for (const occ of pattern.occurrences.slice(0, 2)) {
           console.log(`      Line ${occ.line}: ${occ.code.substring(0, 70)}`)
@@ -1384,7 +1580,10 @@ function printResults(results: ReturnType<typeof analyzeFile>, filePath: string)
   const totalSimilar = results.similar?.length || 0
   const totalHeuristics = results.heuristics?.length || 0
 
-  if (totalDups + totalHelpers + totalUnused + totalSimilar + totalHeuristics === 0) {
+  if (
+    totalDups + totalHelpers + totalUnused + totalSimilar + totalHeuristics ===
+    0
+  ) {
     console.log('\n✅ No obvious patterns found!')
   } else {
     console.log('\n📈 SUMMARY:')
@@ -1422,4 +1621,3 @@ async function main() {
 }
 
 main().catch(console.error)
-
