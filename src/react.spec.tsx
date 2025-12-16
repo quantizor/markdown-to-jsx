@@ -3362,3 +3362,122 @@ describe('options immutability', () => {
     expect(options.overrides).toBe(originalOverrides)
   })
 })
+
+describe('MarkdownProvider and MarkdownContext', () => {
+  it('should provide context options to nested Markdown components', () => {
+    const { MarkdownProvider } = require('./react')
+    const contextOptions = {
+      overrides: {
+        h1: { props: { className: 'from-context' } },
+      },
+    }
+
+    render(
+      React.createElement(
+        MarkdownProvider,
+        { options: contextOptions },
+        React.createElement(Markdown, null, '# Hello')
+      )
+    )
+
+    expect(root.innerHTML).toContain('class="from-context"')
+  })
+
+  it('should merge component options with context options', () => {
+    const { MarkdownProvider } = require('./react')
+    const contextOptions = {
+      overrides: {
+        h1: { props: { className: 'from-context' } },
+      },
+    }
+    const componentOptions = {
+      overrides: {
+        p: { props: { className: 'from-component' } },
+      },
+    }
+
+    render(
+      React.createElement(
+        MarkdownProvider,
+        { options: contextOptions },
+        React.createElement(Markdown, { options: componentOptions }, '# Hello\n\nWorld')
+      )
+    )
+
+    expect(root.innerHTML).toContain('class="from-context"')
+    expect(root.innerHTML).toContain('class="from-component"')
+  })
+
+  it('should work without provider (backwards compatible)', () => {
+    render(React.createElement(Markdown, null, '# Hello'))
+    expect(root.innerHTML).toContain('<h1')
+  })
+
+  it('should allow component options to override context options', () => {
+    const { MarkdownProvider } = require('./react')
+    const contextOptions = {
+      wrapper: 'section',
+    }
+    const componentOptions = {
+      wrapper: 'article',
+    }
+
+    render(
+      React.createElement(
+        MarkdownProvider,
+        { options: contextOptions },
+        React.createElement(Markdown, { options: componentOptions }, '# One\n\n# Two')
+      )
+    )
+
+    expect(root.innerHTML).toContain('<article')
+    expect(root.innerHTML).not.toContain('<section')
+  })
+})
+
+describe('Markdown component memoization', () => {
+  it('should produce same output for same content (memoization working)', () => {
+    const result1 = renderToString(
+      React.createElement(Markdown, null, '# Static Content')
+    )
+    const result2 = renderToString(
+      React.createElement(Markdown, null, '# Static Content')
+    )
+
+    expect(result1).toBe(result2)
+    expect(result1).toContain('<h1')
+  })
+
+  it('should produce different output for different content', () => {
+    const result1 = renderToString(
+      React.createElement(Markdown, null, '# Content 1')
+    )
+    const result2 = renderToString(
+      React.createElement(Markdown, null, '# Content 2')
+    )
+
+    expect(result1).not.toBe(result2)
+    expect(result1).toContain('Content 1')
+    expect(result2).toContain('Content 2')
+  })
+
+  it('should produce different output for different options', () => {
+    const result1 = renderToString(
+      React.createElement(
+        Markdown,
+        { options: { wrapper: 'section' } },
+        '# One\n\n# Two'
+      )
+    )
+    const result2 = renderToString(
+      React.createElement(
+        Markdown,
+        { options: { wrapper: 'article' } },
+        '# One\n\n# Two'
+      )
+    )
+
+    expect(result1).toContain('<section')
+    expect(result2).toContain('<article')
+  })
+})
