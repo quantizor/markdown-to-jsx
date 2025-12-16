@@ -7,16 +7,19 @@ Add context providers and memoization to React, React Native, and Vue
 Added context providers and memoization to all major renderers for better developer experience and performance.
 
 **React:**
+
 - `MarkdownContext` - React context for default options
 - `MarkdownProvider` - Provider component to avoid prop-drilling
 - `useMemo` - 3-stage memoization (options, content, JSX)
 
 **React Native:**
+
 - `MarkdownContext` - React context for default options
 - `MarkdownProvider` - Provider component to avoid prop-drilling
 - `useMemo` - 3-stage memoization (options, content, JSX)
 
 **Vue:**
+
 - `MarkdownOptionsKey` - InjectionKey for provide/inject pattern
 - `MarkdownProvider` - Provider component using Vue's provide
 - `computed` - Reactive memoization for options, content, and JSX
@@ -24,6 +27,7 @@ Added context providers and memoization to all major renderers for better develo
 **Benefits:**
 
 1. **Avoid prop-drilling** - Set options once at the top level:
+
 ```tsx
 <MarkdownProvider options={commonOptions}>
   <App>
@@ -38,6 +42,7 @@ Added context providers and memoization to all major renderers for better develo
 3. **Fully backwards compatible** - Existing usage works unchanged, providers are optional
 
 **Example:**
+
 ```tsx
 import { MarkdownProvider } from 'markdown-to-jsx/react'
 
@@ -51,4 +56,3 @@ function App() {
   )
 }
 ```
-

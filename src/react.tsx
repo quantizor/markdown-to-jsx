@@ -15,9 +15,8 @@ export { sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
-export const MarkdownContext: React.Context<
-  MarkdownToJSX.Options | undefined
-> = React.createContext<MarkdownToJSX.Options | undefined>(undefined)
+export const MarkdownContext: React.Context<MarkdownToJSX.Options | undefined> =
+  React.createContext<MarkdownToJSX.Options | undefined>(undefined)
 
 // Import shared HTML to JSX conversion utilities
 import { htmlAttrsToJSXProps } from './utils'
