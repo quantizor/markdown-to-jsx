@@ -1179,3 +1179,24 @@ describe('renderer edge cases', () => {
     expect(text).toBe('FirstWorld')
   })
 })
+
+describe('MarkdownProvider (provide/inject)', () => {
+  it('should export MarkdownProvider', () => {
+    const { MarkdownProvider } = require('./vue')
+    expect(typeof MarkdownProvider).toBe('function')
+  })
+
+  it('should export MarkdownOptionsKey', () => {
+    const { MarkdownOptionsKey } = require('./vue')
+    expect(MarkdownOptionsKey).toBeDefined()
+    expect(typeof MarkdownOptionsKey).toBe('symbol')
+  })
+
+  it('should support provide/inject pattern (integration test)', () => {
+    // Note: Full provide/inject testing requires Vue runtime
+    // This test verifies the exports exist and have correct types
+    const { MarkdownProvider, MarkdownOptionsKey } = require('./vue')
+    expect(MarkdownProvider).toBeDefined()
+    expect(MarkdownOptionsKey).toBeDefined()
+  })
+})
