@@ -21,9 +21,8 @@ export { sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
-export const MarkdownContext = React.createContext<NativeOptions | undefined>(
-  undefined
-)
+export const MarkdownContext: React.Context<NativeOptions | undefined> =
+  React.createContext<NativeOptions | undefined>(undefined)
 
 export type NativeStyleKey =
   | 'text'
