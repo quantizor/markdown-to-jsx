@@ -1,7 +1,0 @@
----
-alwaysApply: true
----
-
-When writing commit messages on public code, focus on the user-facing change; how does this change benefit them? Ensure that noteworthy public changes and bugfixes have a changeset.
-
-When writing commit messages on private/infra code, focus on the technical change; how does this change benefit the codebase? Keep it short.
