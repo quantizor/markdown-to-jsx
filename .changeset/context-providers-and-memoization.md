@@ -2,8 +2,6 @@
 'markdown-to-jsx': minor
 ---
 
-Add context providers and memoization to React, React Native, and Vue
-
 Added context providers and memoization to all major renderers for better developer experience and performance.
 
 **React:**

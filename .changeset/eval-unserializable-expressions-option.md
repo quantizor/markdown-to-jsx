@@ -2,9 +2,7 @@
 'markdown-to-jsx': minor
 ---
 
-Add evalUnserializableExpressions option for trusted content
-
-Added opt-in `evalUnserializableExpressions` option to eval function expressions and other unserializable JSX props from trusted markdown sources.
+Added opt-in `options.evalUnserializableExpressions` to eval function expressions and other unserializable JSX props from trusted markdown sources.
 
 **⚠️ SECURITY WARNING: STRONGLY DISCOURAGED FOR USER INPUTS**
 
