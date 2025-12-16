@@ -582,7 +582,8 @@ function attributeValueToJSXPropValue(
     value: string,
     tag: string,
     attribute: string
-  ) => string | null
+  ) => string | null,
+  options: ParseOptions
 ): any {
   if (key === 'style') {
     return parseStyleAttribute(value).reduce(
@@ -598,17 +599,55 @@ function attributeValueToJSXPropValue(
     )
   }
 
+  // Handle JSX expressions (braces) before sanitization
+  // This allows parsing of arrays/objects in JSX props
+  if (value.match(INTERPOLATION_R)) {
+    value = value.slice(1, value.length - 1)
+    value = value ? value.replace(UNESCAPE_R, '$1') : value
+
+    // Try to parse as JSON for arrays/objects (best effort)
+    // Keep as raw string for functions and complex expressions
+    if (value.length > 0) {
+      const firstChar = value[0]
+      // Check if it looks like an array or object literal
+      if (firstChar === '[' || firstChar === '{') {
+        try {
+          return JSON.parse(value)
+        } catch (e) {
+          // Not valid JSON, keep as string (e.g., functions, JSX expressions)
+          return value
+        }
+      }
+    }
+    // For other expressions (functions, variables, etc.), keep as string by default
+    // Only eval if explicitly opted-in (NOT recommended for user inputs)
+    if (value === 'true') return true
+    if (value === 'false') return false
+
+    // Attempt to eval unserializable expressions only if explicitly enabled
+    // ⚠️ WARNING: This uses eval() and should only be used with trusted content
+    if (options.evalUnserializableExpressions) {
+      try {
+        // Try to evaluate as an expression (function, variable, etc.)
+        // eslint-disable-next-line no-eval
+        return eval(`(${value})`)
+      } catch (e) {
+        // If eval fails, return as string
+        return value
+      }
+    }
+
+    // Don't apply sanitization to JSX expressions
+    // Keep as string - can be handled via renderRule on a case-by-case basis
+    return value
+  }
+
   if (util.ATTRIBUTES_TO_SANITIZE.indexOf(key) !== -1) {
     return sanitizeUrlFn(
       value ? value.replace(UNESCAPE_R, '$1') : value,
       tag,
       key
     )
-  }
-
-  if (value.match(INTERPOLATION_R)) {
-    value = value.slice(1, value.length - 1)
-    value = value ? value.replace(UNESCAPE_R, '$1') : value
   }
 
   return value === 'true' ? true : value === 'false' ? false : value
@@ -730,7 +769,8 @@ function parseHTMLAttributes(
           tagNameLower as MarkdownToJSX.HTMLTags,
           keyLower,
           value,
-          options.sanitizer
+          options.sanitizer,
+          options
         )
         result[attrKey] = normalizedValue
       }
@@ -4795,7 +4835,12 @@ function processListContinuationLine(
       }
       // Try parsing as table when line starts with |
       if (firstCharAfterIndent === '|') {
-        const tableResult = parseTable(source, continuationStart, state, options)
+        const tableResult = parseTable(
+          source,
+          continuationStart,
+          state,
+          options
+        )
         if (tableResult) {
           const tableNode = tableResult as MarkdownToJSX.TableNode & {
             endPos: number
@@ -7437,12 +7482,13 @@ function parseHTML(
 
       // For type 6 blocks, check if there's a closing tag (even beyond the blank line)
       // If there is AND there's markdown syntax, extend to include the closing tag
-      // Exception: for JSX compilation, always extend if there's a closing tag (to keep HTML blocks containing <pre> intact)
+      // Exception: for JSX components, always extend to closing tag (proper parent-child nesting)
       if (blockType === 'type6' && !tagResult.isClosing) {
-        // Use cached tagLower from parseHTMLTag result
-        const tagLowerForClosing =
-          tagResult.tagLower || tagResult.tagName.toLowerCase()
-        var closingTagPattern = '</' + tagLowerForClosing
+        // For JSX components, preserve case; for HTML, use lowercase
+        const tagNameForClosing = isJSXComponent
+          ? tagResult.tagName
+          : tagResult.tagLower || tagResult.tagName.toLowerCase()
+        var closingTagPattern = '</' + tagNameForClosing
         var closingIdx = source.indexOf(closingTagPattern, tagEnd)
         if (closingIdx !== -1) {
           // Found a closing tag
@@ -7458,7 +7504,10 @@ function parseHTML(
           if (afterClosingTag < sourceLen && source[afterClosingTag] === '>') {
             // Valid closing tag found
             var extendedContent = source.slice(tagEnd, closingIdx)
-            var shouldExtend = hasBlockContent(extendedContent)
+            // For JSX components, always extend to closing tag for proper nesting
+            // For HTML elements, only extend if there's block content
+            var shouldExtend =
+              isJSXComponent || hasBlockContent(extendedContent)
             if (shouldExtend) {
               // Extend block to include closing tag
               var closingLineEnd = util.findLineEnd(source, afterClosingTag + 1)

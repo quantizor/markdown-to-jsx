@@ -540,7 +540,9 @@ describe('markdown compiler', () => {
         type: RuleType.frontmatter,
         text: 'title: Test\ntags: [a, b]',
       }
-      expect(markdown(ast, { preserveFrontmatter: true })).toBe('---\ntitle: Test\ntags: [a, b]\n---')
+      expect(markdown(ast, { preserveFrontmatter: true })).toBe(
+        '---\ntitle: Test\ntags: [a, b]\n---'
+      )
     })
 
     it('should exclude frontmatter when preserveFrontmatter is false', () => {

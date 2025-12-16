@@ -35,6 +35,7 @@ Some special features of the library:
     - [options.createElement](#optionscreateelement)
     - [options.forceWrapper](#optionsforcewrapper)
     - [options.overrides](#optionsoverrides)
+    - [options.evalUnserializableExpressions](#optionsevalunserializableexpressions)
     - [options.renderRule](#optionsrenderrule)
     - [options.sanitizer](#optionssanitizer)
     - [options.slugify](#optionsslugify)
@@ -378,23 +379,24 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 
 #### All Options
 
-| Option                  | Type                          | Default  | Description                                                                                                                  |
-| ----------------------- | ----------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `createElement`         | `function`                    | -        | Custom createElement behavior (React/React Native/SolidJS/Vue only). See [createElement](#optionscreateelement) for details. |
-| `disableAutoLink`       | `boolean`                     | `false`  | Disable automatic conversion of bare URLs to anchor tags.                                                                    |
-| `disableParsingRawHTML` | `boolean`                     | `false`  | Disable parsing of raw HTML into JSX.                                                                                        |
-| `enforceAtxHeadings`    | `boolean`                     | `false`  | Require space between `#` and header text (GFM spec compliance).                                                             |
-| `forceBlock`            | `boolean`                     | `false`  | Force all content to be treated as block-level.                                                                              |
-| `forceInline`           | `boolean`                     | `false`  | Force all content to be treated as inline.                                                                                   |
-| `forceWrapper`          | `boolean`                     | `false`  | Force wrapper even with single child (React/React Native/Vue only). See [forceWrapper](#optionsforcewrapper) for details.    |
-| `overrides`             | `object`                      | -        | Override HTML tag rendering. See [overrides](#optionsoverrides) for details.                                                 |
-| `preserveFrontmatter`   | `boolean`                     | `false`  | Include frontmatter in rendered output (as `<pre>` for HTML/JSX, included in markdown). Behavior varies by compiler type.    |
-| `renderRule`            | `function`                    | -        | Custom rendering for AST rules. See [renderRule](#optionsrenderrule) for details.                                            |
-| `sanitizer`             | `function`                    | built-in | Custom URL sanitizer function. See [sanitizer](#optionssanitizer) for details.                                               |
-| `slugify`               | `function`                    | built-in | Custom slug generation for heading IDs. See [slugify](#optionsslugify) for details.                                          |
-| `tagfilter`             | `boolean`                     | `true`   | Escape dangerous HTML tags (`script`, `iframe`, `style`, etc.) to prevent XSS.                                               |
-| `wrapper`               | `string \| component \| null` | `'div'`  | Wrapper element for multiple children (React/React Native/Vue only). See [wrapper](#optionswrapper) for details.             |
-| `wrapperProps`          | `object`                      | -        | Props for wrapper element (React/React Native/Vue only). See [wrapperProps](#optionswrapperprops) for details.               |
+| Option                          | Type                          | Default  | Description                                                                                                                       |
+| ------------------------------- | ----------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `createElement`                 | `function`                    | -        | Custom createElement behavior (React/React Native/SolidJS/Vue only). See [createElement](#optionscreateelement) for details.      |
+| `disableAutoLink`               | `boolean`                     | `false`  | Disable automatic conversion of bare URLs to anchor tags.                                                                         |
+| `disableParsingRawHTML`         | `boolean`                     | `false`  | Disable parsing of raw HTML into JSX.                                                                                             |
+| `enforceAtxHeadings`            | `boolean`                     | `false`  | Require space between `#` and header text (GFM spec compliance).                                                                  |
+| `evalUnserializableExpressions` | `boolean`                     | `false`  | ⚠️ Eval unserializable props (DANGEROUS). See [evalUnserializableExpressions](#optionsevalunserializableexpressions) for details. |
+| `forceBlock`                    | `boolean`                     | `false`  | Force all content to be treated as block-level.                                                                                   |
+| `forceInline`                   | `boolean`                     | `false`  | Force all content to be treated as inline.                                                                                        |
+| `forceWrapper`                  | `boolean`                     | `false`  | Force wrapper even with single child (React/React Native/Vue only). See [forceWrapper](#optionsforcewrapper) for details.         |
+| `overrides`                     | `object`                      | -        | Override HTML tag rendering. See [overrides](#optionsoverrides) for details.                                                      |
+| `preserveFrontmatter`           | `boolean`                     | `false`  | Include frontmatter in rendered output (as `<pre>` for HTML/JSX, included in markdown). Behavior varies by compiler type.         |
+| `renderRule`                    | `function`                    | -        | Custom rendering for AST rules. See [renderRule](#optionsrenderrule) for details.                                                 |
+| `sanitizer`                     | `function`                    | built-in | Custom URL sanitizer function. See [sanitizer](#optionssanitizer) for details.                                                    |
+| `slugify`                       | `function`                    | built-in | Custom slug generation for heading IDs. See [slugify](#optionsslugify) for details.                                               |
+| `tagfilter`                     | `boolean`                     | `true`   | Escape dangerous HTML tags (`script`, `iframe`, `style`, etc.) to prevent XSS.                                                    |
+| `wrapper`                       | `string \| component \| null` | `'div'`  | Wrapper element for multiple children (React/React Native/Vue only). See [wrapper](#optionswrapper) for details.                  |
+| `wrapperProps`                  | `object`                      | -        | Props for wrapper element (React/React Native/Vue only). See [wrapperProps](#optionswrapperprops) for details.                    |
 
 #### options.createElement
 
@@ -477,10 +479,99 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
 
 **Important notes:**
 
-- Props are passed as strings; parse them in your component (e.g., `JSON.parse(columns)`)
-- JSX interpolations (`{value}`) are passed as raw strings
+- **JSX props are intelligently parsed** (v9.1+):
+  - Arrays and objects: `data={[1, 2, 3]}` → parsed as `[1, 2, 3]`
+  - Booleans: `enabled={true}` → parsed as `true`
+  - Functions: `onClick={() => ...}` → kept as string for security (use [renderRule](#optionsrenderrule) for case-by-case handling, or see [evalUnserializableExpressions](#optionsevalunserializableexpressions))
+  - Complex expressions: `value={someVar}` → kept as string
+- The original raw attribute string is available in `node.rawAttrs` when using `parser()`
 - Some props are preserved: `a` (`href`, `title`), `img` (`src`, `alt`, `title`), `input[type="checkbox"]` (`checked`, `readonly`), `ol` (`start`), `td`/`th` (`style`)
 - Element mappings: `span` for inline text, `code` for inline code, `pre > code` for code blocks
+
+#### options.evalUnserializableExpressions
+
+**⚠️ SECURITY WARNING: STRONGLY DISCOURAGED FOR USER INPUTS**
+
+When enabled, attempts to eval expressions in JSX props that cannot be serialized as JSON (functions, variables, complex expressions). This uses `eval()` which can execute arbitrary code.
+
+**By default (recommended)**, unserializable expressions are kept as strings for security:
+
+```tsx
+import { parser } from 'markdown-to-jsx'
+
+const ast = parser('<Button onClick={() => alert("hi")} />')
+// ast[0].attrs.onClick === "() => alert(\"hi\")" (string, safe)
+
+// Arrays and objects are automatically parsed (no eval needed):
+const ast2 = parser('<Table data={[1, 2, 3]} />')
+// ast2[0].attrs.data === [1, 2, 3] (parsed via JSON.parse)
+```
+
+**ONLY enable this option when:**
+
+- The markdown source is completely trusted (e.g., your own documentation)
+- You control all JSX components and their props
+- The content is NOT user-generated or user-editable
+
+**DO NOT enable this option when:**
+
+- Processing user-submitted markdown
+- Rendering untrusted content
+- Building public-facing applications with user content
+
+**Example of the danger:**
+
+```tsx
+// User-submitted markdown with malicious code
+const userMarkdown = '<Component onClick={() => fetch("/admin/delete-all")} />'
+
+// ❌ DANGEROUS - function will be executable
+parser(userMarkdown, { evalUnserializableExpressions: true })
+
+// ✅ SAFE - function kept as string
+parser(userMarkdown) // default behavior
+```
+
+**Safe alternative: Use renderRule for case-by-case handling:**
+
+```tsx
+// Instead of eval'ing arbitrary expressions, handle them selectively in renderRule:
+const handlers = {
+  handleClick: () => console.log('clicked'),
+  handleSubmit: () => console.log('submitted'),
+}
+
+compiler(markdown, {
+  renderRule(next, node) {
+    if (
+      node.type === RuleType.htmlBlock &&
+      typeof node.attrs?.onClick === 'string'
+    ) {
+      // Option 1: Named handler lookup (safest)
+      const handler = handlers[node.attrs.onClick]
+      if (handler) {
+        return <button onClick={handler}>{/* ... */}</button>
+      }
+
+      // Option 2: Selective eval with allowlist (still risky)
+      if (
+        node.tag === 'TrustedComponent' &&
+        node.attrs.onClick.startsWith('() =>')
+      ) {
+        try {
+          const fn = eval(`(${node.attrs.onClick})`)
+          return <button onClick={fn}>{/* ... */}</button>
+        } catch (e) {
+          // Handle error
+        }
+      }
+    }
+    return next()
+  },
+})
+```
+
+This approach gives you full control over which expressions are evaluated and under what conditions.
 
 #### options.renderRule
 
@@ -722,10 +813,11 @@ The AST consists of the following node types (use `RuleType` to check node types
   ```tsx
   { type: RuleType.table, header: [...], cells: [[...]], align: [...] }
   ```
-- `RuleType.htmlBlock` - HTML blocks
+- `RuleType.htmlBlock` - HTML blocks and JSX components
   ```tsx
   { type: RuleType.htmlBlock, tag: "div", attrs: {}, children: [...] }
   ```
+  **Note (v9.1+):** JSX components with blank lines between opening/closing tags now properly nest children instead of creating sibling nodes.
 
 **Inline nodes:**
 
@@ -771,6 +863,15 @@ The AST consists of the following node types (use `RuleType` to check node types
   ```tsx
   { type: RuleType.htmlSelfClosing, tag: "img", attrs: { src: "image.png" } }
   ```
+
+**JSX Prop Parsing (v9.1+):**
+
+The parser intelligently parses JSX prop values:
+
+- Arrays/objects are parsed via `JSON.parse()`: `rows={[["a", "b"]]}` → `attrs.rows = [["a", "b"]]`
+- Functions are kept as strings for security: `onClick={() => ...}` → `attrs.onClick = "() => ..."`
+- Booleans are parsed: `enabled={true}` → `attrs.enabled = true`
+- The original raw attribute string is preserved in `rawAttrs` field
 
 #### Example AST Structure
 
@@ -852,15 +953,34 @@ if (node.type === RuleType.heading) {
 
 ### Gotchas
 
-**Props are stringified:** When using `overrides` with React components, props are passed as strings. Parse them in your component:
+**JSX prop parsing (v9.1+):** Arrays and objects in JSX props are automatically parsed:
 
 ```tsx
-const Table = ({ columns, dataSource, ...props }) => {
-  const parsedColumns = JSON.parse(columns)
-  const parsedData = JSON.parse(dataSource)
-  // ... use parsed data
+// In markdown:
+;<Table
+  columns={['Name', 'Age']}
+  data={[
+    ['Alice', 30],
+    ['Bob', 25],
+  ]}
+/>
+
+// In your component (v9.1+):
+const Table = ({ columns, data, ...props }) => {
+  // columns is already an array: ["Name", "Age"]
+  // data is already an array: [["Alice", 30], ["Bob", 25]]
+  // No JSON.parse needed!
+}
+
+// For backwards compatibility, check types:
+const Table = ({ columns, data, ...props }) => {
+  const parsedColumns =
+    typeof columns === 'string' ? JSON.parse(columns) : columns
+  const parsedData = typeof data === 'string' ? JSON.parse(data) : data
 }
 ```
+
+**Function props are kept as strings** for security. Use [renderRule](#optionsrenderrule) for case-by-case handling, or see [evalUnserializableExpressions](#optionsevalunserializableexpressions) for opt-in eval.
 
 **HTML indentation:** Leading whitespace in HTML blocks is auto-trimmed based on the first line's indentation to avoid markdown syntax conflicts.
 

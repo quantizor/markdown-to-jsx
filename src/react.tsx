@@ -668,14 +668,7 @@ export function astToJSX(
       ? (ast[0] as MarkdownToJSX.ReferenceCollectionNode).refs
       : {}
 
-  const emitter = createRenderer(
-    opts.renderRule,
-    h,
-    sanitize,
-    slug,
-    refs,
-    opts
-  )
+  const emitter = createRenderer(opts.renderRule, h, sanitize, slug, refs, opts)
 
   const arr = emitter(ast, {
     inline: opts.forceInline,
@@ -797,9 +790,7 @@ export function compiler(
                              a string`)
     }
 
-    if (
-      Object.prototype.toString.call(opts.overrides) !== '[object Object]'
-    ) {
+    if (Object.prototype.toString.call(opts.overrides) !== '[object Object]') {
       throw new Error(`markdown-to-jsx: options.overrides (second argument property) must be
                              undefined or an object literal with shape:
                              {

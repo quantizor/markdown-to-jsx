@@ -203,6 +203,7 @@ declare namespace MarkdownToJSX {
     attrs?: Record<string, any>
     children?: ASTNode[] | undefined
     noInnerParse?: Boolean
+    rawAttrs?: string
     tag: string
     text?: string | undefined
   }
@@ -297,6 +298,32 @@ declare namespace MarkdownToJSX {
      * `The opening sequence of # characters must be followed by a space or by the end of line.`
      */
     enforceAtxHeadings: boolean
+
+    /**
+     * **⚠️ SECURITY WARNING: STRONGLY DISCOURAGED FOR USER INPUTS**
+     *
+     * When enabled, attempts to eval expressions in JSX props that cannot be serialized
+     * as JSON (functions, variables, complex expressions). This uses `eval()` which can
+     * execute arbitrary code.
+     *
+     * **ONLY use this option when:**
+     * - The markdown source is completely trusted (e.g., your own documentation)
+     * - You control all JSX components and their props
+     * - The content is NOT user-generated or user-editable
+     *
+     * **DO NOT use this option when:**
+     * - Processing user-submitted markdown
+     * - Rendering untrusted content
+     * - Building public-facing applications with user content
+     *
+     * Example unsafe input: `<Component onClick={() => fetch('/admin/delete-all')} />`
+     *
+     * When disabled (default), unserializable expressions remain as strings that can be
+     * safely inspected or handled on a case-by-case basis via custom renderRule logic.
+     *
+     * @default false
+     */
+    evalUnserializableExpressions?: boolean
 
     /**
      * Forces the compiler to always output content with a block-level wrapper

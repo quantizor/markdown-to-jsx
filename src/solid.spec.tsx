@@ -382,7 +382,10 @@ describe('Markdown component', () => {
 
     // Store original children count before any rendering
     const blockquoteNode = ast.find(
-      node => node.type === RuleType.blockQuote && 'alert' in node && node.alert === 'NOTE'
+      node =>
+        node.type === RuleType.blockQuote &&
+        'alert' in node &&
+        node.alert === 'NOTE'
     ) as MarkdownToJSX.BlockQuoteNode | undefined
     expect(blockquoteNode).toBeDefined()
     const originalChildrenCount = blockquoteNode?.children?.length || 0
@@ -1633,9 +1636,16 @@ describe('innerHTML handling', () => {
       },
     })
     // Helper to extract innerHTML from JSX structure
-    function getInnerHTML(element: JSX.Element | JSX.Element[] | null | undefined): string | undefined {
+    function getInnerHTML(
+      element: JSX.Element | JSX.Element[] | null | undefined
+    ): string | undefined {
       if (!element || Array.isArray(element)) return undefined
-      if (typeof element === 'object' && 'p' in element && element.p && typeof element.p === 'object') {
+      if (
+        typeof element === 'object' &&
+        'p' in element &&
+        element.p &&
+        typeof element.p === 'object'
+      ) {
         const props = element.p as Record<string, unknown>
         return typeof props.innerHTML === 'string' ? props.innerHTML : undefined
       }
@@ -1729,7 +1739,8 @@ describe('post-processing AST extractText', () => {
     // Test that astToJSX doesn't mutate the AST when called multiple times with the same AST
     // This is critical for memoization - if ast() is cached but jsx() recalculates,
     // the mutation would accumulate text content
-    const markdown = '<pre>code</pre>\n\nParagraph with </pre></td></tr></table>'
+    const markdown =
+      '<pre>code</pre>\n\nParagraph with </pre></td></tr></table>'
     const ast = parser(markdown)
 
     // First call
@@ -1746,7 +1757,9 @@ describe('post-processing AST extractText', () => {
     expect(text1).toContain('Paragraph')
 
     // Verify AST wasn't mutated by checking the original node
-    const htmlBlock = ast.find(n => n.type === RuleType.htmlBlock) as MarkdownToJSX.HTMLNode
+    const htmlBlock = ast.find(
+      n => n.type === RuleType.htmlBlock
+    ) as MarkdownToJSX.HTMLNode
     if (htmlBlock && htmlBlock.text) {
       // The text should not contain the paragraph text multiple times
       const paragraphMatches = (htmlBlock.text.match(/Paragraph/g) || []).length

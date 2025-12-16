@@ -1305,9 +1305,13 @@ describe('html compiler', () => {
     })
 
     it('should render frontmatter when preserveFrontmatter is true', () => {
-      const result = compiler('---\ntitle: Test\n---\n\n# Content', { preserveFrontmatter: true })
+      const result = compiler('---\ntitle: Test\n---\n\n# Content', {
+        preserveFrontmatter: true,
+      })
 
-      expect(result).toBe('<pre>---\ntitle: Test\n---</pre><h1 id="content">Content</h1>')
+      expect(result).toBe(
+        '<pre>---\ntitle: Test\n---</pre><h1 id="content">Content</h1>'
+      )
     })
 
     it('should render frontmatter correctly with multiline content', () => {
@@ -1320,9 +1324,13 @@ tags:
   - example
 ---`
 
-      const result = compiler(`${frontmatter}\n\n# Content`, { preserveFrontmatter: true })
+      const result = compiler(`${frontmatter}\n\n# Content`, {
+        preserveFrontmatter: true,
+      })
 
-      expect(result).toBe('<pre>---\ntitle: My Document\nauthor: John Doe\ndate: 2023-11-22\ntags:\n  - test\n  - example\n---</pre><h1 id="content">Content</h1>')
+      expect(result).toBe(
+        '<pre>---\ntitle: My Document\nauthor: John Doe\ndate: 2023-11-22\ntags:\n  - test\n  - example\n---</pre><h1 id="content">Content</h1>'
+      )
     })
   })
 })
