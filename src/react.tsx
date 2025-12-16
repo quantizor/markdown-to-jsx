@@ -8,11 +8,16 @@ import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
 
 export { parser } from './parse'
+import { parser } from './parse'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
+
+export const MarkdownContext = React.createContext<
+  MarkdownToJSX.Options | undefined
+>(undefined)
 
 // Import shared HTML to JSX conversion utilities
 import { htmlAttrsToJSXProps } from './utils'
@@ -810,9 +815,20 @@ export function compiler(
   return jsx
 }
 
+export const MarkdownProvider: React.FC<{
+  options?: MarkdownToJSX.Options
+  children: React.ReactNode
+}> = ({ options, children }) => {
+  return React.createElement(
+    MarkdownContext.Provider,
+    { value: options },
+    children
+  )
+}
+
 /**
- * A simple HOC for easy React use. Feed the markdown content as a direct child
- * and the rest is taken care of automatically.
+ * A React component for easy markdown rendering. Feed the markdown content as a direct child
+ * and the rest is taken care of automatically. Supports memoization for optimal performance.
  */
 export const Markdown: React.FC<
   Omit<React.HTMLAttributes<Element>, 'children'> & {
@@ -820,16 +836,34 @@ export const Markdown: React.FC<
     options?: MarkdownToJSX.Options
   }
 > = ({ children: rawChildren, options, ...props }) => {
-  const children =
+  const contextOptions = React.useContext(MarkdownContext)
+
+  const mergedOptions = React.useMemo(
+    () => ({
+      ...contextOptions,
+      ...options,
+      overrides: {
+        ...contextOptions?.overrides,
+        ...options?.overrides,
+      },
+      wrapperProps: {
+        ...contextOptions?.wrapperProps,
+        ...options?.wrapperProps,
+        ...props,
+      } as React.JSX.IntrinsicAttributes,
+    }),
+    [contextOptions, options, props]
+  )
+
+  const content =
     rawChildren === null || rawChildren === undefined ? '' : rawChildren
 
-  return compiler(children, {
-    ...options,
-    wrapperProps: {
-      ...options?.wrapperProps,
-      ...props,
-    } as React.JSX.IntrinsicAttributes,
-  })
+  const jsx = React.useMemo(
+    () => compiler(content, mergedOptions),
+    [content, mergedOptions]
+  )
+
+  return jsx as React.ReactElement
 }
 
 // MarkdownToJSX namespace moved to types.ts
