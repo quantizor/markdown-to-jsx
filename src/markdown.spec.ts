@@ -705,7 +705,6 @@ describe('markdown compiler', () => {
           children: [],
           verbatim: true,
           rawText: 'console.log("hello");</script>',
-          children: [],
         }
 
         expect(markdown(ast, options)).toBe(
@@ -1495,7 +1494,7 @@ More text`
     })
 
     it('invokes renderRule for children when renderChildren is called', () => {
-      const renderRuleCalls: string[] = []
+      const renderRuleCalls: RuleType[] = []
       const result = astToMarkdown(
         [
           {
