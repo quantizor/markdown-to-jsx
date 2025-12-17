@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 9.4.2
+
+### Patch Changes
+
+- 775b4bf: Expose `parser` and `RuleType` from the markdown entry point as documented.
+
 ## 9.4.1
 
 ### Patch Changes
