@@ -2,6 +2,9 @@ import { RuleType, type MarkdownToJSX } from './types'
 import { isVoidElement, getTag, getOverrideProps } from './utils'
 import { parser } from './parse'
 
+export { parser } from './parse'
+export { RuleType, type MarkdownToJSX } from './types'
+
 export type MarkdownOverride =
   | {
       component?: string
