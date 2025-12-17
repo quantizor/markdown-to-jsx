@@ -469,8 +469,8 @@ describe('markdown compiler', () => {
             children: [{ type: RuleType.text, text: 'Content' }],
           },
         ],
-        noInnerParse: false,
-        text: undefined,
+        verbatim: false,
+        rawText: undefined,
       }
       expect(markdown(ast)).toBe('<div class="container">\nContent\n</div>')
     })
@@ -480,9 +480,9 @@ describe('markdown compiler', () => {
         type: RuleType.htmlBlock,
         tag: 'script',
         attrs: {},
-        children: undefined,
-        noInnerParse: true,
-        text: 'console.log("hello");</script>',
+        children: [],
+        verbatim: true,
+        rawText: 'console.log("hello");</script>',
       }
       expect(markdown(ast)).toBe('<script>console.log("hello");</script>')
     })
@@ -665,7 +665,7 @@ describe('markdown compiler', () => {
               children: [{ type: RuleType.text, text: 'Content' }],
             },
           ],
-          noInnerParse: false,
+          verbatim: false,
           text: undefined,
         }
 
@@ -702,9 +702,10 @@ describe('markdown compiler', () => {
         const ast: MarkdownToJSX.HTMLNode = {
           type: RuleType.htmlBlock,
           tag: 'script',
-          children: undefined,
-          noInnerParse: true,
-          text: 'console.log("hello");</script>',
+          children: [],
+          verbatim: true,
+          rawText: 'console.log("hello");</script>',
+          children: [],
         }
 
         expect(markdown(ast, options)).toBe(
@@ -723,7 +724,7 @@ describe('markdown compiler', () => {
               children: [{ type: RuleType.text, text: 'Content' }],
             },
           ],
-          noInnerParse: false,
+          verbatim: false,
           text: undefined,
         }
 
@@ -1491,6 +1492,38 @@ More text`
         },
       })
       expect(result).toBe('[0:0]Test')
+    })
+
+    it('invokes renderRule for children when renderChildren is called', () => {
+      const renderRuleCalls: string[] = []
+      const result = astToMarkdown(
+        [
+          {
+            type: RuleType.paragraph,
+            children: [
+              { type: RuleType.text, text: 'Hello' },
+              {
+                type: RuleType.textFormatted,
+                tag: 'strong',
+                children: [{ type: RuleType.text, text: 'world' }],
+              },
+            ],
+          },
+        ],
+        {
+          renderRule: (next, node, renderChildren) => {
+            renderRuleCalls.push(node.type)
+            if (node.type === RuleType.paragraph) {
+              return `<p>${renderChildren(node.children || [])}</p>`
+            }
+            return next()
+          },
+        }
+      )
+      expect(result).toBe('<p>Hello**world**</p>')
+      expect(renderRuleCalls).toContain(RuleType.paragraph)
+      expect(renderRuleCalls).toContain(RuleType.text)
+      expect(renderRuleCalls).toContain(RuleType.textFormatted)
     })
   })
 

@@ -230,12 +230,12 @@ function render(
         return h(Text, { key: state.key }, tagText)
       }
 
-      if (htmlNode.text && htmlNode.noInnerParse) {
+      if (htmlNode.rawText && htmlNode.verbatim) {
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
 
-        if (isType1Block && !/<[a-z][^>]{0,100}>/i.test(htmlNode.text)) {
-          let textContent = htmlNode.text.replace(
+        if (isType1Block && !/<[a-z][^>]{0,100}>/i.test(htmlNode.rawText)) {
+          let textContent = htmlNode.rawText.replace(
             new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
             ''
           )
@@ -249,37 +249,14 @@ function render(
           )
         }
 
-        if (/<\/?pre\b/i.test(htmlNode.text)) {
+        if (/<\/?pre\b/i.test(htmlNode.rawText)) {
           const innerHtml = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode.text)
-            : htmlNode.text
+            ? util.applyTagFilterToText(htmlNode.rawText)
+            : htmlNode.rawText
           return h(Text, { key: state.key, style: styles.codeBlock }, innerHtml)
         }
 
-        const cleanedText = htmlNode.text
-          .replace(/>\s+</g, '><')
-          .replace(/\n+/g, ' ')
-          .trim()
-        const selfTagRegex = new RegExp(
-          `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,
-          'i'
-        )
-        if (selfTagRegex.test(cleanedText)) {
-          return h(htmlNode.tag, { key: state.key, ...htmlNode.attrs })
-        }
-
-        const parseOptions: parse.ParseOptions = {
-          slugify: (input: string) => slug(input, util.slugify),
-          sanitizer: (value: string, tag: string, attribute: string) =>
-            sanitize(value, tag, attribute),
-          tagfilter: true,
-        }
-        const astNodes = parse.parseMarkdown(
-          cleanedText,
-          { inline: false, refs: refs, inHTML: false },
-          parseOptions
-        )
-
+        // Use already-parsed children if available instead of re-parsing rawText
         function processNode(
           node: MarkdownToJSX.ASTNode
         ): MarkdownToJSX.ASTNode[] {
@@ -317,6 +294,39 @@ function render(
           }
           return [node]
         }
+
+        if (htmlNode.children && htmlNode.children.length > 0) {
+          return h(
+            htmlNode.tag,
+            { key: state.key, ...htmlNode.attrs },
+            output(htmlNode.children.flatMap(processNode), state)
+          )
+        }
+
+        // Fallback to re-parsing rawText if children not available (edge case)
+        const cleanedText = htmlNode.rawText
+          .replace(/>\s+</g, '><')
+          .replace(/\n+/g, ' ')
+          .trim()
+        const selfTagRegex = new RegExp(
+          `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,
+          'i'
+        )
+        if (selfTagRegex.test(cleanedText)) {
+          return h(htmlNode.tag, { key: state.key, ...htmlNode.attrs })
+        }
+
+        const parseOptions: parse.ParseOptions = {
+          slugify: (input: string) => slug(input, util.slugify),
+          sanitizer: (value: string, tag: string, attribute: string) =>
+            sanitize(value, tag, attribute),
+          tagfilter: true,
+        }
+        const astNodes = parse.parseMarkdown(
+          cleanedText,
+          { inline: false, refs: refs, inHTML: false },
+          parseOptions
+        )
 
         return h(
           htmlNode.tag,

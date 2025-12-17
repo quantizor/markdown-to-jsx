@@ -742,7 +742,7 @@ describe('tagfilter option', () => {
     const result = compiler('<div></div>')
   })
 
-  it('should handle HTML blocks with noInnerParse and parsed content', () => {
+  it('should handle HTML blocks with verbatim and parsed content', () => {
     // This tests the processNode function branches (lines 309-341)
     const result = compiler('<div>Hello <strong>world</strong></div>')
     const text = extractTextContent(result)

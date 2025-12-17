@@ -411,11 +411,11 @@ export function astToHTML(
             ? `&lt;/${tag}>`
             : `&lt;${tag}${attrsStr}>`
         }
-        if (htmlNode.text) {
-          if (htmlNode.noInnerParse) {
+        if (htmlNode.rawText) {
+          if (htmlNode.verbatim) {
             var textContent = options.tagfilter
-              ? util.applyTagFilterToText(htmlNode.text)
-              : htmlNode.text
+              ? util.applyTagFilterToText(htmlNode.rawText)
+              : htmlNode.rawText
             if (htmlNode.isClosingTag) return `</${tag}>${textContent}`
             var tagLower = tag.toLowerCase()
             var isType1Block =
@@ -424,20 +424,20 @@ export function astToHTML(
               tagLower === 'style' ||
               tagLower === 'textarea'
             if (isType1Block) {
-              var textLen = htmlNode.text.length
+              var textLen = htmlNode.rawText.length
               var textStart = 0
               while (
                 textStart < textLen &&
-                htmlNode.text.charCodeAt(textStart) === $.CHAR_SPACE
+                htmlNode.rawText.charCodeAt(textStart) === $.CHAR_SPACE
               )
                 textStart++
               if (
                 textStart < textLen &&
-                htmlNode.text.charCodeAt(textStart) === $.CHAR_LT
+                htmlNode.rawText.charCodeAt(textStart) === $.CHAR_LT
               ) {
-                var openingTagEnd = htmlNode.text.indexOf('>', textStart)
+                var openingTagEnd = htmlNode.rawText.indexOf('>', textStart)
                 if (openingTagEnd !== -1) {
-                  var rawOpeningTag = htmlNode.text.slice(
+                  var rawOpeningTag = htmlNode.rawText.slice(
                     textStart,
                     openingTagEnd + 1
                   )
@@ -457,7 +457,7 @@ export function astToHTML(
                       .slice(tagStart, tagEnd)
                       .toLowerCase()
                     if (foundTag === tagLower) {
-                      var innerText = htmlNode.text.slice(openingTagEnd + 1)
+                      var innerText = htmlNode.rawText.slice(openingTagEnd + 1)
                       return (
                         rawOpeningTag +
                         (options.tagfilter
@@ -469,12 +469,12 @@ export function astToHTML(
                 }
               }
               var closingTag = '</' + tagLower + '>'
-              var hasClosingTag = htmlNode.text.indexOf(closingTag) !== -1
+              var hasClosingTag = htmlNode.rawText.indexOf(closingTag) !== -1
               return hasClosingTag
                 ? `<${tag}${attrsStr}>${textContent}`
                 : `<${tag}${attrsStr}>${textContent}</${tag}>`
             }
-            var trimmed = htmlNode.text.trim()
+            var trimmed = htmlNode.rawText.trim()
             if (trimmed.length > 0 && trimmed.charCodeAt(0) === $.CHAR_LT) {
               if (
                 trimmed.charCodeAt(1) >= $.CHAR_a &&
@@ -506,8 +506,8 @@ export function astToHTML(
             return `<${tag}${attrsStr}>${trimmedStart > 0 ? textContent.slice(trimmedStart) : trimmed ? textContent : ''}`
           }
           var textContent = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode.text)
-            : htmlNode.text
+            ? util.applyTagFilterToText(htmlNode.rawText)
+            : htmlNode.rawText
           return `<${tag}${attrsStr}>${textContent}</${tag}>`
         }
         const children = htmlNode.children
@@ -764,20 +764,35 @@ export function astToHTML(
     state: MarkdownToJSX.State = {}
   ): string {
     if (!node || typeof node !== 'object') return ''
+
+    // renderRule must be checked FIRST, before any filtering or rendering logic
+    // This gives users full control to render even normally-skipped nodes
+    if (options.renderRule) {
+      return options.renderRule(
+        () => {
+          // Default behavior: skip ref, refCollection, and other filtered nodes
+          if (
+            node.type === RuleType.ref ||
+            node.type === RuleType.refCollection ||
+            shouldSkipNode(node, !!options.preserveFrontmatter)
+          )
+            return ''
+          return renderNode(node, state)
+        },
+        node,
+        renderChildren,
+        state
+      )
+    }
+
+    // Default filtering: skip ref, refCollection, and other filtered nodes
     if (
       node.type === RuleType.ref ||
       node.type === RuleType.refCollection ||
       shouldSkipNode(node, !!options.preserveFrontmatter)
     )
       return ''
-    if (options.renderRule) {
-      return options.renderRule(
-        () => renderNode(node, state),
-        node,
-        renderChildren,
-        state
-      )
-    }
+
     return renderNode(node, state)
   }
 
