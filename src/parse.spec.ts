@@ -1763,4 +1763,204 @@ describe('Unserializable expression evaluation', () => {
       expect(typeof result[0].attrs?.noop).toBe('function')
     })
   })
+
+  describe('verbatim HTML blocks with parsed children', () => {
+    it('should parse markdown content in script tags into children even when verbatim', () => {
+      const result = p.parser(
+        '<script>Hello **world**</script>'
+      ) as MarkdownToJSX.ASTNode[]
+      const htmlNode = result.find(
+        n => n.type === RuleType.htmlBlock
+      ) as MarkdownToJSX.HTMLNode
+      expect(htmlNode).toMatchInlineSnapshot(`
+        {
+          "attrs": {},
+          "canInterruptParagraph": true,
+          "children": [
+            {
+              "text": "Hello ",
+              "type": "text",
+            },
+            {
+              "children": [
+                {
+                  "text": "world",
+                  "type": "text",
+                },
+              ],
+              "tag": "strong",
+              "type": "textFormatted",
+            },
+          ],
+          "endPos": 33,
+          "rawAttrs": "",
+          "rawText": "Hello **world**</script>",
+          "tag": "script",
+          "text": "Hello **world**</script>",
+          "type": "htmlBlock",
+          "verbatim": true,
+        }
+      `)
+    })
+
+    it('should parse nested HTML in pre tags into children even when verbatim', () => {
+      const result = p.parser(
+        '<pre><code>const x = 1;</code></pre>'
+      ) as MarkdownToJSX.ASTNode[]
+      const htmlNode = result.find(
+        n =>
+          n.type === RuleType.htmlBlock &&
+          (n as MarkdownToJSX.HTMLNode).tag === 'pre'
+      ) as MarkdownToJSX.HTMLNode
+      expect(htmlNode).toMatchInlineSnapshot(`
+        {
+          "attrs": {},
+          "canInterruptParagraph": true,
+          "children": [
+            {
+              "children": [
+                {
+                  "attrs": {},
+                  "children": [
+                    {
+                      "text": "const x = 1;",
+                      "type": "text",
+                    },
+                  ],
+                  "endPos": 25,
+                  "rawAttrs": "",
+                  "tag": "code",
+                  "type": "htmlBlock",
+                  "verbatim": false,
+                },
+              ],
+              "endPos": 25,
+              "type": "paragraph",
+            },
+          ],
+          "endPos": 37,
+          "rawAttrs": "",
+          "rawText": "<code>const x = 1;</code></pre>",
+          "tag": "pre",
+          "text": "<code>const x = 1;</code></pre>",
+          "type": "htmlBlock",
+          "verbatim": true,
+        }
+      `)
+    })
+
+    it('should parse complex markdown in style tags into children even when verbatim', () => {
+      const result = p.parser(
+        '<style>body { color: red; }\n\n/* Comment */</style>'
+      ) as MarkdownToJSX.ASTNode[]
+      const htmlNode = result.find(
+        n => n.type === RuleType.htmlBlock
+      ) as MarkdownToJSX.HTMLNode
+      expect(htmlNode).toMatchInlineSnapshot(`
+        {
+          "attrs": {},
+          "canInterruptParagraph": true,
+          "children": [
+            {
+              "children": [
+                {
+                  "text": "body { color: red; }",
+                  "type": "text",
+                },
+              ],
+              "endPos": 20,
+              "type": "paragraph",
+            },
+            {
+              "children": [
+                {
+                  "text": "/",
+                  "type": "text",
+                },
+                {
+                  "text": "*",
+                  "type": "text",
+                },
+                {
+                  "text": " Comment ",
+                  "type": "text",
+                },
+                {
+                  "text": "*",
+                  "type": "text",
+                },
+                {
+                  "text": "/",
+                  "type": "text",
+                },
+              ],
+              "endPos": 35,
+              "type": "paragraph",
+            },
+          ],
+          "endPos": 51,
+          "rawAttrs": "",
+          "rawText": 
+        "body { color: red; }
+
+        /* Comment */</style>"
+        ,
+          "tag": "style",
+          "text": 
+        "body { color: red; }
+
+        /* Comment */</style>"
+        ,
+          "type": "htmlBlock",
+          "verbatim": true,
+        }
+        `)
+    })
+
+    it('should parse markdown in Type 6 div tags ending with blank lines into children even when verbatim', () => {
+      const result = p.parser(
+        '<div>Hello **world**\n\n</div>\n\nNext paragraph'
+      ) as MarkdownToJSX.ASTNode[]
+      const htmlNode = result.find(
+        n =>
+          n.type === RuleType.htmlBlock &&
+          (n as MarkdownToJSX.HTMLNode).tag === 'div'
+      ) as MarkdownToJSX.HTMLNode
+      expect(htmlNode).toMatchInlineSnapshot(`
+        {
+          "attrs": {},
+          "canInterruptParagraph": true,
+          "children": [
+            {
+              "children": [
+                {
+                  "text": "Hello ",
+                  "type": "text",
+                },
+                {
+                  "children": [
+                    {
+                      "text": "world",
+                      "type": "text",
+                    },
+                  ],
+                  "tag": "strong",
+                  "type": "textFormatted",
+                },
+              ],
+              "endPos": 15,
+              "type": "paragraph",
+            },
+          ],
+          "endPos": 28,
+          "rawAttrs": "",
+          "rawText": undefined,
+          "tag": "div",
+          "text": undefined,
+          "type": "htmlBlock",
+          "verbatim": false,
+        }
+        `)
+    })
+  })
 })

@@ -202,10 +202,12 @@ declare namespace MarkdownToJSX {
     type: typeof RuleType.htmlBlock
     attrs?: Record<string, any>
     children?: ASTNode[] | undefined
-    noInnerParse?: Boolean
+    verbatim?: boolean
     rawAttrs?: string
-    tag: string
+    rawText?: string | undefined
+    /** @deprecated Use `rawText` instead. This property will be removed in a future major version. */
     text?: string | undefined
+    tag: string
   }
 
   export interface HTMLSelfClosingNode {

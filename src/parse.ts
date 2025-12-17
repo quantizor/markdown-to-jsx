@@ -1084,13 +1084,53 @@ function parseInlineSpan(
     }
 
     // Valid tag with newline - type 7 block, preserve as raw HTML
+    // But still parse content into children
+    var rawText = source.slice(pos, tagCheckResult.endPos)
+    var tagName = tagCheckResult.tagName.toLowerCase()
+    var contentToParse = rawText
+    // Extract content if rawText includes opening tag
+    var tagEnd = contentToParse.indexOf('>')
+    if (tagEnd !== -1) {
+      contentToParse = contentToParse.slice(tagEnd + 1)
+      var closingTag = '</' + tagName + '>'
+      var closingIdx = contentToParse.indexOf(closingTag)
+      if (closingIdx !== -1) {
+        contentToParse = contentToParse.slice(0, closingIdx)
+      }
+    }
+    var children: MarkdownToJSX.ASTNode[] = []
+    if (contentToParse.trim() && options) {
+      var parseState: MarkdownToJSX.State = {
+        ...state,
+        inline: false,
+        inHTML: true,
+      }
+      var trimmed = contentToParse.trim()
+      if (
+        DOUBLE_NEWLINE_R.test(trimmed) ||
+        BLOCK_SYNTAX_R.test(trimmed) ||
+        HTML_BLOCK_ELEMENT_START_R.test(trimmed)
+      ) {
+        children = parseBlocksInHTML(trimmed, parseState, options)
+      } else if (trimmed) {
+        parseState.inline = true
+        children = parseInlineSpan(
+          trimmed,
+          0,
+          trimmed.length,
+          parseState,
+          options
+        )
+      }
+    }
     var htmlBlockResult = {
       type: RuleType.htmlBlock,
       tag: tagCheckResult.tagName as MarkdownToJSX.HTMLTags,
       attrs: {},
-      children: [],
-      text: source.slice(pos, tagCheckResult.endPos),
-      noInnerParse: true,
+      children: children,
+      rawText: rawText,
+      text: rawText, // @deprecated - use rawText instead
+      verbatim: true,
       endPos: tagCheckResult.endPos,
     } as MarkdownToJSX.HTMLNode & { endPos: number }
     flushText(pos)
@@ -6499,7 +6539,8 @@ function createVerbatimHTMLBlock(
   rawAttrs?: string,
   isClosingTag?: boolean,
   canInterruptParagraph?: boolean,
-  options?: ParseOptions
+  options?: ParseOptions,
+  state?: MarkdownToJSX.State
 ): MarkdownToJSX.HTMLNode & {
   endPos: number
   isClosingTag?: boolean
@@ -6519,14 +6560,85 @@ function createVerbatimHTMLBlock(
       finalText = ''
     }
   }
+
+  // Always parse content into children, even for verbatim blocks
+  // Extract content from text (may include opening tag)
+  var contentToParse = finalText
+  var tagLower = tagName.toLowerCase()
+
+  // If text starts with opening tag, extract just the content
+  var openingTagPattern2 = new RegExp('^<' + tagLower + '[\\s>]', 'i')
+  if (openingTagPattern2.test(contentToParse)) {
+    // Find the end of opening tag
+    var tagEnd = contentToParse.indexOf('>')
+    if (tagEnd !== -1) {
+      contentToParse = contentToParse.slice(tagEnd + 1)
+      // Remove closing tag if present
+      var closingTag = '</' + tagLower + '>'
+      var closingIdx = contentToParse.indexOf(closingTag)
+      if (closingIdx !== -1) {
+        contentToParse = contentToParse.slice(0, closingIdx)
+      }
+    }
+  } else {
+    // Text might just be content, but check for closing tag
+    var closingTag2 = '</' + tagLower + '>'
+    var closingIdx2 = contentToParse.indexOf(closingTag2)
+    if (closingIdx2 !== -1) {
+      contentToParse = contentToParse.slice(0, closingIdx2)
+    }
+  }
+
+  // Parse content into children
+  var children: MarkdownToJSX.ASTNode[] = []
+  if (contentToParse && options) {
+    var parseState: MarkdownToJSX.State = state || {
+      inline: false,
+      inHTML: true,
+      inAnchor: false,
+    }
+
+    // Determine if content should be parsed as blocks or inline
+    var trimmed = contentToParse.trim()
+    var hasDoubleNewline = DOUBLE_NEWLINE_R.test(trimmed)
+    var hasBlockSyntax = BLOCK_SYNTAX_R.test(trimmed)
+    var hasHTMLTags = HTML_BLOCK_ELEMENT_START_R.test(trimmed)
+
+    if (hasDoubleNewline || hasBlockSyntax || hasHTMLTags) {
+      // Parse as blocks
+      var blockState = {
+        ...parseState,
+        inline: false,
+        inHTML: true,
+        inAnchor: parseState.inAnchor || tagLower === 'a',
+      }
+      children = parseBlocksInHTML(trimmed, blockState, options)
+    } else if (trimmed) {
+      // Parse as inline
+      var inlineState = {
+        ...parseState,
+        inline: true,
+        inAnchor: parseState.inAnchor || tagLower === 'a',
+      }
+      children = parseInlineSpan(
+        trimmed,
+        0,
+        trimmed.length,
+        inlineState,
+        options
+      )
+    }
+  }
+
   return {
     type: RuleType.htmlBlock,
     tag: tagName as MarkdownToJSX.HTMLTags,
     attrs: attrs || {},
     rawAttrs: rawAttrs,
-    children: [],
-    text: finalText,
-    noInnerParse: true,
+    children: children,
+    rawText: finalText,
+    text: finalText, // @deprecated - use rawText instead
+    verbatim: true,
     isClosingTag: isClosingTag,
     canInterruptParagraph: canInterruptParagraph,
     endPos: endPos,
@@ -6588,11 +6700,11 @@ function processHTMLBlock(
   }
 
   const lowerTag = tagName
-  const noInnerParse = isType1Block(lowerTag)
+  const isType1BlockTag = isType1Block(lowerTag)
 
   // Per CommonMark spec: Type 6 blocks that end at blank lines should have verbatim content
   // Check if this is a type 6 block (block-level, not type 1, not void)
-  var isType6Block = !noInnerParse && !util.isVoidElement(tagName)
+  var isType6Block = !isType1BlockTag && !util.isVoidElement(tagName)
 
   // Always extract raw attributes from fullMatch if available (for consistency)
   // Per CommonMark spec Example 153: newlines and spaces between attributes should be removed
@@ -6689,28 +6801,45 @@ function processHTMLBlock(
     }
   }
 
-  // If type 6 block ended at blank line (or has no closing tag), treat content as verbatim (no parsing)
-  // But if content has block-worthy content, parse it even if it ends with blank lines
+  // Determine if this block should have verbatim rendering hint
+  // Type 1 blocks and Type 6 blocks ending with blank lines should be verbatim
   var shouldTreatAsVerbatim =
-    noInnerParse ||
+    isType1BlockTag ||
     (isType6Block && endedAtBlankLine && !hasBlockContent(content))
 
+  // Normalize content (trim newlines for verbatim blocks)
+  var normalizedContent = content
+  // Store original content for text field before we modify it for parsing
+  var contentForText = normalizedContent
   if (shouldTreatAsVerbatim) {
-    if (content.length > 0 && content[0] === '\n') {
-      content = content.slice(1)
+    if (normalizedContent.length > 0 && normalizedContent[0] === '\n') {
+      normalizedContent = normalizedContent.slice(1)
+      contentForText = normalizedContent
     }
-    if (content.length > 0 && content[content.length - 1] === '\n') {
-      content = content.slice(0, -1)
+    if (
+      normalizedContent.length > 0 &&
+      normalizedContent[normalizedContent.length - 1] === '\n'
+    ) {
+      normalizedContent = normalizedContent.slice(0, -1)
+      contentForText = normalizedContent
+    }
+    // Remove closing tag from content before parsing (it should only be in text field)
+    // But keep it in contentForText for the text field
+    var closingTagPattern = '</' + lowerTag + '>'
+    var closingTagIdx = normalizedContent.indexOf(closingTagPattern)
+    if (closingTagIdx !== -1) {
+      normalizedContent = normalizedContent.slice(0, closingTagIdx)
+      // contentForText keeps the closing tag
     }
   }
 
-  const leftTrimMatch = content.match(/^([ \t]*)/)
+  const leftTrimMatch = normalizedContent.match(/^([ \t]*)/)
   const leftTrimAmount = leftTrimMatch ? leftTrimMatch[1] : ''
   const trimmer = new RegExp(
     `^${leftTrimAmount.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
     'gm'
   )
-  const trimmed = content.replace(trimmer, '')
+  const trimmed = normalizedContent.replace(trimmer, '')
 
   const hasDoubleNewline = DOUBLE_NEWLINE_R.test(trimmed)
   const hasNonParagraphBlockSyntax = BLOCK_SYNTAX_R.test(trimmed)
@@ -6723,9 +6852,9 @@ function processHTMLBlock(
       hasNonParagraphBlockSyntax ||
       (state.inHTML && hasHTMLTags)
 
+  // ALWAYS parse content into children, regardless of verbatim flag
   let children: MarkdownToJSX.ASTNode[] = []
-
-  if (!shouldTreatAsVerbatim && trimmed) {
+  if (trimmed) {
     // Parse as blocks when content contains HTML tags to ensure nested HTML is parsed correctly
     if (hasBlockSyntax || hasHTMLTags) {
       const blockState = {
@@ -6751,17 +6880,16 @@ function processHTMLBlock(
     }
   }
 
-  // For Type 1 blocks with raw opening tag HTML, store it in the text field
-  // along with content, so html() can output it verbatim
+  // Store raw text for verbatim blocks (for CommonMark compliance in default renderer)
   var finalText: string | undefined = undefined
   if (shouldTreatAsVerbatim) {
     if (rawOpeningTag !== undefined) {
       // Type 1 block with newlines in opening tag - preserve raw opening tag + content
       // Store the full raw HTML (opening tag + content) in text field
       // The closing tag will be added by html()
-      finalText = rawOpeningTag + content
+      finalText = rawOpeningTag + contentForText
     } else {
-      finalText = content
+      finalText = contentForText
     }
   }
 
@@ -6772,9 +6900,10 @@ function processHTMLBlock(
       : tagNameOriginal) as MarkdownToJSX.HTMLTags,
     attrs: attributes,
     rawAttrs: attrs,
-    children,
-    text: finalText,
-    noInnerParse: shouldTreatAsVerbatim,
+    children: children,
+    rawText: finalText,
+    text: finalText, // @deprecated - use rawText instead
+    verbatim: shouldTreatAsVerbatim,
     canInterruptParagraph: true, // type 1-6 blocks can interrupt paragraphs
     endPos: endPos,
   } as MarkdownToJSX.HTMLNode & {
@@ -7011,7 +7140,8 @@ function parseHTML(
             undefined,
             isClosingTag,
             false, // type 7 blocks cannot interrupt paragraphs
-            options
+            options,
+            state
           )
         }
 
@@ -7025,7 +7155,8 @@ function parseHTML(
           undefined,
           isClosingTag,
           blockType === 'type6', // type 6 can interrupt, type 7 cannot
-          options
+          options,
+          state
         )
       }
     }
@@ -7132,7 +7263,9 @@ function parseHTML(
           ),
           tagResult.whitespaceBeforeAttrs + tagResult.attrs,
           true,
-          false
+          false,
+          options,
+          state
         )
       }
     }
@@ -7308,7 +7441,7 @@ function parseHTML(
       attrs: inlineAttrs,
       rawAttrs: rawAttrsWithWhitespace,
       children: children,
-      noInnerParse: false,
+      verbatim: false,
       endPos: inlineEndPos,
     } as MarkdownToJSX.HTMLNode & { endPos: number }
   }
@@ -7549,7 +7682,8 @@ function parseHTML(
           undefined,
           isClosingTag,
           false, // type 7 blocks cannot interrupt paragraphs
-          options
+          options,
+          state
         )
       }
 
@@ -7572,7 +7706,8 @@ function parseHTML(
           undefined,
           isClosingTag,
           false, // type 7 blocks cannot interrupt paragraphs
-          options
+          options,
+          state
         )
       }
 
@@ -7667,7 +7802,8 @@ function parseHTML(
         blockAttrs,
         isClosingTag,
         blockType === 'type6' ? true : false, // type 6 can interrupt, type 7 cannot
-        options
+        options,
+        state
       )
     }
   }
