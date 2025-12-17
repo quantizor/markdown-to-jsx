@@ -1,5 +1,5 @@
 ---
-"markdown-to-jsx": patch
+'markdown-to-jsx': patch
 ---
 
-Ensure all renderers have consistent core exports: compiler, parser, RuleType, and astTo{Target} output adapter
+Expose `parser` and `RuleType` from the markdown entry point as documented.
