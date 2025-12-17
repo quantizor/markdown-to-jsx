@@ -575,7 +575,9 @@ This approach gives you full control over which expressions are evaluated and un
 
 #### options.renderRule
 
-Supply your own rendering function that can selectively override how _rules_ are rendered (note, this is different than _`options.overrides`_ which operates at the HTML tag level and is more general). You can use this functionality to do pretty much anything with an established AST node; here's an example of selectively overriding the "codeBlock" rule to process LaTeX syntax using the `@matejmazur/react-katex` library:
+Supply your own rendering function that can selectively override how _rules_ are rendered (note, this is different than _`options.overrides`_ which operates at the HTML tag level and is more general). The `renderRule` function always executes before any other rendering code, giving you full control over how nodes are rendered, including normally-skipped nodes like `ref`, `footnote`, and `frontmatter`.
+
+You can use this functionality to do pretty much anything with an established AST node; here's an example of selectively overriding the "codeBlock" rule to process LaTeX syntax using the `@matejmazur/react-katex` library:
 
 ````tsx
 import Markdown, { RuleType } from 'markdown-to-jsx'
@@ -603,6 +605,29 @@ function App() {
   )
 }
 ````
+
+**Accessing parsed HTML content:** For HTML blocks marked as `verbatim` (like `<script>`, `<style>`, `<pre>`), default renderers use `rawText` for CommonMark compliance, but `renderRule` can access the fully parsed AST in `children`:
+
+```tsx
+<Markdown
+  options={{
+    renderRule(next, node, renderChildren) {
+      if (node.type === RuleType.htmlBlock && node.tag === 'script') {
+        // Access parsed children even for verbatim blocks
+        const parsedContent = node.children || []
+        // Or use rawText for original content
+        const rawContent = node.rawText || ''
+
+        // Custom rendering logic here
+        return <CustomScript content={parsedContent} raw={rawContent} />
+      }
+      return next()
+    },
+  }}
+>
+  <script>Hello **world**</script>
+</Markdown>
+```
 
 #### options.sanitizer
 
@@ -816,10 +841,23 @@ The AST consists of the following node types (use `RuleType` to check node types
   { type: RuleType.table, header: [...], cells: [[...]], align: [...] }
   ```
 - `RuleType.htmlBlock` - HTML blocks and JSX components
+
   ```tsx
-  { type: RuleType.htmlBlock, tag: "div", attrs: {}, children: [...] }
+  {
+    type: RuleType.htmlBlock,
+    tag: "div",
+    attrs: {},
+    rawAttrs?: string,
+    children?: ASTNode[],
+    verbatim?: boolean,
+    rawText?: string,
+    text?: string // @deprecated - use rawText instead
+  }
   ```
+
   **Note (v9.1+):** JSX components with blank lines between opening/closing tags now properly nest children instead of creating sibling nodes.
+
+  **HTML Block Parsing (v9.2+):** HTML blocks are always fully parsed into the `children` property, even when marked as `verbatim`. The `verbatim` flag acts as a rendering hint (default renderers use `rawText` for verbatim blocks to maintain CommonMark compliance), but `renderRule` implementations can access the fully parsed AST in `children` for all HTML blocks. The `rawText` field contains the original raw HTML content for verbatim blocks, while `rawAttrs` contains the original attribute string.
 
 **Inline nodes:**
 
