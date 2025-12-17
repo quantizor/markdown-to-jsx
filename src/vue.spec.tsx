@@ -699,7 +699,7 @@ describe('HTML blocks', () => {
     expect(text).toBe('Bold text')
   })
 
-  it('should handle HTML blocks with noInnerParse', () => {
+  it('should handle HTML blocks with verbatim', () => {
     const result = compiler('<pre>code here</pre>')
     expect(getVNodeType(result)).toBe('pre')
     const text = extractTextContent(result)

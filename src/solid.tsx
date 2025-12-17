@@ -123,7 +123,7 @@ function render(
         const headerNode: MarkdownToJSX.HTMLNode = {
           attrs: {},
           children: [{ type: RuleType.text, text: node.alert }],
-          noInnerParse: true,
+          verbatim: true,
           type: RuleType.htmlBlock,
           tag: 'header',
         }
@@ -193,16 +193,16 @@ function render(
         return h('span', {}, tagText)
       }
 
-      if (htmlNode.text && htmlNode.noInnerParse) {
+      if (htmlNode.rawText && htmlNode.verbatim) {
         // Type 1 blocks (script, style, pre, textarea) must have verbatim text content
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
 
-        const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(htmlNode.text)
-        const containsPreTags = /<\/?pre\b/i.test(htmlNode.text)
+        const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(htmlNode.rawText)
+        const containsPreTags = /<\/?pre\b/i.test(htmlNode.rawText)
 
         if (isType1Block && !containsHTMLTags) {
-          let textContent = htmlNode.text.replace(
+          let textContent = htmlNode.rawText.replace(
             new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
             ''
           )
@@ -214,39 +214,14 @@ function render(
 
         if (containsPreTags) {
           const innerHtml = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode.text)
-            : htmlNode.text
+            ? util.applyTagFilterToText(htmlNode.rawText)
+            : htmlNode.rawText
           return h(node.tag, {
             ...node.attrs,
             innerHTML: innerHtml,
           })
         }
-        // This handles JSX compilation where HTML content should be parsed
-        const parseOptions: parse.ParseOptions = {
-          slugify: (input: string) => slug(input, util.slugify),
-          sanitizer: sanitize,
-          tagfilter: true,
-        }
-        const cleanedText = htmlNode.text
-          .replace(/>\s+</g, '><')
-          .replace(/\n+/g, ' ')
-          .trim()
-
-        // Avoid infinite recursion: if cleanedText is just the same HTML tag we're processing,
-        // render as an empty element
-        const selfTagRegex = new RegExp(
-          `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,
-          'i'
-        )
-        if (selfTagRegex.test(cleanedText)) {
-          return h(node.tag, { ...node.attrs })
-        }
-
-        const astNodes = parse.parseMarkdown(
-          cleanedText,
-          { inline: false, refs: refs, inHTML: false },
-          parseOptions
-        )
+        // Use already-parsed children if available instead of re-parsing rawText
         function processNode(
           node: MarkdownToJSX.ASTNode
         ): MarkdownToJSX.ASTNode[] {
@@ -280,6 +255,39 @@ function render(
           }
           return [node]
         }
+        if (htmlNode.children && htmlNode.children.length > 0) {
+          return h(
+            node.tag,
+            { ...node.attrs },
+            output(htmlNode.children.flatMap(processNode), state)
+          )
+        }
+        // Fallback to re-parsing rawText if children not available (edge case)
+        const parseOptions: parse.ParseOptions = {
+          slugify: (input: string) => slug(input, util.slugify),
+          sanitizer: sanitize,
+          tagfilter: true,
+        }
+        const cleanedText = htmlNode.rawText
+          .replace(/>\s+</g, '><')
+          .replace(/\n+/g, ' ')
+          .trim()
+
+        // Avoid infinite recursion: if cleanedText is just the same HTML tag we're processing,
+        // render as an empty element
+        const selfTagRegex = new RegExp(
+          `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,
+          'i'
+        )
+        if (selfTagRegex.test(cleanedText)) {
+          return h(node.tag, { ...node.attrs })
+        }
+
+        const astNodes = parse.parseMarkdown(
+          cleanedText,
+          { inline: false, refs: refs, inHTML: false },
+          parseOptions
+        )
         const processedChildren = output(astNodes.flatMap(processNode), state)
         return h(node.tag, { ...node.attrs }, ...toArray(processedChildren))
       }
@@ -674,9 +682,9 @@ export function astToJSX(
     const node = ast[i]
     if (
       node.type === RuleType.htmlBlock &&
-      'text' in node &&
-      node.text &&
-      /<\/?pre\b/i.test(node.text) &&
+      'rawText' in node &&
+      node.rawText &&
+      /<\/?pre\b/i.test(node.rawText) &&
       i + 1 < ast.length &&
       ast[i + 1].type === RuleType.paragraph &&
       'removedClosingTags' in ast[i + 1] &&
@@ -711,7 +719,7 @@ export function astToJSX(
       // When ast() is cached but jsx() recalculates, mutation would accumulate text
       const modifiedHtmlNode: MarkdownToJSX.HTMLNode = {
         ...htmlNode,
-        text: htmlNode.text + '\n' + combinedText,
+        rawText: (htmlNode.rawText || '') + '\n' + combinedText,
       }
       postProcessedAst.push(modifiedHtmlNode)
       i++ // Skip paragraph

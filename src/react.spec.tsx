@@ -3400,7 +3400,11 @@ describe('MarkdownProvider and MarkdownContext', () => {
       React.createElement(
         MarkdownProvider,
         { options: contextOptions },
-        React.createElement(Markdown, { options: componentOptions }, '# Hello\n\nWorld')
+        React.createElement(
+          Markdown,
+          { options: componentOptions },
+          '# Hello\n\nWorld'
+        )
       )
     )
 
@@ -3426,7 +3430,11 @@ describe('MarkdownProvider and MarkdownContext', () => {
       React.createElement(
         MarkdownProvider,
         { options: contextOptions },
-        React.createElement(Markdown, { options: componentOptions }, '# One\n\n# Two')
+        React.createElement(
+          Markdown,
+          { options: componentOptions },
+          '# One\n\n# Two'
+        )
       )
     )
 

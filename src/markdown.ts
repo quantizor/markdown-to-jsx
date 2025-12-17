@@ -94,23 +94,7 @@ export function astToMarkdown(
     }
   }
 
-  const state: CompilerState = {
-    options: options || {},
-    references: new Map(),
-    referenceIndex: 1,
-    overrides,
-  }
-
-  function renderChildren(children: MarkdownToJSX.ASTNode[]): string {
-    // For inline content (like paragraph children), render without block separators
-    return children.map(child => compileNode(child, state)).join('')
-  }
-
-  function renderNodeWithRule(
-    node: MarkdownToJSX.ASTNode,
-    stateWithKey: MarkdownToJSX.State = {}
-  ): string {
-    if (!node || typeof node !== 'object') return ''
+  function renderNodeDefault(node: MarkdownToJSX.ASTNode): string {
     if (
       node.type === RuleType.ref ||
       node.type === RuleType.footnote ||
@@ -118,17 +102,41 @@ export function astToMarkdown(
         options?.preserveFrontmatter === false)
     )
       return ''
+    return compileNode(node, state)
+  }
 
+  function nestedStatefulRender(
+    node: MarkdownToJSX.ASTNode,
+    stateWithKey: MarkdownToJSX.State = {}
+  ): string {
+    if (!node || typeof node !== 'object') return ''
+
+    // renderRule must be checked FIRST, before any filtering or rendering logic
+    // This gives users full control to render even normally-skipped nodes
     if (options?.renderRule) {
       return options.renderRule(
-        () => compileNode(node, state),
+        () => renderNodeDefault(node),
         node,
         renderChildren,
         stateWithKey
       )
     }
 
-    return compileNode(node, state)
+    return renderNodeDefault(node)
+  }
+
+  function renderChildren(children: MarkdownToJSX.ASTNode[]): string {
+    // For inline content (like paragraph children), render without block separators
+    // Use renderNodeWithRule to ensure renderRule is invoked for children
+    return children.map(child => nestedStatefulRender(child, {})).join('')
+  }
+
+  const state: CompilerState = {
+    options: options || {},
+    references: new Map(),
+    referenceIndex: 1,
+    overrides,
+    renderChild: nestedStatefulRender,
   }
 
   // Filter out refCollection from nodes that get keys (it's rendered separately)
@@ -142,7 +150,7 @@ export function astToMarkdown(
         node.type === RuleType.refCollection
           ? undefined
           : renderableNodes.indexOf(node)
-      return renderNodeWithRule(node, { key: keyIndex, refs })
+      return nestedStatefulRender(node, { key: keyIndex, refs })
     })
     .join('\n\n')
 
@@ -169,6 +177,10 @@ interface CompilerState {
   references: Map<string, { url: string; title?: string }>
   referenceIndex: number
   overrides?: MarkdownOverrides
+  renderChild: (
+    node: MarkdownToJSX.ASTNode,
+    stateWithKey?: MarkdownToJSX.State
+  ) => string
 }
 
 /**
@@ -262,14 +274,16 @@ function compileParagraph(
   node: MarkdownToJSX.ParagraphNode,
   state: CompilerState
 ): string {
-  return node.children.map(child => compileNode(child, state)).join('')
+  return node.children.map(child => state.renderChild(child, {})).join('')
 }
 
 function compileHeading(
   node: MarkdownToJSX.HeadingNode,
   state: CompilerState
 ): string {
-  const content = node.children.map(child => compileNode(child, state)).join('')
+  const content = node.children
+    .map(child => state.renderChild(child, {}))
+    .join('')
 
   if (
     state.options.useSetextHeaders &&
@@ -303,7 +317,9 @@ function compileTextFormatted(
   node: MarkdownToJSX.FormattedTextNode,
   state: CompilerState
 ): string {
-  const content = node.children.map(child => compileNode(child, state)).join('')
+  const content = node.children
+    .map(child => state.renderChild(child, {}))
+    .join('')
   switch (node.tag) {
     case 'em':
     case 'i':
@@ -325,7 +341,7 @@ function compileLink(
   node: MarkdownToJSX.LinkNode,
   state: CompilerState
 ): string {
-  const text = node.children.map(child => compileNode(child, state)).join('')
+  const text = node.children.map(child => state.renderChild(child, {})).join('')
   const url = node.target || ''
   const title = node.title
 
@@ -366,7 +382,7 @@ function compileOrderedList(
   const start = node.start || 1
   return node.items
     .map((item, index) => {
-      const content = item.map(child => compileNode(child, state)).join('')
+      const content = item.map(child => state.renderChild(child, {})).join('')
       return `${start + index}. ${content.replace(/\n/g, '\n    ')}`
     })
     .join('\n')
@@ -378,7 +394,7 @@ function compileUnorderedList(
 ): string {
   return node.items
     .map(item => {
-      const content = item.map(child => compileNode(child, state)).join('')
+      const content = item.map(child => state.renderChild(child, {})).join('')
       return `- ${content.replace(/\n/g, '\n  ')}`
     })
     .join('\n')
@@ -389,7 +405,7 @@ function compileBlockQuote(
   state: CompilerState
 ): string {
   return node.children
-    .map(child => compileNode(child, state))
+    .map(child => state.renderChild(child, {}))
     .join('\n\n')
     .split('\n')
     .map(line => (line.trim() ? `> ${line}` : '>'))
@@ -401,7 +417,7 @@ function compileTable(
   state: CompilerState
 ): string {
   const headerRow = node.header
-    .map(cell => cell.map(child => compileNode(child, state)).join(''))
+    .map(cell => cell.map(child => state.renderChild(child, {})).join(''))
     .join(' | ')
 
   const finalSeparator =
@@ -419,7 +435,7 @@ function compileTable(
   const dataRows = node.cells
     .map(row =>
       row
-        .map(cell => cell.map(child => compileNode(child, state)).join(''))
+        .map(cell => cell.map(child => state.renderChild(child, {})).join(''))
         .join(' | ')
     )
     .join('\n')
@@ -440,15 +456,24 @@ function compileHTMLBlock(
   // Check if this is a void element (self-closing)
   const isVoid = isVoidElement(tag)
 
-  if (node.text) {
+  // For verbatim blocks, use rawText if available (CommonMark compliance)
+  // Otherwise fall back to deprecated text field for backward compatibility
+  if (node.verbatim && (node.rawText || node.text)) {
+    const textContent = node.rawText || node.text
     // For HTML blocks with raw text content
+    // textContent already includes the closing tag
+    return `<${tag}${attrs}>${textContent}`
+  }
+
+  if (node.text) {
+    // For HTML blocks with raw text content (backward compatibility)
     // node.text already includes the closing tag
     return `<${tag}${attrs}>${node.text}`
   }
 
   // For HTML blocks with children, reconstruct the HTML
   const content = node.children
-    ? `\n${node.children.map(child => compileNode(child, state)).join('\n')}\n`
+    ? `\n${node.children.map(child => state.renderChild(child, {})).join('\n')}\n`
     : ''
   const closingTag = isVoid ? '' : `</${tag}>`
   return `<${tag}${attrs}>${content}${closingTag}`

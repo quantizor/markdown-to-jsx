@@ -140,7 +140,7 @@ const renderers: Record<
       const headerNode: MarkdownToJSX.HTMLNode = {
         attrs: {},
         children: [{ type: RuleType.text, text: node.alert }],
-        noInnerParse: true,
+        verbatim: true,
         type: RuleType.htmlBlock,
         tag: 'header',
       }
@@ -207,14 +207,14 @@ const renderers: Record<
       return h('span', { key: state.key }, tagText)
     }
 
-    if (node.text && node.noInnerParse) {
+    if (node.rawText && node.verbatim) {
       const tagLower = (node.tag as string).toLowerCase()
       const isType1Block = parse.isType1Block(tagLower)
-      const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(node.text)
-      const containsPreTags = /<\/?pre\b/i.test(node.text)
+      const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(node.rawText)
+      const containsPreTags = /<\/?pre\b/i.test(node.rawText)
 
       if (isType1Block && !containsHTMLTags) {
-        let textContent = node.text.replace(
+        let textContent = node.rawText.replace(
           new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
           ''
         )
@@ -225,8 +225,8 @@ const renderers: Record<
 
       if (containsPreTags) {
         const innerHtml = options.tagfilter
-          ? util.applyTagFilterToText(node.text)
-          : node.text
+          ? util.applyTagFilterToText(node.rawText)
+          : node.rawText
         return h(node.tag, {
           key: state.key,
           ...node.attrs,
@@ -234,30 +234,7 @@ const renderers: Record<
         })
       }
 
-      const parseOptions: parse.ParseOptions = {
-        slugify: (input: string) => slug(input, util.slugify),
-        sanitizer: sanitize,
-        tagfilter: true,
-      }
-      const cleanedText = node.text
-        .replace(/>\s+</g, '><')
-        .replace(/\n+/g, ' ')
-        .trim()
-
-      const selfTagRegex = new RegExp(
-        `^<${node.tag}(\\s[^>]*)?>(\\s*</${node.tag}>)?$`,
-        'i'
-      )
-      if (selfTagRegex.test(cleanedText)) {
-        return h(node.tag, { key: state.key, ...node.attrs })
-      }
-
-      const astNodes = parse.parseMarkdown(
-        cleanedText,
-        { inline: false, refs: refs, inHTML: false },
-        parseOptions
-      )
-
+      // Use already-parsed children if available instead of re-parsing rawText
       const processNode = (
         node: MarkdownToJSX.ASTNode
       ): MarkdownToJSX.ASTNode[] => {
@@ -287,6 +264,41 @@ const renderers: Record<
         }
         return [node]
       }
+
+      if (node.children && node.children.length > 0) {
+        return h(
+          node.tag,
+          { key: state.key, ...node.attrs },
+          ...normalizeChildren(
+            output(node.children.flatMap(processNode), state)
+          )
+        )
+      }
+
+      // Fallback to re-parsing rawText if children not available (edge case)
+      const parseOptions: parse.ParseOptions = {
+        slugify: (input: string) => slug(input, util.slugify),
+        sanitizer: sanitize,
+        tagfilter: true,
+      }
+      const cleanedText = node.rawText
+        .replace(/>\s+</g, '><')
+        .replace(/\n+/g, ' ')
+        .trim()
+
+      const selfTagRegex = new RegExp(
+        `^<${node.tag}(\\s[^>]*)?>(\\s*</${node.tag}>)?$`,
+        'i'
+      )
+      if (selfTagRegex.test(cleanedText)) {
+        return h(node.tag, { key: state.key, ...node.attrs })
+      }
+
+      const astNodes = parse.parseMarkdown(
+        cleanedText,
+        { inline: false, refs: refs, inHTML: false },
+        parseOptions
+      )
 
       return h(
         node.tag,
@@ -632,9 +644,9 @@ function postProcessAst(ast: MarkdownToJSX.ASTNode[]): MarkdownToJSX.ASTNode[] {
     const node = ast[i]
     if (
       node.type === RuleType.htmlBlock &&
-      'text' in node &&
-      node.text &&
-      /<\/?pre\b/i.test(node.text) &&
+      'rawText' in node &&
+      node.rawText &&
+      /<\/?pre\b/i.test(node.rawText) &&
       i + 1 < ast.length &&
       ast[i + 1].type === RuleType.paragraph &&
       'removedClosingTags' in ast[i + 1] &&
@@ -658,7 +670,7 @@ function postProcessAst(ast: MarkdownToJSX.ASTNode[]): MarkdownToJSX.ASTNode[] {
       }
       postProcessedAst.push({
         ...htmlNode,
-        text: htmlNode.text + '\n' + combinedText,
+        rawText: (htmlNode.rawText || '') + '\n' + combinedText,
       })
       i++
     } else {

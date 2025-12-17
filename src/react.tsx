@@ -82,7 +82,7 @@ function render(
         node.children.unshift({
           attrs: {},
           children: [{ type: RuleType.text, text: node.alert }],
-          noInnerParse: true,
+          verbatim: true,
           type: RuleType.htmlBlock,
           tag: 'header',
         })
@@ -179,17 +179,17 @@ function render(
         return h('span', { key: state.key }, tagText)
       }
 
-      if (htmlNode.text && htmlNode.noInnerParse) {
-        // Type 1 blocks (script, style, pre, textarea) must have verbatim text content
-        // React requires these tags to have a single string child, not parsed elements
+      if (htmlNode.rawText && htmlNode.verbatim) {
+        // For verbatim blocks, always use rawText for rendering (CommonMark compliance)
+        // Children are available for renderRule but default rendering uses rawText
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
 
-        const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(htmlNode.text)
-        const containsPreTags = /<\/?pre\b/i.test(htmlNode.text)
+        const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(htmlNode.rawText)
+        const containsPreTags = /<\/?pre\b/i.test(htmlNode.rawText)
 
         if (isType1Block && !containsHTMLTags) {
-          let textContent = htmlNode.text.replace(
+          let textContent = htmlNode.rawText.replace(
             new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
             ''
           )
@@ -201,21 +201,22 @@ function render(
 
         if (containsPreTags) {
           const innerHtml = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode.text)
-            : htmlNode.text
+            ? util.applyTagFilterToText(htmlNode.rawText)
+            : htmlNode.rawText
           return h(node.tag, {
             key: state.key,
             ...node.attrs,
             dangerouslySetInnerHTML: { __html: innerHtml },
           })
         }
-        // This handles JSX compilation where HTML content should be parsed
+        // For other verbatim blocks, re-parse rawText for JSX compilation
+        // (children are available for renderRule but default uses rawText)
         const parseOptions: parse.ParseOptions = {
           slugify: (input: string) => slug(input, util.slugify),
           sanitizer: sanitize,
           tagfilter: true,
         }
-        const cleanedText = htmlNode.text
+        const cleanedText = htmlNode.rawText
           .replace(/>\s+</g, '><')
           .replace(/\n+/g, ' ')
           .trim()
@@ -230,11 +231,6 @@ function render(
           return h(node.tag, { key: state.key, ...node.attrs })
         }
 
-        const astNodes = parse.parseMarkdown(
-          cleanedText,
-          { inline: false, refs: refs, inHTML: false },
-          parseOptions
-        )
         function processNode(
           node: MarkdownToJSX.ASTNode
         ): MarkdownToJSX.ASTNode[] {
@@ -268,6 +264,12 @@ function render(
           }
           return [node]
         }
+
+        const astNodes = parse.parseMarkdown(
+          cleanedText,
+          { inline: false, refs: refs, inHTML: false },
+          parseOptions
+        )
         return h(
           node.tag,
           { key: state.key, ...node.attrs },
@@ -580,9 +582,9 @@ export function astToJSX(
     const node = ast[i]
     if (
       node.type === RuleType.htmlBlock &&
-      'text' in node &&
-      node.text &&
-      /<\/?pre\b/i.test(node.text) &&
+      'rawText' in node &&
+      node.rawText &&
+      /<\/?pre\b/i.test(node.rawText) &&
       i + 1 < ast.length &&
       ast[i + 1].type === RuleType.paragraph &&
       'removedClosingTags' in ast[i + 1] &&
@@ -653,7 +655,7 @@ export function astToJSX(
           )
           .join('')
       }
-      htmlNode.text += '\n' + combinedText
+      htmlNode.rawText = (htmlNode.rawText || '') + '\n' + combinedText
       i++ // Skip paragraph
     }
     postProcessedAst.push(node)
