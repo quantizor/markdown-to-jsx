@@ -717,9 +717,11 @@ export function astToJSX(
       }
       // Create a new node instead of mutating to avoid issues with memoization
       // When ast() is cached but jsx() recalculates, mutation would accumulate text
+      const newRawText = (htmlNode.rawText || '') + '\n' + combinedText
       const modifiedHtmlNode: MarkdownToJSX.HTMLNode = {
         ...htmlNode,
-        rawText: (htmlNode.rawText || '') + '\n' + combinedText,
+        rawText: newRawText,
+        text: newRawText, // @deprecated - use rawText instead
       }
       postProcessedAst.push(modifiedHtmlNode)
       i++ // Skip paragraph
