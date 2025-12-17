@@ -2,6 +2,7 @@
 alwaysApply: true
 ---
 
+- Use conventional commit syntax
 - Do not create summary documents, deliver a concise summary in the chat when appropriate.
 - Do not create helper functions unless there are at least two instances of the same pattern and overall LOC is reduced
 - Follow through on each refactor to its end, including cleanup of unused code (cleanup should be a separate TODO item)
@@ -34,3 +35,4 @@ alwaysApply: true
 - 80% or greater cumulative coverage is required.
 - Tests should always assert a specific result shape, generic existence checks like `toBeTruthy()` or `toBeDefined()` are not allowed.
 - Add tests to existing test files rather than creating new ones.
+- Inline snapshots are preferred for parser output tests instead of many small assertions against the structure of the AST.
