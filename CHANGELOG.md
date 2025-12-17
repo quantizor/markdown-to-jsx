@@ -1,5 +1,13 @@
 # markdown-to-jsx
 
+## 9.4.1
+
+### Patch Changes
+
+- 7ee8a22: Ensure `renderRule` always executes before any other rendering code across all renderers. The `renderRule` function now has full control over node rendering, including normally-skipped nodes like `ref`, `footnote`, and `frontmatter`. Additionally, `renderChildren` in the markdown renderer now invokes `renderRule` for recursively rendered child nodes, ensuring consistent behavior when customizing rendering logic.
+- 7ee8a22: HTML blocks are now always fully parsed into the AST `children` property, even when marked as `verbatim`. The `verbatim` flag now acts as a rendering hint rather than a parsing control. Default renderers still use `rawText` for verbatim blocks (maintaining CommonMark compliance), but `renderRule` implementations can now access the fully parsed AST in `children` for all HTML blocks. The `noInnerParse` property has been replaced with `verbatim` for clarity.
+- 7ee8a22: Add `HTMLNode.rawText` field for consistency with `rawAttrs`. The `rawText` field contains the raw text content for verbatim HTML blocks, while `children` contains the parsed AST. The `text` property is now deprecated and will be removed in a future major version. Both fields are set to the same value for backward compatibility.
+
 ## 9.4.0
 
 ### Minor Changes
