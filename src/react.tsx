@@ -656,6 +656,7 @@ export function astToJSX(
           .join('')
       }
       htmlNode.rawText = (htmlNode.rawText || '') + '\n' + combinedText
+      htmlNode.text = htmlNode.rawText // @deprecated - use rawText instead
       i++ // Skip paragraph
     }
     postProcessedAst.push(node)

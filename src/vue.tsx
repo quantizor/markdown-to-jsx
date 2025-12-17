@@ -668,9 +668,11 @@ function postProcessAst(ast: MarkdownToJSX.ASTNode[]): MarkdownToJSX.ASTNode[] {
         }
         combinedText += closingTagText.join('')
       }
+      const newRawText = (htmlNode.rawText || '') + '\n' + combinedText
       postProcessedAst.push({
         ...htmlNode,
-        rawText: (htmlNode.rawText || '') + '\n' + combinedText,
+        rawText: newRawText,
+        text: newRawText, // @deprecated - use rawText instead
       })
       i++
     } else {
