@@ -5529,7 +5529,11 @@ function parseList(
     firstItemContent.trim() === '' &&
     spacesAfterMarkerCount > 0 &&
     spacesAfterMarkerCount < 5
-  if (hasWhitespaceButNoContent && !firstItemHasBlankLine) {
+  // For tight lists (no blank lines), concatenate simple text continuation lines BEFORE building
+  // the item content. This preserves hard line breaks (two trailing spaces before newline)
+  // that would otherwise be lost when first line and continuation are parsed separately.
+  // We only collect lines that are plain text - not block elements like blockquotes, code blocks, etc.
+  if (!firstItemHasBlankLine) {
     var pos = currentPos
     while (pos < source.length) {
       var lineEnd = util.findLineEnd(source, pos)
@@ -5549,6 +5553,21 @@ function parseList(
           baseIndent,
           listItemRegex
         )
+      ) {
+        break
+      }
+      // Check for nested list items
+      if (isLineListItem(lineWithoutIndent) && indentInfo.spaceEquivalent > baseIndent) {
+        break
+      }
+      // Check for block elements - stop collecting text if we hit a block element
+      // Block elements include: blockquote (>), fenced code (``` or ~~~), heading (#)
+      var firstCharTrimmed = lineWithoutIndent.length > 0 ? lineWithoutIndent[0] : ''
+      if (
+        firstCharTrimmed === '>' ||
+        firstCharTrimmed === '#' ||
+        util.startsWith(lineWithoutIndent, '```') ||
+        util.startsWith(lineWithoutIndent, '~~~')
       ) {
         break
       }

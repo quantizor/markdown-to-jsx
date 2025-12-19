@@ -2229,6 +2229,13 @@ describe('line breaks', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`"<p>hello<br/>there</p>"`)
   })
+
+  it('should be added for 2-space sequences inside list items', () => {
+    // Regression test for https://github.com/quantizor/markdown-to-jsx/issues/766
+    render(compiler(['- c  ', '  d'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<ul><li>c<br/>d</li></ul>"`)
+  })
 })
 
 describe('fenced code blocks', () => {
