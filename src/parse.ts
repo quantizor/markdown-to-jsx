@@ -5529,7 +5529,17 @@ function parseList(
     firstItemContent.trim() === '' &&
     spacesAfterMarkerCount > 0 &&
     spacesAfterMarkerCount < 5
-  if (hasWhitespaceButNoContent && !firstItemHasBlankLine) {
+  // For ALL tight lists (no blank lines), concatenate simple text continuation lines BEFORE
+  // building the item content. This is necessary to preserve hard line breaks (two trailing
+  // spaces before newline) that would otherwise be lost when first line and continuation are
+  // parsed separately. The broader condition (not just whitespace-only first lines) is safe
+  // because we stop collecting text when we hit NEW block elements (not continuations of the
+  // same block element), which ensures block-level structures are still parsed correctly.
+  if (!firstItemHasBlankLine) {
+    // Detect if the first line starts a blockquote (to allow continuation lines)
+    var firstLineFirstChar = actualFirstItemContent.length > 0 ? actualFirstItemContent[0] : ''
+    var firstLineStartsBlockQuote = firstLineFirstChar === '>'
+    
     var pos = currentPos
     while (pos < source.length) {
       var lineEnd = util.findLineEnd(source, pos)
@@ -5549,6 +5559,23 @@ function parseList(
           baseIndent,
           listItemRegex
         )
+      ) {
+        break
+      }
+      // Check for nested list items
+      if (isLineListItem(lineWithoutIndent) && indentInfo.spaceEquivalent > baseIndent) {
+        break
+      }
+      // Check for block elements - stop collecting text if we hit a NEW block element
+      // (not a continuation of the same block element started on the first line)
+      var firstChar = lineWithoutIndent.length > 0 ? lineWithoutIndent[0] : ''
+      // Allow blockquote continuation if first line started a blockquote
+      var isBlockQuoteContinuation = firstChar === '>' && firstLineStartsBlockQuote
+      if (
+        (firstChar === '>' && !isBlockQuoteContinuation) ||
+        firstChar === '#' ||
+        util.startsWith(lineWithoutIndent, '```') ||
+        util.startsWith(lineWithoutIndent, '~~~')
       ) {
         break
       }
