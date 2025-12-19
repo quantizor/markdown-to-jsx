@@ -2236,6 +2236,15 @@ describe('line breaks', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`"<ul><li>c<br/>d</li></ul>"`)
   })
+
+  it('should be added for 2-space sequences inside blockquotes in list items', () => {
+    // Additional regression test for blockquotes within list items
+    render(compiler(['- > a  ', '  > b'].join('\n')))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li><blockquote><p>a<br/>b</p></blockquote></li></ul>"`
+    )
+  })
 })
 
 describe('fenced code blocks', () => {

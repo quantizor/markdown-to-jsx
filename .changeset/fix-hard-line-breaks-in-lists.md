@@ -8,4 +8,6 @@ In v9, hard line breaks inside list items were being lost because the first line
 
 The fix ensures that for tight list items (without blank lines), simple text continuation lines are collected and concatenated with the first line content before parsing. This preserves the trailing spaces + newline sequence that triggers hard break detection.
 
+This fix also handles hard line breaks inside blockquotes that are nested within list items, ensuring the blockquote continuation lines are properly collected together.
+
 Fixes #766.
