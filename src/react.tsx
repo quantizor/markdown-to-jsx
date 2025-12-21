@@ -15,8 +15,10 @@ export { sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
-export const MarkdownContext: React.Context<MarkdownToJSX.Options | undefined> =
-  React.createContext<MarkdownToJSX.Options | undefined>(undefined)
+export const MarkdownContext: React.Context<MarkdownToJSX.Options | undefined> | undefined =
+  typeof React.createContext !== 'undefined'
+    ? React.createContext<MarkdownToJSX.Options | undefined>(undefined)
+    : undefined
 
 // Import shared HTML to JSX conversion utilities
 import { htmlAttrsToJSXProps } from './utils'
@@ -821,6 +823,9 @@ export const MarkdownProvider: React.FC<{
   options?: MarkdownToJSX.Options
   children: React.ReactNode
 }> = ({ options, children }) => {
+  if (!MarkdownContext) {
+    return children as React.ReactElement
+  }
   return React.createElement(
     MarkdownContext.Provider,
     { value: options },
@@ -838,8 +843,26 @@ export const Markdown: React.FC<
     options?: MarkdownToJSX.Options
   }
 > = ({ children: rawChildren, options, ...props }) => {
-  const contextOptions = React.useContext(MarkdownContext)
+  const hasHooks = typeof React.useContext !== 'undefined'
 
+  // RSC path: direct execution
+  if (!hasHooks) {
+    const mergedOptions = {
+      ...options,
+      overrides: {
+        ...options?.overrides,
+      },
+      wrapperProps: {
+        ...options?.wrapperProps,
+        ...props,
+      } as React.JSX.IntrinsicAttributes,
+    }
+    const content = rawChildren === null || rawChildren === undefined ? '' : rawChildren
+    return compiler(content, mergedOptions) as React.ReactElement
+  }
+
+  // Client path: existing hook-based implementation
+  const contextOptions = React.useContext(MarkdownContext!)
   const mergedOptions = React.useMemo(
     () => ({
       ...contextOptions,

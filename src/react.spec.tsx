@@ -3439,7 +3439,7 @@ describe('MarkdownProvider and MarkdownContext', () => {
       wrapper: 'section',
     }
     const componentOptions = {
-      wrapper: 'article',
+      wrapper: 'article' as const,
     }
 
     render(
