@@ -25,6 +25,7 @@ Some special features of the library:
   - [Entry Points](#entry-points)
     - [Main](#main)
     - [React](#react)
+      - [React Server Components (RSC)](#react-server-components-rsc)
     - [React Native](#react-native)
     - [SolidJS](#solidjs)
     - [Vue.js](#vuejs)
@@ -212,6 +213,40 @@ function App() {
 const ast = parser('# Hello world')
 const jsxElement2 = astToJSX(ast)
 ```
+
+##### React Server Components (RSC)
+
+The `Markdown` component automatically detects whether it's running in a React Server Component (RSC) or client environment and adapts accordingly. No 'use client' directive is required.
+
+**Server Component (RSC) usage:**
+
+```tsx
+// Server Component - works automatically
+import Markdown from 'markdown-to-jsx/react'
+
+export default async function Page() {
+  const content = await fetchMarkdownContent()
+  return <Markdown>{content}</Markdown>
+}
+```
+
+**Client Component usage:**
+
+```tsx
+// Client Component - also works automatically
+'use client'
+import Markdown from 'markdown-to-jsx/react'
+
+export function ClientMarkdown({ content }: { content: string }) {
+  return <Markdown>{content}</Markdown>
+}
+```
+
+**Notes:**
+- `MarkdownProvider` and `MarkdownContext` are client-only and become no-ops in RSC environments
+- RSC rendering provides better performance by avoiding client-side hydration
+- The component maintains identical output in both environments
+- No migration needed for existing code
 
 #### React Native
 
