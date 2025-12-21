@@ -1,5 +1,32 @@
 # markdown-to-jsx
 
+## 9.5.0
+
+### Minor Changes
+
+- 7605d88: Add React Server Components (RSC) support with automatic environment detection.
+
+  The `Markdown` component now seamlessly works in both RSC and client-side React environments without requiring 'use client' directives. The component automatically detects hook availability and adapts its behavior accordingly:
+  - In RSC environments: Uses direct compilation without hooks for optimal server performance
+  - In client environments: Uses hooks and memoization for optimal client performance
+  - `MarkdownProvider` and `MarkdownContext` gracefully become no-ops in RSC environments
+  - Maintains identical output and API in both contexts
+  - Zero breaking changes for existing users
+
+  This enables better bundle splitting and SSR performance by allowing markdown rendering to happen on the server when possible.
+
+### Patch Changes
+
+- d2075d2: Fix hard line breaks (two trailing spaces) inside list items not being converted to `<br/>`.
+
+  In v9, hard line breaks inside list items were being lost because the first line content and continuation lines were being parsed separately, causing the trailing spaces before the newline to be stripped before the hard break could be detected.
+
+  The fix ensures that for tight list items (without blank lines), simple text continuation lines are collected and concatenated with the first line content before parsing. This preserves the trailing spaces + newline sequence that triggers hard break detection.
+
+  This fix also handles hard line breaks inside blockquotes that are nested within list items, ensuring the blockquote continuation lines are properly collected together.
+
+  Fixes #766.
+
 ## 9.4.2
 
 ### Patch Changes
