@@ -1,0 +1,22 @@
+---
+globs: src/i18n/zh/**
+alwaysApply: false
+---
+
+Simplified Chinese (普通话) for technical documentation
+JSDoc multilingual format: English baseline, then @lang zh lines
+Technical terms: include English in parentheses on first use: 解析器 (Parser), 编译器 (Compiler), 抽象语法树 (AST)
+No parentheses for established terms in subsequent uses
+
+Term translations:
+Parser=解析器, Compiler=编译器, AST=抽象语法树, Options=选项, Returns=返回, Param=参数, Override=覆盖, Sanitize=清理, Sanitizer=清理函数, Slugify=转换为别名, Entry Point=入口点, Wrapper=包装器, Props=属性, Component=组件, Node=节点, Block=块, Inline=内联, Link=链接, Image=图像, Header/Heading=标题, List=列表, Table=表格, Code Block=代码块, Quote=引用, Paragraph=段落, Text=文本, Attribute=属性, Tag=标签, Element=元素, String=字符串, Function=函数, Boolean=布尔值, Array=数组, Object=对象, Deprecated=已弃用, Breaking Changes=破坏性变更, Migration=迁移, Install=安装, Usage=用法, Example=示例, Note=注意, Warning=警告, Tip=提示, Important=重要, Caution=小心, Alert=警报/提示, Reference=引用, Definition=定义, Frontmatter=前置元数据, Footnote=脚注, Rendering=渲染, Parsing=解析, Output=输出, Input=输入, Rule=规则, Type=类型, Spec=规范, Syntax=语法, Content=内容, Value=值, Expression=表达式, Security=安全, XSS=XSS, Safe=安全, Unsafe=不安全, Filter=过滤, Escape=转义, Entity=实体, Character=字符, Unicode=Unicode, Regex=正则表达式, Match=匹配, Pattern=模式
+
+Alert types: NOTE=注意, TIP=提示, IMPORTANT=重要, WARNING=警告, CAUTION=小心
+
+Section headers: dual-language format with English in parentheses: "安装 (Installation)", "用法 (Usage)"
+UI strings localized per src/i18n/ui-strings.ts conventions
+Formal written style, active voice
+@param and @returns in JSDoc use Chinese for descriptions, English for types
+Maintain parallel structure with English version
+Keep technical accuracy, avoid over-localization of domain-specific terms
+Table of contents links: preserve URL encoding with Chinese text
