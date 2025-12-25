@@ -214,6 +214,8 @@
     "analyze": "bun scripts/analyze-patterns.ts",
     "bench:all": "bun scripts/benchmark.ts --all",
     "bench:jsx": "bun scripts/benchmark.ts --jsx",
-    "changeset-publish": "bun run build && changeset publish"
+    "changeset-publish": "bun run build && changeset publish",
+    "validate-i18n": "bun run scripts/validate-i18n.ts",
+    "prebuild-site": "bun run validate-i18n"
   }
 }
