@@ -1964,13 +1964,13 @@ describe('Unserializable expression evaluation', () => {
           ],
           "endPos": 51,
           "rawAttrs": "",
-          "rawText":
+          "rawText": 
         "body { color: red; }
 
         /* Comment */</style>"
         ,
           "tag": "style",
-          "text":
+          "text": 
         "body { color: red; }
 
         /* Comment */</style>"
@@ -1978,7 +1978,7 @@ describe('Unserializable expression evaluation', () => {
           "type": "htmlBlock",
           "verbatim": true,
         }
-        `)
+      `)
     })
 
     it('should parse markdown in Type 6 div tags ending with blank lines into children even when verbatim', () => {
