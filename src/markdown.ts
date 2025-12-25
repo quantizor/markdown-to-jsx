@@ -5,6 +5,11 @@ import { parser } from './parse'
 export { parser } from './parse'
 export { RuleType, type MarkdownToJSX } from './types'
 
+/**
+ * Override configuration for HTML tags or custom components in Markdown output
+ * @lang zh Markdown 输出中 HTML 标签或自定义组件的覆盖配置
+ * @lang hi Markdown आउटपुट में HTML टैग्स या कस्टम कंपोनेंट्स के लिए ओवरराइड कॉन्फ़िगरेशन
+ */
 export type MarkdownOverride =
   | {
       component?: string
@@ -12,6 +17,11 @@ export type MarkdownOverride =
     }
   | string
 
+/**
+ * Map of HTML tags and custom components to their override configurations
+ * @lang zh HTML 标签和自定义组件到其覆盖配置的映射
+ * @lang hi HTML टैग्स और कस्टम कंपोनेंट्स से उनकी ओवरराइड कॉन्फ़िगरेशन का मैप
+ */
 export type MarkdownOverrides = {
   [tag in MarkdownToJSX.HTMLTags]?: MarkdownOverride
 } & {
@@ -21,6 +31,10 @@ export type MarkdownOverrides = {
 /**
  * Markdown-specific compiler options that extend the main MarkdownToJSX options
  * Excludes React/HTML-specific options (createElement, wrapper, wrapperProps, forceWrapper)
+ * @lang zh 扩展主 MarkdownToJSX 选项的 Markdown 特定编译器选项
+ * 排除 React/HTML 特定选项（createElement、wrapper、wrapperProps、forceWrapper）
+ * @lang hi मुख्य MarkdownToJSX विकल्पों को विस्तारित करने वाले Markdown-विशिष्ट कंपाइलर विकल्प
+ * React/HTML-विशिष्ट विकल्पों को बाहर करता है (createElement, wrapper, wrapperProps, forceWrapper)
  */
 export type MarkdownCompilerOptions = Omit<
   MarkdownToJSX.Options,
@@ -28,12 +42,16 @@ export type MarkdownCompilerOptions = Omit<
 > & {
   /**
    * Whether to use reference-style links instead of inline links
+   * @lang zh 是否使用引用式链接而不是内联链接
+   * @lang hi क्या इनलाइन लिंक्स के बजाय संदर्भ-शैली लिंक्स का उपयोग करना है
    * @default false
    */
   useReferenceLinks?: boolean
 
   /**
    * Whether to use setext-style headers for level 1 and 2 headers
+   * @lang zh 是否对级别 1 和 2 的标题使用 setext 风格的标题
+   * @lang hi क्या स्तर 1 और 2 हेडर के लिए setext-शैली हेडर का उपयोग करना है
    * @default false
    */
   useSetextHeaders?: boolean
@@ -41,6 +59,9 @@ export type MarkdownCompilerOptions = Omit<
   /**
    * Allows for full control over rendering of particular rules.
    * Returns a markdown string instead of JSX.
+   * @lang zh 允许完全控制特定规则的渲染。返回 Markdown 字符串而不是 JSX。
+   * @lang hi विशिष्ट नियमों के रेंडरिंग पर पूर्ण नियंत्रण की अनुमति देता है।
+   * JSX के बजाय Markdown स्ट्रिंग रिटर्न करता है।
    */
   renderRule?: (
     next: () => string,
@@ -52,6 +73,9 @@ export type MarkdownCompilerOptions = Omit<
   /**
    * Override HTML tag names and add attributes for HTML blocks and self-closing tags.
    * Output is markdown string (HTML tags in markdown).
+   * @lang zh 覆盖 HTML 标签名称并为 HTML 块和自闭合标签添加属性。输出是 Markdown 字符串（Markdown 中的 HTML 标签）。
+   * @lang hi HTML ब्लॉक्स और स्व-बंद होने वाले टैग्स के लिए HTML टैग नामों को ओवरराइड करें और एट्रिब्यूट्स जोड़ें।
+   * आउटपुट Markdown स्ट्रिंग है (Markdown में HTML टैग्स)।
    */
   overrides?: MarkdownOverrides
 }
@@ -59,6 +83,20 @@ export type MarkdownCompilerOptions = Omit<
 /**
  * Compiler function that parses markdown and renders to markdown string
  * Convenience function that combines parser() and astToMarkdown()
+ * @lang zh 解析 Markdown 并渲染为 Markdown 字符串的编译器函数
+ * 结合 parser() 和 astToMarkdown() 的便捷函数
+ * @lang hi Markdown को पार्स करने और Markdown स्ट्रिंग में रेंडर करने वाला कंपाइलर फ़ंक्शन
+ * parser() और astToMarkdown() को जोड़ने वाला सुविधाजनक फ़ंक्शन
+ *
+ * @param input - Markdown string to compile
+ * @lang zh @param input - 要编译的 Markdown 字符串
+ * @lang hi @param input - कंपाइल करने के लिए Markdown स्ट्रिंग
+ * @param options - Markdown compiler options
+ * @lang zh @param options - Markdown 编译器选项
+ * @lang hi @param options - Markdown कंपाइलर विकल्प
+ * @returns Normalized markdown string
+ * @lang zh @returns 规范化的 Markdown 字符串
+ * @lang hi @returns सामान्यीकृत Markdown स्ट्रिंग
  */
 export function compiler(
   input: string,
@@ -68,6 +106,21 @@ export function compiler(
   return astToMarkdown(ast, options)
 }
 
+/**
+ * Convert AST nodes to markdown string
+ * @lang zh 将 AST 节点转换为 Markdown 字符串
+ * @lang hi AST नोड्स को Markdown स्ट्रिंग में बदलें
+ *
+ * @param ast - AST node(s) to render
+ * @lang zh @param ast - 要渲染的 AST 节点
+ * @lang hi @param ast - रेंडर करने के लिए AST नोड(s)
+ * @param options - Markdown compiler options
+ * @lang zh @param options - Markdown 编译器选项
+ * @lang hi @param options - Markdown कंपाइलर विकल्प
+ * @returns Markdown string
+ * @lang zh @returns Markdown 字符串
+ * @lang hi @returns Markdown स्ट्रिंग
+ */
 export function astToMarkdown(
   ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
   options?: MarkdownCompilerOptions

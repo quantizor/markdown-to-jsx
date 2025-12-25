@@ -21,9 +21,19 @@ export { sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
+/**
+ * React context for sharing compiler options across Markdown components in React Native
+ * @lang zh 用于在 React Native 的 Markdown 组件之间共享编译器选项的 React 上下文
+ * @lang hi React Native में Markdown कंपोनेंट्स के बीच कंपाइलर विकल्प साझा करने के लिए React संदर्भ
+ */
 export const MarkdownContext: React.Context<NativeOptions | undefined> =
   React.createContext<NativeOptions | undefined>(undefined)
 
+/**
+ * Style keys for React Native components
+ * @lang zh React Native 组件的样式键
+ * @lang hi React Native कंपोनेंट्स के लिए स्टाइल कुंजियाँ
+ */
 export type NativeStyleKey =
   | 'text'
   | 'paragraph'
@@ -70,12 +80,29 @@ export type NativeStyleKey =
   | 'th'
   | 'td'
 
+/**
+ * React Native compiler options
+ * @lang zh React Native 编译器选项
+ * @lang hi React Native कंपाइलर विकल्प
+ */
 export type NativeOptions = Omit<MarkdownToJSX.Options, 'wrapperProps'> & {
+  /** Handler for link press events */
+  /** @lang zh 链接按下事件的处理程序 */
+  /** @lang hi लिंक प्रेस इवेंट्स के लिए हैंडलर */
   onLinkPress?: (url: string, title?: string) => void
+  /** Handler for link long press events */
+  /** @lang zh 链接长按事件的处理程序 */
+  /** @lang hi लिंक लॉन्ग प्रेस इवेंट्स के लिए हैंडलर */
   onLinkLongPress?: (url: string, title?: string) => void
+  /** Style overrides for React Native components */
+  /** @lang zh React Native 组件的样式覆盖 */
+  /** @lang hi React Native कंपोनेंट्स के लिए स्टाइल ओवरराइड्स */
   styles?: Partial<
     Record<NativeStyleKey, StyleProp<ViewStyle | TextStyle | ImageStyle>>
   >
+  /** Props for wrapper component (View or Text) */
+  /** @lang zh 包装组件的属性（View 或 Text） */
+  /** @lang hi रैपर कंपोनेंट के लिए props (View या Text) */
   wrapperProps?: ViewProps | TextProps
 }
 
@@ -661,6 +688,21 @@ const mapHTMLTagToNativeComponent = (tag: string): React.ElementType => {
   return Text
 }
 
+/**
+ * Convert AST nodes to React Native elements
+ * @lang zh 将 AST 节点转换为 React Native 元素
+ * @lang hi AST नोड्स को React Native एलिमेंट्स में बदलें
+ *
+ * @param ast - Array of AST nodes to render
+ * @lang zh @param ast - 要渲染的 AST 节点数组
+ * @lang hi @param ast - रेंडर करने के लिए AST नोड्स की सरणी
+ * @param options - React Native compiler options
+ * @lang zh @param options - React Native 编译器选项
+ * @lang hi @param options - React Native कंपाइलर विकल्प
+ * @returns React Native element(s)
+ * @lang zh @returns React Native 元素
+ * @lang hi @returns React Native एलिमेंट(s)
+ */
 export function astToNative(
   ast: MarkdownToJSX.ASTNode[],
   options?: NativeOptions
@@ -808,6 +850,21 @@ export function astToNative(
   ) as React.ReactNode
 }
 
+/**
+ * Compile markdown string to React Native elements
+ * @lang zh 将 Markdown 字符串编译为 React Native 元素
+ * @lang hi Markdown स्ट्रिंग को React Native एलिमेंट्स में कंपाइल करें
+ *
+ * @param markdown - Markdown string to compile
+ * @lang zh @param markdown - 要编译的 Markdown 字符串
+ * @lang hi @param markdown - कंपाइल करने के लिए Markdown स्ट्रिंग
+ * @param options - React Native compiler options
+ * @lang zh @param options - React Native 编译器选项
+ * @lang hi @param options - React Native कंपाइलर विकल्प
+ * @returns React Native element(s)
+ * @lang zh @returns React Native 元素
+ * @lang hi @returns React Native एलिमेंट(s)
+ */
 export function compiler(
   markdown: string = '',
   options: NativeOptions = {}
@@ -886,6 +943,18 @@ export function compiler(
   return jsx
 }
 
+/**
+ * React context provider for sharing compiler options across Markdown components in React Native
+ * @lang zh 用于在 React Native 的 Markdown 组件之间共享编译器选项的 React 上下文提供者
+ * @lang hi React Native में Markdown कंपोनेंट्स के बीच कंपाइलर विकल्प साझा करने के लिए React संदर्भ प्रदाता
+ *
+ * @param options - Default compiler options to share
+ * @lang zh @param options - 要共享的默认编译器选项
+ * @lang hi @param options - साझा करने के लिए डिफ़ॉल्ट कंपाइलर विकल्प
+ * @param children - React children
+ * @lang zh @param children - React 子元素
+ * @lang hi @param children - React चाइल्ड एलिमेंट्स
+ */
 export const MarkdownProvider: React.FC<{
   options?: NativeOptions
   children: React.ReactNode
@@ -897,6 +966,22 @@ export const MarkdownProvider: React.FC<{
   )
 }
 
+/**
+ * A React Native component for easy markdown rendering. Feed the markdown content as a direct child
+ * and the rest is taken care of automatically. Supports memoization for optimal performance.
+ * @lang zh 用于轻松渲染 Markdown 的 React Native 组件。将 Markdown 内容作为直接子元素提供，其余部分会自动处理。支持记忆化以获得最佳性能。
+ * @lang hi आसान markdown रेंडरिंग के लिए एक React Native कंपोनेंट। markdown सामग्री को सीधे चाइल्ड के रूप में प्रदान करें और बाकी स्वचालित रूप से संभाला जाता है। इष्टतम प्रदर्शन के लिए मेमोइज़ेशन का समर्थन करता है।
+ *
+ * @param children - Markdown string content
+ * @lang zh @param children - Markdown 字符串内容
+ * @lang hi @param children - Markdown स्ट्रिंग सामग्री
+ * @param options - Compiler options
+ * @lang zh @param options - 编译器选项
+ * @lang hi @param options - कंपाइलर विकल्प
+ * @param props - Additional View props
+ * @lang zh @param props - 额外的 View 属性
+ * @lang hi @param props - अतिरिक्त View props
+ */
 export const Markdown: React.FC<
   Omit<ViewProps, 'children'> & {
     children?: string | null

@@ -5537,9 +5537,10 @@ function parseList(
   // same block element), which ensures block-level structures are still parsed correctly.
   if (!firstItemHasBlankLine) {
     // Detect if the first line starts a blockquote (to allow continuation lines)
-    var firstLineFirstChar = actualFirstItemContent.length > 0 ? actualFirstItemContent[0] : ''
+    var firstLineFirstChar =
+      actualFirstItemContent.length > 0 ? actualFirstItemContent[0] : ''
     var firstLineStartsBlockQuote = firstLineFirstChar === '>'
-    
+
     var pos = currentPos
     while (pos < source.length) {
       var lineEnd = util.findLineEnd(source, pos)
@@ -5563,14 +5564,18 @@ function parseList(
         break
       }
       // Check for nested list items
-      if (isLineListItem(lineWithoutIndent) && indentInfo.spaceEquivalent > baseIndent) {
+      if (
+        isLineListItem(lineWithoutIndent) &&
+        indentInfo.spaceEquivalent > baseIndent
+      ) {
         break
       }
       // Check for block elements - stop collecting text if we hit a NEW block element
       // (not a continuation of the same block element started on the first line)
       var firstChar = lineWithoutIndent.length > 0 ? lineWithoutIndent[0] : ''
       // Allow blockquote continuation if first line started a blockquote
-      var isBlockQuoteContinuation = firstChar === '>' && firstLineStartsBlockQuote
+      var isBlockQuoteContinuation =
+        firstChar === '>' && firstLineStartsBlockQuote
       if (
         (firstChar === '>' && !isBlockQuoteContinuation) ||
         firstChar === '#' ||
@@ -9568,6 +9573,14 @@ export function parseMarkdown(
   return result
 }
 
+/**
+ * Collect reference definitions from markdown input and populate the refs object.
+ * This function scans the markdown for reference-style link and image definitions.
+ *
+ * @param input - The markdown string to scan
+ * @param refs - Object to populate with reference definitions
+ * @param options - Parser options
+ */
 export function collectReferenceDefinitions(
   input: string,
   refs: { [key: string]: { target: string; title: string | undefined } },
@@ -9723,9 +9736,22 @@ export function collectReferenceDefinitions(
  * reference definitions found in the markdown. These reference definitions are used to
  * resolve reference links and images in the markdown.
  *
+ * @lang zh 给定一个 Markdown 字符串，返回 Markdown 的抽象语法树 (AST)。
+ *
+ * AST 中的第一个节点是引用集合节点。此节点包含在 Markdown 中找到的所有引用定义。这些引用定义用于解析 Markdown 中的引用链接和图像。
+ * @lang hi एक Markdown स्ट्रिंग दी गई है, Markdown का अमूर्त सिंटैक्स ट्री (AST) लौटाता है।
+ *
+ * AST में पहला नोड संदर्भ संग्रह नोड है। यह नोड Markdown में पाई गई सभी संदर्भ परिभाषाएं शामिल करता है। ये संदर्भ परिभाषाएं Markdown में संदर्भ लिंक्स और छवियों को पार्स करने के लिए उपयोग की जाती हैं।
+ *
  * @param source - The markdown string to parse.
+ * @lang zh @param source - 要解析的 Markdown 字符串。
+ * @lang hi @param source - पार्स करने के लिए Markdown स्ट्रिंग।
  * @param options - The options for the parser.
+ * @lang zh @param options - 解析器的选项。
+ * @lang hi @param options - पार्सर के लिए विकल्प।
  * @returns The AST of the markdown.
+ * @lang zh @returns Markdown 的 AST。
+ * @lang hi @returns Markdown का AST।
  */
 export function parser(
   source: string,
