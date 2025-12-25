@@ -3,10 +3,11 @@ import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 
 import Markdown, { MarkdownToJSX, RuleType } from './src/react'
-import { LavaLamp } from './src/site/lava-lamp'
 import { presets, type Preset } from './src/site/presets'
-// @ts-ignore
-import readmeContentRaw from './README.md?raw'
+import { LANGUAGES, SUPPORTED_LANGUAGES } from './src/i18n/languages'
+import { UI_STRINGS } from './src/i18n/ui-strings'
+
+const LavaLamp = React.lazy(() => import('./src/site/lava-lamp').then(m => ({ default: m.LavaLamp })))
 
 declare global {
   interface Window {
@@ -16,6 +17,19 @@ declare global {
   }
 
   const VERSION: string
+}
+
+const detectLanguage = (): string => {
+  if (typeof window === 'undefined') return 'en'
+  const urlParams = new URLSearchParams(window.location.search)
+  const langParam = urlParams.get('lang')
+  if (langParam && SUPPORTED_LANGUAGES.includes(langParam)) return langParam
+
+  const stored = localStorage.getItem('markdown-to-jsx-lang')
+  if (stored && SUPPORTED_LANGUAGES.includes(stored)) return stored
+
+  const browserLang = (navigator.language || navigator.languages?.[0])?.split('-')[0]
+  return SUPPORTED_LANGUAGES.includes(browserLang) ? browserLang : 'en'
 }
 
 function SyntaxHighlightedCode(props: any) {
@@ -34,13 +48,14 @@ function SyntaxHighlightedCode(props: any) {
   return <code {...props} ref={ref} />
 }
 
-function MyComponent(props: any) {
+function MyComponent({ lang, ...props }: any) {
+  const t = (key: string) => UI_STRINGS[lang]?.[key] || UI_STRINGS.en[key]
   return (
     <button
       {...props}
       className="px-3 py-1 rounded bg-accent/50 border border-accent/50 text-white cursor-pointer transition-colors hover:bg-accent active:bg-accent/80"
       onClick={() => {
-        alert("Look ma, I'm a real component!")
+        alert(t('demoAlert'))
       }}
     />
   )
@@ -52,42 +67,26 @@ const gradient =
 const buttonBase =
   'font-semibold rounded-lg text-black hover:bg-none hover:animate-none hover:bg-accent'
 
-const options = {
-  overrides: {
-    code: SyntaxHighlightedCode,
-    MyComponent: {
-      component: MyComponent,
-    },
-  },
-  renderRule(defaultOutput, node, renderChildren, state) {
-    if (node.type === RuleType.codeBlock) {
-      if (node.lang === 'latex') {
-        return (
-          <TeX as="div" key={state.key} style={{ margin: '1.5em 0' }}>
-            {String.raw`${node.text}`}
-          </TeX>
-        )
-      }
-    }
-
-    return defaultOutput()
-  },
-} as MarkdownToJSX.Options
-
 function PresetSelector({
   onSelect,
   selectedId,
+  lang,
 }: {
   onSelect: (id: string) => void
   selectedId: string | null
+  lang: string
 }) {
   const [loading, setLoading] = React.useState<string | null>(null)
+  const t = React.useCallback(
+    (key: string) => UI_STRINGS[lang]?.[key] || UI_STRINGS.en[key],
+    [lang]
+  )
 
   const handleSelect = React.useCallback(
     async (preset: Preset) => {
       setLoading(preset.id)
       try {
-        const content = await preset.load()
+        const content = await preset.load(lang)
         onSelect(preset.id)
         window.dispatchEvent(
           new CustomEvent('preset-loaded', { detail: content })
@@ -98,12 +97,12 @@ function PresetSelector({
         setLoading(null)
       }
     },
-    [onSelect]
+    [onSelect, lang]
   )
 
   return (
     <div className="hidden md:flex flex-wrap gap-2 justify-center mb-6 text-sm items-center">
-      Other examples →
+      {t('otherExamples')} →
       <div className="flex flex-wrap gap-2">
         {presets.map(preset => (
           <button
@@ -116,7 +115,7 @@ function PresetSelector({
                 : 'from-0% from-accent to-100% to-green-300 bg-linear-120/increasing bg-size-[200%_200%] animate-gradient'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            {loading === preset.id ? 'Loading...' : preset.name}
+            {loading === preset.id ? t('loading') : t(preset.nameKey)}
           </button>
         ))}
       </div>
@@ -161,14 +160,120 @@ function FloatingText({ text }: { text: string }) {
   return <>{letters}</>
 }
 
-function TryItLive() {
-  const [markdown, setMarkdown] = React.useState(
-    document.getElementById('sample-content')?.textContent?.trim() || ''
+function LanguageSwitcher({
+  lang,
+  onChange,
+}: {
+  lang: string
+  onChange: (lang: string) => void
+}) {
+  const displayNames = React.useMemo(() => {
+    try {
+      return new Intl.DisplayNames([lang], { type: 'language' })
+    } catch {
+      return null
+    }
+  }, [lang])
+
+  return (
+    <div className="flex gap-4 items-center">
+      {SUPPORTED_LANGUAGES.map(code => (
+        <button
+          key={code}
+          onClick={() => onChange(code)}
+          className={`text-xs transition-colors cursor-pointer ${
+            lang === code ? 'text-accent font-bold' : 'text-fg/60 hover:text-fg'
+          }`}
+        >
+          {LANGUAGES[code].nativeName}
+        </button>
+      ))}
+    </div>
   )
+}
+
+function TryItLive() {
+  const [lang, setLang] = React.useState(detectLanguage)
+  const [markdown, setMarkdown] = React.useState('')
   const [selectedPresetId, setSelectedPresetId] = React.useState<string | null>(
     null
   )
-  const readmeContent = readmeContentRaw
+  const [readmeContent, setReadmeContent] = React.useState('')
+
+  const options = React.useMemo(
+    () =>
+      ({
+        overrides: {
+          code: SyntaxHighlightedCode,
+          MyComponent: {
+            component: MyComponent,
+            props: { lang },
+          },
+        },
+        renderRule(defaultOutput, node, renderChildren, state) {
+          if (node.type === RuleType.codeBlock) {
+            if (node.lang === 'latex') {
+              return (
+                <TeX as="div" key={state.key} style={{ margin: '1.5em 0' }}>
+                  {String.raw`${node.text}`}
+                </TeX>
+              )
+            }
+          }
+
+          return defaultOutput()
+        },
+      }) as MarkdownToJSX.Options,
+    [lang]
+  )
+
+  const t = React.useCallback(
+    (key: string) => UI_STRINGS[lang]?.[key] || UI_STRINGS.en[key],
+    [lang]
+  )
+
+  React.useLayoutEffect(() => {
+    document.documentElement.lang = lang
+    const title = lang === 'en' ? 'markdown-to-jsx' : `markdown-to-jsx | ${LANGUAGES[lang].nativeName}`
+    document.title = title
+  }, [lang])
+
+  React.useEffect(() => {
+    const loadDefaultTemplate = async () => {
+      try {
+        const module = await import(`./src/i18n/${lang}/default-template.md?raw`)
+        setMarkdown(module.default)
+      } catch (error) {
+        // Fallback to English
+        const module = await import(`./src/i18n/en/default-template.md?raw`)
+        setMarkdown(module.default)
+      }
+    }
+    loadDefaultTemplate()
+  }, [lang])
+
+  React.useEffect(() => {
+    const loadReadme = async () => {
+      try {
+        const module = await import(`./src/i18n/${lang}/README.md?raw`)
+        setReadmeContent(module.default)
+      } catch (error) {
+        // Fallback to English
+        const module = await import(`./src/i18n/en/README.md?raw`)
+        setReadmeContent(module.default)
+      }
+    }
+    loadReadme()
+  }, [lang])
+
+  const handleLangChange = (newLang: string) => {
+    setLang(newLang)
+    localStorage.setItem('markdown-to-jsx-lang', newLang)
+    // Update URL without reload
+    const url = new URL(window.location.href)
+    url.searchParams.set('lang', newLang)
+    window.history.pushState({}, '', url)
+  }
 
   React.useEffect(() => {
     const handler = (e: Event) => {
@@ -208,17 +313,15 @@ function TryItLive() {
             </span>
           </h1>
           <p className="text-lg text-fg/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)] max-w-3xl mx-auto leading-relaxed">
-            A fast and versatile markdown toolchain, 100% GFM-CommonMark
-            compliant. AST, React, React Native, SolidJS, Vue, Markdown, HTML,
-            and round-trip Markdown output.
+            {t('siteDesc')}
           </p>
 
-          <div className="flex gap-2 justify-center">
+          <div className="flex gap-4 justify-center items-center">
             <a
               className={`hidden md:inline-block no-underline py-1 px-3 backdrop-blur-xs rounded-xl text-sm ${gradient}`}
               href="#docs"
             >
-              Jump to docs
+              {t('jumpToDocs')}
             </a>
             <a
               className={`no-underline  py-1 px-3 backdrop-blur-xs rounded-xl text-sm bg-[#2b3137] hover:bg-accent transition-colors`}
@@ -230,18 +333,21 @@ function TryItLive() {
                 className="h-4 inline-block align-middle -translate-y-0.25"
               />
             </a>
+            <LanguageSwitcher lang={lang} onChange={handleLangChange} />
           </div>
         </div>
       </header>
 
       {/* Full screen lava lamp background */}
-      <LavaLamp className="w-full h-full" />
+      <React.Suspense fallback={null}>
+        <LavaLamp className="w-full h-full" />
+      </React.Suspense>
 
       {/* Editor and Preview positioned over canvas */}
       <section className="hidden md:flex justify-center gap-0 w-[95%] items-start min-h-[400px] max-h-[80vh]">
-        <div className="flex-1 flex flex-col gap-6 max-w-2xl self-stretch">
+        <div className="w-1/2 flex flex-col gap-6 self-stretch">
           <div className="text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.25 pb-1 rounded-xl leading-none self-center sticky top-2 z-10">
-            Input
+            {t('input')}
           </div>
           <textarea
             onInput={e => setMarkdown(e.currentTarget.value)}
@@ -250,9 +356,9 @@ function TryItLive() {
           />
         </div>
 
-        <div className="flex-1 flex flex-col gap-6 max-w-2xl self-stretch">
+        <div className="w-1/2 flex flex-col gap-6 self-stretch">
           <div className="text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.25 pb-1 rounded-xl leading-none self-center w-auto sticky top-2 z-10">
-            Output
+            {t('output')}
           </div>
           <div className="prose prose-invert prose-sm p-4 backdrop-blur-md rounded-r-2xl border-2 border-accent/20 border-l-0 h-full overflow-auto w-full max-w-none">
             <Markdown options={options}>{markdown}</Markdown>
@@ -263,15 +369,28 @@ function TryItLive() {
       <PresetSelector
         onSelect={setSelectedPresetId}
         selectedId={selectedPresetId}
+        lang={lang}
       />
 
-      <Markdown
-        className="max-w-full lg:max-w-2xl prose prose-invert prose-sm center"
-        id="docs"
-        options={options}
-      >
-        {readmeContent}
-      </Markdown>
+      <div className="relative group max-w-full lg:max-w-2xl w-full">
+        {lang !== 'en' && (
+          <a
+            href={`https://github.com/quantizor/markdown-to-jsx/edit/main/src/i18n/${lang}/README.md`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute -top-8 right-0 text-[10px] text-accent/50 hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity no-underline"
+          >
+            {t('editTranslation')}
+          </a>
+        )}
+        <Markdown
+          className="prose prose-invert prose-sm center"
+          id="docs"
+          options={options}
+        >
+          {readmeContent}
+        </Markdown>
+      </div>
     </main>
   )
 }

@@ -703,39 +703,39 @@ export function LavaLamp({ className }: { className?: string }) {
             return
           }
 
-          device.queue.writeBuffer(uniformBuffer, 0, uValues)
+          try {
+            device.queue.writeBuffer(uniformBuffer, 0, uValues)
 
-          const commandEncoder = device.createCommandEncoder()
+            const commandEncoder = device.createCommandEncoder()
 
-          const passEncoder = commandEncoder.beginComputePass()
-          passEncoder.setPipeline(computePipeline)
-          passEncoder.setBindGroup(0, bindGroup)
-          passEncoder.dispatchWorkgroups(Math.ceil(numParticles / 64))
-          passEncoder.end()
+            const passEncoder = commandEncoder.beginComputePass()
+            passEncoder.setPipeline(computePipeline)
+            passEncoder.setBindGroup(0, bindGroup)
+            passEncoder.dispatchWorkgroups(Math.ceil(numParticles / 64))
+            passEncoder.end()
 
-          const renderPass = commandEncoder.beginRenderPass({
-            colorAttachments: [
-              {
-                view: context.getCurrentTexture().createView(),
-                clearValue: { r: 0, g: 0, b: 0, a: 1 },
-                loadOp: 'clear',
-                storeOp: 'store',
-              },
-            ],
-          })
-          renderPass.setPipeline(renderPipeline)
-          renderPass.setBindGroup(0, bindGroup)
-          renderPass.draw(6)
-          renderPass.end()
+            const renderPass = commandEncoder.beginRenderPass({
+              colorAttachments: [
+                {
+                  view: context.getCurrentTexture().createView(),
+                  clearValue: { r: 0, g: 0, b: 0, a: 1 },
+                  loadOp: 'clear',
+                  storeOp: 'store',
+                },
+              ],
+            })
+            renderPass.setPipeline(renderPipeline)
+            renderPass.setBindGroup(0, bindGroup)
+            renderPass.draw(6)
+            renderPass.end()
 
-          device.queue.submit([commandEncoder.finish()])
+            device.queue.submit([commandEncoder.finish()])
+          } catch (err) {
+            console.warn('Lava lamp render error:', err)
+          }
 
           const now = Date.now()
-          if (now - lastSaveTime > 100 && stagingBuffer) {
-            if (isSaving) {
-              lastSaveTime = now
-              return
-            }
+          if (now - lastSaveTime > 100 && stagingBuffer && !isSaving) {
             lastSaveTime = now
             isSaving = true
             device.queue
@@ -798,12 +798,14 @@ export function LavaLamp({ className }: { className?: string }) {
                         isSaving = false
                       }
                     })
-                    .catch(() => {
+                    .catch(err => {
+                      console.warn('Lava lamp save mapAsync failed:', err)
                       isSaving = false
                     })
                 })
               })
-              .catch(() => {
+              .catch(err => {
+                console.warn('Lava lamp save failed:', err)
                 isSaving = false
               })
           }
