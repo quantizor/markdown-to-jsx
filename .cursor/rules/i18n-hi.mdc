@@ -1,0 +1,28 @@
+---
+globs: src/i18n/hi/**
+alwaysApply: false
+---
+
+Modern Standard Hindi (मानक हिन्दी) for technical documentation
+Formal register using आप pronoun throughout
+JSDoc multilingual format: English baseline, then @lang hi lines
+Technical terms: include English in parentheses on first use: पार्सर (Parser), कंपाइलर (Compiler), एब्स्ट्रैक्ट सिंटैक्स ट्री (AST)
+No parentheses for established terms in subsequent uses
+
+Term translations:
+Parser=पार्सर, Compiler=कंपाइलर, AST=एब्स्ट्रैक्ट सिंटैक्स ट्री, Options=विकल्प, Returns=रिटर्न करता है/रिटर्न, Param=पैरामीटर, Override=ओवरराइड, Sanitize=सैनिटाइज़/साफ करें, Sanitizer=सैनिटाइज़र फ़ंक्शन, Slugify=स्लगिफ़ाई/URL-सुरक्षित बनाएं, Entry Point=एंट्री पॉइंट, Wrapper=रैपर, Props=props, Component=कंपोनेंट, Node=नोड, Block=ब्लॉक, Inline=इनलाइन, Link=लिंक, Image=छवि/इमेज, Header/Heading=शीर्षक/हेडिंग, List=सूची/लिस्ट, Table=टेबल/तालिका, Code Block=कोड ब्लॉक, Quote=उद्धरण/कोट, Paragraph=पैराग्राफ़, Text=टेक्स्ट, Attribute=एट्रिब्यूट, Tag=टैग, Element=एलिमेंट, String=स्ट्रिंग, Function=फ़ंक्शन, Boolean=बूलियन, Array=ऐरे, Object=ऑब्जेक्ट, Deprecated=अप्रचलित, Breaking Changes=ब्रेकिंग परिवर्तन, Migration=माइग्रेशन, Install=इंस्टॉल, Installation=इंस्टॉलेशन, Usage=उपयोग, Example=उदाहरण, Note=नोट, Warning=चेतावनी, Tip=सुझाव/टिप, Important=महत्वपूर्ण, Caution=सावधानी/सतर्कता, Alert=अलर्ट/सूचना, Reference=संदर्भ/रेफ़रेंस, Definition=परिभाषा, Frontmatter=फ्रंटमैटर/प्रारंभिक मेटाडेटा, Footnote=फ़ुटनोट/पाद टिप्पणी, Rendering=रेंडरिंग, Parsing=पार्सिंग, Output=आउटपुट, Input=इनपुट, Rule=नियम/रूल, Type=प्रकार/टाइप, Spec/Specification=विनिर्देश/स्पेक, Syntax=सिंटैक्स, Content=कंटेंट/सामग्री, Value=मान/वैल्यू, Expression=एक्सप्रेशन, Security=सुरक्षा, XSS=XSS, Safe=सुरक्षित, Unsafe=असुरक्षित, Filter=फ़िल्टर, Escape=एस्केप, Entity=एंटिटी, Character=वर्ण/कैरेक्टर, Unicode=यूनिकोड, Regex=रेगेक्स/रेगुलर एक्सप्रेशन, Match=मैच, Pattern=पैटर्न, Build=बिल्ड, Test=टेस्ट, Server=सर्वर, Client=क्लाइंट, Native=नेटिव, Upgrade/Upgrading=अपग्रेड/अपग्रेडिंग, Feature=सुविधा, Table of Contents=विषय-सूची, Donate=दान करें, Changelog=परिवर्तन लॉग, Library=लाइब्रेरी
+
+Alert types: NOTE=नोट, TIP=सुझाव/टिप, IMPORTANT=महत्वपूर्ण, WARNING=चेतावनी, CAUTION=सावधानी
+
+Section headers: dual-language format with Hindi first: "इंस्टॉलेशन (Installation)", "उपयोग (Usage)" - but prefer Hindi-only for common terms
+UI strings localized per src/i18n/ui-strings.ts conventions
+Formal written style, active voice preferred
+@param and @returns in JSDoc use Hindi descriptions, English for types
+Maintain parallel structure with English version
+Keep technical accuracy, avoid over-localization of domain-specific terms
+Table of contents links: preserve URL encoding with Hindi text
+Devanagari numerals not used, use Western Arabic numerals (0-9)
+Use nuqta (़) for phonetic accuracy in loanwords: फ़ंक्शन, रेफ़रेंस, ग्राफ़
+Compound terms: prefer spacing for clarity (कोड ब्लॉक not कोडब्लॉक)
+Breaking changes translation: "ब्रेकिंग परिवर्तन" with context
+Version numbers, file paths, URLs remain in English/original form
