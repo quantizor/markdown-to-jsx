@@ -1,7 +1,12 @@
 import { NAMED_CODES_TO_UNICODE as util } from './entities.generated'
 import * as $ from './constants'
 
-// Parse frontmatter bounds and validate YAML
+/**
+ * Parse frontmatter bounds and validate YAML
+ *
+ * @param input - Input string to parse
+ * @returns Object with end position and YAML validity, or null if no frontmatter
+ */
 export function parseFrontmatterBounds(
   input: string
 ): { endPos: number; hasValidYaml: boolean } | null {
@@ -33,12 +38,24 @@ export function parseFrontmatterBounds(
  * Pre-computed from generated entity set
  * Numeric references (&#123; and &#xAB;) are fully supported without any mapping.
  * Unknown named entities pass through as literal text (CommonMark-compliant).
+ * @lang zh 命名的 HTML 实体代码到 Unicode 字符的映射
+ * 从生成的实体集预计算
+ * 数字引用（&#123; 和 &#xAB;）完全支持，无需映射。
+ * 未知的命名实体作为字面文本传递（符合 CommonMark）。
+ * @lang hi नामित HTML एंटिटी कोड से Unicode वर्णों का मैपिंग
+ * जेनरेट किए गए एंटिटी सेट से पूर्व-गणना की गई
+ * संख्यात्मक संदर्भ (&#123; और &#xAB;) बिना किसी मैपिंग के पूरी तरह से समर्थित हैं।
+ * अज्ञात नामित एंटिटीज़ शाब्दिक टेक्स्ट के रूप में पास होती हैं (CommonMark-अनुरूप)।
  */
 export const NAMED_CODES_TO_UNICODE: Record<string, string> = util
 
 /**
  * Regex for matching HTML character references (&entity; or &#123; or &#xAB;)
  * Matches: & followed by entity name or # followed by decimal or hex digits, ending with ;
+ * @lang zh 用于匹配 HTML 字符引用的正则表达式（&entity; 或 &#123; 或 &#xAB;）
+ * 匹配：& 后跟实体名称或 # 后跟十进制或十六进制数字，以 ; 结尾
+ * @lang hi HTML वर्ण संदर्भों से मिलान करने के लिए रेगेक्स (&entity; या &#123; या &#xAB;)
+ * मैच: & के बाद एंटिटी नाम या # के बाद दशमलव या हेक्स अंक, ; के साथ समाप्त होता है
  */
 export const HTML_CHAR_CODE_R: RegExp =
   /&([a-zA-Z0-9]+|#[0-9]{1,7}|#x[0-9a-fA-F]{1,6});/gi
@@ -46,6 +63,10 @@ export const HTML_CHAR_CODE_R: RegExp =
 /**
  * Regex for determining if markdown content should be rendered as block-level
  * Matches: newlines, list items, headings, indented content, thematic breaks, blockquotes
+ * @lang zh 用于确定 Markdown 内容是否应渲染为块级的正则表达式
+ * 匹配：换行符、列表项、标题、缩进内容、分隔线、引用块
+ * @lang hi यह निर्धारित करने के लिए रेगेक्स कि markdown सामग्री को ब्लॉक-स्तरीय के रूप में रेंडर किया जाना चाहिए
+ * मैच: नई लाइनें, सूची आइटम्स, हेडिंग्स, इंडेंटेड सामग्री, थीमैटिक ब्रेक्स, ब्लॉककोट्स
  */
 // Mapping of lowercase HTML attributes to JSX prop names
 // Shared between React and Solid renderers (Vue uses HTML attributes directly)
@@ -96,6 +117,9 @@ export const HTML_TO_JSX_MAP: Record<string, string> = {
 /**
  * Convert HTML attributes to JSX props
  * Maps HTML attribute names (e.g., "class", "for") to JSX prop names (e.g., "className", "htmlFor")
+ *
+ * @param attrs - HTML attributes object
+ * @returns JSX props object
  */
 export function htmlAttrsToJSXProps(
   attrs: Record<string, any>
@@ -116,6 +140,9 @@ export const SHOULD_RENDER_AS_BLOCK_R: RegExp =
 
 /**
  * Decode HTML entity references to Unicode characters
+ *
+ * @param text - The text containing HTML entities
+ * @returns The decoded text
  */
 export function decodeEntityReferences(text: string): string {
   if (text.indexOf('&') === -1) return text
@@ -152,6 +179,20 @@ export function decodeEntityReferences(text: string): string {
 
 export const SANITIZE_R: RegExp = /(javascript|vbscript|data(?!:image)):/i
 
+/**
+ * Sanitize URLs and other input values to prevent XSS attacks.
+ * Filters out javascript:, vbscript:, and data: URLs (except data:image).
+ *
+ * @lang zh 清理 URL 和其他输入值以防止 XSS 攻击。过滤掉 javascript:、vbscript: 和 data: URL（data:image 除外）。
+ * @lang hi XSS हमलों को रोकने के लिए URLs और अन्य इनपुट मानों को सैनिटाइज़ करता है। javascript:, vbscript:, और data: URLs को फ़िल्टर करता है (data:image को छोड़कर)।
+ *
+ * @param input - The URL or value to sanitize
+ * @lang zh @param input - 要清理的 URL 或值
+ * @lang hi @param input - सैनिटाइज़ करने के लिए URL या मान
+ * @returns Sanitized value, or null if unsafe
+ * @lang zh @returns 清理后的值，如果不安全则返回 null
+ * @lang hi @returns सैनिटाइज़ किया गया मान, या असुरक्षित होने पर null
+ */
 export function sanitizer(input: string): string | null {
   if (SANITIZE_R.test(input)) {
     if (process.env.NODE_ENV !== 'production') {
@@ -211,6 +252,12 @@ slugifyReplaceTable[376] =
   slugifyReplaceTable[253] =
     'y'
 
+/**
+ * Check if a character code is alphanumeric (0-9, A-Z, a-z)
+ *
+ * @param code - Character code to check
+ * @returns True if alphanumeric
+ */
 export function isAlnumCode(code: number): boolean {
   return (
     (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
@@ -219,8 +266,21 @@ export function isAlnumCode(code: number): boolean {
   )
 }
 
-// based on https://stackoverflow.com/a/18123682/1141611
-// not complete, but probably good enough
+/**
+ * Convert a string to a URL-safe slug by normalizing characters and replacing spaces with hyphens.
+ * Based on https://stackoverflow.com/a/18123682/1141611
+ * Not complete, but probably good enough.
+ *
+ * @lang zh 通过规范化字符并用连字符替换空格，将字符串转换为 URL 安全的别名。不完整，但可能足够好。
+ * @lang hi वर्णों को सामान्यीकृत करके और रिक्त स्थान को हाइफ़न से बदलकर स्ट्रिंग को URL-सुरक्षित slug में बदलता है। पूर्ण नहीं है, लेकिन शायद पर्याप्त है।
+ *
+ * @param str - String to slugify
+ * @lang zh @param str - 要转换为别名的字符串
+ * @lang hi @param str - slugify करने के लिए स्ट्रिंग
+ * @returns URL-safe slug
+ * @lang zh @returns URL 安全的别名
+ * @lang hi @returns URL-सुरक्षित slug
+ */
 export function slugify(str: string): string {
   var parts: string[] = []
   for (var i = 0; i < str.length; i++) {
@@ -242,16 +302,36 @@ export function slugify(str: string): string {
 }
 
 /**
- * Basic string utility functions
+ * Check if a string includes a substring
+ *
+ * @param str - String to search in
+ * @param search - Substring to search for
+ * @returns True if substring is found
  */
 export function includes(str: string, search: string): boolean {
   return str.indexOf(search) !== -1
 }
 
+/**
+ * Check if a string starts with a prefix
+ *
+ * @param str - String to check
+ * @param prefix - Prefix to check for
+ * @param pos - Optional starting position
+ * @returns True if string starts with prefix
+ */
 export function startsWith(str: string, prefix: string, pos?: number): boolean {
   return str.startsWith(prefix, pos)
 }
 
+/**
+ * Check if a string ends with a suffix
+ *
+ * @param str - String to check
+ * @param suffix - Suffix to check for
+ * @param pos - Optional ending position
+ * @returns True if string ends with suffix
+ */
 export function endsWith(str: string, suffix: string, pos?: number): boolean {
   return str.startsWith(
     suffix,
@@ -292,7 +372,12 @@ export const VOID_ELEMENTS: Set<string> = new Set([
   'set',
 ])
 
-/** Check if an element is a void element (doesn't require closing tag) */
+/**
+ * Check if an element is a void element (doesn't require closing tag)
+ *
+ * @param tagName - HTML tag name
+ * @returns True if void element
+ */
 export function isVoidElement(tagName: string): boolean {
   let lowerTag = tagName.toLowerCase()
   if (VOID_ELEMENTS.has(lowerTag)) return true

@@ -501,6 +501,11 @@ const getTag = (
   return isComponent(component) ? component : (component as string)
 }
 
+/**
+ * Override configuration for HTML tags or custom components in SolidJS output
+ * @lang zh SolidJS 输出中 HTML 标签或自定义组件的覆盖配置
+ * @lang hi SolidJS आउटपुट में HTML टैग्स या कस्टम कंपोनेंट्स के लिए ओवरराइड कॉन्फ़िगरेशन
+ */
 export type SolidOverride =
   | RequireAtLeastOne<{
       component: string | Component<Record<string, unknown>>
@@ -509,22 +514,41 @@ export type SolidOverride =
   | string
   | Component<Record<string, unknown>>
 
+/**
+ * Map of HTML tags and custom components to their override configurations
+ * @lang zh HTML 标签和自定义组件到其覆盖配置的映射
+ * @lang hi HTML टैग्स और कस्टम कंपोनेंट्स से उनकी ओवरराइड कॉन्फ़िगरेशन का मैप
+ */
 export type SolidOverrides = {
   [tag in MarkdownToJSX.HTMLTags]?: SolidOverride
 } & {
   [customComponent: string]: SolidOverride
 }
 
+/**
+ * SolidJS compiler options
+ * @lang zh SolidJS 编译器选项
+ * @lang hi SolidJS कंपाइलर विकल्प
+ */
 export type SolidOptions = Omit<
   MarkdownToJSX.Options,
   'createElement' | 'wrapperProps' | 'renderRule' | 'overrides'
 > & {
+  /** Custom createElement function for SolidJS */
+  /** @lang zh SolidJS 的自定义 createElement 函数 */
+  /** @lang hi SolidJS के लिए कस्टम createElement फ़ंक्शन */
   createElement?: (
     tag: HTag,
     props: HProps,
     ...children: HChildren[]
   ) => JSX.Element
+  /** Props for wrapper element */
+  /** @lang zh 包装元素的属性 */
+  /** @lang hi रैपर एलिमेंट के लिए props */
   wrapperProps?: JSX.HTMLAttributes<HTMLElement>
+  /** Custom rendering function for AST rules */
+  /** @lang zh AST 规则的自定义渲染函数 */
+  /** @lang hi AST नियमों के लिए कस्टम रेंडरिंग फ़ंक्शन */
   renderRule?: (
     next: () => JSX.Element | string | null,
     node: MarkdownToJSX.ASTNode,
@@ -533,9 +557,27 @@ export type SolidOptions = Omit<
     ) => JSX.Element | JSX.Element[],
     state: Omit<MarkdownToJSX.State, 'key'>
   ) => JSX.Element | string | null
+  /** Override configurations for HTML tags */
+  /** @lang zh HTML 标签的覆盖配置 */
+  /** @lang hi HTML टैग्स के लिए ओवरराइड कॉन्फ़िगरेशन */
   overrides?: SolidOverrides
 }
 
+/**
+ * Convert AST nodes to SolidJS JSX elements
+ * @lang zh 将 AST 节点转换为 SolidJS JSX 元素
+ * @lang hi AST नोड्स को SolidJS JSX एलिमेंट्स में बदलें
+ *
+ * @param ast - Array of AST nodes to render
+ * @lang zh @param ast - 要渲染的 AST 节点数组
+ * @lang hi @param ast - रेंडर करने के लिए AST नोड्स की सरणी
+ * @param options - SolidJS compiler options
+ * @lang zh @param options - SolidJS 编译器选项
+ * @lang hi @param options - SolidJS कंपाइलर विकल्प
+ * @returns SolidJS JSX element(s)
+ * @lang zh @returns SolidJS JSX 元素
+ * @lang hi @returns SolidJS JSX एलिमेंट(s)
+ */
 export function astToJSX(
   ast: MarkdownToJSX.ASTNode[],
   options?: SolidOptions
@@ -830,6 +872,21 @@ export function astToJSX(
   ) as JSX.Element
 }
 
+/**
+ * Compile markdown string to SolidJS JSX elements
+ * @lang zh 将 Markdown 字符串编译为 SolidJS JSX 元素
+ * @lang hi Markdown स्ट्रिंग को SolidJS JSX एलिमेंट्स में कंपाइल करें
+ *
+ * @param markdown - Markdown string to compile
+ * @lang zh @param markdown - 要编译的 Markdown 字符串
+ * @lang hi @param markdown - कंपाइल करने के लिए Markdown स्ट्रिंग
+ * @param options - SolidJS compiler options
+ * @lang zh @param options - SolidJS 编译器选项
+ * @lang hi @param options - SolidJS कंपाइलर विकल्प
+ * @returns SolidJS JSX element(s)
+ * @lang zh @returns SolidJS JSX 元素
+ * @lang hi @returns SolidJS JSX एलिमेंट(s)
+ */
 export function compiler(
   markdown: string = '',
   options: SolidOptions = {}
@@ -913,7 +970,11 @@ export function compiler(
   return jsx
 }
 
-// Context for default options
+/**
+ * SolidJS context for sharing compiler options across Markdown components
+ * @lang zh 用于在 Markdown 组件之间共享编译器选项的 SolidJS 上下文
+ * @lang hi Markdown कंपोनेंट्स के बीच कंपाइलर विकल्प साझा करने के लिए SolidJS संदर्भ
+ */
 export const MarkdownContext: Context<SolidOptions | undefined> = createContext<
   SolidOptions | undefined
 >(undefined)
@@ -954,7 +1015,18 @@ function h(
     : (elementFactory as JSX.Element)
 }
 
-// Context provider component
+/**
+ * SolidJS context provider for sharing compiler options across Markdown components
+ * @lang zh 用于在 Markdown 组件之间共享编译器选项的 SolidJS 上下文提供者
+ * @lang hi Markdown कंपोनेंट्स के बीच कंपाइलर विकल्प साझा करने के लिए SolidJS संदर्भ प्रदाता
+ *
+ * @param options - Default compiler options to share
+ * @lang zh @param options - 要共享的默认编译器选项
+ * @lang hi @param options - साझा करने के लिए डिफ़ॉल्ट कंपाइलर विकल्प
+ * @param children - SolidJS children
+ * @lang zh @param children - SolidJS 子元素
+ * @lang hi @param children - SolidJS चाइल्ड एलिमेंट्स
+ */
 export const MarkdownProvider: Component<{
   options?: SolidOptions
   children: JSX.Element
@@ -970,6 +1042,15 @@ export const MarkdownProvider: Component<{
 /**
  * A SolidJS component for easy markdown rendering. Feed the markdown content as a direct child
  * and the rest is taken care of automatically. Supports reactive content via signals/accessors.
+ * @lang zh 用于轻松渲染 Markdown 的 SolidJS 组件。将 Markdown 内容作为直接子元素提供，其余部分会自动处理。支持通过信号/访问器实现响应式内容。
+ * @lang hi आसान markdown रेंडरिंग के लिए एक SolidJS कंपोनेंट। markdown सामग्री को सीधे चाइल्ड के रूप में प्रदान करें और बाकी स्वचालित रूप से संभाला जाता है। signals/accessors के माध्यम से रिएक्टिव सामग्री का समर्थन करता है।
+ *
+ * @param children - Markdown string content or signal/accessor
+ * @lang zh @param children - Markdown 字符串内容或信号/访问器
+ * @lang hi @param children - Markdown स्ट्रिंग सामग्री या signal/accessor
+ * @param options - Compiler options
+ * @lang zh @param options - 编译器选项
+ * @lang hi @param options - कंपाइलर विकल्प
  */
 export const Markdown: Component<
   Omit<JSX.HTMLAttributes<HTMLElement>, 'children'> & {

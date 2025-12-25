@@ -62,6 +62,18 @@ Add the new target to both `scripts/metrics.ts` and `scripts/profile.ts` so it c
 - Bring in testing helpers like `@testing-library/*` if needed
 - Test all happy and unhappy paths
 
+## Adding a New Language
+
+Using Cursor or equivalent, run `/i18n <language>` in plan mode (e.g., `/i18n Spanish`). This automates the entire translation workflow including research, file creation, and validation. Review and approve the plan before execution.
+
+**Language Ordering:** Languages must be ordered by total number of speakers globally (English first, then by descending speaker count). According to Ethnologue 2025 data ([source](https://www.ethnologue.com/insights/most-spoken-language/)):
+
+1. English (1.5B speakers)
+2. Mandarin Chinese (1.2B speakers)
+3. Hindi (609M speakers)
+4. Spanish (558M speakers)
+5. Standard Arabic (335M speakers)
+
 ## Cutting a release
 
 This is handled automatically via changesets.

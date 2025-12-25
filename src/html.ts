@@ -155,6 +155,11 @@ function renderTag(
   return `<${tag}${attrStr}>${children}</${tag}>`
 }
 
+/**
+ * Override configuration for HTML tags or custom components in HTML output
+ * @lang zh HTML 输出中 HTML 标签或自定义组件的覆盖配置
+ * @lang hi HTML आउटपुट में HTML टैग्स या कस्टम कंपोनेंट्स के लिए ओवरराइड कॉन्फ़िगरेशन
+ */
 export type HTMLOverride =
   | {
       component?: string
@@ -162,25 +167,50 @@ export type HTMLOverride =
     }
   | string
 
+/**
+ * Map of HTML tags and custom components to their override configurations
+ * @lang zh HTML 标签和自定义组件到其覆盖配置的映射
+ * @lang hi HTML टैग्स और कस्टम कंपोनेंट्स से उनकी ओवरराइड कॉन्फ़िगरेशन का मैप
+ */
 export type HTMLOverrides = {
   [tag in MarkdownToJSX.HTMLTags]?: HTMLOverride
 } & {
   [customComponent: string]: HTMLOverride
 }
 
+/**
+ * HTML compiler options
+ * @lang zh HTML 编译器选项
+ * @lang hi HTML कंपाइलर विकल्प
+ */
 export type HTMLOptions = Omit<
   MarkdownToJSX.Options,
   'createElement' | 'wrapperProps' | 'overrides'
 > & {
+  /** Reference definitions for link resolution */
+  /** @lang zh 用于链接解析的引用定义 */
+  /** @lang hi लिंक रिज़ॉल्यूशन के लिए संदर्भ परिभाषाएं */
   refs?: { [key: string]: { target: string; title: string | undefined } }
+  /** Custom rendering function for AST rules */
+  /** @lang zh AST 规则的自定义渲染函数 */
+  /** @lang hi AST नियमों के लिए कस्टम रेंडरिंग फ़ंक्शन */
   renderRule?: (
     next: () => string,
     node: MarkdownToJSX.ASTNode,
     renderChildren: (children: MarkdownToJSX.ASTNode[]) => string,
     state: MarkdownToJSX.State
   ) => string
+  /** Override configurations for HTML tags */
+  /** @lang zh HTML 标签的覆盖配置 */
+  /** @lang hi HTML टैग्स के लिए ओवरराइड कॉन्फ़िगरेशन */
   overrides?: HTMLOverrides
+  /** Props for wrapper element */
+  /** @lang zh 包装元素的属性 */
+  /** @lang hi रैपर एलिमेंट के लिए props */
   wrapperProps?: Record<string, string | number | boolean>
+  /** Internal flag for wrapper auto-detection */
+  /** @lang zh 包装器自动检测的内部标志 */
+  /** @lang hi रैपर ऑटो-डिटेक्शन के लिए आंतरिक फ़्लैग */
   wrapperWasAutoSet?: boolean
 }
 
@@ -195,6 +225,21 @@ function shouldSkipNode(
   )
 }
 
+/**
+ * Convert AST nodes to HTML string
+ * @lang zh 将 AST 节点转换为 HTML 字符串
+ * @lang hi AST नोड्स को HTML स्ट्रिंग में बदलें
+ *
+ * @param nodes - Array of AST nodes to render
+ * @lang zh @param nodes - 要渲染的 AST 节点数组
+ * @lang hi @param nodes - रेंडर करने के लिए AST नोड्स की सरणी
+ * @param options - HTML compiler options
+ * @lang zh @param options - HTML 编译器选项
+ * @lang hi @param options - HTML कंपाइलर विकल्प
+ * @returns HTML string
+ * @lang zh @returns HTML 字符串
+ * @lang hi @returns HTML स्ट्रिंग
+ */
 export function astToHTML(
   nodes: MarkdownToJSX.ASTNode[],
   options: HTMLOptions = {}
@@ -911,6 +956,20 @@ export function astToHTML(
 /**
  * Compiler function that parses markdown and renders to HTML string
  * Convenience function that combines parser() and html()
+ * @lang zh 解析 Markdown 并渲染为 HTML 字符串的编译器函数
+ * 结合 parser() 和 html() 的便捷函数
+ * @lang hi Markdown को पार्स करने और HTML स्ट्रिंग में रेंडर करने वाला कंपाइलर फ़ंक्शन
+ * parser() और html() को जोड़ने वाला सुविधाजनक फ़ंक्शन
+ *
+ * @param markdown - Markdown string to compile
+ * @lang zh @param markdown - 要编译的 Markdown 字符串
+ * @lang hi @param markdown - कंपाइल करने के लिए Markdown स्ट्रिंग
+ * @param options - HTML compiler options
+ * @lang zh @param options - HTML 编译器选项
+ * @lang hi @param options - HTML कंपाइलर विकल्प
+ * @returns HTML string
+ * @lang zh @returns HTML 字符串
+ * @lang hi @returns HTML स्ट्रिंग
  */
 export function compiler(markdown: string, options?: HTMLOptions): string {
   const inline = options?.forceInline || false

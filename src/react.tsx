@@ -15,7 +15,18 @@ export { sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
-export const MarkdownContext: React.Context<MarkdownToJSX.Options | undefined> | undefined =
+/**
+ * React context for sharing compiler options across Markdown components
+ * @lang zh 用于在 Markdown 组件之间共享编译器选项的 React 上下文
+ * @lang hi Markdown कंपोनेंट्स के बीच कंपाइलर विकल्प साझा करने के लिए React संदर्भ
+ *
+ * Note: This is undefined in React Server Component environments where createContext is not available.
+ * @lang zh 注意：在 createContext 不可用的 React Server Component 环境中，此值为 undefined。
+ * @lang hi नोट: React Server Component वातावरण में यह undefined है जहां createContext उपलब्ध नहीं है।
+ */
+export const MarkdownContext:
+  | React.Context<MarkdownToJSX.Options | undefined>
+  | undefined =
   typeof React.createContext !== 'undefined'
     ? React.createContext<MarkdownToJSX.Options | undefined>(undefined)
     : undefined
@@ -520,6 +531,21 @@ const getTag = (tag, overrides) => {
       : get(overrides, `${tag}.component`, tag)
 }
 
+/**
+ * Convert AST nodes to React JSX elements
+ * @lang zh 将 AST 节点转换为 React JSX 元素
+ * @lang hi AST नोड्स को React JSX एलिमेंट्स में बदलें
+ *
+ * @param ast - Array of AST nodes to render
+ * @lang zh @param ast - 要渲染的 AST 节点数组
+ * @lang hi @param ast - रेंडर करने के लिए AST नोड्स की सरणी
+ * @param options - Compiler options
+ * @lang zh @param options - 编译器选项
+ * @lang hi @param options - कंपाइलर विकल्प
+ * @returns React JSX element(s)
+ * @lang zh @returns React JSX 元素
+ * @lang hi @returns React JSX एलिमेंट(s)
+ */
 export function astToJSX(
   ast: MarkdownToJSX.ASTNode[],
   options?: MarkdownToJSX.Options
@@ -741,6 +767,21 @@ export function astToJSX(
   ) as React.JSX.Element
 }
 
+/**
+ * Compile markdown string to React JSX elements
+ * @lang zh 将 Markdown 字符串编译为 React JSX 元素
+ * @lang hi Markdown स्ट्रिंग को React JSX एलिमेंट्स में कंपाइल करें
+ *
+ * @param markdown - Markdown string to compile
+ * @lang zh @param markdown - 要编译的 Markdown 字符串
+ * @lang hi @param markdown - कंपाइल करने के लिए Markdown स्ट्रिंग
+ * @param options - Compiler options
+ * @lang zh @param options - 编译器选项
+ * @lang hi @param options - कंपाइलर विकल्प
+ * @returns React JSX element(s)
+ * @lang zh @returns React JSX 元素
+ * @lang hi @returns React JSX एलिमेंट(s)
+ */
 export function compiler(
   markdown: string = '',
   options: MarkdownToJSX.Options = {}
@@ -819,6 +860,18 @@ export function compiler(
   return jsx
 }
 
+/**
+ * React context provider for sharing compiler options across Markdown components
+ * @lang zh 用于在 Markdown 组件之间共享编译器选项的 React 上下文提供者
+ * @lang hi Markdown कंपोनेंट्स के बीच कंपाइलर विकल्प साझा करने के लिए React संदर्भ प्रदाता
+ *
+ * @param options - Default compiler options to share
+ * @lang zh @param options - 要共享的默认编译器选项
+ * @lang hi @param options - साझा करने के लिए डिफ़ॉल्ट कंपाइलर विकल्प
+ * @param children - React children
+ * @lang zh @param children - React 子元素
+ * @lang hi @param children - React चाइल्ड एलिमेंट्स
+ */
 export const MarkdownProvider: React.FC<{
   options?: MarkdownToJSX.Options
   children: React.ReactNode
@@ -836,6 +889,18 @@ export const MarkdownProvider: React.FC<{
 /**
  * A React component for easy markdown rendering. Feed the markdown content as a direct child
  * and the rest is taken care of automatically. Supports memoization for optimal performance.
+ * @lang zh 用于轻松渲染 Markdown 的 React 组件。将 Markdown 内容作为直接子元素提供，其余部分会自动处理。支持记忆化以获得最佳性能。
+ * @lang hi आसान markdown रेंडरिंग के लिए एक React कंपोनेंट। markdown सामग्री को सीधे चाइल्ड के रूप में प्रदान करें और बाकी स्वचालित रूप से संभाला जाता है। इष्टतम प्रदर्शन के लिए मेमोइज़ेशन का समर्थन करता है।
+ *
+ * @param children - Markdown string content
+ * @lang zh @param children - Markdown 字符串内容
+ * @lang hi @param children - Markdown स्ट्रिंग सामग्री
+ * @param options - Compiler options
+ * @lang zh @param options - 编译器选项
+ * @lang hi @param options - कंपाइलर विकल्प
+ * @param props - Additional HTML attributes for the wrapper element
+ * @lang zh @param props - 包装元素的额外 HTML 属性
+ * @lang hi @param props - रैपर एलिमेंट के लिए अतिरिक्त HTML एट्रिब्यूट्स
  */
 export const Markdown: React.FC<
   Omit<React.HTMLAttributes<Element>, 'children'> & {
@@ -857,7 +922,8 @@ export const Markdown: React.FC<
         ...props,
       } as React.JSX.IntrinsicAttributes,
     }
-    const content = rawChildren === null || rawChildren === undefined ? '' : rawChildren
+    const content =
+      rawChildren === null || rawChildren === undefined ? '' : rawChildren
     return compiler(content, mergedOptions) as React.ReactElement
   }
 

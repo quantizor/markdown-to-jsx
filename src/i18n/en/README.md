@@ -25,7 +25,7 @@ Some special features of the library:
   - [Entry Points](#entry-points)
     - [Main](#main)
     - [React](#react)
-      - [React Server Components RSC](#react-server-components-rsc)
+      - [React Server Components (RSC)](#react-server-components-rsc)
     - [React Native](#react-native)
     - [SolidJS](#solidjs)
     - [Vue.js](#vuejs)
@@ -188,7 +188,7 @@ render(<Markdown># Hello world!</Markdown>, document.body)
 
 #### Main
 
-The legacy default entry point exports everything, including the React compiler and component:
+The legacy\*default entry point exports everything, including the React compiler and component:
 
 ```tsx
 import Markdown, { compiler, parser } from 'markdown-to-jsx'
@@ -243,7 +243,6 @@ export function ClientMarkdown({ content }: { content: string }) {
 ```
 
 **Notes:**
-
 - `MarkdownProvider` and `MarkdownContext` are client-only and become no-ops in RSC environments
 - RSC rendering provides better performance by avoiding client-side hydration
 - The component maintains identical output in both environments
@@ -381,7 +380,7 @@ const vnode2 = astToJSX(ast)
 - **Vue 3 support**: Uses Vue 3's `h()` render function API
 - **JSX support**: Works with Vue 3 JSX via `@vue/babel-plugin-jsx` or `@vitejs/plugin-vue-jsx`
 - **HTML attributes**: Uses standard HTML attributes (`class` instead of `className`)
-- **Component overrides**: Support for both Options API and Composition API components
+- **Component overrides**: Support for both Options API and Composition API componen
 
 #### HTML
 
