@@ -518,6 +518,70 @@ describe('collectReferenceDefinitions', () => {
     expect(refs).not.toHaveProperty('too-indented') // 4+ spaces should be rejected
   })
 
+  it('should handle Unicode content in reference labels (Han Chinese)', () => {
+    const refs = createEmptyRefs()
+    const options = createDefaultOptions()
+    const input = `[中文]: http://example.com/chinese
+[日本語]: https://example.jp/japanese
+[한글]: https://example.kr/korean`
+    p.collectReferenceDefinitions(input, refs, options)
+    expect(refs).toHaveProperty('中文')
+    expect(refs).toHaveProperty('日本語')
+    expect(refs).toHaveProperty('한글')
+    expect(refs['中文'].target).toBe('http://example.com/chinese')
+    expect(refs['日本語'].target).toBe('https://example.jp/japanese')
+    expect(refs['한글'].target).toBe('https://example.kr/korean')
+  })
+
+  it('should normalize Unicode reference labels case-insensitively', () => {
+    const input = `[中文链接]: http://example.com
+
+This is a link to [中文链接] in Chinese.`
+    const result = p.parser(input, createDefaultOptions())
+    expect(result).toMatchInlineSnapshot(`
+[
+  {
+    "refs": {
+      "中文链接": {
+        "target": "http://example.com",
+        "title": undefined,
+      },
+    },
+    "type": "refCollection",
+  },
+  {
+    "endPos": 28,
+    "type": "ref",
+  },
+  {
+    "children": [
+      {
+        "text": "This is a link to ",
+        "type": "text",
+      },
+      {
+        "children": [
+          {
+            "text": "中文链接",
+            "type": "text",
+          },
+        ],
+        "target": "http://example.com",
+        "title": undefined,
+        "type": "link",
+      },
+      {
+        "text": " in Chinese.",
+        "type": "text",
+      },
+    ],
+    "endPos": 64,
+    "type": "paragraph",
+  },
+]
+`)
+  })
+
   it('should handle reference definitions with malformed URLs', () => {
     const refs = createEmptyRefs()
     const options = createDefaultOptions()
@@ -1900,13 +1964,13 @@ describe('Unserializable expression evaluation', () => {
           ],
           "endPos": 51,
           "rawAttrs": "",
-          "rawText": 
+          "rawText":
         "body { color: red; }
 
         /* Comment */</style>"
         ,
           "tag": "style",
-          "text": 
+          "text":
         "body { color: red; }
 
         /* Comment */</style>"

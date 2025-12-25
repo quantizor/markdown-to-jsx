@@ -47,3 +47,23 @@ The priorities of this library are bundle size, performance, and functionality i
 
 - `src/index.tsx` - Main entry point re-exporting parser, types, and utilities
 - `src/index.cjs.tsx` - CommonJS entry point with deprecated exports
+
+## Internationalization (i18n)
+
+- All localized content in `src/i18n/`.
+- Required files per language: `README.md`, `default-template.md`, `gfm-spec.md`, `markdown-spec.md`.
+- UI strings in `src/i18n/ui-strings.ts`.
+- Supported languages in `src/i18n/languages.ts`.
+- Language ordering by global speakers ([Ethnologue 2025](https://www.ethnologue.com/insights/most-spoken-language/)): English, Mandarin Chinese, Hindi, Spanish, Arabic.
+- Technical documentation standards: Simplified Chinese (Mandarin, 普通话), Modern Standard Hindi (मानक हिन्दी with formal आप pronoun).
+- Code examples: Keep API names, package names, technical constants in English. Translate text content within code blocks (string literals, user-facing text, natural language comments, example markdown text) while preserving syntax and markup.
+- Use `@lang <code>` JSDoc tags for multilingual documentation (Public APIs and types only): English baseline, then `@lang zh` for Chinese, `@lang hi` for Hindi, etc.
+- Updates to `README.md` or public API documentation must be mirrored in all `src/i18n/{lang}/` files.
+- All new changesets, public documentation, and public JSDoc comments should include translations for all supported languages (currently: English, Chinese, Hindi).
+- Run `bun run validate-i18n` before committing any i18n or documentation changes.
+- New languages should have a PATCH changeset.
+- Create language-specific rule files in `.cursor/rules/i18n-{lang}.mdc` for each new language containing: term translations, style guidelines, technical term handling, format conventions. Optimize for machine interpretation (no markdown formatting, minimal punctuation, concise directives).
+- Prefer native/idiomatic words over transliterations for user-facing text (UI strings, alerts, documentation headings).
+- For technical terms, provide both options: native word first, transliteration second (e.g., Hindi: सुझाव/टिप for "tip").
+- Transliterations acceptable for programming-specific terms with no native equivalent (e.g., कंपोनेंट for "component").
+- Verify translations match actual usage in target language technical communities (React docs, MDN, official framework translations).
