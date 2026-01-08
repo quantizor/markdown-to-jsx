@@ -43,7 +43,8 @@
     "dist",
     "LICENSE",
     "README.md",
-    "package.json"
+    "package.json",
+    "src/entities.generated.ts"
   ],
   "type": "module",
   "imports": {
