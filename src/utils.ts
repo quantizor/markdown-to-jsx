@@ -1,4 +1,7 @@
-import { NAMED_CODES_TO_UNICODE as util } from './entities.generated'
+import {
+  NAMED_CODES_TO_UNICODE as util,
+  decodeEntity,
+} from '#entities'
 import * as $ from './constants'
 
 /**
@@ -148,16 +151,14 @@ export function decodeEntityReferences(text: string): string {
   if (text.indexOf('&') === -1) return text
 
   return text.replace(HTML_CHAR_CODE_R, (full, inner) => {
-    // Named entity lookup - try exact match, then lowercase fallback
-    // The generation script handles uppercase fallbacks for lowercase entities
-    const entity =
-      NAMED_CODES_TO_UNICODE[inner] ||
-      NAMED_CODES_TO_UNICODE[inner.toLowerCase()]
+    // Named entity lookup via swappable decoder
+    // In browser builds, this uses DOM; in Node, uses lookup table
+    var entity = decodeEntity(inner)
     if (entity) return entity
 
-    // Numeric entities
+    // Numeric entities (always computed, no lookup needed)
     if (inner[0] === '#') {
-      const code =
+      var code =
         inner[1] === 'x' || inner[1] === 'X'
           ? parseInt(inner.slice(2), 16)
           : parseInt(inner.slice(1), 10)

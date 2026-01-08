@@ -13,6 +13,16 @@ const common = {
 } satisfies DefineConfigItem
 
 export default defineConfig([
+  // Entities modules - built separately for browser field swapping
+  {
+    ...common,
+    name: 'entities',
+    entry: ['src/entities.generated.ts', 'src/entities.browser.ts'],
+    outDir: 'dist',
+    format: ['esm', 'cjs'],
+    dts: true,
+    target: 'browser',
+  },
   // Main library build - ESM and CJS (includes index, react, html, markdown, native, solid, and vue entry points)
   {
     ...common,
@@ -29,7 +39,7 @@ export default defineConfig([
     outDir: 'dist',
     format: ['esm', 'cjs'],
     dts: true,
-    external: ['react', 'react-native', 'solid-js', 'solid-js/h', 'vue'],
+    external: ['react', 'react-native', 'solid-js', 'solid-js/h', 'vue', '#entities'],
     target: 'browser',
   },
 ])
