@@ -8,4 +8,4 @@ This optimization is automatic for bundlers that support the `imports` field wit
 
 Server-side/Node.js builds retain the full O(1) entity lookup table for maximum performance.
 
-This feature uses the [`imports` field](https://nodejs.org/api/packages.html#subpath-imports) in package.json (supported since Node.js 12.19.0). If your bundler does not recognize this field, update to a newer version or the optimization will be skipped silently.
+This feature uses the [`imports` field](https://nodejs.org/api/packages.html#subpath-imports) in package.json. All modern bundlers support this field (Webpack 5+, Vite, esbuild, Rollup, Parcel).
