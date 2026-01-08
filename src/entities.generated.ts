@@ -2108,3 +2108,12 @@ export const NAMED_CODES_TO_UNICODE: Record<string, string> = {
   "gimel":"ℷ",
   "daleth":"ℸ"
 }
+
+/**
+ * Decode a named entity using the lookup table.
+ * Returns the decoded character or undefined if not found.
+ * This function enables browser builds to swap in DOM-based decoding.
+ */
+export function decodeEntity(name: string): string | undefined {
+  return NAMED_CODES_TO_UNICODE[name] || NAMED_CODES_TO_UNICODE[name.toLowerCase()]
+}
