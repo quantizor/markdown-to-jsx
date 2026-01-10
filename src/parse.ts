@@ -8318,6 +8318,134 @@ interface DefinitionParseResult {
   title?: string
 }
 
+function isBlockStartAt(s: string, p: number): boolean {
+  if (p >= s.length) return false
+  var c = s[p]
+  return (
+    c === '=' ||
+    c === '-' ||
+    c === '_' ||
+    c === '*' ||
+    c === '#' ||
+    c === '>' ||
+    c === '`' ||
+    c === '~' ||
+    c === '[' ||
+    (c >= '0' && c <= '9')
+  )
+}
+
+function isTitleDelimiter(s: string, p: number): boolean {
+  if (p >= s.length) return false
+  var c = s[p]
+  return c === '"' || c === "'" || c === '('
+}
+
+function scanToBlankLine(s: string, p: number): number {
+  var len = s.length
+  while (p < len) {
+    if (p + 1 < len && s[p] === '\n' && s[p + 1] === '\n') return p
+    p++
+  }
+  return len
+}
+
+function parseQuotedTitle(
+  s: string,
+  p: number,
+  closeChar: string
+): { value: string; endPos: number } | null {
+  var len = s.length
+  if (p >= len || s[p] !== closeChar) return null
+  p++
+  var start = p
+  var lastWasNewline = false
+  while (p < len && s[p] !== closeChar) {
+    if (s[p] === '\n') {
+      if (lastWasNewline) return null
+      lastWasNewline = true
+      p++
+    } else {
+      lastWasNewline = false
+      if (s[p] === '\\' && p + 1 < len) p++
+      p++
+    }
+  }
+  if (p >= len) return null
+  return { value: s.slice(start, p), endPos: p + 1 }
+}
+
+function parseParenTitle(
+  s: string,
+  p: number
+): { value: string; endPos: number } | null {
+  var len = s.length
+  if (p >= len || s[p] !== '(') return null
+  p++
+  var start = p
+  var depth = 1
+  var lastWasNewline = false
+  while (p < len && depth > 0) {
+    if (s[p] === '\n') {
+      if (lastWasNewline) return null
+      lastWasNewline = true
+      p++
+    } else {
+      lastWasNewline = false
+      if (s[p] === '\\' && p + 1 < len) {
+        p++
+      } else if (s[p] === '(') {
+        depth++
+      } else if (s[p] === ')') {
+        depth--
+      }
+      p++
+    }
+  }
+  if (depth !== 0) return null
+  return { value: s.slice(start, p - 1), endPos: p }
+}
+
+function scanFootnoteEnd(s: string, p: number): number {
+  var len = s.length
+  var pos = p
+  while (pos < len) {
+    var isLineStart = pos === 0 || s[pos - 1] === '\n'
+    if (pos + 1 < len && s[pos] === '\n' && s[pos + 1] === '\n' && pos > p) {
+      var afterBlank = pos + 2
+      while (
+        afterBlank < len &&
+        (s[afterBlank] === ' ' || s[afterBlank] === '\t')
+      ) {
+        afterBlank++
+      }
+      if (
+        afterBlank < len &&
+        s[afterBlank] !== '\n' &&
+        afterBlank - (pos + 2) < 4
+      ) {
+        return pos
+      }
+    }
+    if (isLineStart && util.startsWith(s, '[^', pos)) {
+      var checkPos = pos + 2
+      while (checkPos < len && s[checkPos] !== ']') {
+        checkPos++
+      }
+      if (
+        checkPos < len &&
+        s[checkPos] === ']' &&
+        checkPos + 1 < len &&
+        s[checkPos + 1] === ':'
+      ) {
+        return pos
+      }
+    }
+    pos++
+  }
+  return len
+}
+
 function parseRefContent(
   source: string,
   pos: number,
@@ -8383,12 +8511,7 @@ function parseRefContent(
         }
 
         // If next line starts with title delimiter, URL ends here
-        if (
-          checkPos < len &&
-          (source[checkPos] === '"' ||
-            source[checkPos] === "'" ||
-            source[checkPos] === '(')
-        ) {
+        if (checkPos < len && isTitleDelimiter(source, checkPos)) {
           break
         }
 
@@ -8404,19 +8527,7 @@ function parseRefContent(
         // URLs can span multiple lines, but continuation lines should still look like URLs
         if (checkPos < len) {
           const nextChar = source[checkPos]
-          // Always stop for block-level constructs
-          if (
-            nextChar === '=' ||
-            nextChar === '-' ||
-            nextChar === '_' ||
-            nextChar === '*' ||
-            nextChar === '#' ||
-            nextChar === '>' ||
-            nextChar === '`' ||
-            nextChar === '~' ||
-            nextChar === '[' ||
-            (nextChar >= '0' && nextChar <= '9')
-          ) {
+          if (isBlockStartAt(source, checkPos)) {
             break
           }
           // Stop if next line starts with a letter (could be content, not URL continuation)
@@ -8466,12 +8577,7 @@ function parseRefContent(
         }
 
         // Check if next char starts a title
-        if (
-          checkPos < len &&
-          (source[checkPos] === '"' ||
-            source[checkPos] === "'" ||
-            source[checkPos] === '(')
-        ) {
+        if (checkPos < len && isTitleDelimiter(source, checkPos)) {
           break
         }
 
@@ -8489,12 +8595,7 @@ function parseRefContent(
           ) {
             nextLineCheck++
           }
-          if (
-            nextLineCheck < len &&
-            (source[nextLineCheck] === '"' ||
-              source[nextLineCheck] === "'" ||
-              source[nextLineCheck] === '(')
-          ) {
+          if (nextLineCheck < len && isTitleDelimiter(source, nextLineCheck)) {
             break
           }
         }
@@ -8565,19 +8666,7 @@ function parseRefContent(
     }
     if (checkPos < len) {
       const nextChar = source[checkPos]
-      // Check for block-level constructs that terminate ref definitions
-      if (
-        nextChar === '[' ||
-        nextChar === '=' ||
-        nextChar === '-' ||
-        nextChar === '_' ||
-        nextChar === '*' ||
-        nextChar === '#' ||
-        nextChar === '>' ||
-        nextChar === '`' ||
-        nextChar === '~' ||
-        (nextChar >= '0' && nextChar <= '9')
-      ) {
+      if (isBlockStartAt(source, checkPos)) {
         stoppedAtBlock = true
       }
       // Per Example 215: check if this looks like a setext heading
@@ -8610,11 +8699,7 @@ function parseRefContent(
   // Per CommonMark spec: title delimiter must be separated by whitespace from destination
   // Check if we see a title delimiter immediately after destination (no whitespace)
   // This makes it invalid as a reference definition
-  if (
-    !stoppedAtBlock &&
-    i < len &&
-    (source[i] === '"' || source[i] === "'" || source[i] === '(')
-  ) {
+  if (!stoppedAtBlock && i < len && isTitleDelimiter(source, i)) {
     // Title delimiter immediately after destination without whitespace - invalid
     return null
   }
@@ -8647,18 +8732,7 @@ function parseRefContent(
       // Per Example 215: setext headings (= or -) also terminate ref definitions
       if (i < len) {
         const nextChar = source[i]
-        if (
-          nextChar === '[' ||
-          nextChar === '=' ||
-          nextChar === '-' ||
-          nextChar === '_' ||
-          nextChar === '*' ||
-          nextChar === '#' ||
-          nextChar === '>' ||
-          nextChar === '`' ||
-          nextChar === '~' ||
-          (nextChar >= '0' && nextChar <= '9')
-        ) {
+        if (isBlockStartAt(source, i)) {
           stoppedAtBlock = true
           i = whitespaceStart - 1 // Back up to the newline
           break
@@ -8679,105 +8753,38 @@ function parseRefContent(
 
   // Parse optional title (can span multiple lines, but cannot contain blank lines)
   let title: string | undefined = undefined
-  let titleEndPos = i
   if (i < len) {
     const titleChar = source[i]
-    if (titleChar === '"' || titleChar === "'") {
-      // Quoted title - can span multiple lines
-      i++ // skip opening quote
-      const titleStart = i
-      let sawBlankLine = false
-      let lastWasNewline = false
-
-      while (i < len && source[i] !== titleChar) {
-        if (source[i] === '\n') {
-          if (lastWasNewline) {
-            // Two consecutive newlines = blank line
-            sawBlankLine = true
-            break
-          }
-          lastWasNewline = true
-          i++
-        } else {
-          lastWasNewline = false
-          if (source[i] === '\\' && i + 1 < len) {
-            i++ // skip escaped char
-          }
-          i++
-        }
+    var titleResult =
+      titleChar === '('
+        ? parseParenTitle(source, i)
+        : titleChar === '"' || titleChar === "'"
+          ? parseQuotedTitle(source, i, titleChar)
+          : null
+    if (
+      titleResult === null &&
+      (titleChar === '"' || titleChar === "'" || titleChar === '(')
+    ) {
+      return null
+    }
+    if (titleResult) {
+      title = titleResult.value
+      i = titleResult.endPos
+      var afterTitlePos = i
+      while (
+        afterTitlePos < len &&
+        (source[afterTitlePos] === ' ' || source[afterTitlePos] === '\t')
+      ) {
+        afterTitlePos++
       }
-
-      if (sawBlankLine) {
-        // Title contains blank line - invalid
+      if (
+        afterTitlePos < len &&
+        source[afterTitlePos] !== '\n' &&
+        source[afterTitlePos] !== '\r'
+      ) {
         return null
       }
-
-      if (i < len && source[i] === titleChar) {
-        // Extract title preserving newlines (CommonMark spec allows multi-line titles)
-        title = source.slice(titleStart, i)
-        titleEndPos = i + 1
-        i = titleEndPos
-        // Per Example 210: after closing quote, check if there's non-whitespace before newline
-        // Skip whitespace after closing quote
-        var afterTitlePos = i
-        while (
-          afterTitlePos < len &&
-          (source[afterTitlePos] === ' ' || source[afterTitlePos] === '\t')
-        ) {
-          afterTitlePos++
-        }
-        // If there's non-whitespace before newline, invalidate the ref definition
-        if (
-          afterTitlePos < len &&
-          source[afterTitlePos] !== '\n' &&
-          source[afterTitlePos] !== '\r'
-        ) {
-          // Found non-whitespace after title closing delimiter - invalid
-          return null
-        }
-        // Update i to point to after any whitespace (before newline)
-        i = afterTitlePos
-      }
-    } else if (titleChar === '(') {
-      // Parenthesized title - can span multiple lines
-      i++ // skip opening paren
-      const titleStart = i
-      let parenDepth = 1
-      let sawBlankLine = false
-      let lastWasNewline = false
-
-      while (i < len && parenDepth > 0) {
-        if (source[i] === '\n') {
-          if (lastWasNewline) {
-            // Two consecutive newlines = blank line
-            sawBlankLine = true
-            break
-          }
-          lastWasNewline = true
-          i++
-        } else {
-          lastWasNewline = false
-          if (source[i] === '\\' && i + 1 < len) {
-            i++ // skip escaped char
-          } else if (source[i] === '(') {
-            parenDepth++
-          } else if (source[i] === ')') {
-            parenDepth--
-          }
-          i++
-        }
-      }
-
-      if (sawBlankLine) {
-        // Title contains blank line - invalid
-        return null
-      }
-
-      if (parenDepth === 0) {
-        title = source.slice(titleStart, i - 1)
-        titleEndPos = i
-        i = titleEndPos
-      }
+      i = afterTitlePos
     }
   }
 
@@ -8831,72 +8838,13 @@ function parseFootnoteContent(
 ): DefinitionParseResult | null {
   // pos is already after the colon and whitespace
   let contentStart = pos
-  let contentEnd = contentStart
-
-  // Find the end of the footnote (next footnote definition, blank line, or end of input)
-  // Continuation lines are lines that:
-  // 1. Start with a newline
-  // 2. Don't start with [^ (unless indented with 4+ spaces)
-  // 3. Can be indented with up to 4 spaces
-  // 4. Stop at a blank line (two consecutive newlines) if followed by non-indented content
-  let stoppedAtBlankLine = false
-  while (contentEnd < source.length) {
-    // Check if we're at the start of a line (after newline or at start of input)
-    const isLineStart = contentEnd === 0 || source[contentEnd - 1] === '\n'
-
-    // Check for blank line (two consecutive newlines) followed by non-indented content
-    // A blank line terminates the footnote if followed by content that's not indented 4+ spaces
-    // We need to check if we're at a blank line: current position is \n and next is \n
-    if (
-      contentEnd + 1 < source.length &&
-      source[contentEnd] === '\n' &&
-      source[contentEnd + 1] === '\n' &&
-      contentEnd > contentStart // Make sure we're past the first line
-    ) {
-      // Check if there's non-indented content after the blank line
-      let afterBlank = contentEnd + 2
-      // Skip whitespace
-      while (
-        afterBlank < source.length &&
-        (source[afterBlank] === ' ' || source[afterBlank] === '\t')
-      ) {
-        afterBlank++
-      }
-      // If there's content and it's not indented with 4+ spaces, stop the footnote
-      if (
-        afterBlank < source.length &&
-        source[afterBlank] !== '\n' &&
-        afterBlank - (contentEnd + 2) < 4
-      ) {
-        // Blank line followed by non-indented content - stop at the blank line
-        stoppedAtBlankLine = true
-        break
-      }
-    }
-
-    if (isLineStart && util.startsWith(source, '[^', contentEnd)) {
-      // Check if this is a footnote definition (has ':')
-      let checkPos = contentEnd + 2
-      while (checkPos < source.length && source[checkPos] !== ']') {
-        checkPos++
-      }
-      if (
-        checkPos < source.length &&
-        source[checkPos] === ']' &&
-        checkPos + 1 < source.length &&
-        source[checkPos + 1] === ':'
-      ) {
-        // Found next footnote definition at start of line - stop here
-        break
-      }
-    }
-    contentEnd++
-  }
+  let contentEnd = scanFootnoteEnd(source, pos)
+  let stoppedAtBlankLine =
+    contentEnd < source.length &&
+    source[contentEnd] === '\n' &&
+    source[contentEnd + 1] === '\n'
 
   // Extract the footnote content (from after ']:' to before next footnote or end)
-  // If we stopped at a blank line, contentEnd points to the first \n of \n\n
-  // We want to extract up to but not including that \n (which slice does)
-  // But we also need to make sure we don't include the trailing newline from the last line
   let extractEnd = contentEnd
 
   // pos is already after the colon and whitespace, so we can use it directly
