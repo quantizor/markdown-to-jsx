@@ -241,7 +241,18 @@ function unescapeUrlOrTitle(str: string): string {
 }
 
 function skipToNextLine(source: string, lineEnd: number): number {
-  return lineEnd + (lineEnd < source.length ? 1 : 0)
+  if (lineEnd >= source.length) return lineEnd
+  if (
+    source.charCodeAt(lineEnd) === $.CHAR_CR &&
+    lineEnd + 1 < source.length &&
+    source.charCodeAt(lineEnd + 1) === $.CHAR_NEWLINE
+  ) {
+    return lineEnd + 2
+  }
+  if (source.charCodeAt(lineEnd) === $.CHAR_NEWLINE) {
+    return lineEnd + 1
+  }
+  return lineEnd + 1
 }
 
 function getCharType(code: number, skipAutoLink: boolean): number {
@@ -2807,7 +2818,7 @@ function parseHeadingSetext(
   if (firstLineEnd >= source.length) return null
 
   // Find underline pattern first, then validate backwards
-  let underlineLineStart = firstLineEnd + 1,
+  let underlineLineStart = skipToNextLine(source, firstLineEnd),
     underlineLineEnd = -1,
     underlineChar: string | null = null
 
@@ -2876,7 +2887,7 @@ function parseHeadingSetext(
       }
     }
 
-    underlineLineStart = lineEnd + 1
+    underlineLineStart = skipToNextLine(source, lineEnd)
   }
 
   if (!underlineChar) return null
@@ -2914,7 +2925,7 @@ function parseHeadingSetext(
       contentEnd = lineEnd
     }
 
-    currentPos = lineEnd + 1
+    currentPos = skipToNextLine(source, lineEnd)
   }
 
   if (!hasContent) return null
@@ -2993,7 +3004,7 @@ function parseParagraph(
       break
     }
 
-    const nextLineStart = lineEnd + 1
+    const nextLineStart = skipToNextLine(source, lineEnd)
     if (nextLineStart >= sourceLen) {
       endPos = sourceLen
       break
@@ -3170,7 +3181,7 @@ function parseParagraph(
     }
 
     // Continue paragraph across single newline
-    endPos = lineEnd + 1
+    endPos = skipToNextLine(source, lineEnd)
   }
 
   if (endPos <= pos) return null
@@ -3226,12 +3237,14 @@ function parseParagraph(
         processedParts.push(source.slice(start, lineEnd))
       }
 
-      if (
-        lineEnd < contentEnd &&
-        charCode(source, lineEnd) === $.CHAR_NEWLINE
-      ) {
-        processedParts.push('\n')
-        lineStart = lineEnd + 1
+      if (lineEnd < contentEnd) {
+        const charAtEnd = charCode(source, lineEnd)
+        if (charAtEnd === $.CHAR_CR || charAtEnd === $.CHAR_NEWLINE) {
+          processedParts.push('\n')
+          lineStart = skipToNextLine(source, lineEnd)
+        } else {
+          lineStart = contentEnd
+        }
       } else {
         lineStart = contentEnd
       }
@@ -3438,9 +3451,12 @@ function parseFrontmatter(source: string, pos: number): ParseResult {
   if (pos !== 0) return null
   const bounds = util.parseFrontmatterBounds(source)
   if (!bounds?.hasValidYaml) return null
+  let sliceEnd = bounds.endPos - 1
+  if (sliceEnd > 0 && source[sliceEnd - 1] === '\r') sliceEnd--
+  let text = util.normalizeCRLF(source.slice(0, sliceEnd))
   return {
     type: RuleType.frontmatter,
-    text: source.slice(0, bounds.endPos - 1),
+    text,
     endPos: bounds.endPos,
   } as MarkdownToJSX.FrontmatterNode & { endPos: number }
 }
@@ -3787,7 +3803,10 @@ export function parseCodeFenced(
 
   let contentEnd =
     endPos > contentStart && source[endPos - 1] === '\n' ? endPos - 1 : endPos
-  let rawContent = source.slice(contentStart, contentEnd)
+  if (contentEnd > contentStart && source[contentEnd - 1] === '\r') {
+    contentEnd--
+  }
+  let rawContent = util.normalizeCRLF(source.slice(contentStart, contentEnd))
   if (contentIndentToRemove) {
     rawContent = removeExtraIndentFromCodeBlock(
       rawContent,
@@ -5725,10 +5744,12 @@ function parseList(
         if (lastItem.length > 0) {
           const lastBlock = lastItem[lastItem.length - 1]
           if (
-            lastBlock.type === RuleType.paragraph ||
-            lastBlock.type === RuleType.text
+            !prevLineWasBlank &&
+            (lastBlock.type === RuleType.paragraph ||
+              lastBlock.type === RuleType.text)
           ) {
             // This is a lazy continuation line - continue the paragraph
+            // Per CommonMark: lazy continuation only applies when there's no blank line
             appendListContinuation(
               nextLineWithoutIndent,
               lastItem,
@@ -6537,7 +6558,7 @@ function findNextBlankLine(
   while (pos < sourceLen) {
     var nextLineEnd = util.findLineEnd(source, pos)
     if (isBlankLineCheck(source, pos, nextLineEnd)) return pos
-    pos = nextLineEnd + (nextLineEnd < sourceLen ? 1 : 0)
+    pos = skipToNextLine(source, nextLineEnd)
   }
   return sourceLen
 }
@@ -6553,7 +6574,7 @@ function createHTMLCommentResult(
 } {
   return {
     type: RuleType.htmlComment,
-    text,
+    text: util.normalizeCRLF(text),
     endPos,
     ...options,
   } as MarkdownToJSX.HTMLCommentNode & {
@@ -6578,10 +6599,11 @@ function createVerbatimHTMLBlock(
   isClosingTag?: boolean
   canInterruptParagraph?: boolean
 } {
+  var normalizedText = util.normalizeCRLF(text)
   // Detect empty unclosed HTML tags when forceBlock is used to avoid infinite recursion
   // For empty unclosed tags like <var>, the text field contains the opening tag itself
   // When forceBlock is used, this would cause recursion if the tag is parsed again
-  var finalText = text
+  var finalText = normalizedText
   if (options && options.forceBlock && text && !isClosingTag) {
     var openingTagPattern = new RegExp(
       '^<' + tagName.toLowerCase() + '(\\s[^>]*)?>$',
@@ -6839,8 +6861,7 @@ function processHTMLBlock(
     isType1BlockTag ||
     (isType6Block && endedAtBlankLine && !hasBlockContent(content))
 
-  // Normalize content (trim newlines for verbatim blocks)
-  var normalizedContent = content
+  var normalizedContent = util.normalizeCRLF(content)
   // Store original content for text field before we modify it for parsing
   var contentForText = normalizedContent
   if (shouldTreatAsVerbatim) {
@@ -7154,7 +7175,11 @@ function parseHTML(
         // Determine block type and find blank line
         var blockType: 'type6' | 'type7' = isType6 ? 'type6' : 'type7'
         var tagEnd = partialTagEnd
-        var blockEnd = findNextBlankLine(source, firstLineEnd + 1, sourceLen)
+        var blockEnd = findNextBlankLine(
+          source,
+          skipToNextLine(source, firstLineEnd),
+          sourceLen
+        )
         var blockContent = source.slice(tagEnd, blockEnd)
         var isClosingTag = pos + 1 < source.length && source[pos + 1] === '/'
 
@@ -7275,10 +7300,18 @@ function parseHTML(
           })())
 
       if (shouldParseAsBlock) {
-        var blockEnd = findNextBlankLine(source, firstLineEnd + 1, sourceLen)
+        var blockEnd = findNextBlankLine(
+          source,
+          skipToNextLine(source, firstLineEnd),
+          sourceLen
+        )
         var blockContent = source.slice(tagEnd, blockEnd)
-        if (blockContent.length > 0 && blockContent[0] === '\n') {
-          blockContent = blockContent.slice(1)
+        if (blockContent.length > 0) {
+          if (blockContent[0] === '\r' && blockContent[1] === '\n') {
+            blockContent = blockContent.slice(2)
+          } else if (blockContent[0] === '\n' || blockContent[0] === '\r') {
+            blockContent = blockContent.slice(1)
+          }
         }
 
         // Cache lowercase tag name to avoid repeated toLowerCase() calls
@@ -7643,7 +7676,11 @@ function parseHTML(
       var blockType: 'type6' | 'type7' = isType6Block ? 'type6' : 'type7'
       debug('match', 'htmlBlock', state)
       var tagEnd = tagResult.endPos
-      var blockEnd = findNextBlankLine(source, firstLineEnd + 1, sourceLen)
+      var blockEnd = findNextBlankLine(
+        source,
+        skipToNextLine(source, firstLineEnd),
+        sourceLen
+      )
 
       // For type 6 blocks, check if there's a closing tag (even beyond the blank line)
       // If there is AND there's markdown syntax, extend to include the closing tag
@@ -7791,12 +7828,13 @@ function parseHTML(
         }
       }
 
-      // For type 6 and type 7 blocks, content is verbatim (raw HTML)
-      // Content includes everything from after the opening tag to the blank line
-      // Remove leading newline if present
       var verbatimContent = blockContent
-      if (verbatimContent.length > 0 && verbatimContent[0] === '\n') {
-        verbatimContent = verbatimContent.slice(1)
+      if (verbatimContent.length > 0) {
+        if (verbatimContent[0] === '\r' && verbatimContent[1] === '\n') {
+          verbatimContent = verbatimContent.slice(2)
+        } else if (verbatimContent[0] === '\n' || verbatimContent[0] === '\r') {
+          verbatimContent = verbatimContent.slice(1)
+        }
       }
       // Per CommonMark spec: remove common leading whitespace from all lines
       var lines = verbatimContent.split('\n')
@@ -8280,6 +8318,153 @@ interface DefinitionParseResult {
   title?: string
 }
 
+function isBlockStartAt(s: string, p: number): boolean {
+  if (p >= s.length) return false
+  var c = s[p]
+  return (
+    c === '=' ||
+    c === '-' ||
+    c === '_' ||
+    c === '*' ||
+    c === '#' ||
+    c === '>' ||
+    c === '`' ||
+    c === '~' ||
+    c === '[' ||
+    (c >= '0' && c <= '9')
+  )
+}
+
+function isTitleDelimiter(s: string, p: number): boolean {
+  if (p >= s.length) return false
+  var c = s[p]
+  return c === '"' || c === "'" || c === '('
+}
+
+function parseQuotedTitle(
+  s: string,
+  p: number,
+  closeChar: string
+): { value: string; endPos: number } | null {
+  var len = s.length
+  if (p >= len || s[p] !== closeChar) return null
+  p++
+  var start = p
+  var lastWasNewline = false
+  while (p < len && s[p] !== closeChar) {
+    var c = s.charCodeAt(p)
+    if (c === $.CHAR_NEWLINE) {
+      if (lastWasNewline) return null
+      lastWasNewline = true
+      p++
+    } else if (c === $.CHAR_CR) {
+      if (p + 1 < len && s.charCodeAt(p + 1) === $.CHAR_NEWLINE) {
+        if (lastWasNewline) return null
+        lastWasNewline = true
+        p += 2
+      } else {
+        lastWasNewline = false
+        p++
+      }
+    } else {
+      lastWasNewline = false
+      if (c === $.CHAR_BACKSLASH && p + 1 < len) p++
+      p++
+    }
+  }
+  if (p >= len) return null
+  return { value: s.slice(start, p), endPos: p + 1 }
+}
+
+function parseParenTitle(
+  s: string,
+  p: number
+): { value: string; endPos: number } | null {
+  var len = s.length
+  if (p >= len || s[p] !== '(') return null
+  p++
+  var start = p
+  var depth = 1
+  var lastWasNewline = false
+  while (p < len && depth > 0) {
+    var c = s.charCodeAt(p)
+    if (c === $.CHAR_NEWLINE) {
+      if (lastWasNewline) return null
+      lastWasNewline = true
+      p++
+    } else if (c === $.CHAR_CR) {
+      if (p + 1 < len && s.charCodeAt(p + 1) === $.CHAR_NEWLINE) {
+        if (lastWasNewline) return null
+        lastWasNewline = true
+        p += 2
+      } else {
+        lastWasNewline = false
+        p++
+      }
+    } else {
+      lastWasNewline = false
+      if (c === $.CHAR_BACKSLASH && p + 1 < len) {
+        p++
+      } else if (c === $.CHAR_PAREN_OPEN) {
+        depth++
+      } else if (c === $.CHAR_PAREN_CLOSE) {
+        depth--
+      }
+      p++
+    }
+  }
+  if (depth !== 0) return null
+  return { value: s.slice(start, p - 1), endPos: p }
+}
+
+function scanFootnoteEnd(s: string, p: number): number {
+  var len = s.length
+  var pos = p
+  while (pos < len) {
+    var isLineStart = pos === 0 || s[pos - 1] === '\n'
+    var c = s.charCodeAt(pos)
+    if (c === $.CHAR_NEWLINE && pos > p) {
+      var nextPos = pos + 1
+      if (nextPos < len && s.charCodeAt(nextPos) === $.CHAR_CR) nextPos++
+      if (nextPos < len && s.charCodeAt(nextPos) === $.CHAR_NEWLINE) {
+        var afterBlank = nextPos + 1
+        while (
+          afterBlank < len &&
+          (s[afterBlank] === ' ' || s[afterBlank] === '\t')
+        ) {
+          afterBlank++
+        }
+        var blankLineLen = afterBlank - (pos + 1)
+        if (s.charCodeAt(pos + 1) === $.CHAR_CR) blankLineLen--
+        if (
+          afterBlank < len &&
+          s.charCodeAt(afterBlank) !== $.CHAR_NEWLINE &&
+          s.charCodeAt(afterBlank) !== $.CHAR_CR &&
+          blankLineLen < 4
+        ) {
+          return pos
+        }
+      }
+    }
+    if (isLineStart && util.startsWith(s, '[^', pos)) {
+      var checkPos = pos + 2
+      while (checkPos < len && s[checkPos] !== ']') {
+        checkPos++
+      }
+      if (
+        checkPos < len &&
+        s[checkPos] === ']' &&
+        checkPos + 1 < len &&
+        s[checkPos + 1] === ':'
+      ) {
+        return pos
+      }
+    }
+    pos++
+  }
+  return len
+}
+
 function parseRefContent(
   source: string,
   pos: number,
@@ -8345,12 +8530,7 @@ function parseRefContent(
         }
 
         // If next line starts with title delimiter, URL ends here
-        if (
-          checkPos < len &&
-          (source[checkPos] === '"' ||
-            source[checkPos] === "'" ||
-            source[checkPos] === '(')
-        ) {
+        if (checkPos < len && isTitleDelimiter(source, checkPos)) {
           break
         }
 
@@ -8366,19 +8546,7 @@ function parseRefContent(
         // URLs can span multiple lines, but continuation lines should still look like URLs
         if (checkPos < len) {
           const nextChar = source[checkPos]
-          // Always stop for block-level constructs
-          if (
-            nextChar === '=' ||
-            nextChar === '-' ||
-            nextChar === '_' ||
-            nextChar === '*' ||
-            nextChar === '#' ||
-            nextChar === '>' ||
-            nextChar === '`' ||
-            nextChar === '~' ||
-            nextChar === '[' ||
-            (nextChar >= '0' && nextChar <= '9')
-          ) {
+          if (isBlockStartAt(source, checkPos)) {
             break
           }
           // Stop if next line starts with a letter (could be content, not URL continuation)
@@ -8428,12 +8596,7 @@ function parseRefContent(
         }
 
         // Check if next char starts a title
-        if (
-          checkPos < len &&
-          (source[checkPos] === '"' ||
-            source[checkPos] === "'" ||
-            source[checkPos] === '(')
-        ) {
+        if (checkPos < len && isTitleDelimiter(source, checkPos)) {
           break
         }
 
@@ -8451,12 +8614,7 @@ function parseRefContent(
           ) {
             nextLineCheck++
           }
-          if (
-            nextLineCheck < len &&
-            (source[nextLineCheck] === '"' ||
-              source[nextLineCheck] === "'" ||
-              source[nextLineCheck] === '(')
-          ) {
+          if (nextLineCheck < len && isTitleDelimiter(source, nextLineCheck)) {
             break
           }
         }
@@ -8527,19 +8685,7 @@ function parseRefContent(
     }
     if (checkPos < len) {
       const nextChar = source[checkPos]
-      // Check for block-level constructs that terminate ref definitions
-      if (
-        nextChar === '[' ||
-        nextChar === '=' ||
-        nextChar === '-' ||
-        nextChar === '_' ||
-        nextChar === '*' ||
-        nextChar === '#' ||
-        nextChar === '>' ||
-        nextChar === '`' ||
-        nextChar === '~' ||
-        (nextChar >= '0' && nextChar <= '9')
-      ) {
+      if (isBlockStartAt(source, checkPos)) {
         stoppedAtBlock = true
       }
       // Per Example 215: check if this looks like a setext heading
@@ -8549,7 +8695,7 @@ function parseRefContent(
         // Next line might be content - check if line after that starts with = or -
         var firstLineEnd = util.findLineEnd(source, checkPos)
         if (firstLineEnd < len) {
-          var secondLineStart = firstLineEnd + 1
+          var secondLineStart = skipToNextLine(source, firstLineEnd)
           var secondCheckPos = secondLineStart
           while (
             secondCheckPos < len &&
@@ -8572,11 +8718,7 @@ function parseRefContent(
   // Per CommonMark spec: title delimiter must be separated by whitespace from destination
   // Check if we see a title delimiter immediately after destination (no whitespace)
   // This makes it invalid as a reference definition
-  if (
-    !stoppedAtBlock &&
-    i < len &&
-    (source[i] === '"' || source[i] === "'" || source[i] === '(')
-  ) {
+  if (!stoppedAtBlock && i < len && isTitleDelimiter(source, i)) {
     // Title delimiter immediately after destination without whitespace - invalid
     return null
   }
@@ -8609,18 +8751,7 @@ function parseRefContent(
       // Per Example 215: setext headings (= or -) also terminate ref definitions
       if (i < len) {
         const nextChar = source[i]
-        if (
-          nextChar === '[' ||
-          nextChar === '=' ||
-          nextChar === '-' ||
-          nextChar === '_' ||
-          nextChar === '*' ||
-          nextChar === '#' ||
-          nextChar === '>' ||
-          nextChar === '`' ||
-          nextChar === '~' ||
-          (nextChar >= '0' && nextChar <= '9')
-        ) {
+        if (isBlockStartAt(source, i)) {
           stoppedAtBlock = true
           i = whitespaceStart - 1 // Back up to the newline
           break
@@ -8641,105 +8772,38 @@ function parseRefContent(
 
   // Parse optional title (can span multiple lines, but cannot contain blank lines)
   let title: string | undefined = undefined
-  let titleEndPos = i
   if (i < len) {
     const titleChar = source[i]
-    if (titleChar === '"' || titleChar === "'") {
-      // Quoted title - can span multiple lines
-      i++ // skip opening quote
-      const titleStart = i
-      let sawBlankLine = false
-      let lastWasNewline = false
-
-      while (i < len && source[i] !== titleChar) {
-        if (source[i] === '\n') {
-          if (lastWasNewline) {
-            // Two consecutive newlines = blank line
-            sawBlankLine = true
-            break
-          }
-          lastWasNewline = true
-          i++
-        } else {
-          lastWasNewline = false
-          if (source[i] === '\\' && i + 1 < len) {
-            i++ // skip escaped char
-          }
-          i++
-        }
+    var titleResult =
+      titleChar === '('
+        ? parseParenTitle(source, i)
+        : titleChar === '"' || titleChar === "'"
+          ? parseQuotedTitle(source, i, titleChar)
+          : null
+    if (
+      titleResult === null &&
+      (titleChar === '"' || titleChar === "'" || titleChar === '(')
+    ) {
+      return null
+    }
+    if (titleResult) {
+      title = titleResult.value
+      i = titleResult.endPos
+      var afterTitlePos = i
+      while (
+        afterTitlePos < len &&
+        (source[afterTitlePos] === ' ' || source[afterTitlePos] === '\t')
+      ) {
+        afterTitlePos++
       }
-
-      if (sawBlankLine) {
-        // Title contains blank line - invalid
+      if (
+        afterTitlePos < len &&
+        source[afterTitlePos] !== '\n' &&
+        source[afterTitlePos] !== '\r'
+      ) {
         return null
       }
-
-      if (i < len && source[i] === titleChar) {
-        // Extract title preserving newlines (CommonMark spec allows multi-line titles)
-        title = source.slice(titleStart, i)
-        titleEndPos = i + 1
-        i = titleEndPos
-        // Per Example 210: after closing quote, check if there's non-whitespace before newline
-        // Skip whitespace after closing quote
-        var afterTitlePos = i
-        while (
-          afterTitlePos < len &&
-          (source[afterTitlePos] === ' ' || source[afterTitlePos] === '\t')
-        ) {
-          afterTitlePos++
-        }
-        // If there's non-whitespace before newline, invalidate the ref definition
-        if (
-          afterTitlePos < len &&
-          source[afterTitlePos] !== '\n' &&
-          source[afterTitlePos] !== '\r'
-        ) {
-          // Found non-whitespace after title closing delimiter - invalid
-          return null
-        }
-        // Update i to point to after any whitespace (before newline)
-        i = afterTitlePos
-      }
-    } else if (titleChar === '(') {
-      // Parenthesized title - can span multiple lines
-      i++ // skip opening paren
-      const titleStart = i
-      let parenDepth = 1
-      let sawBlankLine = false
-      let lastWasNewline = false
-
-      while (i < len && parenDepth > 0) {
-        if (source[i] === '\n') {
-          if (lastWasNewline) {
-            // Two consecutive newlines = blank line
-            sawBlankLine = true
-            break
-          }
-          lastWasNewline = true
-          i++
-        } else {
-          lastWasNewline = false
-          if (source[i] === '\\' && i + 1 < len) {
-            i++ // skip escaped char
-          } else if (source[i] === '(') {
-            parenDepth++
-          } else if (source[i] === ')') {
-            parenDepth--
-          }
-          i++
-        }
-      }
-
-      if (sawBlankLine) {
-        // Title contains blank line - invalid
-        return null
-      }
-
-      if (parenDepth === 0) {
-        title = source.slice(titleStart, i - 1)
-        titleEndPos = i
-        i = titleEndPos
-      }
+      i = afterTitlePos
     }
   }
 
@@ -8793,72 +8857,13 @@ function parseFootnoteContent(
 ): DefinitionParseResult | null {
   // pos is already after the colon and whitespace
   let contentStart = pos
-  let contentEnd = contentStart
-
-  // Find the end of the footnote (next footnote definition, blank line, or end of input)
-  // Continuation lines are lines that:
-  // 1. Start with a newline
-  // 2. Don't start with [^ (unless indented with 4+ spaces)
-  // 3. Can be indented with up to 4 spaces
-  // 4. Stop at a blank line (two consecutive newlines) if followed by non-indented content
-  let stoppedAtBlankLine = false
-  while (contentEnd < source.length) {
-    // Check if we're at the start of a line (after newline or at start of input)
-    const isLineStart = contentEnd === 0 || source[contentEnd - 1] === '\n'
-
-    // Check for blank line (two consecutive newlines) followed by non-indented content
-    // A blank line terminates the footnote if followed by content that's not indented 4+ spaces
-    // We need to check if we're at a blank line: current position is \n and next is \n
-    if (
-      contentEnd + 1 < source.length &&
-      source[contentEnd] === '\n' &&
-      source[contentEnd + 1] === '\n' &&
-      contentEnd > contentStart // Make sure we're past the first line
-    ) {
-      // Check if there's non-indented content after the blank line
-      let afterBlank = contentEnd + 2
-      // Skip whitespace
-      while (
-        afterBlank < source.length &&
-        (source[afterBlank] === ' ' || source[afterBlank] === '\t')
-      ) {
-        afterBlank++
-      }
-      // If there's content and it's not indented with 4+ spaces, stop the footnote
-      if (
-        afterBlank < source.length &&
-        source[afterBlank] !== '\n' &&
-        afterBlank - (contentEnd + 2) < 4
-      ) {
-        // Blank line followed by non-indented content - stop at the blank line
-        stoppedAtBlankLine = true
-        break
-      }
-    }
-
-    if (isLineStart && util.startsWith(source, '[^', contentEnd)) {
-      // Check if this is a footnote definition (has ':')
-      let checkPos = contentEnd + 2
-      while (checkPos < source.length && source[checkPos] !== ']') {
-        checkPos++
-      }
-      if (
-        checkPos < source.length &&
-        source[checkPos] === ']' &&
-        checkPos + 1 < source.length &&
-        source[checkPos + 1] === ':'
-      ) {
-        // Found next footnote definition at start of line - stop here
-        break
-      }
-    }
-    contentEnd++
-  }
+  let contentEnd = scanFootnoteEnd(source, pos)
+  let stoppedAtBlankLine =
+    contentEnd < source.length &&
+    source[contentEnd] === '\n' &&
+    source[contentEnd + 1] === '\n'
 
   // Extract the footnote content (from after ']:' to before next footnote or end)
-  // If we stopped at a blank line, contentEnd points to the first \n of \n\n
-  // We want to extract up to but not including that \n (which slice does)
-  // But we also need to make sure we don't include the trailing newline from the last line
   let extractEnd = contentEnd
 
   // pos is already after the colon and whitespace, so we can use it directly
@@ -8871,11 +8876,9 @@ function parseFootnoteContent(
   let prevWasBlank = false
 
   while (lineStart < extractEnd) {
-    let lineEnd = lineStart
-    // Find line end
-    while (lineEnd < extractEnd && source[lineEnd] !== '\n') {
-      lineEnd++
-    }
+    // Find line end - use findLineEnd to properly handle CRLF
+    let lineEnd = util.findLineEnd(source, lineStart)
+    if (lineEnd > extractEnd) lineEnd = extractEnd
 
     // Extract and process line
     if (lineIndex === 0) {
@@ -8932,9 +8935,14 @@ function parseFootnoteContent(
     }
 
     // Move to next line
-    if (lineEnd < extractEnd && source[lineEnd] === '\n') {
-      processedParts.push('\n')
-      lineStart = lineEnd + 1
+    if (lineEnd < extractEnd) {
+      const charAtEnd = charCode(source, lineEnd)
+      if (charAtEnd === $.CHAR_CR || charAtEnd === $.CHAR_NEWLINE) {
+        processedParts.push('\n')
+        lineStart = skipToNextLine(source, lineEnd)
+      } else {
+        lineStart = extractEnd
+      }
     } else {
       lineStart = extractEnd
     }
@@ -9639,7 +9647,7 @@ export function collectReferenceDefinitions(
       if (refPos + 1 < len && charCode(input, refPos + 1) === $.CHAR_CARET) {
         canStartRef = false
         var lineEnd = util.findLineEnd(input, pos)
-        pos = lineEnd >= len ? len : lineEnd + 1
+        pos = lineEnd >= len ? len : skipToNextLine(input, lineEnd)
         continue
       } else {
         var result = parseDefinition(
@@ -9670,7 +9678,7 @@ export function collectReferenceDefinitions(
             canStartRef = false
           }
         }
-        pos = lineEnd >= len ? len : lineEnd + 1
+        pos = lineEnd >= len ? len : skipToNextLine(input, lineEnd)
         continue
       }
     }
@@ -9701,7 +9709,7 @@ export function collectReferenceDefinitions(
         )
           contentStart++
         bqLines.push(input.slice(contentStart, lineEnd))
-        bqEnd = lineEnd + 1
+        bqEnd = skipToNextLine(input, lineEnd)
       }
       if (bqLines.length) {
         collectReferenceDefinitions(bqLines.join('\n'), refs, options)
@@ -9717,7 +9725,7 @@ export function collectReferenceDefinitions(
     } else {
       var isCurrentLineBlank = isBlankLineCheck(input, pos, lineEnd)
       var indentInfo = calculateIndent(input, pos, lineEnd)
-      pos = lineEnd + 1
+      pos = skipToNextLine(input, lineEnd)
       canStartRef =
         currentCharCode === $.CHAR_HASH ||
         currentCharCode === $.CHAR_GT ||

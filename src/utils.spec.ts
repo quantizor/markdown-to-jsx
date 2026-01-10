@@ -798,7 +798,7 @@ describe('text processing', () => {
   describe('findLineEnd', () => {
     it('should find the end of the current line', () => {
       expect(u.findLineEnd('hello\nworld', 0)).toBe(5)
-      expect(u.findLineEnd('hello\r\nworld', 0)).toBe(6)
+      expect(u.findLineEnd('hello\r\nworld', 0)).toBe(5) // CRLF: returns position before \r
       expect(u.findLineEnd('hello', 0)).toBe(5)
       expect(u.findLineEnd('hello\nworld', 6)).toBe(11)
     })
@@ -813,7 +813,7 @@ describe('text processing', () => {
     })
 
     it('should handle strings with unusual newline combinations', () => {
-      expect(u.findLineEnd('hello\r\nworld', 0)).toBe(6) // CRLF
+      expect(u.findLineEnd('hello\r\nworld', 0)).toBe(5) // CRLF - returns position before \r
       expect(u.findLineEnd('hello\rworld', 0)).toBe(11) // CR only (not treated as newline)
       expect(u.findLineEnd('hello\n\rworld', 0)).toBe(5) // LF then CR
     })
@@ -827,6 +827,37 @@ describe('text processing', () => {
     it('should handle strings with multiple consecutive newlines', () => {
       expect(u.findLineEnd('hello\n\nworld', 0)).toBe(5)
       expect(u.findLineEnd('hello\n\nworld', 6)).toBe(6) // at the second newline
+    })
+  })
+
+  describe('normalizeCRLF', () => {
+    it('should normalize CRLF to LF', () => {
+      expect(u.normalizeCRLF('hello\r\nworld')).toBe('hello\nworld')
+      expect(u.normalizeCRLF('line1\r\nline2\r\nline3')).toBe(
+        'line1\nline2\nline3'
+      )
+    })
+
+    it('should normalize standalone CR to LF', () => {
+      expect(u.normalizeCRLF('hello\rworld')).toBe('hello\nworld')
+    })
+
+    it('should handle mixed line endings', () => {
+      expect(u.normalizeCRLF('crlf\r\nlf\ncr\rend')).toBe('crlf\nlf\ncr\nend')
+    })
+
+    it('should return original string when no CR present (fast path)', () => {
+      const original = 'hello\nworld'
+      expect(u.normalizeCRLF(original)).toBe(original)
+    })
+
+    it('should handle empty string', () => {
+      expect(u.normalizeCRLF('')).toBe('')
+    })
+
+    it('should handle string with only newlines', () => {
+      expect(u.normalizeCRLF('\r\n\r\n')).toBe('\n\n')
+      expect(u.normalizeCRLF('\n\n')).toBe('\n\n')
     })
   })
 

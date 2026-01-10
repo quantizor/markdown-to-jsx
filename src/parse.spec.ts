@@ -97,11 +97,13 @@ describe('parser', () => {
     const result = p.parser(
       'line1\r\nline2\nline3\rline4'
     ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
+    // CRLF and LF are both treated as single line endings (soft breaks)
+    // CR without LF is preserved as literal text
     expect(result).toEqual([
       {
         type: RuleType.paragraph,
         children: [
-          { type: RuleType.text, text: 'line1\r' },
+          { type: RuleType.text, text: 'line1' },
           { type: RuleType.text, text: '\n' },
           { type: RuleType.text, text: 'line2' },
           { type: RuleType.text, text: '\n' },
@@ -1585,6 +1587,313 @@ describe('tables in lists', () => {
       const tables = item.filter(node => node.type === RuleType.table)
       expect(tables.length).toBe(1)
     }
+  })
+})
+
+describe('paragraph after nested list', () => {
+  it('should parse paragraph at column 0 after blank line as separate block (issue #776)', () => {
+    const md = `- Unordered list
+  - Unordered nested list
+
+This is paragraph after the unordered nested list.`
+    const result = p.parser(md)
+
+    // Should have a list followed by a separate paragraph
+    expect(result.length).toBe(2)
+    expect(result[0].type).toBe(RuleType.unorderedList)
+    expect(result[1].type).toBe(RuleType.paragraph)
+
+    const list = result[0] as MarkdownToJSX.UnorderedListNode
+    expect(list.items.length).toBe(1)
+
+    const firstItem = list.items[0]
+    expect(firstItem.length).toBe(2) // Text node + nested list
+
+    // The nested list should not contain the paragraph
+    const nestedList = firstItem[1] as MarkdownToJSX.UnorderedListNode
+    expect(nestedList.items.length).toBe(1)
+    const nestedItem = nestedList.items[0]
+    // Should only contain the text "Unordered nested list", not the paragraph
+    expect(nestedItem.length).toBe(1)
+    expect(nestedItem[0].type).toBe(RuleType.text)
+    expect((nestedItem[0] as MarkdownToJSX.TextNode).text).toBe('Unordered nested list')
+
+    const paragraph = result[1] as MarkdownToJSX.ParagraphNode
+    expect(paragraph.children[0].type).toBe(RuleType.text)
+    expect((paragraph.children[0] as MarkdownToJSX.TextNode).text).toBe(
+      'This is paragraph after the unordered nested list.'
+    )
+  })
+
+  it('should handle ordered nested list with paragraph after blank line', () => {
+    const md = `1. Ordered list
+   1. Ordered nested list
+
+This is paragraph after.`
+    const result = p.parser(md)
+
+    expect(result.length).toBe(2)
+    expect(result[0].type).toBe(RuleType.orderedList)
+    expect(result[1].type).toBe(RuleType.paragraph)
+
+    const list = result[0] as MarkdownToJSX.OrderedListNode
+    const nestedList = list.items[0][1] as MarkdownToJSX.OrderedListNode
+    const nestedItem = nestedList.items[0]
+    // Should only contain the text, not the paragraph
+    expect(nestedItem.length).toBe(1)
+    expect(nestedItem[0].type).toBe(RuleType.text)
+  })
+})
+
+describe('CRLF line endings', () => {
+  function toCRLF(text: string): string {
+    return text.replace(/\n/g, '\r\n')
+  }
+
+  function stripEndPos(obj: unknown): unknown {
+    return JSON.parse(JSON.stringify(obj, (k, v) => k === 'endPos' ? undefined : v))
+  }
+
+  function expectCRLFEquivalent(lfText: string, description?: string) {
+    const crlfText = toCRLF(lfText)
+    const lfResult = p.parser(lfText)
+    const crlfResult = p.parser(crlfText)
+    expect(stripEndPos(crlfResult)).toEqual(stripEndPos(lfResult))
+  }
+
+  describe('paragraphs', () => {
+    it('should handle single paragraph with multiple lines', () => {
+      expectCRLFEquivalent('line1\nline2\nline3')
+    })
+
+    it('should handle multiple paragraphs separated by blank lines', () => {
+      expectCRLFEquivalent('paragraph 1\n\nparagraph 2\n\nparagraph 3')
+    })
+  })
+
+  describe('headings', () => {
+    it('should handle ATX headings', () => {
+      expectCRLFEquivalent('# Heading 1\n\n## Heading 2\n\n### Heading 3')
+    })
+
+    it('should handle setext headings', () => {
+      expectCRLFEquivalent('Heading 1\n=========\n\nHeading 2\n---------')
+    })
+
+    it('should handle multi-line setext heading content', () => {
+      expectCRLFEquivalent('Multi\nline\nheading\n=======')
+    })
+  })
+
+  describe('lists', () => {
+    it('should handle unordered lists', () => {
+      expectCRLFEquivalent('- item 1\n- item 2\n- item 3')
+    })
+
+    it('should handle ordered lists', () => {
+      expectCRLFEquivalent('1. item 1\n2. item 2\n3. item 3')
+    })
+
+    it('should handle nested lists', () => {
+      expectCRLFEquivalent('- item 1\n  - nested 1\n  - nested 2\n- item 2')
+    })
+
+    it('should handle lists with multi-line items', () => {
+      expectCRLFEquivalent('- item 1\n  continuation\n- item 2')
+    })
+
+    it('should handle GFM task lists', () => {
+      expectCRLFEquivalent('- [ ] unchecked\n- [x] checked\n- [ ] another')
+    })
+  })
+
+  describe('code blocks', () => {
+    it('should handle fenced code blocks with backticks', () => {
+      expectCRLFEquivalent('```js\nconst x = 1;\nconst y = 2;\n```')
+    })
+
+    it('should handle fenced code blocks with tildes', () => {
+      expectCRLFEquivalent('~~~python\ndef foo():\n    pass\n~~~')
+    })
+
+    it('should handle indented code blocks', () => {
+      expectCRLFEquivalent('    code line 1\n    code line 2\n    code line 3')
+    })
+
+    it('should handle fenced code blocks with blank lines', () => {
+      expectCRLFEquivalent('```\nline 1\n\nline 3\n```')
+    })
+  })
+
+  describe('blockquotes', () => {
+    it('should handle simple blockquotes', () => {
+      expectCRLFEquivalent('> quote line 1\n> quote line 2')
+    })
+
+    it('should handle nested blockquotes', () => {
+      expectCRLFEquivalent('> level 1\n>> level 2\n>>> level 3')
+    })
+
+    it('should handle blockquotes with lazy continuation', () => {
+      expectCRLFEquivalent('> quote line 1\ncontinuation line')
+    })
+
+    it('should handle blockquotes with multiple paragraphs', () => {
+      expectCRLFEquivalent('> paragraph 1\n>\n> paragraph 2')
+    })
+  })
+
+  describe('thematic breaks', () => {
+    it('should handle horizontal rules', () => {
+      expectCRLFEquivalent('paragraph\n\n---\n\nparagraph')
+    })
+
+    it('should handle asterisk horizontal rules', () => {
+      expectCRLFEquivalent('text\n\n***\n\ntext')
+    })
+
+    it('should handle underscore horizontal rules', () => {
+      expectCRLFEquivalent('text\n\n___\n\ntext')
+    })
+  })
+
+  describe('HTML blocks', () => {
+    it('should handle HTML block elements', () => {
+      expectCRLFEquivalent('<div>\ncontent\n</div>')
+    })
+
+    it('should handle HTML comments', () => {
+      expectCRLFEquivalent('<!-- comment\nspanning lines -->\n\nparagraph')
+    })
+
+    it('should handle pre blocks', () => {
+      expectCRLFEquivalent('<pre>\npreformatted\ntext\n</pre>')
+    })
+  })
+
+  describe('tables', () => {
+    it('should handle simple tables', () => {
+      expectCRLFEquivalent('| A | B |\n|---|---|\n| 1 | 2 |')
+    })
+
+    it('should handle tables with alignment', () => {
+      expectCRLFEquivalent('| Left | Center | Right |\n|:-----|:------:|------:|\n| L | C | R |')
+    })
+
+    it('should handle tables with multiple rows', () => {
+      expectCRLFEquivalent('| H1 | H2 |\n|---|---|\n| a | b |\n| c | d |\n| e | f |')
+    })
+  })
+
+  describe('reference definitions', () => {
+    it('should handle reference definitions', () => {
+      expectCRLFEquivalent('[link][ref]\n\n[ref]: http://example.com')
+    })
+
+    it('should handle reference definitions with titles', () => {
+      expectCRLFEquivalent('[link][ref]\n\n[ref]: http://example.com "title"')
+    })
+
+    it('should handle multiple reference definitions', () => {
+      expectCRLFEquivalent('[a][1] and [b][2]\n\n[1]: http://a.com\n[2]: http://b.com')
+    })
+
+    it('should reject title with blank line (CRLF blank line detection)', () => {
+      const lfText = '[ref]: http://example.com "title\n\nmore"'
+      const crlfText = toCRLF(lfText)
+      const lfResult = p.parser(lfText)
+      const crlfResult = p.parser(crlfText)
+      expect(stripEndPos(crlfResult)).toEqual(stripEndPos(lfResult))
+      expect(lfResult.length).toBe(2)
+    })
+
+    it('should reject parenthesized title with blank line', () => {
+      const lfText = '[ref]: http://example.com (title\n\nmore)'
+      const crlfText = toCRLF(lfText)
+      const lfResult = p.parser(lfText)
+      const crlfResult = p.parser(crlfText)
+      expect(stripEndPos(crlfResult)).toEqual(stripEndPos(lfResult))
+      expect(lfResult.length).toBe(2)
+    })
+  })
+
+  describe('footnotes', () => {
+    it('should handle footnote definitions', () => {
+      expectCRLFEquivalent('Text[^1].\n\n[^1]: Footnote content')
+    })
+
+    it('should handle footnotes with continuation', () => {
+      expectCRLFEquivalent('Text[^1].\n\n[^1]: Footnote\n    continuation')
+    })
+
+    it('should handle multiple footnotes', () => {
+      expectCRLFEquivalent('A[^1] B[^2]\n\n[^1]: First\n[^2]: Second')
+    })
+
+    it('should not absorb paragraph after blank line (CRLF blank line detection)', () => {
+      const lfText = '[^1]: Footnote content\n\nParagraph after.'
+      const crlfText = toCRLF(lfText)
+      const lfResult = p.parser(lfText)
+      const crlfResult = p.parser(crlfText)
+      expect(stripEndPos(crlfResult)).toEqual(stripEndPos(lfResult))
+      expect(lfResult.length).toBe(3)
+    })
+  })
+
+  describe('frontmatter', () => {
+    it('should handle YAML frontmatter', () => {
+      expectCRLFEquivalent('---\ntitle: Test\nauthor: Me\n---\n\nContent')
+    })
+  })
+
+  describe('complex documents', () => {
+    it('should handle mixed content', () => {
+      const doc = `# Title
+
+Paragraph with **bold** and *italic*.
+
+- List item 1
+- List item 2
+
+\`\`\`js
+code
+\`\`\`
+
+> Blockquote
+
+---
+
+Final paragraph.`
+      expectCRLFEquivalent(doc)
+    })
+
+    it('should handle the original issue case (issue #773)', () => {
+      const text = `Lorem ipsum dolor sit amet.
+
+- Item 1
+- Item 2
+- Item 3
+- Item 4`
+
+      const crlfText = toCRLF(text)
+      const result = p.parser(crlfText)
+
+      expect(result.length).toBe(2)
+      expect(result[0].type).toBe(RuleType.paragraph)
+      expect(result[1].type).toBe(RuleType.unorderedList)
+
+      const list = result[1] as MarkdownToJSX.UnorderedListNode
+      expect(list.items.length).toBe(4)
+
+      for (const item of list.items) {
+        expect(item.length).toBeGreaterThan(0)
+        const firstNode = item[0]
+        if (firstNode.type === RuleType.text) {
+          const text = (firstNode as MarkdownToJSX.TextNode).text
+          expect(text.indexOf('\r')).toBe(-1)
+        }
+      }
+    })
   })
 })
 

@@ -2,6 +2,7 @@
 alwaysApply: true
 ---
 
+- never git push code that is broken or failing tests, 100% passing tests are required as a quality gate before committing
 - Use conventional commit syntax
 - Do not create summary documents, deliver a concise summary in the chat when appropriate.
 - Do not create helper functions unless there are at least two instances of the same pattern and overall LOC is reduced
@@ -20,8 +21,9 @@ alwaysApply: true
   - Parsing and Execution: Reduce code size via minification/tree-shaking, avoid eval(), and optimize regex patterns.
   - Dependency Management: Limit third-party libraries, use tree-shakable imports, and profile for bottlenecks.
   - Browser-Specific Quirks: Handle engine differences (e.g., V8 optimizations for hot paths), test on target environments.
+- When writing commit messages and changesets, speak in general terms, not specific implementation details. Keep language concise and to the point.
 - When writing commit messages on public code, focus on the user-facing change; how does this change benefit them? Ensure that noteworthy public changes and bugfixes have a changeset.
-- When writing commit messages on private/infra code, focus on the technical change; how does this change benefit the codebase? Keep it short.
+- When writing commit messages on private/infra code, focus on the technical change; how does this change benefit the codebase?
 - Optimize new rules for token efficiency: no bold/emphasis, headers, and stylistic formatting, concise/compact and highly-specific language
 - Remove examples unless critical for understanding
 - Prefer abbreviations and acronyms when unambiguous

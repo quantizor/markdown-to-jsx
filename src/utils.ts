@@ -1,7 +1,4 @@
-import {
-  NAMED_CODES_TO_UNICODE as util,
-  decodeEntity,
-} from '#entities'
+import { NAMED_CODES_TO_UNICODE as util, decodeEntity } from '#entities'
 import * as $ from './constants'
 
 /**
@@ -17,15 +14,23 @@ export function parseFrontmatterBounds(
   let pos = 3
   while (pos < input.length && (input[pos] === ' ' || input[pos] === '\t'))
     pos++
+  // Handle both LF and CRLF line endings
+  if (pos < input.length && input[pos] === '\r') pos++
   if (pos >= input.length || input[pos] !== '\n') return null
   pos++
 
   let hasValidYaml = false
   while (pos < input.length) {
     const lineStart = pos
-    while (pos < input.length && input[pos] !== '\n') pos++
+    // Find line end, handling CRLF
+    while (pos < input.length && input[pos] !== '\n' && input[pos] !== '\r')
+      pos++
     if (pos >= input.length) break
-    const lineEnd = pos++
+    const lineEnd = pos
+    // Skip CR if present
+    if (input[pos] === '\r') pos++
+    // Skip LF
+    if (pos < input.length && input[pos] === '\n') pos++
     if (startsWith(input, '---', lineStart))
       return { endPos: pos, hasValidYaml }
     // Check if line contains ':' anywhere
@@ -496,10 +501,43 @@ export function isUnicodePunctuation(c: string | number): boolean {
 /**
  * Find the end of the current line
  * Optimized: Pure indexOf is faster than hybrid approach - JS engine optimizes it better
+ * Handles CRLF by returning position before \r when followed by \n
  */
 export function findLineEnd(source: string, startPos: number): number {
   const newlinePos = source.indexOf('\n', startPos)
-  return newlinePos !== -1 ? newlinePos : source.length
+  if (newlinePos === -1) return source.length
+  if (newlinePos > 0 && source.charCodeAt(newlinePos - 1) === $.CHAR_CR) {
+    return newlinePos - 1
+  }
+  return newlinePos
+}
+
+var crlfParts: string[] = []
+
+/**
+ * Normalize CRLF and CR line endings to LF
+ * Returns original string if no CR characters are present (fast path)
+ */
+export function normalizeCRLF(text: string): string {
+  var firstCR = text.indexOf('\r')
+  if (firstCR === -1) return text
+
+  var len = text.length
+  crlfParts.length = 0
+  var start = 0
+
+  for (var i = firstCR; i < len; i++) {
+    if (text.charCodeAt(i) === $.CHAR_CR) {
+      if (start < i) crlfParts.push(text.slice(start, i))
+      if (i + 1 < len && text.charCodeAt(i + 1) === $.CHAR_NEWLINE) {
+        i++
+      }
+      crlfParts.push('\n')
+      start = i + 1
+    }
+  }
+  if (start < len) crlfParts.push(text.slice(start))
+  return crlfParts.join('')
 }
 
 /**
