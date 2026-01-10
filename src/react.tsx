@@ -8,7 +8,6 @@ import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
 
 export { parser } from './parse'
-import { parser } from './parse'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
