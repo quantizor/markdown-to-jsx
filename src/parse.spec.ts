@@ -87,7 +87,7 @@ describe('parser', () => {
     expect(result).toEqual([
       {
         type: RuleType.paragraph,
-        children: [{ type: RuleType.text, text: 'hello\x00world' }],
+        children: [{ type: RuleType.text, text: 'hello\uFFFDworld' }],
         endPos: 11,
       },
     ])
@@ -98,7 +98,7 @@ describe('parser', () => {
       'line1\r\nline2\nline3\rline4'
     ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
     // CRLF and LF are both treated as single line endings (soft breaks)
-    // CR without LF is preserved as literal text
+    // CR without LF is normalized to LF
     expect(result).toEqual([
       {
         type: RuleType.paragraph,
@@ -107,9 +107,11 @@ describe('parser', () => {
           { type: RuleType.text, text: '\n' },
           { type: RuleType.text, text: 'line2' },
           { type: RuleType.text, text: '\n' },
-          { type: RuleType.text, text: 'line3\rline4' },
+          { type: RuleType.text, text: 'line3' },
+          { type: RuleType.text, text: '\n' },
+          { type: RuleType.text, text: 'line4' },
         ],
-        endPos: 24,
+        endPos: 23,
       },
     ])
   })
@@ -2334,6 +2336,241 @@ describe('Unserializable expression evaluation', () => {
           "verbatim": false,
         }
         `)
+    })
+  })
+})
+
+describe('text normalization edge cases', () => {
+  describe('null bytes (U+0000)', () => {
+    it('should replace null bytes with U+FFFD per CommonMark spec', () => {
+      const result = p.parser(
+        'hello\x00world'
+      ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
+      expect(result).toEqual([
+        {
+          type: RuleType.paragraph,
+          children: [{ type: RuleType.text, text: 'hello\uFFFDworld' }],
+          endPos: 11,
+        },
+      ])
+    })
+
+    it('should replace multiple null bytes', () => {
+      const result = p.parser(
+        'a\x00b\x00c\x00d'
+      ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
+      expect(result).toEqual([
+        {
+          type: RuleType.paragraph,
+          children: [{ type: RuleType.text, text: 'a\uFFFDb\uFFFDc\uFFFDd' }],
+          endPos: 7,
+        },
+      ])
+    })
+
+    it('should replace null bytes in code blocks', () => {
+      const result = p.parser(
+        '```\ncode\x00block\n```'
+      ) as (MarkdownToJSX.CodeBlockNode & { endPos: number })[]
+      expect(result[0].type).toBe(RuleType.codeBlock)
+      expect(result[0].text).toBe('code\uFFFDblock')
+    })
+
+    it('should replace null bytes in headings', () => {
+      const result = p.parser(
+        '# Hello\x00World',
+        createForceBlockOptions()
+      ) as (MarkdownToJSX.HeadingNode & { endPos: number })[]
+      expect(result).toEqual([
+        {
+          type: RuleType.heading,
+          level: 1,
+          children: [{ type: RuleType.text, text: 'Hello\uFFFDWorld' }],
+          endPos: 13,
+          id: 'helloworld',
+        },
+      ])
+    })
+  })
+
+  describe('BOM handling', () => {
+    it('should strip BOM (U+FEFF) at document start', () => {
+      const result = p.parser(
+        '\uFEFFhello world'
+      ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
+      expect(result).toEqual([
+        {
+          type: RuleType.paragraph,
+          children: [{ type: RuleType.text, text: 'hello world' }],
+          endPos: 11,
+        },
+      ])
+    })
+
+    it('should strip BOM before heading', () => {
+      const result = p.parser(
+        '\uFEFF# Heading',
+        createForceBlockOptions()
+      ) as (MarkdownToJSX.HeadingNode & { endPos: number })[]
+      expect(result).toEqual([
+        {
+          type: RuleType.heading,
+          level: 1,
+          children: [{ type: RuleType.text, text: 'Heading' }],
+          endPos: 9,
+          id: 'heading',
+        },
+      ])
+    })
+
+    it('should preserve BOM in middle of document', () => {
+      const result = p.parser(
+        'hello\uFEFFworld'
+      ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
+      expect(result).toEqual([
+        {
+          type: RuleType.paragraph,
+          children: [{ type: RuleType.text, text: 'hello\uFEFFworld' }],
+          endPos: 11,
+        },
+      ])
+    })
+  })
+
+  describe('zero-width characters', () => {
+    it('should preserve zero-width space (U+200B) in text', () => {
+      const result = p.parser(
+        'hello\u200Bworld'
+      ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
+      expect(result[0].children[0]).toEqual({
+        type: RuleType.text,
+        text: 'hello\u200Bworld',
+      })
+    })
+
+    it('should handle zero-width joiner (U+200D) in emoji context', () => {
+      const result = p.parser(
+        'family: \u{1F468}\u200D\u{1F469}\u200D\u{1F467}'
+      ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
+      expect(result[0].children[0].text).toContain('\u200D')
+    })
+
+    it('should handle zero-width non-joiner (U+200C)', () => {
+      const result = p.parser(
+        'test\u200Cword'
+      ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
+      expect(result[0].children[0]).toEqual({
+        type: RuleType.text,
+        text: 'test\u200Cword',
+      })
+    })
+
+    it('should handle zero-width space in emphasis context', () => {
+      const result = p.parser(
+        '**bold\u200Btext**'
+      ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
+      expect(result[0].children[0].type).toBe(RuleType.textFormatted)
+      expect(result[0].children[0].children[0].text).toBe('bold\u200Btext')
+    })
+  })
+
+  describe('emoji sequences', () => {
+    it('should handle emoji with skin tone modifiers', () => {
+      const result = p.parser(
+        'wave: \u{1F44B}\u{1F3FB}'
+      ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
+      expect(result[0].children[0].text).toContain('\u{1F44B}\u{1F3FB}')
+    })
+
+    it('should handle ZWJ emoji sequences (family)', () => {
+      const result = p.parser(
+        '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}'
+      ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
+      expect(result[0].children[0].text).toBe(
+        '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}'
+      )
+    })
+
+    it('should handle flag sequences (regional indicators)', () => {
+      const result = p.parser(
+        '\u{1F1FA}\u{1F1F8}'
+      ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
+      expect(result[0].children[0].text).toBe('\u{1F1FA}\u{1F1F8}')
+    })
+
+    it('should handle multiple emoji with various modifiers', () => {
+      const result = p.parser(
+        '\u{1F44B}\u{1F3FB} \u{1F468}\u200D\u{1F4BB} \u{1F1FA}\u{1F1F8}'
+      ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
+      expect(result[0].children[0].text).toBe(
+        '\u{1F44B}\u{1F3FB} \u{1F468}\u200D\u{1F4BB} \u{1F1FA}\u{1F1F8}'
+      )
+    })
+  })
+
+  describe('unicode whitespace', () => {
+    it('should treat non-breaking space (U+00A0) as Unicode whitespace', () => {
+      const result = p.parser('hello\u00A0world')
+      expect(result[0].children[0].text).toBe('hello\u00A0world')
+    })
+
+    it('should distinguish ASCII whitespace from Unicode whitespace in emphasis', () => {
+      const result = p.parser('*hello world*')
+      expect(result[0].children[0].type).toBe(RuleType.textFormatted)
+      const result2 = p.parser('*hello\u00A0world*')
+      expect(result2[0].children[0].type).toBe(RuleType.textFormatted)
+    })
+
+    it('should handle em space (U+2003)', () => {
+      const result = p.parser('hello\u2003world')
+      expect(result[0].children[0].text).toBe('hello\u2003world')
+    })
+
+    it('should handle en space (U+2002)', () => {
+      const result = p.parser('hello\u2002world')
+      expect(result[0].children[0].text).toBe('hello\u2002world')
+    })
+
+    it('should handle thin space (U+2009)', () => {
+      const result = p.parser('hello\u2009world')
+      expect(result[0].children[0].text).toBe('hello\u2009world')
+    })
+  })
+
+  describe('control characters', () => {
+    it('should preserve bell character (U+0007)', () => {
+      const result = p.parser('hello\x07world')
+      expect(result[0].children[0].text).toBe('hello\x07world')
+    })
+
+    it('should preserve backspace (U+0008)', () => {
+      const result = p.parser('hello\x08world')
+      expect(result[0].children[0].text).toBe('hello\x08world')
+    })
+
+    it('should preserve escape (U+001B)', () => {
+      const result = p.parser('hello\x1Bworld')
+      expect(result[0].children[0].text).toBe('hello\x1Bworld')
+    })
+
+    it('should preserve delete (U+007F)', () => {
+      const result = p.parser('hello\x7Fworld')
+      expect(result[0].children[0].text).toBe('hello\x7Fworld')
+    })
+
+    it('should preserve vertical tab (U+000B)', () => {
+      const result = p.parser('hello\x0Bworld')
+      expect(result[0].children[0].text).toBe('hello\x0Bworld')
+    })
+
+    it('should preserve form feed (U+000C)', () => {
+      const result = p.parser('hello\x0Cworld')
+      expect(result[0].children[0].text).toBe('hello\x0Cworld')
+    })
+
+    it('should handle multiple control characters', () => {
+      const result = p.parser('a\x07b\x08c\x1Bd\x7Fe')
+      expect(result[0].children[0].text).toBe('a\x07b\x08c\x1Bd\x7Fe')
     })
   })
 })
