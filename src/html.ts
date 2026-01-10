@@ -521,23 +521,36 @@ export function astToHTML(
             }
             var trimmed = htmlNode.rawText.trim()
             if (trimmed.length > 0 && trimmed.charCodeAt(0) === $.CHAR_LT) {
+              var secondCharCode = trimmed.charCodeAt(1)
+              // Check if second char is a letter (a-z or A-Z) - valid HTML tag name start
+              // Both cases are needed for custom elements (lowercase) and JSX components (uppercase)
               if (
-                trimmed.charCodeAt(1) >= $.CHAR_a &&
-                trimmed.charCodeAt(1) <= $.CHAR_z
+                (secondCharCode >= $.CHAR_a && secondCharCode <= $.CHAR_z) ||
+                (secondCharCode >= $.CHAR_A && secondCharCode <= $.CHAR_Z)
               ) {
                 var tagStart = 1
                 var tagEnd = tagStart
-                while (
-                  tagEnd < trimmed.length &&
-                  trimmed.charCodeAt(tagEnd) >= $.CHAR_a &&
-                  trimmed.charCodeAt(tagEnd) <= $.CHAR_z
-                )
-                  tagEnd++
+                // Parse tag name: letters, digits, and hyphens (valid custom element names)
+                while (tagEnd < trimmed.length) {
+                  var code = trimmed.charCodeAt(tagEnd)
+                  if (
+                    (code >= $.CHAR_a && code <= $.CHAR_z) ||
+                    (code >= $.CHAR_A && code <= $.CHAR_Z) ||
+                    (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
+                    code === $.CHAR_DASH
+                  ) {
+                    tagEnd++
+                  } else {
+                    break
+                  }
+                }
                 var foundTag = trimmed.slice(tagStart, tagEnd).toLowerCase()
-                if (
-                  foundTag === tagLower &&
-                  trimmed.indexOf('</' + tagLower + '>', tagEnd) === -1
-                ) {
+                // Check if rawText contains the full block for this tag
+                // (i.e., starts with the same tag as we're rendering)
+                // For verbatim blocks, rawText contains the complete HTML content including
+                // opening and closing tags, so we can return it directly without wrapping
+                if (foundTag === tagLower) {
+                  // rawText already contains the full HTML block, just return it
                   return textContent
                 }
               }
