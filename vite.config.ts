@@ -5,7 +5,7 @@ import * as recast from 'recast'
 import { createRequire } from 'module'
 import tailwindcss from '@tailwindcss/vite'
 import packageJson from './package.json'
-import { readFileSync, writeFileSync } from 'fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 
 const require = createRequire(import.meta.url)
@@ -142,6 +142,7 @@ function copyLlmsTxtPlugin(): Plugin {
       var readmePath = join(process.cwd(), 'README.md')
       var outputPath = join(process.cwd(), 'docs', 'llms.txt')
       var readmeContent = readFileSync(readmePath, 'utf-8')
+      mkdirSync(join(process.cwd(), 'docs'), { recursive: true })
       writeFileSync(outputPath, readmeContent, 'utf-8')
     },
   }
@@ -190,6 +191,11 @@ export default defineConfig({
   ],
   define: {
     VERSION: JSON.stringify(packageJson.version.split('.')[0]),
+  },
+  resolve: {
+    alias: {
+      '#entities': resolve(__dirname, 'src/entities.generated.ts'),
+    },
   },
   root: '.',
   publicDir: 'public',
