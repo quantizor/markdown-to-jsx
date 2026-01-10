@@ -1797,6 +1797,24 @@ describe('CRLF line endings', () => {
     it('should handle multiple reference definitions', () => {
       expectCRLFEquivalent('[a][1] and [b][2]\n\n[1]: http://a.com\n[2]: http://b.com')
     })
+
+    it('should reject title with blank line (CRLF blank line detection)', () => {
+      const lfText = '[ref]: http://example.com "title\n\nmore"'
+      const crlfText = toCRLF(lfText)
+      const lfResult = p.parser(lfText)
+      const crlfResult = p.parser(crlfText)
+      expect(stripEndPos(crlfResult)).toEqual(stripEndPos(lfResult))
+      expect(lfResult.length).toBe(2)
+    })
+
+    it('should reject parenthesized title with blank line', () => {
+      const lfText = '[ref]: http://example.com (title\n\nmore)'
+      const crlfText = toCRLF(lfText)
+      const lfResult = p.parser(lfText)
+      const crlfResult = p.parser(crlfText)
+      expect(stripEndPos(crlfResult)).toEqual(stripEndPos(lfResult))
+      expect(lfResult.length).toBe(2)
+    })
   })
 
   describe('footnotes', () => {
@@ -1810,6 +1828,15 @@ describe('CRLF line endings', () => {
 
     it('should handle multiple footnotes', () => {
       expectCRLFEquivalent('A[^1] B[^2]\n\n[^1]: First\n[^2]: Second')
+    })
+
+    it('should not absorb paragraph after blank line (CRLF blank line detection)', () => {
+      const lfText = '[^1]: Footnote content\n\nParagraph after.'
+      const crlfText = toCRLF(lfText)
+      const lfResult = p.parser(lfText)
+      const crlfResult = p.parser(crlfText)
+      expect(stripEndPos(crlfResult)).toEqual(stripEndPos(lfResult))
+      expect(lfResult.length).toBe(3)
     })
   })
 

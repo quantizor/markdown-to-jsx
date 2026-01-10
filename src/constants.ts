@@ -41,6 +41,8 @@ export const CHAR_PLUS = 43
 export const CHAR_PIPE = 124
 export const CHAR_BRACE_OPEN = 123 // {
 export const CHAR_BRACE_CLOSE = 125 // }
+export const CHAR_PAREN_OPEN = 40 // (
+export const CHAR_PAREN_CLOSE = 41 // )
 export const CHAR_x = 120
 export const CHAR_X = 88
 // Character code ranges for common character classes

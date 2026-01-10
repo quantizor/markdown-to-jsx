@@ -8341,15 +8341,6 @@ function isTitleDelimiter(s: string, p: number): boolean {
   return c === '"' || c === "'" || c === '('
 }
 
-function scanToBlankLine(s: string, p: number): number {
-  var len = s.length
-  while (p < len) {
-    if (p + 1 < len && s[p] === '\n' && s[p + 1] === '\n') return p
-    p++
-  }
-  return len
-}
-
 function parseQuotedTitle(
   s: string,
   p: number,
@@ -8361,13 +8352,23 @@ function parseQuotedTitle(
   var start = p
   var lastWasNewline = false
   while (p < len && s[p] !== closeChar) {
-    if (s[p] === '\n') {
+    var c = s.charCodeAt(p)
+    if (c === $.CHAR_NEWLINE) {
       if (lastWasNewline) return null
       lastWasNewline = true
       p++
+    } else if (c === $.CHAR_CR) {
+      if (p + 1 < len && s.charCodeAt(p + 1) === $.CHAR_NEWLINE) {
+        if (lastWasNewline) return null
+        lastWasNewline = true
+        p += 2
+      } else {
+        lastWasNewline = false
+        p++
+      }
     } else {
       lastWasNewline = false
-      if (s[p] === '\\' && p + 1 < len) p++
+      if (c === $.CHAR_BACKSLASH && p + 1 < len) p++
       p++
     }
   }
@@ -8386,17 +8387,27 @@ function parseParenTitle(
   var depth = 1
   var lastWasNewline = false
   while (p < len && depth > 0) {
-    if (s[p] === '\n') {
+    var c = s.charCodeAt(p)
+    if (c === $.CHAR_NEWLINE) {
       if (lastWasNewline) return null
       lastWasNewline = true
       p++
+    } else if (c === $.CHAR_CR) {
+      if (p + 1 < len && s.charCodeAt(p + 1) === $.CHAR_NEWLINE) {
+        if (lastWasNewline) return null
+        lastWasNewline = true
+        p += 2
+      } else {
+        lastWasNewline = false
+        p++
+      }
     } else {
       lastWasNewline = false
-      if (s[p] === '\\' && p + 1 < len) {
+      if (c === $.CHAR_BACKSLASH && p + 1 < len) {
         p++
-      } else if (s[p] === '(') {
+      } else if (c === $.CHAR_PAREN_OPEN) {
         depth++
-      } else if (s[p] === ')') {
+      } else if (c === $.CHAR_PAREN_CLOSE) {
         depth--
       }
       p++
@@ -8411,20 +8422,28 @@ function scanFootnoteEnd(s: string, p: number): number {
   var pos = p
   while (pos < len) {
     var isLineStart = pos === 0 || s[pos - 1] === '\n'
-    if (pos + 1 < len && s[pos] === '\n' && s[pos + 1] === '\n' && pos > p) {
-      var afterBlank = pos + 2
-      while (
-        afterBlank < len &&
-        (s[afterBlank] === ' ' || s[afterBlank] === '\t')
-      ) {
-        afterBlank++
-      }
-      if (
-        afterBlank < len &&
-        s[afterBlank] !== '\n' &&
-        afterBlank - (pos + 2) < 4
-      ) {
-        return pos
+    var c = s.charCodeAt(pos)
+    if (c === $.CHAR_NEWLINE && pos > p) {
+      var nextPos = pos + 1
+      if (nextPos < len && s.charCodeAt(nextPos) === $.CHAR_CR) nextPos++
+      if (nextPos < len && s.charCodeAt(nextPos) === $.CHAR_NEWLINE) {
+        var afterBlank = nextPos + 1
+        while (
+          afterBlank < len &&
+          (s[afterBlank] === ' ' || s[afterBlank] === '\t')
+        ) {
+          afterBlank++
+        }
+        var blankLineLen = afterBlank - (pos + 1)
+        if (s.charCodeAt(pos + 1) === $.CHAR_CR) blankLineLen--
+        if (
+          afterBlank < len &&
+          s.charCodeAt(afterBlank) !== $.CHAR_NEWLINE &&
+          s.charCodeAt(afterBlank) !== $.CHAR_CR &&
+          blankLineLen < 4
+        ) {
+          return pos
+        }
       }
     }
     if (isLineStart && util.startsWith(s, '[^', pos)) {
