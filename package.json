@@ -168,7 +168,7 @@
     "in-publish": "^2.0.1",
     "jsdom": "^27.4.0",
     "markdown-it": "^14.0.0",
-    "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.2.0",
+    "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.5.1",
     "marked": "^17.0.0",
     "microbundle": "^0.15.1",
     "microtime": "^3.1.1",
