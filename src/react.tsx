@@ -282,6 +282,32 @@ function render(
           { inline: false, refs: refs, inHTML: false },
           parseOptions
         )
+
+        // Check if rawText represents the FULL outer block (starts with opening tag
+        // and ends with closing tag of the same element, with no content after)
+        // In this case, render the parsed nodes directly without adding another wrapper
+        const tagLowerCheck = (htmlNode.tag as string).toLowerCase()
+        const closingTag = '</' + tagLowerCheck + '>'
+        const startsWithOwnTag = new RegExp(
+          `^<${htmlNode.tag}(\\s|>)`,
+          'i'
+        ).test(cleanedText)
+        const endsWithClosingTag = cleanedText
+          .toLowerCase()
+          .trimEnd()
+          .endsWith(closingTag)
+
+        // Only skip wrapper if:
+        // 1. rawText starts with our tag (opening tag is present)
+        // 2. rawText ends with our closing tag (full block, not inner content + extra)
+        // 3. node has no parsed attributes (attrs are in rawText, not parsed)
+        // This handles cases like <dl-custom data-variant='foo'>...</dl-custom>
+        const hasNoAttrs =
+          !htmlNode.attrs || Object.keys(htmlNode.attrs).length === 0
+        if (startsWithOwnTag && endsWithClosingTag && hasNoAttrs) {
+          return output(astNodes.flatMap(processNode), state)
+        }
+
         return h(
           node.tag,
           { key: state.key, ...node.attrs },

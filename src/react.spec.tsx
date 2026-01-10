@@ -2171,6 +2171,23 @@ Item detail
     `)
   })
 
+  it('#781 custom elements with multi-line attributes should only render once', () => {
+    render(
+      compiler(`<dl-custom
+  data-variant='horizontalTable'
+>
+  <dt>title 1</dt>
+  <dd>description 1</dd>
+</dl-custom>`)
+    )
+
+    // Should only have one dl-custom opening tag, not two
+    const openingTagCount = (root.innerHTML.match(/<dl-custom/g) || []).length
+    expect(openingTagCount).toBe(1)
+    expect(root.innerHTML).toContain('data-variant')
+    expect(root.innerHTML).toContain('title 1')
+  })
+
   it('#686 should not add unnecessary paragraphs', () => {
     render(compiler(`<tag1><tag2>text1</tag2>text2</tag1>`))
 

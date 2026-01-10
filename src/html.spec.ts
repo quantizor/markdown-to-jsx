@@ -1297,6 +1297,51 @@ describe('html compiler', () => {
     })
   })
 
+  describe('multi-line HTML tags', () => {
+    it('#781 should handle custom elements with multi-line attributes', () => {
+      const result = compiler(`<dl-custom
+  data-variant='horizontalTable'
+>
+  <dt>title 1</dt>
+  <dd>description 1</dd>
+</dl-custom>`)
+
+      // Should only have one dl-custom opening tag, not two
+      const openingTagCount = (result.match(/<dl-custom/g) || []).length
+      expect(openingTagCount).toBe(1)
+      expect(result).toContain('data-variant')
+      expect(result).toContain('title 1')
+      expect(result).toContain('description 1')
+    })
+
+    it('#781 should handle standard elements with multi-line attributes', () => {
+      const result = compiler(`<div
+  class='container'
+  data-test='value'
+>
+  <p>content</p>
+</div>`)
+
+      // Should only have one div opening tag
+      const openingTagCount = (result.match(/<div/g) || []).length
+      expect(openingTagCount).toBe(1)
+      expect(result).toContain('class')
+      expect(result).toContain('container')
+    })
+
+    it('should handle uppercase custom components with multi-line attributes', () => {
+      const result = compiler(`<MyComponent
+  prop="value"
+>
+  content
+</MyComponent>`)
+
+      // Should only have one MyComponent opening tag
+      const openingTagCount = (result.match(/<MyComponent/gi) || []).length
+      expect(openingTagCount).toBe(1)
+    })
+  })
+
   describe('frontmatter', () => {
     it('should not render frontmatter by default', () => {
       const result = compiler('---\ntitle: Test\n---\n\n# Content')
