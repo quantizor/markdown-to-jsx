@@ -515,29 +515,56 @@ export function findLineEnd(source: string, startPos: number): number {
 var crlfParts: string[] = []
 
 /**
- * Normalize CRLF and CR line endings to LF
- * Returns original string if no CR characters are present (fast path)
+ * Normalize input text for parsing:
+ * - Replace CRLF and CR line endings with LF
+ * - Replace null bytes (U+0000) with replacement character (U+FFFD) per CommonMark spec
+ * Returns original string if no transformations needed (fast path)
  */
-export function normalizeCRLF(text: string): string {
+export function normalizeInput(text: string): string {
   var firstCR = text.indexOf('\r')
-  if (firstCR === -1) return text
+  var firstNull = text.indexOf('\x00')
+
+  if (firstCR === -1 && firstNull === -1) return text
 
   var len = text.length
   crlfParts.length = 0
   var start = 0
+  var i = 0
 
-  for (var i = firstCR; i < len; i++) {
-    if (text.charCodeAt(i) === $.CHAR_CR) {
+  if (firstCR === -1) {
+    i = firstNull
+  } else if (firstNull === -1) {
+    i = firstCR
+  } else {
+    i = firstCR < firstNull ? firstCR : firstNull
+  }
+
+  for (; i < len; i++) {
+    var code = text.charCodeAt(i)
+    if (code === $.CHAR_CR) {
       if (start < i) crlfParts.push(text.slice(start, i))
       if (i + 1 < len && text.charCodeAt(i + 1) === $.CHAR_NEWLINE) {
         i++
       }
       crlfParts.push('\n')
       start = i + 1
+    } else if (code === 0) {
+      if (start < i) crlfParts.push(text.slice(start, i))
+      crlfParts.push('\uFFFD')
+      start = i + 1
     }
   }
   if (start < len) crlfParts.push(text.slice(start))
   return crlfParts.join('')
+}
+
+/**
+ * @deprecated Use normalizeInput instead
+ * Normalize CRLF and CR line endings to LF
+ * Returns original string if no CR characters are present (fast path)
+ */
+export function normalizeCRLF(text: string): string {
+  return normalizeInput(text)
 }
 
 /**
