@@ -3453,7 +3453,7 @@ function parseFrontmatter(source: string, pos: number): ParseResult {
   if (!bounds?.hasValidYaml) return null
   let sliceEnd = bounds.endPos - 1
   if (sliceEnd > 0 && source[sliceEnd - 1] === '\r') sliceEnd--
-  let text = util.normalizeCRLF(source.slice(0, sliceEnd))
+  let text = util.normalizeInput(source.slice(0, sliceEnd))
   return {
     type: RuleType.frontmatter,
     text,
@@ -3806,7 +3806,7 @@ export function parseCodeFenced(
   if (contentEnd > contentStart && source[contentEnd - 1] === '\r') {
     contentEnd--
   }
-  let rawContent = util.normalizeCRLF(source.slice(contentStart, contentEnd))
+  let rawContent = util.normalizeInput(source.slice(contentStart, contentEnd))
   if (contentIndentToRemove) {
     rawContent = removeExtraIndentFromCodeBlock(
       rawContent,
@@ -6574,7 +6574,7 @@ function createHTMLCommentResult(
 } {
   return {
     type: RuleType.htmlComment,
-    text: util.normalizeCRLF(text),
+    text: util.normalizeInput(text),
     endPos,
     ...options,
   } as MarkdownToJSX.HTMLCommentNode & {
@@ -6599,7 +6599,7 @@ function createVerbatimHTMLBlock(
   isClosingTag?: boolean
   canInterruptParagraph?: boolean
 } {
-  var normalizedText = util.normalizeCRLF(text)
+  var normalizedText = util.normalizeInput(text)
   // Detect empty unclosed HTML tags when forceBlock is used to avoid infinite recursion
   // For empty unclosed tags like <var>, the text field contains the opening tag itself
   // When forceBlock is used, this would cause recursion if the tag is parsed again
@@ -6861,7 +6861,7 @@ function processHTMLBlock(
     isType1BlockTag ||
     (isType6Block && endedAtBlankLine && !hasBlockContent(content))
 
-  var normalizedContent = util.normalizeCRLF(content)
+  var normalizedContent = util.normalizeInput(content)
   // Store original content for text field before we modify it for parsing
   var contentForText = normalizedContent
   if (shouldTreatAsVerbatim) {
@@ -9765,6 +9765,14 @@ export function parser(
   source: string,
   options?: MarkdownToJSX.Options
 ): MarkdownToJSX.ASTNode[] {
+  // Strip BOM (U+FEFF) at document start per CommonMark spec
+  if (source.charCodeAt(0) === 0xfeff) {
+    source = source.slice(1)
+  }
+
+  // Normalize input: replace null bytes with U+FFFD per CommonMark spec
+  source = util.normalizeInput(source)
+
   // Default state
   const defaultState: MarkdownToJSX.State = { inline: false, refs: {} }
   const finalState = { ...defaultState }

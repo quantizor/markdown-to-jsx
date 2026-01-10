@@ -1,20 +1,19 @@
 import * as React from 'react'
 import type {
-  ViewStyle,
-  TextStyle,
   ImageStyle,
-  ViewProps,
-  TextProps,
   StyleProp,
+  TextProps,
+  TextStyle,
+  ViewProps,
+  ViewStyle,
 } from 'react-native'
-import { Linking, Text, View, Image } from 'react-native'
+import { Image, Linking, Text, View } from 'react-native'
 import * as $ from './constants'
 import * as parse from './parse'
 import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
 
 export { parser } from './parse'
-import { parser } from './parse'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
