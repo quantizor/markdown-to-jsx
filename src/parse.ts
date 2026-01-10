@@ -7701,7 +7701,8 @@ function parseHTML(
           var nextOpenIdx = source.indexOf(openingTagPattern, searchPos)
           var nextCloseIdx = source.indexOf(closingTagPattern, searchPos)
 
-          // Validate and find next valid opening tag (followed by whitespace, >, or /)
+          // Validate and find next valid opening tag (followed by whitespace or >)
+          // Note: We don't accept / because that indicates a self-closing tag
           while (nextOpenIdx !== -1 && nextOpenIdx < blockEnd) {
             var afterOpenPos = nextOpenIdx + openingTagPattern.length
             if (afterOpenPos >= sourceLen) {
@@ -7714,12 +7715,11 @@ function parseHTML(
               charAfterOpen === '\t' ||
               charAfterOpen === '\n' ||
               charAfterOpen === '\r' ||
-              charAfterOpen === '>' ||
-              charAfterOpen === '/'
+              charAfterOpen === '>'
             ) {
               break // Valid opening tag found
             }
-            // Not valid, search for next occurrence
+            // Not valid (could be self-closing like <div/> or partial match), search for next
             nextOpenIdx = source.indexOf(openingTagPattern, afterOpenPos)
           }
 

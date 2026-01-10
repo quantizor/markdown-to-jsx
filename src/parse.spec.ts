@@ -1592,6 +1592,22 @@ describe('description list parsing', () => {
       'description 1'
     )
   })
+
+  it('should handle self-closing tags without incorrectly incrementing nesting depth', () => {
+    // Self-closing tags like <div/> should not increment nesting depth
+    const md = `<div>
+  <div/>
+  <span>content</span>
+</div>`
+    const result = p.parser(md)
+
+    // Should parse as a single div with proper nesting
+    expect(result.length).toBe(1)
+    expect(result[0].type).toBe(RuleType.htmlBlock)
+
+    const div = result[0] as MarkdownToJSX.HTMLNode
+    expect(div.tag).toBe('div')
+  })
 })
 
 describe('tables in lists', () => {
