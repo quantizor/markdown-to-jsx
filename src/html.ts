@@ -522,7 +522,8 @@ export function astToHTML(
             var trimmed = htmlNode.rawText.trim()
             if (trimmed.length > 0 && trimmed.charCodeAt(0) === $.CHAR_LT) {
               var secondCharCode = trimmed.charCodeAt(1)
-              // Check if second char is a letter (a-z or A-Z) - valid tag name start
+              // Check if second char is a letter (a-z or A-Z) - valid HTML tag name start
+              // Both cases are needed for custom elements (lowercase) and JSX components (uppercase)
               if (
                 (secondCharCode >= $.CHAR_a && secondCharCode <= $.CHAR_z) ||
                 (secondCharCode >= $.CHAR_A && secondCharCode <= $.CHAR_Z)
@@ -546,6 +547,8 @@ export function astToHTML(
                 var foundTag = trimmed.slice(tagStart, tagEnd).toLowerCase()
                 // Check if rawText contains the full block for this tag
                 // (i.e., starts with the same tag as we're rendering)
+                // For verbatim blocks, rawText contains the complete HTML content including
+                // opening and closing tags, so we can return it directly without wrapping
                 if (foundTag === tagLower) {
                   // rawText already contains the full HTML block, just return it
                   return textContent
