@@ -7695,19 +7695,20 @@ function parseHTML(
 
         // Find the matching closing tag by tracking nesting depth
         var searchPos = tagEnd
-        var depth = 1 // We already have one opening tag
+        var depth = 1 // We already have one opening tag (depth starts at 1)
         var closingIdx = -1
         while (searchPos < blockEnd && depth > 0) {
           var nextOpenIdx = source.indexOf(openingTagPattern, searchPos)
           var nextCloseIdx = source.indexOf(closingTagPattern, searchPos)
 
-          // Check if the opening tag is valid (followed by space, >, or newline)
-          while (
-            nextOpenIdx !== -1 &&
-            nextOpenIdx < blockEnd &&
-            nextOpenIdx + openingTagPattern.length < sourceLen
-          ) {
-            var charAfterOpen = source[nextOpenIdx + openingTagPattern.length]
+          // Validate and find next valid opening tag (followed by whitespace, >, or /)
+          while (nextOpenIdx !== -1 && nextOpenIdx < blockEnd) {
+            var afterOpenPos = nextOpenIdx + openingTagPattern.length
+            if (afterOpenPos >= sourceLen) {
+              nextOpenIdx = -1
+              break
+            }
+            var charAfterOpen = source[afterOpenPos]
             if (
               charAfterOpen === ' ' ||
               charAfterOpen === '\t' ||
@@ -7716,13 +7717,10 @@ function parseHTML(
               charAfterOpen === '>' ||
               charAfterOpen === '/'
             ) {
-              break // Valid opening tag
+              break // Valid opening tag found
             }
-            // Not a valid opening tag, search for next one
-            nextOpenIdx = source.indexOf(
-              openingTagPattern,
-              nextOpenIdx + openingTagPattern.length
-            )
+            // Not valid, search for next occurrence
+            nextOpenIdx = source.indexOf(openingTagPattern, afterOpenPos)
           }
 
           if (nextOpenIdx === -1 || nextOpenIdx >= blockEnd) {
