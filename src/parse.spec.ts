@@ -1514,6 +1514,86 @@ describe('HTML tags interrupting lists', () => {
   })
 })
 
+describe('description list parsing', () => {
+  it('should parse dt/dd siblings correctly without blank lines between them', () => {
+    // Regression test for GitHub issue - dt/dd pairs should be parsed as siblings
+    const md = `<dl data-variant='horizontalTable'>
+  <dt>title 1</dt>
+  <dd>description 1</dd>
+  <dt>title 2</dt>
+  <dd>description 2</dd>
+  <dt>title 3</dt>
+  <dd>description 3</dd>
+</dl>`
+    const result = p.parser(md)
+
+    // Should have a single dl element
+    expect(result.length).toBe(1)
+    expect(result[0].type).toBe(RuleType.htmlBlock)
+
+    const dl = result[0] as MarkdownToJSX.HTMLNode
+    expect(dl.tag).toBe('dl')
+    expect(dl.attrs['data-variant']).toBe('horizontalTable')
+
+    // Should have 6 children (3 dt + 3 dd)
+    expect(dl.children?.length).toBe(6)
+
+    // Verify each child is correctly parsed
+    const children = dl.children!
+    expect((children[0] as MarkdownToJSX.HTMLNode).tag).toBe('dt')
+    expect((children[1] as MarkdownToJSX.HTMLNode).tag).toBe('dd')
+    expect((children[2] as MarkdownToJSX.HTMLNode).tag).toBe('dt')
+    expect((children[3] as MarkdownToJSX.HTMLNode).tag).toBe('dd')
+    expect((children[4] as MarkdownToJSX.HTMLNode).tag).toBe('dt')
+    expect((children[5] as MarkdownToJSX.HTMLNode).tag).toBe('dd')
+
+    // Verify content is correctly extracted
+    const dt1 = children[0] as MarkdownToJSX.HTMLNode
+    expect(dt1.children?.length).toBe(1)
+    expect((dt1.children![0] as MarkdownToJSX.TextNode).text).toBe('title 1')
+
+    const dd1 = children[1] as MarkdownToJSX.HTMLNode
+    expect(dd1.children?.length).toBe(1)
+    expect((dd1.children![0] as MarkdownToJSX.TextNode).text).toBe(
+      'description 1'
+    )
+  })
+
+  it('should parse single dt tag correctly', () => {
+    const md = '<dt>title 1</dt>'
+    const result = p.parser(md)
+
+    expect(result.length).toBe(1)
+    expect(result[0].type).toBe(RuleType.htmlBlock)
+
+    const dt = result[0] as MarkdownToJSX.HTMLNode
+    expect(dt.tag).toBe('dt')
+    expect(dt.children?.length).toBe(1)
+    expect((dt.children![0] as MarkdownToJSX.TextNode).text).toBe('title 1')
+  })
+
+  it('should parse dt followed by dd on next line correctly', () => {
+    const md = `<dt>title 1</dt>
+<dd>description 1</dd>`
+    const result = p.parser(md)
+
+    // Should have 2 separate elements
+    expect(result.length).toBe(2)
+
+    const dt = result[0] as MarkdownToJSX.HTMLNode
+    expect(dt.tag).toBe('dt')
+    expect(dt.children?.length).toBe(1)
+    expect((dt.children![0] as MarkdownToJSX.TextNode).text).toBe('title 1')
+
+    const dd = result[1] as MarkdownToJSX.HTMLNode
+    expect(dd.tag).toBe('dd')
+    expect(dd.children?.length).toBe(1)
+    expect((dd.children![0] as MarkdownToJSX.TextNode).text).toBe(
+      'description 1'
+    )
+  })
+})
+
 describe('tables in lists', () => {
   it('should parse tables within list items (regression test for issue #1)', () => {
     const md = `- **Browser Stats**:
