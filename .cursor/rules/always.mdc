@@ -2,6 +2,7 @@
 alwaysApply: true
 ---
 
+- never git push code that is broken or failing tests, 100% passing tests are required as a quality gate before committing
 - Use conventional commit syntax
 - Do not create summary documents, deliver a concise summary in the chat when appropriate.
 - Do not create helper functions unless there are at least two instances of the same pattern and overall LOC is reduced

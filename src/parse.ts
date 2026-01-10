@@ -241,7 +241,18 @@ function unescapeUrlOrTitle(str: string): string {
 }
 
 function skipToNextLine(source: string, lineEnd: number): number {
-  return lineEnd + (lineEnd < source.length ? 1 : 0)
+  if (lineEnd >= source.length) return lineEnd
+  if (
+    source.charCodeAt(lineEnd) === $.CHAR_CR &&
+    lineEnd + 1 < source.length &&
+    source.charCodeAt(lineEnd + 1) === $.CHAR_NEWLINE
+  ) {
+    return lineEnd + 2
+  }
+  if (source.charCodeAt(lineEnd) === $.CHAR_NEWLINE) {
+    return lineEnd + 1
+  }
+  return lineEnd + 1
 }
 
 function getCharType(code: number, skipAutoLink: boolean): number {
@@ -2807,7 +2818,7 @@ function parseHeadingSetext(
   if (firstLineEnd >= source.length) return null
 
   // Find underline pattern first, then validate backwards
-  let underlineLineStart = firstLineEnd + 1,
+  let underlineLineStart = skipToNextLine(source, firstLineEnd),
     underlineLineEnd = -1,
     underlineChar: string | null = null
 
@@ -2876,7 +2887,7 @@ function parseHeadingSetext(
       }
     }
 
-    underlineLineStart = lineEnd + 1
+    underlineLineStart = skipToNextLine(source, lineEnd)
   }
 
   if (!underlineChar) return null
@@ -2914,7 +2925,7 @@ function parseHeadingSetext(
       contentEnd = lineEnd
     }
 
-    currentPos = lineEnd + 1
+    currentPos = skipToNextLine(source, lineEnd)
   }
 
   if (!hasContent) return null
@@ -2993,7 +3004,7 @@ function parseParagraph(
       break
     }
 
-    const nextLineStart = lineEnd + 1
+    const nextLineStart = skipToNextLine(source, lineEnd)
     if (nextLineStart >= sourceLen) {
       endPos = sourceLen
       break
@@ -3170,7 +3181,7 @@ function parseParagraph(
     }
 
     // Continue paragraph across single newline
-    endPos = lineEnd + 1
+    endPos = skipToNextLine(source, lineEnd)
   }
 
   if (endPos <= pos) return null
@@ -3226,12 +3237,14 @@ function parseParagraph(
         processedParts.push(source.slice(start, lineEnd))
       }
 
-      if (
-        lineEnd < contentEnd &&
-        charCode(source, lineEnd) === $.CHAR_NEWLINE
-      ) {
-        processedParts.push('\n')
-        lineStart = lineEnd + 1
+      if (lineEnd < contentEnd) {
+        const charAtEnd = charCode(source, lineEnd)
+        if (charAtEnd === $.CHAR_CR || charAtEnd === $.CHAR_NEWLINE) {
+          processedParts.push('\n')
+          lineStart = skipToNextLine(source, lineEnd)
+        } else {
+          lineStart = contentEnd
+        }
       } else {
         lineStart = contentEnd
       }
@@ -3438,9 +3451,12 @@ function parseFrontmatter(source: string, pos: number): ParseResult {
   if (pos !== 0) return null
   const bounds = util.parseFrontmatterBounds(source)
   if (!bounds?.hasValidYaml) return null
+  let sliceEnd = bounds.endPos - 1
+  if (sliceEnd > 0 && source[sliceEnd - 1] === '\r') sliceEnd--
+  let text = util.normalizeCRLF(source.slice(0, sliceEnd))
   return {
     type: RuleType.frontmatter,
-    text: source.slice(0, bounds.endPos - 1),
+    text,
     endPos: bounds.endPos,
   } as MarkdownToJSX.FrontmatterNode & { endPos: number }
 }
@@ -3787,7 +3803,10 @@ export function parseCodeFenced(
 
   let contentEnd =
     endPos > contentStart && source[endPos - 1] === '\n' ? endPos - 1 : endPos
-  let rawContent = source.slice(contentStart, contentEnd)
+  if (contentEnd > contentStart && source[contentEnd - 1] === '\r') {
+    contentEnd--
+  }
+  let rawContent = util.normalizeCRLF(source.slice(contentStart, contentEnd))
   if (contentIndentToRemove) {
     rawContent = removeExtraIndentFromCodeBlock(
       rawContent,
@@ -6539,7 +6558,7 @@ function findNextBlankLine(
   while (pos < sourceLen) {
     var nextLineEnd = util.findLineEnd(source, pos)
     if (isBlankLineCheck(source, pos, nextLineEnd)) return pos
-    pos = nextLineEnd + (nextLineEnd < sourceLen ? 1 : 0)
+    pos = skipToNextLine(source, nextLineEnd)
   }
   return sourceLen
 }
@@ -6555,7 +6574,7 @@ function createHTMLCommentResult(
 } {
   return {
     type: RuleType.htmlComment,
-    text,
+    text: util.normalizeCRLF(text),
     endPos,
     ...options,
   } as MarkdownToJSX.HTMLCommentNode & {
@@ -6580,10 +6599,11 @@ function createVerbatimHTMLBlock(
   isClosingTag?: boolean
   canInterruptParagraph?: boolean
 } {
+  var normalizedText = util.normalizeCRLF(text)
   // Detect empty unclosed HTML tags when forceBlock is used to avoid infinite recursion
   // For empty unclosed tags like <var>, the text field contains the opening tag itself
   // When forceBlock is used, this would cause recursion if the tag is parsed again
-  var finalText = text
+  var finalText = normalizedText
   if (options && options.forceBlock && text && !isClosingTag) {
     var openingTagPattern = new RegExp(
       '^<' + tagName.toLowerCase() + '(\\s[^>]*)?>$',
@@ -6841,8 +6861,7 @@ function processHTMLBlock(
     isType1BlockTag ||
     (isType6Block && endedAtBlankLine && !hasBlockContent(content))
 
-  // Normalize content (trim newlines for verbatim blocks)
-  var normalizedContent = content
+  var normalizedContent = util.normalizeCRLF(content)
   // Store original content for text field before we modify it for parsing
   var contentForText = normalizedContent
   if (shouldTreatAsVerbatim) {
@@ -7156,7 +7175,11 @@ function parseHTML(
         // Determine block type and find blank line
         var blockType: 'type6' | 'type7' = isType6 ? 'type6' : 'type7'
         var tagEnd = partialTagEnd
-        var blockEnd = findNextBlankLine(source, firstLineEnd + 1, sourceLen)
+        var blockEnd = findNextBlankLine(
+          source,
+          skipToNextLine(source, firstLineEnd),
+          sourceLen
+        )
         var blockContent = source.slice(tagEnd, blockEnd)
         var isClosingTag = pos + 1 < source.length && source[pos + 1] === '/'
 
@@ -7277,10 +7300,18 @@ function parseHTML(
           })())
 
       if (shouldParseAsBlock) {
-        var blockEnd = findNextBlankLine(source, firstLineEnd + 1, sourceLen)
+        var blockEnd = findNextBlankLine(
+          source,
+          skipToNextLine(source, firstLineEnd),
+          sourceLen
+        )
         var blockContent = source.slice(tagEnd, blockEnd)
-        if (blockContent.length > 0 && blockContent[0] === '\n') {
-          blockContent = blockContent.slice(1)
+        if (blockContent.length > 0) {
+          if (blockContent[0] === '\r' && blockContent[1] === '\n') {
+            blockContent = blockContent.slice(2)
+          } else if (blockContent[0] === '\n' || blockContent[0] === '\r') {
+            blockContent = blockContent.slice(1)
+          }
         }
 
         // Cache lowercase tag name to avoid repeated toLowerCase() calls
@@ -7645,7 +7676,11 @@ function parseHTML(
       var blockType: 'type6' | 'type7' = isType6Block ? 'type6' : 'type7'
       debug('match', 'htmlBlock', state)
       var tagEnd = tagResult.endPos
-      var blockEnd = findNextBlankLine(source, firstLineEnd + 1, sourceLen)
+      var blockEnd = findNextBlankLine(
+        source,
+        skipToNextLine(source, firstLineEnd),
+        sourceLen
+      )
 
       // For type 6 blocks, check if there's a closing tag (even beyond the blank line)
       // If there is AND there's markdown syntax, extend to include the closing tag
@@ -7793,12 +7828,13 @@ function parseHTML(
         }
       }
 
-      // For type 6 and type 7 blocks, content is verbatim (raw HTML)
-      // Content includes everything from after the opening tag to the blank line
-      // Remove leading newline if present
       var verbatimContent = blockContent
-      if (verbatimContent.length > 0 && verbatimContent[0] === '\n') {
-        verbatimContent = verbatimContent.slice(1)
+      if (verbatimContent.length > 0) {
+        if (verbatimContent[0] === '\r' && verbatimContent[1] === '\n') {
+          verbatimContent = verbatimContent.slice(2)
+        } else if (verbatimContent[0] === '\n' || verbatimContent[0] === '\r') {
+          verbatimContent = verbatimContent.slice(1)
+        }
       }
       // Per CommonMark spec: remove common leading whitespace from all lines
       var lines = verbatimContent.split('\n')
@@ -8551,7 +8587,7 @@ function parseRefContent(
         // Next line might be content - check if line after that starts with = or -
         var firstLineEnd = util.findLineEnd(source, checkPos)
         if (firstLineEnd < len) {
-          var secondLineStart = firstLineEnd + 1
+          var secondLineStart = skipToNextLine(source, firstLineEnd)
           var secondCheckPos = secondLineStart
           while (
             secondCheckPos < len &&
@@ -8873,11 +8909,9 @@ function parseFootnoteContent(
   let prevWasBlank = false
 
   while (lineStart < extractEnd) {
-    let lineEnd = lineStart
-    // Find line end
-    while (lineEnd < extractEnd && source[lineEnd] !== '\n') {
-      lineEnd++
-    }
+    // Find line end - use findLineEnd to properly handle CRLF
+    let lineEnd = util.findLineEnd(source, lineStart)
+    if (lineEnd > extractEnd) lineEnd = extractEnd
 
     // Extract and process line
     if (lineIndex === 0) {
@@ -8934,9 +8968,14 @@ function parseFootnoteContent(
     }
 
     // Move to next line
-    if (lineEnd < extractEnd && source[lineEnd] === '\n') {
-      processedParts.push('\n')
-      lineStart = lineEnd + 1
+    if (lineEnd < extractEnd) {
+      const charAtEnd = charCode(source, lineEnd)
+      if (charAtEnd === $.CHAR_CR || charAtEnd === $.CHAR_NEWLINE) {
+        processedParts.push('\n')
+        lineStart = skipToNextLine(source, lineEnd)
+      } else {
+        lineStart = extractEnd
+      }
     } else {
       lineStart = extractEnd
     }
@@ -9641,7 +9680,7 @@ export function collectReferenceDefinitions(
       if (refPos + 1 < len && charCode(input, refPos + 1) === $.CHAR_CARET) {
         canStartRef = false
         var lineEnd = util.findLineEnd(input, pos)
-        pos = lineEnd >= len ? len : lineEnd + 1
+        pos = lineEnd >= len ? len : skipToNextLine(input, lineEnd)
         continue
       } else {
         var result = parseDefinition(
@@ -9672,7 +9711,7 @@ export function collectReferenceDefinitions(
             canStartRef = false
           }
         }
-        pos = lineEnd >= len ? len : lineEnd + 1
+        pos = lineEnd >= len ? len : skipToNextLine(input, lineEnd)
         continue
       }
     }
@@ -9703,7 +9742,7 @@ export function collectReferenceDefinitions(
         )
           contentStart++
         bqLines.push(input.slice(contentStart, lineEnd))
-        bqEnd = lineEnd + 1
+        bqEnd = skipToNextLine(input, lineEnd)
       }
       if (bqLines.length) {
         collectReferenceDefinitions(bqLines.join('\n'), refs, options)
@@ -9719,7 +9758,7 @@ export function collectReferenceDefinitions(
     } else {
       var isCurrentLineBlank = isBlankLineCheck(input, pos, lineEnd)
       var indentInfo = calculateIndent(input, pos, lineEnd)
-      pos = lineEnd + 1
+      pos = skipToNextLine(input, lineEnd)
       canStartRef =
         currentCharCode === $.CHAR_HASH ||
         currentCharCode === $.CHAR_GT ||

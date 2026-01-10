@@ -254,10 +254,10 @@
     }
   },
   "parser": {
-    "timestamp": "2025-12-16T05:00:42.963Z",
+    "timestamp": "2026-01-10T06:07:46.257Z",
     "target": "parser",
     "inputSize": 173,
-    "parseTime": 6.89,
+    "parseTime": 4.6,
     "blockParsers": {
       "blockQuote": {
         "attempts": 70,
@@ -292,7 +292,7 @@
         "hits": 11
       },
       "htmlBlock": {
-        "attempts": 58,
+        "attempts": 88,
         "hits": 10
       },
       "htmlComment": {
@@ -375,9 +375,9 @@
       }
     },
     "operationCounts": {
-      "totalOperations": 3297,
+      "totalOperations": 3307,
       "blockParseIterations": 893,
-      "inlineParseIterations": 1260
+      "inlineParseIterations": 1270
     }
   },
   "react": {
