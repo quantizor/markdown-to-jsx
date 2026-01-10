@@ -1,5 +1,12 @@
 # markdown-to-jsx
 
+## 9.5.2
+
+### Patch Changes
+
+- 282affe: Fix lists and other markdown structures not rendering correctly when input has CRLF line endings.
+- 282affe: Fix paragraph after nested list being incorrectly absorbed into the nested list item when followed by a blank line.
+
 ## 9.5.1
 
 ### Patch Changes
