@@ -7682,18 +7682,73 @@ function parseHTML(
         sourceLen
       )
 
-      // For type 6 blocks, check if there's a closing tag (even beyond the blank line)
-      // If there is AND there's markdown syntax, extend to include the closing tag
-      // Exception: for JSX components, always extend to closing tag (proper parent-child nesting)
+      // For type 6 blocks, check if there's a closing tag before the blank line
+      // If found AND the next content is another HTML tag, stop at the closing tag
+      // This ensures proper nesting of sibling elements (e.g., <dt></dt><dd></dd>)
       if (blockType === 'type6' && !tagResult.isClosing) {
         // For JSX components, preserve case; for HTML, use lowercase
         const tagNameForClosing = isJSXComponent
           ? tagResult.tagName
           : tagResult.tagLower || tagResult.tagName.toLowerCase()
         var closingTagPattern = '</' + tagNameForClosing
-        var closingIdx = source.indexOf(closingTagPattern, tagEnd)
-        if (closingIdx !== -1) {
-          // Found a closing tag
+        var openingTagPattern = '<' + tagNameForClosing
+
+        // Find the matching closing tag by tracking nesting depth
+        var searchPos = tagEnd
+        var depth = 1 // We already have one opening tag (depth starts at 1)
+        var closingIdx = -1
+        while (searchPos < blockEnd && depth > 0) {
+          var nextOpenIdx = source.indexOf(openingTagPattern, searchPos)
+          var nextCloseIdx = source.indexOf(closingTagPattern, searchPos)
+
+          // Validate and find next valid opening tag (followed by whitespace or >)
+          // Note: We don't accept / because that indicates a self-closing tag
+          while (nextOpenIdx !== -1 && nextOpenIdx < blockEnd) {
+            var afterOpenPos = nextOpenIdx + openingTagPattern.length
+            if (afterOpenPos >= sourceLen) {
+              nextOpenIdx = -1
+              break
+            }
+            var charAfterOpen = source[afterOpenPos]
+            if (
+              charAfterOpen === ' ' ||
+              charAfterOpen === '\t' ||
+              charAfterOpen === '\n' ||
+              charAfterOpen === '\r' ||
+              charAfterOpen === '>'
+            ) {
+              break // Valid opening tag found
+            }
+            // Not valid (could be self-closing like <div/> or partial match), search for next
+            nextOpenIdx = source.indexOf(openingTagPattern, afterOpenPos)
+          }
+
+          if (nextOpenIdx === -1 || nextOpenIdx >= blockEnd) {
+            nextOpenIdx = blockEnd
+          }
+          if (nextCloseIdx === -1 || nextCloseIdx >= blockEnd) {
+            nextCloseIdx = blockEnd
+          }
+
+          if (nextOpenIdx < nextCloseIdx) {
+            // Found an opening tag first - increase depth
+            depth++
+            searchPos = nextOpenIdx + openingTagPattern.length
+          } else if (nextCloseIdx < blockEnd) {
+            // Found a closing tag first - decrease depth
+            depth--
+            if (depth === 0) {
+              closingIdx = nextCloseIdx
+              break
+            }
+            searchPos = nextCloseIdx + closingTagPattern.length
+          } else {
+            break // No more tags found
+          }
+        }
+
+        if (closingIdx !== -1 && closingIdx < blockEnd) {
+          // Found the matching closing tag before the blank line
           // Check if it's valid
           var afterClosingTag = closingIdx + closingTagPattern.length
           while (
@@ -7704,16 +7759,72 @@ function parseHTML(
             afterClosingTag++
           }
           if (afterClosingTag < sourceLen && source[afterClosingTag] === '>') {
-            // Valid closing tag found
+            // Valid closing tag found before blank line
+            // Check if the content immediately after the closing tag (after newline) starts with another HTML tag
+            var closingTagEndPos = afterClosingTag + 1
+            var nextContentPos = closingTagEndPos
+            // Skip to next line
+            while (
+              nextContentPos < sourceLen &&
+              source[nextContentPos] !== '\n'
+            ) {
+              nextContentPos++
+            }
+            if (nextContentPos < sourceLen) {
+              nextContentPos++ // Skip the newline
+            }
+            // Skip leading whitespace on next line
+            while (
+              nextContentPos < sourceLen &&
+              (source[nextContentPos] === ' ' ||
+                source[nextContentPos] === '\t')
+            ) {
+              nextContentPos++
+            }
+            // Check if next content is another HTML tag (that is NOT a closing tag for our current tag)
+            if (
+              nextContentPos < sourceLen &&
+              source[nextContentPos] === '<' &&
+              !util.startsWith(source.slice(nextContentPos), closingTagPattern)
+            ) {
+              var nextTag = parseHTMLTag(source, nextContentPos)
+              if (nextTag) {
+                // Next content is a different HTML tag - stop at our closing tag
+                blockEnd = closingTagEndPos
+              }
+            }
+            // Otherwise, continue to blank line as per CommonMark
+          }
+        } else {
+          // No matching closing tag found before blank line
+          // Check if there's a closing tag after the blank line
+          closingIdx = source.indexOf(closingTagPattern, tagEnd)
+          if (closingIdx !== -1) {
+            // Closing tag found but after blank line
+            // Check if there's block content that would warrant extending to the closing tag
             var extendedContent = source.slice(tagEnd, closingIdx)
-            // For JSX components, always extend to closing tag for proper nesting
-            // For HTML elements, only extend if there's block content
             var shouldExtend =
               isJSXComponent || hasBlockContent(extendedContent)
             if (shouldExtend) {
               // Extend block to include closing tag
-              var closingLineEnd = util.findLineEnd(source, afterClosingTag + 1)
-              blockEnd = closingLineEnd
+              var afterClosingTag2 = closingIdx + closingTagPattern.length
+              while (
+                afterClosingTag2 < sourceLen &&
+                (source[afterClosingTag2] === ' ' ||
+                  source[afterClosingTag2] === '\t')
+              ) {
+                afterClosingTag2++
+              }
+              if (
+                afterClosingTag2 < sourceLen &&
+                source[afterClosingTag2] === '>'
+              ) {
+                var closingLineEnd = util.findLineEnd(
+                  source,
+                  afterClosingTag2 + 1
+                )
+                blockEnd = closingLineEnd
+              }
             }
           }
         }
