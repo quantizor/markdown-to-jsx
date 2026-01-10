@@ -5725,10 +5725,12 @@ function parseList(
         if (lastItem.length > 0) {
           const lastBlock = lastItem[lastItem.length - 1]
           if (
-            lastBlock.type === RuleType.paragraph ||
-            lastBlock.type === RuleType.text
+            !prevLineWasBlank &&
+            (lastBlock.type === RuleType.paragraph ||
+              lastBlock.type === RuleType.text)
           ) {
             // This is a lazy continuation line - continue the paragraph
+            // Per CommonMark: lazy continuation only applies when there's no blank line
             appendListContinuation(
               nextLineWithoutIndent,
               lastItem,
