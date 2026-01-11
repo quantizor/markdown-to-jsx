@@ -1,5 +1,78 @@
 # markdown-to-jsx
 
+## 9.5.4
+
+### Patch Changes
+
+- 7f724a6: Fix HTML block parsing for sibling elements like `<dt>`/`<dd>` without blank lines between them.
+
+  Type 6 HTML blocks (such as `<dl>`, `<dt>`, `<dd>`, `<table>`, `<tr>`, `<td>`) were incorrectly parsed when sibling elements appeared without blank lines between them—the first element would consume all subsequent siblings as its content instead of treating them as separate elements.
+
+  This fix adds nesting-aware closing tag detection that properly handles:
+  - Nested elements with the same tag name (e.g., `<div><div></div></div>`)
+  - Sibling elements at the same level (e.g., `<dt></dt><dd></dd>`)
+  - CommonMark compliance for HTML blocks that should extend to blank lines
+
+  ***
+
+  修复了没有空行分隔的兄弟 HTML 元素（如 `<dt>`/`<dd>`）的块解析问题。
+
+  类型 6 HTML 块（如 `<dl>`、`<dt>`、`<dd>`、`<table>`、`<tr>`、`<td>`）在兄弟元素之间没有空行时解析错误——第一个元素会将所有后续兄弟元素作为其内容，而不是将它们视为单独的元素。
+
+  此修复添加了具有嵌套感知的关闭标签检测，正确处理：
+  - 同名标签的嵌套元素（例如 `<div><div></div></div>`）
+  - 同级的兄弟元素（例如 `<dt></dt><dd></dd>`）
+  - 应延续到空行的 HTML 块的 CommonMark 合规性
+
+  ***
+
+  रिक्त पंक्तियों के बिना भाई HTML तत्वों (जैसे `<dt>`/`<dd>`) के लिए HTML ब्लॉक पार्सिंग को ठीक किया।
+
+  टाइप 6 HTML ब्लॉक (जैसे `<dl>`, `<dt>`, `<dd>`, `<table>`, `<tr>`, `<td>`) गलत तरीके से पार्स हो रहे थे जब भाई तत्व बिना रिक्त पंक्तियों के दिखाई देते थे—पहला तत्व सभी अनुवर्ती भाई तत्वों को अपनी सामग्री के रूप में शामिल कर लेता था, उन्हें अलग तत्वों के रूप में मानने के बजाय।
+
+  यह सुधार नेस्टिंग-जागरूक क्लोजिंग टैग पहचान जोड़ता है जो सही ढंग से संभालता है:
+  - समान टैग नाम वाले नेस्टेड तत्व (उदाहरण: `<div><div></div></div>`)
+  - समान स्तर पर भाई तत्व (उदाहरण: `<dt></dt><dd></dd>`)
+  - HTML ब्लॉक के लिए CommonMark अनुपालन जो रिक्त पंक्तियों तक विस्तारित होने चाहिए
+
+- 58010ce: Fix duplicate opening tags for HTML elements with multi-line attributes (#781)
+
+  HTML tags with attributes spanning multiple lines (like custom elements with `data-*` attributes on separate lines) no longer produce duplicate opening tags in the output. This restores the expected behavior for custom HTML elements used with component overrides.
+
+  ***
+
+  修复多行属性的 HTML 元素产生重复开始标签的问题（#781）
+
+  具有跨多行属性的 HTML 标签（例如在不同行上具有 `data-*` 属性的自定义元素）不再在输出中产生重复的开始标签。这恢复了与组件覆盖一起使用的自定义 HTML 元素的预期行为。
+
+  ***
+
+  बहु-पंक्ति विशेषताओं वाले HTML तत्वों के लिए दोहरे आरंभिक टैग ठीक करें (#781)
+
+  कई पंक्तियों में फैली विशेषताओं वाले HTML टैग (जैसे अलग-अलग पंक्तियों पर `data-*` विशेषताओं वाले कस्टम तत्व) अब आउटपुट में दोहरे आरंभिक टैग उत्पन्न नहीं करते। यह कंपोनेंट ओवरराइड के साथ उपयोग किए जाने वाले कस्टम HTML तत्वों के अपेक्षित व्यवहार को पुनर्स्थापित करता है।
+
+- 3e25913: Fix fenced code blocks consuming nested code block openings as content.
+
+  When a fenced code block with a language (e.g., ` ```markdown`) encountered another code block opening with a language (e.g., ` ```python`) inside it, the inner opening was incorrectly treated as content instead of being recognized as a new block. Now, fence lines with a language immediately following (no space between fence and language) are recognized as new block openings that implicitly close the previous block.
+
+  This matches behavior of other markdown renderers like GitHub and VSCode. Lines like ` ``` aaa` (with space before info string) remain treated as content per CommonMark spec.
+
+  ***
+
+  修复了围栏代码块将嵌套代码块开头作为内容消费的问题。
+
+  当带有语言的围栏代码块（例如 ` ```markdown`）内部遇到另一个带语言的代码块开头（例如 ` ```python`）时，内部开头被错误地视为内容，而不是被识别为新块。现在，语言紧随其后（围栏和语言之间没有空格）的围栏行被识别为隐式关闭前一个块的新块开头。
+
+  这与 GitHub 和 VSCode 等其他 markdown 渲染器的行为一致。按照 CommonMark 规范，像 ` ``` aaa`（信息字符串前有空格）这样的行仍被视为内容。
+
+  ***
+
+  फेंस्ड कोड ब्लॉक्स द्वारा नेस्टेड कोड ब्लॉक ओपनिंग को सामग्री के रूप में उपभोग करने की समस्या को ठीक किया।
+
+  जब भाषा वाला फेंस्ड कोड ब्लॉक (जैसे ` ```markdown`) के अंदर भाषा वाला दूसरा कोड ब्लॉक ओपनिंग (जैसे ` ```python`) आता था, तो आंतरिक ओपनिंग को नए ब्लॉक के रूप में पहचानने के बजाय गलती से सामग्री के रूप में माना जाता था। अब, भाषा तुरंत बाद आने वाली (फेंस और भाषा के बीच कोई स्पेस नहीं) फेंस लाइनें नए ब्लॉक ओपनिंग के रूप में पहचानी जाती हैं जो पिछले ब्लॉक को निहित रूप से बंद करती हैं।
+
+  यह GitHub और VSCode जैसे अन्य markdown रेंडरर के व्यवहार से मेल खाता है। CommonMark स्पेक के अनुसार ` ``` aaa` (इन्फो स्ट्रिंग से पहले स्पेस) जैसी लाइनें अभी भी सामग्री के रूप में मानी जाती हैं।
+
 ## 9.5.3
 
 ### Patch Changes
