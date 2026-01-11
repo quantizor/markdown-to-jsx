@@ -1864,6 +1864,224 @@ describe('multi-line HTML attributes', () => {
     expect(el.attrs['data-b']).toBe('2')
     expect(el.attrs['data-c']).toBe('3')
   })
+
+  describe('trailing newline variations', () => {
+    const baseInput = `<dl-custom
+  data-variant='horizontalTable'
+>
+  <dt>title 1</dt>
+  <dd>description 1</dd>
+</dl-custom>`
+
+    it('should handle no trailing whitespace', () => {
+      const result = p.parser(baseInput)
+      expect(result.length).toBe(1)
+      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('dl-custom')
+      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['data-variant']).toBe(
+        'horizontalTable'
+      )
+    })
+
+    it('should handle single trailing newline', () => {
+      const result = p.parser(baseInput + '\n')
+      expect(result.length).toBe(1)
+      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('dl-custom')
+      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['data-variant']).toBe(
+        'horizontalTable'
+      )
+    })
+
+    it('should handle double trailing newline', () => {
+      const result = p.parser(baseInput + '\n\n')
+      expect(result.length).toBe(1)
+      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('dl-custom')
+      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['data-variant']).toBe(
+        'horizontalTable'
+      )
+    })
+
+    it('should handle leading newline', () => {
+      const result = p.parser('\n' + baseInput)
+      expect(result.length).toBe(1)
+      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('dl-custom')
+      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['data-variant']).toBe(
+        'horizontalTable'
+      )
+    })
+
+    it('should handle leading and trailing newlines', () => {
+      const result = p.parser('\n' + baseInput + '\n')
+      expect(result.length).toBe(1)
+      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('dl-custom')
+      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['data-variant']).toBe(
+        'horizontalTable'
+      )
+    })
+
+    it('should handle CRLF line endings', () => {
+      const crlfInput = baseInput.replace(/\n/g, '\r\n')
+      const result = p.parser(crlfInput)
+      expect(result.length).toBe(1)
+      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('dl-custom')
+      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['data-variant']).toBe(
+        'horizontalTable'
+      )
+    })
+  })
+
+  describe('JSX component scenarios', () => {
+    it('should handle PascalCase components with multi-line attributes', () => {
+      const md = `<MyCustomComponent
+  propA="value1"
+  propB="value2"
+>
+  content
+</MyCustomComponent>`
+      const result = p.parser(md)
+      expect(result.length).toBe(1)
+      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe(
+        'MyCustomComponent'
+      )
+      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['propA']).toBe(
+        'value1'
+      )
+      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['propB']).toBe(
+        'value2'
+      )
+    })
+
+    it('should handle JSX curly brace attributes on separate lines', () => {
+      const md = `<DataTable
+  data={myData}
+  columns={columns}
+  onRowClick={handleClick}
+>
+  Loading...
+</DataTable>`
+      const result = p.parser(md)
+      expect(result.length).toBe(1)
+      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('DataTable')
+      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['data']).toBe('myData')
+      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['columns']).toBe(
+        'columns'
+      )
+      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['onRowClick']).toBe(
+        'handleClick'
+      )
+    })
+
+    it('should handle mixed HTML and JSX attributes on separate lines', () => {
+      const md = `<Widget
+  className="container"
+  data-id="123"
+  onClick={handleClick}
+  disabled
+>
+  content
+</Widget>`
+      const result = p.parser(md)
+      expect(result.length).toBe(1)
+      const widget = result[0] as MarkdownToJSX.HTMLNode
+      expect(widget.tag).toBe('Widget')
+      expect(widget.attrs['className']).toBe('container')
+      expect(widget.attrs['data-id']).toBe('123')
+      expect(widget.attrs['onClick']).toBe('handleClick')
+      expect(widget.attrs['disabled']).toBe(true)
+    })
+
+    it('should handle deeply nested components with multi-line attributes', () => {
+      const md = `<Outer
+  level="1"
+>
+  <Middle
+    level="2"
+  >
+    <Inner
+      level="3"
+    >
+      content
+    </Inner>
+  </Middle>
+</Outer>`
+      const result = p.parser(md)
+      expect(result.length).toBe(1)
+      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('Outer')
+      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['level']).toBe('1')
+    })
+
+    it('should handle self-closing JSX with multi-line attributes', () => {
+      const md = `<Icon
+  name="star"
+  size={24}
+  color="gold"
+  filled
+/>`
+      const result = p.parser(md)
+      expect(result.length).toBe(1)
+      // May be wrapped in paragraph for self-closing inline elements
+      let icon: MarkdownToJSX.HTMLNode
+      if (result[0].type === RuleType.paragraph) {
+        icon = (result[0] as MarkdownToJSX.ParagraphNode)
+          .children[0] as MarkdownToJSX.HTMLNode
+      } else {
+        icon = result[0] as MarkdownToJSX.HTMLNode
+      }
+      expect(icon.tag).toBe('Icon')
+      expect(icon.attrs['name']).toBe('star')
+      expect(icon.attrs['size']).toBe('24')
+      expect(icon.attrs['color']).toBe('gold')
+      expect(icon.attrs['filled']).toBe(true)
+    })
+  })
+
+  describe('whitespace variations in attributes', () => {
+    it('should handle tabs as whitespace between attributes', () => {
+      const md = `<div
+\tclass="test"
+\tid="main"
+>content</div>`
+      const result = p.parser(md)
+      expect(result.length).toBe(1)
+      const div = result[0] as MarkdownToJSX.HTMLNode
+      expect(div.attrs['class']).toBe('test')
+      expect(div.attrs['id']).toBe('main')
+    })
+
+    it('should handle mixed tabs and spaces', () => {
+      const md = `<div
+  \tclass="test"
+\t  id="main"
+>content</div>`
+      const result = p.parser(md)
+      expect(result.length).toBe(1)
+      const div = result[0] as MarkdownToJSX.HTMLNode
+      expect(div.attrs['class']).toBe('test')
+      expect(div.attrs['id']).toBe('main')
+    })
+
+    it('should handle attribute on same line as tag name', () => {
+      const md = `<dl-custom data-variant='horizontalTable'>
+  <dt>title</dt>
+</dl-custom>`
+      const result = p.parser(md)
+      expect(result.length).toBe(1)
+      const dl = result[0] as MarkdownToJSX.HTMLNode
+      expect(dl.tag).toBe('dl-custom')
+      expect(dl.attrs['data-variant']).toBe('horizontalTable')
+    })
+
+    it('should handle empty content with multi-line opening tag', () => {
+      const md = `<dl-custom
+  data-variant='horizontalTable'
+>
+</dl-custom>`
+      const result = p.parser(md)
+      expect(result.length).toBe(1)
+      const dl = result[0] as MarkdownToJSX.HTMLNode
+      expect(dl.tag).toBe('dl-custom')
+      expect(dl.attrs['data-variant']).toBe('horizontalTable')
+    })
+  })
 })
 
 describe('tables in lists', () => {

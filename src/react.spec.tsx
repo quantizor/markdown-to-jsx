@@ -2189,6 +2189,103 @@ Item detail
     expect(root.innerHTML).toContain('title 1')
   })
 
+  describe('#781 multi-line attribute variations', () => {
+    it('should handle trailing newline', () => {
+      render(
+        compiler(`<dl-custom
+  data-variant='horizontalTable'
+>
+  <dt>title 1</dt>
+</dl-custom>
+`)
+      )
+      const openingTagCount = (root.innerHTML.match(/<dl-custom/g) || []).length
+      expect(openingTagCount).toBe(1)
+      expect(root.innerHTML).toContain('data-variant="horizontalTable"')
+    })
+
+    it('should handle CRLF line endings', () => {
+      render(
+        compiler(
+          `<dl-custom\r\n  data-variant='horizontalTable'\r\n>\r\n  <dt>title</dt>\r\n</dl-custom>`
+        )
+      )
+      const openingTagCount = (root.innerHTML.match(/<dl-custom/g) || []).length
+      expect(openingTagCount).toBe(1)
+      expect(root.innerHTML).toContain('data-variant="horizontalTable"')
+    })
+
+    it('should handle attribute on same line as tag', () => {
+      render(
+        compiler(`<dl-custom data-variant='horizontalTable'>
+  <dt>title</dt>
+</dl-custom>`)
+      )
+      const openingTagCount = (root.innerHTML.match(/<dl-custom/g) || []).length
+      expect(openingTagCount).toBe(1)
+      expect(root.innerHTML).toContain('data-variant="horizontalTable"')
+    })
+
+    it('should handle multiple attributes on separate lines', () => {
+      render(
+        compiler(`<custom-element
+  data-a="1"
+  data-b="2"
+  data-c="3"
+>
+  content
+</custom-element>`)
+      )
+      const openingTagCount = (root.innerHTML.match(/<custom-element/g) || [])
+        .length
+      expect(openingTagCount).toBe(1)
+      expect(root.innerHTML).toContain('data-a="1"')
+      expect(root.innerHTML).toContain('data-b="2"')
+      expect(root.innerHTML).toContain('data-c="3"')
+    })
+
+    it('should handle JSX-style components with multi-line attributes', () => {
+      render(
+        compiler(`<my-component
+  className="wrapper"
+  onClick={handleClick}
+>
+  inner content
+</my-component>`)
+      )
+      const openingTagCount = (root.innerHTML.match(/<my-component/g) || [])
+        .length
+      expect(openingTagCount).toBe(1)
+    })
+
+    it('should handle the full original issue example', () => {
+      render(
+        compiler(`<dl-custom
+  data-variant='horizontalTable'
+>
+  <dt>title 1</dt>
+  <dd>description 1</dd>
+  <dt>title 2</dt>
+  <dd>description 2</dd>
+  <dt>title 3</dt>
+  <dd>description 3</dd>
+</dl-custom>`)
+      )
+      const openingTagCount = (root.innerHTML.match(/<dl-custom/g) || []).length
+      const closingTagCount = (root.innerHTML.match(/<\/dl-custom>/g) || [])
+        .length
+      expect(openingTagCount).toBe(1)
+      expect(closingTagCount).toBe(1)
+      expect(root.innerHTML).toContain('data-variant="horizontalTable"')
+      expect(root.innerHTML).toContain('title 1')
+      expect(root.innerHTML).toContain('description 1')
+      expect(root.innerHTML).toContain('title 2')
+      expect(root.innerHTML).toContain('description 2')
+      expect(root.innerHTML).toContain('title 3')
+      expect(root.innerHTML).toContain('description 3')
+    })
+  })
+
   it('#686 should not add unnecessary paragraphs', () => {
     render(compiler(`<tag1><tag2>text1</tag2>text2</tag1>`))
 
