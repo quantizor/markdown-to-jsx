@@ -3737,6 +3737,9 @@ export function parseCodeFenced(
 
   let contentStart = skipToNextLine(source, lineEnd)
   let endPos = contentStart
+  // Track whether we found an explicit closing fence or an implicit close
+  // (when encountering a new opening fence with info string)
+  let foundExplicitClose = false
 
   while (endPos < source.length) {
     let lineEndPos = util.findLineEnd(source, endPos)
@@ -3776,7 +3779,48 @@ export function parseCodeFenced(
           }
         }
         if (afterFence === lineEndPos) {
+          // Valid closing fence (only whitespace after fence chars)
+          foundExplicitClose = true
           break
+        }
+        // Check if this looks like an opening fence with an info string
+        // Per issue: a fence with a language (e.g., ```python) should be treated
+        // as a new opening fence, implicitly closing the current code block
+        // This happens BEFORE this line (we don't include this line in content)
+        // Only treat as new opening if info string immediately follows fence (no space)
+        // This ensures ``` aaa (with space) is not treated as new opening per CommonMark
+        if (closeLen >= 3 && afterFence < lineEndPos) {
+          // Check if there's whitespace immediately after the fence chars
+          let posAfterFence = fenceStart + closeLen
+          let hasSpaceBeforeInfo =
+            posAfterFence < lineEndPos &&
+            (charCode(source, posAfterFence) === $.CHAR_SPACE ||
+              charCode(source, posAfterFence) === $.CHAR_TAB)
+
+          // Only treat as new opening if NO space between fence and info string
+          if (!hasSpaceBeforeInfo) {
+            // There's non-whitespace immediately after the fence - looks like ```python
+            // Info strings cannot contain backticks for backtick fences
+            let isValidInfoString = true
+            if (fenceChar === '`') {
+              for (
+                let checkPos = posAfterFence;
+                checkPos < lineEndPos;
+                checkPos++
+              ) {
+                if (charCode(source, checkPos) === $.CHAR_BACKTICK) {
+                  isValidInfoString = false
+                  break
+                }
+              }
+            }
+            if (isValidInfoString) {
+              // This is a new opening fence - current code block ends before this line
+              // endPos is already at the start of this line, so content won't include it
+              // foundExplicitClose stays false - we don't skip past this line
+              break
+            }
+          }
         }
       }
     } else if (
@@ -3794,6 +3838,7 @@ export function parseCodeFenced(
         closeLen >= fenceLength &&
         isBlankLineCheck(source, fenceStart + closeLen, lineEndPos)
       ) {
+        foundExplicitClose = true
         break
       }
     }
@@ -3814,8 +3859,11 @@ export function parseCodeFenced(
     )
   }
 
+  // If we found an explicit closing fence, skip past it
+  // If we found an implicit close (new opening fence), endPos should stay at the start
+  // of that line so the next parse can handle the new code block
   let finalEndPos =
-    endPos < source.length
+    foundExplicitClose && endPos < source.length
       ? skipToNextLine(source, util.findLineEnd(source, endPos))
       : endPos
 
