@@ -1067,13 +1067,15 @@ describe('parseCodeFenced', () => {
     const options = createDefaultOptions()
     const input = '```markdown\n```python\ncode\n```'
     const result = p.parseCodeFenced(input, 0, createBlockState(), options)
-    expect(result).toEqual({
-      type: RuleType.codeBlock,
-      text: '',
-      lang: 'markdown',
-      attrs: undefined,
-      endPos: 12, // Ends at the start of ```python line
-    })
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "attrs": undefined,
+        "endPos": 12,
+        "lang": "markdown",
+        "text": "",
+        "type": "codeBlock",
+      }
+    `)
 
     // The next parse should handle ```python
     const nextResult = p.parseCodeFenced(
@@ -1082,13 +1084,15 @@ describe('parseCodeFenced', () => {
       createBlockState(),
       options
     )
-    expect(nextResult).toEqual({
-      type: RuleType.codeBlock,
-      text: 'code',
-      lang: 'python',
-      attrs: undefined,
-      endPos: 30,
-    })
+    expect(nextResult).toMatchInlineSnapshot(`
+      {
+        "attrs": undefined,
+        "endPos": 30,
+        "lang": "python",
+        "text": "code",
+        "type": "codeBlock",
+      }
+    `)
   })
 
   it('should treat fence with space before info string as content (CommonMark compliant)', () => {
@@ -1097,13 +1101,15 @@ describe('parseCodeFenced', () => {
     const options = createDefaultOptions()
     const input = '```\n``` aaa\n```'
     const result = p.parseCodeFenced(input, 0, createBlockState(), options)
-    expect(result).toEqual({
-      type: RuleType.codeBlock,
-      text: '``` aaa',
-      lang: '',
-      attrs: undefined,
-      endPos: 15,
-    })
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "attrs": undefined,
+        "endPos": 15,
+        "lang": "",
+        "text": "\`\`\` aaa",
+        "type": "codeBlock",
+      }
+    `)
   })
 
   it('should handle nested code blocks with different languages', () => {
@@ -1115,32 +1121,50 @@ def greet(name):
   print("Hello")
 \`\`\`
 \`\`\``
-    const results = p.parser(input, options) as (MarkdownToJSX.CodeBlockNode & {
-      endPos: number
-    })[]
-    expect(results.length).toBe(3)
-    expect(results[0].type).toBe(RuleType.codeBlock)
-    expect(results[0].lang).toBe('markdown')
-    expect(results[0].text).toBe('`this right here is important`')
-    expect(results[1].type).toBe(RuleType.codeBlock)
-    expect(results[1].lang).toBe('python')
-    expect(results[1].text).toContain('def greet(name):')
-    expect(results[2].type).toBe(RuleType.codeBlock)
-    expect(results[2].lang).toBe('')
-    expect(results[2].text).toBe('')
+    const results = p.parser(input, options)
+    expect(results).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": undefined,
+          "endPos": 43,
+          "lang": "markdown",
+          "text": "\`this right here is important\`",
+          "type": "codeBlock",
+        },
+        {
+          "attrs": undefined,
+          "endPos": 91,
+          "lang": "python",
+          "text": 
+      "def greet(name):
+        print("Hello")"
+      ,
+          "type": "codeBlock",
+        },
+        {
+          "attrs": undefined,
+          "endPos": 94,
+          "lang": "",
+          "text": "",
+          "type": "codeBlock",
+        },
+      ]
+    `)
   })
 
   it('should handle tilde fence with language as new opening', () => {
     const options = createDefaultOptions()
     const input = '~~~markdown\n~~~python\ncode\n~~~'
     const result = p.parseCodeFenced(input, 0, createBlockState(), options)
-    expect(result).toEqual({
-      type: RuleType.codeBlock,
-      text: '',
-      lang: 'markdown',
-      attrs: undefined,
-      endPos: 12,
-    })
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "attrs": undefined,
+        "endPos": 12,
+        "lang": "markdown",
+        "text": "",
+        "type": "codeBlock",
+      }
+    `)
   })
 
   it('should not treat fence with backtick in info string as new opening', () => {
@@ -1149,13 +1173,15 @@ def greet(name):
     const input = '```\n```py`thon\n```'
     const result = p.parseCodeFenced(input, 0, createBlockState(), options)
     // Should parse the entire content since ```py`thon is not a valid opening
-    expect(result).toEqual({
-      type: RuleType.codeBlock,
-      text: '```py`thon',
-      lang: '',
-      attrs: undefined,
-      endPos: 18,
-    })
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "attrs": undefined,
+        "endPos": 18,
+        "lang": "",
+        "text": "\`\`\`py\`thon",
+        "type": "codeBlock",
+      }
+    `)
   })
 })
 
