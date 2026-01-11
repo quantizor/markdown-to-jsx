@@ -1060,6 +1060,129 @@ describe('parseCodeFenced', () => {
     )
     expect(result).toBeNull()
   })
+
+  it('should treat fence with language as new opening, implicitly closing previous block', () => {
+    // When a fenced code block encounters ```python (fence + language immediately after)
+    // it should be treated as a new opening fence, closing the previous block
+    const options = createDefaultOptions()
+    const input = '```markdown\n```python\ncode\n```'
+    const result = p.parseCodeFenced(input, 0, createBlockState(), options)
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "attrs": undefined,
+        "endPos": 12,
+        "lang": "markdown",
+        "text": "",
+        "type": "codeBlock",
+      }
+    `)
+
+    // The next parse should handle ```python
+    const nextResult = p.parseCodeFenced(
+      input,
+      result!.endPos,
+      createBlockState(),
+      options
+    )
+    expect(nextResult).toMatchInlineSnapshot(`
+      {
+        "attrs": undefined,
+        "endPos": 30,
+        "lang": "python",
+        "text": "code",
+        "type": "codeBlock",
+      }
+    `)
+  })
+
+  it('should treat fence with space before info string as content (CommonMark compliant)', () => {
+    // Per CommonMark: ``` aaa is NOT a valid closing fence but also should NOT be treated as new opening
+    // because the info string has space before it
+    const options = createDefaultOptions()
+    const input = '```\n``` aaa\n```'
+    const result = p.parseCodeFenced(input, 0, createBlockState(), options)
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "attrs": undefined,
+        "endPos": 15,
+        "lang": "",
+        "text": "\`\`\` aaa",
+        "type": "codeBlock",
+      }
+    `)
+  })
+
+  it('should handle nested code blocks with different languages', () => {
+    const options = createDefaultOptions()
+    const input = `\`\`\`markdown
+\`this right here is important\`
+\`\`\`python
+def greet(name):
+  print("Hello")
+\`\`\`
+\`\`\``
+    const results = p.parser(input, options)
+    expect(results).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": undefined,
+          "endPos": 43,
+          "lang": "markdown",
+          "text": "\`this right here is important\`",
+          "type": "codeBlock",
+        },
+        {
+          "attrs": undefined,
+          "endPos": 91,
+          "lang": "python",
+          "text": 
+      "def greet(name):
+        print("Hello")"
+      ,
+          "type": "codeBlock",
+        },
+        {
+          "attrs": undefined,
+          "endPos": 94,
+          "lang": "",
+          "text": "",
+          "type": "codeBlock",
+        },
+      ]
+    `)
+  })
+
+  it('should handle tilde fence with language as new opening', () => {
+    const options = createDefaultOptions()
+    const input = '~~~markdown\n~~~python\ncode\n~~~'
+    const result = p.parseCodeFenced(input, 0, createBlockState(), options)
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "attrs": undefined,
+        "endPos": 12,
+        "lang": "markdown",
+        "text": "",
+        "type": "codeBlock",
+      }
+    `)
+  })
+
+  it('should not treat fence with backtick in info string as new opening', () => {
+    // Per CommonMark: backtick fences cannot have backticks in info string
+    const options = createDefaultOptions()
+    const input = '```\n```py`thon\n```'
+    const result = p.parseCodeFenced(input, 0, createBlockState(), options)
+    // Should parse the entire content since ```py`thon is not a valid opening
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "attrs": undefined,
+        "endPos": 18,
+        "lang": "",
+        "text": "\`\`\`py\`thon",
+        "type": "codeBlock",
+      }
+    `)
+  })
 })
 
 describe('parseHTMLTag', () => {
