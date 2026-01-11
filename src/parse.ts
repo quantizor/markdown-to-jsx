@@ -7882,6 +7882,17 @@ function parseHTML(
       // Per CommonMark: Type 7 blocks cannot interrupt paragraphs, but if they're on their own line they're blocks
       // However, if the tag contains newlines in attributes (without hasNewline flag because they're in quotes),
       // it should be treated as inline and wrapped in a paragraph
+
+      // Helper to parse type 7 block attributes
+      const parseType7Attrs = () => {
+        const tagLower = tagResult.tagLower || tagResult.tagName.toLowerCase()
+        const rawAttrs = tagResult.whitespaceBeforeAttrs + tagResult.attrs
+        return {
+          parsed: parseHTMLAttributes(rawAttrs, tagLower, tagResult.tagName, options),
+          raw: rawAttrs,
+        }
+      }
+
       if (blockType === 'type7' && blockContent.trim() === '') {
         // Check if the tag itself contains a newline (inside the tag, not after it)
         var rawTagText = source.slice(pos, tagResult.endPos)
@@ -7898,21 +7909,13 @@ function parseHTML(
         if (tagLineEnd < source.length) tagLineEnd++
         var rawTag = source.slice(pos, tagLineEnd)
         // Parse attributes for single-line type 7 blocks
-        const type7TagLower =
-          tagResult.tagLower || tagResult.tagName.toLowerCase()
-        const type7Attrs = tagResult.whitespaceBeforeAttrs + tagResult.attrs
-        const parsedType7Attrs = parseHTMLAttributes(
-          type7Attrs,
-          type7TagLower,
-          tagResult.tagName,
-          options
-        )
+        const type7Attrs = parseType7Attrs()
         return createVerbatimHTMLBlock(
           tagResult.tagName,
           rawTag,
           blockEnd,
-          parsedType7Attrs,
-          type7Attrs,
+          type7Attrs.parsed,
+          type7Attrs.raw,
           isClosingTag,
           false, // type 7 blocks cannot interrupt paragraphs
           options,
@@ -7932,21 +7935,13 @@ function parseHTML(
         var rawContent = blockContent
         var fullRawHTML = rawOpeningTag + rawContent
         // Parse attributes even for multi-line tags (#781)
-        const multilineTagLower =
-          tagResult.tagLower || tagResult.tagName.toLowerCase()
-        const multilineAttrs = tagResult.whitespaceBeforeAttrs + tagResult.attrs
-        const parsedMultilineAttrs = parseHTMLAttributes(
-          multilineAttrs,
-          multilineTagLower,
-          tagResult.tagName,
-          options
-        )
+        const multilineAttrs = parseType7Attrs()
         return createVerbatimHTMLBlock(
           tagResult.tagName,
           fullRawHTML,
           blockEnd,
-          parsedMultilineAttrs,
-          multilineAttrs,
+          multilineAttrs.parsed,
+          multilineAttrs.raw,
           isClosingTag,
           false, // type 7 blocks cannot interrupt paragraphs
           options,

@@ -296,25 +296,22 @@ function render(
           .toLowerCase()
           .trimEnd()
           .endsWith(closingTag)
+        const isFullOuterBlock = startsWithOwnTag && endsWithClosingTag
 
         const hasNoAttrs =
           !htmlNode.attrs || Object.keys(htmlNode.attrs).length === 0
+        const hasChildren = htmlNode.children && htmlNode.children.length > 0
 
         // Case 1: rawText contains full outer block AND no parsed attrs
         // Skip wrapper and render the parsed nodes directly (attrs are in rawText)
-        if (startsWithOwnTag && endsWithClosingTag && hasNoAttrs) {
+        if (isFullOuterBlock && hasNoAttrs) {
           return output(astNodes.flatMap(processNode), state)
         }
 
         // Case 2: rawText contains full outer block AND we have parsed attrs (#781)
         // Use children array instead of re-parsing rawText to avoid duplication
         // The children contain the inner content without the outer tags
-        if (
-          startsWithOwnTag &&
-          endsWithClosingTag &&
-          htmlNode.children &&
-          htmlNode.children.length > 0
-        ) {
+        if (isFullOuterBlock && hasChildren) {
           return h(
             node.tag,
             { key: state.key, ...node.attrs },
