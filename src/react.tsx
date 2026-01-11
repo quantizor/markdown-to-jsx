@@ -296,16 +296,27 @@ function render(
           .toLowerCase()
           .trimEnd()
           .endsWith(closingTag)
+        const isFullOuterBlock = startsWithOwnTag && endsWithClosingTag
 
-        // Only skip wrapper if:
-        // 1. rawText starts with our tag (opening tag is present)
-        // 2. rawText ends with our closing tag (full block, not inner content + extra)
-        // 3. node has no parsed attributes (attrs are in rawText, not parsed)
-        // This handles cases like <dl-custom data-variant='foo'>...</dl-custom>
         const hasNoAttrs =
           !htmlNode.attrs || Object.keys(htmlNode.attrs).length === 0
-        if (startsWithOwnTag && endsWithClosingTag && hasNoAttrs) {
+        const hasChildren = htmlNode.children && htmlNode.children.length > 0
+
+        // Case 1: rawText contains full outer block AND no parsed attrs
+        // Skip wrapper and render the parsed nodes directly (attrs are in rawText)
+        if (isFullOuterBlock && hasNoAttrs) {
           return output(astNodes.flatMap(processNode), state)
+        }
+
+        // Case 2: rawText contains full outer block AND we have parsed attrs (#781)
+        // Use children array instead of re-parsing rawText to avoid duplication
+        // The children contain the inner content without the outer tags
+        if (isFullOuterBlock && hasChildren) {
+          return h(
+            node.tag,
+            { key: state.key, ...node.attrs },
+            output(htmlNode.children, state)
+          )
         }
 
         return h(
