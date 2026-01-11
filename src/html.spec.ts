@@ -1306,13 +1306,14 @@ describe('html compiler', () => {
   <dd>description 1</dd>
 </dl-custom>`)
 
-      // Should only have one dl-custom opening tag, not two
-      const openingTagCount = (result.match(/<dl-custom/g) || []).length
-      expect(openingTagCount).toBe(1)
-      // Verify the attribute value is correctly parsed (#781 fix)
-      expect(result).toContain("data-variant='horizontalTable'")
-      expect(result).toContain('title 1')
-      expect(result).toContain('description 1')
+      expect(result).toMatchInlineSnapshot(`
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>"
+      `)
     })
 
     it('#781 should handle standard elements with multi-line attributes', () => {
@@ -1323,12 +1324,10 @@ describe('html compiler', () => {
   <p>content</p>
 </div>`)
 
-      // Should only have one div opening tag
-      const openingTagCount = (result.match(/<div/g) || []).length
-      expect(openingTagCount).toBe(1)
-      // Verify the attribute values are correctly parsed (#781 fix)
-      expect(result).toContain("class='container'")
-      expect(result).toContain("data-test='value'")
+      expect(result).toMatchInlineSnapshot(`
+        "<divclass='container'data-test='value'><p>content</p>
+        </div>"
+      `)
     })
 
     it('should handle uppercase custom components with multi-line attributes', () => {
@@ -1338,9 +1337,13 @@ describe('html compiler', () => {
   content
 </MyComponent>`)
 
-      // Should only have one MyComponent opening tag
-      const openingTagCount = (result.match(/<MyComponent/gi) || []).length
-      expect(openingTagCount).toBe(1)
+      expect(result).toMatchInlineSnapshot(`
+        "<MyComponent
+          prop="value"
+        >
+          content
+        </MyComponent>"
+      `)
     })
   })
 
