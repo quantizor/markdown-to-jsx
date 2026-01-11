@@ -7897,12 +7897,22 @@ function parseHTML(
         var tagLineEnd = util.findLineEnd(source, tagEndInSource)
         if (tagLineEnd < source.length) tagLineEnd++
         var rawTag = source.slice(pos, tagLineEnd)
+        // Parse attributes for single-line type 7 blocks
+        const type7TagLower =
+          tagResult.tagLower || tagResult.tagName.toLowerCase()
+        const type7Attrs = tagResult.whitespaceBeforeAttrs + tagResult.attrs
+        const parsedType7Attrs = parseHTMLAttributes(
+          type7Attrs,
+          type7TagLower,
+          tagResult.tagName,
+          options
+        )
         return createVerbatimHTMLBlock(
           tagResult.tagName,
           rawTag,
           blockEnd,
-          {},
-          undefined,
+          parsedType7Attrs,
+          type7Attrs,
           isClosingTag,
           false, // type 7 blocks cannot interrupt paragraphs
           options,
@@ -7921,12 +7931,22 @@ function parseHTML(
         var rawOpeningTag = source.slice(pos, openingTagEnd)
         var rawContent = blockContent
         var fullRawHTML = rawOpeningTag + rawContent
+        // Parse attributes even for multi-line tags (#781)
+        const multilineTagLower =
+          tagResult.tagLower || tagResult.tagName.toLowerCase()
+        const multilineAttrs = tagResult.whitespaceBeforeAttrs + tagResult.attrs
+        const parsedMultilineAttrs = parseHTMLAttributes(
+          multilineAttrs,
+          multilineTagLower,
+          tagResult.tagName,
+          options
+        )
         return createVerbatimHTMLBlock(
           tagResult.tagName,
           fullRawHTML,
           blockEnd,
-          {},
-          undefined,
+          parsedMultilineAttrs,
+          multilineAttrs,
           isClosingTag,
           false, // type 7 blocks cannot interrupt paragraphs
           options,

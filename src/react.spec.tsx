@@ -2184,7 +2184,8 @@ Item detail
     // Should only have one dl-custom opening tag, not two
     const openingTagCount = (root.innerHTML.match(/<dl-custom/g) || []).length
     expect(openingTagCount).toBe(1)
-    expect(root.innerHTML).toContain('data-variant')
+    // Verify the attribute value is correctly parsed (#781 fix)
+    expect(root.innerHTML).toContain('data-variant="horizontalTable"')
     expect(root.innerHTML).toContain('title 1')
   })
 

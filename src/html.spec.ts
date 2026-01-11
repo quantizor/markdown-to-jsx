@@ -1309,7 +1309,8 @@ describe('html compiler', () => {
       // Should only have one dl-custom opening tag, not two
       const openingTagCount = (result.match(/<dl-custom/g) || []).length
       expect(openingTagCount).toBe(1)
-      expect(result).toContain('data-variant')
+      // Verify the attribute value is correctly parsed (#781 fix)
+      expect(result).toContain("data-variant='horizontalTable'")
       expect(result).toContain('title 1')
       expect(result).toContain('description 1')
     })
@@ -1325,8 +1326,9 @@ describe('html compiler', () => {
       // Should only have one div opening tag
       const openingTagCount = (result.match(/<div/g) || []).length
       expect(openingTagCount).toBe(1)
-      expect(result).toContain('class')
-      expect(result).toContain('container')
+      // Verify the attribute values are correctly parsed (#781 fix)
+      expect(result).toContain("class='container'")
+      expect(result).toContain("data-test='value'")
     })
 
     it('should handle uppercase custom components with multi-line attributes', () => {
