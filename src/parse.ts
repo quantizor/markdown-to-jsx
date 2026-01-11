@@ -3792,26 +3792,21 @@ export function parseCodeFenced(
         if (closeLen >= 3 && afterFence < lineEndPos) {
           // Check if there's whitespace immediately after the fence chars
           let posAfterFence = fenceStart + closeLen
-          let hasSpaceBeforeInfo =
+          let hasWhitespaceAfterFence =
             posAfterFence < lineEndPos &&
             (charCode(source, posAfterFence) === $.CHAR_SPACE ||
               charCode(source, posAfterFence) === $.CHAR_TAB)
 
           // Only treat as new opening if NO space between fence and info string
-          if (!hasSpaceBeforeInfo) {
+          if (!hasWhitespaceAfterFence) {
             // There's non-whitespace immediately after the fence - looks like ```python
             // Info strings cannot contain backticks for backtick fences
             let isValidInfoString = true
             if (fenceChar === '`') {
-              for (
-                let checkPos = posAfterFence;
-                checkPos < lineEndPos;
-                checkPos++
-              ) {
-                if (charCode(source, checkPos) === $.CHAR_BACKTICK) {
-                  isValidInfoString = false
-                  break
-                }
+              // Check if there's a backtick in the info string
+              let lineContent = source.slice(posAfterFence, lineEndPos)
+              if (lineContent.indexOf('`') !== -1) {
+                isValidInfoString = false
               }
             }
             if (isValidInfoString) {

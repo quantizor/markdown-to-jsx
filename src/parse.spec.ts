@@ -1062,7 +1062,6 @@ describe('parseCodeFenced', () => {
   })
 
   it('should treat fence with language as new opening, implicitly closing previous block', () => {
-    // Issue: https://github.com/quantizor/markdown-to-jsx/issues/XXX
     // When a fenced code block encounters ```python (fence + language immediately after)
     // it should be treated as a new opening fence, closing the previous block
     const options = createDefaultOptions()
