@@ -676,8 +676,10 @@ function parseHTMLAttributes(
   const attrMatches: string[] = []
   let i = 0
   const len = attrs.length
+  // Helper to check for whitespace including newlines
+  const isWhitespace = (c: string) => c === ' ' || c === '\t' || c === '\n' || c === '\r'
   while (i < len) {
-    while (i < len && isSpaceOrTab(attrs[i])) i++
+    while (i < len && isWhitespace(attrs[i])) i++
     if (i >= len) break
     const nameStart = i
     while (i < len && isNameChar(attrs[i])) i++
@@ -686,13 +688,13 @@ function parseHTMLAttributes(
       continue
     }
     const name = attrs.slice(nameStart, i)
-    while (i < len && isSpaceOrTab(attrs[i])) i++
+    while (i < len && isWhitespace(attrs[i])) i++
     if (i >= len || attrs[i] !== '=') {
       attrMatches.push(name)
       continue
     }
     i++
-    while (i < len && isSpaceOrTab(attrs[i])) i++
+    while (i < len && isWhitespace(attrs[i])) i++
     if (i >= len) {
       attrMatches.push(name + '=')
       break
@@ -708,7 +710,8 @@ function parseHTMLAttributes(
             break
           }
           const nextChar = attrs[i + 1]
-          if (isSpaceOrTab(nextChar) || nextChar === '/') {
+          // Check for whitespace (space, tab, newline) or self-closing slash
+          if (isWhitespace(nextChar) || nextChar === '/') {
             i++
             break
           }
@@ -730,7 +733,7 @@ function parseHTMLAttributes(
         i++
       }
     } else {
-      while (i < len && !isSpaceOrTab(attrs[i])) i++
+      while (i < len && !isWhitespace(attrs[i])) i++
     }
     attrMatches.push(name + '=' + attrs.slice(valueStart, i))
   }

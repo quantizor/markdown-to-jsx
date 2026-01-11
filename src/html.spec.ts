@@ -1156,9 +1156,7 @@ describe('html compiler', () => {
         ],
         {}
       )
-      // Should not add closing tag since it's already in text
-      expect(result).toContain('console.log("test");</script>')
-      expect(result.match(/<\/script>/g)?.length).toBe(1) // Only one closing tag
+      expect(result).toMatchInlineSnapshot(`"<script>console.log("test");</script>"`)
     })
 
     it('should handle pre block with closing tag in text', () => {
@@ -1175,8 +1173,7 @@ describe('html compiler', () => {
         ],
         {}
       )
-      expect(result).toContain('<code>test</code></pre>')
-      expect(result.match(/<\/pre>/g)?.length).toBe(1)
+      expect(result).toMatchInlineSnapshot(`"<pre><code>test</code></pre>"`)
     })
 
     it('should add closing tag when not present in text (Type 1 block)', () => {
@@ -1193,9 +1190,7 @@ describe('html compiler', () => {
         ],
         {}
       )
-      // Should add closing tag since it's not in text (line 361)
-      expect(result).toContain('console.log("test");</script>')
-      expect(result.match(/<\/script>/g)?.length).toBe(1)
+      expect(result).toMatchInlineSnapshot(`"<script>console.log("test");</script>"`)
     })
   })
 
@@ -1214,8 +1209,7 @@ describe('html compiler', () => {
         ],
         { tagfilter: true }
       )
-      expect(result).toContain('&lt;script')
-      expect(result).not.toContain('<script>')
+      expect(result).toMatchInlineSnapshot(`"<div>Content with &lt;script>alert("xss")&lt;/script>"`)
     })
   })
 
@@ -1232,8 +1226,7 @@ describe('html compiler', () => {
         ],
         { tagfilter: true }
       )
-      expect(result).toContain('&lt;script')
-      expect(result).not.toContain('<script src="evil.js">')
+      expect(result).toMatchInlineSnapshot(`"&lt;script src="evil.js">"`)
     })
 
     it('should handle self-closing closing tag', () => {
@@ -1248,7 +1241,7 @@ describe('html compiler', () => {
         ],
         {}
       )
-      expect(result).toBe('</div>')
+      expect(result).toMatchInlineSnapshot(`"</div>"`)
     })
   })
 
@@ -1273,27 +1266,24 @@ describe('html compiler', () => {
         ],
         {}
       )
-      // The space before newline in attribute should be preserved
-      expect(result).toContain('space')
-      expect(result).toContain('newline')
+      expect(result).toMatchInlineSnapshot(`
+        "<p>Text with <div title="Attribute with space 
+         newline"> more text</p>"
+      `)
     })
 
     it('should collapse spaces in text content but preserve in attributes', () => {
       const result = compiler(
         'Text with <div title="attr \n value">content</div> more text'
       )
-      // Space in attribute should be preserved, space in text should be collapsed
-      expect(result).toContain('title="attr')
-      expect(result).toContain('value"')
+      expect(result).toMatchInlineSnapshot(`"<p>Text with <div title="attr  value">content</div> more text</p>"`)
     })
 
     it('should handle multiple quotes in attributes correctly', () => {
       const result = compiler(
         'Text <div title=\'quote "inside" quote\'>content</div> more'
       )
-      // Should handle nested quotes correctly
-      expect(result).toContain('quote')
-      expect(result).toContain('inside')
+      expect(result).toMatchInlineSnapshot(`"<p>Text <div title='quote "inside" quote'>content</div> more</p>"`)
     })
   })
 
@@ -1325,7 +1315,7 @@ describe('html compiler', () => {
 </div>`)
 
       expect(result).toMatchInlineSnapshot(`
-        "<divclass='container'data-test='value'><p>content</p>
+        "<div class='container' data-test='value'><p>content</p>
         </div>"
       `)
     })
