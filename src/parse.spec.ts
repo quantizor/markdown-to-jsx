@@ -1733,6 +1733,139 @@ describe('description list parsing', () => {
   })
 })
 
+describe('multi-line HTML attributes', () => {
+  it('#781 should correctly parse custom elements with multi-line attributes', () => {
+    const md = `<dl-custom
+  data-variant='horizontalTable'
+>
+  <dt>title 1</dt>
+  <dd>description 1</dd>
+</dl-custom>`
+    const result = p.parser(md)
+
+    // Should have a single dl-custom element
+    expect(result.length).toBe(1)
+    expect(result[0].type).toBe(RuleType.htmlBlock)
+
+    const dl = result[0] as MarkdownToJSX.HTMLNode
+    expect(dl.tag).toBe('dl-custom')
+    expect(dl.attrs['data-variant']).toBe('horizontalTable')
+  })
+
+  it('should parse multiple attributes spanning multiple lines with double quotes', () => {
+    const md = `<div
+  class="test"
+  id="main"
+  data-value="123"
+>content</div>`
+    const result = p.parser(md)
+
+    expect(result.length).toBe(1)
+    const div = result[0] as MarkdownToJSX.HTMLNode
+    expect(div.tag).toBe('div')
+    expect(div.attrs['class']).toBe('test')
+    expect(div.attrs['id']).toBe('main')
+    expect(div.attrs['data-value']).toBe('123')
+  })
+
+  it('should parse multiple attributes spanning multiple lines with single quotes', () => {
+    const md = `<div
+  class='test'
+  id='main'
+  data-value='123'
+>content</div>`
+    const result = p.parser(md)
+
+    expect(result.length).toBe(1)
+    const div = result[0] as MarkdownToJSX.HTMLNode
+    expect(div.tag).toBe('div')
+    expect(div.attrs['class']).toBe('test')
+    expect(div.attrs['id']).toBe('main')
+    expect(div.attrs['data-value']).toBe('123')
+  })
+
+  it('should parse JSX components with multi-line attributes', () => {
+    const md = `<MyComponent
+  className="wrapper"
+  onClick={handleClick}
+>
+  inner content
+</MyComponent>`
+    const result = p.parser(md)
+
+    expect(result.length).toBe(1)
+    const comp = result[0] as MarkdownToJSX.HTMLNode
+    expect(comp.tag).toBe('MyComponent')
+    expect(comp.attrs['className']).toBe('wrapper')
+    expect(comp.attrs['onClick']).toBe('handleClick')
+  })
+
+  it('should handle attributes with spaces in their values on separate lines', () => {
+    const md = `<span
+  class="multiple classes here"
+  title="Some title with spaces"
+>text</span>`
+    const result = p.parser(md)
+
+    expect(result.length).toBe(1)
+    const span = result[0] as MarkdownToJSX.HTMLNode
+    expect(span.tag).toBe('span')
+    expect(span.attrs['class']).toBe('multiple classes here')
+    expect(span.attrs['title']).toBe('Some title with spaces')
+  })
+
+  it('should handle mixed quote styles on separate lines', () => {
+    const md = `<div
+  class="double-quoted"
+  id='single-quoted'
+  data-mixed="value"
+>content</div>`
+    const result = p.parser(md)
+
+    expect(result.length).toBe(1)
+    const div = result[0] as MarkdownToJSX.HTMLNode
+    expect(div.attrs['class']).toBe('double-quoted')
+    expect(div.attrs['id']).toBe('single-quoted')
+    expect(div.attrs['data-mixed']).toBe('value')
+  })
+
+  it('should handle boolean attributes on separate lines', () => {
+    const md = `<input
+  type="checkbox"
+  disabled
+  checked
+/>`
+    const result = p.parser(md)
+
+    // Multi-line self-closing tags may be wrapped in a paragraph
+    expect(result.length).toBe(1)
+    const wrapper = result[0] as MarkdownToJSX.ParagraphNode
+    expect(wrapper.type).toBe(RuleType.paragraph)
+
+    const input = wrapper.children[0] as MarkdownToJSX.HTMLNode
+    expect(input.tag).toBe('input')
+    expect(input.attrs['type']).toBe('checkbox')
+    expect(input.attrs['disabled']).toBe(true)
+    expect(input.attrs['checked']).toBe(true)
+  })
+
+  it('should handle deeply indented attributes', () => {
+    const md = `<CustomElement
+      data-a="1"
+      data-b="2"
+      data-c="3"
+>inner</CustomElement>`
+    const result = p.parser(md)
+
+    expect(result.length).toBe(1)
+    const el = result[0] as MarkdownToJSX.HTMLNode
+    expect(el.tag).toBe('CustomElement')
+    expect(el.attrs['data-a']).toBe('1')
+    expect(el.attrs['data-b']).toBe('2')
+    expect(el.attrs['data-c']).toBe('3')
+  })
+})
+
 describe('tables in lists', () => {
   it('should parse tables within list items (regression test for issue #1)', () => {
     const md = `- **Browser Stats**:
@@ -1837,7 +1970,9 @@ This is paragraph after the unordered nested list.`
     // Should only contain the text "Unordered nested list", not the paragraph
     expect(nestedItem.length).toBe(1)
     expect(nestedItem[0].type).toBe(RuleType.text)
-    expect((nestedItem[0] as MarkdownToJSX.TextNode).text).toBe('Unordered nested list')
+    expect((nestedItem[0] as MarkdownToJSX.TextNode).text).toBe(
+      'Unordered nested list'
+    )
 
     const paragraph = result[1] as MarkdownToJSX.ParagraphNode
     expect(paragraph.children[0].type).toBe(RuleType.text)
@@ -1872,7 +2007,9 @@ describe('CRLF line endings', () => {
   }
 
   function stripEndPos(obj: unknown): unknown {
-    return JSON.parse(JSON.stringify(obj, (k, v) => k === 'endPos' ? undefined : v))
+    return JSON.parse(
+      JSON.stringify(obj, (k, v) => (k === 'endPos' ? undefined : v))
+    )
   }
 
   function expectCRLFEquivalent(lfText: string, description?: string) {
@@ -1998,11 +2135,15 @@ describe('CRLF line endings', () => {
     })
 
     it('should handle tables with alignment', () => {
-      expectCRLFEquivalent('| Left | Center | Right |\n|:-----|:------:|------:|\n| L | C | R |')
+      expectCRLFEquivalent(
+        '| Left | Center | Right |\n|:-----|:------:|------:|\n| L | C | R |'
+      )
     })
 
     it('should handle tables with multiple rows', () => {
-      expectCRLFEquivalent('| H1 | H2 |\n|---|---|\n| a | b |\n| c | d |\n| e | f |')
+      expectCRLFEquivalent(
+        '| H1 | H2 |\n|---|---|\n| a | b |\n| c | d |\n| e | f |'
+      )
     })
   })
 
@@ -2016,7 +2157,9 @@ describe('CRLF line endings', () => {
     })
 
     it('should handle multiple reference definitions', () => {
-      expectCRLFEquivalent('[a][1] and [b][2]\n\n[1]: http://a.com\n[2]: http://b.com')
+      expectCRLFEquivalent(
+        '[a][1] and [b][2]\n\n[1]: http://a.com\n[2]: http://b.com'
+      )
     })
 
     it('should reject title with blank line (CRLF blank line detection)', () => {
