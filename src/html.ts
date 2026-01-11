@@ -440,13 +440,15 @@ export function astToHTML(
         const overrideProps = util.getOverrideProps(defaultTag, overrides)
         var attrsStr: string
         if (htmlNode.rawAttrs !== undefined) {
-          // Replace newlines/carriage returns/tabs with a single space to preserve attribute separation
-          const cleanedAttrs = htmlNode.rawAttrs
-            .replace(/[\n\r\t]+\s*/g, ' ')
-            .trim()
-          // Ensure leading space if there are attributes
+          // Keep raw attributes as-is but ensure leading space for valid HTML
+          const rawAttrsValue = htmlNode.rawAttrs
+          // rawAttrs often starts with whitespace from the original HTML, preserve that
+          // If it doesn't start with whitespace but has content, add a space
+          const needsLeadingSpace = rawAttrsValue.length > 0 && 
+            !/^[\s]/.test(rawAttrsValue)
           attrsStr =
-            (cleanedAttrs ? ' ' + cleanedAttrs : '') +
+            (needsLeadingSpace ? ' ' : '') +
+            rawAttrsValue +
             (hasKeys(overrideProps)
               ? ' ' + formatAttributes(overrideProps).trim()
               : '')

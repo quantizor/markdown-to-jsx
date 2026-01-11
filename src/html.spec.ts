@@ -1276,7 +1276,10 @@ describe('html compiler', () => {
       const result = compiler(
         'Text with <div title="attr \n value">content</div> more text'
       )
-      expect(result).toMatchInlineSnapshot(`"<p>Text with <div title="attr  value">content</div> more text</p>"`)
+      expect(result).toMatchInlineSnapshot(`
+        "<p>Text with <div title="attr 
+         value">content</div> more text</p>"
+      `)
     })
 
     it('should handle multiple quotes in attributes correctly', () => {
@@ -1315,7 +1318,10 @@ describe('html compiler', () => {
 </div>`)
 
       expect(result).toMatchInlineSnapshot(`
-        "<div class='container' data-test='value'><p>content</p>
+        "<div
+          class='container'
+          data-test='value'
+        ><p>content</p>
         </div>"
       `)
     })
