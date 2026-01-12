@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { astToHTML } from './html'
+import { astToHTML, _resetGfmTaskIdCounter } from './html'
 import { parser } from './parse'
 
 type SpecExample = {
@@ -167,6 +167,9 @@ describe('CommonMark 0.31.2 Specification', () => {
   it.each(specExamples)(
     'Example $example: $section (lines $start_line-$end_line)',
     ({ markdown, html: expectedHtml, section }) => {
+      // Reset GFM task ID counter for consistent test output
+      _resetGfmTaskIdCounter()
+
       // Enable GFM extensions for autolinks and tagfilter tests
       // Note: angle bracket autolinks (<https://...>) are part of core CommonMark spec
       // GFM bare URL autolinks (www., http:// without <>) are extensions

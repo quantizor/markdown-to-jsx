@@ -33,6 +33,49 @@ export const MarkdownContext:
 // Import shared HTML to JSX conversion utilities
 import { htmlAttrsToJSXProps } from './utils'
 
+// Fallback ID counter for React versions without useId
+let gfmTaskIdCounter = 0
+
+/**
+ * GFM Task List Item component that renders a checkbox with proper label association for accessibility.
+ * Uses React.useId (React 18+) for ID generation with fallback for older versions.
+ * @lang zh GFM 任务列表项组件，渲染带有适当标签关联的复选框以实现可访问性。使用 React.useId（React 18+）生成 ID，并为旧版本提供回退。
+ * @lang hi GFM टास्क लिस्ट आइटम कंपोनेंट जो एक्सेसिबिलिटी के लिए उचित लेबल एसोसिएशन के साथ चेकबॉक्स रेंडर करता है। ID जनरेशन के लिए React.useId (React 18+) का उपयोग करता है और पुराने वर्शन के लिए फ़ॉलबैक प्रदान करता है।
+ */
+const GfmTaskListItem: React.FC<{
+  completed: boolean
+  children: React.ReactNode
+  createElement: typeof React.createElement
+  getTag: (tag: string) => any
+  getOverrideProps: (tag: string) => Record<string, unknown>
+}> = ({ completed, children, createElement, getTag, getOverrideProps }) => {
+  // Generate unique ID using React.useId if available, otherwise fallback
+  let id: string
+  if (typeof React.useId === 'function') {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    id = React.useId()
+  } else {
+    id = 'task-' + ++gfmTaskIdCounter
+  }
+
+  const inputOverrideProps = getOverrideProps('input')
+  const labelOverrideProps = getOverrideProps('label')
+  const liOverrideProps = getOverrideProps('li')
+
+  return createElement(
+    getTag('li'),
+    liOverrideProps,
+    createElement(getTag('input'), {
+      checked: completed,
+      id: id,
+      readOnly: true,
+      type: 'checkbox',
+      ...inputOverrideProps,
+    }),
+    createElement(getTag('label'), { htmlFor: id, ...labelOverrideProps }, children)
+  )
+}
+
 // Helper function for URL encoding backslashes and backticks per CommonMark spec
 function encodeUrlTarget(target: string): string {
   // Fast path: check if encoding is needed
@@ -460,6 +503,22 @@ function render(
           start={node.type === RuleType.orderedList ? node.start : undefined}
         >
           {node.items.map(function generateListItem(item, i) {
+            // Check if the first item is a GFM task
+            if (item[0] && item[0].type === RuleType.gfmTask) {
+              const taskNode = item[0] as MarkdownToJSX.GFMTaskNode
+              // Render remaining items (skip the task node itself)
+              const labelContent = output(item.slice(1), state)
+              // Use React.createElement directly to avoid JSX pragma issues
+              return React.createElement(GfmTaskListItem, {
+                key: i,
+                completed: taskNode.completed,
+                createElement: options.createElement || React.createElement,
+                getTag: (tag: string) => getTag(tag, options.overrides),
+                getOverrideProps: (tag: string) =>
+                  get(options.overrides, `${tag}.props`, {}),
+                children: labelContent,
+              })
+            }
             return <li key={i}>{output(item, state)}</li>
           })}
         </Tag>

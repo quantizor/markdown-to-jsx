@@ -23,6 +23,9 @@ export { sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
+// Counter for generating unique GFM task IDs
+let gfmTaskIdCounter = 0
+
 /**
  * Vue injection key for sharing compiler options across Markdown components
  * @lang zh 用于在 Markdown 组件之间共享编译器选项的 Vue 注入键
@@ -408,9 +411,27 @@ const renderers: Record<
     ),
 
   [RuleType.orderedList]: (node, { h, output, state }) => {
-    const items = node.items.map((item, i) =>
-      h('li', { key: i }, ...normalizeChildren(output(item, state)))
-    )
+    const items = node.items.map((item, i) => {
+      // Check if the first item is a GFM task
+      if (item[0] && item[0].type === RuleType.gfmTask) {
+        const taskNode = item[0] as MarkdownToJSX.GFMTaskNode
+        const taskId = 'task-' + ++gfmTaskIdCounter
+        // Render remaining items (skip the task node itself)
+        const labelContent = normalizeChildren(output(item.slice(1), state))
+        return h(
+          'li',
+          { key: i },
+          h('input', {
+            checked: taskNode.completed,
+            id: taskId,
+            readOnly: true,
+            type: 'checkbox',
+          }),
+          h('label', { for: taskId }, ...labelContent)
+        )
+      }
+      return h('li', { key: i }, ...normalizeChildren(output(item, state)))
+    })
     const props: Record<string, unknown> = {
       key: state.key,
       start: node.start,
@@ -419,9 +440,27 @@ const renderers: Record<
   },
 
   [RuleType.unorderedList]: (node, { h, output, state }) => {
-    const items = node.items.map((item, i) =>
-      h('li', { key: i }, ...normalizeChildren(output(item, state)))
-    )
+    const items = node.items.map((item, i) => {
+      // Check if the first item is a GFM task
+      if (item[0] && item[0].type === RuleType.gfmTask) {
+        const taskNode = item[0] as MarkdownToJSX.GFMTaskNode
+        const taskId = 'task-' + ++gfmTaskIdCounter
+        // Render remaining items (skip the task node itself)
+        const labelContent = normalizeChildren(output(item.slice(1), state))
+        return h(
+          'li',
+          { key: i },
+          h('input', {
+            checked: taskNode.completed,
+            id: taskId,
+            readOnly: true,
+            type: 'checkbox',
+          }),
+          h('label', { for: taskId }, ...labelContent)
+        )
+      }
+      return h('li', { key: i }, ...normalizeChildren(output(item, state)))
+    })
     return h('ul', { key: state.key }, ...items)
   },
 

@@ -9,6 +9,17 @@ export { parser } from './parse'
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
+// Counter for generating unique GFM task IDs in HTML output
+let gfmTaskIdCounter = 0
+
+/**
+ * Reset the GFM task ID counter (for testing purposes only)
+ * @internal
+ */
+export function _resetGfmTaskIdCounter(): void {
+  gfmTaskIdCounter = 0
+}
+
 /**
  * Escape HTML entities for text content
  * Fast path: return early if no escaping needed
@@ -726,7 +737,33 @@ export function astToHTML(
         var items = ''
         var listItems = node.items || []
         for (var li = 0; li < listItems.length; li++) {
-          items += '<li>' + astToHTML(listItems[li], updatedOptions) + '</li>'
+          var itemContent = listItems[li]
+          // Check if the first item is a GFM task
+          if (
+            itemContent[0] &&
+            itemContent[0].type === RuleType.gfmTask
+          ) {
+            var taskNode = itemContent[0] as MarkdownToJSX.GFMTaskNode
+            var taskId = 'task-' + ++gfmTaskIdCounter
+            var checkboxHtml =
+              '<input' +
+              (taskNode.completed ? ' checked=""' : '') +
+              ' disabled="" id="' +
+              taskId +
+              '" type="checkbox">'
+            // Render remaining items (skip the task node itself)
+            var labelContent = astToHTML(itemContent.slice(1), updatedOptions)
+            items +=
+              '<li>' +
+              checkboxHtml +
+              '<label for="' +
+              taskId +
+              '">' +
+              labelContent +
+              '</label></li>'
+          } else {
+            items += '<li>' + astToHTML(itemContent, updatedOptions) + '</li>'
+          }
         }
         const tag = node.type === RuleType.orderedList ? 'ol' : 'ul'
         const attrs =
