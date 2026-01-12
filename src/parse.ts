@@ -1151,7 +1151,7 @@ function parseInlineSpan(
       attrs: parsedAttrs,
       children: children,
       rawText: rawText,
-      text: rawText, // @deprecated - use rawText instead
+      text: contentToParse, // @deprecated - cleaned up content without tags, use rawText for full raw HTML
       verbatim: true,
       endPos: tagCheckResult.endPos,
     } as MarkdownToJSX.HTMLNode & { endPos: number }
@@ -6745,7 +6745,7 @@ function createVerbatimHTMLBlock(
     rawAttrs: rawAttrs,
     children: children,
     rawText: finalText,
-    text: finalText, // @deprecated - use rawText instead
+    text: contentToParse, // @deprecated - cleaned up content without tags, use rawText for full raw HTML
     verbatim: true,
     isClosingTag: isClosingTag,
     canInterruptParagraph: canInterruptParagraph,
@@ -7009,7 +7009,7 @@ function processHTMLBlock(
     rawAttrs: attrs,
     children: children,
     rawText: finalText,
-    text: finalText, // @deprecated - use rawText instead
+    text: trimmed, // @deprecated - cleaned up content without tags, use rawText for full raw HTML
     verbatim: shouldTreatAsVerbatim,
     canInterruptParagraph: true, // type 1-6 blocks can interrupt paragraphs
     endPos: endPos,

@@ -1764,7 +1764,7 @@ describe('multi-line HTML attributes', () => {
               "rawAttrs": "",
               "rawText": "title 1</dt>",
               "tag": "dt",
-              "text": "title 1</dt>",
+              "text": "title 1",
               "type": "htmlBlock",
               "verbatim": true,
             },
@@ -1782,7 +1782,7 @@ describe('multi-line HTML attributes', () => {
               "rawAttrs": "",
               "rawText": "description 1</dd>",
               "tag": "dd",
-              "text": "description 1</dd>",
+              "text": "description 1",
               "type": "htmlBlock",
               "verbatim": true,
             },
@@ -1804,12 +1804,10 @@ describe('multi-line HTML attributes', () => {
       ,
           "tag": "dl-custom",
           "text": 
-      "<dl-custom
-        data-variant='horizontalTable'
-      >
+      "
         <dt>title 1</dt>
         <dd>description 1</dd>
-      </dl-custom>"
+      "
       ,
           "type": "htmlBlock",
           "verbatim": true,
@@ -1851,7 +1849,7 @@ describe('multi-line HTML attributes', () => {
       ,
           "rawText": "content</div>",
           "tag": "div",
-          "text": "content</div>",
+          "text": "content",
           "type": "htmlBlock",
           "verbatim": true,
         },
@@ -1892,7 +1890,7 @@ describe('multi-line HTML attributes', () => {
       ,
           "rawText": "content</div>",
           "tag": "div",
-          "text": "content</div>",
+          "text": "content",
           "type": "htmlBlock",
           "verbatim": true,
         },
@@ -1955,10 +1953,7 @@ describe('multi-line HTML attributes', () => {
       ,
           "tag": "MyComponent",
           "text": 
-      "<MyComponent
-        className="wrapper"
-        onClick={handleClick}
-      >
+      "
         inner content
       </MyComponent>"
       ,
@@ -2004,12 +1999,7 @@ describe('multi-line HTML attributes', () => {
       >text</span>"
       ,
           "tag": "span",
-          "text": 
-      "<span
-        class="multiple classes here"
-        title="Some title with spaces"
-      >text</span>"
-      ,
+          "text": "text",
           "type": "htmlBlock",
           "verbatim": true,
         },
@@ -2050,7 +2040,7 @@ describe('multi-line HTML attributes', () => {
       ,
           "rawText": "content</div>",
           "tag": "div",
-          "text": "content</div>",
+          "text": "content",
           "type": "htmlBlock",
           "verbatim": true,
         },
@@ -2085,13 +2075,7 @@ describe('multi-line HTML attributes', () => {
       />"
       ,
               "tag": "input",
-              "text": 
-      "<input
-        type="checkbox"
-        disabled
-        checked
-      />"
-      ,
+              "text": "",
               "type": "htmlBlock",
               "verbatim": true,
             },
@@ -2150,13 +2134,7 @@ describe('multi-line HTML attributes', () => {
       >inner</CustomElement>"
       ,
           "tag": "CustomElement",
-          "text": 
-      "<CustomElement
-            data-a="1"
-            data-b="2"
-            data-c="3"
-      >inner</CustomElement>"
-      ,
+          "text": "inner</CustomElement>",
           "type": "htmlBlock",
           "verbatim": true,
         },
@@ -2195,7 +2173,7 @@ describe('multi-line HTML attributes', () => {
                 "rawAttrs": "",
                 "rawText": "title 1</dt>",
                 "tag": "dt",
-                "text": "title 1</dt>",
+                "text": "title 1",
                 "type": "htmlBlock",
                 "verbatim": true,
               },
@@ -2213,7 +2191,7 @@ describe('multi-line HTML attributes', () => {
                 "rawAttrs": "",
                 "rawText": "description 1</dd>",
                 "tag": "dd",
-                "text": "description 1</dd>",
+                "text": "description 1",
                 "type": "htmlBlock",
                 "verbatim": true,
               },
@@ -2235,12 +2213,10 @@ describe('multi-line HTML attributes', () => {
         ,
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>"
+        "
         ,
             "type": "htmlBlock",
             "verbatim": true,
@@ -2272,7 +2248,7 @@ describe('multi-line HTML attributes', () => {
                 "rawAttrs": "",
                 "rawText": "title 1</dt>",
                 "tag": "dt",
-                "text": "title 1</dt>",
+                "text": "title 1",
                 "type": "htmlBlock",
                 "verbatim": true,
               },
@@ -2290,7 +2266,7 @@ describe('multi-line HTML attributes', () => {
                 "rawAttrs": "",
                 "rawText": "description 1</dd>",
                 "tag": "dd",
-                "text": "description 1</dd>",
+                "text": "description 1",
                 "type": "htmlBlock",
                 "verbatim": true,
               },
@@ -2313,12 +2289,9 @@ describe('multi-line HTML attributes', () => {
         ,
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>
         "
         ,
             "type": "htmlBlock",
@@ -2351,7 +2324,7 @@ describe('multi-line HTML attributes', () => {
                 "rawAttrs": "",
                 "rawText": "title 1</dt>",
                 "tag": "dt",
-                "text": "title 1</dt>",
+                "text": "title 1",
                 "type": "htmlBlock",
                 "verbatim": true,
               },
@@ -2369,7 +2342,7 @@ describe('multi-line HTML attributes', () => {
                 "rawAttrs": "",
                 "rawText": "description 1</dd>",
                 "tag": "dd",
-                "text": "description 1</dd>",
+                "text": "description 1",
                 "type": "htmlBlock",
                 "verbatim": true,
               },
@@ -2392,12 +2365,9 @@ describe('multi-line HTML attributes', () => {
         ,
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>
         "
         ,
             "type": "htmlBlock",
@@ -2430,7 +2400,7 @@ describe('multi-line HTML attributes', () => {
                 "rawAttrs": "",
                 "rawText": "title 1</dt>",
                 "tag": "dt",
-                "text": "title 1</dt>",
+                "text": "title 1",
                 "type": "htmlBlock",
                 "verbatim": true,
               },
@@ -2448,7 +2418,7 @@ describe('multi-line HTML attributes', () => {
                 "rawAttrs": "",
                 "rawText": "description 1</dd>",
                 "tag": "dd",
-                "text": "description 1</dd>",
+                "text": "description 1",
                 "type": "htmlBlock",
                 "verbatim": true,
               },
@@ -2470,12 +2440,10 @@ describe('multi-line HTML attributes', () => {
         ,
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>"
+        "
         ,
             "type": "htmlBlock",
             "verbatim": true,
@@ -2507,7 +2475,7 @@ describe('multi-line HTML attributes', () => {
                 "rawAttrs": "",
                 "rawText": "title 1</dt>",
                 "tag": "dt",
-                "text": "title 1</dt>",
+                "text": "title 1",
                 "type": "htmlBlock",
                 "verbatim": true,
               },
@@ -2525,7 +2493,7 @@ describe('multi-line HTML attributes', () => {
                 "rawAttrs": "",
                 "rawText": "description 1</dd>",
                 "tag": "dd",
-                "text": "description 1</dd>",
+                "text": "description 1",
                 "type": "htmlBlock",
                 "verbatim": true,
               },
@@ -2548,12 +2516,9 @@ describe('multi-line HTML attributes', () => {
         ,
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>
         "
         ,
             "type": "htmlBlock",
@@ -2586,7 +2551,7 @@ describe('multi-line HTML attributes', () => {
                 "rawAttrs": "",
                 "rawText": "title 1</dt>",
                 "tag": "dt",
-                "text": "title 1</dt>",
+                "text": "title 1",
                 "type": "htmlBlock",
                 "verbatim": true,
               },
@@ -2604,7 +2569,7 @@ describe('multi-line HTML attributes', () => {
                 "rawAttrs": "",
                 "rawText": "description 1</dd>",
                 "tag": "dd",
-                "text": "description 1</dd>",
+                "text": "description 1",
                 "type": "htmlBlock",
                 "verbatim": true,
               },
@@ -2626,12 +2591,10 @@ describe('multi-line HTML attributes', () => {
         ,
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>"
+        "
         ,
             "type": "htmlBlock",
             "verbatim": true,
@@ -2697,10 +2660,7 @@ describe('multi-line HTML attributes', () => {
         ,
             "tag": "MyCustomComponent",
             "text": 
-        "<MyCustomComponent
-          propA="value1"
-          propB="value2"
-        >
+        "
           content
         </MyCustomComponent>"
         ,
@@ -2770,11 +2730,7 @@ describe('multi-line HTML attributes', () => {
         ,
             "tag": "DataTable",
             "text": 
-        "<DataTable
-          data={myData}
-          columns={columns}
-          onRowClick={handleClick}
-        >
+        "
           Loading...
         </DataTable>"
         ,
@@ -2848,12 +2804,7 @@ describe('multi-line HTML attributes', () => {
         ,
             "tag": "Widget",
             "text": 
-        "<Widget
-          className="container"
-          data-id="123"
-          onClick={handleClick}
-          disabled
-        >
+        "
           content
         </Widget>"
         ,
@@ -2975,9 +2926,7 @@ describe('multi-line HTML attributes', () => {
         ,
                     "tag": "Inner",
                     "text": 
-        "<Inner
-              level="3"
-            >
+        "
               content
             </Inner>
           </Middle>
@@ -3008,9 +2957,7 @@ describe('multi-line HTML attributes', () => {
         ,
                 "tag": "Middle",
                 "text": 
-        "<Middle
-            level="2"
-          >
+        "
             <Inner
               level="3"
             >
@@ -3047,9 +2994,7 @@ describe('multi-line HTML attributes', () => {
         ,
             "tag": "Outer",
             "text": 
-        "<Outer
-          level="1"
-        >
+        "
           <Middle
             level="2"
           >
@@ -3125,7 +3070,7 @@ describe('multi-line HTML attributes', () => {
         ,
             "rawText": "content</div>",
             "tag": "div",
-            "text": "content</div>",
+            "text": "content",
             "type": "htmlBlock",
             "verbatim": true,
           },
@@ -3163,7 +3108,7 @@ describe('multi-line HTML attributes', () => {
         ,
             "rawText": "content</div>",
             "tag": "div",
-            "text": "content</div>",
+            "text": "content",
             "type": "htmlBlock",
             "verbatim": true,
           },
@@ -3198,7 +3143,7 @@ describe('multi-line HTML attributes', () => {
                 "rawAttrs": "",
                 "rawText": "title</dt>",
                 "tag": "dt",
-                "text": "title</dt>",
+                "text": "title",
                 "type": "htmlBlock",
                 "verbatim": true,
               },
@@ -3213,7 +3158,7 @@ describe('multi-line HTML attributes', () => {
             "tag": "dl-custom",
             "text": 
         "  <dt>title</dt>
-        </dl-custom>"
+        "
         ,
             "type": "htmlBlock",
             "verbatim": true,
@@ -3251,10 +3196,8 @@ describe('multi-line HTML attributes', () => {
         ,
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
-        </dl-custom>"
+        "
+        "
         ,
             "type": "htmlBlock",
             "verbatim": true,
@@ -3932,7 +3875,7 @@ describe('Unserializable expression evaluation', () => {
           "rawAttrs": "",
           "rawText": "Hello **world**</script>",
           "tag": "script",
-          "text": "Hello **world**</script>",
+          "text": "Hello **world**",
           "type": "htmlBlock",
           "verbatim": true,
         }
@@ -3978,7 +3921,7 @@ describe('Unserializable expression evaluation', () => {
           "rawAttrs": "",
           "rawText": "<code>const x = 1;</code></pre>",
           "tag": "pre",
-          "text": "<code>const x = 1;</code></pre>",
+          "text": "<code>const x = 1;</code>",
           "type": "htmlBlock",
           "verbatim": true,
         }
@@ -4045,7 +3988,7 @@ describe('Unserializable expression evaluation', () => {
           "text": 
         "body { color: red; }
 
-        /* Comment */</style>"
+        /* Comment */"
         ,
           "type": "htmlBlock",
           "verbatim": true,
@@ -4092,7 +4035,11 @@ describe('Unserializable expression evaluation', () => {
           "rawAttrs": "",
           "rawText": undefined,
           "tag": "div",
-          "text": undefined,
+          "text": 
+        "Hello **world**
+
+        "
+        ,
           "type": "htmlBlock",
           "verbatim": false,
         }
