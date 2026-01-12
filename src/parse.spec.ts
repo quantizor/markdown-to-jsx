@@ -1735,134 +1735,433 @@ describe('description list parsing', () => {
 
 describe('multi-line HTML attributes', () => {
   it('#781 should correctly parse custom elements with multi-line attributes', () => {
-    const md = `<dl-custom
+    expect(
+      p.parser(`<dl-custom
   data-variant='horizontalTable'
 >
   <dt>title 1</dt>
   <dd>description 1</dd>
-</dl-custom>`
-    const result = p.parser(md)
-
-    // Should have a single dl-custom element
-    expect(result.length).toBe(1)
-    expect(result[0].type).toBe(RuleType.htmlBlock)
-
-    const dl = result[0] as MarkdownToJSX.HTMLNode
-    expect(dl.tag).toBe('dl-custom')
-    expect(dl.attrs['data-variant']).toBe('horizontalTable')
+</dl-custom>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "data-variant": "horizontalTable",
+          },
+          "canInterruptParagraph": false,
+          "children": [
+            {
+              "attrs": {},
+              "canInterruptParagraph": true,
+              "children": [
+                {
+                  "text": "title 1",
+                  "type": "text",
+                },
+              ],
+              "endPos": 16,
+              "isClosingTag": false,
+              "rawAttrs": "",
+              "rawText": "title 1</dt>",
+              "tag": "dt",
+              "text": "title 1</dt>",
+              "type": "htmlBlock",
+              "verbatim": true,
+            },
+            {
+              "attrs": {},
+              "canInterruptParagraph": true,
+              "children": [
+                {
+                  "text": "description 1",
+                  "type": "text",
+                },
+              ],
+              "endPos": 41,
+              "isClosingTag": false,
+              "rawAttrs": "",
+              "rawText": "description 1</dd>",
+              "tag": "dd",
+              "text": "description 1</dd>",
+              "type": "htmlBlock",
+              "verbatim": true,
+            },
+          ],
+          "endPos": 102,
+          "isClosingTag": false,
+          "rawAttrs": 
+      "
+        data-variant='horizontalTable'
+      "
+      ,
+          "rawText": 
+      "<dl-custom
+        data-variant='horizontalTable'
+      >
+        <dt>title 1</dt>
+        <dd>description 1</dd>
+      </dl-custom>"
+      ,
+          "tag": "dl-custom",
+          "text": 
+      "<dl-custom
+        data-variant='horizontalTable'
+      >
+        <dt>title 1</dt>
+        <dd>description 1</dd>
+      </dl-custom>"
+      ,
+          "type": "htmlBlock",
+          "verbatim": true,
+        },
+      ]
+    `)
   })
 
   it('should parse multiple attributes spanning multiple lines with double quotes', () => {
-    const md = `<div
+    expect(
+      p.parser(`<div
   class="test"
   id="main"
   data-value="123"
->content</div>`
-    const result = p.parser(md)
-
-    expect(result.length).toBe(1)
-    const div = result[0] as MarkdownToJSX.HTMLNode
-    expect(div.tag).toBe('div')
-    expect(div.attrs['class']).toBe('test')
-    expect(div.attrs['id']).toBe('main')
-    expect(div.attrs['data-value']).toBe('123')
+>content</div>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "class": "test",
+            "data-value": "123",
+            "id": "main",
+          },
+          "canInterruptParagraph": true,
+          "children": [
+            {
+              "text": "content",
+              "type": "text",
+            },
+          ],
+          "endPos": 65,
+          "isClosingTag": false,
+          "rawAttrs": 
+      "
+        class="test"
+        id="main"
+        data-value="123"
+      "
+      ,
+          "rawText": "content</div>",
+          "tag": "div",
+          "text": "content</div>",
+          "type": "htmlBlock",
+          "verbatim": true,
+        },
+      ]
+    `)
   })
 
   it('should parse multiple attributes spanning multiple lines with single quotes', () => {
-    const md = `<div
+    expect(
+      p.parser(`<div
   class='test'
   id='main'
   data-value='123'
->content</div>`
-    const result = p.parser(md)
-
-    expect(result.length).toBe(1)
-    const div = result[0] as MarkdownToJSX.HTMLNode
-    expect(div.tag).toBe('div')
-    expect(div.attrs['class']).toBe('test')
-    expect(div.attrs['id']).toBe('main')
-    expect(div.attrs['data-value']).toBe('123')
+>content</div>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "class": "test",
+            "data-value": "123",
+            "id": "main",
+          },
+          "canInterruptParagraph": true,
+          "children": [
+            {
+              "text": "content",
+              "type": "text",
+            },
+          ],
+          "endPos": 65,
+          "isClosingTag": false,
+          "rawAttrs": 
+      "
+        class='test'
+        id='main'
+        data-value='123'
+      "
+      ,
+          "rawText": "content</div>",
+          "tag": "div",
+          "text": "content</div>",
+          "type": "htmlBlock",
+          "verbatim": true,
+        },
+      ]
+    `)
   })
 
   it('should parse JSX components with multi-line attributes', () => {
-    const md = `<MyComponent
+    expect(
+      p.parser(`<MyComponent
   className="wrapper"
   onClick={handleClick}
 >
   inner content
-</MyComponent>`
-    const result = p.parser(md)
-
-    expect(result.length).toBe(1)
-    const comp = result[0] as MarkdownToJSX.HTMLNode
-    expect(comp.tag).toBe('MyComponent')
-    expect(comp.attrs['className']).toBe('wrapper')
-    expect(comp.attrs['onClick']).toBe('handleClick')
+</MyComponent>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "className": "wrapper",
+            "onClick": "handleClick",
+          },
+          "canInterruptParagraph": false,
+          "children": [
+            {
+              "text": "inner content",
+              "type": "text",
+            },
+            {
+              "text": 
+      "
+      "
+      ,
+              "type": "text",
+            },
+            {
+              "attrs": {},
+              "endPos": 28,
+              "isClosingTag": true,
+              "rawText": "</MyComponent>",
+              "tag": "MyComponent",
+              "type": "htmlSelfClosing",
+            },
+          ],
+          "endPos": 91,
+          "isClosingTag": false,
+          "rawAttrs": 
+      "
+        className="wrapper"
+        onClick={handleClick}
+      "
+      ,
+          "rawText": 
+      "<MyComponent
+        className="wrapper"
+        onClick={handleClick}
+      >
+        inner content
+      </MyComponent>"
+      ,
+          "tag": "MyComponent",
+          "text": 
+      "<MyComponent
+        className="wrapper"
+        onClick={handleClick}
+      >
+        inner content
+      </MyComponent>"
+      ,
+          "type": "htmlBlock",
+          "verbatim": true,
+        },
+      ]
+    `)
   })
 
   it('should handle attributes with spaces in their values on separate lines', () => {
-    const md = `<span
+    expect(
+      p.parser(`<span
   class="multiple classes here"
   title="Some title with spaces"
->text</span>`
-    const result = p.parser(md)
-
-    expect(result.length).toBe(1)
-    const span = result[0] as MarkdownToJSX.HTMLNode
-    expect(span.tag).toBe('span')
-    expect(span.attrs['class']).toBe('multiple classes here')
-    expect(span.attrs['title']).toBe('Some title with spaces')
+>text</span>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "class": "multiple classes here",
+            "title": "Some title with spaces",
+          },
+          "canInterruptParagraph": false,
+          "children": [
+            {
+              "text": "text",
+              "type": "text",
+            },
+          ],
+          "endPos": 83,
+          "isClosingTag": false,
+          "rawAttrs": 
+      "
+        class="multiple classes here"
+        title="Some title with spaces"
+      "
+      ,
+          "rawText": 
+      "<span
+        class="multiple classes here"
+        title="Some title with spaces"
+      >text</span>"
+      ,
+          "tag": "span",
+          "text": 
+      "<span
+        class="multiple classes here"
+        title="Some title with spaces"
+      >text</span>"
+      ,
+          "type": "htmlBlock",
+          "verbatim": true,
+        },
+      ]
+    `)
   })
 
   it('should handle mixed quote styles on separate lines', () => {
-    const md = `<div
+    expect(
+      p.parser(`<div
   class="double-quoted"
   id='single-quoted'
   data-mixed="value"
->content</div>`
-    const result = p.parser(md)
-
-    expect(result.length).toBe(1)
-    const div = result[0] as MarkdownToJSX.HTMLNode
-    expect(div.attrs['class']).toBe('double-quoted')
-    expect(div.attrs['id']).toBe('single-quoted')
-    expect(div.attrs['data-mixed']).toBe('value')
+>content</div>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "class": "double-quoted",
+            "data-mixed": "value",
+            "id": "single-quoted",
+          },
+          "canInterruptParagraph": true,
+          "children": [
+            {
+              "text": "content",
+              "type": "text",
+            },
+          ],
+          "endPos": 85,
+          "isClosingTag": false,
+          "rawAttrs": 
+      "
+        class="double-quoted"
+        id='single-quoted'
+        data-mixed="value"
+      "
+      ,
+          "rawText": "content</div>",
+          "tag": "div",
+          "text": "content</div>",
+          "type": "htmlBlock",
+          "verbatim": true,
+        },
+      ]
+    `)
   })
 
   it('should handle boolean attributes on separate lines', () => {
-    const md = `<input
+    expect(
+      p.parser(`<input
   type="checkbox"
   disabled
   checked
-/>`
-    const result = p.parser(md)
-
-    // Multi-line self-closing tags may be wrapped in a paragraph
-    expect(result.length).toBe(1)
-    const wrapper = result[0] as MarkdownToJSX.ParagraphNode
-    expect(wrapper.type).toBe(RuleType.paragraph)
-
-    const input = wrapper.children[0] as MarkdownToJSX.HTMLNode
-    expect(input.tag).toBe('input')
-    expect(input.attrs['type']).toBe('checkbox')
-    expect(input.attrs['disabled']).toBe(true)
-    expect(input.attrs['checked']).toBe(true)
+/>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            {
+              "attrs": {
+                "checked": true,
+                "disabled": true,
+                "type": "checkbox",
+              },
+              "children": [],
+              "endPos": 48,
+              "rawText": 
+      "<input
+        type="checkbox"
+        disabled
+        checked
+      />"
+      ,
+              "tag": "input",
+              "text": 
+      "<input
+        type="checkbox"
+        disabled
+        checked
+      />"
+      ,
+              "type": "htmlBlock",
+              "verbatim": true,
+            },
+          ],
+          "endPos": 48,
+          "type": "paragraph",
+        },
+      ]
+    `)
   })
 
   it('should handle deeply indented attributes', () => {
-    const md = `<CustomElement
+    expect(
+      p.parser(`<CustomElement
       data-a="1"
       data-b="2"
       data-c="3"
->inner</CustomElement>`
-    const result = p.parser(md)
-
-    expect(result.length).toBe(1)
-    const el = result[0] as MarkdownToJSX.HTMLNode
-    expect(el.tag).toBe('CustomElement')
-    expect(el.attrs['data-a']).toBe('1')
-    expect(el.attrs['data-b']).toBe('2')
-    expect(el.attrs['data-c']).toBe('3')
+>inner</CustomElement>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "data-a": "1",
+            "data-b": "2",
+            "data-c": "3",
+          },
+          "canInterruptParagraph": false,
+          "children": [
+            {
+              "text": "inner",
+              "type": "text",
+            },
+            {
+              "attrs": {},
+              "endPos": 21,
+              "isClosingTag": true,
+              "rawText": "</CustomElement>",
+              "tag": "CustomElement",
+              "type": "htmlSelfClosing",
+            },
+          ],
+          "endPos": 88,
+          "isClosingTag": false,
+          "rawAttrs": 
+      "
+            data-a="1"
+            data-b="2"
+            data-c="3"
+      "
+      ,
+          "rawText": 
+      "<CustomElement
+            data-a="1"
+            data-b="2"
+            data-c="3"
+      >inner</CustomElement>"
+      ,
+          "tag": "CustomElement",
+          "text": 
+      "<CustomElement
+            data-a="1"
+            data-b="2"
+            data-c="3"
+      >inner</CustomElement>"
+      ,
+          "type": "htmlBlock",
+          "verbatim": true,
+        },
+      ]
+    `)
   })
 
   describe('trailing newline variations', () => {
@@ -1874,123 +2173,700 @@ describe('multi-line HTML attributes', () => {
 </dl-custom>`
 
     it('should handle no trailing whitespace', () => {
-      const result = p.parser(baseInput)
-      expect(result.length).toBe(1)
-      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('dl-custom')
-      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['data-variant']).toBe(
-        'horizontalTable'
-      )
+      expect(p.parser(baseInput)).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "title 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 16,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "title 1</dt>",
+                "tag": "dt",
+                "text": "title 1</dt>",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "description 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 41,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "description 1</dd>",
+                "tag": "dd",
+                "text": "description 1</dd>",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 102,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data-variant='horizontalTable'
+        "
+        ,
+            "rawText": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>"
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>"
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
     })
 
     it('should handle single trailing newline', () => {
-      const result = p.parser(baseInput + '\n')
-      expect(result.length).toBe(1)
-      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('dl-custom')
-      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['data-variant']).toBe(
-        'horizontalTable'
-      )
+      expect(p.parser(baseInput + '\n')).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "title 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 16,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "title 1</dt>",
+                "tag": "dt",
+                "text": "title 1</dt>",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "description 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 41,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "description 1</dd>",
+                "tag": "dd",
+                "text": "description 1</dd>",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 103,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data-variant='horizontalTable'
+        "
+        ,
+            "rawText": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>
+        "
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>
+        "
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
     })
 
     it('should handle double trailing newline', () => {
-      const result = p.parser(baseInput + '\n\n')
-      expect(result.length).toBe(1)
-      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('dl-custom')
-      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['data-variant']).toBe(
-        'horizontalTable'
-      )
+      expect(p.parser(baseInput + '\n\n')).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "title 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 16,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "title 1</dt>",
+                "tag": "dt",
+                "text": "title 1</dt>",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "description 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 41,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "description 1</dd>",
+                "tag": "dd",
+                "text": "description 1</dd>",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 103,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data-variant='horizontalTable'
+        "
+        ,
+            "rawText": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>
+        "
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>
+        "
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
     })
 
     it('should handle leading newline', () => {
-      const result = p.parser('\n' + baseInput)
-      expect(result.length).toBe(1)
-      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('dl-custom')
-      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['data-variant']).toBe(
-        'horizontalTable'
-      )
+      expect(p.parser('\n' + baseInput)).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "title 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 16,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "title 1</dt>",
+                "tag": "dt",
+                "text": "title 1</dt>",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "description 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 41,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "description 1</dd>",
+                "tag": "dd",
+                "text": "description 1</dd>",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 103,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data-variant='horizontalTable'
+        "
+        ,
+            "rawText": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>"
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>"
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
     })
 
     it('should handle leading and trailing newlines', () => {
-      const result = p.parser('\n' + baseInput + '\n')
-      expect(result.length).toBe(1)
-      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('dl-custom')
-      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['data-variant']).toBe(
-        'horizontalTable'
-      )
+      expect(p.parser('\n' + baseInput + '\n')).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "title 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 16,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "title 1</dt>",
+                "tag": "dt",
+                "text": "title 1</dt>",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "description 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 41,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "description 1</dd>",
+                "tag": "dd",
+                "text": "description 1</dd>",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 104,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data-variant='horizontalTable'
+        "
+        ,
+            "rawText": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>
+        "
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>
+        "
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
     })
 
     it('should handle CRLF line endings', () => {
-      const crlfInput = baseInput.replace(/\n/g, '\r\n')
-      const result = p.parser(crlfInput)
-      expect(result.length).toBe(1)
-      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('dl-custom')
-      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['data-variant']).toBe(
-        'horizontalTable'
-      )
+      expect(p.parser(baseInput.replace(/\n/g, '\r\n'))).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "title 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 16,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "title 1</dt>",
+                "tag": "dt",
+                "text": "title 1</dt>",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "description 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 41,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "description 1</dd>",
+                "tag": "dd",
+                "text": "description 1</dd>",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 102,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data-variant='horizontalTable'
+        "
+        ,
+            "rawText": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>"
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>"
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
     })
   })
 
   describe('JSX component scenarios', () => {
     it('should handle PascalCase components with multi-line attributes', () => {
-      const md = `<MyCustomComponent
+      expect(
+        p.parser(`<MyCustomComponent
   propA="value1"
   propB="value2"
 >
   content
-</MyCustomComponent>`
-      const result = p.parser(md)
-      expect(result.length).toBe(1)
-      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe(
-        'MyCustomComponent'
-      )
-      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['propA']).toBe(
-        'value1'
-      )
-      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['propB']).toBe(
-        'value2'
-      )
+</MyCustomComponent>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "propA": "value1",
+              "propB": "value2",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "text": "content",
+                "type": "text",
+              },
+              {
+                "text": 
+        "
+        "
+        ,
+                "type": "text",
+              },
+              {
+                "attrs": {},
+                "endPos": 28,
+                "isClosingTag": true,
+                "rawText": "</MyCustomComponent>",
+                "tag": "MyCustomComponent",
+                "type": "htmlSelfClosing",
+              },
+            ],
+            "endPos": 85,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          propA="value1"
+          propB="value2"
+        "
+        ,
+            "rawText": 
+        "<MyCustomComponent
+          propA="value1"
+          propB="value2"
+        >
+          content
+        </MyCustomComponent>"
+        ,
+            "tag": "MyCustomComponent",
+            "text": 
+        "<MyCustomComponent
+          propA="value1"
+          propB="value2"
+        >
+          content
+        </MyCustomComponent>"
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
     })
 
     it('should handle JSX curly brace attributes on separate lines', () => {
-      const md = `<DataTable
+      expect(
+        p.parser(`<DataTable
   data={myData}
   columns={columns}
   onRowClick={handleClick}
 >
   Loading...
-</DataTable>`
-      const result = p.parser(md)
-      expect(result.length).toBe(1)
-      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('DataTable')
-      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['data']).toBe('myData')
-      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['columns']).toBe(
-        'columns'
-      )
-      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['onRowClick']).toBe(
-        'handleClick'
-      )
+</DataTable>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "columns": "columns",
+              "data": "myData",
+              "onRowClick": "handleClick",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "text": "Loading...",
+                "type": "text",
+              },
+              {
+                "text": 
+        "
+        "
+        ,
+                "type": "text",
+              },
+              {
+                "attrs": {},
+                "endPos": 23,
+                "isClosingTag": true,
+                "rawText": "</DataTable>",
+                "tag": "DataTable",
+                "type": "htmlSelfClosing",
+              },
+            ],
+            "endPos": 101,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data={myData}
+          columns={columns}
+          onRowClick={handleClick}
+        "
+        ,
+            "rawText": 
+        "<DataTable
+          data={myData}
+          columns={columns}
+          onRowClick={handleClick}
+        >
+          Loading...
+        </DataTable>"
+        ,
+            "tag": "DataTable",
+            "text": 
+        "<DataTable
+          data={myData}
+          columns={columns}
+          onRowClick={handleClick}
+        >
+          Loading...
+        </DataTable>"
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
     })
 
     it('should handle mixed HTML and JSX attributes on separate lines', () => {
-      const md = `<Widget
+      expect(
+        p.parser(`<Widget
   className="container"
   data-id="123"
   onClick={handleClick}
   disabled
 >
   content
-</Widget>`
-      const result = p.parser(md)
-      expect(result.length).toBe(1)
-      const widget = result[0] as MarkdownToJSX.HTMLNode
-      expect(widget.tag).toBe('Widget')
-      expect(widget.attrs['className']).toBe('container')
-      expect(widget.attrs['data-id']).toBe('123')
-      expect(widget.attrs['onClick']).toBe('handleClick')
-      expect(widget.attrs['disabled']).toBe(true)
+</Widget>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "className": "container",
+              "data-id": "123",
+              "disabled": true,
+              "onClick": "handleClick",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "text": "content",
+                "type": "text",
+              },
+              {
+                "text": 
+        "
+        "
+        ,
+                "type": "text",
+              },
+              {
+                "attrs": {},
+                "endPos": 17,
+                "isClosingTag": true,
+                "rawText": "</Widget>",
+                "tag": "Widget",
+                "type": "htmlSelfClosing",
+              },
+            ],
+            "endPos": 104,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          className="container"
+          data-id="123"
+          onClick={handleClick}
+          disabled
+        "
+        ,
+            "rawText": 
+        "<Widget
+          className="container"
+          data-id="123"
+          onClick={handleClick}
+          disabled
+        >
+          content
+        </Widget>"
+        ,
+            "tag": "Widget",
+            "text": 
+        "<Widget
+          className="container"
+          data-id="123"
+          onClick={handleClick}
+          disabled
+        >
+          content
+        </Widget>"
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
     })
 
     it('should handle deeply nested components with multi-line attributes', () => {
-      const md = `<Outer
+      expect(
+        p.parser(`<Outer
   level="1"
 >
   <Middle
@@ -2002,84 +2878,389 @@ describe('multi-line HTML attributes', () => {
       content
     </Inner>
   </Middle>
-</Outer>`
-      const result = p.parser(md)
-      expect(result.length).toBe(1)
-      expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('Outer')
-      expect((result[0] as MarkdownToJSX.HTMLNode).attrs['level']).toBe('1')
+</Outer>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "level": "1",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {
+                  "level": "2",
+                },
+                "canInterruptParagraph": false,
+                "children": [
+                  {
+                    "attrs": {
+                      "level": "3",
+                    },
+                    "canInterruptParagraph": false,
+                    "children": [
+                      {
+                        "text": "content",
+                        "type": "text",
+                      },
+                      {
+                        "text": 
+        "
+        "
+        ,
+                        "type": "text",
+                      },
+                      {
+                        "text": "    ",
+                        "type": "text",
+                      },
+                      {
+                        "attrs": {},
+                        "endPos": 20,
+                        "isClosingTag": true,
+                        "rawText": "</Inner>",
+                        "tag": "Inner",
+                        "type": "htmlSelfClosing",
+                      },
+                      {
+                        "text": 
+        "
+        "
+        ,
+                        "type": "text",
+                      },
+                      {
+                        "text": "  ",
+                        "type": "text",
+                      },
+                      {
+                        "attrs": {},
+                        "endPos": 32,
+                        "isClosingTag": true,
+                        "rawText": "</Middle>",
+                        "tag": "Middle",
+                        "type": "htmlSelfClosing",
+                      },
+                      {
+                        "text": 
+        "
+        "
+        ,
+                        "type": "text",
+                      },
+                      {
+                        "attrs": {},
+                        "endPos": 41,
+                        "isClosingTag": true,
+                        "rawText": "</Outer>",
+                        "tag": "Outer",
+                        "type": "htmlSelfClosing",
+                      },
+                    ],
+                    "endPos": 76,
+                    "isClosingTag": false,
+                    "rawAttrs": 
+        "
+              level="3"
+            "
+        ,
+                    "rawText": 
+        "<Inner
+              level="3"
+            >
+              content
+            </Inner>
+          </Middle>
+        </Outer>"
+        ,
+                    "tag": "Inner",
+                    "text": 
+        "<Inner
+              level="3"
+            >
+              content
+            </Inner>
+          </Middle>
+        </Outer>"
+        ,
+                    "type": "htmlBlock",
+                    "verbatim": true,
+                  },
+                ],
+                "endPos": 106,
+                "isClosingTag": false,
+                "rawAttrs": 
+        "
+            level="2"
+          "
+        ,
+                "rawText": 
+        "<Middle
+            level="2"
+          >
+            <Inner
+              level="3"
+            >
+              content
+            </Inner>
+          </Middle>
+        </Outer>"
+        ,
+                "tag": "Middle",
+                "text": 
+        "<Middle
+            level="2"
+          >
+            <Inner
+              level="3"
+            >
+              content
+            </Inner>
+          </Middle>
+        </Outer>"
+        ,
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 129,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          level="1"
+        "
+        ,
+            "rawText": 
+        "<Outer
+          level="1"
+        >
+          <Middle
+            level="2"
+          >
+            <Inner
+              level="3"
+            >
+              content
+            </Inner>
+          </Middle>
+        </Outer>"
+        ,
+            "tag": "Outer",
+            "text": 
+        "<Outer
+          level="1"
+        >
+          <Middle
+            level="2"
+          >
+            <Inner
+              level="3"
+            >
+              content
+            </Inner>
+          </Middle>
+        </Outer>"
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
     })
 
     it('should handle self-closing JSX with multi-line attributes', () => {
-      const md = `<Icon
+      expect(
+        p.parser(`<Icon
   name="star"
   size={24}
   color="gold"
   filled
-/>`
-      const result = p.parser(md)
-      expect(result.length).toBe(1)
-      // May be wrapped in paragraph for self-closing inline elements
-      let icon: MarkdownToJSX.HTMLNode
-      if (result[0].type === RuleType.paragraph) {
-        icon = (result[0] as MarkdownToJSX.ParagraphNode)
-          .children[0] as MarkdownToJSX.HTMLNode
-      } else {
-        icon = result[0] as MarkdownToJSX.HTMLNode
-      }
-      expect(icon.tag).toBe('Icon')
-      expect(icon.attrs['name']).toBe('star')
-      expect(icon.attrs['size']).toBe('24')
-      expect(icon.attrs['color']).toBe('gold')
-      expect(icon.attrs['filled']).toBe(true)
+/>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "color": "gold",
+              "filled": true,
+              "name": "star",
+              "size": "24",
+            },
+            "endPos": 58,
+            "tag": "Icon",
+            "type": "htmlSelfClosing",
+          },
+        ]
+      `)
     })
   })
 
   describe('whitespace variations in attributes', () => {
     it('should handle tabs as whitespace between attributes', () => {
-      const md = `<div
+      expect(
+        p.parser(`<div
 \tclass="test"
 \tid="main"
->content</div>`
-      const result = p.parser(md)
-      expect(result.length).toBe(1)
-      const div = result[0] as MarkdownToJSX.HTMLNode
-      expect(div.attrs['class']).toBe('test')
-      expect(div.attrs['id']).toBe('main')
+>content</div>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "class": "test",
+              "id": "main",
+            },
+            "canInterruptParagraph": true,
+            "children": [
+              {
+                "text": "content",
+                "type": "text",
+              },
+            ],
+            "endPos": 44,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+        	class="test"
+        	id="main"
+        "
+        ,
+            "rawText": "content</div>",
+            "tag": "div",
+            "text": "content</div>",
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
     })
 
     it('should handle mixed tabs and spaces', () => {
-      const md = `<div
+      expect(
+        p.parser(`<div
   \tclass="test"
 \t  id="main"
->content</div>`
-      const result = p.parser(md)
-      expect(result.length).toBe(1)
-      const div = result[0] as MarkdownToJSX.HTMLNode
-      expect(div.attrs['class']).toBe('test')
-      expect(div.attrs['id']).toBe('main')
+>content</div>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "class": "test",
+              "id": "main",
+            },
+            "canInterruptParagraph": true,
+            "children": [
+              {
+                "text": "content",
+                "type": "text",
+              },
+            ],
+            "endPos": 48,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          	class="test"
+        	  id="main"
+        "
+        ,
+            "rawText": "content</div>",
+            "tag": "div",
+            "text": "content</div>",
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
     })
 
     it('should handle attribute on same line as tag name', () => {
-      const md = `<dl-custom data-variant='horizontalTable'>
+      expect(
+        p.parser(`<dl-custom data-variant='horizontalTable'>
   <dt>title</dt>
-</dl-custom>`
-      const result = p.parser(md)
-      expect(result.length).toBe(1)
-      const dl = result[0] as MarkdownToJSX.HTMLNode
-      expect(dl.tag).toBe('dl-custom')
-      expect(dl.attrs['data-variant']).toBe('horizontalTable')
+</dl-custom>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "title",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 14,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "title</dt>",
+                "tag": "dt",
+                "text": "title</dt>",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 72,
+            "isClosingTag": false,
+            "rawAttrs": " data-variant='horizontalTable'",
+            "rawText": 
+        "  <dt>title</dt>
+        </dl-custom>"
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "  <dt>title</dt>
+        </dl-custom>"
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
     })
 
     it('should handle empty content with multi-line opening tag', () => {
-      const md = `<dl-custom
+      expect(
+        p.parser(`<dl-custom
   data-variant='horizontalTable'
 >
-</dl-custom>`
-      const result = p.parser(md)
-      expect(result.length).toBe(1)
-      const dl = result[0] as MarkdownToJSX.HTMLNode
-      expect(dl.tag).toBe('dl-custom')
-      expect(dl.attrs['data-variant']).toBe('horizontalTable')
+</dl-custom>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [],
+            "endPos": 58,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data-variant='horizontalTable'
+        "
+        ,
+            "rawText": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+        </dl-custom>"
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+        </dl-custom>"
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
     })
   })
 })

@@ -1358,38 +1358,53 @@ describe('html compiler', () => {
 </dl-custom>`
 
       it('should handle no trailing whitespace', () => {
-        const result = compiler(baseInput)
-        const dlCount = (result.match(/<dl-custom/g) || []).length
-        expect(dlCount).toBe(1)
-        expect(result).toContain("data-variant='horizontalTable'")
+        expect(compiler(baseInput)).toMatchInlineSnapshot(`
+          "<dl-custom
+            data-variant='horizontalTable'
+          >
+            <dt>title 1</dt>
+          </dl-custom>"
+        `)
       })
 
       it('should handle trailing newline', () => {
-        const result = compiler(baseInput + '\n')
-        const dlCount = (result.match(/<dl-custom/g) || []).length
-        expect(dlCount).toBe(1)
-        expect(result).toContain("data-variant='horizontalTable'")
+        expect(compiler(baseInput + '\n')).toMatchInlineSnapshot(`
+          "<dl-custom
+            data-variant='horizontalTable'
+          >
+            <dt>title 1</dt>
+          </dl-custom>
+          "
+        `)
       })
 
       it('should handle CRLF line endings', () => {
-        const crlfInput = baseInput.replace(/\n/g, '\r\n')
-        const result = compiler(crlfInput)
-        const dlCount = (result.match(/<dl-custom/g) || []).length
-        expect(dlCount).toBe(1)
-        expect(result).toContain("data-variant='horizontalTable'")
+        expect(compiler(baseInput.replace(/\n/g, '\r\n')))
+          .toMatchInlineSnapshot(`
+          "<dl-custom
+            data-variant='horizontalTable'
+          >
+            <dt>title 1</dt>
+          </dl-custom>"
+        `)
       })
 
       it('should handle leading and trailing newlines', () => {
-        const result = compiler('\n' + baseInput + '\n\n')
-        const dlCount = (result.match(/<dl-custom/g) || []).length
-        expect(dlCount).toBe(1)
-        expect(result).toContain("data-variant='horizontalTable'")
+        expect(compiler('\n' + baseInput + '\n\n')).toMatchInlineSnapshot(`
+          "<dl-custom
+            data-variant='horizontalTable'
+          >
+            <dt>title 1</dt>
+          </dl-custom>
+          "
+        `)
       })
     })
 
     describe('#781 full original issue example', () => {
       it('should render exact issue example correctly', () => {
-        const result = compiler(`<dl-custom
+        expect(
+          compiler(`<dl-custom
   data-variant='horizontalTable'
 >
   <dt>title 1</dt>
@@ -1399,22 +1414,23 @@ describe('html compiler', () => {
   <dt>title 3</dt>
   <dd>description 3</dd>
 </dl-custom>`)
-
-        const openCount = (result.match(/<dl-custom/g) || []).length
-        const closeCount = (result.match(/<\/dl-custom>/g) || []).length
-        expect(openCount).toBe(1)
-        expect(closeCount).toBe(1)
-        expect(result).toContain("data-variant='horizontalTable'")
-        expect(result).toContain('title 1')
-        expect(result).toContain('description 1')
-        expect(result).toContain('title 2')
-        expect(result).toContain('description 2')
-        expect(result).toContain('title 3')
-        expect(result).toContain('description 3')
+        ).toMatchInlineSnapshot(`
+          "<dl-custom
+            data-variant='horizontalTable'
+          >
+            <dt>title 1</dt>
+            <dd>description 1</dd>
+            <dt>title 2</dt>
+            <dd>description 2</dd>
+            <dt>title 3</dt>
+            <dd>description 3</dd>
+          </dl-custom>"
+        `)
       })
 
       it('should render issue example with trailing newline correctly', () => {
-        const result = compiler(`<dl-custom
+        expect(
+          compiler(`<dl-custom
   data-variant='horizontalTable'
 >
   <dt>title 1</dt>
@@ -1425,11 +1441,19 @@ describe('html compiler', () => {
   <dd>description 3</dd>
 </dl-custom>
 `)
-
-        const openCount = (result.match(/<dl-custom/g) || []).length
-        const closeCount = (result.match(/<\/dl-custom>/g) || []).length
-        expect(openCount).toBe(1)
-        expect(closeCount).toBe(1)
+        ).toMatchInlineSnapshot(`
+          "<dl-custom
+            data-variant='horizontalTable'
+          >
+            <dt>title 1</dt>
+            <dd>description 1</dd>
+            <dt>title 2</dt>
+            <dd>description 2</dd>
+            <dt>title 3</dt>
+            <dd>description 3</dd>
+          </dl-custom>
+          "
+        `)
       })
     })
   })

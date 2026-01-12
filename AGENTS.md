@@ -17,6 +17,7 @@ The priorities of this library are bundle size, performance, and functionality i
 - Run `bun test` after each set of changes to ensure no regressions (currently 100% passing)
 - Use `bun metrics` (run 3x) to check parser performance when changing library code
 - Use `bun metrics` for quick parse speed analysis
+- **Use inline snapshots (`toMatchInlineSnapshot()`) for parser, HTML compiler, and markdown compiler tests.** This makes test output explicit and easy to review. Avoid individual assertions like `expect(x).toBe(y)` when the full output can be captured in a snapshot.
 
 ## Commit Workflow
 

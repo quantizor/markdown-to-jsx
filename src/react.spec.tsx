@@ -2199,9 +2199,9 @@ Item detail
 </dl-custom>
 `)
       )
-      const openingTagCount = (root.innerHTML.match(/<dl-custom/g) || []).length
-      expect(openingTagCount).toBe(1)
-      expect(root.innerHTML).toContain('data-variant="horizontalTable"')
+      expect(root.innerHTML).toMatchInlineSnapshot(
+        `"<dl-custom data-variant="horizontalTable"><dt>title 1</dt></dl-custom>"`
+      )
     })
 
     it('should handle CRLF line endings', () => {
@@ -2210,9 +2210,9 @@ Item detail
           `<dl-custom\r\n  data-variant='horizontalTable'\r\n>\r\n  <dt>title</dt>\r\n</dl-custom>`
         )
       )
-      const openingTagCount = (root.innerHTML.match(/<dl-custom/g) || []).length
-      expect(openingTagCount).toBe(1)
-      expect(root.innerHTML).toContain('data-variant="horizontalTable"')
+      expect(root.innerHTML).toMatchInlineSnapshot(
+        `"<dl-custom data-variant="horizontalTable"><dt>title</dt></dl-custom>"`
+      )
     })
 
     it('should handle attribute on same line as tag', () => {
@@ -2221,9 +2221,9 @@ Item detail
   <dt>title</dt>
 </dl-custom>`)
       )
-      const openingTagCount = (root.innerHTML.match(/<dl-custom/g) || []).length
-      expect(openingTagCount).toBe(1)
-      expect(root.innerHTML).toContain('data-variant="horizontalTable"')
+      expect(root.innerHTML).toMatchInlineSnapshot(
+        `"<dl-custom data-variant="horizontalTable"><dt>title</dt></dl-custom>"`
+      )
     })
 
     it('should handle multiple attributes on separate lines', () => {
@@ -2236,12 +2236,9 @@ Item detail
   content
 </custom-element>`)
       )
-      const openingTagCount = (root.innerHTML.match(/<custom-element/g) || [])
-        .length
-      expect(openingTagCount).toBe(1)
-      expect(root.innerHTML).toContain('data-a="1"')
-      expect(root.innerHTML).toContain('data-b="2"')
-      expect(root.innerHTML).toContain('data-c="3"')
+      expect(root.innerHTML).toMatchInlineSnapshot(
+        `"<custom-element data-a="1" data-b="2" data-c="3">content</custom-element>"`
+      )
     })
 
     it('should handle JSX-style components with multi-line attributes', () => {
@@ -2253,9 +2250,9 @@ Item detail
   inner content
 </my-component>`)
       )
-      const openingTagCount = (root.innerHTML.match(/<my-component/g) || [])
-        .length
-      expect(openingTagCount).toBe(1)
+      expect(root.innerHTML).toMatchInlineSnapshot(
+        `"<my-component classname="wrapper" onclick="handleClick">inner content</my-component>"`
+      )
     })
 
     it('should handle the full original issue example', () => {
@@ -2271,18 +2268,9 @@ Item detail
   <dd>description 3</dd>
 </dl-custom>`)
       )
-      const openingTagCount = (root.innerHTML.match(/<dl-custom/g) || []).length
-      const closingTagCount = (root.innerHTML.match(/<\/dl-custom>/g) || [])
-        .length
-      expect(openingTagCount).toBe(1)
-      expect(closingTagCount).toBe(1)
-      expect(root.innerHTML).toContain('data-variant="horizontalTable"')
-      expect(root.innerHTML).toContain('title 1')
-      expect(root.innerHTML).toContain('description 1')
-      expect(root.innerHTML).toContain('title 2')
-      expect(root.innerHTML).toContain('description 2')
-      expect(root.innerHTML).toContain('title 3')
-      expect(root.innerHTML).toContain('description 3')
+      expect(root.innerHTML).toMatchInlineSnapshot(
+        `"<dl-custom data-variant="horizontalTable"><dt>title 1</dt><dd>description 1</dd><dt>title 2</dt><dd>description 2</dd><dt>title 3</dt><dd>description 3</dd></dl-custom>"`
+      )
     })
   })
 
