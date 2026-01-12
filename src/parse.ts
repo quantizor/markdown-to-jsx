@@ -347,6 +347,9 @@ var isWS = function (c: string) {
 var isSpaceOrTab = function (c: string): boolean {
   return c === ' ' || c === '\t'
 }
+var isAttrWhitespace = function (c: string): boolean {
+  return c === ' ' || c === '\t' || c === '\n' || c === '\r'
+}
 var isPunctuation = function (code: number, char: string): boolean {
   return util.isUnicodePunctuation(code < $.CHAR_ASCII_BOUNDARY ? code : char)
 }
@@ -677,7 +680,7 @@ function parseHTMLAttributes(
   let i = 0
   const len = attrs.length
   while (i < len) {
-    while (i < len && isSpaceOrTab(attrs[i])) i++
+    while (i < len && isAttrWhitespace(attrs[i])) i++
     if (i >= len) break
     const nameStart = i
     while (i < len && isNameChar(attrs[i])) i++
@@ -686,13 +689,13 @@ function parseHTMLAttributes(
       continue
     }
     const name = attrs.slice(nameStart, i)
-    while (i < len && isSpaceOrTab(attrs[i])) i++
+    while (i < len && isAttrWhitespace(attrs[i])) i++
     if (i >= len || attrs[i] !== '=') {
       attrMatches.push(name)
       continue
     }
     i++
-    while (i < len && isSpaceOrTab(attrs[i])) i++
+    while (i < len && isAttrWhitespace(attrs[i])) i++
     if (i >= len) {
       attrMatches.push(name + '=')
       break
@@ -708,7 +711,7 @@ function parseHTMLAttributes(
             break
           }
           const nextChar = attrs[i + 1]
-          if (isSpaceOrTab(nextChar) || nextChar === '/') {
+          if (isAttrWhitespace(nextChar) || nextChar === '/') {
             i++
             break
           }
@@ -730,7 +733,7 @@ function parseHTMLAttributes(
         i++
       }
     } else {
-      while (i < len && !isSpaceOrTab(attrs[i])) i++
+      while (i < len && !isAttrWhitespace(attrs[i])) i++
     }
     attrMatches.push(name + '=' + attrs.slice(valueStart, i))
   }
@@ -1134,13 +1137,21 @@ function parseInlineSpan(
         )
       }
     }
+    // Parse attributes from the tag (#781 fix for multi-line attributes)
+    var rawAttrs = tagCheckResult.whitespaceBeforeAttrs + tagCheckResult.attrs
+    var parsedAttrs = parseHTMLAttributes(
+      rawAttrs,
+      tagName,
+      tagCheckResult.tagName,
+      options
+    )
     var htmlBlockResult = {
       type: RuleType.htmlBlock,
       tag: tagCheckResult.tagName as MarkdownToJSX.HTMLTags,
-      attrs: {},
+      attrs: parsedAttrs,
       children: children,
       rawText: rawText,
-      text: rawText, // @deprecated - use rawText instead
+      text: contentToParse, // @deprecated - cleaned up content without tags, use rawText for full raw HTML
       verbatim: true,
       endPos: tagCheckResult.endPos,
     } as MarkdownToJSX.HTMLNode & { endPos: number }
@@ -6734,7 +6745,7 @@ function createVerbatimHTMLBlock(
     rawAttrs: rawAttrs,
     children: children,
     rawText: finalText,
-    text: finalText, // @deprecated - use rawText instead
+    text: contentToParse, // @deprecated - cleaned up content without tags, use rawText for full raw HTML
     verbatim: true,
     isClosingTag: isClosingTag,
     canInterruptParagraph: canInterruptParagraph,
@@ -6998,7 +7009,7 @@ function processHTMLBlock(
     rawAttrs: attrs,
     children: children,
     rawText: finalText,
-    text: finalText, // @deprecated - use rawText instead
+    text: trimmed, // @deprecated - cleaned up content without tags, use rawText for full raw HTML
     verbatim: shouldTreatAsVerbatim,
     canInterruptParagraph: true, // type 1-6 blocks can interrupt paragraphs
     endPos: endPos,
@@ -7888,7 +7899,12 @@ function parseHTML(
         const tagLower = tagResult.tagLower || tagResult.tagName.toLowerCase()
         const rawAttrs = tagResult.whitespaceBeforeAttrs + tagResult.attrs
         return {
-          parsed: parseHTMLAttributes(rawAttrs, tagLower, tagResult.tagName, options),
+          parsed: parseHTMLAttributes(
+            rawAttrs,
+            tagLower,
+            tagResult.tagName,
+            options
+          ),
           raw: rawAttrs,
         }
       }

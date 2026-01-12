@@ -2189,6 +2189,91 @@ Item detail
     expect(root.innerHTML).toContain('title 1')
   })
 
+  describe('#781 multi-line attribute variations', () => {
+    it('should handle trailing newline', () => {
+      render(
+        compiler(`<dl-custom
+  data-variant='horizontalTable'
+>
+  <dt>title 1</dt>
+</dl-custom>
+`)
+      )
+      expect(root.innerHTML).toMatchInlineSnapshot(
+        `"<dl-custom data-variant="horizontalTable"><dt>title 1</dt></dl-custom>"`
+      )
+    })
+
+    it('should handle CRLF line endings', () => {
+      render(
+        compiler(
+          `<dl-custom\r\n  data-variant='horizontalTable'\r\n>\r\n  <dt>title</dt>\r\n</dl-custom>`
+        )
+      )
+      expect(root.innerHTML).toMatchInlineSnapshot(
+        `"<dl-custom data-variant="horizontalTable"><dt>title</dt></dl-custom>"`
+      )
+    })
+
+    it('should handle attribute on same line as tag', () => {
+      render(
+        compiler(`<dl-custom data-variant='horizontalTable'>
+  <dt>title</dt>
+</dl-custom>`)
+      )
+      expect(root.innerHTML).toMatchInlineSnapshot(
+        `"<dl-custom data-variant="horizontalTable"><dt>title</dt></dl-custom>"`
+      )
+    })
+
+    it('should handle multiple attributes on separate lines', () => {
+      render(
+        compiler(`<custom-element
+  data-a="1"
+  data-b="2"
+  data-c="3"
+>
+  content
+</custom-element>`)
+      )
+      expect(root.innerHTML).toMatchInlineSnapshot(
+        `"<custom-element data-a="1" data-b="2" data-c="3">content</custom-element>"`
+      )
+    })
+
+    it('should handle JSX-style components with multi-line attributes', () => {
+      render(
+        compiler(`<my-component
+  className="wrapper"
+  onClick={handleClick}
+>
+  inner content
+</my-component>`)
+      )
+      expect(root.innerHTML).toMatchInlineSnapshot(
+        `"<my-component classname="wrapper" onclick="handleClick">inner content</my-component>"`
+      )
+    })
+
+    it('should handle the full original issue example', () => {
+      render(
+        compiler(`<dl-custom
+  data-variant='horizontalTable'
+>
+  <dt>title 1</dt>
+  <dd>description 1</dd>
+  <dt>title 2</dt>
+  <dd>description 2</dd>
+  <dt>title 3</dt>
+  <dd>description 3</dd>
+</dl-custom>`)
+      )
+      expect(root.innerHTML).toMatchInlineSnapshot(
+        `"<dl-custom data-variant="horizontalTable"><dt>title 1</dt><dd>description 1</dd><dt>title 2</dt><dd>description 2</dd><dt>title 3</dt><dd>description 3</dd></dl-custom>"`
+      )
+    })
+  })
+
   it('#686 should not add unnecessary paragraphs', () => {
     render(compiler(`<tag1><tag2>text1</tag2>text2</tag1>`))
 

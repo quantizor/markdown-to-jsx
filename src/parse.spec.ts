@@ -1733,6 +1733,1481 @@ describe('description list parsing', () => {
   })
 })
 
+describe('multi-line HTML attributes', () => {
+  it('#781 should correctly parse custom elements with multi-line attributes', () => {
+    expect(
+      p.parser(`<dl-custom
+  data-variant='horizontalTable'
+>
+  <dt>title 1</dt>
+  <dd>description 1</dd>
+</dl-custom>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "data-variant": "horizontalTable",
+          },
+          "canInterruptParagraph": false,
+          "children": [
+            {
+              "attrs": {},
+              "canInterruptParagraph": true,
+              "children": [
+                {
+                  "text": "title 1",
+                  "type": "text",
+                },
+              ],
+              "endPos": 16,
+              "isClosingTag": false,
+              "rawAttrs": "",
+              "rawText": "title 1</dt>",
+              "tag": "dt",
+              "text": "title 1",
+              "type": "htmlBlock",
+              "verbatim": true,
+            },
+            {
+              "attrs": {},
+              "canInterruptParagraph": true,
+              "children": [
+                {
+                  "text": "description 1",
+                  "type": "text",
+                },
+              ],
+              "endPos": 41,
+              "isClosingTag": false,
+              "rawAttrs": "",
+              "rawText": "description 1</dd>",
+              "tag": "dd",
+              "text": "description 1",
+              "type": "htmlBlock",
+              "verbatim": true,
+            },
+          ],
+          "endPos": 102,
+          "isClosingTag": false,
+          "rawAttrs": 
+      "
+        data-variant='horizontalTable'
+      "
+      ,
+          "rawText": 
+      "<dl-custom
+        data-variant='horizontalTable'
+      >
+        <dt>title 1</dt>
+        <dd>description 1</dd>
+      </dl-custom>"
+      ,
+          "tag": "dl-custom",
+          "text": 
+      "
+        <dt>title 1</dt>
+        <dd>description 1</dd>
+      "
+      ,
+          "type": "htmlBlock",
+          "verbatim": true,
+        },
+      ]
+    `)
+  })
+
+  it('should parse multiple attributes spanning multiple lines with double quotes', () => {
+    expect(
+      p.parser(`<div
+  class="test"
+  id="main"
+  data-value="123"
+>content</div>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "class": "test",
+            "data-value": "123",
+            "id": "main",
+          },
+          "canInterruptParagraph": true,
+          "children": [
+            {
+              "text": "content",
+              "type": "text",
+            },
+          ],
+          "endPos": 65,
+          "isClosingTag": false,
+          "rawAttrs": 
+      "
+        class="test"
+        id="main"
+        data-value="123"
+      "
+      ,
+          "rawText": "content</div>",
+          "tag": "div",
+          "text": "content",
+          "type": "htmlBlock",
+          "verbatim": true,
+        },
+      ]
+    `)
+  })
+
+  it('should parse multiple attributes spanning multiple lines with single quotes', () => {
+    expect(
+      p.parser(`<div
+  class='test'
+  id='main'
+  data-value='123'
+>content</div>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "class": "test",
+            "data-value": "123",
+            "id": "main",
+          },
+          "canInterruptParagraph": true,
+          "children": [
+            {
+              "text": "content",
+              "type": "text",
+            },
+          ],
+          "endPos": 65,
+          "isClosingTag": false,
+          "rawAttrs": 
+      "
+        class='test'
+        id='main'
+        data-value='123'
+      "
+      ,
+          "rawText": "content</div>",
+          "tag": "div",
+          "text": "content",
+          "type": "htmlBlock",
+          "verbatim": true,
+        },
+      ]
+    `)
+  })
+
+  it('should parse JSX components with multi-line attributes', () => {
+    expect(
+      p.parser(`<MyComponent
+  className="wrapper"
+  onClick={handleClick}
+>
+  inner content
+</MyComponent>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "className": "wrapper",
+            "onClick": "handleClick",
+          },
+          "canInterruptParagraph": false,
+          "children": [
+            {
+              "text": "inner content",
+              "type": "text",
+            },
+            {
+              "text": 
+      "
+      "
+      ,
+              "type": "text",
+            },
+            {
+              "attrs": {},
+              "endPos": 28,
+              "isClosingTag": true,
+              "rawText": "</MyComponent>",
+              "tag": "MyComponent",
+              "type": "htmlSelfClosing",
+            },
+          ],
+          "endPos": 91,
+          "isClosingTag": false,
+          "rawAttrs": 
+      "
+        className="wrapper"
+        onClick={handleClick}
+      "
+      ,
+          "rawText": 
+      "<MyComponent
+        className="wrapper"
+        onClick={handleClick}
+      >
+        inner content
+      </MyComponent>"
+      ,
+          "tag": "MyComponent",
+          "text": 
+      "
+        inner content
+      </MyComponent>"
+      ,
+          "type": "htmlBlock",
+          "verbatim": true,
+        },
+      ]
+    `)
+  })
+
+  it('should handle attributes with spaces in their values on separate lines', () => {
+    expect(
+      p.parser(`<span
+  class="multiple classes here"
+  title="Some title with spaces"
+>text</span>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "class": "multiple classes here",
+            "title": "Some title with spaces",
+          },
+          "canInterruptParagraph": false,
+          "children": [
+            {
+              "text": "text",
+              "type": "text",
+            },
+          ],
+          "endPos": 83,
+          "isClosingTag": false,
+          "rawAttrs": 
+      "
+        class="multiple classes here"
+        title="Some title with spaces"
+      "
+      ,
+          "rawText": 
+      "<span
+        class="multiple classes here"
+        title="Some title with spaces"
+      >text</span>"
+      ,
+          "tag": "span",
+          "text": "text",
+          "type": "htmlBlock",
+          "verbatim": true,
+        },
+      ]
+    `)
+  })
+
+  it('should handle mixed quote styles on separate lines', () => {
+    expect(
+      p.parser(`<div
+  class="double-quoted"
+  id='single-quoted'
+  data-mixed="value"
+>content</div>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "class": "double-quoted",
+            "data-mixed": "value",
+            "id": "single-quoted",
+          },
+          "canInterruptParagraph": true,
+          "children": [
+            {
+              "text": "content",
+              "type": "text",
+            },
+          ],
+          "endPos": 85,
+          "isClosingTag": false,
+          "rawAttrs": 
+      "
+        class="double-quoted"
+        id='single-quoted'
+        data-mixed="value"
+      "
+      ,
+          "rawText": "content</div>",
+          "tag": "div",
+          "text": "content",
+          "type": "htmlBlock",
+          "verbatim": true,
+        },
+      ]
+    `)
+  })
+
+  it('should handle boolean attributes on separate lines', () => {
+    expect(
+      p.parser(`<input
+  type="checkbox"
+  disabled
+  checked
+/>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            {
+              "attrs": {
+                "checked": true,
+                "disabled": true,
+                "type": "checkbox",
+              },
+              "children": [],
+              "endPos": 48,
+              "rawText": 
+      "<input
+        type="checkbox"
+        disabled
+        checked
+      />"
+      ,
+              "tag": "input",
+              "text": "",
+              "type": "htmlBlock",
+              "verbatim": true,
+            },
+          ],
+          "endPos": 48,
+          "type": "paragraph",
+        },
+      ]
+    `)
+  })
+
+  it('should handle deeply indented attributes', () => {
+    expect(
+      p.parser(`<CustomElement
+      data-a="1"
+      data-b="2"
+      data-c="3"
+>inner</CustomElement>`)
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "attrs": {
+            "data-a": "1",
+            "data-b": "2",
+            "data-c": "3",
+          },
+          "canInterruptParagraph": false,
+          "children": [
+            {
+              "text": "inner",
+              "type": "text",
+            },
+            {
+              "attrs": {},
+              "endPos": 21,
+              "isClosingTag": true,
+              "rawText": "</CustomElement>",
+              "tag": "CustomElement",
+              "type": "htmlSelfClosing",
+            },
+          ],
+          "endPos": 88,
+          "isClosingTag": false,
+          "rawAttrs": 
+      "
+            data-a="1"
+            data-b="2"
+            data-c="3"
+      "
+      ,
+          "rawText": 
+      "<CustomElement
+            data-a="1"
+            data-b="2"
+            data-c="3"
+      >inner</CustomElement>"
+      ,
+          "tag": "CustomElement",
+          "text": "inner</CustomElement>",
+          "type": "htmlBlock",
+          "verbatim": true,
+        },
+      ]
+    `)
+  })
+
+  describe('trailing newline variations', () => {
+    const baseInput = `<dl-custom
+  data-variant='horizontalTable'
+>
+  <dt>title 1</dt>
+  <dd>description 1</dd>
+</dl-custom>`
+
+    it('should handle no trailing whitespace', () => {
+      expect(p.parser(baseInput)).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "title 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 16,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "title 1</dt>",
+                "tag": "dt",
+                "text": "title 1",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "description 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 41,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "description 1</dd>",
+                "tag": "dd",
+                "text": "description 1",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 102,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data-variant='horizontalTable'
+        "
+        ,
+            "rawText": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>"
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        "
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
+    })
+
+    it('should handle single trailing newline', () => {
+      expect(p.parser(baseInput + '\n')).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "title 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 16,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "title 1</dt>",
+                "tag": "dt",
+                "text": "title 1",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "description 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 41,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "description 1</dd>",
+                "tag": "dd",
+                "text": "description 1",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 103,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data-variant='horizontalTable'
+        "
+        ,
+            "rawText": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>
+        "
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        "
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
+    })
+
+    it('should handle double trailing newline', () => {
+      expect(p.parser(baseInput + '\n\n')).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "title 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 16,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "title 1</dt>",
+                "tag": "dt",
+                "text": "title 1",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "description 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 41,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "description 1</dd>",
+                "tag": "dd",
+                "text": "description 1",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 103,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data-variant='horizontalTable'
+        "
+        ,
+            "rawText": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>
+        "
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        "
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
+    })
+
+    it('should handle leading newline', () => {
+      expect(p.parser('\n' + baseInput)).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "title 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 16,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "title 1</dt>",
+                "tag": "dt",
+                "text": "title 1",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "description 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 41,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "description 1</dd>",
+                "tag": "dd",
+                "text": "description 1",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 103,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data-variant='horizontalTable'
+        "
+        ,
+            "rawText": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>"
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        "
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
+    })
+
+    it('should handle leading and trailing newlines', () => {
+      expect(p.parser('\n' + baseInput + '\n')).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "title 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 16,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "title 1</dt>",
+                "tag": "dt",
+                "text": "title 1",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "description 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 41,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "description 1</dd>",
+                "tag": "dd",
+                "text": "description 1",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 104,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data-variant='horizontalTable'
+        "
+        ,
+            "rawText": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>
+        "
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        "
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
+    })
+
+    it('should handle CRLF line endings', () => {
+      expect(p.parser(baseInput.replace(/\n/g, '\r\n'))).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "title 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 16,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "title 1</dt>",
+                "tag": "dt",
+                "text": "title 1",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "description 1",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 41,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "description 1</dd>",
+                "tag": "dd",
+                "text": "description 1",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 102,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data-variant='horizontalTable'
+        "
+        ,
+            "rawText": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        </dl-custom>"
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "
+          <dt>title 1</dt>
+          <dd>description 1</dd>
+        "
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
+    })
+  })
+
+  describe('JSX component scenarios', () => {
+    it('should handle PascalCase components with multi-line attributes', () => {
+      expect(
+        p.parser(`<MyCustomComponent
+  propA="value1"
+  propB="value2"
+>
+  content
+</MyCustomComponent>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "propA": "value1",
+              "propB": "value2",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "text": "content",
+                "type": "text",
+              },
+              {
+                "text": 
+        "
+        "
+        ,
+                "type": "text",
+              },
+              {
+                "attrs": {},
+                "endPos": 28,
+                "isClosingTag": true,
+                "rawText": "</MyCustomComponent>",
+                "tag": "MyCustomComponent",
+                "type": "htmlSelfClosing",
+              },
+            ],
+            "endPos": 85,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          propA="value1"
+          propB="value2"
+        "
+        ,
+            "rawText": 
+        "<MyCustomComponent
+          propA="value1"
+          propB="value2"
+        >
+          content
+        </MyCustomComponent>"
+        ,
+            "tag": "MyCustomComponent",
+            "text": 
+        "
+          content
+        </MyCustomComponent>"
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
+    })
+
+    it('should handle JSX curly brace attributes on separate lines', () => {
+      expect(
+        p.parser(`<DataTable
+  data={myData}
+  columns={columns}
+  onRowClick={handleClick}
+>
+  Loading...
+</DataTable>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "columns": "columns",
+              "data": "myData",
+              "onRowClick": "handleClick",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "text": "Loading...",
+                "type": "text",
+              },
+              {
+                "text": 
+        "
+        "
+        ,
+                "type": "text",
+              },
+              {
+                "attrs": {},
+                "endPos": 23,
+                "isClosingTag": true,
+                "rawText": "</DataTable>",
+                "tag": "DataTable",
+                "type": "htmlSelfClosing",
+              },
+            ],
+            "endPos": 101,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data={myData}
+          columns={columns}
+          onRowClick={handleClick}
+        "
+        ,
+            "rawText": 
+        "<DataTable
+          data={myData}
+          columns={columns}
+          onRowClick={handleClick}
+        >
+          Loading...
+        </DataTable>"
+        ,
+            "tag": "DataTable",
+            "text": 
+        "
+          Loading...
+        </DataTable>"
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
+    })
+
+    it('should handle mixed HTML and JSX attributes on separate lines', () => {
+      expect(
+        p.parser(`<Widget
+  className="container"
+  data-id="123"
+  onClick={handleClick}
+  disabled
+>
+  content
+</Widget>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "className": "container",
+              "data-id": "123",
+              "disabled": true,
+              "onClick": "handleClick",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "text": "content",
+                "type": "text",
+              },
+              {
+                "text": 
+        "
+        "
+        ,
+                "type": "text",
+              },
+              {
+                "attrs": {},
+                "endPos": 17,
+                "isClosingTag": true,
+                "rawText": "</Widget>",
+                "tag": "Widget",
+                "type": "htmlSelfClosing",
+              },
+            ],
+            "endPos": 104,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          className="container"
+          data-id="123"
+          onClick={handleClick}
+          disabled
+        "
+        ,
+            "rawText": 
+        "<Widget
+          className="container"
+          data-id="123"
+          onClick={handleClick}
+          disabled
+        >
+          content
+        </Widget>"
+        ,
+            "tag": "Widget",
+            "text": 
+        "
+          content
+        </Widget>"
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
+    })
+
+    it('should handle deeply nested components with multi-line attributes', () => {
+      expect(
+        p.parser(`<Outer
+  level="1"
+>
+  <Middle
+    level="2"
+  >
+    <Inner
+      level="3"
+    >
+      content
+    </Inner>
+  </Middle>
+</Outer>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "level": "1",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {
+                  "level": "2",
+                },
+                "canInterruptParagraph": false,
+                "children": [
+                  {
+                    "attrs": {
+                      "level": "3",
+                    },
+                    "canInterruptParagraph": false,
+                    "children": [
+                      {
+                        "text": "content",
+                        "type": "text",
+                      },
+                      {
+                        "text": 
+        "
+        "
+        ,
+                        "type": "text",
+                      },
+                      {
+                        "text": "    ",
+                        "type": "text",
+                      },
+                      {
+                        "attrs": {},
+                        "endPos": 20,
+                        "isClosingTag": true,
+                        "rawText": "</Inner>",
+                        "tag": "Inner",
+                        "type": "htmlSelfClosing",
+                      },
+                      {
+                        "text": 
+        "
+        "
+        ,
+                        "type": "text",
+                      },
+                      {
+                        "text": "  ",
+                        "type": "text",
+                      },
+                      {
+                        "attrs": {},
+                        "endPos": 32,
+                        "isClosingTag": true,
+                        "rawText": "</Middle>",
+                        "tag": "Middle",
+                        "type": "htmlSelfClosing",
+                      },
+                      {
+                        "text": 
+        "
+        "
+        ,
+                        "type": "text",
+                      },
+                      {
+                        "attrs": {},
+                        "endPos": 41,
+                        "isClosingTag": true,
+                        "rawText": "</Outer>",
+                        "tag": "Outer",
+                        "type": "htmlSelfClosing",
+                      },
+                    ],
+                    "endPos": 76,
+                    "isClosingTag": false,
+                    "rawAttrs": 
+        "
+              level="3"
+            "
+        ,
+                    "rawText": 
+        "<Inner
+              level="3"
+            >
+              content
+            </Inner>
+          </Middle>
+        </Outer>"
+        ,
+                    "tag": "Inner",
+                    "text": 
+        "
+              content
+            </Inner>
+          </Middle>
+        </Outer>"
+        ,
+                    "type": "htmlBlock",
+                    "verbatim": true,
+                  },
+                ],
+                "endPos": 106,
+                "isClosingTag": false,
+                "rawAttrs": 
+        "
+            level="2"
+          "
+        ,
+                "rawText": 
+        "<Middle
+            level="2"
+          >
+            <Inner
+              level="3"
+            >
+              content
+            </Inner>
+          </Middle>
+        </Outer>"
+        ,
+                "tag": "Middle",
+                "text": 
+        "
+            <Inner
+              level="3"
+            >
+              content
+            </Inner>
+          </Middle>
+        </Outer>"
+        ,
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 129,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          level="1"
+        "
+        ,
+            "rawText": 
+        "<Outer
+          level="1"
+        >
+          <Middle
+            level="2"
+          >
+            <Inner
+              level="3"
+            >
+              content
+            </Inner>
+          </Middle>
+        </Outer>"
+        ,
+            "tag": "Outer",
+            "text": 
+        "
+          <Middle
+            level="2"
+          >
+            <Inner
+              level="3"
+            >
+              content
+            </Inner>
+          </Middle>
+        </Outer>"
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
+    })
+
+    it('should handle self-closing JSX with multi-line attributes', () => {
+      expect(
+        p.parser(`<Icon
+  name="star"
+  size={24}
+  color="gold"
+  filled
+/>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "color": "gold",
+              "filled": true,
+              "name": "star",
+              "size": "24",
+            },
+            "endPos": 58,
+            "tag": "Icon",
+            "type": "htmlSelfClosing",
+          },
+        ]
+      `)
+    })
+  })
+
+  describe('whitespace variations in attributes', () => {
+    it('should handle tabs as whitespace between attributes', () => {
+      expect(
+        p.parser(`<div
+\tclass="test"
+\tid="main"
+>content</div>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "class": "test",
+              "id": "main",
+            },
+            "canInterruptParagraph": true,
+            "children": [
+              {
+                "text": "content",
+                "type": "text",
+              },
+            ],
+            "endPos": 44,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+        	class="test"
+        	id="main"
+        "
+        ,
+            "rawText": "content</div>",
+            "tag": "div",
+            "text": "content",
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
+    })
+
+    it('should handle mixed tabs and spaces', () => {
+      expect(
+        p.parser(`<div
+  \tclass="test"
+\t  id="main"
+>content</div>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "class": "test",
+              "id": "main",
+            },
+            "canInterruptParagraph": true,
+            "children": [
+              {
+                "text": "content",
+                "type": "text",
+              },
+            ],
+            "endPos": 48,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          	class="test"
+        	  id="main"
+        "
+        ,
+            "rawText": "content</div>",
+            "tag": "div",
+            "text": "content",
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
+    })
+
+    it('should handle attribute on same line as tag name', () => {
+      expect(
+        p.parser(`<dl-custom data-variant='horizontalTable'>
+  <dt>title</dt>
+</dl-custom>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [
+              {
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "title",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 14,
+                "isClosingTag": false,
+                "rawAttrs": "",
+                "rawText": "title</dt>",
+                "tag": "dt",
+                "text": "title",
+                "type": "htmlBlock",
+                "verbatim": true,
+              },
+            ],
+            "endPos": 72,
+            "isClosingTag": false,
+            "rawAttrs": " data-variant='horizontalTable'",
+            "rawText": 
+        "  <dt>title</dt>
+        </dl-custom>"
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "  <dt>title</dt>
+        "
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
+    })
+
+    it('should handle empty content with multi-line opening tag', () => {
+      expect(
+        p.parser(`<dl-custom
+  data-variant='horizontalTable'
+>
+</dl-custom>`)
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": {
+              "data-variant": "horizontalTable",
+            },
+            "canInterruptParagraph": false,
+            "children": [],
+            "endPos": 58,
+            "isClosingTag": false,
+            "rawAttrs": 
+        "
+          data-variant='horizontalTable'
+        "
+        ,
+            "rawText": 
+        "<dl-custom
+          data-variant='horizontalTable'
+        >
+        </dl-custom>"
+        ,
+            "tag": "dl-custom",
+            "text": 
+        "
+        "
+        ,
+            "type": "htmlBlock",
+            "verbatim": true,
+          },
+        ]
+      `)
+    })
+  })
+})
+
 describe('tables in lists', () => {
   it('should parse tables within list items (regression test for issue #1)', () => {
     const md = `- **Browser Stats**:
@@ -1837,7 +3312,9 @@ This is paragraph after the unordered nested list.`
     // Should only contain the text "Unordered nested list", not the paragraph
     expect(nestedItem.length).toBe(1)
     expect(nestedItem[0].type).toBe(RuleType.text)
-    expect((nestedItem[0] as MarkdownToJSX.TextNode).text).toBe('Unordered nested list')
+    expect((nestedItem[0] as MarkdownToJSX.TextNode).text).toBe(
+      'Unordered nested list'
+    )
 
     const paragraph = result[1] as MarkdownToJSX.ParagraphNode
     expect(paragraph.children[0].type).toBe(RuleType.text)
@@ -1872,7 +3349,9 @@ describe('CRLF line endings', () => {
   }
 
   function stripEndPos(obj: unknown): unknown {
-    return JSON.parse(JSON.stringify(obj, (k, v) => k === 'endPos' ? undefined : v))
+    return JSON.parse(
+      JSON.stringify(obj, (k, v) => (k === 'endPos' ? undefined : v))
+    )
   }
 
   function expectCRLFEquivalent(lfText: string, description?: string) {
@@ -1998,11 +3477,15 @@ describe('CRLF line endings', () => {
     })
 
     it('should handle tables with alignment', () => {
-      expectCRLFEquivalent('| Left | Center | Right |\n|:-----|:------:|------:|\n| L | C | R |')
+      expectCRLFEquivalent(
+        '| Left | Center | Right |\n|:-----|:------:|------:|\n| L | C | R |'
+      )
     })
 
     it('should handle tables with multiple rows', () => {
-      expectCRLFEquivalent('| H1 | H2 |\n|---|---|\n| a | b |\n| c | d |\n| e | f |')
+      expectCRLFEquivalent(
+        '| H1 | H2 |\n|---|---|\n| a | b |\n| c | d |\n| e | f |'
+      )
     })
   })
 
@@ -2016,7 +3499,9 @@ describe('CRLF line endings', () => {
     })
 
     it('should handle multiple reference definitions', () => {
-      expectCRLFEquivalent('[a][1] and [b][2]\n\n[1]: http://a.com\n[2]: http://b.com')
+      expectCRLFEquivalent(
+        '[a][1] and [b][2]\n\n[1]: http://a.com\n[2]: http://b.com'
+      )
     })
 
     it('should reject title with blank line (CRLF blank line detection)', () => {
@@ -2390,7 +3875,7 @@ describe('Unserializable expression evaluation', () => {
           "rawAttrs": "",
           "rawText": "Hello **world**</script>",
           "tag": "script",
-          "text": "Hello **world**</script>",
+          "text": "Hello **world**",
           "type": "htmlBlock",
           "verbatim": true,
         }
@@ -2436,7 +3921,7 @@ describe('Unserializable expression evaluation', () => {
           "rawAttrs": "",
           "rawText": "<code>const x = 1;</code></pre>",
           "tag": "pre",
-          "text": "<code>const x = 1;</code></pre>",
+          "text": "<code>const x = 1;</code>",
           "type": "htmlBlock",
           "verbatim": true,
         }
@@ -2503,7 +3988,7 @@ describe('Unserializable expression evaluation', () => {
           "text": 
         "body { color: red; }
 
-        /* Comment */</style>"
+        /* Comment */"
         ,
           "type": "htmlBlock",
           "verbatim": true,
@@ -2550,7 +4035,11 @@ describe('Unserializable expression evaluation', () => {
           "rawAttrs": "",
           "rawText": undefined,
           "tag": "div",
-          "text": undefined,
+          "text": 
+        "Hello **world**
+
+        "
+        ,
           "type": "htmlBlock",
           "verbatim": false,
         }

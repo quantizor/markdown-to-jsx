@@ -1156,7 +1156,9 @@ describe('html compiler', () => {
         ],
         {}
       )
-      expect(result).toMatchInlineSnapshot(`"<script>console.log("test");</script>"`)
+      expect(result).toMatchInlineSnapshot(
+        `"<script>console.log("test");</script>"`
+      )
     })
 
     it('should handle pre block with closing tag in text', () => {
@@ -1190,7 +1192,9 @@ describe('html compiler', () => {
         ],
         {}
       )
-      expect(result).toMatchInlineSnapshot(`"<script>console.log("test");</script>"`)
+      expect(result).toMatchInlineSnapshot(
+        `"<script>console.log("test");</script>"`
+      )
     })
   })
 
@@ -1209,7 +1213,9 @@ describe('html compiler', () => {
         ],
         { tagfilter: true }
       )
-      expect(result).toMatchInlineSnapshot(`"<div>Content with &lt;script>alert("xss")&lt;/script>"`)
+      expect(result).toMatchInlineSnapshot(
+        `"<div>Content with &lt;script>alert("xss")&lt;/script>"`
+      )
     })
   })
 
@@ -1286,7 +1292,9 @@ describe('html compiler', () => {
       const result = compiler(
         'Text <div title=\'quote "inside" quote\'>content</div> more'
       )
-      expect(result).toMatchInlineSnapshot(`"<p>Text <div title='quote "inside" quote'>content</div> more</p>"`)
+      expect(result).toMatchInlineSnapshot(
+        `"<p>Text <div title='quote "inside" quote'>content</div> more</p>"`
+      )
     })
   })
 
@@ -1340,6 +1348,113 @@ describe('html compiler', () => {
           content
         </MyComponent>"
       `)
+    })
+
+    describe('#781 trailing newline and whitespace variations', () => {
+      const baseInput = `<dl-custom
+  data-variant='horizontalTable'
+>
+  <dt>title 1</dt>
+</dl-custom>`
+
+      it('should handle no trailing whitespace', () => {
+        expect(compiler(baseInput)).toMatchInlineSnapshot(`
+          "<dl-custom
+            data-variant='horizontalTable'
+          >
+            <dt>title 1</dt>
+          </dl-custom>"
+        `)
+      })
+
+      it('should handle trailing newline', () => {
+        expect(compiler(baseInput + '\n')).toMatchInlineSnapshot(`
+          "<dl-custom
+            data-variant='horizontalTable'
+          >
+            <dt>title 1</dt>
+          </dl-custom>
+          "
+        `)
+      })
+
+      it('should handle CRLF line endings', () => {
+        expect(compiler(baseInput.replace(/\n/g, '\r\n')))
+          .toMatchInlineSnapshot(`
+          "<dl-custom
+            data-variant='horizontalTable'
+          >
+            <dt>title 1</dt>
+          </dl-custom>"
+        `)
+      })
+
+      it('should handle leading and trailing newlines', () => {
+        expect(compiler('\n' + baseInput + '\n\n')).toMatchInlineSnapshot(`
+          "<dl-custom
+            data-variant='horizontalTable'
+          >
+            <dt>title 1</dt>
+          </dl-custom>
+          "
+        `)
+      })
+    })
+
+    describe('#781 full original issue example', () => {
+      it('should render exact issue example correctly', () => {
+        expect(
+          compiler(`<dl-custom
+  data-variant='horizontalTable'
+>
+  <dt>title 1</dt>
+  <dd>description 1</dd>
+  <dt>title 2</dt>
+  <dd>description 2</dd>
+  <dt>title 3</dt>
+  <dd>description 3</dd>
+</dl-custom>`)
+        ).toMatchInlineSnapshot(`
+          "<dl-custom
+            data-variant='horizontalTable'
+          >
+            <dt>title 1</dt>
+            <dd>description 1</dd>
+            <dt>title 2</dt>
+            <dd>description 2</dd>
+            <dt>title 3</dt>
+            <dd>description 3</dd>
+          </dl-custom>"
+        `)
+      })
+
+      it('should render issue example with trailing newline correctly', () => {
+        expect(
+          compiler(`<dl-custom
+  data-variant='horizontalTable'
+>
+  <dt>title 1</dt>
+  <dd>description 1</dd>
+  <dt>title 2</dt>
+  <dd>description 2</dd>
+  <dt>title 3</dt>
+  <dd>description 3</dd>
+</dl-custom>
+`)
+        ).toMatchInlineSnapshot(`
+          "<dl-custom
+            data-variant='horizontalTable'
+          >
+            <dt>title 1</dt>
+            <dd>description 1</dd>
+            <dt>title 2</dt>
+            <dd>description 2</dd>
+            <dt>title 3</dt>
+            <dd>description 3</dd>
+          </dl-custom>
+          "
+        `)
+      })
     })
   })
 
