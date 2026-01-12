@@ -24,6 +24,8 @@ export { sanitizer, slugify } from './utils'
 const TRIM_STARTING_NEWLINES = /^\n+/
 
 // Counter for generating unique GFM task IDs
+// Note: This counter is global to ensure unique IDs within a single JS context.
+// For typical usage (rendering one document at a time), this works well.
 let gfmTaskIdCounter = 0
 
 /**

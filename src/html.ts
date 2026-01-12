@@ -10,6 +10,9 @@ export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
 // Counter for generating unique GFM task IDs in HTML output
+// Note: This counter is global to ensure unique IDs within a single JS context.
+// For typical usage (rendering one document at a time), this works well.
+// For advanced use cases requiring isolation, consider resetting via _resetGfmTaskIdCounter().
 let gfmTaskIdCounter = 0
 
 /**
@@ -745,6 +748,8 @@ export function astToHTML(
           ) {
             var taskNode = itemContent[0] as MarkdownToJSX.GFMTaskNode
             var taskId = 'task-' + ++gfmTaskIdCounter
+            // Per GFM spec, HTML checkboxes use disabled="" attribute
+            // React/Vue/Solid adapters use readOnly for better form handling
             var checkboxHtml =
               '<input' +
               (taskNode.completed ? ' checked=""' : '') +
