@@ -5929,14 +5929,13 @@ function parseList(
               }
               const lastItem = getLastItem()
               if (lastItem.length > 0 && !listItemHasBlockContent(lastItem)) {
-                // This is a lazy continuation line - continue the inline content
-                // Lazy continuation lines don't add a newline (no space in output)
+                // Continuation line at base indentation - add newline for proper spacing
                 appendListContinuation(
                   nextLineWithoutIndent,
                   lastItem,
                   state,
                   options,
-                  false
+                  true
                 )
                 prevLineWasBlank = false
                 currentPos = skipToNextLine(source, nextLineEnd)
