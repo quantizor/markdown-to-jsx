@@ -3343,6 +3343,174 @@ This is paragraph after.`
   })
 })
 
+it('should preserve newline between list item text and continuation at same indentation (#793)', () => {
+  expect(
+    p.parser(`- Unordered list.
+  - Nested list.
+  Prefixed spaces equal to the nested list.`)
+  ).toMatchInlineSnapshot(`
+    [
+      {
+        "endPos": 78,
+        "items": [
+          [
+            {
+              "text": "Unordered list.",
+              "type": "text",
+            },
+            {
+              "endPos": 78,
+              "items": [
+                [
+                  {
+                    "text": "Nested list.",
+                    "type": "text",
+                  },
+                  {
+                    "text": 
+    "
+    "
+    ,
+                    "type": "text",
+                  },
+                  {
+                    "text": "Prefixed spaces equal to the nested list.",
+                    "type": "text",
+                  },
+                ],
+              ],
+              "ordered": false,
+              "type": "unorderedList",
+            },
+          ],
+        ],
+        "ordered": false,
+        "type": "unorderedList",
+      },
+    ]
+  `)
+})
+
+it('should preserve newlines between multiple continuation lines (#793)', () => {
+  expect(
+    p.parser(`- Unordered list.
+  - Nested list.
+  Prefixed spaces equal to the nested list.
+  And again.`)
+  ).toMatchInlineSnapshot(`
+    [
+      {
+        "endPos": 91,
+        "items": [
+          [
+            {
+              "text": "Unordered list.",
+              "type": "text",
+            },
+            {
+              "endPos": 91,
+              "items": [
+                [
+                  {
+                    "text": "Nested list.",
+                    "type": "text",
+                  },
+                  {
+                    "text": 
+    "
+    "
+    ,
+                    "type": "text",
+                  },
+                  {
+                    "text": "Prefixed spaces equal to the nested list.",
+                    "type": "text",
+                  },
+                  {
+                    "text": 
+    "
+    "
+    ,
+                    "type": "text",
+                  },
+                  {
+                    "text": "And again.",
+                    "type": "text",
+                  },
+                ],
+              ],
+              "ordered": false,
+              "type": "unorderedList",
+            },
+          ],
+        ],
+        "ordered": false,
+        "type": "unorderedList",
+      },
+    ]
+  `)
+})
+
+it('should preserve newline with lazy continuation then proper continuation (#793)', () => {
+  expect(
+    p.parser(`- Unordered list.
+  - Nested list.
+Prefixed spaces not equal to the nested list.
+  But this line's are.`)
+  ).toMatchInlineSnapshot(`
+    [
+      {
+        "endPos": 103,
+        "items": [
+          [
+            {
+              "text": "Unordered list.",
+              "type": "text",
+            },
+            {
+              "endPos": 103,
+              "items": [
+                [
+                  {
+                    "text": "Nested list.",
+                    "type": "text",
+                  },
+                  {
+                    "text": 
+    "
+    "
+    ,
+                    "type": "text",
+                  },
+                  {
+                    "text": "Prefixed spaces not equal to the nested list.",
+                    "type": "text",
+                  },
+                  {
+                    "text": 
+    "
+    "
+    ,
+                    "type": "text",
+                  },
+                  {
+                    "text": "But this line's are.",
+                    "type": "text",
+                  },
+                ],
+              ],
+              "ordered": false,
+              "type": "unorderedList",
+            },
+          ],
+        ],
+        "ordered": false,
+        "type": "unorderedList",
+      },
+    ]
+  `)
+})
+
 describe('CRLF line endings', () => {
   function toCRLF(text: string): string {
     return text.replace(/\n/g, '\r\n')
