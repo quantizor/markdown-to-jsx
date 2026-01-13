@@ -3343,7 +3343,7 @@ This is paragraph after.`
   })
 })
 
-describe('list item continuation spacing (issue #XXX)', () => {
+describe('list item continuation spacing (issue #793)', () => {
   it('should preserve newline between list item text and continuation at same indentation', () => {
     // Issue: when continuation lines have indentation equal to nested list marker,
     // newlines were missing between text nodes
