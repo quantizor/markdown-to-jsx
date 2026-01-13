@@ -16,8 +16,8 @@
     "section": "Tabs"
   },
   {
-    "markdown": "    a\ta\n    ὐ\ta\n",
-    "html": "<pre><code>a\ta\nὐ\ta\n</code></pre>\n",
+    "markdown": "    a\ta\n    \u1f50\ta\n",
+    "html": "<pre><code>a\ta\n\u1f50\ta\n</code></pre>\n",
     "example": 3,
     "start_line": 369,
     "end_line": 376,
@@ -96,8 +96,8 @@
     "section": "Backslash escapes"
   },
   {
-    "markdown": "\\\t\\A\\a\\ \\3\\φ\\«\n",
-    "html": "<p>\\\t\\A\\a\\ \\3\\φ\\«</p>\n",
+    "markdown": "\\\t\\A\\a\\ \\3\\\u03c6\\\u00ab\n",
+    "html": "<p>\\\t\\A\\a\\ \\3\\\u03c6\\\u00ab</p>\n",
     "example": 13,
     "start_line": 499,
     "end_line": 503,
@@ -193,7 +193,7 @@
   },
   {
     "markdown": "&nbsp; &amp; &copy; &AElig; &Dcaron;\n&frac34; &HilbertSpace; &DifferentialD;\n&ClockwiseContourIntegral; &ngE;\n",
-    "html": "<p>  &amp; © Æ Ď\n¾ ℋ ⅆ\n∲ ≧̸</p>\n",
+    "html": "<p>\u00a0 &amp; \u00a9 \u00c6 \u010e\n\u00be \u210b \u2146\n\u2232 \u2267\u0338</p>\n",
     "example": 25,
     "start_line": 649,
     "end_line": 657,
@@ -201,7 +201,7 @@
   },
   {
     "markdown": "&#35; &#1234; &#992; &#0;\n",
-    "html": "<p># Ӓ Ϡ �</p>\n",
+    "html": "<p># \u04d2 \u03e0 \ufffd</p>\n",
     "example": 26,
     "start_line": 668,
     "end_line": 672,
@@ -209,7 +209,7 @@
   },
   {
     "markdown": "&#X22; &#XD06; &#xcab;\n",
-    "html": "<p>&quot; ആ ಫ</p>\n",
+    "html": "<p>&quot; \u0d06 \u0cab</p>\n",
     "example": 27,
     "start_line": 681,
     "end_line": 685,
@@ -249,7 +249,7 @@
   },
   {
     "markdown": "[foo](/f&ouml;&ouml; \"f&ouml;&ouml;\")\n",
-    "html": "<p><a href=\"/f%C3%B6%C3%B6\" title=\"föö\">foo</a></p>\n",
+    "html": "<p><a href=\"/f%C3%B6%C3%B6\" title=\"f\u00f6\u00f6\">foo</a></p>\n",
     "example": 32,
     "start_line": 735,
     "end_line": 739,
@@ -257,7 +257,7 @@
   },
   {
     "markdown": "[foo]\n\n[foo]: /f&ouml;&ouml; \"f&ouml;&ouml;\"\n",
-    "html": "<p><a href=\"/f%C3%B6%C3%B6\" title=\"föö\">foo</a></p>\n",
+    "html": "<p><a href=\"/f%C3%B6%C3%B6\" title=\"f\u00f6\u00f6\">foo</a></p>\n",
     "example": 33,
     "start_line": 742,
     "end_line": 748,
@@ -265,7 +265,7 @@
   },
   {
     "markdown": "``` f&ouml;&ouml;\nfoo\n```\n",
-    "html": "<pre><code class=\"language-föö\">foo\n</code></pre>\n",
+    "html": "<pre><code class=\"language-f\u00f6\u00f6\">foo\n</code></pre>\n",
     "example": 34,
     "start_line": 751,
     "end_line": 758,
@@ -1640,8 +1640,8 @@
     "section": "Link reference definitions"
   },
   {
-    "markdown": "[ΑΓΩ]: /φου\n\n[αγω]\n",
-    "html": "<p><a href=\"/%CF%86%CE%BF%CF%85\">αγω</a></p>\n",
+    "markdown": "[\u0391\u0393\u03a9]: /\u03c6\u03bf\u03c5\n\n[\u03b1\u03b3\u03c9]\n",
+    "html": "<p><a href=\"/%CF%86%CE%BF%CF%85\">\u03b1\u03b3\u03c9</a></p>\n",
     "example": 206,
     "start_line": 3348,
     "end_line": 3354,
@@ -2656,16 +2656,16 @@
     "section": "Code spans"
   },
   {
-    "markdown": "` b `\n",
-    "html": "<p><code> b </code></p>\n",
+    "markdown": "`\u00a0b\u00a0`\n",
+    "html": "<p><code>\u00a0b\u00a0</code></p>\n",
     "example": 333,
     "start_line": 5933,
     "end_line": 5937,
     "section": "Code spans"
   },
   {
-    "markdown": "` `\n`  `\n",
-    "html": "<p><code> </code>\n<code>  </code></p>\n",
+    "markdown": "`\u00a0`\n`  `\n",
+    "html": "<p><code>\u00a0</code>\n<code>  </code></p>\n",
     "example": 334,
     "start_line": 5941,
     "end_line": 5947,
@@ -2816,16 +2816,16 @@
     "section": "Emphasis and strong emphasis"
   },
   {
-    "markdown": "* a *\n",
-    "html": "<p>* a *</p>\n",
+    "markdown": "*\u00a0a\u00a0*\n",
+    "html": "<p>*\u00a0a\u00a0*</p>\n",
     "example": 353,
     "start_line": 6338,
     "end_line": 6342,
     "section": "Emphasis and strong emphasis"
   },
   {
-    "markdown": "*$*alpha.\n\n*£*bravo.\n\n*€*charlie.\n",
-    "html": "<p>*$*alpha.</p>\n<p>*£*bravo.</p>\n<p>*€*charlie.</p>\n",
+    "markdown": "*$*alpha.\n\n*\u00a3*bravo.\n\n*\u20ac*charlie.\n",
+    "html": "<p>*$*alpha.</p>\n<p>*\u00a3*bravo.</p>\n<p>*\u20ac*charlie.</p>\n",
     "example": 354,
     "start_line": 6347,
     "end_line": 6357,
@@ -2888,8 +2888,8 @@
     "section": "Emphasis and strong emphasis"
   },
   {
-    "markdown": "пристаням_стремятся_\n",
-    "html": "<p>пристаням_стремятся_</p>\n",
+    "markdown": "\u043f\u0440\u0438\u0441\u0442\u0430\u043d\u044f\u043c_\u0441\u0442\u0440\u0435\u043c\u044f\u0442\u0441\u044f_\n",
+    "html": "<p>\u043f\u0440\u0438\u0441\u0442\u0430\u043d\u044f\u043c_\u0441\u0442\u0440\u0435\u043c\u044f\u0442\u0441\u044f_</p>\n",
     "example": 362,
     "start_line": 6421,
     "end_line": 6425,
@@ -2992,8 +2992,8 @@
     "section": "Emphasis and strong emphasis"
   },
   {
-    "markdown": "_пристаням_стремятся\n",
-    "html": "<p>_пристаням_стремятся</p>\n",
+    "markdown": "_\u043f\u0440\u0438\u0441\u0442\u0430\u043d\u044f\u043c_\u0441\u0442\u0440\u0435\u043c\u044f\u0442\u0441\u044f\n",
+    "html": "<p>_\u043f\u0440\u0438\u0441\u0442\u0430\u043d\u044f\u043c_\u0441\u0442\u0440\u0435\u043c\u044f\u0442\u0441\u044f</p>\n",
     "example": 375,
     "start_line": 6553,
     "end_line": 6557,
@@ -3096,8 +3096,8 @@
     "section": "Emphasis and strong emphasis"
   },
   {
-    "markdown": "пристаням__стремятся__\n",
-    "html": "<p>пристаням__стремятся__</p>\n",
+    "markdown": "\u043f\u0440\u0438\u0441\u0442\u0430\u043d\u044f\u043c__\u0441\u0442\u0440\u0435\u043c\u044f\u0442\u0441\u044f__\n",
+    "html": "<p>\u043f\u0440\u0438\u0441\u0442\u0430\u043d\u044f\u043c__\u0441\u0442\u0440\u0435\u043c\u044f\u0442\u0441\u044f__</p>\n",
     "example": 388,
     "start_line": 6672,
     "end_line": 6676,
@@ -3200,8 +3200,8 @@
     "section": "Emphasis and strong emphasis"
   },
   {
-    "markdown": "__пристаням__стремятся\n",
-    "html": "<p>__пристаням__стремятся</p>\n",
+    "markdown": "__\u043f\u0440\u0438\u0441\u0442\u0430\u043d\u044f\u043c__\u0441\u0442\u0440\u0435\u043c\u044f\u0442\u0441\u044f\n",
+    "html": "<p>__\u043f\u0440\u0438\u0441\u0442\u0430\u043d\u044f\u043c__\u0441\u0442\u0440\u0435\u043c\u044f\u0442\u0441\u044f</p>\n",
     "example": 401,
     "start_line": 6799,
     "end_line": 6803,
@@ -4048,7 +4048,7 @@
     "section": "Links"
   },
   {
-    "markdown": "[link](/url \"title\")\n",
+    "markdown": "[link](/url\u00a0\"title\")\n",
     "html": "<p><a href=\"/url%C2%A0%22title%22\">link</a></p>\n",
     "example": 507,
     "start_line": 7776,
@@ -4312,8 +4312,8 @@
     "section": "Links"
   },
   {
-    "markdown": "[ẞ]\n\n[SS]: /url\n",
-    "html": "<p><a href=\"/url\">ẞ</a></p>\n",
+    "markdown": "[\u1e9e]\n\n[SS]: /url\n",
+    "html": "<p><a href=\"/url\">\u1e9e</a></p>\n",
     "example": 540,
     "start_line": 8129,
     "end_line": 8135,
@@ -5200,8 +5200,8 @@
     "section": "Textual content"
   },
   {
-    "markdown": "Foo χρῆν\n",
-    "html": "<p>Foo χρῆν</p>\n",
+    "markdown": "Foo \u03c7\u03c1\u1fc6\u03bd\n",
+    "html": "<p>Foo \u03c7\u03c1\u1fc6\u03bd</p>\n",
     "example": 651,
     "start_line": 9402,
     "end_line": 9406,
@@ -5281,7 +5281,7 @@
   },
   {
     "markdown": "- [ ] foo\n- [x] bar\n",
-    "html": "<ul>\n<li><input disabled=\"\" type=\"checkbox\"> foo</li>\n<li><input checked=\"\" disabled=\"\" type=\"checkbox\"> bar</li>\n</ul>\n",
+    "html": "<ul>\n<li><input disabled=\"\" id=\"task-1\" type=\"checkbox\"><label for=\"task-1\"> foo</label></li>\n<li><input checked=\"\" disabled=\"\" id=\"task-2\" type=\"checkbox\"><label for=\"task-2\"> bar</label></li>\n</ul>\n",
     "example": 661,
     "start_line": 5108,
     "end_line": 5116,
@@ -5289,7 +5289,7 @@
   },
   {
     "markdown": "- [x] foo\n  - [ ] bar\n  - [x] baz\n- [ ] bim\n",
-    "html": "<ul>\n<li><input checked=\"\" disabled=\"\" type=\"checkbox\"> foo\n<ul>\n<li><input disabled=\"\" type=\"checkbox\"> bar</li>\n<li><input checked=\"\" disabled=\"\" type=\"checkbox\"> baz</li>\n</ul>\n</li>\n<li><input disabled=\"\" type=\"checkbox\"> bim</li>\n</ul>\n",
+    "html": "<ul>\n<li><input checked=\"\" disabled=\"\" id=\"task-1\" type=\"checkbox\"><label for=\"task-1\"> foo\n<ul>\n<li><input disabled=\"\" id=\"task-2\" type=\"checkbox\"><label for=\"task-2\"> bar</label></li>\n<li><input checked=\"\" disabled=\"\" id=\"task-3\" type=\"checkbox\"><label for=\"task-3\"> baz</label></li>\n</ul>\n</label></li>\n<li><input disabled=\"\" id=\"task-4\" type=\"checkbox\"><label for=\"task-4\"> bim</label></li>\n</ul>\n",
     "example": 662,
     "start_line": 5120,
     "end_line": 5135,

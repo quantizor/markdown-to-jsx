@@ -24,6 +24,11 @@ export { sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
+// Counter for generating unique GFM task IDs
+// Note: This counter is global to ensure unique IDs within a single JS context.
+// For typical usage (rendering one document at a time), this works well.
+let gfmTaskIdCounter = 0
+
 // Import shared HTML to JSX conversion utilities
 import { htmlAttrsToJSXProps } from './utils'
 
@@ -396,6 +401,24 @@ function render(
           start: node.type === RuleType.orderedList ? node.start : undefined,
         },
         ...node.items.map(function generateListItem(item, i) {
+          // Check if the first item is a GFM task
+          if (item[0] && item[0].type === RuleType.gfmTask) {
+            const taskNode = item[0] as MarkdownToJSX.GFMTaskNode
+            const taskId = 'task-' + ++gfmTaskIdCounter
+            // Render remaining items (skip the task node itself)
+            const labelContent = toArray(output(item.slice(1), state))
+            return h(
+              'li',
+              {},
+              h('input', {
+                checked: taskNode.completed,
+                id: taskId,
+                readOnly: true,
+                type: 'checkbox',
+              }),
+              h('label', { for: taskId }, ...labelContent)
+            )
+          }
           return h('li', {}, ...toArray(output(item, state)))
         })
       )
