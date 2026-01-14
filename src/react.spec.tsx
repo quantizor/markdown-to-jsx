@@ -3612,34 +3612,66 @@ describe('Markdown component memoization', () => {
 })
 
 
-describe('suppressIncompleteHtml option', () => {
+describe('suppressIncompleteSyntax option', () => {
   it('should return null for incomplete HTML tags when enabled', () => {
-    const result = compiler('<div>incomplete', { suppressIncompleteHtml: true })
+    const result = compiler('<div>incomplete', { suppressIncompleteSyntax: true })
     expect(result).toBeNull()
   })
 
   it('should return null for incomplete fenced code blocks when enabled', () => {
-    const result = compiler('```js\nconst x = 1;', { suppressIncompleteHtml: true })
+    const result = compiler('```js\nconst x = 1;', { suppressIncompleteSyntax: true })
     expect(result).toBeNull()
   })
 
   it('should return null for incomplete HTML comments when enabled', () => {
-    const result = compiler('<!-- incomplete comment', { suppressIncompleteHtml: true })
+    const result = compiler('<!-- incomplete comment', { suppressIncompleteSyntax: true })
+    expect(result).toBeNull()
+  })
+
+  it('should return null for incomplete inline code when enabled', () => {
+    const result = compiler('some `incomplete code', { suppressIncompleteSyntax: true })
+    expect(result).toBeNull()
+  })
+
+  it('should return null for incomplete bold when enabled', () => {
+    const result = compiler('some **bold text', { suppressIncompleteSyntax: true })
+    expect(result).toBeNull()
+  })
+
+  it('should return null for incomplete italic when enabled', () => {
+    const result = compiler('some *italic text', { suppressIncompleteSyntax: true })
+    expect(result).toBeNull()
+  })
+
+  it('should return null for incomplete strikethrough when enabled', () => {
+    const result = compiler('some ~~strikethrough text', { suppressIncompleteSyntax: true })
+    expect(result).toBeNull()
+  })
+
+  it('should return null for incomplete link when enabled', () => {
+    const result = compiler('some [link text](http://example.com', { suppressIncompleteSyntax: true })
     expect(result).toBeNull()
   })
 
   it('should render complete content normally when enabled', () => {
-    render(compiler('<div>complete</div>', { suppressIncompleteHtml: true }))
+    render(compiler('<div>complete</div>', { suppressIncompleteSyntax: true }))
     expect(root.innerHTML).toContain('complete')
   })
 
   it('should render complete fenced code blocks when enabled', () => {
-    render(compiler('```js\ncode\n```', { suppressIncompleteHtml: true }))
+    render(compiler('```js\ncode\n```', { suppressIncompleteSyntax: true }))
     expect(root.innerHTML).toContain('code')
   })
 
-  it('should render content without HTML tags normally when enabled', () => {
-    render(compiler('Hello world', { suppressIncompleteHtml: true }))
+  it('should render complete inline syntax when enabled', () => {
+    render(compiler('some `code` and **bold** and *italic*', { suppressIncompleteSyntax: true }))
+    expect(root.innerHTML).toContain('code')
+    expect(root.innerHTML).toContain('bold')
+    expect(root.innerHTML).toContain('italic')
+  })
+
+  it('should render content without special syntax normally when enabled', () => {
+    render(compiler('Hello world', { suppressIncompleteSyntax: true }))
     expect(root.innerHTML).toBe('Hello world')
   })
 
@@ -3652,7 +3684,7 @@ describe('suppressIncompleteHtml option', () => {
     const result = renderToString(
       React.createElement(
         Markdown,
-        { options: { suppressIncompleteHtml: true } },
+        { options: { suppressIncompleteSyntax: true } },
         '<CustomComponent>streaming'
       )
     )
@@ -3664,7 +3696,7 @@ describe('suppressIncompleteHtml option', () => {
     const result = renderToString(
       React.createElement(
         Markdown,
-        { options: { suppressIncompleteHtml: true } },
+        { options: { suppressIncompleteSyntax: true } },
         '<strong>complete</strong>'
       )
     )

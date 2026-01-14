@@ -693,7 +693,7 @@ export function applyTagFilterToText(text: string): string {
 
 /**
  * Check if markdown content appears complete for rendering.
- * Used internally by the compiler when suppressIncompleteHtml is enabled.
+ * Used internally by the compiler when suppressIncompleteSyntax is enabled.
  *
  * @param markdown - The markdown string to check
  * @returns `true` if content appears complete and safe to render
@@ -705,15 +705,37 @@ export function isMarkdownComplete(markdown: string): boolean {
   var i = 0
   var code: number
 
-  // Check for unclosed fenced code blocks (``` or ~~~)
+  // State tracking - all in a single pass
   var fenceStack = 0
   var fenceCharCode = 0
+  var tagDepth = 0
+  var backtickCount = 0
+  var asteriskRuns = 0
+  var underscoreRuns = 0
+  var tildeDoubleCount = 0
+  var bracketDepth = 0
+  var parenDepth = 0
+  var atLineStart = true
 
   while (i < len) {
     code = markdown.charCodeAt(i)
 
-    // Check for fence start at beginning of line
-    if (i === 0 || markdown.charCodeAt(i - 1) === $.CHAR_NEWLINE) {
+    // Track line starts for fenced code block detection
+    if (code === $.CHAR_NEWLINE) {
+      atLineStart = true
+      i++
+      continue
+    }
+
+    // Skip escaped characters for inline syntax (but not for HTML/fence detection)
+    if (code === $.CHAR_BACKSLASH && i + 1 < len) {
+      i += 2
+      atLineStart = false
+      continue
+    }
+
+    // Check for fenced code blocks at line start
+    if (atLineStart) {
       // Skip leading whitespace (up to 3 spaces)
       var lineStart = i
       var indent = 0
@@ -740,114 +762,196 @@ export function isMarkdownComplete(markdown: string): boolean {
               fenceStack = 0
               fenceCharCode = 0
             }
+            atLineStart = false
+            continue
           }
-          continue
+          // Not a fence, restore position and continue
+          i = lineStart
+          code = markdown.charCodeAt(i)
         }
-      }
-      i = lineStart
-    }
-    i++
-  }
-
-  if (fenceStack > 0) return false
-
-  // Check for unclosed HTML tags using a simple depth counter
-  var tagDepth = 0
-  i = 0
-
-  while (i < len) {
-    code = markdown.charCodeAt(i)
-    if (code !== $.CHAR_LT) {
-      i++
-      continue
-    }
-
-    i++
-    if (i >= len) return false
-
-    code = markdown.charCodeAt(i)
-    var isClosing = code === $.CHAR_SLASH
-    if (isClosing) {
-      i++
-      if (i >= len) return false
-      code = markdown.charCodeAt(i)
-    }
-
-    // Check for comment: <!--
-    if (code === $.CHAR_EXCLAMATION && i + 2 < len &&
-        markdown.charCodeAt(i + 1) === $.CHAR_DASH &&
-        markdown.charCodeAt(i + 2) === $.CHAR_DASH) {
-      i += 3
-      var commentClosed = false
-      while (i + 2 < len) {
-        if (markdown.charCodeAt(i) === $.CHAR_DASH &&
-            markdown.charCodeAt(i + 1) === $.CHAR_DASH &&
-            markdown.charCodeAt(i + 2) === $.CHAR_GT) {
-          commentClosed = true
-          i += 3
-          break
-        }
-        i++
-      }
-      if (!commentClosed) return false
-      continue
-    }
-
-    // Must start with letter for valid tag
-    if (!((code >= $.CHAR_A && code <= $.CHAR_Z) || (code >= $.CHAR_a && code <= $.CHAR_z))) {
-      continue
-    }
-
-    // Read tag name
-    var tagStart = i
-    while (i < len) {
-      code = markdown.charCodeAt(i)
-      if ((code >= $.CHAR_A && code <= $.CHAR_Z) ||
-          (code >= $.CHAR_a && code <= $.CHAR_z) ||
-          (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
-          code === $.CHAR_DASH) {
-        i++
       } else {
         break
       }
     }
 
-    var tagEnd = i
-    if (tagEnd === tagStart) continue
+    atLineStart = false
 
-    // Skip whitespace and attributes until > or />
-    var selfClosing = false
-    var foundClose = false
-    while (i < len) {
-      code = markdown.charCodeAt(i)
-      if (code === $.CHAR_GT) {
-        foundClose = true
-        i++
-        break
-      }
-      if (code === $.CHAR_SLASH && i + 1 < len && markdown.charCodeAt(i + 1) === $.CHAR_GT) {
-        selfClosing = true
-        foundClose = true
-        i += 2
-        break
-      }
+    // Inside fenced code block - skip all other processing
+    if (fenceStack > 0) {
       i++
+      continue
     }
 
-    if (!foundClose) return false
+    // HTML tag detection
+    if (code === $.CHAR_LT) {
+      i++
+      if (i >= len) return false
 
-    // Check if void element - only create substring when needed for Set lookup
-    if (!selfClosing) {
-      var tagName = markdown.slice(tagStart, tagEnd).toLowerCase()
-      if (!VOID_ELEMENTS.has(tagName)) {
-        if (isClosing) {
-          tagDepth--
+      code = markdown.charCodeAt(i)
+      var isClosing = code === $.CHAR_SLASH
+      if (isClosing) {
+        i++
+        if (i >= len) return false
+        code = markdown.charCodeAt(i)
+      }
+
+      // Check for comment: <!--
+      if (code === $.CHAR_EXCLAMATION && i + 2 < len &&
+          markdown.charCodeAt(i + 1) === $.CHAR_DASH &&
+          markdown.charCodeAt(i + 2) === $.CHAR_DASH) {
+        i += 3
+        var commentClosed = false
+        while (i + 2 < len) {
+          if (markdown.charCodeAt(i) === $.CHAR_DASH &&
+              markdown.charCodeAt(i + 1) === $.CHAR_DASH &&
+              markdown.charCodeAt(i + 2) === $.CHAR_GT) {
+            commentClosed = true
+            i += 3
+            break
+          }
+          i++
+        }
+        if (!commentClosed) return false
+        continue
+      }
+
+      // Must start with letter for valid tag
+      if (!((code >= $.CHAR_A && code <= $.CHAR_Z) || (code >= $.CHAR_a && code <= $.CHAR_z))) {
+        continue
+      }
+
+      // Read tag name
+      var tagStart = i
+      while (i < len) {
+        code = markdown.charCodeAt(i)
+        if ((code >= $.CHAR_A && code <= $.CHAR_Z) ||
+            (code >= $.CHAR_a && code <= $.CHAR_z) ||
+            (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
+            code === $.CHAR_DASH) {
+          i++
         } else {
-          tagDepth++
+          break
         }
       }
+
+      var tagEnd = i
+      if (tagEnd === tagStart) continue
+
+      // Skip whitespace and attributes until > or />
+      var selfClosing = false
+      var foundClose = false
+      while (i < len) {
+        code = markdown.charCodeAt(i)
+        if (code === $.CHAR_GT) {
+          foundClose = true
+          i++
+          break
+        }
+        if (code === $.CHAR_SLASH && i + 1 < len && markdown.charCodeAt(i + 1) === $.CHAR_GT) {
+          selfClosing = true
+          foundClose = true
+          i += 2
+          break
+        }
+        i++
+      }
+
+      if (!foundClose) return false
+
+      // Check if void element
+      if (!selfClosing) {
+        var tagName = markdown.slice(tagStart, tagEnd).toLowerCase()
+        if (!VOID_ELEMENTS.has(tagName)) {
+          if (isClosing) {
+            tagDepth--
+          } else {
+            tagDepth++
+          }
+        }
+      }
+      continue
     }
+
+    // Inline backticks (not fenced blocks - those are handled above)
+    if (code === $.CHAR_BACKTICK) {
+      var btStart = i
+      while (i < len && markdown.charCodeAt(i) === $.CHAR_BACKTICK) {
+        i++
+      }
+      var btCount = i - btStart
+      if (btCount < 3) {
+        backtickCount += btCount
+      }
+      continue
+    }
+
+    // Asterisk runs for bold/italic
+    if (code === $.CHAR_ASTERISK) {
+      while (i + 1 < len && markdown.charCodeAt(i + 1) === $.CHAR_ASTERISK) {
+        i++
+      }
+      asteriskRuns++
+      i++
+      continue
+    }
+
+    // Underscore runs for emphasis
+    if (code === $.CHAR_UNDERSCORE) {
+      while (i + 1 < len && markdown.charCodeAt(i + 1) === $.CHAR_UNDERSCORE) {
+        i++
+      }
+      underscoreRuns++
+      i++
+      continue
+    }
+
+    // Tilde pairs for strikethrough
+    if (code === $.CHAR_TILDE) {
+      var tildeStart = i
+      while (i < len && markdown.charCodeAt(i) === $.CHAR_TILDE) {
+        i++
+      }
+      if (i - tildeStart === 2) {
+        tildeDoubleCount++
+      }
+      continue
+    }
+
+    // Link/image syntax
+    if (code === $.CHAR_BRACKET_OPEN) {
+      bracketDepth++
+      i++
+      continue
+    }
+
+    if (code === $.CHAR_BRACKET_CLOSE) {
+      if (bracketDepth > 0) bracketDepth--
+      i++
+      // Check if followed by ( for link
+      if (i < len && markdown.charCodeAt(i) === $.CHAR_PAREN_OPEN) {
+        parenDepth++
+        i++
+      }
+      continue
+    }
+
+    if (code === $.CHAR_PAREN_CLOSE && parenDepth > 0) {
+      parenDepth--
+      i++
+      continue
+    }
+
+    i++
   }
 
-  return tagDepth <= 0
+  // Final checks
+  if (fenceStack > 0) return false
+  if (tagDepth > 0) return false
+  if (backtickCount % 2 !== 0) return false
+  if (asteriskRuns % 2 !== 0) return false
+  if (underscoreRuns % 2 !== 0) return false
+  if (tildeDoubleCount % 2 !== 0) return false
+  if (bracketDepth > 0 || parenDepth > 0) return false
+
+  return true
 }

@@ -1496,24 +1496,39 @@ tags:
   })
 })
 
-describe('suppressIncompleteHtml option', () => {
+describe('suppressIncompleteSyntax option', () => {
   it('should return empty string for incomplete HTML tags when enabled', () => {
-    const result = compiler('<div>incomplete', { suppressIncompleteHtml: true })
+    const result = compiler('<div>incomplete', { suppressIncompleteSyntax: true })
     expect(result).toBe('')
   })
 
   it('should return empty string for incomplete fenced code blocks when enabled', () => {
-    const result = compiler('```js\nconst x = 1;', { suppressIncompleteHtml: true })
+    const result = compiler('```js\nconst x = 1;', { suppressIncompleteSyntax: true })
+    expect(result).toBe('')
+  })
+
+  it('should return empty string for incomplete inline code when enabled', () => {
+    const result = compiler('some `incomplete code', { suppressIncompleteSyntax: true })
+    expect(result).toBe('')
+  })
+
+  it('should return empty string for incomplete bold when enabled', () => {
+    const result = compiler('some **bold text', { suppressIncompleteSyntax: true })
+    expect(result).toBe('')
+  })
+
+  it('should return empty string for incomplete link when enabled', () => {
+    const result = compiler('some [link](http://example.com', { suppressIncompleteSyntax: true })
     expect(result).toBe('')
   })
 
   it('should render complete content normally when enabled', () => {
-    const result = compiler('<div>complete</div>', { suppressIncompleteHtml: true })
+    const result = compiler('<div>complete</div>', { suppressIncompleteSyntax: true })
     expect(result).toContain('complete')
   })
 
-  it('should render content without HTML tags normally when enabled', () => {
-    const result = compiler('Hello world', { suppressIncompleteHtml: true })
+  it('should render content without special syntax normally when enabled', () => {
+    const result = compiler('Hello world', { suppressIncompleteSyntax: true })
     expect(result).toContain('Hello world')
   })
 

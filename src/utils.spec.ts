@@ -1194,6 +1194,49 @@ describe('isMarkdownComplete', () => {
     })
   })
 
+  describe('inline syntax', () => {
+    it('should detect incomplete inline code', () => {
+      expect(u.isMarkdownComplete('some `incomplete code')).toBe(false)
+      expect(u.isMarkdownComplete('some `complete` code')).toBe(true)
+    })
+
+    it('should detect incomplete bold', () => {
+      expect(u.isMarkdownComplete('some **bold text')).toBe(false)
+      expect(u.isMarkdownComplete('some **bold** text')).toBe(true)
+    })
+
+    it('should detect incomplete italic', () => {
+      expect(u.isMarkdownComplete('some *italic text')).toBe(false)
+      expect(u.isMarkdownComplete('some *italic* text')).toBe(true)
+    })
+
+    it('should detect incomplete underscore emphasis', () => {
+      expect(u.isMarkdownComplete('some _emphasized text')).toBe(false)
+      expect(u.isMarkdownComplete('some _emphasized_ text')).toBe(true)
+    })
+
+    it('should detect incomplete strikethrough', () => {
+      expect(u.isMarkdownComplete('some ~~strikethrough text')).toBe(false)
+      expect(u.isMarkdownComplete('some ~~strikethrough~~ text')).toBe(true)
+    })
+
+    it('should detect incomplete links', () => {
+      expect(u.isMarkdownComplete('some [link text](http://example.com')).toBe(false)
+      expect(u.isMarkdownComplete('some [link text](http://example.com)')).toBe(true)
+      expect(u.isMarkdownComplete('some [incomplete link')).toBe(false)
+    })
+
+    it('should detect incomplete images', () => {
+      expect(u.isMarkdownComplete('some ![alt text](http://example.com/img.png')).toBe(false)
+      expect(u.isMarkdownComplete('some ![alt text](http://example.com/img.png)')).toBe(true)
+    })
+
+    it('should handle complete mixed inline syntax', () => {
+      expect(u.isMarkdownComplete('some `code` and **bold** and *italic*')).toBe(true)
+      expect(u.isMarkdownComplete('a [link](url) with `code`')).toBe(true)
+    })
+  })
+
   describe('edge cases', () => {
     it('should handle angle brackets in text', () => {
       // Angle brackets that are not HTML tags
@@ -1202,12 +1245,15 @@ describe('isMarkdownComplete', () => {
       expect(u.isMarkdownComplete('use < and > for comparison')).toBe(true)
     })
 
-    it('should handle escaped content conservatively', () => {
-      // Escaped tags are still treated as potentially incomplete for safety
-      // This is conservative behavior for streaming scenarios
-      expect(u.isMarkdownComplete('\\<div>')).toBe(false)
-      // Complete escaped content is fine
-      expect(u.isMarkdownComplete('\\<div>\\</div>')).toBe(true)
+    it('should handle escaped content correctly', () => {
+      // Escaped characters are properly skipped, so \<div> is not an HTML tag
+      expect(u.isMarkdownComplete('\\<div>')).toBe(true)
+      // Escaped content with unescaped incomplete tag
+      expect(u.isMarkdownComplete('\\<div><span>')).toBe(false)
+      // Escaped asterisk doesn't count toward emphasis
+      expect(u.isMarkdownComplete('\\*escaped')).toBe(true)
+      // One unescaped asterisk is incomplete
+      expect(u.isMarkdownComplete('text *incomplete')).toBe(false)
     })
 
     it('should handle complex mixed content', () => {
