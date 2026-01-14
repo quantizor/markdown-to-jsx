@@ -752,7 +752,6 @@ export function isMarkdownComplete(markdown: string): boolean {
   if (fenceStack > 0) return false
 
   // Check for unclosed HTML tags using a simple depth counter
-  // We track depth of non-void tags to detect unclosed elements
   var tagDepth = 0
   i = 0
 
@@ -799,29 +798,22 @@ export function isMarkdownComplete(markdown: string): boolean {
       continue
     }
 
-    // Read tag name and compute simple hash for void element check
+    // Read tag name
     var tagStart = i
-    var tagHash = 0
-    var tagLen = 0
     while (i < len) {
       code = markdown.charCodeAt(i)
       if ((code >= $.CHAR_A && code <= $.CHAR_Z) ||
           (code >= $.CHAR_a && code <= $.CHAR_z) ||
           (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
           code === $.CHAR_DASH) {
-        // Normalize to lowercase for hash
-        if (code >= $.CHAR_A && code <= $.CHAR_Z) {
-          code += $.CHAR_CASE_OFFSET
-        }
-        tagHash = (tagHash * 31 + code) | 0
-        tagLen++
         i++
       } else {
         break
       }
     }
 
-    if (tagLen === 0) continue
+    var tagEnd = i
+    if (tagEnd === tagStart) continue
 
     // Skip whitespace and attributes until > or />
     var selfClosing = false
@@ -844,95 +836,18 @@ export function isMarkdownComplete(markdown: string): boolean {
 
     if (!foundClose) return false
 
-    // Check if void element using hash + length
-    // Pre-computed hashes for void elements
-    var isVoid = selfClosing || isVoidTagHash(tagHash, tagLen, markdown, tagStart)
-
-    if (!isVoid) {
-      if (isClosing) {
-        tagDepth--
-      } else {
-        tagDepth++
+    // Check if void element - only create substring when needed for Set lookup
+    if (!selfClosing) {
+      var tagName = markdown.slice(tagStart, tagEnd).toLowerCase()
+      if (!VOID_ELEMENTS.has(tagName)) {
+        if (isClosing) {
+          tagDepth--
+        } else {
+          tagDepth++
+        }
       }
     }
   }
 
   return tagDepth <= 0
-}
-
-// Check if tag is a void element by comparing against the source string
-// Uses start index and length to avoid allocation
-function isVoidTagHash(hash: number, tagLen: number, src: string, start: number): boolean {
-  // Quick length check - void elements are 2-6 chars
-  if (tagLen < 2 || tagLen > 6) return false
-
-  // Check common void elements by comparing characters directly
-  var c0 = src.charCodeAt(start)
-  if (c0 >= $.CHAR_A && c0 <= $.CHAR_Z) c0 += $.CHAR_CASE_OFFSET
-
-  if (tagLen === 2) {
-    // br, hr
-    var c1 = src.charCodeAt(start + 1)
-    if (c1 >= $.CHAR_A && c1 <= $.CHAR_Z) c1 += $.CHAR_CASE_OFFSET
-    return (c0 === 98 && c1 === 114) || // br
-           (c0 === 104 && c1 === 114)   // hr
-  }
-
-  if (tagLen === 3) {
-    // img, col, wbr
-    var c1 = src.charCodeAt(start + 1)
-    var c2 = src.charCodeAt(start + 2)
-    if (c1 >= $.CHAR_A && c1 <= $.CHAR_Z) c1 += $.CHAR_CASE_OFFSET
-    if (c2 >= $.CHAR_A && c2 <= $.CHAR_Z) c2 += $.CHAR_CASE_OFFSET
-    return (c0 === 105 && c1 === 109 && c2 === 103) || // img
-           (c0 === 99 && c1 === 111 && c2 === 108) ||  // col
-           (c0 === 119 && c1 === 98 && c2 === 114)     // wbr
-  }
-
-  if (tagLen === 4) {
-    // area, base, link, meta
-    var c1 = src.charCodeAt(start + 1)
-    var c2 = src.charCodeAt(start + 2)
-    var c3 = src.charCodeAt(start + 3)
-    if (c1 >= $.CHAR_A && c1 <= $.CHAR_Z) c1 += $.CHAR_CASE_OFFSET
-    if (c2 >= $.CHAR_A && c2 <= $.CHAR_Z) c2 += $.CHAR_CASE_OFFSET
-    if (c3 >= $.CHAR_A && c3 <= $.CHAR_Z) c3 += $.CHAR_CASE_OFFSET
-    return (c0 === 97 && c1 === 114 && c2 === 101 && c3 === 97) ||   // area
-           (c0 === 98 && c1 === 97 && c2 === 115 && c3 === 101) ||   // base
-           (c0 === 108 && c1 === 105 && c2 === 110 && c3 === 107) || // link
-           (c0 === 109 && c1 === 101 && c2 === 116 && c3 === 97)     // meta
-  }
-
-  if (tagLen === 5) {
-    // embed, input, param, track
-    var c1 = src.charCodeAt(start + 1)
-    var c2 = src.charCodeAt(start + 2)
-    var c3 = src.charCodeAt(start + 3)
-    var c4 = src.charCodeAt(start + 4)
-    if (c1 >= $.CHAR_A && c1 <= $.CHAR_Z) c1 += $.CHAR_CASE_OFFSET
-    if (c2 >= $.CHAR_A && c2 <= $.CHAR_Z) c2 += $.CHAR_CASE_OFFSET
-    if (c3 >= $.CHAR_A && c3 <= $.CHAR_Z) c3 += $.CHAR_CASE_OFFSET
-    if (c4 >= $.CHAR_A && c4 <= $.CHAR_Z) c4 += $.CHAR_CASE_OFFSET
-    return (c0 === 101 && c1 === 109 && c2 === 98 && c3 === 101 && c4 === 100) ||  // embed
-           (c0 === 105 && c1 === 110 && c2 === 112 && c3 === 117 && c4 === 116) || // input
-           (c0 === 112 && c1 === 97 && c2 === 114 && c3 === 97 && c4 === 109) ||   // param
-           (c0 === 116 && c1 === 114 && c2 === 97 && c3 === 99 && c4 === 107)      // track
-  }
-
-  if (tagLen === 6) {
-    // source
-    var c1 = src.charCodeAt(start + 1)
-    var c2 = src.charCodeAt(start + 2)
-    var c3 = src.charCodeAt(start + 3)
-    var c4 = src.charCodeAt(start + 4)
-    var c5 = src.charCodeAt(start + 5)
-    if (c1 >= $.CHAR_A && c1 <= $.CHAR_Z) c1 += $.CHAR_CASE_OFFSET
-    if (c2 >= $.CHAR_A && c2 <= $.CHAR_Z) c2 += $.CHAR_CASE_OFFSET
-    if (c3 >= $.CHAR_A && c3 <= $.CHAR_Z) c3 += $.CHAR_CASE_OFFSET
-    if (c4 >= $.CHAR_A && c4 <= $.CHAR_Z) c4 += $.CHAR_CASE_OFFSET
-    if (c5 >= $.CHAR_A && c5 <= $.CHAR_Z) c5 += $.CHAR_CASE_OFFSET
-    return c0 === 115 && c1 === 111 && c2 === 117 && c3 === 114 && c4 === 99 && c5 === 101 // source
-  }
-
-  return false
 }
