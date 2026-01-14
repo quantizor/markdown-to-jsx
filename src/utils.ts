@@ -690,3 +690,219 @@ export function applyTagFilterToText(text: string): string {
     }
   )
 }
+
+/**
+ * Check if markdown content appears complete for rendering.
+ *
+ * Useful for streaming markdown scenarios where you want to avoid rendering
+ * incomplete HTML tags or markdown syntax that would cause visual flickering.
+ *
+ * Returns `true` if the content appears safe to render, `false` if there are
+ * potentially incomplete structures that might cause raw HTML/syntax to appear.
+ *
+ * @lang zh 检查 Markdown 内容是否完整可渲染。
+ *
+ * 适用于流式 Markdown 场景，避免渲染不完整的 HTML 标签或 Markdown 语法，以防止视觉闪烁。
+ *
+ * 如果内容可以安全渲染返回 `true`，如果存在可能导致原始 HTML/语法显示的不完整结构返回 `false`。
+ *
+ * @lang hi जाँचें कि Markdown सामग्री रेंडरिंग के लिए पूर्ण दिखाई देती है या नहीं।
+ *
+ * स्ट्रीमिंग Markdown परिदृश्यों के लिए उपयोगी जहाँ आप अपूर्ण HTML टैग्स या Markdown सिंटैक्स को रेंडर करने से बचना चाहते हैं जो दृश्य झिलमिलाहट का कारण बन सकते हैं।
+ *
+ * यदि सामग्री रेंडर करने के लिए सुरक्षित दिखाई देती है तो `true` लौटाता है, यदि संभावित अपूर्ण संरचनाएं हैं जो कच्चे HTML/सिंटैक्स को दिखा सकती हैं तो `false` लौटाता है।
+ *
+ * @param markdown - The markdown string to check
+ * @lang zh @param markdown - 要检查的 Markdown 字符串
+ * @lang hi @param markdown - जाँचने के लिए Markdown स्ट्रिंग
+ * @returns `true` if content appears complete and safe to render
+ * @lang zh @returns 如果内容完整且可以安全渲染则返回 `true`
+ * @lang hi @returns यदि सामग्री पूर्ण और रेंडर करने के लिए सुरक्षित दिखाई देती है तो `true`
+ *
+ * @example
+ * ```tsx
+ * import { isMarkdownComplete } from 'markdown-to-jsx'
+ *
+ * function StreamingMarkdown({ content }) {
+ *   // Only render when content appears complete
+ *   if (!isMarkdownComplete(content)) {
+ *     return <div>Loading...</div>
+ *   }
+ *   return <Markdown>{content}</Markdown>
+ * }
+ * ```
+ */
+export function isMarkdownComplete(markdown: string): boolean {
+  if (!markdown) return true
+
+  var len = markdown.length
+
+  // Check for unclosed fenced code blocks (``` or ~~~)
+  var fenceStack = 0
+  var fenceChar = ''
+  var i = 0
+
+  while (i < len) {
+    var c = markdown[i]
+
+    // Check for fence start at beginning of line
+    if (i === 0 || markdown[i - 1] === '\n') {
+      // Skip leading whitespace (up to 3 spaces)
+      var lineStart = i
+      var indent = 0
+      while (indent < 3 && i < len && markdown[i] === ' ') {
+        indent++
+        i++
+      }
+
+      if (i < len) {
+        c = markdown[i]
+        if (c === '`' || c === '~') {
+          var fenceType = c
+          var fenceCount = 0
+          while (i < len && markdown[i] === fenceType) {
+            fenceCount++
+            i++
+          }
+
+          if (fenceCount >= 3) {
+            if (fenceStack === 0) {
+              // Opening fence
+              fenceStack = 1
+              fenceChar = fenceType
+            } else if (fenceType === fenceChar && fenceCount >= 3) {
+              // Closing fence (must match opening fence character)
+              fenceStack = 0
+              fenceChar = ''
+            }
+          }
+          continue
+        }
+      }
+      i = lineStart
+    }
+    i++
+  }
+
+  // If we're inside a fenced code block, content is incomplete
+  if (fenceStack > 0) return false
+
+  // Check for unclosed HTML tags
+  // Track open tags that require closing
+  var tagStack: string[] = []
+  i = 0
+
+  while (i < len) {
+    // Look for '<'
+    if (markdown[i] !== '<') {
+      i++
+      continue
+    }
+
+    var tagStart = i
+    i++
+
+    // Skip if at end - this is an incomplete tag
+    if (i >= len) {
+      return false
+    }
+
+    // Check for closing tag
+    var isClosing = markdown[i] === '/'
+    if (isClosing) {
+      i++
+      if (i >= len) return false // Incomplete closing tag
+    }
+
+    // Check for comment
+    if (i + 2 < len && markdown[i] === '!' && markdown[i + 1] === '-' && markdown[i + 2] === '-') {
+      // HTML comment - look for -->
+      i += 3
+      var commentClosed = false
+      while (i < len) {
+        if (i + 2 < len && markdown[i] === '-' && markdown[i + 1] === '-' && markdown[i + 2] === '>') {
+          commentClosed = true
+          i += 3
+          break
+        }
+        i++
+      }
+      if (!commentClosed) return false
+      continue
+    }
+
+    // Must start with letter for valid HTML tag
+    if (i >= len) {
+      // Just `</` at end is incomplete
+      if (isClosing) return false
+      continue
+    }
+    
+    var tagNameStart = i
+    var code = markdown.charCodeAt(i)
+    if (!((code >= $.CHAR_A && code <= $.CHAR_Z) || (code >= $.CHAR_a && code <= $.CHAR_z))) {
+      // Not a valid tag (e.g., "5 < 10" or "< " or "<123")
+      // This is text content, not an HTML tag - continue scanning
+      continue
+    }
+
+    // Read tag name
+    while (i < len) {
+      code = markdown.charCodeAt(i)
+      if ((code >= $.CHAR_A && code <= $.CHAR_Z) ||
+          (code >= $.CHAR_a && code <= $.CHAR_z) ||
+          (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
+          code === $.CHAR_DASH) {
+        i++
+      } else {
+        break
+      }
+    }
+
+    var tagName = markdown.slice(tagNameStart, i).toLowerCase()
+    if (!tagName) continue
+
+    // Skip whitespace and attributes until we find > or />
+    var selfClosing = false
+    var foundClose = false
+    while (i < len) {
+      if (markdown[i] === '>') {
+        foundClose = true
+        i++
+        break
+      }
+      if (markdown[i] === '/' && i + 1 < len && markdown[i + 1] === '>') {
+        selfClosing = true
+        foundClose = true
+        i += 2
+        break
+      }
+      i++
+    }
+
+    // If we didn't find closing >, tag is incomplete
+    if (!foundClose) {
+      return false
+    }
+
+    // Skip void elements (they don't need closing tags)
+    if (VOID_ELEMENTS.has(tagName) || selfClosing) {
+      continue
+    }
+
+    if (isClosing) {
+      // Closing tag - pop from stack if matches
+      if (tagStack.length > 0 && tagStack[tagStack.length - 1] === tagName) {
+        tagStack.pop()
+      }
+    } else {
+      // Opening tag - push to stack
+      tagStack.push(tagName)
+    }
+  }
+
+  // If tag stack is not empty, we have unclosed tags
+  if (tagStack.length > 0) return false
+
+  return true
+}

@@ -10,7 +10,7 @@ import * as util from './utils'
 export { parser } from './parse'
 
 export { RuleType, type MarkdownToJSX } from './types'
-export { sanitizer, slugify } from './utils'
+export { isMarkdownComplete, sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 
