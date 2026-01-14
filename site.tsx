@@ -192,6 +192,57 @@ function LanguageSwitcher({
   )
 }
 
+function StreamingSlider({
+  value,
+  max,
+  onChange,
+  isPlaying,
+  onPlayToggle,
+}: {
+  value: number
+  max: number
+  onChange: (value: number) => void
+  isPlaying: boolean
+  onPlayToggle: () => void
+}) {
+  return (
+    <div className="hidden md:flex streaming-slider-container fixed left-4 top-1/2 -translate-y-1/2 flex-col items-center gap-3 opacity-0 hover:opacity-100 transition-opacity duration-300 z-50">
+      <button
+        onClick={onPlayToggle}
+        className="w-8 h-8 rounded-full bg-accent/80 hover:bg-accent flex items-center justify-center text-black transition-colors"
+        title={isPlaying ? 'Pause' : 'Play streaming demo'}
+      >
+        {isPlaying ? (
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <rect x="1" y="1" width="3" height="10" />
+            <rect x="8" y="1" width="3" height="10" />
+          </svg>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <polygon points="2,0 12,6 2,12" />
+          </svg>
+        )}
+      </button>
+      <input
+        type="range"
+        min="0"
+        max={max}
+        value={value}
+        onChange={(e) => onChange(parseInt(e.target.value, 10))}
+        className="streaming-slider"
+        style={{
+          writingMode: 'vertical-lr',
+          direction: 'rtl',
+          height: '80vh',
+        }}
+      />
+      <span className="text-xs text-fg/60 font-mono">
+        {value}/{max}
+      </span>
+    </div>
+  )
+}
+
 function TryItLive() {
   const [lang, setLang] = React.useState(detectLanguage)
   const [markdown, setMarkdown] = React.useState('')
@@ -199,6 +250,11 @@ function TryItLive() {
     null
   )
   const [readmeContent, setReadmeContent] = React.useState('')
+  
+  // Streaming demo state
+  const [streamingCharCount, setStreamingCharCount] = React.useState<number | null>(null)
+  const [isPlaying, setIsPlaying] = React.useState(false)
+  const playIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
 
   const options = React.useMemo(
     () =>
@@ -225,6 +281,16 @@ function TryItLive() {
         },
       }) as MarkdownToJSX.Options,
     [lang]
+  )
+  
+  // Streaming-optimized options for README
+  const streamingOptions = React.useMemo(
+    () =>
+      ({
+        ...options,
+        optimizeForStreaming: streamingCharCount !== null,
+      }) as MarkdownToJSX.Options,
+    [options, streamingCharCount]
   )
 
   const t = React.useCallback(
@@ -257,10 +323,15 @@ function TryItLive() {
       try {
         const module = await import(`./src/i18n/${lang}/README.md?raw`)
         setReadmeContent(module.default)
+        // Reset streaming state when README changes
+        setStreamingCharCount(null)
+        setIsPlaying(false)
       } catch (error) {
         // Fallback to English
         const module = await import(`./src/i18n/en/README.md?raw`)
         setReadmeContent(module.default)
+        setStreamingCharCount(null)
+        setIsPlaying(false)
       }
     }
     loadReadme()
@@ -299,6 +370,53 @@ function TryItLive() {
     document.addEventListener('click', handleHashLink)
     return () => document.removeEventListener('click', handleHashLink)
   }, [])
+  
+  // Streaming playback effect
+  React.useEffect(() => {
+    if (isPlaying && readmeContent) {
+      playIntervalRef.current = setInterval(() => {
+        setStreamingCharCount(prev => {
+          const next = (prev ?? 0) + 1
+          if (next >= readmeContent.length) {
+            setIsPlaying(false)
+            return readmeContent.length
+          }
+          return next
+        })
+      }, 100)
+    } else if (playIntervalRef.current) {
+      clearInterval(playIntervalRef.current)
+      playIntervalRef.current = null
+    }
+    
+    return () => {
+      if (playIntervalRef.current) {
+        clearInterval(playIntervalRef.current)
+      }
+    }
+  }, [isPlaying, readmeContent])
+  
+  const handlePlayToggle = () => {
+    if (isPlaying) {
+      setIsPlaying(false)
+    } else {
+      // Start from 0 if at end or not started
+      if (streamingCharCount === null || streamingCharCount >= readmeContent.length) {
+        setStreamingCharCount(0)
+      }
+      setIsPlaying(true)
+    }
+  }
+  
+  const handleSliderChange = (value: number) => {
+    setStreamingCharCount(value)
+    setIsPlaying(false)
+  }
+  
+  // The displayed README content (either full or truncated for streaming demo)
+  const displayedReadmeContent = streamingCharCount !== null 
+    ? readmeContent.slice(0, streamingCharCount) 
+    : readmeContent
 
   return (
     <main className="flex flex-col items-center justify-center gap-7 pb-20 px-6 lg:px-0">
@@ -372,6 +490,17 @@ function TryItLive() {
         lang={lang}
       />
 
+      {/* Streaming slider for README demo */}
+      {readmeContent && (
+        <StreamingSlider
+          value={streamingCharCount ?? readmeContent.length}
+          max={readmeContent.length}
+          onChange={handleSliderChange}
+          isPlaying={isPlaying}
+          onPlayToggle={handlePlayToggle}
+        />
+      )}
+
       <div className="relative group max-w-full lg:max-w-2xl w-full">
         {lang !== 'en' && (
           <a
@@ -386,9 +515,9 @@ function TryItLive() {
         <Markdown
           className="prose prose-invert prose-sm center"
           id="docs"
-          options={options}
+          options={streamingOptions}
         >
-          {readmeContent}
+          {displayedReadmeContent}
         </Markdown>
       </div>
     </main>
