@@ -695,6 +695,10 @@ export function applyTagFilterToText(text: string): string {
  * Check if markdown content appears complete for rendering.
  * Used internally by the compiler when suppressIncompleteSyntax is enabled.
  *
+ * This function checks for incomplete inline syntax that would display raw
+ * markdown characters. Fenced code blocks are NOT checked here - they render
+ * normally with content visible as it streams in, waiting for the closing fence.
+ *
  * @param markdown - The markdown string to check
  * @returns `true` if content appears complete and safe to render
  */
@@ -706,7 +710,8 @@ export function isMarkdownComplete(markdown: string): boolean {
   var code: number
 
   // State tracking - all in a single pass
-  var fenceStack = 0
+  // Note: We track fenced code blocks only to skip inline syntax inside them
+  var inFencedBlock = false
   var fenceCharCode = 0
   var tagDepth = 0
   var backtickCount = 0
@@ -755,11 +760,11 @@ export function isMarkdownComplete(markdown: string): boolean {
           }
 
           if (fenceCount >= 3) {
-            if (fenceStack === 0) {
-              fenceStack = 1
+            if (!inFencedBlock) {
+              inFencedBlock = true
               fenceCharCode = fenceType
             } else if (fenceType === fenceCharCode) {
-              fenceStack = 0
+              inFencedBlock = false
               fenceCharCode = 0
             }
             atLineStart = false
@@ -776,8 +781,9 @@ export function isMarkdownComplete(markdown: string): boolean {
 
     atLineStart = false
 
-    // Inside fenced code block - skip all other processing
-    if (fenceStack > 0) {
+    // Inside fenced code block - skip all inline syntax processing
+    // (fenced blocks render normally, we just don't want to count their contents)
+    if (inFencedBlock) {
       i++
       continue
     }
@@ -944,8 +950,7 @@ export function isMarkdownComplete(markdown: string): boolean {
     i++
   }
 
-  // Final checks
-  if (fenceStack > 0) return false
+  // Final checks - note: fenced blocks are NOT checked, they render normally
   if (tagDepth > 0) return false
   if (backtickCount % 2 !== 0) return false
   if (asteriskRuns % 2 !== 0) return false

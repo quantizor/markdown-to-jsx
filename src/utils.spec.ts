@@ -1146,10 +1146,12 @@ describe('isMarkdownComplete', () => {
       expect(u.isMarkdownComplete('~~~\ncode\n~~~')).toBe(true)
     })
 
-    it('should return false for unclosed fenced code blocks', () => {
-      expect(u.isMarkdownComplete('```\ncode')).toBe(false)
-      expect(u.isMarkdownComplete('```js\nconst x = 1;')).toBe(false)
-      expect(u.isMarkdownComplete('~~~\ncode')).toBe(false)
+    it('should return true for unclosed fenced code blocks (they render normally)', () => {
+      // Fenced code blocks should render as they stream in - users want to see
+      // the code content, they just don't want raw inline markdown syntax
+      expect(u.isMarkdownComplete('```\ncode')).toBe(true)
+      expect(u.isMarkdownComplete('```js\nconst x = 1;')).toBe(true)
+      expect(u.isMarkdownComplete('~~~\ncode')).toBe(true)
     })
 
     it('should handle indented fenced code blocks', () => {
@@ -1157,14 +1159,21 @@ describe('isMarkdownComplete', () => {
       expect(u.isMarkdownComplete('   ```\n   code\n   ```')).toBe(true)
     })
 
-    it('should return false for unclosed indented fenced code blocks', () => {
-      expect(u.isMarkdownComplete('  ```\n  code')).toBe(false)
+    it('should return true for unclosed indented fenced code blocks', () => {
+      expect(u.isMarkdownComplete('  ```\n  code')).toBe(true)
     })
 
     it('should handle mixed fence characters', () => {
-      // Opening with ``` should require closing with ```
-      expect(u.isMarkdownComplete('```\ncode\n~~~')).toBe(false)
-      expect(u.isMarkdownComplete('~~~\ncode\n```')).toBe(false)
+      // Opening with ``` should require closing with ``` - but unclosed is OK
+      expect(u.isMarkdownComplete('```\ncode\n~~~')).toBe(true)
+      expect(u.isMarkdownComplete('~~~\ncode\n```')).toBe(true)
+    })
+
+    it('should not count inline syntax inside fenced code blocks', () => {
+      // Asterisks and other syntax inside code blocks should be ignored
+      expect(u.isMarkdownComplete('```\n*not italic*\n```')).toBe(true)
+      expect(u.isMarkdownComplete('```\n**not bold\n```')).toBe(true)
+      expect(u.isMarkdownComplete('```\n`not code`\n```')).toBe(true)
     })
   })
 
@@ -1180,10 +1189,11 @@ describe('isMarkdownComplete', () => {
       expect(u.isMarkdownComplete('Hello <CustomComponent attr="value">content</CustomComponent>')).toBe(true)
     })
 
-    it('should handle partial code blocks in streaming', () => {
-      expect(u.isMarkdownComplete('Here is code:\n```')).toBe(false)
-      expect(u.isMarkdownComplete('Here is code:\n```js')).toBe(false)
-      expect(u.isMarkdownComplete('Here is code:\n```js\nconst x')).toBe(false)
+    it('should handle partial code blocks in streaming (renders normally)', () => {
+      // Fenced code blocks render as they stream - content is visible
+      expect(u.isMarkdownComplete('Here is code:\n```')).toBe(true)
+      expect(u.isMarkdownComplete('Here is code:\n```js')).toBe(true)
+      expect(u.isMarkdownComplete('Here is code:\n```js\nconst x')).toBe(true)
       expect(u.isMarkdownComplete('Here is code:\n```js\nconst x = 1;\n```')).toBe(true)
     })
 

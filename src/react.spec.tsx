@@ -3618,9 +3618,10 @@ describe('suppressIncompleteSyntax option', () => {
     expect(result).toBeNull()
   })
 
-  it('should return null for incomplete fenced code blocks when enabled', () => {
-    const result = compiler('```js\nconst x = 1;', { suppressIncompleteSyntax: true })
-    expect(result).toBeNull()
+  it('should render incomplete fenced code blocks normally (content visible as it streams)', () => {
+    // Fenced code blocks should render as they stream - users want to see the code
+    render(compiler('```js\nconst x = 1;', { suppressIncompleteSyntax: true }))
+    expect(root.innerHTML).toContain('const x = 1')
   })
 
   it('should return null for incomplete HTML comments when enabled', () => {

@@ -855,16 +855,19 @@ function StreamingMarkdown({ content }) {
 }
 ```
 
-**What it detects:**
+**What it suppresses:**
 
 - Unclosed HTML tags (`<div>content` without `</div>`)
 - Incomplete tag syntax (`<div attr="value` without closing `>`)
-- Unclosed fenced code blocks (` ``` ` without closing fence)
 - Unclosed HTML comments (`<!-- comment` without `-->`)
 - Unclosed inline code (`` `code `` without closing backtick)
 - Unclosed bold/italic (`**text` or `*text` without closing)
 - Unclosed strikethrough (`~~text` without closing `~~`)
 - Unclosed links (`[text](url` without closing `)`)
+
+**What renders normally (content visible as it streams):**
+
+- Fenced code blocks - content is displayed as it arrives, waiting for closing fence
 
 ### Usage with Preact
 

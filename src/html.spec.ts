@@ -1502,9 +1502,10 @@ describe('suppressIncompleteSyntax option', () => {
     expect(result).toBe('')
   })
 
-  it('should return empty string for incomplete fenced code blocks when enabled', () => {
+  it('should render incomplete fenced code blocks normally (content visible as it streams)', () => {
+    // Fenced code blocks should render as they stream - users want to see the code
     const result = compiler('```js\nconst x = 1;', { suppressIncompleteSyntax: true })
-    expect(result).toBe('')
+    expect(result).toContain('const x = 1')
   })
 
   it('should return empty string for incomplete inline code when enabled', () => {
