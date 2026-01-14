@@ -45,6 +45,7 @@ Some special features of the library:
     - [options.wrapperProps](#optionswrapperprops)
   - [Syntax highlighting](#syntax-highlighting)
   - [Handling shortcodes](#handling-shortcodes)
+  - [Streaming Markdown](#streaming-markdown)
   - [Usage with Preact](#usage-with-preact)
   - [AST Anatomy](#ast-anatomy)
     - [Node Types](#node-types)
@@ -430,6 +431,7 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 | `renderRule`                    | `function`                    | -        | Custom rendering for AST rules. See [renderRule](#optionsrenderrule) for details.                                                 |
 | `sanitizer`                     | `function`                    | built-in | Custom URL sanitizer function. See [sanitizer](#optionssanitizer) for details.                                                    |
 | `slugify`                       | `function`                    | built-in | Custom slug generation for heading IDs. See [slugify](#optionsslugify) for details.                                               |
+| `suppressIncompleteHtml`        | `boolean`                     | `false`  | Suppress rendering of incomplete HTML for streaming. See [Streaming Markdown](#streaming-markdown) for details.                   |
 | `tagfilter`                     | `boolean`                     | `true`   | Escape dangerous HTML tags (`script`, `iframe`, `style`, etc.) to prevent XSS.                                                    |
 | `wrapper`                       | `string \| component \| null` | `'div'`  | Wrapper element for multiple children (React/React Native/Vue only). See [wrapper](#optionswrapper) for details.                  |
 | `wrapperProps`                  | `object`                      | -        | Props for wrapper element (React/React Native/Vue only). See [wrapperProps](#optionswrapperprops) for details.                    |
@@ -834,6 +836,48 @@ function Example() {
 ```
 
 When you use `options.renderRule`, any React-renderable JSX may be returned including images and GIFs. Ensure you benchmark your solution as the `text` rule is one of the hottest paths in the system!
+
+### Streaming Markdown
+
+When rendering markdown content that arrives incrementally (e.g., from an AI/LLM API, WebSocket, or Server-Sent Events), you may notice raw HTML tags briefly appearing before React components render. This happens because incomplete HTML like `<CustomComponent>partial content` gets rendered as text before the closing tag arrives.
+
+The `suppressIncompleteHtml` option solves this by detecting incomplete HTML structures and returning `null` (React) or empty string (HTML) until the content is complete:
+
+```tsx
+import Markdown from 'markdown-to-jsx/react'
+
+function StreamingMarkdown({ content }) {
+  return (
+    <Markdown options={{ suppressIncompleteHtml: true }}>
+      {content}
+    </Markdown>
+  )
+}
+```
+
+**What it detects:**
+
+- Unclosed HTML tags (`<div>content` without `</div>`)
+- Incomplete tag syntax (`<div attr="value` without closing `>`)
+- Unclosed fenced code blocks (` ``` ` without closing fence)
+- Unclosed HTML comments (`<!-- comment` without `-->`)
+
+**For advanced use cases**, you can also use the `isMarkdownComplete` utility directly:
+
+```tsx
+import { isMarkdownComplete } from 'markdown-to-jsx'
+
+function CustomStreamingMarkdown({ content }) {
+  // Check completion status for custom loading states
+  const isComplete = isMarkdownComplete(content)
+
+  if (!isComplete) {
+    return <LoadingIndicator />
+  }
+
+  return <Markdown>{content}</Markdown>
+}
+```
 
 ### Usage with Preact
 
