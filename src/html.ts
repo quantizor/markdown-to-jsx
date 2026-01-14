@@ -989,9 +989,9 @@ export function astToHTML(
  * @lang hi @returns HTML स्ट्रिंग
  */
 export function compiler(markdown: string, options?: HTMLOptions): string {
-  // If suppressIncompleteSyntax is enabled, check if content is complete
+  // If optimizeForStreaming is enabled, check if content is complete
   // before rendering. Return empty string if incomplete.
-  if (options?.suppressIncompleteSyntax && !util.isMarkdownComplete(markdown)) {
+  if (options?.optimizeForStreaming && !util.isMarkdownComplete(markdown)) {
     return ''
   }
 

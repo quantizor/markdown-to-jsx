@@ -693,7 +693,7 @@ export function applyTagFilterToText(text: string): string {
 
 /**
  * Check if markdown content appears complete for rendering.
- * Used internally by the compiler when suppressIncompleteSyntax is enabled.
+ * Used internally by the compiler when optimizeForStreaming is enabled.
  *
  * This function checks for incomplete inline syntax that would display raw
  * markdown characters. Fenced code blocks are NOT checked here - they render

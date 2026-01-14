@@ -1496,40 +1496,40 @@ tags:
   })
 })
 
-describe('suppressIncompleteSyntax option', () => {
+describe('optimizeForStreaming option', () => {
   it('should return empty string for incomplete HTML tags when enabled', () => {
-    const result = compiler('<div>incomplete', { suppressIncompleteSyntax: true })
+    const result = compiler('<div>incomplete', { optimizeForStreaming: true })
     expect(result).toBe('')
   })
 
   it('should render incomplete fenced code blocks normally (content visible as it streams)', () => {
     // Fenced code blocks should render as they stream - users want to see the code
-    const result = compiler('```js\nconst x = 1;', { suppressIncompleteSyntax: true })
+    const result = compiler('```js\nconst x = 1;', { optimizeForStreaming: true })
     expect(result).toContain('const x = 1')
   })
 
   it('should return empty string for incomplete inline code when enabled', () => {
-    const result = compiler('some `incomplete code', { suppressIncompleteSyntax: true })
+    const result = compiler('some `incomplete code', { optimizeForStreaming: true })
     expect(result).toBe('')
   })
 
   it('should return empty string for incomplete bold when enabled', () => {
-    const result = compiler('some **bold text', { suppressIncompleteSyntax: true })
+    const result = compiler('some **bold text', { optimizeForStreaming: true })
     expect(result).toBe('')
   })
 
   it('should return empty string for incomplete link when enabled', () => {
-    const result = compiler('some [link](http://example.com', { suppressIncompleteSyntax: true })
+    const result = compiler('some [link](http://example.com', { optimizeForStreaming: true })
     expect(result).toBe('')
   })
 
   it('should render complete content normally when enabled', () => {
-    const result = compiler('<div>complete</div>', { suppressIncompleteSyntax: true })
+    const result = compiler('<div>complete</div>', { optimizeForStreaming: true })
     expect(result).toContain('complete')
   })
 
   it('should render content without special syntax normally when enabled', () => {
-    const result = compiler('Hello world', { suppressIncompleteSyntax: true })
+    const result = compiler('Hello world', { optimizeForStreaming: true })
     expect(result).toContain('Hello world')
   })
 

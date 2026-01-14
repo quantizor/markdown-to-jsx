@@ -825,9 +825,9 @@ export function compiler(
   const opts = { ...(options || {}) }
   opts.overrides = opts.overrides || {}
 
-  // If suppressIncompleteSyntax is enabled, check if content is complete
+  // If optimizeForStreaming is enabled, check if content is complete
   // before rendering. Return null if incomplete to prevent raw syntax flashing.
-  if (opts.suppressIncompleteSyntax && !util.isMarkdownComplete(markdown)) {
+  if (opts.optimizeForStreaming && !util.isMarkdownComplete(markdown)) {
     return null
   }
 

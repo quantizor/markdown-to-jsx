@@ -947,6 +947,12 @@ export function compiler(
     }
   }
 
+  // If optimizeForStreaming is enabled, check if content is complete
+  // before rendering. Return null if incomplete to prevent raw syntax flashing.
+  if (opts.optimizeForStreaming && !util.isMarkdownComplete(markdown)) {
+    return null
+  }
+
   const slug = opts.slugify || util.slugify
   const sanitize = opts.sanitizer || util.sanitizer
 

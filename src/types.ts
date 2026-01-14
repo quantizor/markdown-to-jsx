@@ -792,22 +792,20 @@ declare namespace MarkdownToJSX {
     preserveFrontmatter?: boolean
 
     /**
-     * When enabled, incomplete markdown syntax is suppressed from rendering.
-     * Useful for streaming scenarios where markdown content arrives incrementally
-     * and you want to avoid displaying raw syntax while waiting for the
-     * closing delimiter to arrive.
+     * Optimize rendering for streaming scenarios where markdown content arrives
+     * incrementally (e.g., from LLM APIs). When enabled, incomplete inline syntax
+     * is suppressed to avoid displaying raw markdown characters while waiting
+     * for the closing delimiter to arrive.
      *
-     * When content has incomplete syntax (unclosed HTML tags, unclosed emphasis,
-     * unclosed inline code, unclosed links, unclosed fenced code blocks),
-     * returns `null` instead of rendering partial content.
+     * Fenced code blocks render normally with content visible as it streams.
      *
-     * @lang zh 启用时，不完整的 Markdown 语法将被抑制渲染。适用于 Markdown 内容增量到达的流式场景，可以避免在等待闭合分隔符到达时显示原始语法。
+     * @lang zh 优化流式场景下的渲染，适用于 Markdown 内容增量到达的情况（如 LLM API）。启用时，不完整的行内语法将被抑制，避免在等待闭合分隔符时显示原始 Markdown 字符。
      *
-     * 当内容包含不完整的语法（未闭合的 HTML 标签、未闭合的强调、未闭合的行内代码、未闭合的链接、未闭合的围栏代码块）时，返回 `null` 而不是渲染部分内容。
+     * 围栏代码块正常渲染，内容在流式传输时可见。
      *
-     * @lang hi सक्षम होने पर, अपूर्ण markdown सिंटैक्स को रेंडर होने से रोका जाता है। स्ट्रीमिंग परिदृश्यों के लिए उपयोगी जहाँ markdown सामग्री क्रमिक रूप से आती है और आप बंद करने वाले डेलिमीटर के आने की प्रतीक्षा करते समय कच्चे सिंटैक्स प्रदर्शित करने से बचना चाहते हैं।
+     * @lang hi स्ट्रीमिंग परिदृश्यों के लिए रेंडरिंग को अनुकूलित करता है जहाँ markdown सामग्री क्रमिक रूप से आती है (जैसे, LLM API से)। सक्षम होने पर, अपूर्ण इनलाइन सिंटैक्स को दबा दिया जाता है ताकि बंद करने वाले डेलिमीटर की प्रतीक्षा करते समय कच्चे markdown वर्ण प्रदर्शित न हों।
      *
-     * जब सामग्री में अपूर्ण सिंटैक्स है (अबंद HTML टैग्स, अबंद एम्फ़ेसिस, अबंद इनलाइन कोड, अबंद लिंक्स, अबंद फ़ेंस्ड कोड ब्लॉक्स), तो आंशिक सामग्री रेंडर करने के बजाय `null` लौटाता है।
+     * फ़ेंस्ड कोड ब्लॉक्स सामान्य रूप से रेंडर होते हैं और स्ट्रीमिंग के दौरान सामग्री दिखाई देती है।
      *
      * @default false
      *
@@ -816,14 +814,14 @@ declare namespace MarkdownToJSX {
      * // Streaming markdown example
      * function StreamingMarkdown({ content }) {
      *   return (
-     *     <Markdown options={{ suppressIncompleteSyntax: true }}>
+     *     <Markdown options={{ optimizeForStreaming: true }}>
      *       {content}
      *     </Markdown>
      *   )
      * }
      * ```
      */
-    suppressIncompleteSyntax?: boolean
+    optimizeForStreaming?: boolean
   }>
 }
 
