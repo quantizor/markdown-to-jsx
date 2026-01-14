@@ -862,23 +862,6 @@ function StreamingMarkdown({ content }) {
 - Unclosed fenced code blocks (` ``` ` without closing fence)
 - Unclosed HTML comments (`<!-- comment` without `-->`)
 
-**For advanced use cases**, you can also use the `isMarkdownComplete` utility directly:
-
-```tsx
-import { isMarkdownComplete } from 'markdown-to-jsx'
-
-function CustomStreamingMarkdown({ content }) {
-  // Check completion status for custom loading states
-  const isComplete = isMarkdownComplete(content)
-
-  if (!isComplete) {
-    return <LoadingIndicator />
-  }
-
-  return <Markdown>{content}</Markdown>
-}
-```
-
 ### Usage with Preact
 
 Everything will work just fine! Simply [Alias `react` to `preact/compat`](https://preactjs.com/guide/v10/switching-to-preact#setting-up-compat) like you probably already are doing.

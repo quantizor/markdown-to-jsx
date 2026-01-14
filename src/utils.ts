@@ -693,87 +693,52 @@ export function applyTagFilterToText(text: string): string {
 
 /**
  * Check if markdown content appears complete for rendering.
- *
- * Useful for streaming markdown scenarios where you want to avoid rendering
- * incomplete HTML tags or markdown syntax that would cause visual flickering.
- *
- * Returns `true` if the content appears safe to render, `false` if there are
- * potentially incomplete structures that might cause raw HTML/syntax to appear.
- *
- * @lang zh 检查 Markdown 内容是否完整可渲染。
- *
- * 适用于流式 Markdown 场景，避免渲染不完整的 HTML 标签或 Markdown 语法，以防止视觉闪烁。
- *
- * 如果内容可以安全渲染返回 `true`，如果存在可能导致原始 HTML/语法显示的不完整结构返回 `false`。
- *
- * @lang hi जाँचें कि Markdown सामग्री रेंडरिंग के लिए पूर्ण दिखाई देती है या नहीं।
- *
- * स्ट्रीमिंग Markdown परिदृश्यों के लिए उपयोगी जहाँ आप अपूर्ण HTML टैग्स या Markdown सिंटैक्स को रेंडर करने से बचना चाहते हैं जो दृश्य झिलमिलाहट का कारण बन सकते हैं।
- *
- * यदि सामग्री रेंडर करने के लिए सुरक्षित दिखाई देती है तो `true` लौटाता है, यदि संभावित अपूर्ण संरचनाएं हैं जो कच्चे HTML/सिंटैक्स को दिखा सकती हैं तो `false` लौटाता है।
+ * Used internally by the compiler when suppressIncompleteHtml is enabled.
  *
  * @param markdown - The markdown string to check
- * @lang zh @param markdown - 要检查的 Markdown 字符串
- * @lang hi @param markdown - जाँचने के लिए Markdown स्ट्रिंग
  * @returns `true` if content appears complete and safe to render
- * @lang zh @returns 如果内容完整且可以安全渲染则返回 `true`
- * @lang hi @returns यदि सामग्री पूर्ण और रेंडर करने के लिए सुरक्षित दिखाई देती है तो `true`
- *
- * @example
- * ```tsx
- * import { isMarkdownComplete } from 'markdown-to-jsx'
- *
- * function StreamingMarkdown({ content }) {
- *   // Only render when content appears complete
- *   if (!isMarkdownComplete(content)) {
- *     return <div>Loading...</div>
- *   }
- *   return <Markdown>{content}</Markdown>
- * }
- * ```
  */
 export function isMarkdownComplete(markdown: string): boolean {
   if (!markdown) return true
 
   var len = markdown.length
+  var i = 0
+  var code: number
 
   // Check for unclosed fenced code blocks (``` or ~~~)
   var fenceStack = 0
-  var fenceChar = ''
-  var i = 0
+  var fenceCharCode = 0
 
   while (i < len) {
-    var c = markdown[i]
+    code = markdown.charCodeAt(i)
 
     // Check for fence start at beginning of line
-    if (i === 0 || markdown[i - 1] === '\n') {
+    if (i === 0 || markdown.charCodeAt(i - 1) === $.CHAR_NEWLINE) {
       // Skip leading whitespace (up to 3 spaces)
       var lineStart = i
       var indent = 0
-      while (indent < 3 && i < len && markdown[i] === ' ') {
+      while (indent < 3 && i < len && markdown.charCodeAt(i) === $.CHAR_SPACE) {
         indent++
         i++
       }
 
       if (i < len) {
-        c = markdown[i]
-        if (c === '`' || c === '~') {
-          var fenceType = c
+        code = markdown.charCodeAt(i)
+        if (code === $.CHAR_BACKTICK || code === $.CHAR_TILDE) {
+          var fenceType = code
           var fenceCount = 0
-          while (i < len && markdown[i] === fenceType) {
+          while (i < len && markdown.charCodeAt(i) === fenceType) {
             fenceCount++
             i++
           }
 
           if (fenceCount >= 3) {
             if (fenceStack === 0) {
-              // Opening fence
               fenceStack = 1
-              fenceChar = fenceType
-            } else if (fenceType === fenceChar && fenceCount >= 3) {
-              // Closing fence (must match opening fence character)
+              fenceCharCode = fenceType
+            } else if (fenceType === fenceCharCode) {
               fenceStack = 0
-              fenceChar = ''
+              fenceCharCode = 0
             }
           }
           continue
@@ -784,43 +749,41 @@ export function isMarkdownComplete(markdown: string): boolean {
     i++
   }
 
-  // If we're inside a fenced code block, content is incomplete
   if (fenceStack > 0) return false
 
-  // Check for unclosed HTML tags
-  // Track open tags that require closing
-  var tagStack: string[] = []
+  // Check for unclosed HTML tags using a simple depth counter
+  // We track depth of non-void tags to detect unclosed elements
+  var tagDepth = 0
   i = 0
 
   while (i < len) {
-    // Look for '<'
-    if (markdown[i] !== '<') {
+    code = markdown.charCodeAt(i)
+    if (code !== $.CHAR_LT) {
       i++
       continue
     }
 
-    var tagStart = i
     i++
+    if (i >= len) return false
 
-    // Skip if at end - this is an incomplete tag
-    if (i >= len) {
-      return false
-    }
-
-    // Check for closing tag
-    var isClosing = markdown[i] === '/'
+    code = markdown.charCodeAt(i)
+    var isClosing = code === $.CHAR_SLASH
     if (isClosing) {
       i++
-      if (i >= len) return false // Incomplete closing tag
+      if (i >= len) return false
+      code = markdown.charCodeAt(i)
     }
 
-    // Check for comment
-    if (i + 2 < len && markdown[i] === '!' && markdown[i + 1] === '-' && markdown[i + 2] === '-') {
-      // HTML comment - look for -->
+    // Check for comment: <!--
+    if (code === $.CHAR_EXCLAMATION && i + 2 < len &&
+        markdown.charCodeAt(i + 1) === $.CHAR_DASH &&
+        markdown.charCodeAt(i + 2) === $.CHAR_DASH) {
       i += 3
       var commentClosed = false
-      while (i < len) {
-        if (i + 2 < len && markdown[i] === '-' && markdown[i + 1] === '-' && markdown[i + 2] === '>') {
+      while (i + 2 < len) {
+        if (markdown.charCodeAt(i) === $.CHAR_DASH &&
+            markdown.charCodeAt(i + 1) === $.CHAR_DASH &&
+            markdown.charCodeAt(i + 2) === $.CHAR_GT) {
           commentClosed = true
           i += 3
           break
@@ -831,46 +794,46 @@ export function isMarkdownComplete(markdown: string): boolean {
       continue
     }
 
-    // Must start with letter for valid HTML tag
-    if (i >= len) {
-      // Incomplete tag at end (just `<` or `</`)
-      return false
-    }
-    
-    var tagNameStart = i
-    var code = markdown.charCodeAt(i)
+    // Must start with letter for valid tag
     if (!((code >= $.CHAR_A && code <= $.CHAR_Z) || (code >= $.CHAR_a && code <= $.CHAR_z))) {
-      // Not a valid tag (e.g., "5 < 10" or "< " or "<123")
-      // This is text content, not an HTML tag - continue scanning
       continue
     }
 
-    // Read tag name
+    // Read tag name and compute simple hash for void element check
+    var tagStart = i
+    var tagHash = 0
+    var tagLen = 0
     while (i < len) {
       code = markdown.charCodeAt(i)
       if ((code >= $.CHAR_A && code <= $.CHAR_Z) ||
           (code >= $.CHAR_a && code <= $.CHAR_z) ||
           (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
           code === $.CHAR_DASH) {
+        // Normalize to lowercase for hash
+        if (code >= $.CHAR_A && code <= $.CHAR_Z) {
+          code += $.CHAR_CASE_OFFSET
+        }
+        tagHash = (tagHash * 31 + code) | 0
+        tagLen++
         i++
       } else {
         break
       }
     }
 
-    var tagName = markdown.slice(tagNameStart, i).toLowerCase()
-    if (!tagName) continue
+    if (tagLen === 0) continue
 
-    // Skip whitespace and attributes until we find > or />
+    // Skip whitespace and attributes until > or />
     var selfClosing = false
     var foundClose = false
     while (i < len) {
-      if (markdown[i] === '>') {
+      code = markdown.charCodeAt(i)
+      if (code === $.CHAR_GT) {
         foundClose = true
         i++
         break
       }
-      if (markdown[i] === '/' && i + 1 < len && markdown[i + 1] === '>') {
+      if (code === $.CHAR_SLASH && i + 1 < len && markdown.charCodeAt(i + 1) === $.CHAR_GT) {
         selfClosing = true
         foundClose = true
         i += 2
@@ -879,29 +842,97 @@ export function isMarkdownComplete(markdown: string): boolean {
       i++
     }
 
-    // If we didn't find closing >, tag is incomplete
-    if (!foundClose) {
-      return false
-    }
+    if (!foundClose) return false
 
-    // Skip void elements (they don't need closing tags)
-    if (VOID_ELEMENTS.has(tagName) || selfClosing) {
-      continue
-    }
+    // Check if void element using hash + length
+    // Pre-computed hashes for void elements
+    var isVoid = selfClosing || isVoidTagHash(tagHash, tagLen, markdown, tagStart)
 
-    if (isClosing) {
-      // Closing tag - pop from stack if matches
-      if (tagStack.length > 0 && tagStack[tagStack.length - 1] === tagName) {
-        tagStack.pop()
+    if (!isVoid) {
+      if (isClosing) {
+        tagDepth--
+      } else {
+        tagDepth++
       }
-    } else {
-      // Opening tag - push to stack
-      tagStack.push(tagName)
     }
   }
 
-  // If tag stack is not empty, we have unclosed tags
-  if (tagStack.length > 0) return false
+  return tagDepth <= 0
+}
 
-  return true
+// Check if tag is a void element by comparing against the source string
+// Uses start index and length to avoid allocation
+function isVoidTagHash(hash: number, tagLen: number, src: string, start: number): boolean {
+  // Quick length check - void elements are 2-6 chars
+  if (tagLen < 2 || tagLen > 6) return false
+
+  // Check common void elements by comparing characters directly
+  var c0 = src.charCodeAt(start)
+  if (c0 >= $.CHAR_A && c0 <= $.CHAR_Z) c0 += $.CHAR_CASE_OFFSET
+
+  if (tagLen === 2) {
+    // br, hr
+    var c1 = src.charCodeAt(start + 1)
+    if (c1 >= $.CHAR_A && c1 <= $.CHAR_Z) c1 += $.CHAR_CASE_OFFSET
+    return (c0 === 98 && c1 === 114) || // br
+           (c0 === 104 && c1 === 114)   // hr
+  }
+
+  if (tagLen === 3) {
+    // img, col, wbr
+    var c1 = src.charCodeAt(start + 1)
+    var c2 = src.charCodeAt(start + 2)
+    if (c1 >= $.CHAR_A && c1 <= $.CHAR_Z) c1 += $.CHAR_CASE_OFFSET
+    if (c2 >= $.CHAR_A && c2 <= $.CHAR_Z) c2 += $.CHAR_CASE_OFFSET
+    return (c0 === 105 && c1 === 109 && c2 === 103) || // img
+           (c0 === 99 && c1 === 111 && c2 === 108) ||  // col
+           (c0 === 119 && c1 === 98 && c2 === 114)     // wbr
+  }
+
+  if (tagLen === 4) {
+    // area, base, link, meta
+    var c1 = src.charCodeAt(start + 1)
+    var c2 = src.charCodeAt(start + 2)
+    var c3 = src.charCodeAt(start + 3)
+    if (c1 >= $.CHAR_A && c1 <= $.CHAR_Z) c1 += $.CHAR_CASE_OFFSET
+    if (c2 >= $.CHAR_A && c2 <= $.CHAR_Z) c2 += $.CHAR_CASE_OFFSET
+    if (c3 >= $.CHAR_A && c3 <= $.CHAR_Z) c3 += $.CHAR_CASE_OFFSET
+    return (c0 === 97 && c1 === 114 && c2 === 101 && c3 === 97) ||   // area
+           (c0 === 98 && c1 === 97 && c2 === 115 && c3 === 101) ||   // base
+           (c0 === 108 && c1 === 105 && c2 === 110 && c3 === 107) || // link
+           (c0 === 109 && c1 === 101 && c2 === 116 && c3 === 97)     // meta
+  }
+
+  if (tagLen === 5) {
+    // embed, input, param, track
+    var c1 = src.charCodeAt(start + 1)
+    var c2 = src.charCodeAt(start + 2)
+    var c3 = src.charCodeAt(start + 3)
+    var c4 = src.charCodeAt(start + 4)
+    if (c1 >= $.CHAR_A && c1 <= $.CHAR_Z) c1 += $.CHAR_CASE_OFFSET
+    if (c2 >= $.CHAR_A && c2 <= $.CHAR_Z) c2 += $.CHAR_CASE_OFFSET
+    if (c3 >= $.CHAR_A && c3 <= $.CHAR_Z) c3 += $.CHAR_CASE_OFFSET
+    if (c4 >= $.CHAR_A && c4 <= $.CHAR_Z) c4 += $.CHAR_CASE_OFFSET
+    return (c0 === 101 && c1 === 109 && c2 === 98 && c3 === 101 && c4 === 100) ||  // embed
+           (c0 === 105 && c1 === 110 && c2 === 112 && c3 === 117 && c4 === 116) || // input
+           (c0 === 112 && c1 === 97 && c2 === 114 && c3 === 97 && c4 === 109) ||   // param
+           (c0 === 116 && c1 === 114 && c2 === 97 && c3 === 99 && c4 === 107)      // track
+  }
+
+  if (tagLen === 6) {
+    // source
+    var c1 = src.charCodeAt(start + 1)
+    var c2 = src.charCodeAt(start + 2)
+    var c3 = src.charCodeAt(start + 3)
+    var c4 = src.charCodeAt(start + 4)
+    var c5 = src.charCodeAt(start + 5)
+    if (c1 >= $.CHAR_A && c1 <= $.CHAR_Z) c1 += $.CHAR_CASE_OFFSET
+    if (c2 >= $.CHAR_A && c2 <= $.CHAR_Z) c2 += $.CHAR_CASE_OFFSET
+    if (c3 >= $.CHAR_A && c3 <= $.CHAR_Z) c3 += $.CHAR_CASE_OFFSET
+    if (c4 >= $.CHAR_A && c4 <= $.CHAR_Z) c4 += $.CHAR_CASE_OFFSET
+    if (c5 >= $.CHAR_A && c5 <= $.CHAR_Z) c5 += $.CHAR_CASE_OFFSET
+    return c0 === 115 && c1 === 111 && c2 === 117 && c3 === 114 && c4 === 99 && c5 === 101 // source
+  }
+
+  return false
 }

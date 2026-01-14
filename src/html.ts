@@ -7,7 +7,7 @@ const { hasKeys } = util
 // Re-export parser, types, and utils for the /html entry point
 export { parser } from './parse'
 export { RuleType, type MarkdownToJSX } from './types'
-export { isMarkdownComplete, sanitizer, slugify } from './utils'
+export { sanitizer, slugify } from './utils'
 
 /**
  * Escape HTML entities for text content

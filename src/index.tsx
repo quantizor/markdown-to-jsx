@@ -16,7 +16,7 @@ export { parser } from './parse'
 export { RuleType, type MarkdownToJSX } from './types'
 
 // Re-export utilities
-export { isMarkdownComplete, sanitizer, slugify } from './utils'
+export { sanitizer, slugify } from './utils'
 
 // Re-export compiler and Markdown from react.tsx for backward compatibility
 export {
