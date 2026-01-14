@@ -1495,3 +1495,30 @@ tags:
     })
   })
 })
+
+describe('suppressIncompleteHtml option', () => {
+  it('should return empty string for incomplete HTML tags when enabled', () => {
+    const result = compiler('<div>incomplete', { suppressIncompleteHtml: true })
+    expect(result).toBe('')
+  })
+
+  it('should return empty string for incomplete fenced code blocks when enabled', () => {
+    const result = compiler('```js\nconst x = 1;', { suppressIncompleteHtml: true })
+    expect(result).toBe('')
+  })
+
+  it('should render complete content normally when enabled', () => {
+    const result = compiler('<div>complete</div>', { suppressIncompleteHtml: true })
+    expect(result).toContain('complete')
+  })
+
+  it('should render content without HTML tags normally when enabled', () => {
+    const result = compiler('Hello world', { suppressIncompleteHtml: true })
+    expect(result).toContain('Hello world')
+  })
+
+  it('should render incomplete content when option is disabled (default)', () => {
+    const result = compiler('<div>incomplete')
+    expect(result).toContain('incomplete')
+  })
+})

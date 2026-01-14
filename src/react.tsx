@@ -825,6 +825,12 @@ export function compiler(
   const opts = { ...(options || {}) }
   opts.overrides = opts.overrides || {}
 
+  // If suppressIncompleteHtml is enabled, check if content is complete
+  // before rendering. Return null if incomplete to prevent raw HTML flashing.
+  if (opts.suppressIncompleteHtml && !util.isMarkdownComplete(markdown)) {
+    return null
+  }
+
   const slug = opts.slugify || util.slugify
   const sanitize = opts.sanitizer || util.sanitizer
 

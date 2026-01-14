@@ -3610,3 +3610,64 @@ describe('Markdown component memoization', () => {
     expect(result2).toContain('<article')
   })
 })
+
+
+describe('suppressIncompleteHtml option', () => {
+  it('should return null for incomplete HTML tags when enabled', () => {
+    const result = compiler('<div>incomplete', { suppressIncompleteHtml: true })
+    expect(result).toBeNull()
+  })
+
+  it('should return null for incomplete fenced code blocks when enabled', () => {
+    const result = compiler('```js\nconst x = 1;', { suppressIncompleteHtml: true })
+    expect(result).toBeNull()
+  })
+
+  it('should return null for incomplete HTML comments when enabled', () => {
+    const result = compiler('<!-- incomplete comment', { suppressIncompleteHtml: true })
+    expect(result).toBeNull()
+  })
+
+  it('should render complete content normally when enabled', () => {
+    render(compiler('<div>complete</div>', { suppressIncompleteHtml: true }))
+    expect(root.innerHTML).toContain('complete')
+  })
+
+  it('should render complete fenced code blocks when enabled', () => {
+    render(compiler('```js\ncode\n```', { suppressIncompleteHtml: true }))
+    expect(root.innerHTML).toContain('code')
+  })
+
+  it('should render content without HTML tags normally when enabled', () => {
+    render(compiler('Hello world', { suppressIncompleteHtml: true }))
+    expect(root.innerHTML).toBe('Hello world')
+  })
+
+  it('should render incomplete content when option is disabled (default)', () => {
+    render(compiler('<div>incomplete'))
+    expect(root.innerHTML).toContain('incomplete')
+  })
+
+  it('should work with Markdown component', () => {
+    const result = renderToString(
+      React.createElement(
+        Markdown,
+        { options: { suppressIncompleteHtml: true } },
+        '<CustomComponent>streaming'
+      )
+    )
+    // Returns null which renders as empty string
+    expect(result).toBe('')
+  })
+
+  it('should render Markdown component when content is complete', () => {
+    const result = renderToString(
+      React.createElement(
+        Markdown,
+        { options: { suppressIncompleteHtml: true } },
+        '<strong>complete</strong>'
+      )
+    )
+    expect(result).toContain('complete')
+  })
+})

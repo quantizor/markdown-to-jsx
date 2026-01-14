@@ -790,6 +790,39 @@ declare namespace MarkdownToJSX {
      * @default false
      */
     preserveFrontmatter?: boolean
+
+    /**
+     * When enabled, incomplete HTML tags are suppressed from rendering.
+     * Useful for streaming scenarios where markdown content arrives incrementally
+     * and you want to avoid displaying raw HTML tags while waiting for the
+     * closing tag to arrive.
+     *
+     * When content has incomplete HTML (unclosed tags, partial tags, unclosed
+     * fenced code blocks), returns `null` instead of rendering partial content.
+     *
+     * @lang zh 启用时，不完整的 HTML 标签将被抑制渲染。适用于 Markdown 内容增量到达的流式场景，可以避免在等待闭合标签到达时显示原始 HTML 标签。
+     *
+     * 当内容包含不完整的 HTML（未闭合的标签、部分标签、未闭合的围栏代码块）时，返回 `null` 而不是渲染部分内容。
+     *
+     * @lang hi सक्षम होने पर, अपूर्ण HTML टैग्स को रेंडर होने से रोका जाता है। स्ट्रीमिंग परिदृश्यों के लिए उपयोगी जहाँ markdown सामग्री क्रमिक रूप से आती है और आप बंद करने वाले टैग के आने की प्रतीक्षा करते समय कच्चे HTML टैग्स प्रदर्शित करने से बचना चाहते हैं।
+     *
+     * जब सामग्री में अपूर्ण HTML है (अबंद टैग्स, आंशिक टैग्स, अबंद फ़ेंस्ड कोड ब्लॉक्स), तो आंशिक सामग्री रेंडर करने के बजाय `null` लौटाता है।
+     *
+     * @default false
+     *
+     * @example
+     * ```tsx
+     * // Streaming markdown example
+     * function StreamingMarkdown({ content }) {
+     *   return (
+     *     <Markdown options={{ suppressIncompleteHtml: true }}>
+     *       {content}
+     *     </Markdown>
+     *   )
+     * }
+     * ```
+     */
+    suppressIncompleteHtml?: boolean
   }>
 }
 
