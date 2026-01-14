@@ -833,9 +833,8 @@ export function isMarkdownComplete(markdown: string): boolean {
 
     // Must start with letter for valid HTML tag
     if (i >= len) {
-      // Just `</` at end is incomplete
-      if (isClosing) return false
-      continue
+      // Incomplete tag at end (just `<` or `</`)
+      return false
     }
     
     var tagNameStart = i
