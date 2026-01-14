@@ -1064,3 +1064,217 @@ describe('hasKeys', () => {
     expect(u.hasKeys(obj)).toBe(true)
   })
 })
+
+describe('isMarkdownComplete', () => {
+  describe('basic cases', () => {
+    it('should return true for empty string', () => {
+      expect(u.isMarkdownComplete('')).toBe(true)
+    })
+
+    it('should return true for null/undefined', () => {
+      expect(u.isMarkdownComplete(null as any)).toBe(true)
+      expect(u.isMarkdownComplete(undefined as any)).toBe(true)
+    })
+
+    it('should return true for plain text', () => {
+      expect(u.isMarkdownComplete('Hello world')).toBe(true)
+      expect(u.isMarkdownComplete('Some text with no special syntax')).toBe(true)
+    })
+  })
+
+  describe('HTML tags', () => {
+    it('should return true for complete HTML tags', () => {
+      expect(u.isMarkdownComplete('<div>content</div>')).toBe(true)
+      expect(u.isMarkdownComplete('<span>text</span>')).toBe(true)
+      expect(u.isMarkdownComplete('<p>paragraph</p>')).toBe(true)
+    })
+
+    it('should return true for self-closing tags', () => {
+      expect(u.isMarkdownComplete('<br />')).toBe(true)
+      expect(u.isMarkdownComplete('<hr/>')).toBe(true)
+      expect(u.isMarkdownComplete('<img src="test.png" />')).toBe(true)
+    })
+
+    it('should return true for void elements without closing', () => {
+      expect(u.isMarkdownComplete('<br>')).toBe(true)
+      expect(u.isMarkdownComplete('<hr>')).toBe(true)
+      expect(u.isMarkdownComplete('<img src="test.png">')).toBe(true)
+      expect(u.isMarkdownComplete('<input type="text">')).toBe(true)
+    })
+
+    it('should return false for unclosed opening tags', () => {
+      expect(u.isMarkdownComplete('<div>')).toBe(false)
+      expect(u.isMarkdownComplete('<span>text')).toBe(false)
+      expect(u.isMarkdownComplete('<CustomComponent>')).toBe(false)
+    })
+
+    it('should return false for incomplete tags', () => {
+      expect(u.isMarkdownComplete('<div')).toBe(false)
+      expect(u.isMarkdownComplete('<span class="test"')).toBe(false)
+      expect(u.isMarkdownComplete('text<')).toBe(false)
+      expect(u.isMarkdownComplete('<div attr="value')).toBe(false)
+    })
+
+    it('should return true for nested complete tags', () => {
+      expect(u.isMarkdownComplete('<div><span>text</span></div>')).toBe(true)
+      expect(u.isMarkdownComplete('<ul><li>item1</li><li>item2</li></ul>')).toBe(true)
+    })
+
+    it('should return false for unclosed nested tags', () => {
+      expect(u.isMarkdownComplete('<div><span>text</div>')).toBe(false)
+      expect(u.isMarkdownComplete('<ul><li>item')).toBe(false)
+    })
+  })
+
+  describe('HTML comments', () => {
+    it('should return true for complete HTML comments', () => {
+      expect(u.isMarkdownComplete('<!-- comment -->')).toBe(true)
+      expect(u.isMarkdownComplete('text<!-- comment -->more')).toBe(true)
+    })
+
+    it('should return false for incomplete HTML comments', () => {
+      expect(u.isMarkdownComplete('<!-- comment')).toBe(false)
+      expect(u.isMarkdownComplete('<!-- unfinished comment -')).toBe(false)
+      expect(u.isMarkdownComplete('text<!-- comment')).toBe(false)
+    })
+  })
+
+  describe('fenced code blocks', () => {
+    it('should return true for complete fenced code blocks', () => {
+      expect(u.isMarkdownComplete('```\ncode\n```')).toBe(true)
+      expect(u.isMarkdownComplete('```js\nconst x = 1;\n```')).toBe(true)
+      expect(u.isMarkdownComplete('~~~\ncode\n~~~')).toBe(true)
+    })
+
+    it('should return true for unclosed fenced code blocks (they render normally)', () => {
+      // Fenced code blocks should render as they stream in - users want to see
+      // the code content, they just don't want raw inline markdown syntax
+      expect(u.isMarkdownComplete('```\ncode')).toBe(true)
+      expect(u.isMarkdownComplete('```js\nconst x = 1;')).toBe(true)
+      expect(u.isMarkdownComplete('~~~\ncode')).toBe(true)
+    })
+
+    it('should handle indented fenced code blocks', () => {
+      expect(u.isMarkdownComplete('  ```\n  code\n  ```')).toBe(true)
+      expect(u.isMarkdownComplete('   ```\n   code\n   ```')).toBe(true)
+    })
+
+    it('should return true for unclosed indented fenced code blocks', () => {
+      expect(u.isMarkdownComplete('  ```\n  code')).toBe(true)
+    })
+
+    it('should handle mixed fence characters', () => {
+      // Opening with ``` should require closing with ``` - but unclosed is OK
+      expect(u.isMarkdownComplete('```\ncode\n~~~')).toBe(true)
+      expect(u.isMarkdownComplete('~~~\ncode\n```')).toBe(true)
+    })
+
+    it('should not count inline syntax inside fenced code blocks', () => {
+      // Asterisks and other syntax inside code blocks should be ignored
+      expect(u.isMarkdownComplete('```\n*not italic*\n```')).toBe(true)
+      expect(u.isMarkdownComplete('```\n**not bold\n```')).toBe(true)
+      expect(u.isMarkdownComplete('```\n`not code`\n```')).toBe(true)
+    })
+  })
+
+  describe('streaming scenarios', () => {
+    it('should detect partially received HTML tags', () => {
+      // Simulating streaming where tag is being received
+      expect(u.isMarkdownComplete('Hello <CustomComp')).toBe(false)
+      expect(u.isMarkdownComplete('Hello <CustomComponent')).toBe(false)
+      expect(u.isMarkdownComplete('Hello <CustomComponent attr=')).toBe(false)
+      expect(u.isMarkdownComplete('Hello <CustomComponent attr="val')).toBe(false)
+      expect(u.isMarkdownComplete('Hello <CustomComponent attr="value"')).toBe(false)
+      expect(u.isMarkdownComplete('Hello <CustomComponent attr="value">')).toBe(false)
+      expect(u.isMarkdownComplete('Hello <CustomComponent attr="value">content</CustomComponent>')).toBe(true)
+    })
+
+    it('should handle partial code blocks in streaming (renders normally)', () => {
+      // Fenced code blocks render as they stream - content is visible
+      expect(u.isMarkdownComplete('Here is code:\n```')).toBe(true)
+      expect(u.isMarkdownComplete('Here is code:\n```js')).toBe(true)
+      expect(u.isMarkdownComplete('Here is code:\n```js\nconst x')).toBe(true)
+      expect(u.isMarkdownComplete('Here is code:\n```js\nconst x = 1;\n```')).toBe(true)
+    })
+
+    it('should handle multiple HTML elements in streaming', () => {
+      expect(u.isMarkdownComplete('<div>Text')).toBe(false)
+      expect(u.isMarkdownComplete('<div>Text</div><span>')).toBe(false)
+      expect(u.isMarkdownComplete('<div>Text</div><span>More</span>')).toBe(true)
+    })
+  })
+
+  describe('inline syntax', () => {
+    it('should detect incomplete inline code', () => {
+      expect(u.isMarkdownComplete('some `incomplete code')).toBe(false)
+      expect(u.isMarkdownComplete('some `complete` code')).toBe(true)
+    })
+
+    it('should detect incomplete bold', () => {
+      expect(u.isMarkdownComplete('some **bold text')).toBe(false)
+      expect(u.isMarkdownComplete('some **bold** text')).toBe(true)
+    })
+
+    it('should detect incomplete italic', () => {
+      expect(u.isMarkdownComplete('some *italic text')).toBe(false)
+      expect(u.isMarkdownComplete('some *italic* text')).toBe(true)
+    })
+
+    it('should detect incomplete underscore emphasis', () => {
+      expect(u.isMarkdownComplete('some _emphasized text')).toBe(false)
+      expect(u.isMarkdownComplete('some _emphasized_ text')).toBe(true)
+    })
+
+    it('should detect incomplete strikethrough', () => {
+      expect(u.isMarkdownComplete('some ~~strikethrough text')).toBe(false)
+      expect(u.isMarkdownComplete('some ~~strikethrough~~ text')).toBe(true)
+    })
+
+    it('should detect incomplete links', () => {
+      expect(u.isMarkdownComplete('some [link text](http://example.com')).toBe(false)
+      expect(u.isMarkdownComplete('some [link text](http://example.com)')).toBe(true)
+      expect(u.isMarkdownComplete('some [incomplete link')).toBe(false)
+    })
+
+    it('should detect incomplete images', () => {
+      expect(u.isMarkdownComplete('some ![alt text](http://example.com/img.png')).toBe(false)
+      expect(u.isMarkdownComplete('some ![alt text](http://example.com/img.png)')).toBe(true)
+    })
+
+    it('should handle complete mixed inline syntax', () => {
+      expect(u.isMarkdownComplete('some `code` and **bold** and *italic*')).toBe(true)
+      expect(u.isMarkdownComplete('a [link](url) with `code`')).toBe(true)
+    })
+  })
+
+  describe('edge cases', () => {
+    it('should handle angle brackets in text', () => {
+      // Angle brackets that are not HTML tags
+      expect(u.isMarkdownComplete('5 < 10')).toBe(true)
+      expect(u.isMarkdownComplete('a > b')).toBe(true)
+      expect(u.isMarkdownComplete('use < and > for comparison')).toBe(true)
+    })
+
+    it('should handle escaped content correctly', () => {
+      // Escaped characters are properly skipped, so \<div> is not an HTML tag
+      expect(u.isMarkdownComplete('\\<div>')).toBe(true)
+      // Escaped content with unescaped incomplete tag
+      expect(u.isMarkdownComplete('\\<div><span>')).toBe(false)
+      // Escaped asterisk doesn't count toward emphasis
+      expect(u.isMarkdownComplete('\\*escaped')).toBe(true)
+      // One unescaped asterisk is incomplete
+      expect(u.isMarkdownComplete('text *incomplete')).toBe(false)
+    })
+
+    it('should handle complex mixed content', () => {
+      expect(u.isMarkdownComplete('# Heading\n\nParagraph with <strong>bold</strong>\n\n```js\ncode\n```')).toBe(true)
+    })
+
+    it('should handle React/JSX components', () => {
+      expect(u.isMarkdownComplete('<MyComponent />')).toBe(true)
+      expect(u.isMarkdownComplete('<MyComponent prop="value" />')).toBe(true)
+      expect(u.isMarkdownComplete('<MyComponent>')).toBe(false)
+      expect(u.isMarkdownComplete('<MyComponent>content</MyComponent>')).toBe(true)
+    })
+  })
+})

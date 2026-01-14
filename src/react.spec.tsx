@@ -3610,3 +3610,97 @@ describe('Markdown component memoization', () => {
     expect(result2).toContain('<article')
   })
 })
+
+
+describe('optimizeForStreaming option', () => {
+  it('should return null for incomplete HTML tags when enabled', () => {
+    const result = compiler('<div>incomplete', { optimizeForStreaming: true })
+    expect(result).toBeNull()
+  })
+
+  it('should render incomplete fenced code blocks normally (content visible as it streams)', () => {
+    // Fenced code blocks should render as they stream - users want to see the code
+    render(compiler('```js\nconst x = 1;', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('const x = 1')
+  })
+
+  it('should return null for incomplete HTML comments when enabled', () => {
+    const result = compiler('<!-- incomplete comment', { optimizeForStreaming: true })
+    expect(result).toBeNull()
+  })
+
+  it('should return null for incomplete inline code when enabled', () => {
+    const result = compiler('some `incomplete code', { optimizeForStreaming: true })
+    expect(result).toBeNull()
+  })
+
+  it('should return null for incomplete bold when enabled', () => {
+    const result = compiler('some **bold text', { optimizeForStreaming: true })
+    expect(result).toBeNull()
+  })
+
+  it('should return null for incomplete italic when enabled', () => {
+    const result = compiler('some *italic text', { optimizeForStreaming: true })
+    expect(result).toBeNull()
+  })
+
+  it('should return null for incomplete strikethrough when enabled', () => {
+    const result = compiler('some ~~strikethrough text', { optimizeForStreaming: true })
+    expect(result).toBeNull()
+  })
+
+  it('should return null for incomplete link when enabled', () => {
+    const result = compiler('some [link text](http://example.com', { optimizeForStreaming: true })
+    expect(result).toBeNull()
+  })
+
+  it('should render complete content normally when enabled', () => {
+    render(compiler('<div>complete</div>', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('complete')
+  })
+
+  it('should render complete fenced code blocks when enabled', () => {
+    render(compiler('```js\ncode\n```', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('code')
+  })
+
+  it('should render complete inline syntax when enabled', () => {
+    render(compiler('some `code` and **bold** and *italic*', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('code')
+    expect(root.innerHTML).toContain('bold')
+    expect(root.innerHTML).toContain('italic')
+  })
+
+  it('should render content without special syntax normally when enabled', () => {
+    render(compiler('Hello world', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toBe('Hello world')
+  })
+
+  it('should render incomplete content when option is disabled (default)', () => {
+    render(compiler('<div>incomplete'))
+    expect(root.innerHTML).toContain('incomplete')
+  })
+
+  it('should work with Markdown component', () => {
+    const result = renderToString(
+      React.createElement(
+        Markdown,
+        { options: { optimizeForStreaming: true } },
+        '<CustomComponent>streaming'
+      )
+    )
+    // Returns null which renders as empty string
+    expect(result).toBe('')
+  })
+
+  it('should render Markdown component when content is complete', () => {
+    const result = renderToString(
+      React.createElement(
+        Markdown,
+        { options: { optimizeForStreaming: true } },
+        '<strong>complete</strong>'
+      )
+    )
+    expect(result).toContain('complete')
+  })
+})
