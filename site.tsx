@@ -198,12 +198,16 @@ function StreamingSlider({
   onChange,
   isPlaying,
   onPlayToggle,
+  optimizeEnabled,
+  onOptimizeToggle,
 }: {
   value: number
   max: number
   onChange: (value: number) => void
   isPlaying: boolean
   onPlayToggle: () => void
+  optimizeEnabled: boolean
+  onOptimizeToggle: (enabled: boolean) => void
 }) {
   return (
     <div className="hidden md:flex streaming-slider-container fixed left-4 top-1/2 -translate-y-1/2 flex-col items-center gap-3 opacity-0 hover:opacity-100 transition-opacity duration-300 z-50">
@@ -239,6 +243,18 @@ function StreamingSlider({
       <span className="text-xs text-fg/60 font-mono">
         {value}/{max}
       </span>
+      <label
+        className="flex items-center gap-1.5 cursor-pointer"
+        title="When enabled, suppresses incomplete markdown syntax (bold, italic, links, etc.) during streaming to prevent visual flickering. Disable to see the raw incomplete syntax."
+      >
+        <input
+          type="checkbox"
+          checked={optimizeEnabled}
+          onChange={(e) => onOptimizeToggle(e.target.checked)}
+          className="w-4 h-4 accent-accent cursor-pointer"
+        />
+        <span className="text-[10px] text-fg/60 whitespace-nowrap">optimize</span>
+      </label>
     </div>
   )
 }
@@ -254,6 +270,7 @@ function TryItLive() {
   // Streaming demo state
   const [streamingCharCount, setStreamingCharCount] = React.useState<number | null>(null)
   const [isPlaying, setIsPlaying] = React.useState(false)
+  const [optimizeForStreamingEnabled, setOptimizeForStreamingEnabled] = React.useState(true)
   const playIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
 
   const options = React.useMemo(
@@ -288,9 +305,9 @@ function TryItLive() {
     () =>
       ({
         ...options,
-        optimizeForStreaming: streamingCharCount !== null,
+        optimizeForStreaming: streamingCharCount !== null && optimizeForStreamingEnabled,
       }) as MarkdownToJSX.Options,
-    [options, streamingCharCount]
+    [options, streamingCharCount, optimizeForStreamingEnabled]
   )
 
   const t = React.useCallback(
@@ -498,6 +515,8 @@ function TryItLive() {
           onChange={handleSliderChange}
           isPlaying={isPlaying}
           onPlayToggle={handlePlayToggle}
+          optimizeEnabled={optimizeForStreamingEnabled}
+          onOptimizeToggle={setOptimizeForStreamingEnabled}
         />
       )}
 
