@@ -44,6 +44,7 @@
     - [options.wrapperProps](#optionswrapperprops)
   - [सिंटैक्स हाइलाइटिंग](#syntax-highlighting)
   - [शॉर्टकोड्स को हैंडल करना](#handling-shortcodes)
+  - [स्ट्रीमिंग Markdown](#स्ट्रीमिंग-markdown)
   - [Preact के साथ उपयोग](#usage-with-preact)
   - [AST संरचना](#ast-anatomy)
     - [नोड प्रकार](#node-types)
@@ -429,6 +430,7 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 | `renderRule`                    | `function`                    | -        | AST नियमों के लिए कस्टम रेंडरिंग। विवरण के लिए [renderRule](#optionsrenderrule) देखें।                                                                 |
 | `sanitizer`                     | `function`                    | built-in | कस्टम URL सैनिटाइज़र फ़ंक्शन। विवरण के लिए [sanitizer](#optionssanitizer) देखें।                                                                       |
 | `slugify`                       | `function`                    | built-in | हेडिंग IDs के लिए कस्टम slug जनरेशन। विवरण के लिए [slugify](#optionsslugify) देखें।                                                                    |
+| `optimizeForStreaming`          | `boolean`                     | `false`  | स्ट्रीमिंग के लिए अपूर्ण markdown सिंटैक्स की रेंडरिंग को दबाएं। विवरण के लिए [स्ट्रीमिंग Markdown](#स्ट्रीमिंग-markdown) देखें।                          |
 | `tagfilter`                     | `boolean`                     | `true`   | XSS को रोकने के लिए खतरनाक HTML टैग (`script`, `iframe`, `style`, आदि) को एस्केप करें।                                                                 |
 | `wrapper`                       | `string \| component \| null` | `'div'`  | एकाधिक children के लिए रैपर एलिमेंट (केवल React/React Native/Vue)। विवरण के लिए [wrapper](#optionswrapper) देखें।                                      |
 | `wrapperProps`                  | `object`                      | -        | रैपर एलिमेंट के लिए props (केवल React/React Native/Vue)। विवरण के लिए [wrapperProps](#optionswrapperprops) देखें।                                      |
@@ -834,6 +836,39 @@ function Example() {
 ```
 
 जब आप `options.renderRule` का उपयोग करते हैं, तो छवियों और GIFs सहित कोई भी React-रेंडर करने योग्य JSX रिटर्न किया जा सकता है। सुनिश्चित करें कि आप अपने समाधान को बेंचमार्क करते हैं क्योंकि `text` नियम सिस्टम में सबसे गर्म पथों में से एक है!
+
+<h3 id="स्ट्रीमिंग-markdown">स्ट्रीमिंग Markdown</h3>
+
+जब markdown सामग्री क्रमिक रूप से आती है (जैसे, AI/LLM API, WebSocket, या सर्वर-सेंट इवेंट्स से), तो आप देख सकते हैं कि कच्चे markdown सिंटैक्स सही रेंडरिंग से पहले संक्षेप में दिखाई देते हैं। ऐसा इसलिए होता है क्योंकि `**बोल्ड टेक्स्ट` या `<CustomComponent>आंशिक सामग्री` जैसे अपूर्ण सिंटैक्स बंद करने वाले डेलिमीटर आने से पहले टेक्स्ट के रूप में रेंडर हो जाते हैं।
+
+`optimizeForStreaming` विकल्प अपूर्ण markdown संरचनाओं का पता लगाकर और सामग्री पूर्ण होने तक `null` (React) या खाली स्ट्रिंग (HTML) रिटर्न करके इसे हल करता है:
+
+```tsx
+import Markdown from 'markdown-to-jsx/react'
+
+function StreamingMarkdown({ content }) {
+  return (
+    <Markdown options={{ optimizeForStreaming: true }}>
+      {content}
+    </Markdown>
+  )
+}
+```
+
+**यह क्या दबाता है:**
+
+- अबंद HTML टैग (`<div>सामग्री` बिना `</div>`)
+- अपूर्ण टैग सिंटैक्स (`<div attr="value` बिना बंद `>`)
+- अबंद HTML कमेंट्स (`<!-- कमेंट` बिना `-->`)
+- अबंद इनलाइन कोड (`` `कोड `` बिना बंद बैकटिक)
+- अबंद बोल्ड/इटैलिक (`**टेक्स्ट` या `*टेक्स्ट` बिना बंद)
+- अबंद स्ट्राइकथ्रू (`~~टेक्स्ट` बिना बंद `~~`)
+- अबंद लिंक (`[टेक्स्ट](url` बिना बंद `)`)
+- अपूर्ण टेबल (केवल हेडर और सेपरेटर पंक्ति बिना डेटा पंक्तियों के)
+
+**सामान्य रूप से रेंडर (स्ट्रीमिंग के दौरान सामग्री दिखाई देती है):**
+
+- फ़ेंस्ड कोड ब्लॉक्स - सामग्री आने पर दिखाई देती है, बंद करने वाले फ़ेंस की प्रतीक्षा करते हुए
 
 <h3 id="usage-with-preact">Preact के साथ उपयोग</h3>
 
