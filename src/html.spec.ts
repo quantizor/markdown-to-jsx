@@ -1495,3 +1495,64 @@ tags:
     })
   })
 })
+
+describe('optimizeForStreaming option', () => {
+  it('should strip incomplete HTML tags but keep content', () => {
+    const result = compiler('Hello world <div>incomplete', {
+      optimizeForStreaming: true,
+    })
+    expect(result).toContain('Hello world')
+    expect(result).toContain('incomplete')
+    expect(result).not.toContain('<div>')
+  })
+
+  it('should render incomplete fenced code blocks normally (content visible as it streams)', () => {
+    // Fenced code blocks should render as they stream - users want to see the code
+    const result = compiler('```js\nconst x = 1;', {
+      optimizeForStreaming: true,
+    })
+    expect(result).toContain('const x = 1')
+  })
+
+  it('should strip incomplete inline code backticks but keep content', () => {
+    const result = compiler('Hello world `incomplete code', {
+      optimizeForStreaming: true,
+    })
+    expect(result).toContain('Hello world')
+  })
+
+  it('should strip incomplete bold markers but keep text content', () => {
+    const result = compiler('Hello world **bold text', {
+      optimizeForStreaming: true,
+    })
+    expect(result).toContain('Hello world')
+    expect(result).toContain('bold text')
+    expect(result).not.toContain('**')
+  })
+
+  it('should strip incomplete link brackets but keep text content', () => {
+    const result = compiler('Hello world [link](http://example.com', {
+      optimizeForStreaming: true,
+    })
+    expect(result).toContain('Hello world')
+    expect(result).toContain('link')
+    expect(result).not.toContain('[')
+  })
+
+  it('should render complete content normally when enabled', () => {
+    const result = compiler('<div>complete</div>', {
+      optimizeForStreaming: true,
+    })
+    expect(result).toContain('complete')
+  })
+
+  it('should render content without special syntax normally when enabled', () => {
+    const result = compiler('Hello world', { optimizeForStreaming: true })
+    expect(result).toContain('Hello world')
+  })
+
+  it('should render incomplete content when option is disabled (default)', () => {
+    const result = compiler('<div>incomplete')
+    expect(result).toContain('incomplete')
+  })
+})

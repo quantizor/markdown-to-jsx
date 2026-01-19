@@ -858,6 +858,20 @@ export function compiler(
       processedInput = `${processedInput.replace(TRIM_STARTING_NEWLINES, '')}\n\n`
     }
 
+    // In streaming mode, strip trailing incomplete HTML tags to prevent infinite recursion
+    if (opts.optimizeForStreaming) {
+      // Find last '<' that doesn't have a matching '>'
+      let lastLt = processedInput.lastIndexOf('<')
+      if (lastLt !== -1) {
+        let afterLt = processedInput.slice(lastLt)
+        // Check if there's a complete tag (has '>')
+        if (afterLt.indexOf('>') === -1) {
+          // Incomplete tag - truncate before it
+          processedInput = processedInput.slice(0, lastLt)
+        }
+      }
+    }
+
     let astNodes = parse.parseMarkdown(
       inline ? input : processedInput,
       { inline: inline, refs: refs },

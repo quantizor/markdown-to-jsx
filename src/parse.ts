@@ -1006,11 +1006,21 @@ function parseInlineSpan(
   var inAnchor = !!state.inAnchor
   var disableParsingRawHTML = !!options.disableParsingRawHTML
 
+  // Track incomplete syntax for streaming mode
+  var incompleteBacktickPos = -1
+  var incompleteHTMLPos = -1
+  var htmlElementIndices: number[] = []
+
   // Helper: handle HTML tag parsing (angle brace autolinks, comments, tags, type 7 blocks)
   var handleHTMLTag = function (
     checkType7Block: boolean,
     respectDisableAutoLink: boolean
   ): boolean {
+    // In streaming mode, skip all HTML-related parsing when already inside HTML to avoid infinite recursion
+    if (options.optimizeForStreaming && state.inHTML) {
+      return false
+    }
+
     if (!inAnchor && (!respectDisableAutoLink || !options.disableAutoLink)) {
       trackAttempt('linkAngleBrace')
       var angleBraceResult = parseLinkOrImage(source, pos, state, options, '<')
@@ -1034,10 +1044,31 @@ function parseInlineSpan(
     if (htmlResult) {
       trackHit('htmlElement')
       flushText(pos)
+      var htmlNodeIdx = result.length
       result.push(htmlResult)
+      // Track HTML elements for streaming mode incomplete tag detection
+      if (options.optimizeForStreaming) {
+        htmlElementIndices.push(htmlNodeIdx)
+      }
       pos = htmlResult.endPos
       textStart = pos
       return true
+    }
+
+    // Track incomplete HTML for streaming mode
+    if (options.optimizeForStreaming && incompleteHTMLPos === -1) {
+      // Check if this looks like the start of an HTML tag
+      if (pos + 1 < end) {
+        var nextChar = charCode(source, pos + 1)
+        if (
+          (nextChar >= $.CHAR_A && nextChar <= $.CHAR_Z) ||
+          (nextChar >= $.CHAR_a && nextChar <= $.CHAR_z) ||
+          nextChar === $.CHAR_SLASH ||
+          nextChar === $.CHAR_EXCLAMATION
+        ) {
+          incompleteHTMLPos = pos
+        }
+      }
     }
 
     if (!checkType7Block) return false
@@ -1289,6 +1320,15 @@ function parseInlineSpan(
           pos = i
           textStart = pos
           continue
+        }
+        // Track incomplete backticks for streaming mode
+        if (options.optimizeForStreaming && incompleteBacktickPos === -1) {
+          incompleteBacktickPos = backtickStart
+          // In streaming mode, stop processing at incomplete backtick
+          // Flush any text before the backtick and exit
+          flushText(backtickStart)
+          end = backtickStart
+          break
         }
         pos = contentStart
         continue
@@ -1621,16 +1661,29 @@ function parseInlineSpan(
       var bracketResultIdx = bracket.resultIdx
       bracketStack.pop()
       result.length = bracketResultIdx
-      if (bracket.type === 'image')
-        result.push({
-          type: RuleType.text,
-          text: '!',
-        } as MarkdownToJSX.TextNode)
-      result.push(
-        { type: RuleType.text, text: '[' } as MarkdownToJSX.TextNode,
-        ...linkChildren,
-        { type: RuleType.text, text: ']' } as MarkdownToJSX.TextNode
-      )
+
+      if (options.optimizeForStreaming) {
+        // Streaming mode: keep link children without brackets
+        result.push(...linkChildren)
+        // If there was a ( after ], this is an incomplete link - truncate here
+        if (afterBracket < end && source[afterBracket] === '(') {
+          // Don't process anything after the incomplete link syntax
+          return result
+        }
+      } else {
+        // Normal mode: insert brackets and content as text
+        if (bracket.type === 'image')
+          result.push({
+            type: RuleType.text,
+            text: '!',
+          } as MarkdownToJSX.TextNode)
+        result.push(
+          { type: RuleType.text, text: '[' } as MarkdownToJSX.TextNode,
+          ...linkChildren,
+          { type: RuleType.text, text: ']' } as MarkdownToJSX.TextNode
+        )
+      }
+
       for (var k = 0; k < delimiterStack.length; k++) {
         if (delimiterStack[k].nodeIndex >= bracketResultIdx)
           delimiterStack[k].nodeIndex++
@@ -1791,6 +1844,88 @@ function parseInlineSpan(
   // Process emphasis using delimiter stack algorithm
   if (delimiterStack.length) {
     processEmphasis(result, delimiterStack, null)
+  }
+
+  // Streaming optimization: remove unclosed syntax markers while keeping content
+  if (options.optimizeForStreaming) {
+    var cutoffIdx = result.length
+
+    // Check for unclosed non-void HTML elements and remove them (reverse order)
+    for (var hi = htmlElementIndices.length - 1; hi >= 0; hi--) {
+      var htmlIdx = htmlElementIndices[hi]
+      if (
+        htmlIdx < result.length &&
+        result[htmlIdx].type === RuleType.htmlBlock
+      ) {
+        var htmlNode = result[htmlIdx] as MarkdownToJSX.HTMLNode
+        // Check if this is a non-void element with no children (likely unclosed)
+        if (
+          !util.isVoidElement(htmlNode.tag) &&
+          (!htmlNode.children || htmlNode.children.length === 0)
+        ) {
+          // Remove just the HTML element, keeping content after
+          result.splice(htmlIdx, 1)
+          // Adjust other tracking indices
+          if (htmlIdx < cutoffIdx) cutoffIdx--
+          for (var k = 0; k < delimiterStack.length; k++) {
+            if (delimiterStack[k].nodeIndex > htmlIdx) {
+              delimiterStack[k].nodeIndex--
+            }
+          }
+          for (var k = hi + 1; k < htmlElementIndices.length; k++) {
+            if (htmlElementIndices[k] > htmlIdx) {
+              htmlElementIndices[k]--
+            }
+          }
+        }
+      }
+    }
+
+    // Find earliest incomplete syntax position
+    if (incompleteBacktickPos !== -1 && incompleteBacktickPos < cutoffIdx) {
+      // Find the result node index at this source position
+      for (var ri = result.length - 1; ri >= 0; ri--) {
+        if (result[ri].type === RuleType.text) {
+          // Approximate - if this text node might contain the backticks, truncate here
+          cutoffIdx = ri
+          break
+        }
+      }
+    }
+
+    if (incompleteHTMLPos !== -1 && incompleteHTMLPos < cutoffIdx) {
+      // Find the result node index at this source position
+      for (var ri = result.length - 1; ri >= 0; ri--) {
+        if (result[ri].type === RuleType.text) {
+          // Approximate - if this text node might contain the HTML start, truncate here
+          cutoffIdx = ri
+          break
+        }
+      }
+    }
+
+    // Remove unmatched delimiter text nodes (reverse order to preserve indices)
+    for (var i = delimiterStack.length - 1; i >= 0; i--) {
+      if (delimiterStack[i].active && delimiterStack[i].nodeIndex < cutoffIdx) {
+        result.splice(delimiterStack[i].nodeIndex, 1)
+        // Adjust cutoff and other indices
+        if (delimiterStack[i].nodeIndex < cutoffIdx) cutoffIdx--
+        // Adjust indices for remaining delimiters
+        for (var j = 0; j < i; j++) {
+          if (delimiterStack[j].nodeIndex > delimiterStack[i].nodeIndex) {
+            delimiterStack[j].nodeIndex--
+          }
+        }
+      }
+    }
+
+    // Truncate at incomplete syntax if found
+    if (cutoffIdx < result.length) {
+      result.length = cutoffIdx
+    }
+
+    // Skip bracket insertion entirely - content is already in result
+    return result
   }
 
   // Insert bracket text nodes in forward order (more efficient than reverse splices)
@@ -2990,6 +3125,35 @@ function parseParagraph(
   // Note: We don't check isBlockStartChar here because this is called as a fallback
   // after other block parsers have already tried and failed
   if (state.inline) return null
+
+  if (options.optimizeForStreaming && source[pos] === '|') {
+    var checkLen = Math.min(500, source.length - pos)
+    var checkContent = source.substr(pos, checkLen)
+    var streamPipeCount = 0
+    var streamHasSeparator = false
+    for (var streamIdx = 0; streamIdx < checkContent.length; streamIdx++) {
+      if (checkContent[streamIdx] === '|') streamPipeCount++
+      if (checkContent[streamIdx] === '-' || checkContent[streamIdx] === ':') streamHasSeparator = true
+    }
+    if (streamPipeCount >= 3 && streamHasSeparator) {
+      var streamEndPos = util.findLineEnd(source, pos)
+      while (streamEndPos < source.length) {
+        var nextStart = skipToNextLine(source, streamEndPos)
+        if (nextStart >= source.length) break
+        var nextEnd = util.findLineEnd(source, nextStart)
+        var nextLine = source.slice(nextStart, nextEnd)
+        if (nextLine.indexOf('|') === -1 && nextLine.indexOf('-') === -1) break
+        streamEndPos = nextEnd
+        if (nextEnd >= source.length) break
+      }
+      return {
+        type: RuleType.paragraph,
+        children: [],
+        endPos: skipToNextLine(source, streamEndPos),
+      } as MarkdownToJSX.ParagraphNode & { endPos: number }
+    }
+  }
+
   let endPos = pos
   const sourceLen = source.length
 
@@ -6492,6 +6656,10 @@ function parseTable(
     return start && end ? 'center' : start ? 'left' : end ? 'right' : null
   })
 
+  if (options.optimizeForStreaming && lines.length === 2) {
+    return null
+  }
+
   const parseRow = (cells: string[]) =>
     parseWithInlineMode(state, true, () =>
       cells.map(cell => parseInlineSpan(cell, 0, cell.length, state, options))
@@ -6653,11 +6821,16 @@ function createVerbatimHTMLBlock(
   canInterruptParagraph?: boolean
 } {
   var normalizedText = util.normalizeInput(text)
-  // Detect empty unclosed HTML tags when forceBlock is used to avoid infinite recursion
+  // Detect empty unclosed HTML tags when forceBlock or optimizeForStreaming is used to avoid infinite recursion
   // For empty unclosed tags like <var>, the text field contains the opening tag itself
-  // When forceBlock is used, this would cause recursion if the tag is parsed again
+  // When forceBlock/optimizeForStreaming is used, this would cause recursion if the tag is parsed again
   var finalText = normalizedText
-  if (options && options.forceBlock && text && !isClosingTag) {
+  if (
+    options &&
+    (options.forceBlock || options.optimizeForStreaming) &&
+    text &&
+    !isClosingTag
+  ) {
     var openingTagPattern = new RegExp(
       '^<' + tagName.toLowerCase() + '(\\s[^>]*)?>$',
       'i'
@@ -6698,7 +6871,10 @@ function createVerbatimHTMLBlock(
 
   // Parse content into children
   var children: MarkdownToJSX.ASTNode[] = []
-  if (contentToParse && options) {
+
+  // In streaming mode, skip all child parsing to avoid infinite recursion with unclosed tags
+  // The content will be rendered as plain text inside the HTML block
+  if (contentToParse && options && !options.optimizeForStreaming) {
     var parseState: MarkdownToJSX.State = state || {
       inline: false,
       inHTML: true,
@@ -6725,6 +6901,7 @@ function createVerbatimHTMLBlock(
       var inlineState = {
         ...parseState,
         inline: true,
+        inHTML: true,
         inAnchor: parseState.inAnchor || tagLower === 'a',
       }
       children = parseInlineSpan(
@@ -6959,6 +7136,7 @@ function processHTMLBlock(
       (state.inHTML && hasHTMLTags)
 
   // ALWAYS parse content into children, regardless of verbatim flag
+  // Recursion is prevented by state.inHTML guard at parseHTML entry
   let children: MarkdownToJSX.ASTNode[] = []
   if (trimmed) {
     // Parse as blocks when content contains HTML tags to ensure nested HTML is parsed correctly
@@ -6974,6 +7152,7 @@ function processHTMLBlock(
       const childState = {
         ...state,
         inline: true,
+        inHTML: options.optimizeForStreaming ? true : state.inHTML,
         inAnchor: parentInAnchor || state.inAnchor || lowerTag === 'a',
       }
       children = parseInlineSpan(
@@ -7027,6 +7206,11 @@ function parseHTML(
   debug('parse', 'htmlBlock', state)
   // Must start with '<'
   if (source[pos] !== '<') return null
+
+  // In streaming mode, skip all HTML parsing when already inside HTML to avoid infinite recursion
+  if (options.optimizeForStreaming && state.inHTML) {
+    return null
+  }
 
   // Track attempt after cheap disqualifications but before expensive parsing work
   if (!state.inline) {
@@ -7521,6 +7705,7 @@ function parseHTML(
       )
       if (closingResult !== null) {
         var content = source.slice(tagResult.endPos, closingResult[0])
+        // Recursion is prevented by state.inHTML guard at parseHTML entry
         if (content) {
           if (
             (state.inHTML && HTML_BLOCK_ELEMENT_START_R.test(content)) ||
@@ -7544,6 +7729,7 @@ function parseHTML(
               {
                 ...state,
                 inline: true,
+                inHTML: options.optimizeForStreaming ? true : state.inHTML,
                 inAnchor: state.inAnchor || tagNameLower === 'a',
               },
               options
