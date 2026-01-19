@@ -7,7 +7,9 @@ import { presets, type Preset } from './src/site/presets'
 import { LANGUAGES, SUPPORTED_LANGUAGES } from './src/i18n/languages'
 import { UI_STRINGS } from './src/i18n/ui-strings'
 
-const LavaLamp = React.lazy(() => import('./src/site/lava-lamp').then(m => ({ default: m.LavaLamp })))
+const LavaLamp = React.lazy(() =>
+  import('./src/site/lava-lamp').then(m => ({ default: m.LavaLamp }))
+)
 
 declare global {
   interface Window {
@@ -28,7 +30,9 @@ const detectLanguage = (): string => {
   const stored = localStorage.getItem('markdown-to-jsx-lang')
   if (stored && SUPPORTED_LANGUAGES.includes(stored)) return stored
 
-  const browserLang = (navigator.language || navigator.languages?.[0])?.split('-')[0]
+  const browserLang = (navigator.language || navigator.languages?.[0])?.split(
+    '-'
+  )[0]
   return SUPPORTED_LANGUAGES.includes(browserLang) ? browserLang : 'en'
 }
 
@@ -192,6 +196,143 @@ function LanguageSwitcher({
   )
 }
 
+function StreamingSlider({
+  value,
+  max,
+  onChange,
+  isPlaying,
+  onPlayToggle,
+  optimizeEnabled,
+  onOptimizeToggle,
+  isInteracted,
+  onInteract,
+}: {
+  value: number
+  max: number
+  onChange: (value: number) => void
+  isPlaying: boolean
+  onPlayToggle: () => void
+  optimizeEnabled: boolean
+  onOptimizeToggle: (enabled: boolean) => void
+  isInteracted: boolean
+  onInteract: () => void
+}) {
+  const progress = max > 0 ? (value / max) * 100 : 0
+
+  return (
+    <div
+      className={`hidden md:flex streaming-slider-container fixed bottom-0 left-0 right-0 flex-row items-center gap-4 px-6 py-3 backdrop-blur-md border-t border-white/10 z-50${isInteracted ? ' slider-interacted' : ''}`}
+    >
+      <button
+        onClick={() => {
+          onInteract()
+          onPlayToggle()
+        }}
+        className="w-8 h-8 rounded-full bg-accent/80 hover:bg-accent flex items-center justify-center text-black transition-colors shrink-0"
+        title={isPlaying ? 'Pause' : 'Play streaming demo'}
+      >
+        {isPlaying ? (
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <rect x="1" y="1" width="3" height="10" />
+            <rect x="8" y="1" width="3" height="10" />
+          </svg>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <polygon points="2,0 12,6 2,12" />
+          </svg>
+        )}
+      </button>
+      <input
+        type="range"
+        min="0"
+        max={max}
+        value={value}
+        onChange={e => {
+          onInteract()
+          onChange(parseInt(e.target.value, 10))
+        }}
+        className="streaming-slider flex-1"
+        style={
+          {
+            '--progress': `${progress}%`,
+          } as React.CSSProperties
+        }
+      />
+      <span className="text-xs text-fg/60 font-mono whitespace-nowrap shrink-0">
+        {value}/{max}
+      </span>
+      <label
+        className="flex items-center gap-1.5 cursor-pointer shrink-0"
+        title="When enabled, suppresses incomplete markdown syntax (bold, italic, links, etc.) during streaming to prevent visual flickering. Disable to see the raw incomplete syntax."
+      >
+        <input
+          type="checkbox"
+          checked={optimizeEnabled}
+          onChange={e => {
+            onInteract()
+            onOptimizeToggle(e.target.checked)
+          }}
+          className="w-4 h-4 accent-accent cursor-pointer"
+        />
+        <span className="text-xs text-fg/60 whitespace-nowrap">optimize</span>
+      </label>
+    </div>
+  )
+}
+
+type StreamingState = {
+  charCount: number | null
+  isPlaying: boolean
+  optimizeEnabled: boolean
+  interacted: boolean
+}
+
+type StreamingAction =
+  | { type: 'RESET' }
+  | { type: 'SET_CHAR_COUNT'; payload: number | null }
+  | { type: 'PLAY' }
+  | { type: 'PAUSE' }
+  | { type: 'TOGGLE_PLAY' }
+  | { type: 'TOGGLE_OPTIMIZE' }
+  | { type: 'SET_INTERACTED' }
+  | { type: 'INCREMENT_CHAR'; maxLength: number }
+
+function streamingReducer(
+  state: StreamingState,
+  action: StreamingAction
+): StreamingState {
+  switch (action.type) {
+    case 'RESET':
+      return {
+        charCount: null,
+        isPlaying: false,
+        optimizeEnabled: true,
+        interacted: state.interacted,
+      }
+    case 'SET_CHAR_COUNT':
+      return { ...state, charCount: action.payload, isPlaying: false }
+    case 'PLAY':
+      return { ...state, isPlaying: true }
+    case 'PAUSE':
+      return { ...state, isPlaying: false }
+    case 'TOGGLE_PLAY':
+      return { ...state, isPlaying: !state.isPlaying }
+    case 'TOGGLE_OPTIMIZE':
+      return { ...state, optimizeEnabled: !state.optimizeEnabled }
+    case 'SET_INTERACTED':
+      return { ...state, interacted: true }
+    case 'INCREMENT_CHAR': {
+      const next = (state.charCount ?? 0) + 1
+      if (next >= action.maxLength) {
+        return { ...state, charCount: action.maxLength, isPlaying: false }
+      }
+      return { ...state, charCount: next }
+    }
+    default:
+      return state
+  }
+}
+
 function TryItLive() {
   const [lang, setLang] = React.useState(detectLanguage)
   const [markdown, setMarkdown] = React.useState('')
@@ -199,6 +340,16 @@ function TryItLive() {
     null
   )
   const [readmeContent, setReadmeContent] = React.useState('')
+
+  const [streaming, dispatchStreaming] = React.useReducer(streamingReducer, {
+    charCount: null,
+    isPlaying: false,
+    optimizeEnabled: true,
+    interacted: false,
+  })
+  const playIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(
+    null
+  )
 
   const options = React.useMemo(
     () =>
@@ -227,6 +378,16 @@ function TryItLive() {
     [lang]
   )
 
+  const streamingOptions = React.useMemo(
+    () =>
+      ({
+        ...options,
+        optimizeForStreaming:
+          streaming.charCount !== null && streaming.optimizeEnabled,
+      }) as MarkdownToJSX.Options,
+    [options, streaming.charCount, streaming.optimizeEnabled]
+  )
+
   const t = React.useCallback(
     (key: string) => UI_STRINGS[lang]?.[key] || UI_STRINGS.en[key],
     [lang]
@@ -234,71 +395,152 @@ function TryItLive() {
 
   React.useLayoutEffect(() => {
     document.documentElement.lang = lang
-    const title = lang === 'en' ? 'markdown-to-jsx' : `markdown-to-jsx | ${LANGUAGES[lang].nativeName}`
+    const title =
+      lang === 'en'
+        ? 'markdown-to-jsx'
+        : `markdown-to-jsx | ${LANGUAGES[lang].nativeName}`
     document.title = title
   }, [lang])
 
   React.useEffect(() => {
-    const loadDefaultTemplate = async () => {
+    const loadI18nFiles = async () => {
       try {
-        const module = await import(`./src/i18n/${lang}/default-template.md?raw`)
+        const module = await import(
+          `./src/i18n/${lang}/default-template.md?raw`
+        )
         setMarkdown(module.default)
       } catch (error) {
-        // Fallback to English
         const module = await import(`./src/i18n/en/default-template.md?raw`)
         setMarkdown(module.default)
       }
-    }
-    loadDefaultTemplate()
-  }, [lang])
 
-  React.useEffect(() => {
-    const loadReadme = async () => {
       try {
         const module = await import(`./src/i18n/${lang}/README.md?raw`)
         setReadmeContent(module.default)
+        dispatchStreaming({ type: 'RESET' })
       } catch (error) {
-        // Fallback to English
         const module = await import(`./src/i18n/en/README.md?raw`)
         setReadmeContent(module.default)
+        dispatchStreaming({ type: 'RESET' })
       }
     }
-    loadReadme()
+    loadI18nFiles()
   }, [lang])
 
-  const handleLangChange = (newLang: string) => {
+  const handleLangChange = React.useCallback((newLang: string) => {
     setLang(newLang)
     localStorage.setItem('markdown-to-jsx-lang', newLang)
-    // Update URL without reload
     const url = new URL(window.location.href)
     url.searchParams.set('lang', newLang)
     window.history.pushState({}, '', url)
-  }
+  }, [])
 
-  React.useEffect(() => {
-    const handler = (e: Event) => {
-      const customEvent = e as CustomEvent<string>
-      setMarkdown(customEvent.detail)
-    }
-    window.addEventListener('preset-loaded', handler)
-    return () => window.removeEventListener('preset-loaded', handler)
+  const handlePresetLoaded = React.useCallback((e: Event) => {
+    const customEvent = e as CustomEvent<string>
+    setMarkdown(customEvent.detail)
   }, [])
 
   React.useEffect(() => {
-    const handleHashLink = (e: MouseEvent) => {
-      const anchor = (e.target as HTMLElement).closest('a') as HTMLAnchorElement
-      if (anchor?.hash) {
-        const element = document.getElementById(anchor.hash.slice(1))
-        if (element) {
-          e.preventDefault()
-          element.scrollIntoView({ behavior: 'smooth' })
+    window.addEventListener('preset-loaded', handlePresetLoaded)
+    return () => window.removeEventListener('preset-loaded', handlePresetLoaded)
+  }, [handlePresetLoaded])
+
+  const handleHashLink = React.useCallback((e: MouseEvent) => {
+    const anchor = (e.target as HTMLElement).closest('a') as HTMLAnchorElement
+    if (anchor?.hash) {
+      const element = document.getElementById(anchor.hash.slice(1))
+      if (element) {
+        e.preventDefault()
+        element.scrollIntoView({ behavior: 'smooth' })
+      }
+    }
+  }, [])
+
+  React.useEffect(() => {
+    document.addEventListener('click', handleHashLink)
+    return () => document.removeEventListener('click', handleHashLink)
+  }, [handleHashLink])
+
+  React.useEffect(() => {
+    if (streaming.isPlaying && readmeContent) {
+      playIntervalRef.current = setInterval(() => {
+        dispatchStreaming({
+          type: 'INCREMENT_CHAR',
+          maxLength: readmeContent.length,
+        })
+      }, 5)
+    } else if (playIntervalRef.current) {
+      clearInterval(playIntervalRef.current)
+      playIntervalRef.current = null
+    }
+
+    return () => {
+      if (playIntervalRef.current) {
+        clearInterval(playIntervalRef.current)
+      }
+    }
+  }, [streaming.isPlaying, readmeContent])
+
+  React.useEffect(() => {
+    if (
+      streaming.isPlaying &&
+      streaming.charCount !== null &&
+      streaming.charCount > 0
+    ) {
+      const docsElement = document.getElementById('docs')
+      if (docsElement) {
+        const rect = docsElement.getBoundingClientRect()
+        const viewportHeight = window.innerHeight
+        const sliderHeight = 60
+        const bottomThreshold = viewportHeight - sliderHeight - 100
+
+        if (rect.bottom > bottomThreshold) {
+          window.scrollBy({ top: 2, behavior: 'instant' })
         }
       }
     }
+  }, [streaming.isPlaying, streaming.charCount])
 
-    document.addEventListener('click', handleHashLink)
-    return () => document.removeEventListener('click', handleHashLink)
+  const handlePlayToggle = React.useCallback(() => {
+    if (streaming.isPlaying) {
+      dispatchStreaming({ type: 'PAUSE' })
+    } else {
+      if (
+        streaming.charCount === null ||
+        streaming.charCount >= readmeContent.length
+      ) {
+        dispatchStreaming({ type: 'SET_CHAR_COUNT', payload: 0 })
+      }
+      dispatchStreaming({ type: 'PLAY' })
+    }
+  }, [streaming.isPlaying, streaming.charCount, readmeContent.length])
+
+  const handleSliderChange = React.useCallback((value: number) => {
+    dispatchStreaming({ type: 'SET_CHAR_COUNT', payload: value })
   }, [])
+
+  const handleOptimizeToggle = React.useCallback(
+    (enabled: boolean) => {
+      if (streaming.optimizeEnabled !== enabled) {
+        dispatchStreaming({ type: 'TOGGLE_OPTIMIZE' })
+      }
+    },
+    [streaming.optimizeEnabled]
+  )
+
+  const handleInteract = React.useCallback(() => {
+    if (!streaming.interacted) {
+      dispatchStreaming({ type: 'SET_INTERACTED' })
+    }
+  }, [streaming.interacted])
+
+  const displayedReadmeContent = React.useMemo(
+    () =>
+      streaming.charCount !== null
+        ? readmeContent.slice(0, streaming.charCount)
+        : readmeContent,
+    [streaming.charCount, readmeContent]
+  )
 
   return (
     <main className="flex flex-col items-center justify-center gap-7 pb-20 px-6 lg:px-0">
@@ -372,6 +614,20 @@ function TryItLive() {
         lang={lang}
       />
 
+      {readmeContent && (
+        <StreamingSlider
+          value={streaming.charCount ?? readmeContent.length}
+          max={readmeContent.length}
+          onChange={handleSliderChange}
+          isPlaying={streaming.isPlaying}
+          onPlayToggle={handlePlayToggle}
+          optimizeEnabled={streaming.optimizeEnabled}
+          onOptimizeToggle={handleOptimizeToggle}
+          isInteracted={streaming.interacted}
+          onInteract={handleInteract}
+        />
+      )}
+
       <div className="relative group max-w-full lg:max-w-2xl w-full">
         {lang !== 'en' && (
           <a
@@ -383,12 +639,13 @@ function TryItLive() {
             {t('editTranslation')}
           </a>
         )}
+
         <Markdown
-          className="prose prose-invert prose-sm center"
+          className="prose prose-invert prose-sm center mx-auto"
           id="docs"
-          options={options}
+          options={streamingOptions}
         >
-          {readmeContent}
+          {displayedReadmeContent}
         </Markdown>
       </div>
     </main>

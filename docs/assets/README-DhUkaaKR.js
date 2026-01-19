@@ -44,6 +44,7 @@ const n=`[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://
     - [options.wrapperProps](#optionswrapperprops)
   - [语法高亮 Syntax highlighting](#%E8%AF%AD%E6%B3%95%E9%AB%98%E4%BA%AE-syntax-highlighting)
   - [处理短代码 Handling shortcodes](#%E5%A4%84%E7%90%86%E7%9F%AD%E4%BB%A3%E7%A0%81-handling-shortcodes)
+  - [流式 Markdown](#%E6%B5%81%E5%BC%8F-markdown)
   - [在 Preact 中使用](#%E5%9C%A8-preact-%E4%B8%AD%E4%BD%BF%E7%94%A8)
   - [AST 结构解析 AST Anatomy](#ast-%E7%BB%93%E6%9E%84%E8%A7%A3%E6%9E%90-ast-anatomy)
     - [节点类型 Node Types](#%E8%8A%82%E7%82%B9%E7%B1%BB%E5%9E%8B-node-types)
@@ -429,6 +430,7 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 | \`renderRule\`                    | \`function\`                    | -       | 自定义 AST 规则的渲染。详见 [renderRule](#optionsrenderrule)。                                                 |
 | \`sanitizer\`                     | \`function\`                    | 内置    | 自定义 URL 清理函数。详见 [sanitizer](#optionssanitizer)。                                                     |
 | \`slugify\`                       | \`function\`                    | 内置    | 自定义标题 ID 的 Slug 生成。详见 [slugify](#optionsslugify)。                                                  |
+| \`optimizeForStreaming\`          | \`boolean\`                     | \`false\` | 抑制不完整 markdown 语法的渲染，适用于流式场景。详见 [流式 Markdown](#流式-markdown)。                         |
 | \`tagfilter\`                     | \`boolean\`                     | \`true\`  | 转义危险的 HTML 标签 (\`script\`, \`iframe\`, \`style\` 等) 以防止 XSS。                                             |
 | \`wrapper\`                       | \`string \\| component \\| null\` | \`'div'\` | 多个子元素的包装元素 (仅限 React/React Native/Vue)。详见 [wrapper](#optionswrapper)。                          |
 | \`wrapperProps\`                  | \`object\`                      | -       | 包装元素的属性 (仅限 React/React Native/Vue)。详见 [wrapperProps](#optionswrapperprops)。                      |
@@ -827,6 +829,39 @@ function Example() {
 \`\`\`
 
 当您使用 \`options.renderRule\` 时，可以返回任何可渲染的 React JSX，包括图像和 GIF。请务必对您的解决方案进行基准测试，因为 \`text\` 规则是系统中压力最大的路径之一！
+
+### 流式 Markdown
+
+当渲染增量到达的 Markdown 内容时（例如来自 AI/LLM API、WebSocket 或服务器发送事件），您可能会注意到原始 Markdown 语法在正确渲染之前短暂出现。这是因为像 \`**粗体文本\` 或 \`<CustomComponent>部分内容\` 这样的不完整语法在闭合分隔符到达之前被渲染为文本。
+
+\`optimizeForStreaming\` 选项通过检测不完整的 Markdown 结构并返回 \`null\`（React）或空字符串（HTML）直到内容完整来解决这个问题：
+
+\`\`\`tsx
+import Markdown from 'markdown-to-jsx/react'
+
+function StreamingMarkdown({ content }) {
+  return (
+    <Markdown options={{ optimizeForStreaming: true }}>
+      {content}
+    </Markdown>
+  )
+}
+\`\`\`
+
+**它抑制的内容：**
+
+- 未闭合的 HTML 标签（\`<div>内容\` 没有 \`</div>\`）
+- 不完整的标签语法（\`<div attr="value\` 没有闭合 \`>\`）
+- 未闭合的 HTML 注释（\`<!-- 注释\` 没有 \`-->\`）
+- 未闭合的行内代码（\`\` \`代码 \`\` 没有闭合反引号）
+- 未闭合的粗体/斜体（\`**文本\` 或 \`*文本\` 没有闭合）
+- 未闭合的删除线（\`~~文本\` 没有闭合 \`~~\`）
+- 未闭合的链接（\`[文本](url\` 没有闭合 \`)\`）
+- 不完整的表格（只有表头和分隔行而没有数据行）
+
+**正常渲染的内容（流式传输时内容可见）：**
+
+- 围栏代码块 - 内容在到达时显示，等待闭合围栏
 
 ### 在 Preact 中使用
 

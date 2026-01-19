@@ -271,3 +271,105 @@
     cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
   animation-delay: var(--delay, 0s);
 }
+
+/* Streaming slider styles */
+.streaming-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  height: 6px;
+}
+
+.streaming-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    theme(colors.accent) var(--progress, 0%),
+    rgba(255, 255, 255, 0.1) var(--progress, 0%)
+  );
+  height: 6px;
+  border-radius: 3px;
+}
+
+.streaming-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: theme(colors.accent);
+  margin-top: -5px;
+  cursor: grab;
+  transition: transform 0.15s ease;
+}
+
+.streaming-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.streaming-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.1);
+}
+
+.streaming-slider::-moz-range-track {
+  background: linear-gradient(
+    to right,
+    theme(colors.accent) var(--progress, 0%),
+    rgba(255, 255, 255, 0.1) var(--progress, 0%)
+  );
+  height: 6px;
+  border-radius: 3px;
+}
+
+.streaming-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: theme(colors.accent);
+  border: none;
+  cursor: grab;
+  transition: transform 0.15s ease;
+}
+
+.streaming-slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+
+.streaming-slider::-moz-range-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.1);
+}
+
+.streaming-slider-container {
+  opacity: 0;
+  transform: translateY(100%);
+  animation: slider-scroll-reveal linear forwards;
+  animation-timeline: scroll(root);
+  animation-range: 100vh 110vh;
+}
+
+@keyframes slider-scroll-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@supports not (animation-timeline: scroll()) {
+  .streaming-slider-container {
+    opacity: 1;
+    transform: translateY(0);
+    animation: none;
+  }
+}
+
+.streaming-slider-container.slider-interacted {
+  animation: none;
+  opacity: 1;
+  transform: translateY(0);
+}
