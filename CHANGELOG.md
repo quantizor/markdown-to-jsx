@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 9.6.0
+
+### Minor Changes
+
+- a97e2bf: Add `optimizeForStreaming` option to suppress incomplete syntax during streaming. When enabled, incomplete inline code, links, emphasis, and other markdown syntax is hidden cleanly as characters arrive, preventing visual artifacts and flickering. Particularly useful for AI-powered streaming applications.
+
 ## 9.5.7
 
 ### Patch Changes
