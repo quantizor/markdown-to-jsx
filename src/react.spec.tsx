@@ -2822,6 +2822,81 @@ describe('overrides', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(`"<button>Click me!</button>"`)
   })
 
+  it('should preserve camelCase props on custom JSX components', () => {
+    interface UserCardProps {
+      userId: string
+      firstName: string
+      lastName: string
+      isActive?: boolean
+    }
+    const UserCard: React.FC<UserCardProps> = ({
+      userId,
+      firstName,
+      lastName,
+      isActive,
+    }) => (
+      <div data-user-id={userId}>
+        {firstName} {lastName} {isActive ? '(active)' : '(inactive)'}
+      </div>
+    )
+
+    render(
+      compiler(
+        '<UserCard userId="123" firstName="John" lastName="Doe" isActive />',
+        {
+          overrides: { UserCard },
+        }
+      )
+    )
+
+    // The props should be correctly passed with camelCase names
+    expect(root.innerHTML).toContain('data-user-id="123"')
+    expect(root.innerHTML).toContain('John')
+    expect(root.innerHTML).toContain('Doe')
+    expect(root.innerHTML).toContain('(active)')
+  })
+
+  it('should preserve camelCase props on block-level JSX components', () => {
+    interface DataTableProps {
+      userId: string
+      pageSize: string
+      showHeader?: boolean
+      children?: React.ReactNode
+    }
+    const DataTable: React.FC<DataTableProps> = ({
+      userId,
+      pageSize,
+      showHeader,
+      children,
+    }) => (
+      <table data-user={userId} data-page-size={pageSize}>
+        {showHeader && (
+          <thead>
+            <tr>
+              <th>Header</th>
+            </tr>
+          </thead>
+        )}
+        <tbody>{children}</tbody>
+      </table>
+    )
+
+    render(
+      compiler(
+        `<DataTable userId="user123" pageSize="10" showHeader>
+  <tr><td>Row 1</td></tr>
+</DataTable>`,
+        {
+          overrides: { DataTable },
+        }
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table data-user="user123" data-page-size="10"><thead><tr><th>Header</th></tr></thead><tbody><tr><td>Row 1</td></tr></tbody></table>"`
+    )
+  })
+
   it('should allow for particular html tags to be voided by configuration', () => {
     render(
       compiler(
