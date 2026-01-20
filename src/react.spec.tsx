@@ -2856,6 +2856,32 @@ describe('overrides', () => {
     expect(root.innerHTML).toContain('(active)')
   })
 
+  it('should preserve camelCase props exactly as reported in issue (GitHub issue test)', () => {
+    // This test exactly mirrors the bug report example
+    type MyComponentProps = {
+      userId: string
+      firstName: string
+    }
+
+    const MyComponent = ({ userId, firstName }: MyComponentProps) => {
+      return (
+        <div>
+          {firstName} ({userId})
+        </div>
+      )
+    }
+
+    render(
+      compiler('<MyComponent userId="123" firstName="John" />', {
+        overrides: { MyComponent },
+      })
+    )
+
+    // Props should NOT be lowercased - they should be preserved as camelCase
+    expect(root.innerHTML).toContain('John')
+    expect(root.innerHTML).toContain('123')
+  })
+
   it('should preserve camelCase props on block-level JSX components', () => {
     interface DataTableProps {
       userId: string
