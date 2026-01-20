@@ -2,7 +2,10 @@ import BenchTable from 'benchtable'
 import cliProgress from 'cli-progress'
 import * as fs from 'fs'
 import MarkdownIt from 'markdown-it'
-import { compiler as latestCompiler } from 'markdown-to-jsx-latest'
+import {
+  compiler as latestCompiler,
+  parser as latestParser,
+} from 'markdown-to-jsx-latest'
 import path from 'path'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
@@ -82,7 +85,7 @@ const parseTests = [
   },
   {
     name: `markdown-to-jsx (${latestVersion}) [parse]`,
-    fn: input => latestCompiler(input, { ast: true }),
+    fn: input => latestParser(input),
   },
   isAll && {
     name: 'rehype [parse]',
