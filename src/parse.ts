@@ -1005,6 +1005,7 @@ function parseInlineSpan(
   var hasAmpersand = false
   var inAnchor = !!state.inAnchor
   var disableParsingRawHTML = !!options.disableParsingRawHTML
+  var isStreaming = options.optimizeForStreaming
 
   // Track incomplete syntax for streaming mode
   var incompleteBacktickPos = -1
@@ -1017,7 +1018,7 @@ function parseInlineSpan(
     respectDisableAutoLink: boolean
   ): boolean {
     // In streaming mode, skip all HTML-related parsing when already inside HTML to avoid infinite recursion
-    if (options.optimizeForStreaming && state.inHTML) {
+    if (isStreaming && state.inHTML) {
       return false
     }
 
@@ -1047,7 +1048,7 @@ function parseInlineSpan(
       var htmlNodeIdx = result.length
       result.push(htmlResult)
       // Track HTML elements for streaming mode incomplete tag detection
-      if (options.optimizeForStreaming) {
+      if (htmlElementIndices) {
         htmlElementIndices.push(htmlNodeIdx)
       }
       pos = htmlResult.endPos
@@ -1056,7 +1057,7 @@ function parseInlineSpan(
     }
 
     // Track incomplete HTML for streaming mode
-    if (options.optimizeForStreaming && incompleteHTMLPos === -1) {
+    if (isStreaming && incompleteHTMLPos === -1) {
       // Check if this looks like the start of an HTML tag
       if (pos + 1 < end) {
         var nextChar = charCode(source, pos + 1)
@@ -1322,7 +1323,7 @@ function parseInlineSpan(
           continue
         }
         // Track incomplete backticks for streaming mode
-        if (options.optimizeForStreaming && incompleteBacktickPos === -1) {
+        if (isStreaming && incompleteBacktickPos === -1) {
           incompleteBacktickPos = backtickStart
           // In streaming mode, stop processing at incomplete backtick
           // Flush any text before the backtick and exit
@@ -1662,7 +1663,7 @@ function parseInlineSpan(
       bracketStack.pop()
       result.length = bracketResultIdx
 
-      if (options.optimizeForStreaming) {
+      if (isStreaming) {
         // Streaming mode: keep link children without brackets
         result.push(...linkChildren)
         // If there was a ( after ], this is an incomplete link - truncate here
@@ -1847,7 +1848,7 @@ function parseInlineSpan(
   }
 
   // Streaming optimization: remove unclosed syntax markers while keeping content
-  if (options.optimizeForStreaming) {
+  if (isStreaming) {
     var cutoffIdx = result.length
 
     // Check for unclosed non-void HTML elements and remove them (reverse order)
