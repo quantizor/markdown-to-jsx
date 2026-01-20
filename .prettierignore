@@ -1,3 +1,5 @@
 src/gfm-spec.md
 src/markdown-spec.md
 src/*.generated.*
+src/**/*.spec.ts
+src/**/*.spec.tsx

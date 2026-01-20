@@ -690,3 +690,4 @@ export function applyTagFilterToText(text: string): string {
     }
   )
 }
+

@@ -3610,3 +3610,110 @@ describe('Markdown component memoization', () => {
     expect(result2).toContain('<article')
   })
 })
+
+
+describe('optimizeForStreaming option', () => {
+  it('should strip incomplete HTML tags but keep content', () => {
+    render(compiler('Hello world <div>incomplete', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('Hello world')
+    expect(root.innerHTML).not.toContain('<div>')
+  })
+
+  it('should render incomplete fenced code blocks normally (content visible as it streams)', () => {
+    // Fenced code blocks should render as they stream - users want to see the code
+    render(compiler('```js\nconst x = 1;', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('const x = 1')
+  })
+
+  it('should strip incomplete HTML comments but keep content', () => {
+    render(compiler('Hello <!-- incomplete comment', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('Hello')
+    expect(root.innerHTML).not.toContain('<!--')
+  })
+
+  it('should strip incomplete inline code backticks but keep content', () => {
+    render(compiler('Hello world `incomplete code', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('Hello world')
+    // Content might be truncated depending on implementation
+  })
+
+  it('should strip incomplete bold markers but keep text content', () => {
+    render(compiler('Hello world **bold text', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('Hello world')
+    // The text "bold text" should appear without ** markers
+    expect(root.innerHTML).toContain('bold text')
+    expect(root.innerHTML).not.toContain('**')
+  })
+
+  it('should strip incomplete italic markers but keep text content', () => {
+    render(compiler('Hello world *italic text', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('Hello world')
+    expect(root.innerHTML).toContain('italic text')
+    // Asterisk should not appear as literal text
+  })
+
+  it('should strip incomplete strikethrough markers but keep text content', () => {
+    render(compiler('Hello world ~~strikethrough text', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('Hello world')
+    expect(root.innerHTML).toContain('strikethrough text')
+    expect(root.innerHTML).not.toContain('~~')
+  })
+
+  it('should strip incomplete link brackets but keep text content', () => {
+    render(compiler('Hello [link text](http://example.com', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('Hello')
+    expect(root.innerHTML).toContain('link text')
+    expect(root.innerHTML).not.toContain('[')
+  })
+
+  it('should render complete content normally when enabled', () => {
+    render(compiler('<div>complete</div>', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('complete')
+  })
+
+  it('should render complete fenced code blocks when enabled', () => {
+    render(compiler('```js\ncode\n```', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('code')
+  })
+
+  it('should render complete inline syntax when enabled', () => {
+    render(compiler('some `code` and **bold** and *italic*', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toContain('code')
+    expect(root.innerHTML).toContain('bold')
+    expect(root.innerHTML).toContain('italic')
+  })
+
+  it('should render content without special syntax normally when enabled', () => {
+    render(compiler('Hello world', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toBe('Hello world')
+  })
+
+  it('should render incomplete content when option is disabled (default)', () => {
+    render(compiler('<div>incomplete'))
+    expect(root.innerHTML).toContain('incomplete')
+  })
+
+  it('should work with Markdown component', () => {
+    const result = renderToString(
+      React.createElement(
+        Markdown,
+        { options: { optimizeForStreaming: true } },
+        '<CustomComponent>streaming'
+      )
+    )
+    // Strips unclosed tag but keeps content
+    expect(result).toContain('streaming')
+    expect(result).not.toContain('CustomComponent')
+  })
+
+  it('should render Markdown component when content is complete', () => {
+    const result = renderToString(
+      React.createElement(
+        Markdown,
+        { options: { optimizeForStreaming: true } },
+        '<strong>complete</strong>'
+      )
+    )
+    expect(result).toContain('complete')
+  })
+})

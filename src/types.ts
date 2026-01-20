@@ -790,6 +790,38 @@ declare namespace MarkdownToJSX {
      * @default false
      */
     preserveFrontmatter?: boolean
+
+    /**
+     * Optimize rendering for streaming scenarios where markdown content arrives
+     * incrementally (e.g., from LLM APIs). When enabled, incomplete inline syntax
+     * is suppressed to avoid displaying raw markdown characters while waiting
+     * for the closing delimiter to arrive.
+     *
+     * Fenced code blocks render normally with content visible as it streams.
+     *
+     * @lang zh 优化流式场景下的渲染，适用于 Markdown 内容增量到达的情况（如 LLM API）。启用时，不完整的行内语法将被抑制，避免在等待闭合分隔符时显示原始 Markdown 字符。
+     *
+     * 围栏代码块正常渲染，内容在流式传输时可见。
+     *
+     * @lang hi स्ट्रीमिंग परिदृश्यों के लिए रेंडरिंग को अनुकूलित करता है जहाँ markdown सामग्री क्रमिक रूप से आती है (जैसे, LLM API से)। सक्षम होने पर, अपूर्ण इनलाइन सिंटैक्स को दबा दिया जाता है ताकि बंद करने वाले डेलिमीटर की प्रतीक्षा करते समय कच्चे markdown वर्ण प्रदर्शित न हों।
+     *
+     * फ़ेंस्ड कोड ब्लॉक्स सामान्य रूप से रेंडर होते हैं और स्ट्रीमिंग के दौरान सामग्री दिखाई देती है।
+     *
+     * @default false
+     *
+     * @example
+     * ```tsx
+     * // Streaming markdown example
+     * function StreamingMarkdown({ content }) {
+     *   return (
+     *     <Markdown options={{ optimizeForStreaming: true }}>
+     *       {content}
+     *     </Markdown>
+     *   )
+     * }
+     * ```
+     */
+    optimizeForStreaming?: boolean
   }>
 }
 
