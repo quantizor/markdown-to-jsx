@@ -2823,22 +2823,17 @@ describe('overrides', () => {
   })
 
   it('should preserve camelCase props on custom JSX components', () => {
-    interface UserCardProps {
+    let receivedProps: Record<string, unknown> = {}
+    const UserCard: React.FC<{
       userId: string
       firstName: string
       lastName: string
       isActive?: boolean
+    }> = props => {
+      const { children, ...rest } = props as Record<string, unknown>
+      receivedProps = rest
+      return <div />
     }
-    const UserCard: React.FC<UserCardProps> = ({
-      userId,
-      firstName,
-      lastName,
-      isActive,
-    }) => (
-      <div data-user-id={userId}>
-        {firstName} {lastName} {isActive ? '(active)' : '(inactive)'}
-      </div>
-    )
 
     render(
       compiler(
@@ -2849,26 +2844,20 @@ describe('overrides', () => {
       )
     )
 
-    // The props should be correctly passed with camelCase names
-    expect(root.innerHTML).toContain('data-user-id="123"')
-    expect(root.innerHTML).toContain('John')
-    expect(root.innerHTML).toContain('Doe')
-    expect(root.innerHTML).toContain('(active)')
+    expect(JSON.stringify(receivedProps)).toMatchInlineSnapshot(
+      `"{"userId":"123","firstName":"John","lastName":"Doe","isActive":true}"`
+    )
   })
 
   it('should preserve camelCase props exactly as reported in issue (GitHub issue test)', () => {
-    // This test exactly mirrors the bug report example
-    type MyComponentProps = {
+    let receivedProps: Record<string, unknown> = {}
+    const MyComponent: React.FC<{
       userId: string
       firstName: string
-    }
-
-    const MyComponent = ({ userId, firstName }: MyComponentProps) => {
-      return (
-        <div>
-          {firstName} ({userId})
-        </div>
-      )
+    }> = props => {
+      const { children, ...rest } = props as Record<string, unknown>
+      receivedProps = rest
+      return <div />
     }
 
     render(
@@ -2877,35 +2866,23 @@ describe('overrides', () => {
       })
     )
 
-    // Props should NOT be lowercased - they should be preserved as camelCase
-    expect(root.innerHTML).toContain('John')
-    expect(root.innerHTML).toContain('123')
+    expect(JSON.stringify(receivedProps)).toMatchInlineSnapshot(
+      `"{"userId":"123","firstName":"John"}"`
+    )
   })
 
   it('should preserve camelCase props on block-level JSX components', () => {
-    interface DataTableProps {
+    let receivedProps: Record<string, unknown> = {}
+    const DataTable: React.FC<{
       userId: string
       pageSize: string
       showHeader?: boolean
       children?: React.ReactNode
+    }> = props => {
+      const { children, ...rest } = props as Record<string, unknown>
+      receivedProps = rest
+      return <div />
     }
-    const DataTable: React.FC<DataTableProps> = ({
-      userId,
-      pageSize,
-      showHeader,
-      children,
-    }) => (
-      <table data-user={userId} data-page-size={pageSize}>
-        {showHeader && (
-          <thead>
-            <tr>
-              <th>Header</th>
-            </tr>
-          </thead>
-        )}
-        <tbody>{children}</tbody>
-      </table>
-    )
 
     render(
       compiler(
@@ -2918,8 +2895,8 @@ describe('overrides', () => {
       )
     )
 
-    expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<table data-user="user123" data-page-size="10"><thead><tr><th>Header</th></tr></thead><tbody><tr><td>Row 1</td></tr></tbody></table>"`
+    expect(JSON.stringify(receivedProps)).toMatchInlineSnapshot(
+      `"{"userId":"user123","pageSize":"10","showHeader":true}"`
     )
   })
 
