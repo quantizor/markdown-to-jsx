@@ -41,9 +41,7 @@ export function initializeParseMetrics(): void {
 
 initializeParseMetrics()
 
-function warn(message: string): void {
-  console.warn(message)
-}
+var warn = console.warn
 
 function debug(
   category: string,
@@ -242,17 +240,11 @@ function unescapeUrlOrTitle(str: string): string {
 
 function skipToNextLine(source: string, lineEnd: number): number {
   if (lineEnd >= source.length) return lineEnd
-  if (
-    source.charCodeAt(lineEnd) === $.CHAR_CR &&
+  return source.charCodeAt(lineEnd) === $.CHAR_CR &&
     lineEnd + 1 < source.length &&
     source.charCodeAt(lineEnd + 1) === $.CHAR_NEWLINE
-  ) {
-    return lineEnd + 2
-  }
-  if (source.charCodeAt(lineEnd) === $.CHAR_NEWLINE) {
-    return lineEnd + 1
-  }
-  return lineEnd + 1
+    ? lineEnd + 2
+    : lineEnd + 1
 }
 
 function getCharType(code: number, skipAutoLink: boolean): number {
@@ -6688,7 +6680,7 @@ function parseTable(
 // Type 6 block-level tags - only the most common ones that matter in practice
 // Unknown tags default to type 7 (inline/non-interrupting) for safety
 // This is a pragmatic subset of the CommonMark spec's full list
-var TYPE6_TAGS = [
+var TYPE6_TAGS = new Set([
   'div',
   'p',
   'section',
@@ -6726,13 +6718,13 @@ var TYPE6_TAGS = [
   'summary',
   'figure',
   'figcaption',
-]
+])
 
 // Type 1 block tags for fast lookup
 const TYPE1_TAGS_SET = new Set(['pre', 'script', 'style', 'textarea'])
 
 function isType6Tag(tagName: string): boolean {
-  return TYPE6_TAGS.indexOf(tagName.toLowerCase()) !== -1
+  return TYPE6_TAGS.has(tagName.toLowerCase())
 }
 
 export function isType1Block(tagLower: string): boolean {
