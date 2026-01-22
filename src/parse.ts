@@ -739,11 +739,7 @@ function parseHTMLAttributes(
   }
 
   if (!attrMatches?.length) return result
-  const tagNameLower = tagName.toLowerCase(),
-    isJSXComponent =
-      tagNameOriginal.length > 0 &&
-      tagNameOriginal[0] >= 'A' &&
-      tagNameOriginal[0] <= 'Z'
+  const tagNameLower = tagName.toLowerCase()
   for (let i = 0; i < attrMatches.length; i++) {
     const rawAttr = attrMatches[i],
       delimiterIdx = rawAttr.indexOf('=')
@@ -751,8 +747,7 @@ function parseHTMLAttributes(
       const key = rawAttr.slice(0, delimiterIdx).trim(),
         keyLower = key.toLowerCase()
       if (keyLower === 'ref') continue
-      const attrKey = isJSXComponent ? key : keyLower,
-        rawValue = rawAttr.slice(delimiterIdx + 1).trim(),
+      const rawValue = rawAttr.slice(delimiterIdx + 1).trim(),
         value = ((str: string) => {
           const first = str[0]
           if (
@@ -777,7 +772,7 @@ function parseHTMLAttributes(
           warn(`Stripped unsafe ${keyLower} on <${tagNameOriginal}>`)
           continue
         }
-        result[attrKey] = safe
+        result[key] = safe
       } else {
         const normalizedValue = attributeValueToJSXPropValue(
           tagNameLower as MarkdownToJSX.HTMLTags,
@@ -786,10 +781,10 @@ function parseHTMLAttributes(
           options.sanitizer,
           options
         )
-        result[attrKey] = normalizedValue
+        result[key] = normalizedValue
       }
     } else if (rawAttr !== 'style')
-      result[isJSXComponent ? rawAttr : rawAttr.toLowerCase()] = true
+      result[rawAttr] = true
   }
   // Check for URI-encoded malicious content in the raw attributes string
   // Only decode if % is present (performance optimization)
