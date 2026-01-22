@@ -3,7 +3,7 @@
   "description": "A very fast and versatile markdown toolchain. AST, React, React Native, SolidJS, Vue, Markdown, and HTML output available with full customization.",
   "homepage": "https://markdown-to-jsx.quantizor.dev",
   "license": "MIT",
-  "version": "9.6.0",
+  "version": "9.6.1",
   "publishConfig": {
     "access": "public",
     "mangle": {
