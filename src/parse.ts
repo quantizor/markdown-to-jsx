@@ -41,7 +41,7 @@ export function initializeParseMetrics(): void {
 
 initializeParseMetrics()
 
-var warn = console.warn
+var warn = console.warn.bind(console)
 
 function debug(
   category: string,
