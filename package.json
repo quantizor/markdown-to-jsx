@@ -51,8 +51,14 @@
     "#entities": {
       "bun": "./src/entities.generated.ts",
       "browser": {
-        "types": "./dist/entities.browser.d.ts",
-        "default": "./dist/entities.browser.js"
+        "import": {
+          "types": "./dist/entities.browser.d.ts",
+          "default": "./dist/entities.browser.js"
+        },
+        "require": {
+          "types": "./dist/entities.browser.d.cts",
+          "default": "./dist/entities.browser.cjs"
+        }
       },
       "require": {
         "types": "./dist/entities.generated.d.cts",
