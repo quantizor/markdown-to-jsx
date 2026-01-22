@@ -1158,24 +1158,40 @@ describe('GFM task lists', () => {
     render(compiler('- [ ] foo'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<ul><li><input readOnly="" type="checkbox"/> foo</li></ul>"`
-    )
+      `"<ul><li><input id="_R_1_" readOnly="" type="checkbox"/><label for="_R_1_"> foo</label></li></ul>"`)
   })
 
   it('should handle checked items', () => {
     render(compiler('- [x] foo'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<ul><li><input readOnly="" type="checkbox" checked=""/> foo</li></ul>"`
-    )
+      `"<ul><li><input id="_R_1_" readOnly="" type="checkbox" checked=""/><label for="_R_1_"> foo</label></li></ul>"`)
   })
 
   it('should mark the checkboxes as readonly', () => {
     render(compiler('- [x] foo'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<ul><li><input readOnly="" type="checkbox" checked=""/> foo</li></ul>"`
-    )
+      `"<ul><li><input id="_R_1_" readOnly="" type="checkbox" checked=""/><label for="_R_1_"> foo</label></li></ul>"`)
+  })
+
+  it('should have matching id and for attributes for accessibility', () => {
+    render(compiler('- [ ] Task item'))
+
+    // Extract id from input and for from label
+    const idMatch = root.innerHTML.match(/id="([^"]+)"/)
+    const forMatch = root.innerHTML.match(/for="([^"]+)"/)
+
+    expect(idMatch).toBeTruthy()
+    expect(forMatch).toBeTruthy()
+    expect(idMatch![1]).toBe(forMatch![1])
+  })
+
+  it('should preserve formatted content in labels', () => {
+    render(compiler('- [ ] **bold** text'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li><input id="_R_1_" readOnly="" type="checkbox"/><label for="_R_1_"> <strong>bold</strong> text</label></li></ul>"`)
   })
 })
 
@@ -2961,8 +2977,7 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<ul><li class="foo"><input readOnly="" type="checkbox"/> foo</li></ul>"`
-    )
+      `"<ul><li class="foo"><input id="_R_1_" readOnly="" type="checkbox"/><label for="_R_1_"> foo</label></li></ul>"`)
   })
 
   it('should be able to override gfm task list item checkboxes', () => {
@@ -2973,8 +2988,7 @@ describe('overrides', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<ul><li><input readOnly="" type="checkbox" class="foo"/> foo</li></ul>"`
-    )
+      `"<ul><li><input id="_R_1_" readOnly="" type="checkbox" class="foo"/><label for="_R_1_"> foo</label></li></ul>"`)
   })
 
   it('should substitute the appropriate JSX tag if given a component and disableParsingRawHTML is true', () => {
