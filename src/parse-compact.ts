@@ -2390,7 +2390,10 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
         result = scanAutolink(s, p, e)
       }
     } else if (c === 104 && !state.inAnchor && !opts.disableAutoLink) { // h - potential http:// or https://
-      result = scanBareUrl(s, p, e, opts)
+      // Don't match bare URLs if previous char was < (failed angle autolink)
+      if (p === 0 || s.charCodeAt(p - 1) !== 60) {
+        result = scanBareUrl(s, p, e, opts)
+      }
     }
     
     if (result) {
