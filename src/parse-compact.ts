@@ -339,6 +339,12 @@ function cc(code: number): number {
   return code < 128 ? CC[code] : (code === 160 ? C_WS : 0)
 }
 
+/** Unescape backslash escapes in a string */
+function unescapeString(s: string): string {
+  // Replace \X with X when X is an ASCII punctuation character
+  return s.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '$1')
+}
+
 /** Find end of current line (position of \n or end of string) */
 function lineEnd(s: string, p: number): number {
   const i = s.indexOf('\n', p)
@@ -2074,7 +2080,7 @@ function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, o
         node: {
           type: RuleType.image,
           target: safeUrl,
-          alt: text,
+          alt: unescapeString(text),
           title,
         } as MarkdownToJSX.ImageNode,
         end: i
