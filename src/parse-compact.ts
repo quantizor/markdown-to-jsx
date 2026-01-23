@@ -1261,16 +1261,42 @@ function parseTableRow(s: string, state: MarkdownToJSX.State, opts: any): Markdo
   if (row.startsWith('|')) row = row.slice(1)
   if (row.endsWith('|') && !row.endsWith('\\|')) row = row.slice(0, -1)
   
-  // Split by | (but not \|)
+  // Split by | (but not \| and not | inside code spans)
   const cells: string[] = []
   let current = ''
   let i = 0
   while (i < row.length) {
+    // Handle escape
     if (row[i] === '\\' && i + 1 < row.length) {
-      current += row[i + 1]
+      current += row[i] + row[i + 1]
       i += 2
       continue
     }
+    // Handle code span - skip to closing backticks
+    if (row[i] === '`') {
+      // Count opening backticks
+      let backticks = 0
+      const start = i
+      while (i < row.length && row[i] === '`') { backticks++; i++ }
+      current += row.slice(start, i)
+      // Find matching closing backticks
+      let found = false
+      while (i < row.length && !found) {
+        let closeBackticks = 0
+        while (i < row.length && row[i] === '`') { closeBackticks++; i++ }
+        if (closeBackticks === backticks) {
+          current += row.slice(i - closeBackticks, i)
+          found = true
+        } else if (closeBackticks > 0) {
+          current += row.slice(i - closeBackticks, i)
+        } else {
+          current += row[i]
+          i++
+        }
+      }
+      continue
+    }
+    // Handle cell separator
     if (row[i] === '|') {
       cells.push(current.trim())
       current = ''
