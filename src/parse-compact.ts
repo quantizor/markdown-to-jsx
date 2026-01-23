@@ -1639,13 +1639,30 @@ function scanRefDefinition(s: string, p: number, state: MarkdownToJSX.State): Sc
     while (i < s.length && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 9)) i++
   }
   
-  // For footnotes, content is everything to end of line
+  // For footnotes, content is everything to end of line and continuation lines
   if (isFootnote) {
-    const fnLineEnd = s.indexOf('\n', i)
-    const contentEnd = fnLineEnd < 0 ? s.length : fnLineEnd
-    const content = s.slice(i, contentEnd).trim()
+    let fnEnd = s.indexOf('\n', i)
+    if (fnEnd < 0) fnEnd = s.length
+    let content = s.slice(i, fnEnd).trim()
+    let end = fnEnd < 0 ? s.length : fnEnd + 1
+    
+    // Check for multiline footnote continuation (4+ space indent)
+    while (end < s.length) {
+      const nextLe = lineEnd(s, end)
+      indent(s, end, nextLe)
+      // Continuation line must have 4+ space indent
+      if (_indentSpaces >= 4) {
+        const lineContent = s.slice(end + _indentChars, nextLe).trimEnd()
+        content += '\n' + lineContent
+        end = nextLine(s, nextLe)
+      } else {
+        break
+      }
+    }
+    
     state.refs[label] = { target: content, title: undefined }
-    return { node: { type: RuleType.refCollection } as MarkdownToJSX.ASTNode, end: fnLineEnd < 0 ? s.length : fnLineEnd + 1 }
+    // Return footnote node (not refCollection) so HTML compiler can find it
+    return { node: { type: RuleType.footnote } as MarkdownToJSX.ASTNode, end }
   }
   
   // Parse URL (can be in angle brackets or bare)
