@@ -2250,11 +2250,9 @@ enum AutolinkMode {
   ANGLE,
 }
 
+// Use table lookup for alpha check - shorter than range comparisons when minified
 function isAlphaCode(code: number): boolean {
-  return (
-    (code >= $.CHAR_A && code <= $.CHAR_Z) ||
-    (code >= $.CHAR_a && code <= $.CHAR_z)
-  )
+  return code < $.CHAR_ASCII_BOUNDARY && (util.charClassTable[code] & util.CC_ALPHA) !== 0
 }
 
 function isValidUriScheme(content: string): boolean {
