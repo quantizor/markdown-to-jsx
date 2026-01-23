@@ -1061,6 +1061,13 @@ function parseHTMLAttributes(attrStr: string, tagName: string, opts: any): Recor
         }
       })
       attrs[name] = styles
+    } else if ((name === 'href' || name === 'src') && opts?.sanitizer) {
+      // Sanitize href and src attributes
+      const sanitized = opts.sanitizer(value, tagName, name)
+      if (sanitized !== null) {
+        attrs[name] = sanitized
+      }
+      // if null, don't include the attribute (security)
     } else {
       attrs[name] = value
     }
