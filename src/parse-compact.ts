@@ -716,9 +716,12 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
   if (!marker) return null
   
   const items: MarkdownToJSX.ASTNode[][] = []
+  const itemContents: string[] = []
   let end = p
   let currentItem = ''
   let baseIndent = indent(s, p, firstLine).spaces
+  let hasBlankBetweenItems = false
+  let blankAfterCurrentItem = false
   
   // Calculate content indent for continuation lines
   const firstMarkerEnd = marker.contentStart
@@ -735,15 +738,19 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
         ind.spaces <= baseIndent + 3) {
       // New item - save current and start new
       if (currentItem) {
-        items.push(parseBlocks(currentItem.trim(), { ...state, inList: true }, opts))
+        itemContents.push(currentItem.trim())
+        // If there was a blank line before this new item, list is loose
+        if (blankAfterCurrentItem) hasBlankBetweenItems = true
       }
       currentItem = s.slice(lineMarker.contentStart, le) + '\n'
+      blankAfterCurrentItem = false
       end = nextLine(s, le)
       continue
     }
     
     // Check for blank line
     if (isBlank(s, end, le)) {
+      blankAfterCurrentItem = true
       currentItem += '\n'
       end = nextLine(s, le)
       // Check if list continues after blank
@@ -777,10 +784,24 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
   
   // Save last item
   if (currentItem) {
-    items.push(parseBlocks(currentItem.trim(), { ...state, inList: true }, opts))
+    itemContents.push(currentItem.trim())
   }
   
-  if (items.length === 0) return null
+  if (itemContents.length === 0) return null
+  
+  // Determine if list is tight (no blank lines between items, single paragraph items)
+  const isTight = !hasBlankBetweenItems && itemContents.every(content => !content.includes('\n\n'))
+  
+  // Parse items
+  for (const content of itemContents) {
+    if (isTight && !content.includes('\n')) {
+      // Tight list item - parse as inline, no wrapping paragraph
+      items.push(parseInline(content, 0, content.length, state, opts))
+    } else {
+      // Loose list item - parse as blocks
+      items.push(parseBlocks(content, { ...state, inList: true }, opts))
+    }
+  }
   
   return {
     node: {
@@ -1086,12 +1107,33 @@ function scanRefDefinition(s: string, p: number, state: MarkdownToJSX.State): Sc
 /** Scan paragraph (fallback) */
 function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: any): ScanResult {
   let end = p
+  let setextLevel = 0
+  let textEnd = 0
   
   while (end < s.length) {
     const le = lineEnd(s, end)
     
     // Check for blank line
     if (isBlank(s, end, le)) break
+    
+    // Check if this line is a setext underline
+    const ind = indent(s, end, le)
+    if (ind.spaces < 4 && textEnd > 0) {
+      const c = s.charCodeAt(end + ind.chars)
+      if (c === 61 || c === 45) { // = or -
+        // Check if entire line is = or - (with optional spaces)
+        let i = end + ind.chars
+        while (i < le && s.charCodeAt(i) === c) i++
+        while (i < le && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 9)) i++
+        if (i >= le) {
+          setextLevel = c === 61 ? 1 : 2
+          end = nextLine(s, le)
+          break
+        }
+      }
+    }
+    
+    textEnd = le
     
     // Check if next line starts a new block
     const nextStart = nextLine(s, le)
@@ -1102,18 +1144,45 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: a
         const c = s.charCodeAt(nextStart + nextInd.chars)
         // Check for block starters that interrupt paragraphs
         if (c === 35 || c === 62 || c === 96 || c === 126) break
-        // Thematic break
-        if ((c === 45 || c === 42 || c === 95) && scanThematic(s, nextStart)) break
+        // Thematic break (but not setext underline)
+        if ((c === 45 || c === 42 || c === 95) && scanThematic(s, nextStart)) {
+          // For dashes, only break if it's really a thematic break not setext
+          if (c !== 45) break
+          // Check if it could be setext (need at least 1 dash)
+          let dashCount = 0
+          let i = nextStart + nextInd.chars
+          while (i < nextLe && s.charCodeAt(i) === 45) { dashCount++; i++ }
+          while (i < nextLe && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 9)) i++
+          // If whole line is dashes, it could be setext - let loop continue to check
+          if (i < nextLe) break // Not setext, it's thematic break
+        }
       }
     }
     
     end = nextLine(s, le)
   }
   
-  const text = s.slice(p, end).replace(/\n$/, '').replace(/\n/g, ' ').trim()
+  // If setext, use textEnd as the content end
+  const contentEnd = setextLevel ? textEnd : end
+  const text = s.slice(p, contentEnd).replace(/\n$/, '').replace(/\n/g, ' ').trim()
   if (!text) return null
   
   const children = parseInline(text, 0, text.length, state, opts)
+  
+  if (setextLevel) {
+    // Setext heading
+    const slugify = opts?.slugify || util.slugify
+    const id = slugify(text)
+    return {
+      node: {
+        type: RuleType.heading,
+        level: setextLevel,
+        children,
+        id,
+      } as MarkdownToJSX.HeadingNode,
+      end
+    }
+  }
   
   return {
     node: {
