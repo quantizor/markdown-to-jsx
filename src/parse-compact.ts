@@ -2543,7 +2543,15 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
     const trimmed = innerContent.trim()
     if (trimmed) {
       const innerState = tagNameLower === 'a' ? { ...state, inAnchor: true } : state
-      children = parseInline(trimmed, 0, trimmed.length, innerState, opts)
+      // Check if content starts with a clear block construct
+      // Be careful: * can be emphasis OR list, # is heading, etc.
+      // Only parse as blocks if it's clearly block-level (has paragraph breaks or starts with heading)
+      const hasBlocks = /\n\n/.test(trimmed) || /^#{1,6}\s/.test(trimmed)
+      if (hasBlocks) {
+        children = parseBlocks(trimmed, { ...innerState, inline: false }, opts)
+      } else {
+        children = parseInline(trimmed, 0, trimmed.length, innerState, opts)
+      }
     }
   }
   
