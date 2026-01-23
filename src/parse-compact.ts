@@ -516,7 +516,7 @@ function scanFenced(s: string, p: number, state: MarkdownToJSX.State): ScanResul
   if (fenceLen < 3) return null
   i += fenceLen
   
-  // Parse info string
+  // Parse info string - extract language (first word) and optional attributes
   const infoStart = skipWS(s, i, e)
   let infoEnd = e
   // Backtick fences can't have backticks in info
@@ -528,7 +528,32 @@ function scanFenced(s: string, p: number, state: MarkdownToJSX.State): ScanResul
   while (infoEnd > infoStart && (s.charCodeAt(infoEnd - 1) === 32 || s.charCodeAt(infoEnd - 1) === 9)) {
     infoEnd--
   }
-  const lang = s.slice(infoStart, infoEnd)
+  const infoStr = s.slice(infoStart, infoEnd)
+  
+  // Split into language (first word) and attributes (rest)
+  let lang = ''
+  let attrsStr = ''
+  const spaceIdx = infoStr.indexOf(' ')
+  if (spaceIdx === -1) {
+    lang = infoStr
+  } else {
+    lang = infoStr.slice(0, spaceIdx)
+    attrsStr = infoStr.slice(spaceIdx + 1).trim()
+  }
+  
+  // Parse attributes if present
+  let attrs: Record<string, any> | undefined = undefined
+  if (attrsStr) {
+    attrs = {}
+    // Simple attribute parsing: name="value" or name='value' or name
+    const attrR = /([a-zA-Z_][a-zA-Z0-9_-]*)(?:=(?:"([^"]*)"|'([^']*)'|([^\s]+)))?/g
+    let match
+    while ((match = attrR.exec(attrsStr)) !== null) {
+      const name = match[1]
+      const value = match[2] || match[3] || match[4] || true
+      attrs[name] = value
+    }
+  }
   
   // Find closing fence
   let contentStart = nextLine(s, e)
@@ -571,6 +596,7 @@ function scanFenced(s: string, p: number, state: MarkdownToJSX.State): ScanResul
       type: RuleType.codeBlock,
       lang: lang || undefined,
       text: content,
+      attrs: attrs,
     } as MarkdownToJSX.CodeBlockNode,
     end: closeEnd
   }
