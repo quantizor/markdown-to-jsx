@@ -1431,11 +1431,16 @@ function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, o
     if (i >= e || s.charCodeAt(i) !== 41) return null
     i++
     
+    // Sanitize URL - remove dangerous protocols
+    const sanitizer = opts?.sanitizer || util.sanitizer
+    const sanitizedUrl = sanitizer(url, isImage ? 'img' : 'a', isImage ? 'src' : 'href')
+    const safeUrl = sanitizedUrl === null ? null : url
+    
     if (isImage) {
       return {
         node: {
           type: RuleType.image,
-          target: url,
+          target: safeUrl,
           alt: text,
           title,
         } as MarkdownToJSX.ImageNode,
@@ -1447,7 +1452,7 @@ function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, o
       return {
         node: {
           type: RuleType.link,
-          target: url,
+          target: safeUrl,
           title,
           children,
         } as MarkdownToJSX.LinkNode,
