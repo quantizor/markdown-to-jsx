@@ -2679,6 +2679,38 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
 
 /** Parse inline content */
 function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: any): MarkdownToJSX.ASTNode[] {
+  // If streaming mode, preprocess to strip incomplete markers BEFORE parsing
+  // This prevents bare URLs inside incomplete links from being autolinked
+  if (opts.streaming || opts.optimizeForStreaming) {
+    let content = s.slice(p, e)
+    const original = content
+    // Strip incomplete bold markers **text
+    content = content.replace(/\*\*([^*]+)$/, '$1')
+    // Strip incomplete italic markers *text
+    if (/\*[^*]+$/.test(content)) {
+      content = content.replace(/\*([^*]+)$/, '$1')
+    }
+    // Strip incomplete underscore bold markers __text
+    content = content.replace(/__([^_]+)$/, '$1')
+    // Strip incomplete underscore italic markers _text
+    if (/_[^_]+$/.test(content)) {
+      content = content.replace(/_([^_]+)$/, '$1')
+    }
+    // Strip incomplete strikethrough markers ~~text
+    content = content.replace(/~~([^~]+)$/, '$1')
+    // Strip incomplete link/image markers - strip everything from [ onwards if no closing ]
+    content = content.replace(/!?\[([^\]]*$)/, '$1')
+    // Strip [text]( without closing ) - partial inline link
+    content = content.replace(/!?\[([^\]]+)\]\([^)]*$/, '$1 ')
+    // Strip [text][ref without closing ]
+    content = content.replace(/!?\[([^\]]+)\]\[[^\]]*$/, '$1')
+    
+    if (content !== original) {
+      s = s.slice(0, p) + content
+      e = p + content.length
+    }
+  }
+  
   const nodes: MarkdownToJSX.ASTNode[] = []
   let textStart = p
   
