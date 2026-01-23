@@ -1646,15 +1646,30 @@ function scanRefDefinition(s: string, p: number, state: MarkdownToJSX.State): Sc
     let content = s.slice(i, fnEnd).trim()
     let end = fnEnd < 0 ? s.length : fnEnd + 1
     
-    // Check for multiline footnote continuation (4+ space indent)
+    // Check for multiline footnote continuation (2+ space indent)
     while (end < s.length) {
       const nextLe = lineEnd(s, end)
       indent(s, end, nextLe)
-      // Continuation line must have 4+ space indent
-      if (_indentSpaces >= 4) {
-        const lineContent = s.slice(end + _indentChars, nextLe).trimEnd()
+      // Continuation line must have 2+ space indent (or 4+ for indented content)
+      if (_indentSpaces >= 2 && !isBlank(s, end, nextLe)) {
+        // Keep original indentation in content for formatting
+        const lineContent = s.slice(end, nextLe)
         content += '\n' + lineContent
         end = nextLine(s, nextLe)
+      } else if (isBlank(s, end, nextLe)) {
+        // Skip blank lines but check if next line is continuation
+        const afterBlank = nextLine(s, nextLe)
+        if (afterBlank < s.length) {
+          const afterBlankEnd = lineEnd(s, afterBlank)
+          indent(s, afterBlank, afterBlankEnd)
+          if (_indentSpaces >= 2) {
+            // Include blank line and continue
+            content += '\n'
+            end = nextLine(s, nextLe)
+            continue
+          }
+        }
+        break
       } else {
         break
       }
