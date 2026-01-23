@@ -1776,7 +1776,7 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
       result = scanLink(s, p, e, state, opts)
     } else if (c === 60 && !opts.disableAutoLink) { // <
       result = scanAutolink(s, p, e)
-    } else if (c === 104 && !state.inAnchor) { // h - potential http:// or https://
+    } else if (c === 104 && !state.inAnchor && !opts.disableAutoLink) { // h - potential http:// or https://
       result = scanBareUrl(s, p, e, opts)
     }
     
