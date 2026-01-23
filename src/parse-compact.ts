@@ -1783,6 +1783,16 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: any): Markdown
   let p = 0
   const e = s.length
   
+  // Check for frontmatter at the start of the document
+  if (p === 0 && s.startsWith('---')) {
+    const bounds = util.parseFrontmatterBounds(s)
+    if (bounds) {
+      // Skip frontmatter (don't render by default per test expectations)
+      // The content between --- markers is ignored
+      p = bounds.endPos
+    }
+  }
+  
   while (p < e) {
     // Skip blank lines
     while (p < e) {
