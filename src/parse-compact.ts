@@ -2419,9 +2419,11 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
     }
   } else {
     // Parse inner content as inline
+    // If we're inside an anchor tag, set inAnchor to prevent bare URL autolinking
     const trimmed = innerContent.trim()
     if (trimmed) {
-      children = parseInline(trimmed, 0, trimmed.length, state, opts)
+      const innerState = tagNameLower === 'a' ? { ...state, inAnchor: true } : state
+      children = parseInline(trimmed, 0, trimmed.length, innerState, opts)
     }
   }
   
