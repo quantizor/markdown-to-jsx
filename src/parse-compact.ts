@@ -2817,7 +2817,22 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
 // ============================================================================
 
 /** Parse block-level content */
+// Maximum recursion depth to prevent stack overflow
+const MAX_PARSE_DEPTH = 500
+
 function parseBlocks(s: string, state: MarkdownToJSX.State, opts: any): MarkdownToJSX.ASTNode[] {
+  // Track depth in state for stack overflow protection
+  const depth = (state as any)._depth || 0
+  
+  // Protect against stack overflow from deeply nested input
+  if (depth > MAX_PARSE_DEPTH) {
+    // Return content as plain text to prevent stack overflow
+    return [{ type: RuleType.text, text: s }]
+  }
+  
+  // Create new state with incremented depth for recursive calls
+  const childState = { ...state, _depth: depth + 1 } as any
+  
   // If inline mode, just parse as inline content directly
   if (state.inline) {
     return parseInline(s, 0, s.length, state, opts)
