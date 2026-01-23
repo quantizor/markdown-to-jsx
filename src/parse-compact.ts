@@ -959,19 +959,19 @@ function scanTable(s: string, p: number, state: MarkdownToJSX.State, opts: any):
   if (delimRow.startsWith('|')) delimRow = delimRow.slice(1)
   if (delimRow.endsWith('|')) delimRow = delimRow.slice(0, -1)
   const delims = delimRow.split('|').map(d => d.trim())
-  const alignments = delims.map(d => {
+  const align = delims.map(d => {
     const left = d.startsWith(':')
     const right = d.endsWith(':')
-    if (left && right) return 'center'
-    if (right) return 'right'
+    if (left && right) return 'center' as const
+    if (right) return 'right' as const
     return null  // left is default
   })
   
   // Parse header
   const header = parseTableRow(firstLine, state, opts)
   
-  // Parse body rows
-  const rows: MarkdownToJSX.ASTNode[][][] = []
+  // Parse body cells
+  const cells: MarkdownToJSX.ASTNode[][][] = []
   let end = nextLine(s, secondEnd)
   
   while (end < s.length) {
@@ -981,7 +981,7 @@ function scanTable(s: string, p: number, state: MarkdownToJSX.State, opts: any):
     if (isBlank(s, end, le)) break
     if (!line.includes('|')) break
     
-    rows.push(parseTableRow(line, state, opts))
+    cells.push(parseTableRow(line, state, opts))
     end = nextLine(s, le)
   }
   
@@ -989,8 +989,8 @@ function scanTable(s: string, p: number, state: MarkdownToJSX.State, opts: any):
     node: {
       type: RuleType.table,
       header,
-      rows,
-      alignments,
+      cells,
+      align,
     } as MarkdownToJSX.TableNode,
     end
   }

@@ -190,15 +190,15 @@ describe('Tables', () => {
     expect(result[0].type).toBe(RuleType.table)
     const table = result[0] as any
     expect(table.header.length).toBe(2)
-    expect(table.rows.length).toBe(1)
+    expect(table.cells.length).toBe(1)
   })
   
   it('parses table with alignment', () => {
     const result = parseMarkdownCompact('| L | C | R |\n|:--|:--:|--:|\n| a | b | c |')
     const table = result[0] as any
-    expect(table.alignments[0]).toBeNull()  // left (default)
-    expect(table.alignments[1]).toBe('center')
-    expect(table.alignments[2]).toBe('right')
+    expect(table.align[0]).toBeNull()  // left (default)
+    expect(table.align[1]).toBe('center')
+    expect(table.align[2]).toBe('right')
   })
 })
 

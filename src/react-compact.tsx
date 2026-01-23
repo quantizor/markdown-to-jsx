@@ -153,16 +153,16 @@ function compile(
       // Header
       const headerCells = n.header.map((cell, i) => {
         const cellChildren = cell.map((c, j) => compile(c, options, j))
-        const style = n.alignments[i] ? { textAlign: n.alignments[i] } : undefined
+        const style = n.align[i] ? { textAlign: n.align[i] } : undefined
         return h('th', { key: i, style }, cellChildren)
       })
       const thead = h('thead', { key: 'head' }, h('tr', null, headerCells))
       
       // Body
-      const bodyRows = n.rows.map((row, i) => {
+      const bodyRows = n.cells.map((row, i) => {
         const cells = row.map((cell, j) => {
           const cellChildren = cell.map((c, k) => compile(c, options, k))
-          const style = n.alignments[j] ? { textAlign: n.alignments[j] } : undefined
+          const style = n.align[j] ? { textAlign: n.align[j] } : undefined
           return h('td', { key: j, style }, cellChildren)
         })
         return h('tr', { key: i }, cells)
