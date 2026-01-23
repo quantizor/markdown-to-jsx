@@ -164,7 +164,7 @@ export function collectReferenceDefinitions(
   }
 }
 
-// Parse a reference definition [label]: url "title"
+// Parse a reference definition [label]: url "title" or footnote [^id]: content
 function parseRefDef(
   s: string,
   p: number,
@@ -172,6 +172,9 @@ function parseRefDef(
 ): number | null {
   const len = s.length
   if (s.charCodeAt(p) !== 91) return null // [
+  
+  // Check for footnote definition [^
+  const isFootnote = p + 1 < len && s.charCodeAt(p + 1) === 94
   
   // Find label end
   let i = p + 1
@@ -186,7 +189,8 @@ function parseRefDef(
   }
   if (depth !== 0) return null
   
-  const label = s.slice(p + 1, i - 1).toLowerCase().replace(/\s+/g, ' ').trim()
+  const rawLabel = s.slice(p + 1, i - 1)
+  const label = rawLabel.toLowerCase().replace(/\s+/g, ' ').trim()
   if (!label) return null
   
   // Expect :
@@ -202,7 +206,16 @@ function parseRefDef(
     else break
   }
   
-  // Parse URL
+  if (isFootnote) {
+    // Footnote: collect content to end of line (simplified)
+    const lineEnd = s.indexOf('\n', i)
+    const contentEnd = lineEnd < 0 ? len : lineEnd
+    const content = s.slice(i, contentEnd).trim()
+    refs[label] = { target: content, title: undefined }
+    return lineEnd < 0 ? len : lineEnd + 1
+  }
+  
+  // Regular ref: parse URL
   let url: string
   if (i < len && s.charCodeAt(i) === 60) { // <url>
     i++
@@ -1646,6 +1659,31 @@ function scanAutolink(s: string, p: number, e: number): ScanResult {
   return null
 }
 
+/** Scan footnote reference [^id] */
+function scanFootnoteRef(s: string, p: number, e: number, state: MarkdownToJSX.State): ScanResult {
+  // Must start with [^
+  if (s.charCodeAt(p) !== 91 || p + 1 >= e || s.charCodeAt(p + 1) !== 94) return null
+  
+  let i = p + 2
+  // Find closing ]
+  while (i < e && s.charCodeAt(i) !== 93 && s.charCodeAt(i) !== 10) i++
+  if (i >= e || s.charCodeAt(i) !== 93) return null
+  
+  const id = s.slice(p + 2, i)
+  if (!id) return null
+  
+  // Return footnote reference regardless of whether ref exists
+  // (refs get populated during first pass)
+  return {
+    node: {
+      type: RuleType.footnoteReference,
+      target: '#' + util.slugify(id),
+      text: id,
+    } as MarkdownToJSX.FootnoteReferenceNode,
+    end: i + 1
+  }
+}
+
 /** Scan bare URL (https://... or http://...) */
 function scanBareUrl(s: string, p: number, e: number, opts: any): ScanResult {
   if (opts.disableBareUrls) return null
@@ -1726,7 +1764,15 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
       result = scanStrikethrough(s, p, e, state, opts)
     } else if (c === 61) { // = - potential ==marked==
       result = scanMarked(s, p, e, state, opts)
-    } else if (c === 91 || (c === 33 && p + 1 < e && s.charCodeAt(p + 1) === 91)) { // [ or ![
+    } else if (c === 91) { // [
+      // Check for footnote reference [^id] first
+      if (p + 1 < e && s.charCodeAt(p + 1) === 94) { // ^
+        result = scanFootnoteRef(s, p, e, state)
+      }
+      if (!result) {
+        result = scanLink(s, p, e, state, opts)
+      }
+    } else if (c === 33 && p + 1 < e && s.charCodeAt(p + 1) === 91) { // ![
       result = scanLink(s, p, e, state, opts)
     } else if (c === 60 && !opts.disableAutoLink) { // <
       result = scanAutolink(s, p, e)
@@ -1926,5 +1972,21 @@ export function parser(
 // Export for testing
 export { parseBlocks, parseInline, scanHeading, scanThematic, scanFenced, scanBlockquote }
 
-// Export parseMarkdown as alias for react.tsx compatibility
-export const parseMarkdown = parseBlocks
+// Export parseMarkdown with refCollection node for react.tsx compatibility
+export function parseMarkdown(
+  input: string,
+  state: MarkdownToJSX.State,
+  opts: any
+): MarkdownToJSX.ASTNode[] {
+  const nodes = parseBlocks(input, state, opts)
+  
+  // Add refCollection node at the start if there are refs
+  if (state.refs && Object.keys(state.refs).length > 0) {
+    return [
+      { type: RuleType.refCollection, refs: state.refs } as MarkdownToJSX.ReferenceCollectionNode,
+      ...nodes
+    ]
+  }
+  
+  return nodes
+}
