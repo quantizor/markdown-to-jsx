@@ -2719,7 +2719,20 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
 }
 
 /** Parse inline content */
+// Maximum inline recursion depth
+const MAX_INLINE_DEPTH = 200
+
 function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: any): MarkdownToJSX.ASTNode[] {
+  // Track inline depth for stack overflow protection
+  const inlineDepth = (state as any)._inlineDepth || 0
+  if (inlineDepth > MAX_INLINE_DEPTH) {
+    // Return content as plain text to prevent stack overflow
+    return [{ type: RuleType.text, text: s.slice(p, e) }]
+  }
+  
+  // Create state with incremented depth for recursive calls
+  const childState = { ...state, _inlineDepth: inlineDepth + 1 } as MarkdownToJSX.State
+  
   // If streaming mode, preprocess to strip incomplete markers BEFORE parsing
   // This prevents bare URLs inside incomplete links from being autolinked
   if (opts.streaming || opts.optimizeForStreaming) {
@@ -2763,30 +2776,30 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
     if (c === 96) { // `
       result = scanCodeSpan(s, p, e)
     } else if (c === 42 || c === 95) { // * or _
-      result = scanEmphasis(s, p, e, state, opts)
+      result = scanEmphasis(s, p, e, childState, opts)
     } else if (c === 126) { // ~
-      result = scanStrikethrough(s, p, e, state, opts)
+      result = scanStrikethrough(s, p, e, childState, opts)
     } else if (c === 61) { // = - potential ==marked==
-      result = scanMarked(s, p, e, state, opts)
+      result = scanMarked(s, p, e, childState, opts)
     } else if (c === 91) { // [
       // Check for footnote reference [^id] first
       if (p + 1 < e && s.charCodeAt(p + 1) === 94) { // ^
-        result = scanFootnoteRef(s, p, e, state)
+        result = scanFootnoteRef(s, p, e, childState)
       }
       if (!result) {
-        result = scanLink(s, p, e, state, opts)
+        result = scanLink(s, p, e, childState, opts)
       }
     } else if (c === 33 && p + 1 < e && s.charCodeAt(p + 1) === 91) { // ![
-      result = scanLink(s, p, e, state, opts)
+      result = scanLink(s, p, e, childState, opts)
     } else if (c === 60) { // < - HTML or autolink
       if (!opts.disableParsingRawHTML) {
         // Try inline HTML first
-        result = scanInlineHTML(s, p, e, state, opts)
+        result = scanInlineHTML(s, p, e, childState, opts)
       }
       if (!result && !opts.disableAutoLink) {
         result = scanAutolink(s, p, e)
       }
-    } else if (c === 104 && !state.inAnchor && !opts.disableAutoLink) { // h - potential http:// or https://
+    } else if (c === 104 && !childState.inAnchor && !opts.disableAutoLink) { // h - potential http:// or https://
       // Don't match bare URLs if previous char was < (failed angle autolink)
       if (p === 0 || s.charCodeAt(p - 1) !== 60) {
         result = scanBareUrl(s, p, e, opts)
