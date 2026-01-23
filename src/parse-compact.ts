@@ -829,10 +829,17 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
       const nextStart = end
       if (nextStart < s.length) {
         const nextLe = lineEnd(s, nextStart)
+        
+        // Check for thematic break first - it takes precedence over list continuation
+        indent(s, nextStart, nextLe)
+        const nextC = s.charCodeAt(nextStart + _indentChars)
+        if ((nextC === 45 || nextC === 42 || nextC === 95) && scanThematic(s, nextStart)) {
+          break
+        }
+        
         const nextMarker = checkListMarker(s, nextStart, nextLe)
         if (!nextMarker || nextMarker.ordered !== marker.ordered) {
           // Check for continuation by indentation
-          indent(s, nextStart, nextLe)
           if (_indentSpaces < markerWidth && !isBlank(s, nextStart, nextLe)) {
             break
           }
