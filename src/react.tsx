@@ -138,7 +138,7 @@ function render(
 
     case RuleType.footnoteReference:
       return (
-        <a key={state.key} href={sanitize(node.target, 'a', 'href')}>
+        <a key={state.key} href={sanitize(node.target, 'a', 'href') || undefined}>
           <sup key={state.key}>{node.text}</sup>
         </a>
       )
@@ -367,7 +367,7 @@ function render(
     }
 
     case RuleType.image: {
-      const src = sanitize(node.target, 'img', 'src')
+      const src = node.target != null ? sanitize(node.target, 'img', 'src') : null
       return (
         <img
           key={state.key}
