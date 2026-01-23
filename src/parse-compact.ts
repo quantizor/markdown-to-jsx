@@ -374,17 +374,20 @@ function countChar(s: string, p: number, e: number, ch: number): number {
   return n
 }
 
-/** Calculate indentation (spaces, with tabs = 4 spaces) */
-function indent(s: string, p: number, e: number): { spaces: number; chars: number } {
-  let spaces = 0, chars = 0
-  while (p + chars < e) {
-    const c = s.charCodeAt(p + chars)
-    if (c === 9) spaces += 4 - (spaces % 4)
-    else if (c === 32) spaces++
+// Reusable indent result to avoid allocations
+var _indentSpaces = 0, _indentChars = 0
+
+/** Calculate indentation (spaces, with tabs = 4 spaces). Results in _indentSpaces and _indentChars */
+function indent(s: string, p: number, e: number): void {
+  _indentSpaces = 0
+  _indentChars = 0
+  while (p + _indentChars < e) {
+    const c = s.charCodeAt(p + _indentChars)
+    if (c === 9) _indentSpaces += 4 - (_indentSpaces % 4)
+    else if (c === 32) _indentSpaces++
     else break
-    chars++
+    _indentChars++
   }
-  return { spaces, chars }
 }
 
 /** Check if line is blank (only whitespace) */
@@ -416,10 +419,10 @@ type ScanResult = { node: MarkdownToJSX.ASTNode; end: number } | null
 /** Scan ATX heading (# ... #) */
 function scanHeading(s: string, p: number, state: MarkdownToJSX.State, opts: any): ScanResult {
   const e = lineEnd(s, p)
-  const ind = indent(s, p, e)
-  if (ind.spaces > 3) return null
+  indent(s, p, e)
+  if (_indentSpaces > 3) return null
   
-  let i = p + ind.chars
+  let i = p + _indentChars
   if (s.charCodeAt(i) !== 35) return null // #
   
   // Count # characters (1-6)
@@ -466,10 +469,10 @@ function scanHeading(s: string, p: number, state: MarkdownToJSX.State, opts: any
 /** Scan thematic break (---, ***, ___) */
 function scanThematic(s: string, p: number): ScanResult {
   const e = lineEnd(s, p)
-  const ind = indent(s, p, e)
-  if (ind.spaces > 3) return null
+  indent(s, p, e)
+  if (_indentSpaces > 3) return null
   
-  let i = p + ind.chars
+  let i = p + _indentChars
   const ch = s.charCodeAt(i)
   if (ch !== 45 && ch !== 42 && ch !== 95) return null // - * _
   
@@ -492,10 +495,10 @@ function scanThematic(s: string, p: number): ScanResult {
 /** Scan fenced code block */
 function scanFenced(s: string, p: number, state: MarkdownToJSX.State): ScanResult {
   const e = lineEnd(s, p)
-  const ind = indent(s, p, e)
-  if (ind.spaces > 3) return null
+  indent(s, p, e)
+  if (_indentSpaces > 3) return null
   
-  let i = p + ind.chars
+  let i = p + _indentChars
   const fence = s.charCodeAt(i)
   if (fence !== 96 && fence !== 126) return null // ` or ~
   
@@ -524,9 +527,9 @@ function scanFenced(s: string, p: number, state: MarkdownToJSX.State): ScanResul
   
   while (contentEnd < s.length) {
     const le = lineEnd(s, contentEnd)
-    const li = indent(s, contentEnd, le)
-    if (li.spaces < 4) {
-      const fp = contentEnd + li.chars
+    indent(s, contentEnd, le)
+    if (_indentSpaces < 4) {
+      const fp = contentEnd + _indentChars
       if (countChar(s, fp, le, fence) >= fenceLen) {
         const afterFence = fp + countChar(s, fp, le, fence)
         if (isBlank(s, afterFence, le)) {
@@ -538,13 +541,13 @@ function scanFenced(s: string, p: number, state: MarkdownToJSX.State): ScanResul
     contentEnd = nextLine(s, le)
   }
   
-  // Extract content, removing up to ind.spaces from each line
+  // Extract content, removing up to _indentSpaces from each line
   let content = ''
   let cp = contentStart
   while (cp < contentEnd) {
     const le = lineEnd(s, cp)
-    const li = indent(s, cp, le)
-    const remove = Math.min(li.chars, ind.spaces)
+    indent(s, cp, le)
+    const remove = Math.min(_indentChars, _indentSpaces)
     content += s.slice(cp + remove, le) + '\n'
     cp = nextLine(s, le)
   }
@@ -564,23 +567,23 @@ function scanFenced(s: string, p: number, state: MarkdownToJSX.State): ScanResul
 /** Scan indented code block */
 function scanIndented(s: string, p: number): ScanResult {
   const e = lineEnd(s, p)
-  const ind = indent(s, p, e)
-  if (ind.spaces < 4) return null
+  indent(s, p, e)
+  if (_indentSpaces < 4) return null
   
   let content = ''
   let end = p
   
   while (end < s.length) {
     const le = lineEnd(s, end)
-    const li = indent(s, end, le)
+    indent(s, end, le)
     
     if (isBlank(s, end, le)) {
       // Blank line - include but check if code continues
       const nextStart = nextLine(s, le)
       if (nextStart < s.length) {
         const nextLe = lineEnd(s, nextStart)
-        const nextInd = indent(s, nextStart, nextLe)
-        if (nextInd.spaces >= 4 && !isBlank(s, nextStart, nextLe)) {
+        indent(s, nextStart, nextLe)
+        if (_indentSpaces >= 4 && !isBlank(s, nextStart, nextLe)) {
           content += '\n'
           end = nextStart
           continue
@@ -589,7 +592,7 @@ function scanIndented(s: string, p: number): ScanResult {
       break
     }
     
-    if (li.spaces < 4) break
+    if (_indentSpaces < 4) break
     
     // Remove 4 spaces of indentation
     let remove = 0, spaces = 0
@@ -622,10 +625,10 @@ function scanIndented(s: string, p: number): ScanResult {
 /** Scan blockquote */
 function scanBlockquote(s: string, p: number, state: MarkdownToJSX.State, opts: any): ScanResult {
   const e = lineEnd(s, p)
-  const ind = indent(s, p, e)
-  if (ind.spaces > 3) return null
+  indent(s, p, e)
+  if (_indentSpaces > 3) return null
   
-  let i = p + ind.chars
+  let i = p + _indentChars
   if (s.charCodeAt(i) !== 62) return null // >
   
   // Collect blockquote content
@@ -635,9 +638,9 @@ function scanBlockquote(s: string, p: number, state: MarkdownToJSX.State, opts: 
   
   while (end < s.length) {
     const le = lineEnd(s, end)
-    const li = indent(s, end, le)
+    indent(s, end, le)
     
-    if (li.spaces > 3) {
+    if (_indentSpaces > 3) {
       // Could be lazy continuation or indented code
       if (content) {
         content += s.slice(end, le) + '\n'
@@ -647,7 +650,7 @@ function scanBlockquote(s: string, p: number, state: MarkdownToJSX.State, opts: 
       break
     }
     
-    const qi = end + li.chars
+    const qi = end + _indentChars
     if (s.charCodeAt(qi) === 62) {
       // > marker
       let ci = qi + 1
@@ -693,10 +696,10 @@ function scanBlockquote(s: string, p: number, state: MarkdownToJSX.State, opts: 
 
 /** Check if line starts a list item, return marker info */
 function checkListMarker(s: string, p: number, e: number): { ordered: boolean; marker: string; start?: number; contentStart: number } | null {
-  const ind = indent(s, p, e)
-  if (ind.spaces > 3) return null
+  indent(s, p, e)
+  if (_indentSpaces > 3) return null
   
-  let i = p + ind.chars
+  let i = p + _indentChars
   if (i >= e) return null
   
   const c = s.charCodeAt(i)
@@ -747,7 +750,8 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
   const itemContents: string[] = []
   let end = p
   let currentItem = ''
-  let baseIndent = indent(s, p, firstLine).spaces
+  indent(s, p, firstLine)
+  let baseIndent = _indentSpaces
   let hasBlankBetweenItems = false
   let blankAfterCurrentItem = false
   
@@ -757,13 +761,13 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
   
   while (end < s.length) {
     const le = lineEnd(s, end)
-    const ind = indent(s, end, le)
+    indent(s, end, le)
     
     // Check if this line starts a new list item with same marker type
     const lineMarker = checkListMarker(s, end, le)
     if (lineMarker && lineMarker.ordered === marker.ordered && 
         (marker.ordered ? lineMarker.marker === marker.marker : true) &&
-        ind.spaces <= baseIndent + 3) {
+        _indentSpaces <= baseIndent + 3) {
       // New item - save current and start new
       if (currentItem) {
         itemContents.push(currentItem.trim())
@@ -788,8 +792,8 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
         const nextMarker = checkListMarker(s, nextStart, nextLe)
         if (!nextMarker || nextMarker.ordered !== marker.ordered) {
           // Check for continuation by indentation
-          const nextInd = indent(s, nextStart, nextLe)
-          if (nextInd.spaces < contentIndent && !isBlank(s, nextStart, nextLe)) {
+          indent(s, nextStart, nextLe)
+          if (_indentSpaces < contentIndent && !isBlank(s, nextStart, nextLe)) {
             break
           }
         }
@@ -798,9 +802,9 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
     }
     
     // Check for indented continuation
-    if (ind.spaces >= contentIndent || ind.spaces >= 4) {
+    if (_indentSpaces >= contentIndent || _indentSpaces >= 4) {
       // Remove base indentation for continuation
-      const contentStart = Math.min(end + contentIndent, end + ind.chars)
+      const contentStart = Math.min(end + contentIndent, end + _indentChars)
       currentItem += s.slice(contentStart, le) + '\n'
       end = nextLine(s, le)
       continue
@@ -984,17 +988,54 @@ function parseHTMLAttributes(attrStr: string, tagName: string, opts: any): Recor
   return attrs
 }
 
-/** Find matching closing tag */
+/** Case-insensitive indexOf without allocating new string */
+function indexOfCI(str: string, search: string, from: number): number {
+  const searchLen = search.length
+  for (let j = from; j <= str.length - searchLen; j++) {
+    let match = true
+    for (let k = 0; k < searchLen; k++) {
+      let c1 = str.charCodeAt(j + k)
+      let c2 = search.charCodeAt(k)
+      // Convert to lowercase inline
+      if (c1 >= 65 && c1 <= 90) c1 += 32
+      if (c2 >= 65 && c2 <= 90) c2 += 32
+      if (c1 !== c2) { match = false; break }
+    }
+    if (match) return j
+  }
+  return -1
+}
+
+/** Case-insensitive lastIndexOf without allocating new string */
+function lastIndexOfCI(str: string, search: string, from: number): number {
+  const searchLen = search.length
+  for (let j = Math.min(from, str.length - searchLen); j >= 0; j--) {
+    let match = true
+    for (let k = 0; k < searchLen; k++) {
+      let c1 = str.charCodeAt(j + k)
+      let c2 = search.charCodeAt(k)
+      // Convert to lowercase inline
+      if (c1 >= 65 && c1 <= 90) c1 += 32
+      if (c2 >= 65 && c2 <= 90) c2 += 32
+      if (c1 !== c2) { match = false; break }
+    }
+    if (match) return j
+  }
+  return -1
+}
+
+/** Find matching closing tag (case-insensitive without allocation) */
 function findClosingTag(s: string, start: number, tagName: string): number {
-  const openTag = '<' + tagName
-  const closeTag = '</' + tagName
+  const tagLower = tagName.toLowerCase()
+  const openTag = '<' + tagLower
+  const closeTag = '</' + tagLower
   let depth = 1
   let i = start
   const len = s.length
   
   while (i < len && depth > 0) {
-    const openIdx = s.toLowerCase().indexOf(openTag.toLowerCase(), i)
-    const closeIdx = s.toLowerCase().indexOf(closeTag.toLowerCase(), i)
+    const openIdx = indexOfCI(s, openTag, i)
+    const closeIdx = indexOfCI(s, closeTag, i)
     
     if (closeIdx === -1) return -1 // No closing tag found
     
@@ -1008,7 +1049,7 @@ function findClosingTag(s: string, start: number, tagName: string): number {
     } else {
       // Found closing tag
       const afterClose = s.charCodeAt(closeIdx + closeTag.length)
-      if (afterClose === 62 || /\s/.test(String.fromCharCode(afterClose))) {
+      if (afterClose === 62 || afterClose === 32 || afterClose === 9 || afterClose === 10) {
         depth--
         if (depth === 0) {
           // Find end of closing tag
@@ -1029,10 +1070,10 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
   if (opts.disableParsingRawHTML) return null
   
   const e = lineEnd(s, p)
-  const ind = indent(s, p, e)
-  if (ind.spaces > 3) return null
+  indent(s, p, e)
+  if (_indentSpaces > 3) return null
   
-  const start = p + ind.chars
+  const start = p + _indentChars
   if (s.charCodeAt(start) !== 60) return null // <
   
   // Parse opening tag
@@ -1093,7 +1134,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
   }
   
   // Find where closing tag starts
-  const closeTagStart = s.toLowerCase().lastIndexOf('</' + tagNameLower, closeEnd)
+  const closeTagStart = lastIndexOfCI(s, '</' + tagNameLower, closeEnd)
   const innerContent = s.slice(tagResult.end, closeTagStart)
   
   let children: MarkdownToJSX.ASTNode[] = []
@@ -1237,10 +1278,10 @@ function scanTable(s: string, p: number, state: MarkdownToJSX.State, opts: any):
 /** Scan link reference definition [label]: url "title" */
 function scanRefDefinition(s: string, p: number, state: MarkdownToJSX.State): ScanResult {
   const e = lineEnd(s, p)
-  const ind = indent(s, p, e)
-  if (ind.spaces > 3) return null
+  indent(s, p, e)
+  if (_indentSpaces > 3) return null
   
-  let i = p + ind.chars
+  let i = p + _indentChars
   if (s.charCodeAt(i) !== 91) return null // [
   i++
   
@@ -1355,12 +1396,12 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: a
     if (isBlank(s, end, le)) break
     
     // Check if this line is a setext underline
-    const ind = indent(s, end, le)
-    if (ind.spaces < 4 && textEnd > 0) {
-      const c = s.charCodeAt(end + ind.chars)
+    indent(s, end, le)
+    if (_indentSpaces < 4 && textEnd > 0) {
+      const c = s.charCodeAt(end + _indentChars)
       if (c === 61 || c === 45) { // = or -
         // Check if entire line is = or - (with optional spaces)
-        let i = end + ind.chars
+        let i = end + _indentChars
         while (i < le && s.charCodeAt(i) === c) i++
         while (i < le && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 9)) i++
         if (i >= le) {
@@ -1377,9 +1418,9 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: a
     const nextStart = nextLine(s, le)
     if (nextStart < s.length) {
       const nextLe = lineEnd(s, nextStart)
-      const nextInd = indent(s, nextStart, nextLe)
-      if (nextInd.spaces < 4) {
-        const c = s.charCodeAt(nextStart + nextInd.chars)
+      indent(s, nextStart, nextLe)
+      if (_indentSpaces < 4) {
+        const c = s.charCodeAt(nextStart + _indentChars)
         // Check for block starters that interrupt paragraphs
         if (c === 35 || c === 62 || c === 96 || c === 126) {
           end = nextStart // End paragraph at current line
@@ -1399,7 +1440,7 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: a
           }
           // Check if it could be setext (need at least 1 dash)
           let dashCount = 0
-          let i = nextStart + nextInd.chars
+          let i = nextStart + _indentChars
           while (i < nextLe && s.charCodeAt(i) === 45) { dashCount++; i++ }
           while (i < nextLe && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 9)) i++
           // If whole line is dashes, it could be setext - let loop continue to check
@@ -1995,7 +2036,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
   }
   
   // Find where closing tag starts  
-  const closeTagStart = s.toLowerCase().lastIndexOf('</' + tagNameLower, closeEnd)
+  const closeTagStart = lastIndexOfCI(s, '</' + tagNameLower, closeEnd)
   const innerContent = s.slice(tagResult.end, closeTagStart)
   
   let children: MarkdownToJSX.ASTNode[] = []
@@ -2141,15 +2182,15 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: any): Markdown
     if (p >= e) break
     
     const le = lineEnd(s, p)
-    const ind = indent(s, p, le)
+    indent(s, p, le)
     
     let result: ScanResult = null
     
     // Check for indented code block (4+ spaces) - but not in list context
-    if (ind.spaces >= 4 && !state.inList) {
+    if (_indentSpaces >= 4 && !state.inList) {
       result = scanIndented(s, p)
     } else {
-      const i = p + ind.chars
+      const i = p + _indentChars
       const c = s.charCodeAt(i)
       
       // Try block scanners based on first character
