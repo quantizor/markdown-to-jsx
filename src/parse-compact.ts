@@ -2320,6 +2320,23 @@ function scanBareUrl(s: string, p: number, e: number, opts: any): ScanResult {
   
   const url = s.slice(p, end)
   
+  // Validate domain - underscores not allowed in final two segments (TLD and SLD)
+  // Extract domain from URL (between :// and first / or end)
+  const domainStart = prefix.length
+  let domainEnd = url.indexOf('/', domainStart)
+  if (domainEnd < 0) domainEnd = url.length
+  const domain = url.slice(domainStart, domainEnd)
+  // Split domain into segments and check last two
+  const segments = domain.split('.')
+  if (segments.length >= 2) {
+    const lastTwo = segments.slice(-2)
+    if (lastTwo.some(seg => seg.includes('_'))) {
+      return null // Invalid domain - underscore in final segments
+    }
+  } else if (segments.length === 1 && segments[0].includes('_')) {
+    return null // Single segment with underscore
+  }
+  
   return {
     node: {
       type: RuleType.link,
