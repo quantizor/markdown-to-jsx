@@ -1204,15 +1204,20 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: a
   
   // If setext, use textEnd as the content end
   const contentEnd = setextLevel ? textEnd : end
-  const text = s.slice(p, contentEnd).replace(/\n$/, '').replace(/\n/g, ' ').trim()
+  // Don't replace \n directly - need to preserve hard line breaks (  \n)
+  let text = s.slice(p, contentEnd).replace(/\n$/, '').trim()
   if (!text) return null
   
-  const children = parseInline(text, 0, text.length, state, opts)
+  // Process hard line breaks (two or more spaces before newline)
+  // Replace "  \n" with special marker, then replace remaining \n with space
+  text = text.replace(/  +\n/g, '\u001F').replace(/\n/g, ' ')
+  
+  const children = parseInlineWithBreaks(text, 0, text.length, state, opts)
   
   if (setextLevel) {
     // Setext heading
     const slugify = opts?.slugify || util.slugify
-    const id = slugify(text)
+    const id = slugify(text.replace(/\u001F/g, ''))
     return {
       node: {
         type: RuleType.heading,
@@ -1231,6 +1236,35 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: a
     } as MarkdownToJSX.ParagraphNode,
     end
   }
+}
+
+/** Parse inline with hard line break support */
+function parseInlineWithBreaks(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: any): MarkdownToJSX.ASTNode[] {
+  const result: MarkdownToJSX.ASTNode[] = []
+  let start = p
+  
+  while (start < e) {
+    // Find next break marker
+    let breakPos = s.indexOf('\u001F', start)
+    if (breakPos < 0 || breakPos >= e) {
+      // No more breaks, parse rest as inline
+      const nodes = parseInline(s, start, e, state, opts)
+      result.push(...nodes)
+      break
+    }
+    
+    // Parse before break
+    if (breakPos > start) {
+      const nodes = parseInline(s, start, breakPos, state, opts)
+      result.push(...nodes)
+    }
+    
+    // Add break node
+    result.push({ type: RuleType.breakLine } as MarkdownToJSX.BreakLineNode)
+    start = breakPos + 1
+  }
+  
+  return result
 }
 
 // ============================================================================
