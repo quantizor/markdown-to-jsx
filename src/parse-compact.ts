@@ -1515,6 +1515,30 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: a
           end = nextStart
           break
         }
+        // List items can interrupt paragraphs (- * + or digit followed by . or ))
+        if (c === 45 || c === 42 || c === 43) {
+          // - * + followed by space/tab
+          const next = nextStart + _indentChars + 1
+          if (next >= nextLe || s.charCodeAt(next) === 32 || s.charCodeAt(next) === 9) {
+            // Only interrupt if not a thematic break
+            if (!scanThematic(s, nextStart)) {
+              end = nextStart
+              break
+            }
+          }
+        }
+        if (c >= 48 && c <= 57) {
+          // Digit - check for ordered list
+          let i = nextStart + _indentChars
+          while (i < nextLe && s.charCodeAt(i) >= 48 && s.charCodeAt(i) <= 57) i++
+          if (i < nextLe && (s.charCodeAt(i) === 46 || s.charCodeAt(i) === 41)) {
+            const afterMarker = i + 1
+            if (afterMarker >= nextLe || s.charCodeAt(afterMarker) === 32 || s.charCodeAt(afterMarker) === 9) {
+              end = nextStart
+              break
+            }
+          }
+        }
         // Thematic break (but not setext underline)
         if ((c === 45 || c === 42 || c === 95) && scanThematic(s, nextStart)) {
           // For dashes, only break if it's really a thematic break not setext
