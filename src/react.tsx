@@ -367,12 +367,13 @@ function render(
     }
 
     case RuleType.image: {
+      const src = sanitize(node.target, 'img', 'src')
       return (
         <img
           key={state.key}
           alt={node.alt && node.alt.length > 0 ? node.alt : undefined}
           title={node.title || undefined}
-          src={sanitize(node.target, 'img', 'src')}
+          src={src || undefined}
         />
       )
     }
