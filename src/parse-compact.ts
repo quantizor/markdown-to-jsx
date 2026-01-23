@@ -1460,11 +1460,11 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
   }
   
   const end = nextLine(s, closeEnd)
-  // rawText should be from after opening tag to end of closing tag (matches original parser)
+  // rawText should be from after opening tag to BEFORE closing tag (not including it)
   // Skip leading newline if present (original parser behavior)
   let rawTextStart = tagResult.end
   if (s.charCodeAt(rawTextStart) === 10) rawTextStart++
-  const rawText = s.slice(rawTextStart, closeEnd)
+  const rawText = s.slice(rawTextStart, closeTagStart)
   
   return {
     node: {
