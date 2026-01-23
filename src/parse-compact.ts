@@ -618,6 +618,7 @@ function scanBlockquote(s: string, p: number, state: MarkdownToJSX.State, opts: 
   // Collect blockquote content
   let content = ''
   let end = p
+  let alertType: string | undefined
   
   while (end < s.length) {
     const le = lineEnd(s, end)
@@ -638,7 +639,19 @@ function scanBlockquote(s: string, p: number, state: MarkdownToJSX.State, opts: 
       // > marker
       let ci = qi + 1
       if (ci < le && s.charCodeAt(ci) === 32) ci++ // optional space after >
-      content += s.slice(ci, le) + '\n'
+      const lineContent = s.slice(ci, le)
+      
+      // Check for alert syntax [!TYPE] on first line
+      if (!content && !alertType) {
+        const alertMatch = lineContent.match(/^\[!([A-Z]+)\]\s*$/)
+        if (alertMatch) {
+          alertType = alertMatch[1]
+          end = nextLine(s, le)
+          continue // Don't add alert marker to content
+        }
+      }
+      
+      content += lineContent + '\n'
       end = nextLine(s, le)
     } else if (content && !isBlank(s, end, le)) {
       // Lazy continuation
@@ -649,18 +662,20 @@ function scanBlockquote(s: string, p: number, state: MarkdownToJSX.State, opts: 
     }
   }
   
-  if (!content) return null
+  if (!content && !alertType) return null
   
   // Parse blockquote content recursively
-  const children = parseBlocks(content, state, opts)
+  const children = parseBlocks(content || '', state, opts)
   
-  return {
-    node: {
-      type: RuleType.blockQuote,
-      children,
-    } as MarkdownToJSX.BlockQuoteNode,
-    end
+  const node: MarkdownToJSX.BlockQuoteNode = {
+    type: RuleType.blockQuote,
+    children,
   }
+  if (alertType) {
+    node.alert = alertType
+  }
+  
+  return { node, end }
 }
 
 /** Check if line starts a list item, return marker info */
