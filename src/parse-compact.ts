@@ -767,8 +767,8 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
     const lineMarker = checkListMarker(s, end, le)
     if (lineMarker && lineMarker.ordered === marker.ordered && 
         (marker.ordered ? lineMarker.marker === marker.marker : true) &&
-        _indentSpaces <= baseIndent + 3) {
-      // New item - save current and start new
+        _indentSpaces === baseIndent) {
+      // New item at same indentation level - save current and start new
       if (currentItem) {
         itemContents.push(currentItem.trim())
         // If there was a blank line before this new item, list is loose
@@ -803,6 +803,16 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
     
     // Check for indented continuation
     if (_indentSpaces >= contentIndent || _indentSpaces >= 4) {
+      // Check if this indented line is actually a nested list
+      const nestedMarker = checkListMarker(s, end, le)
+      if (nestedMarker && _indentSpaces >= contentIndent) {
+        // This is a nested list - collect all lines that belong to this nested content
+        // Remove base indentation and add to current item for later parsing
+        const contentStart = Math.min(end + contentIndent, end + _indentChars)
+        currentItem += s.slice(contentStart, le) + '\n'
+        end = nextLine(s, le)
+        continue
+      }
       // Remove base indentation for continuation
       const contentStart = Math.min(end + contentIndent, end + _indentChars)
       currentItem += s.slice(contentStart, le) + '\n'
@@ -846,6 +856,29 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
     if (isTight && !itemContent.includes('\n')) {
       // Tight list item - parse as inline, no wrapping paragraph
       itemNodes = parseInline(itemContent, 0, itemContent.length, state, opts)
+    } else if (isTight && itemContent.includes('\n')) {
+      // Tight list with multiline content - check for nested list
+      const lines = itemContent.split('\n')
+      const firstLine = lines[0]
+      const rest = lines.slice(1).join('\n').trim()
+      
+      // Parse first line as inline
+      itemNodes = parseInline(firstLine, 0, firstLine.length, state, opts)
+      
+      // Check if rest starts with a list marker
+      if (rest) {
+        const restFirstLine = lineEnd(rest, 0)
+        const restMarker = checkListMarker(rest, 0, restFirstLine)
+        if (restMarker) {
+          // Parse rest as blocks (will create nested list)
+          const nestedNodes = parseBlocks(rest, { ...state, inList: true }, opts)
+          itemNodes = [...itemNodes, ...nestedNodes]
+        } else {
+          // Parse rest as blocks and append
+          const restNodes = parseBlocks(rest, { ...state, inList: true }, opts)
+          itemNodes = [...itemNodes, ...restNodes]
+        }
+      }
     } else {
       // Loose list item - parse as blocks
       itemNodes = parseBlocks(itemContent, { ...state, inList: true }, opts)
