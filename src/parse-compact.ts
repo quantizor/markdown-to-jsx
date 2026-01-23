@@ -1318,6 +1318,9 @@ function scanRefDefinition(s: string, p: number, state: MarkdownToJSX.State): Sc
   if (s.charCodeAt(i) !== 91) return null // [
   i++
   
+  // Check for footnote definition [^
+  const isFootnote = s.charCodeAt(i) === 94 // ^
+  
   // Parse label
   const labelStart = i
   let depth = 1
@@ -1343,6 +1346,15 @@ function scanRefDefinition(s: string, p: number, state: MarkdownToJSX.State): Sc
   if (i < s.length && s.charCodeAt(i) === 10) {
     i++
     while (i < s.length && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 9)) i++
+  }
+  
+  // For footnotes, content is everything to end of line
+  if (isFootnote) {
+    const fnLineEnd = s.indexOf('\n', i)
+    const contentEnd = fnLineEnd < 0 ? s.length : fnLineEnd
+    const content = s.slice(i, contentEnd).trim()
+    state.refs[label] = { target: content, title: undefined }
+    return { node: { type: RuleType.refCollection } as MarkdownToJSX.ASTNode, end: fnLineEnd < 0 ? s.length : fnLineEnd + 1 }
   }
   
   // Parse URL (can be in angle brackets or bare)
