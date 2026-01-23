@@ -144,7 +144,7 @@ export function htmlAttrsToJSXProps(
 }
 
 export const SHOULD_RENDER_AS_BLOCK_R: RegExp =
-  /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/
+  /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s|^<(div|p|h[1-6]|ul|ol|li|blockquote|pre|table|thead|tbody|tr|td|th|dl|dt|dd|hr|br|address|article|aside|details|dialog|figure|figcaption|footer|form|header|main|menu|nav|section|summary|textarea|fieldset|legend|center|dir|hgroup|marquee|search|output|template)\b)/i
 
 /**
  * Decode HTML entity references to Unicode characters

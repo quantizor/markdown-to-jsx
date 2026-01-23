@@ -1048,11 +1048,39 @@ function parseHTMLAttributes(attrStr: string, tagName: string, opts: any): Recor
     
     // Handle special cases
     if (name === 'style') {
-      // Parse inline styles
+      // Parse inline styles - handle url() values properly
       const styles: Record<string, string> = {}
-      value.split(';').forEach(decl => {
-        const [prop, val] = decl.split(':').map(s => s.trim())
+      // Split by ; but not inside url()
+      let decls: string[] = []
+      let depth = 0
+      let start = 0
+      for (let j = 0; j < value.length; j++) {
+        const c = value.charCodeAt(j)
+        if (c === 40) depth++ // (
+        else if (c === 41) depth-- // )
+        else if (c === 59 && depth === 0) { // ;
+          decls.push(value.slice(start, j))
+          start = j + 1
+        }
+      }
+      if (start < value.length) decls.push(value.slice(start))
+      
+      let hasXSS = false
+      decls.forEach(decl => {
+        // Split property: value, but only on first colon (handle url() with colons)
+        const colonIdx = decl.indexOf(':')
+        if (colonIdx === -1) return
+        const prop = decl.slice(0, colonIdx).trim()
+        const val = decl.slice(colonIdx + 1).trim()
         if (prop && val) {
+          // Check for XSS in url() values
+          if (/url\s*\(\s*(javascript|vbscript|data:(?!image\/))/i.test(val)) {
+            hasXSS = true
+            if (process.env.NODE_ENV !== 'production') {
+              console.warn('Style attribute contains an unsafe URL expression, it will not be rendered.', val)
+            }
+            return
+          }
           // Convert CSS property to camelCase
           const camelProp = prop.indexOf('-') !== -1 
             ? prop.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase())
@@ -1060,7 +1088,10 @@ function parseHTMLAttributes(attrStr: string, tagName: string, opts: any): Recor
           styles[camelProp] = val
         }
       })
-      attrs[name] = styles
+      // If XSS was detected, don't include any styles
+      if (!hasXSS && Object.keys(styles).length > 0) {
+        attrs[name] = styles
+      }
     } else if ((name === 'href' || name === 'src') && opts?.sanitizer) {
       // Sanitize href and src attributes
       const sanitized = opts.sanitizer(value, tagName, name)
@@ -1218,7 +1249,54 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
   // Find closing tag
   const closeEnd = findClosingTag(s, tagResult.end, tagName)
   if (closeEnd === -1) {
-    // No closing tag - treat as raw text (unclosed element)
+    // No closing tag found
+    // For HTML type 6 tags (block-level like div), continue until blank line
+    if (isStandardBlockTag || isCustomComponent) {
+      // Find next blank line or end of document
+      let blankLineEnd = tagResult.end
+      while (blankLineEnd < s.length) {
+        const nextNL = s.indexOf('\n', blankLineEnd)
+        if (nextNL === -1) {
+          blankLineEnd = s.length
+          break
+        }
+        // Check if next line is blank
+        const nextLineStart = nextNL + 1
+        if (nextLineStart >= s.length || s.charCodeAt(nextLineStart) === 10) {
+          blankLineEnd = nextNL
+          break
+        }
+        // Check if it's an all-whitespace line
+        let isBlank = true
+        let j = nextLineStart
+        while (j < s.length && s.charCodeAt(j) !== 10) {
+          const c = s.charCodeAt(j)
+          if (c !== 32 && c !== 9) { isBlank = false; break }
+          j++
+        }
+        if (isBlank) {
+          blankLineEnd = nextNL
+          break
+        }
+        blankLineEnd = j
+      }
+      
+      const rawText = s.slice(tagResult.end, blankLineEnd)
+      const end = blankLineEnd < s.length ? nextLine(s, blankLineEnd) : blankLineEnd
+      
+      return {
+        node: {
+          type: RuleType.htmlBlock,
+          tag: tagName,
+          attrs: parseHTMLAttributes(Object.entries(tagResult.attrs).map(([k, v]) => v ? `${k}="${v}"` : k).join(' '), tagName, opts),
+          children: [],
+          rawText,
+          text: rawText,
+          verbatim: false,
+        } as MarkdownToJSX.HTMLNode,
+        end
+      }
+    }
     return null
   }
   
