@@ -1546,8 +1546,9 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: a
   if (!text) return null
   
   // Process hard line breaks (two or more spaces before newline)
-  // Replace "  \n" with special marker, then replace remaining \n with space
-  text = text.replace(/  +\n/g, '\u001F').replace(/\n/g, ' ')
+  // Replace "  \n" with special marker for later conversion to <br>
+  // Keep soft line breaks as newlines (per CommonMark spec)
+  text = text.replace(/  +\n/g, '\u001F')
   
   const children = parseInlineWithBreaks(text, 0, text.length, state, opts)
   
