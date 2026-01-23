@@ -162,7 +162,7 @@ describe('HTML blocks', () => {
   
   it('parses comment', () => {
     const result = parseMarkdownCompact('<!-- comment -->')
-    expect(result[0].type).toBe(RuleType.htmlBlock)
+    expect(result[0].type).toBe(RuleType.htmlComment)
   })
 })
 

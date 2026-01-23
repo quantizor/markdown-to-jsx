@@ -2394,8 +2394,10 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
       }
       // Strip incomplete strikethrough markers ~~text
       remainingText = remainingText.replace(/~~([^~]+)$/, '$1')
-      // Strip incomplete link markers [text
+      // Strip incomplete link markers [text (no ])
       remainingText = remainingText.replace(/\[([^\]]+)$/, '$1')
+      // Strip [text]( without closing ) - partial inline link
+      remainingText = remainingText.replace(/\[([^\]]+)\]\([^)]*$/, '$1')
     }
     
     if (remainingText) {
