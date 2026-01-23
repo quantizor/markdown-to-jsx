@@ -1546,6 +1546,61 @@ function scanAutolink(s: string, p: number, e: number): ScanResult {
   return null
 }
 
+/** Scan bare URL (https://... or http://...) */
+function scanBareUrl(s: string, p: number, e: number, opts: any): ScanResult {
+  if (opts.disableBareUrls) return null
+  
+  // Check for http:// or https://
+  const rest = s.slice(p, Math.min(p + 8, e))
+  let prefix = ''
+  if (rest.startsWith('https://')) prefix = 'https://'
+  else if (rest.startsWith('http://')) prefix = 'http://'
+  else return null
+  
+  // Find end of URL (stop at whitespace or common punctuation at end)
+  let i = p + prefix.length
+  while (i < e) {
+    const c = s.charCodeAt(i)
+    // Stop at whitespace
+    if (c === 32 || c === 10 || c === 9 || c === 13) break
+    // Stop at certain characters that are unlikely to be part of URL
+    if (c === 60 || c === 62) break // < >
+    i++
+  }
+  
+  // Trim trailing punctuation that's not part of URL
+  let end = i
+  while (end > p + prefix.length) {
+    const c = s.charCodeAt(end - 1)
+    if (c === 46 || c === 44 || c === 59 || c === 58 || // . , ; :
+        c === 33 || c === 63 || c === 41) { // ! ? )
+      // But keep ) if there's a matching (
+      if (c === 41) {
+        const url = s.slice(p, end)
+        const openCount = (url.match(/\(/g) || []).length
+        const closeCount = (url.match(/\)/g) || []).length
+        if (openCount >= closeCount) break
+      }
+      end--
+    } else {
+      break
+    }
+  }
+  
+  if (end <= p + prefix.length) return null
+  
+  const url = s.slice(p, end)
+  
+  return {
+    node: {
+      type: RuleType.link,
+      target: url,
+      children: [{ type: RuleType.text, text: url } as MarkdownToJSX.TextNode],
+    } as MarkdownToJSX.LinkNode,
+    end
+  }
+}
+
 /** Create a text node with entity decoding */
 function textNode(text: string): MarkdownToJSX.TextNode {
   // Decode HTML entities if present
@@ -1573,6 +1628,8 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
       result = scanLink(s, p, e, state, opts)
     } else if (c === 60 && !opts.disableAutoLink) { // <
       result = scanAutolink(s, p, e)
+    } else if (c === 104 && !state.inAnchor) { // h - potential http:// or https://
+      result = scanBareUrl(s, p, e, opts)
     }
     
     if (result) {
