@@ -1301,6 +1301,32 @@ function scanStrikethrough(s: string, p: number, e: number, state: MarkdownToJSX
   return null
 }
 
+/** Scan marked text ==text== */
+function scanMarked(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: any): ScanResult {
+  if (s.charCodeAt(p) !== 61 || p + 1 >= e || s.charCodeAt(p + 1) !== 61) return null // ==
+  
+  // Find closing ==
+  let i = p + 2
+  while (i + 1 < e) {
+    if (s.charCodeAt(i) === 61 && s.charCodeAt(i + 1) === 61) {
+      const content = s.slice(p + 2, i)
+      const children = parseInline(content, 0, content.length, state, opts)
+      return {
+        node: {
+          type: RuleType.textFormatted,
+          tag: 'mark',
+          children,
+        } as MarkdownToJSX.TextFormattedNode,
+        end: i + 2
+      }
+    }
+    if (s.charCodeAt(i) === 92 && i + 1 < e) i++ // escape
+    i++
+  }
+  
+  return null
+}
+
 /** Scan emphasis (* or _) */
 function scanEmphasis(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: any): ScanResult {
   const ch = s.charCodeAt(p)
@@ -1663,6 +1689,8 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
       result = scanEmphasis(s, p, e, state, opts)
     } else if (c === 126) { // ~
       result = scanStrikethrough(s, p, e, state, opts)
+    } else if (c === 61) { // = - potential ==marked==
+      result = scanMarked(s, p, e, state, opts)
     } else if (c === 91 || (c === 33 && p + 1 < e && s.charCodeAt(p + 1) === 91)) { // [ or ![
       result = scanLink(s, p, e, state, opts)
     } else if (c === 60 && !opts.disableAutoLink) { // <
