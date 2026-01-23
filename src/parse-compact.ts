@@ -1045,14 +1045,9 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
         const end = nextLine(s, endComment + 3)
         return {
           node: {
-            type: RuleType.htmlBlock,
-            tag: '!--',
-            attrs: {},
-            children: [],
-            rawText: s.slice(start, endComment + 3),
+            type: RuleType.htmlComment,
             text: s.slice(start + 4, endComment),
-            verbatim: true,
-          } as unknown as MarkdownToJSX.HTMLNode,
+          } as MarkdownToJSX.HTMLCommentNode,
           end
         }
       }
@@ -1386,18 +1381,32 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: a
       if (nextInd.spaces < 4) {
         const c = s.charCodeAt(nextStart + nextInd.chars)
         // Check for block starters that interrupt paragraphs
-        if (c === 35 || c === 62 || c === 96 || c === 126) break
+        if (c === 35 || c === 62 || c === 96 || c === 126) {
+          end = nextStart // End paragraph at current line
+          break
+        }
+        // HTML blocks (including comments) can interrupt paragraphs
+        if (c === 60) {
+          end = nextStart
+          break
+        }
         // Thematic break (but not setext underline)
         if ((c === 45 || c === 42 || c === 95) && scanThematic(s, nextStart)) {
           // For dashes, only break if it's really a thematic break not setext
-          if (c !== 45) break
+          if (c !== 45) {
+            end = nextStart
+            break
+          }
           // Check if it could be setext (need at least 1 dash)
           let dashCount = 0
           let i = nextStart + nextInd.chars
           while (i < nextLe && s.charCodeAt(i) === 45) { dashCount++; i++ }
           while (i < nextLe && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 9)) i++
           // If whole line is dashes, it could be setext - let loop continue to check
-          if (i < nextLe) break // Not setext, it's thematic break
+          if (i < nextLe) {
+            end = nextStart
+            break // Not setext, it's thematic break
+          }
         }
       }
     }
@@ -1946,14 +1955,9 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
     if (endComment !== -1) {
       return {
         node: {
-          type: RuleType.htmlBlock,
-          tag: '!--',
-          attrs: {},
-          children: [],
-          rawText: s.slice(p, endComment + 3),
+          type: RuleType.htmlComment,
           text: s.slice(p + 4, endComment),
-          verbatim: true,
-        } as unknown as MarkdownToJSX.HTMLNode,
+        } as MarkdownToJSX.HTMLCommentNode,
         end: endComment + 3
       }
     }
