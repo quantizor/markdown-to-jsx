@@ -1472,6 +1472,13 @@ function scanAutolink(s: string, p: number, e: number): ScanResult {
   return null
 }
 
+/** Create a text node with entity decoding */
+function textNode(text: string): MarkdownToJSX.TextNode {
+  // Decode HTML entities if present
+  const decoded = text.includes('&') ? util.decodeEntityReferences(text) : text
+  return { type: RuleType.text, text: decoded } as MarkdownToJSX.TextNode
+}
+
 /** Parse inline content */
 function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: any): MarkdownToJSX.ASTNode[] {
   const nodes: MarkdownToJSX.ASTNode[] = []
@@ -1497,10 +1504,7 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
     if (result) {
       // Flush text before this
       if (p > textStart) {
-        nodes.push({
-          type: RuleType.text,
-          text: s.slice(textStart, p),
-        } as MarkdownToJSX.TextNode)
+        nodes.push(textNode(s.slice(textStart, p)))
       }
       nodes.push(result.node)
       p = result.end
@@ -1511,15 +1515,9 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
         const next = s.charCodeAt(p + 1)
         if (cc(next) & C_PUNCT) {
           if (p > textStart) {
-            nodes.push({
-              type: RuleType.text,
-              text: s.slice(textStart, p),
-            } as MarkdownToJSX.TextNode)
+            nodes.push(textNode(s.slice(textStart, p)))
           }
-          nodes.push({
-            type: RuleType.text,
-            text: s[p + 1],
-          } as MarkdownToJSX.TextNode)
+          nodes.push(textNode(s[p + 1]))
           p += 2
           textStart = p
           continue
@@ -1531,10 +1529,7 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
   
   // Flush remaining text
   if (e > textStart) {
-    nodes.push({
-      type: RuleType.text,
-      text: s.slice(textStart, e),
-    } as MarkdownToJSX.TextNode)
+    nodes.push(textNode(s.slice(textStart, e)))
   }
   
   return nodes
@@ -1546,6 +1541,11 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
 
 /** Parse block-level content */
 function parseBlocks(s: string, state: MarkdownToJSX.State, opts: any): MarkdownToJSX.ASTNode[] {
+  // If inline mode, just parse as inline content directly
+  if (state.inline) {
+    return parseInline(s, 0, s.length, state, opts)
+  }
+  
   const nodes: MarkdownToJSX.ASTNode[] = []
   let p = 0
   const e = s.length
