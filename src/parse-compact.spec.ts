@@ -196,7 +196,7 @@ describe('Tables', () => {
   it('parses table with alignment', () => {
     const result = parseMarkdownCompact('| L | C | R |\n|:--|:--:|--:|\n| a | b | c |')
     const table = result[0] as any
-    expect(table.align[0]).toBeNull()  // left (default)
+    expect(table.align[0]).toBe('left')
     expect(table.align[1]).toBe('center')
     expect(table.align[2]).toBe('right')
   })

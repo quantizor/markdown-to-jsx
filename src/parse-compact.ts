@@ -1003,7 +1003,8 @@ function scanTable(s: string, p: number, state: MarkdownToJSX.State, opts: any):
     const right = d.endsWith(':')
     if (left && right) return 'center' as const
     if (right) return 'right' as const
-    return null  // left is default
+    if (left) return 'left' as const
+    return null  // no alignment
   })
   
   // Parse header
