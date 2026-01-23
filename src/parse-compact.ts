@@ -881,6 +881,13 @@ const HTML_TAGS_BLOCK = new Set([
   'title', 'tr', 'track', 'ul'
 ])
 
+// Inline HTML tags - these should not be treated as block elements
+const HTML_TAGS_INLINE = new Set([
+  'a', 'abbr', 'b', 'bdi', 'bdo', 'br', 'cite', 'code', 'data', 'dfn', 'em',
+  'i', 'kbd', 'mark', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'small', 'span',
+  'strong', 'sub', 'sup', 'time', 'u', 'var', 'wbr', 'img', 'input'
+])
+
 /** Check if string starts with HTML block (types 1-6) */
 function isHTMLBlockStart(s: string, p: number, e: number): { type: number; close?: string } | null {
   if (s.charCodeAt(p) !== 60) return null // <
@@ -1101,10 +1108,11 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
   
   // Check if it's a block-level tag or custom component (uppercase first letter)
   // Also accept any custom tag that's not standard inline HTML
-  const isCustomComponent = /^[A-Z]/.test(tagName)
+  const firstChar = tagName.charCodeAt(0)
+  const isCustomComponent = firstChar >= 65 && firstChar <= 90 // A-Z
   const isStandardBlockTag = HTML_TAGS_BLOCK.has(tagNameLower)
   // Accept: block tags, custom components, or custom unknown tags (not standard inline)
-  const isInlineTag = ['a', 'abbr', 'b', 'bdi', 'bdo', 'br', 'cite', 'code', 'data', 'dfn', 'em', 'i', 'kbd', 'mark', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'small', 'span', 'strong', 'sub', 'sup', 'time', 'u', 'var', 'wbr', 'img', 'input'].includes(tagNameLower)
+  const isInlineTag = HTML_TAGS_INLINE.has(tagNameLower)
   if (isInlineTag && !isCustomComponent) return null
   
   // Self-closing tag
