@@ -59,10 +59,8 @@ function compile(
     
     case RuleType.textFormatted: {
       const n = node as MarkdownToJSX.TextFormattedNode
-      const Tag = n.format === 'strong' ? 'strong' 
-        : n.format === 'em' ? 'em'
-        : n.format === 'strikethrough' ? 'del'
-        : 'span'
+      // Use tag property directly
+      const Tag = (n.tag || 'span') as keyof React.JSX.IntrinsicElements
       const Override = overrides[Tag]
       const children = n.children.map((c, i) => compile(c, options, i))
       return Override

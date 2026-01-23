@@ -181,11 +181,16 @@ function scanHeading(s: string, p: number, state: MarkdownToJSX.State, opts: any
   const text = s.slice(i, contentEnd)
   const children = parseInline(text, 0, text.length, state, opts)
   
+  // Generate heading ID (slug)
+  const slugify = opts?.slugify || util.slugify
+  const id = slugify(text)
+  
   return {
     node: {
       type: RuleType.heading,
       level,
       children,
+      id,
     } as MarkdownToJSX.HeadingNode,
     end: nextLine(s, e)
   }
@@ -921,7 +926,7 @@ function scanStrikethrough(s: string, p: number, e: number, state: MarkdownToJSX
       return {
         node: {
           type: RuleType.textFormatted,
-          format: 'strikethrough',
+          tag: 'del',
           children,
         } as MarkdownToJSX.TextFormattedNode,
         end: i + 2
@@ -997,7 +1002,7 @@ function scanEmphasis(s: string, p: number, e: number, state: MarkdownToJSX.Stat
         return {
           node: {
             type: RuleType.textFormatted,
-            format: useLen === 2 ? 'strong' : 'em',
+            tag: useLen === 2 ? 'strong' : 'em',
             children,
           } as MarkdownToJSX.TextFormattedNode,
           end: searchPos + useLen

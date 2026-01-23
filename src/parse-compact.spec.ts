@@ -99,7 +99,7 @@ describe('Compact Parser', () => {
       expect(result[0].type).toBe(RuleType.paragraph)
       const children = (result[0] as any).children
       expect(children[0].type).toBe(RuleType.textFormatted)
-      expect(children[0].format).toBe('em')
+      expect(children[0].tag).toBe('em')
     })
     
     it('parses strong with asterisks', () => {
@@ -107,7 +107,7 @@ describe('Compact Parser', () => {
       expect(result[0].type).toBe(RuleType.paragraph)
       const children = (result[0] as any).children
       expect(children[0].type).toBe(RuleType.textFormatted)
-      expect(children[0].format).toBe('strong')
+      expect(children[0].tag).toBe('strong')
     })
   })
 })
@@ -208,7 +208,7 @@ describe('Strikethrough', () => {
     expect(result[0].type).toBe(RuleType.paragraph)
     const del = (result[0] as any).children[0]
     expect(del.type).toBe(RuleType.textFormatted)
-    expect(del.format).toBe('strikethrough')
+    expect(del.tag).toBe('del')
   })
 })
 
