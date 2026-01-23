@@ -981,10 +981,6 @@ function parseHTMLAttributes(attrStr: string, tagName: string, opts: any): Recor
     }
   }
   
-  // Sanitize URLs in href and src
-  if (attrs.href) attrs.href = util.sanitizeUrl(attrs.href)
-  if (attrs.src) attrs.src = util.sanitizeUrl(attrs.src)
-  
   return attrs
 }
 
