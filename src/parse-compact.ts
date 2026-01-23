@@ -1001,6 +1001,80 @@ function isHTMLBlockStart(s: string, p: number, e: number): { type: number; clos
   return null
 }
 
+/** Process raw attributes object - convert names, parse styles, sanitize URLs */
+function processHTMLAttributes(rawAttrs: Record<string, string>, tagName: string, opts: any): Record<string, any> {
+  const attrs: Record<string, any> = {}
+  
+  for (const [rawName, value] of Object.entries(rawAttrs)) {
+    let name = rawName
+    
+    // Convert HTML attribute names to React
+    if (name === 'class') name = 'className'
+    else if (name === 'for') name = 'htmlFor'
+    else if (name.charCodeAt(0) === 100 && name.startsWith('data-')) { /* keep as-is */ }
+    else if (name.charCodeAt(0) === 97 && name.startsWith('aria-')) { /* keep as-is */ }
+    else {
+      // Convert kebab-case to camelCase for other attributes
+      if (name.indexOf('-') !== -1) {
+        name = name.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase())
+      }
+    }
+    
+    if (name === 'style' && typeof value === 'string') {
+      // Parse inline styles - handle url() values properly
+      const styles: Record<string, string> = {}
+      let decls: string[] = []
+      let depth = 0
+      let start = 0
+      for (let j = 0; j < value.length; j++) {
+        const c = value.charCodeAt(j)
+        if (c === 40) depth++ // (
+        else if (c === 41) depth-- // )
+        else if (c === 59 && depth === 0) { // ;
+          decls.push(value.slice(start, j))
+          start = j + 1
+        }
+      }
+      if (start < value.length) decls.push(value.slice(start))
+      
+      let hasXSS = false
+      decls.forEach(decl => {
+        const colonIdx = decl.indexOf(':')
+        if (colonIdx === -1) return
+        const prop = decl.slice(0, colonIdx).trim()
+        const val = decl.slice(colonIdx + 1).trim()
+        if (prop && val) {
+          if (/url\s*\(\s*(javascript|vbscript|data:(?!image\/))/i.test(val)) {
+            hasXSS = true
+            if (process.env.NODE_ENV !== 'production') {
+              console.warn('Style attribute contains an unsafe URL expression, it will not be rendered.', val)
+            }
+            return
+          }
+          const camelProp = prop.indexOf('-') !== -1 
+            ? prop.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase())
+            : prop
+          styles[camelProp] = val
+        }
+      })
+      if (!hasXSS && Object.keys(styles).length > 0) {
+        attrs[name] = styles
+      }
+    } else if ((name === 'href' || name === 'src') && opts?.sanitizer) {
+      const sanitized = opts.sanitizer(value, tagName, name)
+      if (sanitized !== null) {
+        attrs[name] = sanitized
+      }
+    } else if (value === '' || value === true) {
+      attrs[name] = true
+    } else {
+      attrs[name] = value
+    }
+  }
+  
+  return attrs
+}
+
 /** Parse HTML attributes from a string */
 function parseHTMLAttributes(attrStr: string, tagName: string, opts: any): Record<string, any> {
   const attrs: Record<string, any> = {}
@@ -1278,7 +1352,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
       node: {
         type: RuleType.htmlBlock,
         tag: tagName,
-        attrs: parseHTMLAttributes(Object.entries(tagResult.attrs).map(([k, v]) => v ? `${k}="${v}"` : k).join(' '), tagName, opts),
+        attrs: processHTMLAttributes(tagResult.attrs, tagName, opts),
         children: [],
         rawText: s.slice(start, tagResult.end),
         verbatim: true,
@@ -1345,7 +1419,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
         node: {
           type: RuleType.htmlBlock,
           tag: tagName,
-          attrs: parseHTMLAttributes(Object.entries(tagResult.attrs).map(([k, v]) => v ? `${k}="${v}"` : k).join(' '), tagName, opts),
+          attrs: processHTMLAttributes(tagResult.attrs, tagName, opts),
           children,
           rawText,
           text: rawText,
@@ -1396,7 +1470,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
     node: {
       type: RuleType.htmlBlock,
       tag: tagName,
-      attrs: parseHTMLAttributes(Object.entries(tagResult.attrs).map(([k, v]) => v ? `${k}="${v}"` : k).join(' '), tagName, opts),
+      attrs: processHTMLAttributes(tagResult.attrs, tagName, opts),
       children,
       rawText,
       text: innerContent, // deprecated
@@ -2538,7 +2612,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
       node: {
         type: RuleType.htmlSelfClosing,
         tag: tagName,
-        attrs: parseHTMLAttributes(Object.entries(tagResult.attrs).map(([k, v]) => v ? `${k}="${v}"` : k).join(' '), tagName, opts),
+        attrs: processHTMLAttributes(tagResult.attrs, tagName, opts),
         // Note: inline self-closing does NOT include rawText - matches original parser
       } as MarkdownToJSX.HTMLSelfClosingNode,
       end: tagResult.end
@@ -2592,7 +2666,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
     node: {
       type: RuleType.htmlBlock,
       tag: tagName,
-      attrs: parseHTMLAttributes(Object.entries(tagResult.attrs).map(([k, v]) => v ? `${k}="${v}"` : k).join(' '), tagName, opts),
+      attrs: processHTMLAttributes(tagResult.attrs, tagName, opts),
       children,
       // Note: inline HTML does NOT include rawText - this matches original parser behavior
       // rawText is only set for block-level HTML
