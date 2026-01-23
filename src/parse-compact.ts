@@ -909,6 +909,125 @@ function isHTMLBlockStart(s: string, p: number, e: number): { type: number; clos
   return null
 }
 
+/** Parse HTML attributes from a string */
+function parseHTMLAttributes(attrStr: string, tagName: string, opts: any): Record<string, any> {
+  const attrs: Record<string, any> = {}
+  let i = 0
+  const len = attrStr.length
+  
+  while (i < len) {
+    // Skip whitespace
+    while (i < len && /\s/.test(attrStr[i])) i++
+    if (i >= len) break
+    
+    // Parse attribute name
+    const nameStart = i
+    while (i < len && /[^\s=/>]/.test(attrStr[i])) i++
+    if (i === nameStart) break
+    let name = attrStr.slice(nameStart, i)
+    
+    // Convert HTML attribute names to React
+    if (name === 'class') name = 'className'
+    else if (name === 'for') name = 'htmlFor'
+    else if (name.startsWith('data-') || name.startsWith('aria-')) { /* keep as-is */ }
+    else {
+      // Convert kebab-case to camelCase for other attributes
+      name = name.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+    }
+    
+    // Skip whitespace
+    while (i < len && /\s/.test(attrStr[i])) i++
+    
+    // Check for =
+    if (attrStr[i] !== '=') {
+      attrs[name] = true
+      continue
+    }
+    i++ // skip =
+    
+    // Skip whitespace
+    while (i < len && /\s/.test(attrStr[i])) i++
+    
+    // Parse value
+    let value: string
+    const quote = attrStr[i]
+    if (quote === '"' || quote === "'") {
+      i++
+      const valueStart = i
+      while (i < len && attrStr[i] !== quote) i++
+      value = attrStr.slice(valueStart, i)
+      if (i < len) i++ // skip closing quote
+    } else {
+      const valueStart = i
+      while (i < len && !/[\s>]/.test(attrStr[i])) i++
+      value = attrStr.slice(valueStart, i)
+    }
+    
+    // Handle special cases
+    if (name === 'style') {
+      // Parse inline styles
+      const styles: Record<string, string> = {}
+      value.split(';').forEach(decl => {
+        const [prop, val] = decl.split(':').map(s => s.trim())
+        if (prop && val) {
+          // Convert CSS property to camelCase
+          const camelProp = prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+          styles[camelProp] = val
+        }
+      })
+      attrs[name] = styles
+    } else {
+      attrs[name] = value
+    }
+  }
+  
+  // Sanitize URLs in href and src
+  if (attrs.href) attrs.href = util.sanitizeUrl(attrs.href)
+  if (attrs.src) attrs.src = util.sanitizeUrl(attrs.src)
+  
+  return attrs
+}
+
+/** Find matching closing tag */
+function findClosingTag(s: string, start: number, tagName: string): number {
+  const openTag = '<' + tagName
+  const closeTag = '</' + tagName
+  let depth = 1
+  let i = start
+  const len = s.length
+  
+  while (i < len && depth > 0) {
+    const openIdx = s.toLowerCase().indexOf(openTag.toLowerCase(), i)
+    const closeIdx = s.toLowerCase().indexOf(closeTag.toLowerCase(), i)
+    
+    if (closeIdx === -1) return -1 // No closing tag found
+    
+    if (openIdx !== -1 && openIdx < closeIdx) {
+      // Check if it's actually a tag (not attribute or text)
+      const afterOpen = s.charCodeAt(openIdx + openTag.length)
+      if (afterOpen === 62 || afterOpen === 32 || afterOpen === 9 || afterOpen === 10 || afterOpen === 47) {
+        depth++
+      }
+      i = openIdx + 1
+    } else {
+      // Found closing tag
+      const afterClose = s.charCodeAt(closeIdx + closeTag.length)
+      if (afterClose === 62 || /\s/.test(String.fromCharCode(afterClose))) {
+        depth--
+        if (depth === 0) {
+          // Find end of closing tag
+          let j = closeIdx + closeTag.length
+          while (j < len && s.charCodeAt(j) !== 62) j++
+          return j + 1
+        }
+      }
+      i = closeIdx + 1
+    }
+  }
+  
+  return -1
+}
+
 /** Scan HTML block */
 function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: any): ScanResult {
   if (opts.disableParsingRawHTML) return null
@@ -918,40 +1037,107 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
   if (ind.spaces > 3) return null
   
   const start = p + ind.chars
-  const blockInfo = isHTMLBlockStart(s, start, e)
-  if (!blockInfo) return null
+  if (s.charCodeAt(start) !== 60) return null // <
   
-  let end = p
-  
-  // Types 1-5: Look for closing pattern
-  if (blockInfo.close) {
-    while (end < s.length) {
-      const le = lineEnd(s, end)
-      const lineContent = s.slice(end, le)
-      if (lineContent.toLowerCase().includes(blockInfo.close!.toLowerCase())) {
-        end = nextLine(s, le)
-        break
+  // Parse opening tag
+  const tagResult = parseHTMLTag(s, start)
+  if (!tagResult) {
+    // Check for HTML comment
+    if (s.slice(start, start + 4) === '<!--') {
+      const endComment = s.indexOf('-->', start + 4)
+      if (endComment !== -1) {
+        const end = nextLine(s, endComment + 3)
+        return {
+          node: {
+            type: RuleType.htmlBlock,
+            tag: '!--',
+            attrs: {},
+            children: [],
+            rawText: s.slice(start, endComment + 3),
+            text: s.slice(start + 4, endComment),
+            verbatim: true,
+          } as unknown as MarkdownToJSX.HTMLNode,
+          end
+        }
       }
-      end = nextLine(s, le)
     }
-  } else {
-    // Type 6: Ends at blank line
-    while (end < s.length) {
-      const le = lineEnd(s, end)
-      if (isBlank(s, end, le)) {
-        break
-      }
-      end = nextLine(s, le)
+    return null
+  }
+  
+  const tagName = tagResult.tag
+  const tagNameLower = tagName.toLowerCase()
+  
+  // Check if it's a block-level tag or custom component
+  const isBlockTag = HTML_TAGS_BLOCK.has(tagNameLower) || /^[A-Z]/.test(s.slice(start + 1, start + 2 + tagName.length))
+  if (!isBlockTag && tagNameLower !== tagName) return null
+  
+  // Self-closing tag
+  if (tagResult.selfClosing || util.isVoidElement(tagName)) {
+    const end = nextLine(s, tagResult.end)
+    return {
+      node: {
+        type: RuleType.htmlBlock,
+        tag: tagName,
+        attrs: parseHTMLAttributes(Object.entries(tagResult.attrs).map(([k, v]) => v ? `${k}="${v}"` : k).join(' '), tagName, opts),
+        children: [],
+        rawText: s.slice(start, tagResult.end),
+        verbatim: true,
+      } as MarkdownToJSX.HTMLNode,
+      end
     }
   }
   
-  const text = s.slice(p, end)
+  // Verbatim tags (script, style, pre, textarea)
+  const isVerbatim = TYPE1_TAGS.has(tagNameLower)
+  
+  // Find closing tag
+  const closeEnd = findClosingTag(s, tagResult.end, tagName)
+  if (closeEnd === -1) {
+    // No closing tag - treat as raw text (unclosed element)
+    return null
+  }
+  
+  // Find where closing tag starts
+  const closeTagStart = s.toLowerCase().lastIndexOf('</' + tagNameLower, closeEnd)
+  const innerContent = s.slice(tagResult.end, closeTagStart)
+  
+  let children: MarkdownToJSX.ASTNode[] = []
+  
+  if (isVerbatim) {
+    // Keep content as raw text
+    if (innerContent.trim()) {
+      children = [{
+        type: RuleType.text,
+        text: innerContent,
+      } as MarkdownToJSX.TextNode]
+    }
+  } else {
+    // Parse inner content as markdown
+    const trimmed = innerContent.trim()
+    if (trimmed) {
+      // Check if content looks like block content
+      const hasBlocks = /\n\n/.test(trimmed) || /^[#\-*>1-9`]/.test(trimmed) || /<[a-z]/i.test(trimmed)
+      if (hasBlocks) {
+        children = parseBlocks(trimmed, { ...state, inline: false }, opts)
+      } else {
+        children = parseInline(trimmed, 0, trimmed.length, { ...state, inline: true }, opts)
+      }
+    }
+  }
+  
+  const end = nextLine(s, closeEnd)
+  const rawText = s.slice(start, closeEnd)
   
   return {
     node: {
       type: RuleType.htmlBlock,
-      text,
-    } as MarkdownToJSX.HTMLBlockNode,
+      tag: tagName,
+      attrs: parseHTMLAttributes(Object.entries(tagResult.attrs).map(([k, v]) => v ? `${k}="${v}"` : k).join(' '), tagName, opts),
+      children,
+      rawText,
+      text: innerContent, // deprecated
+      verbatim: isVerbatim,
+    } as MarkdownToJSX.HTMLNode,
     end
   }
 }
