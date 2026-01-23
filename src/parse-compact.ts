@@ -1130,7 +1130,8 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
   }
   
   const end = nextLine(s, closeEnd)
-  const rawText = s.slice(start, closeEnd)
+  // rawText should be from after opening tag to end of closing tag (matches original parser)
+  const rawText = s.slice(tagResult.end, closeEnd)
   
   return {
     node: {
@@ -1936,6 +1937,98 @@ function textNode(text: string): MarkdownToJSX.TextNode {
   return { type: RuleType.text, text: decoded } as MarkdownToJSX.TextNode
 }
 
+/** Scan inline HTML element */
+function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: any): ScanResult {
+  if (s.charCodeAt(p) !== 60) return null // <
+  
+  // Check for HTML comment
+  if (s.slice(p, p + 4) === '<!--') {
+    const endComment = s.indexOf('-->', p + 4)
+    if (endComment !== -1) {
+      return {
+        node: {
+          type: RuleType.htmlBlock,
+          tag: '!--',
+          attrs: {},
+          children: [],
+          rawText: s.slice(p, endComment + 3),
+          text: s.slice(p + 4, endComment),
+          verbatim: true,
+        } as unknown as MarkdownToJSX.HTMLNode,
+        end: endComment + 3
+      }
+    }
+    return null
+  }
+  
+  // Parse opening tag
+  const tagResult = parseHTMLTag(s, p)
+  if (!tagResult) return null
+  
+  const tagName = tagResult.tag
+  const tagNameLower = tagName.toLowerCase()
+  
+  // Self-closing tag or void element
+  if (tagResult.selfClosing || util.isVoidElement(tagName)) {
+    return {
+      node: {
+        type: RuleType.htmlSelfClosing,
+        tag: tagName,
+        attrs: parseHTMLAttributes(Object.entries(tagResult.attrs).map(([k, v]) => v ? `${k}="${v}"` : k).join(' '), tagName, opts),
+        // Note: inline self-closing does NOT include rawText - matches original parser
+      } as MarkdownToJSX.HTMLSelfClosingNode,
+      end: tagResult.end
+    }
+  }
+  
+  // Verbatim tags (script, style, pre, textarea)
+  const isVerbatim = TYPE1_TAGS.has(tagNameLower)
+  
+  // Find closing tag (within the inline scope)
+  const closeEnd = findClosingTag(s.slice(0, e), tagResult.end, tagName)
+  if (closeEnd === -1) {
+    // No closing tag found - might be unclosed or extends past inline scope
+    return null
+  }
+  
+  // Find where closing tag starts  
+  const closeTagStart = s.toLowerCase().lastIndexOf('</' + tagNameLower, closeEnd)
+  const innerContent = s.slice(tagResult.end, closeTagStart)
+  
+  let children: MarkdownToJSX.ASTNode[] = []
+  
+  if (isVerbatim) {
+    // Keep content as raw text
+    if (innerContent.trim()) {
+      children = [{
+        type: RuleType.text,
+        text: innerContent,
+      } as MarkdownToJSX.TextNode]
+    }
+  } else {
+    // Parse inner content as inline
+    const trimmed = innerContent.trim()
+    if (trimmed) {
+      children = parseInline(trimmed, 0, trimmed.length, state, opts)
+    }
+  }
+  
+  // rawText should be the content from after opening tag to end of closing tag
+  return {
+    node: {
+      type: RuleType.htmlBlock,
+      tag: tagName,
+      attrs: parseHTMLAttributes(Object.entries(tagResult.attrs).map(([k, v]) => v ? `${k}="${v}"` : k).join(' '), tagName, opts),
+      children,
+      // Note: inline HTML does NOT include rawText - this matches original parser behavior
+      // rawText is only set for block-level HTML
+      text: innerContent,
+      verbatim: false, // inline HTML is never verbatim
+    } as MarkdownToJSX.HTMLNode,
+    end: closeEnd
+  }
+}
+
 /** Parse inline content */
 function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: any): MarkdownToJSX.ASTNode[] {
   const nodes: MarkdownToJSX.ASTNode[] = []
@@ -1964,8 +2057,14 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
       }
     } else if (c === 33 && p + 1 < e && s.charCodeAt(p + 1) === 91) { // ![
       result = scanLink(s, p, e, state, opts)
-    } else if (c === 60 && !opts.disableAutoLink) { // <
-      result = scanAutolink(s, p, e)
+    } else if (c === 60) { // < - HTML or autolink
+      if (!opts.disableParsingRawHTML) {
+        // Try inline HTML first
+        result = scanInlineHTML(s, p, e, state, opts)
+      }
+      if (!result && !opts.disableAutoLink) {
+        result = scanAutolink(s, p, e)
+      }
     } else if (c === 104 && !state.inAnchor && !opts.disableAutoLink) { // h - potential http:// or https://
       result = scanBareUrl(s, p, e, opts)
     }
