@@ -1596,14 +1596,180 @@ function scanCodeSpan(s: string, p: number, e: number): ScanResult {
   return null
 }
 
+/** Skip over a code span starting at position i, return position after code span or i if not a code span */
+function skipCodeSpan(s: string, i: number, e: number): number {
+  if (s.charCodeAt(i) !== 96) return i
+  const openLen = countChar(s, i, e, 96)
+  let j = i + openLen
+  while (j < e) {
+    const k = s.indexOf('`', j)
+    if (k < 0) return i // no close found, not a valid code span
+    const closeLen = countChar(s, k, e, 96)
+    if (closeLen === openLen) return k + closeLen // return position after code span
+    j = k + closeLen
+  }
+  return i // no valid close
+}
+
+/** Skip over an inline HTML element (including content and closing tag) starting at position i */
+function skipInlineHTMLElement(s: string, i: number, e: number): number {
+  if (s.charCodeAt(i) !== 60) return i // <
+  
+  // Check for closing tag or comment
+  if (i + 1 < e && s.charCodeAt(i + 1) === 47) { // </
+    // Closing tag - just skip to >
+    let j = i + 2
+    while (j < e && s.charCodeAt(j) !== 62) j++
+    return j < e ? j + 1 : i
+  }
+  
+  if (i + 3 < e && s.charCodeAt(i + 1) === 33 && s.charCodeAt(i + 2) === 45 && s.charCodeAt(i + 3) === 45) {
+    // HTML comment <!-- -->
+    const closeIdx = s.indexOf('-->', i + 4)
+    return closeIdx >= 0 ? closeIdx + 3 : i
+  }
+  
+  // Get tag name
+  let j = i + 1
+  const tagStart = j
+  while (j < e) {
+    const c = s.charCodeAt(j)
+    if ((c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c === 45) {
+      j++
+    } else {
+      break
+    }
+  }
+  if (j === tagStart) return i // not a valid tag
+  const tag = s.slice(tagStart, j).toLowerCase()
+  
+  // Skip to end of opening tag
+  let selfClosing = false
+  while (j < e) {
+    const c = s.charCodeAt(j)
+    if (c === 62) { // >
+      j++
+      break
+    }
+    if (c === 47 && j + 1 < e && s.charCodeAt(j + 1) === 62) { // />
+      j += 2
+      selfClosing = true
+      break
+    }
+    if (c === 10) return i // newline in tag
+    j++
+  }
+  
+  if (selfClosing) return j
+  
+  // Void elements don't have closing tags
+  const voidElements = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])
+  if (voidElements.has(tag)) return j
+  
+  // Find matching closing tag
+  let depth = 1
+  while (j < e && depth > 0) {
+    if (s.charCodeAt(j) === 60) { // <
+      if (j + 1 < e && s.charCodeAt(j + 1) === 47) { // </
+        // Check if it's closing our tag
+        const closeTagStart = j + 2
+        let k = closeTagStart
+        while (k < e && ((s.charCodeAt(k) >= 65 && s.charCodeAt(k) <= 90) || (s.charCodeAt(k) >= 97 && s.charCodeAt(k) <= 122))) k++
+        const closeTag = s.slice(closeTagStart, k).toLowerCase()
+        if (closeTag === tag) {
+          // Skip to end of closing tag
+          while (k < e && s.charCodeAt(k) !== 62) k++
+          if (k < e) k++ // skip >
+          depth--
+          if (depth === 0) return k
+        }
+        j = k
+      } else {
+        // Opening tag - check if same tag
+        const nextTagStart = j + 1
+        let k = nextTagStart
+        while (k < e && ((s.charCodeAt(k) >= 65 && s.charCodeAt(k) <= 90) || (s.charCodeAt(k) >= 97 && s.charCodeAt(k) <= 122))) k++
+        const nextTag = s.slice(nextTagStart, k).toLowerCase()
+        if (nextTag === tag) depth++
+        j++
+      }
+    } else {
+      j++
+    }
+  }
+  
+  return j
+}
+
+/** Skip over a link [text](url) or [text][ref] starting at position i */
+function skipLinkOrImage(s: string, i: number, e: number): number {
+  // Check for ![
+  const isImage = s.charCodeAt(i) === 33
+  const start = isImage ? i + 1 : i
+  
+  if (s.charCodeAt(start) !== 91) return i // [
+  
+  // Find closing ]
+  let depth = 1
+  let j = start + 1
+  while (j < e && depth > 0) {
+    const c = s.charCodeAt(j)
+    if (c === 92 && j + 1 < e) { j += 2; continue } // escape
+    if (c === 91) depth++
+    else if (c === 93) depth--
+    j++
+  }
+  if (depth !== 0) return i
+  
+  // j is now past the ]
+  if (j >= e) return j // just [text]
+  
+  const nextChar = s.charCodeAt(j)
+  
+  // Inline link: [text](url)
+  if (nextChar === 40) { // (
+    let parenDepth = 1
+    j++
+    while (j < e && parenDepth > 0) {
+      const c = s.charCodeAt(j)
+      if (c === 92 && j + 1 < e) { j += 2; continue }
+      if (c === 40) parenDepth++
+      else if (c === 41) parenDepth--
+      j++
+    }
+    return j
+  }
+  
+  // Reference link: [text][ref]
+  if (nextChar === 91) { // [
+    let depth2 = 1
+    j++
+    while (j < e && depth2 > 0) {
+      const c = s.charCodeAt(j)
+      if (c === 91) depth2++
+      else if (c === 93) depth2--
+      j++
+    }
+    return j
+  }
+  
+  return j // shortcut link [text]
+}
+
 /** Scan strikethrough ~~text~~ */
 function scanStrikethrough(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: any): ScanResult {
   if (s.charCodeAt(p) !== 126 || p + 1 >= e || s.charCodeAt(p + 1) !== 126) return null // ~~
   
-  // Find closing ~~
+  // Find closing ~~, skipping over code spans
   let i = p + 2
   while (i + 1 < e) {
-    if (s.charCodeAt(i) === 126 && s.charCodeAt(i + 1) === 126) {
+    const c = s.charCodeAt(i)
+    // Skip code spans - they take precedence
+    if (c === 96) {
+      const afterCode = skipCodeSpan(s, i, e)
+      if (afterCode > i) { i = afterCode; continue }
+    }
+    if (c === 126 && s.charCodeAt(i + 1) === 126) {
       const content = s.slice(p + 2, i)
       const children = parseInline(content, 0, content.length, state, opts)
       return {
@@ -1615,7 +1781,7 @@ function scanStrikethrough(s: string, p: number, e: number, state: MarkdownToJSX
         end: i + 2
       }
     }
-    if (s.charCodeAt(i) === 92 && i + 1 < e) i++ // escape
+    if (c === 92 && i + 1 < e) i++ // escape
     i++
   }
   
@@ -1626,10 +1792,16 @@ function scanStrikethrough(s: string, p: number, e: number, state: MarkdownToJSX
 function scanMarked(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: any): ScanResult {
   if (s.charCodeAt(p) !== 61 || p + 1 >= e || s.charCodeAt(p + 1) !== 61) return null // ==
   
-  // Find closing ==
+  // Find closing ==, skipping over code spans
   let i = p + 2
   while (i + 1 < e) {
-    if (s.charCodeAt(i) === 61 && s.charCodeAt(i + 1) === 61) {
+    const c = s.charCodeAt(i)
+    // Skip code spans - they take precedence
+    if (c === 96) {
+      const afterCode = skipCodeSpan(s, i, e)
+      if (afterCode > i) { i = afterCode; continue }
+    }
+    if (c === 61 && s.charCodeAt(i + 1) === 61) {
       const content = s.slice(p + 2, i)
       const children = parseInline(content, 0, content.length, state, opts)
       return {
@@ -1641,7 +1813,7 @@ function scanMarked(s: string, p: number, e: number, state: MarkdownToJSX.State,
         end: i + 2
       }
     }
-    if (s.charCodeAt(i) === 92 && i + 1 < e) i++ // escape
+    if (c === 92 && i + 1 < e) i++ // escape
     i++
   }
   
@@ -1676,7 +1848,7 @@ function scanEmphasis(s: string, p: number, e: number, state: MarkdownToJSX.Stat
   
   if (!canOpen) return null
   
-  // Find closing delimiter
+  // Find closing delimiter, skipping code spans
   let searchPos = p + delimLen
   
   while (searchPos < e) {
@@ -1685,6 +1857,24 @@ function scanEmphasis(s: string, p: number, e: number, state: MarkdownToJSX.Stat
     if (c === 92 && searchPos + 1 < e) {
       searchPos += 2 // skip escape
       continue
+    }
+    
+    // Skip code spans - they take precedence
+    if (c === 96) {
+      const afterCode = skipCodeSpan(s, searchPos, e)
+      if (afterCode > searchPos) { searchPos = afterCode; continue }
+    }
+    
+    // Skip inline HTML tags - content inside HTML tags shouldn't close emphasis
+    if (c === 60) { // <
+      const afterHTML = skipInlineHTMLElement(s, searchPos, e)
+      if (afterHTML > searchPos) { searchPos = afterHTML; continue }
+    }
+    
+    // Skip links/images - content inside shouldn't close emphasis
+    if (c === 91 || (c === 33 && searchPos + 1 < e && s.charCodeAt(searchPos + 1) === 91)) { // [ or ![
+      const afterLink = skipLinkOrImage(s, searchPos, e)
+      if (afterLink > searchPos) { searchPos = afterLink; continue }
     }
     
     if (c === ch) {
@@ -1708,8 +1898,20 @@ function scanEmphasis(s: string, p: number, e: number, state: MarkdownToJSX.Stat
         : closeRightFlanking && (!closeLeftFlanking || closeAfterPunct)
       
       if (closeCanClose) {
-        const useLen = Math.min(delimLen, closeLen, 2)
-        const content = s.slice(p + useLen, searchPos)
+        // For triple+ emphasis like ___text___, we want:
+        // - If both sides have 3+, consume 1 (em) and let recursive parse handle 2 (strong)
+        // - Otherwise consume min of both sides, capped at 2
+        let useLen: number
+        if (delimLen >= 3 && closeLen >= 3) {
+          useLen = 1 // em wrapping inner strong
+        } else {
+          useLen = Math.min(delimLen, closeLen, 2)
+        }
+        
+        // Content is between consumed delimiters on both ends
+        // For triple emphasis: consume 1 from each side, content includes inner delimiters
+        const contentEnd = searchPos + closeLen - useLen
+        const content = s.slice(p + useLen, contentEnd)
         const children = parseInline(content, 0, content.length, state, opts)
         
         return {
@@ -1718,7 +1920,7 @@ function scanEmphasis(s: string, p: number, e: number, state: MarkdownToJSX.Stat
             tag: useLen === 2 ? 'strong' : 'em',
             children,
           } as MarkdownToJSX.TextFormattedNode,
-          end: searchPos + useLen
+          end: searchPos + closeLen
         }
       }
       searchPos += closeLen
