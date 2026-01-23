@@ -1195,6 +1195,18 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
   const start = p + _indentChars
   if (s.charCodeAt(start) !== 60) return null // <
   
+  // Check for autolink (URL or email) - these are not HTML blocks
+  // URL autolink: <https://...> or <http://...>
+  // Email autolink: <...@...>
+  const closeAngle = s.indexOf('>', start + 1)
+  if (closeAngle !== -1 && closeAngle < e) {
+    const content = s.slice(start + 1, closeAngle)
+    // Check for URL scheme or email
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(content) || /^[^\s@]+@[^\s@]+$/.test(content)) {
+      return null // Let inline parser handle autolinks
+    }
+  }
+  
   // Parse opening tag
   const tagResult = parseHTMLTag(s, start)
   if (!tagResult) {
