@@ -863,26 +863,36 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
       // Tight list item - parse as inline, no wrapping paragraph
       itemNodes = parseInline(itemContent, 0, itemContent.length, state, opts)
     } else if (isTight && itemContent.includes('\n')) {
-      // Tight list with multiline content - check for nested list
-      const lines = itemContent.split('\n')
-      const firstLine = lines[0]
-      const rest = lines.slice(1).join('\n').trim()
+      // Tight list with multiline content
+      // First check if content has hard line breaks (two spaces before newline)
+      const hasHardBreak = /  +\n/.test(itemContent)
       
-      // Parse first line as inline
-      itemNodes = parseInline(firstLine, 0, firstLine.length, state, opts)
-      
-      // Check if rest starts with a list marker
-      if (rest) {
-        const restFirstLine = lineEnd(rest, 0)
-        const restMarker = checkListMarker(rest, 0, restFirstLine)
-        if (restMarker) {
-          // Parse rest as blocks (will create nested list)
-          const nestedNodes = parseBlocks(rest, { ...state, inList: true }, opts)
-          itemNodes = [...itemNodes, ...nestedNodes]
-        } else {
-          // Parse rest as blocks and append
-          const restNodes = parseBlocks(rest, { ...state, inList: true }, opts)
-          itemNodes = [...itemNodes, ...restNodes]
+      if (hasHardBreak) {
+        // Content has hard line breaks - parse all as inline with breaks
+        const textWithBreaks = itemContent.replace(/  +\n/g, '\u001F').replace(/\n/g, ' ')
+        itemNodes = parseInlineWithBreaks(textWithBreaks, 0, textWithBreaks.length, state, opts)
+      } else {
+        // Check for nested list
+        const lines = itemContent.split('\n')
+        const firstLine = lines[0]
+        const rest = lines.slice(1).join('\n').trim()
+        
+        // Parse first line as inline
+        itemNodes = parseInline(firstLine, 0, firstLine.length, state, opts)
+        
+        // Check if rest starts with a list marker
+        if (rest) {
+          const restFirstLine = lineEnd(rest, 0)
+          const restMarker = checkListMarker(rest, 0, restFirstLine)
+          if (restMarker) {
+            // Parse rest as blocks (will create nested list)
+            const nestedNodes = parseBlocks(rest, { ...state, inList: true }, opts)
+            itemNodes = [...itemNodes, ...nestedNodes]
+          } else {
+            // Parse rest as blocks and append
+            const restNodes = parseBlocks(rest, { ...state, inList: true }, opts)
+            itemNodes = [...itemNodes, ...restNodes]
+          }
         }
       }
     } else {
