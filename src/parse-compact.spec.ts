@@ -153,3 +153,61 @@ describe('Images', () => {
     expect(img.target).toBe('http://example.com/img.png')
   })
 })
+
+describe('HTML blocks', () => {
+  it('parses div block', () => {
+    const result = parseMarkdownCompact('<div>\nfoo\n</div>')
+    expect(result[0].type).toBe(RuleType.htmlBlock)
+  })
+  
+  it('parses comment', () => {
+    const result = parseMarkdownCompact('<!-- comment -->')
+    expect(result[0].type).toBe(RuleType.htmlBlock)
+  })
+})
+
+describe('Autolinks', () => {
+  it('parses URL autolink', () => {
+    const result = parseMarkdownCompact('<https://example.com>')
+    expect(result[0].type).toBe(RuleType.paragraph)
+    const link = (result[0] as any).children[0]
+    expect(link.type).toBe(RuleType.link)
+    expect(link.target).toBe('https://example.com')
+  })
+  
+  it('parses email autolink', () => {
+    const result = parseMarkdownCompact('<test@example.com>')
+    expect(result[0].type).toBe(RuleType.paragraph)
+    const link = (result[0] as any).children[0]
+    expect(link.type).toBe(RuleType.link)
+    expect(link.target).toBe('mailto:test@example.com')
+  })
+})
+
+describe('Tables', () => {
+  it('parses simple table', () => {
+    const result = parseMarkdownCompact('| A | B |\n|---|---|\n| 1 | 2 |')
+    expect(result[0].type).toBe(RuleType.table)
+    const table = result[0] as any
+    expect(table.header.length).toBe(2)
+    expect(table.rows.length).toBe(1)
+  })
+  
+  it('parses table with alignment', () => {
+    const result = parseMarkdownCompact('| L | C | R |\n|:--|:--:|--:|\n| a | b | c |')
+    const table = result[0] as any
+    expect(table.alignments[0]).toBeNull()  // left (default)
+    expect(table.alignments[1]).toBe('center')
+    expect(table.alignments[2]).toBe('right')
+  })
+})
+
+describe('Strikethrough', () => {
+  it('parses strikethrough', () => {
+    const result = parseMarkdownCompact('~~deleted~~')
+    expect(result[0].type).toBe(RuleType.paragraph)
+    const del = (result[0] as any).children[0]
+    expect(del.type).toBe(RuleType.textFormatted)
+    expect(del.format).toBe('strikethrough')
+  })
+})

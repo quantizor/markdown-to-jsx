@@ -533,6 +533,180 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
   }
 }
 
+// HTML tag patterns
+const HTML_TAGS_BLOCK = new Set(['address','article','aside','base','basefont','blockquote','body','caption','center','col','colgroup','dd','details','dialog','dir','div','dl','dt','fieldset','figcaption','figure','footer','form','frame','frameset','h1','h2','h3','h4','h5','h6','head','header','hr','html','iframe','legend','li','link','main','menu','menuitem','nav','noframes','ol','optgroup','option','p','param','search','section','summary','table','tbody','td','tfoot','th','thead','title','tr','track','ul'])
+
+/** Check if string starts with HTML block (types 1-6) */
+function isHTMLBlockStart(s: string, p: number, e: number): { type: number; close?: string } | null {
+  if (s.charCodeAt(p) !== 60) return null // <
+  
+  const line = s.slice(p, e).toLowerCase()
+  
+  // Type 1: script, pre, style, textarea
+  if (/^<(script|pre|style|textarea)[\s>]/i.test(line)) {
+    return { type: 1, close: '</' + line.match(/^<(\w+)/)?.[1] + '>' }
+  }
+  
+  // Type 2: <!-- comment
+  if (line.startsWith('<!--')) return { type: 2, close: '-->' }
+  
+  // Type 3: <?
+  if (line.startsWith('<?')) return { type: 3, close: '?>' }
+  
+  // Type 4: <!LETTER
+  if (/^<![a-z]/i.test(line)) return { type: 4, close: '>' }
+  
+  // Type 5: <![CDATA[
+  if (line.startsWith('<![cdata[')) return { type: 5, close: ']]>' }
+  
+  // Type 6: Block-level tag
+  const match = line.match(/^<\/?([a-z][a-z0-9-]*)[\s/>]/i)
+  if (match && HTML_TAGS_BLOCK.has(match[1].toLowerCase())) {
+    return { type: 6 }
+  }
+  
+  return null
+}
+
+/** Scan HTML block */
+function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: any): ScanResult {
+  if (opts.disableParsingRawHTML) return null
+  
+  const e = lineEnd(s, p)
+  const ind = indent(s, p, e)
+  if (ind.spaces > 3) return null
+  
+  const start = p + ind.chars
+  const blockInfo = isHTMLBlockStart(s, start, e)
+  if (!blockInfo) return null
+  
+  let end = p
+  
+  // Types 1-5: Look for closing pattern
+  if (blockInfo.close) {
+    while (end < s.length) {
+      const le = lineEnd(s, end)
+      const lineContent = s.slice(end, le)
+      if (lineContent.toLowerCase().includes(blockInfo.close!.toLowerCase())) {
+        end = nextLine(s, le)
+        break
+      }
+      end = nextLine(s, le)
+    }
+  } else {
+    // Type 6: Ends at blank line
+    while (end < s.length) {
+      const le = lineEnd(s, end)
+      if (isBlank(s, end, le)) {
+        break
+      }
+      end = nextLine(s, le)
+    }
+  }
+  
+  const text = s.slice(p, end)
+  
+  return {
+    node: {
+      type: RuleType.htmlBlock,
+      text,
+    } as MarkdownToJSX.HTMLBlockNode,
+    end
+  }
+}
+
+/** Parse table row cells */
+function parseTableRow(s: string, state: MarkdownToJSX.State, opts: any): MarkdownToJSX.ASTNode[][] {
+  // Trim leading/trailing |
+  let row = s.trim()
+  if (row.startsWith('|')) row = row.slice(1)
+  if (row.endsWith('|') && !row.endsWith('\\|')) row = row.slice(0, -1)
+  
+  // Split by | (but not \|)
+  const cells: string[] = []
+  let current = ''
+  let i = 0
+  while (i < row.length) {
+    if (row[i] === '\\' && i + 1 < row.length) {
+      current += row[i + 1]
+      i += 2
+      continue
+    }
+    if (row[i] === '|') {
+      cells.push(current.trim())
+      current = ''
+      i++
+      continue
+    }
+    current += row[i]
+    i++
+  }
+  cells.push(current.trim())
+  
+  return cells.map(cell => parseInline(cell, 0, cell.length, state, opts))
+}
+
+/** Scan GFM table */
+function scanTable(s: string, p: number, state: MarkdownToJSX.State, opts: any): ScanResult {
+  const firstEnd = lineEnd(s, p)
+  const firstLine = s.slice(p, firstEnd)
+  
+  // Must have at least one |
+  if (!firstLine.includes('|')) return null
+  
+  // Check for delimiter row
+  const secondStart = nextLine(s, firstEnd)
+  if (secondStart >= s.length) return null
+  
+  const secondEnd = lineEnd(s, secondStart)
+  const delimLine = s.slice(secondStart, secondEnd).trim()
+  
+  // Delimiter row must match pattern: |? :?-+:? (| :?-+:?)* |?
+  const delimPattern = /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/
+  if (!delimPattern.test(delimLine)) return null
+  
+  // Parse alignment from delimiter row
+  let delimRow = delimLine
+  if (delimRow.startsWith('|')) delimRow = delimRow.slice(1)
+  if (delimRow.endsWith('|')) delimRow = delimRow.slice(0, -1)
+  const delims = delimRow.split('|').map(d => d.trim())
+  const alignments = delims.map(d => {
+    const left = d.startsWith(':')
+    const right = d.endsWith(':')
+    if (left && right) return 'center'
+    if (right) return 'right'
+    return null  // left is default
+  })
+  
+  // Parse header
+  const header = parseTableRow(firstLine, state, opts)
+  
+  // Parse body rows
+  const rows: MarkdownToJSX.ASTNode[][][] = []
+  let end = nextLine(s, secondEnd)
+  
+  while (end < s.length) {
+    const le = lineEnd(s, end)
+    const line = s.slice(end, le)
+    
+    if (isBlank(s, end, le)) break
+    if (!line.includes('|')) break
+    
+    rows.push(parseTableRow(line, state, opts))
+    end = nextLine(s, le)
+  }
+  
+  return {
+    node: {
+      type: RuleType.table,
+      header,
+      rows,
+      alignments,
+    } as MarkdownToJSX.TableNode,
+    end
+  }
+}
+
 /** Scan paragraph (fallback) */
 function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: any): ScanResult {
   let end = p
@@ -612,6 +786,32 @@ function scanCodeSpan(s: string, p: number, e: number): ScanResult {
       }
     }
     i = j + closeLen
+  }
+  
+  return null
+}
+
+/** Scan strikethrough ~~text~~ */
+function scanStrikethrough(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: any): ScanResult {
+  if (s.charCodeAt(p) !== 126 || p + 1 >= e || s.charCodeAt(p + 1) !== 126) return null // ~~
+  
+  // Find closing ~~
+  let i = p + 2
+  while (i + 1 < e) {
+    if (s.charCodeAt(i) === 126 && s.charCodeAt(i + 1) === 126) {
+      const content = s.slice(p + 2, i)
+      const children = parseInline(content, 0, content.length, state, opts)
+      return {
+        node: {
+          type: RuleType.textFormatted,
+          format: 'strikethrough',
+          children,
+        } as MarkdownToJSX.TextFormattedNode,
+        end: i + 2
+      }
+    }
+    if (s.charCodeAt(i) === 92 && i + 1 < e) i++ // escape
+    i++
   }
   
   return null
@@ -803,6 +1003,45 @@ function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, o
   }
 }
 
+/** Scan autolink <url> or <email> */
+function scanAutolink(s: string, p: number, e: number): ScanResult {
+  if (s.charCodeAt(p) !== 60) return null // <
+  
+  let i = p + 1
+  // Find closing >
+  while (i < e && s.charCodeAt(i) !== 62 && s.charCodeAt(i) !== 10) i++
+  if (i >= e || s.charCodeAt(i) !== 62) return null
+  
+  const content = s.slice(p + 1, i)
+  
+  // Check for URL scheme
+  const schemeMatch = content.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/)
+  if (schemeMatch) {
+    return {
+      node: {
+        type: RuleType.link,
+        target: content,
+        children: [{ type: RuleType.text, text: content } as MarkdownToJSX.TextNode],
+      } as MarkdownToJSX.LinkNode,
+      end: i + 1
+    }
+  }
+  
+  // Check for email
+  if (content.includes('@') && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(content)) {
+    return {
+      node: {
+        type: RuleType.link,
+        target: 'mailto:' + content,
+        children: [{ type: RuleType.text, text: content } as MarkdownToJSX.TextNode],
+      } as MarkdownToJSX.LinkNode,
+      end: i + 1
+    }
+  }
+  
+  return null
+}
+
 /** Parse inline content */
 function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: any): MarkdownToJSX.ASTNode[] {
   const nodes: MarkdownToJSX.ASTNode[] = []
@@ -817,8 +1056,12 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
       result = scanCodeSpan(s, p, e)
     } else if (c === 42 || c === 95) { // * or _
       result = scanEmphasis(s, p, e, state, opts)
+    } else if (c === 126) { // ~
+      result = scanStrikethrough(s, p, e, state, opts)
     } else if (c === 91 || (c === 33 && p + 1 < e && s.charCodeAt(p + 1) === 91)) { // [ or ![
       result = scanLink(s, p, e, state, opts)
+    } else if (c === 60 && !opts.disableAutoLink) { // <
+      result = scanAutolink(s, p, e)
     }
     
     if (result) {
@@ -910,7 +1153,16 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: any): Markdown
         if (!result) result = scanList(s, p, state, opts)
       } else if (c === 43 || (c >= 48 && c <= 57)) { // + or digit
         result = scanList(s, p, state, opts)
+      } else if (c === 60) { // <
+        result = scanHTMLBlock(s, p, state, opts)
+      } else if (c === 124) { // |
+        result = scanTable(s, p, state, opts)
       }
+    }
+    
+    // Try table if line contains |
+    if (!result && s.slice(p, lineEnd(s, p)).includes('|')) {
+      result = scanTable(s, p, state, opts)
     }
     
     // Fallback to paragraph
