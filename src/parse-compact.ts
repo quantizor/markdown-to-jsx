@@ -533,8 +533,17 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
   }
 }
 
-// HTML tag patterns
-const HTML_TAGS_BLOCK = new Set(['address','article','aside','base','basefont','blockquote','body','caption','center','col','colgroup','dd','details','dialog','dir','div','dl','dt','fieldset','figcaption','figure','footer','form','frame','frameset','h1','h2','h3','h4','h5','h6','head','header','hr','html','iframe','legend','li','link','main','menu','menuitem','nav','noframes','ol','optgroup','option','p','param','search','section','summary','table','tbody','td','tfoot','th','thead','title','tr','track','ul'])
+// HTML block-level tag names (CommonMark spec)
+const HTML_TAGS_BLOCK = new Set([
+  'address', 'article', 'aside', 'base', 'basefont', 'blockquote', 'body',
+  'caption', 'center', 'col', 'colgroup', 'dd', 'details', 'dialog', 'dir',
+  'div', 'dl', 'dt', 'fieldset', 'figcaption', 'figure', 'footer', 'form',
+  'frame', 'frameset', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header',
+  'hr', 'html', 'iframe', 'legend', 'li', 'link', 'main', 'menu', 'menuitem',
+  'nav', 'noframes', 'ol', 'optgroup', 'option', 'p', 'param', 'search',
+  'section', 'summary', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead',
+  'title', 'tr', 'track', 'ul'
+])
 
 /** Check if string starts with HTML block (types 1-6) */
 function isHTMLBlockStart(s: string, p: number, e: number): { type: number; close?: string } | null {
@@ -784,7 +793,7 @@ function scanRefDefinition(s: string, p: number, state: MarkdownToJSX.State): Sc
       // No title, end at newline
       end = nextLine(s, i)
       state.refs[label] = { target: url }
-      return { node: { type: RuleType.refCollection } as any, end }
+      return { node: { type: RuleType.refCollection } as MarkdownToJSX.ASTNode, end }
     }
   }
   
@@ -812,7 +821,7 @@ function scanRefDefinition(s: string, p: number, state: MarkdownToJSX.State): Sc
   // Store reference
   state.refs[label] = { target: url, title }
   
-  return { node: { type: RuleType.refCollection } as any, end }
+  return { node: { type: RuleType.refCollection } as MarkdownToJSX.ASTNode, end }
 }
 
 /** Scan paragraph (fallback) */
@@ -975,9 +984,10 @@ function scanEmphasis(s: string, p: number, e: number, state: MarkdownToJSX.Stat
       const closeAfterPunct = cc(closeAfter) & C_PUNCT
       
       const closeRightFlanking = !closeBeforeWS && (!closeBeforePunct || closeAfterWS || closeAfterPunct)
+      // For underscore: must also be left-flanking or preceded by punctuation
       const closeCanClose = ch === 42
         ? closeRightFlanking
-        : closeRightFlanking && (!(cc(closeAfter) & C_WS) === false || closeAfterPunct)
+        : closeRightFlanking && (!closeAfterWS || closeAfterPunct)
       
       if (closeCanClose) {
         const useLen = Math.min(delimLen, closeLen, 2)
