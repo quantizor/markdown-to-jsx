@@ -504,6 +504,10 @@ function scanFenced(s: string, p: number, state: MarkdownToJSX.State): ScanResul
   indent(s, p, e)
   if (_indentSpaces > 3) return null
   
+  // Save fence indentation - we'll remove this many spaces from each content line
+  const fenceIndent = _indentSpaces
+  const fenceIndentChars = _indentChars
+  
   let i = p + _indentChars
   const fence = s.charCodeAt(i)
   if (fence !== 96 && fence !== 126) return null // ` or ~
@@ -547,13 +551,15 @@ function scanFenced(s: string, p: number, state: MarkdownToJSX.State): ScanResul
     contentEnd = nextLine(s, le)
   }
   
-  // Extract content, removing up to _indentSpaces from each line
+  // Extract content, removing up to fenceIndent spaces from each line
+  // This preserves relative indentation within the code block
   let content = ''
   let cp = contentStart
   while (cp < contentEnd) {
     const le = lineEnd(s, cp)
     indent(s, cp, le)
-    const remove = Math.min(_indentChars, _indentSpaces)
+    // Remove at most fenceIndent spaces (not more)
+    const remove = Math.min(_indentChars, fenceIndent)
     content += s.slice(cp + remove, le) + '\n'
     cp = nextLine(s, le)
   }
