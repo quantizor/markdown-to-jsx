@@ -927,50 +927,73 @@ function parseHTMLAttributes(attrStr: string, tagName: string, opts: any): Recor
   const len = attrStr.length
   
   while (i < len) {
-    // Skip whitespace
-    while (i < len && /\s/.test(attrStr[i])) i++
+    // Skip whitespace (space, tab, newline, carriage return)
+    var c = attrStr.charCodeAt(i)
+    while (i < len && (c === 32 || c === 9 || c === 10 || c === 13)) {
+      i++
+      c = attrStr.charCodeAt(i)
+    }
     if (i >= len) break
     
-    // Parse attribute name
+    // Parse attribute name (not whitespace, =, /, >)
     const nameStart = i
-    while (i < len && /[^\s=/>]/.test(attrStr[i])) i++
+    c = attrStr.charCodeAt(i)
+    while (i < len && c !== 32 && c !== 9 && c !== 10 && c !== 13 && c !== 61 && c !== 47 && c !== 62) {
+      i++
+      c = attrStr.charCodeAt(i)
+    }
     if (i === nameStart) break
     let name = attrStr.slice(nameStart, i)
     
     // Convert HTML attribute names to React
     if (name === 'class') name = 'className'
     else if (name === 'for') name = 'htmlFor'
-    else if (name.startsWith('data-') || name.startsWith('aria-')) { /* keep as-is */ }
+    else if (name.charCodeAt(0) === 100 && name.startsWith('data-')) { /* keep as-is */ }
+    else if (name.charCodeAt(0) === 97 && name.startsWith('aria-')) { /* keep as-is */ }
     else {
       // Convert kebab-case to camelCase for other attributes
-      name = name.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+      if (name.indexOf('-') !== -1) {
+        name = name.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase())
+      }
     }
     
     // Skip whitespace
-    while (i < len && /\s/.test(attrStr[i])) i++
+    c = attrStr.charCodeAt(i)
+    while (i < len && (c === 32 || c === 9 || c === 10 || c === 13)) {
+      i++
+      c = attrStr.charCodeAt(i)
+    }
     
     // Check for =
-    if (attrStr[i] !== '=') {
+    if (attrStr.charCodeAt(i) !== 61) {
       attrs[name] = true
       continue
     }
     i++ // skip =
     
     // Skip whitespace
-    while (i < len && /\s/.test(attrStr[i])) i++
+    c = attrStr.charCodeAt(i)
+    while (i < len && (c === 32 || c === 9 || c === 10 || c === 13)) {
+      i++
+      c = attrStr.charCodeAt(i)
+    }
     
     // Parse value
     let value: string
-    const quote = attrStr[i]
-    if (quote === '"' || quote === "'") {
+    const quote = attrStr.charCodeAt(i)
+    if (quote === 34 || quote === 39) { // " or '
       i++
       const valueStart = i
-      while (i < len && attrStr[i] !== quote) i++
+      while (i < len && attrStr.charCodeAt(i) !== quote) i++
       value = attrStr.slice(valueStart, i)
       if (i < len) i++ // skip closing quote
     } else {
       const valueStart = i
-      while (i < len && !/[\s>]/.test(attrStr[i])) i++
+      c = attrStr.charCodeAt(i)
+      while (i < len && c !== 32 && c !== 9 && c !== 10 && c !== 13 && c !== 62) {
+        i++
+        c = attrStr.charCodeAt(i)
+      }
       value = attrStr.slice(valueStart, i)
     }
     
@@ -982,7 +1005,9 @@ function parseHTMLAttributes(attrStr: string, tagName: string, opts: any): Recor
         const [prop, val] = decl.split(':').map(s => s.trim())
         if (prop && val) {
           // Convert CSS property to camelCase
-          const camelProp = prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+          const camelProp = prop.indexOf('-') !== -1 
+            ? prop.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase())
+            : prop
           styles[camelProp] = val
         }
       })
