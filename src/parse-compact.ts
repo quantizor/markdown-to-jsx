@@ -10,6 +10,260 @@ import * as $ from './constants'
 import * as util from './utils'
 
 // ============================================================================
+// EXPORTS FOR REACT.TSX COMPATIBILITY
+// ============================================================================
+
+// Type export
+export type ParseOptions = Omit<MarkdownToJSX.Options, 'slugify'> & {
+  slugify: (input: string) => string
+  sanitizer: (tag: string, attr: string, value: string) => string | null
+  tagfilter: boolean
+  forceBlock?: boolean
+  streaming?: boolean
+}
+
+// Regex exports
+export const HTML_BLOCK_ELEMENT_START_R_ATTR: RegExp =
+  /^<([a-zA-Z][a-zA-Z0-9-]*)\s+[^>]*>/
+export const UPPERCASE_TAG_R: RegExp = /^<[A-Z]/
+export const INTERPOLATION_R: RegExp = /^\{.*\}$/
+export const UNESCAPE_R: RegExp = /\\(.)/g
+
+// HTML Type 1 tags (raw HTML blocks)
+const TYPE1_TAGS = new Set([
+  'script', 'pre', 'style', 'textarea'
+])
+
+export function isType1Block(tagLower: string): boolean {
+  return TYPE1_TAGS.has(tagLower)
+}
+
+// Parse an HTML tag at position
+export function parseHTMLTag(
+  source: string,
+  pos: number
+): { tag: string; attrs: Record<string, string>; selfClosing: boolean; end: number } | null {
+  if (source.charCodeAt(pos) !== 60) return null // <
+  
+  let i = pos + 1
+  const len = source.length
+  
+  // Check for closing tag
+  const isClosing = source.charCodeAt(i) === 47 // /
+  if (isClosing) i++
+  
+  // Get tag name
+  const tagStart = i
+  while (i < len) {
+    const c = source.charCodeAt(i)
+    if ((c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c === 45) {
+      i++
+    } else {
+      break
+    }
+  }
+  if (i === tagStart) return null
+  
+  const tag = source.slice(tagStart, i).toLowerCase()
+  const attrs: Record<string, string> = {}
+  
+  // Skip whitespace and parse attributes
+  while (i < len) {
+    // Skip whitespace
+    while (i < len && (source.charCodeAt(i) === 32 || source.charCodeAt(i) === 9 || source.charCodeAt(i) === 10)) i++
+    
+    const c = source.charCodeAt(i)
+    if (c === 62) { // >
+      return { tag, attrs, selfClosing: false, end: i + 1 }
+    }
+    if (c === 47 && i + 1 < len && source.charCodeAt(i + 1) === 62) { // />
+      return { tag, attrs, selfClosing: true, end: i + 2 }
+    }
+    
+    // Parse attribute name
+    const attrStart = i
+    while (i < len) {
+      const ac = source.charCodeAt(i)
+      if (ac === 61 || ac === 62 || ac === 32 || ac === 9 || ac === 10 || ac === 47) break
+      i++
+    }
+    if (i === attrStart) break
+    const attrName = source.slice(attrStart, i)
+    
+    // Skip whitespace
+    while (i < len && (source.charCodeAt(i) === 32 || source.charCodeAt(i) === 9)) i++
+    
+    // Check for =
+    if (source.charCodeAt(i) !== 61) {
+      attrs[attrName] = ''
+      continue
+    }
+    i++ // skip =
+    
+    // Skip whitespace
+    while (i < len && (source.charCodeAt(i) === 32 || source.charCodeAt(i) === 9)) i++
+    
+    // Parse value
+    const quote = source.charCodeAt(i)
+    if (quote === 34 || quote === 39) { // " or '
+      i++
+      const valueStart = i
+      while (i < len && source.charCodeAt(i) !== quote) i++
+      attrs[attrName] = source.slice(valueStart, i)
+      if (i < len) i++ // skip closing quote
+    } else {
+      const valueStart = i
+      while (i < len) {
+        const vc = source.charCodeAt(i)
+        if (vc === 32 || vc === 9 || vc === 62 || vc === 10) break
+        i++
+      }
+      attrs[attrName] = source.slice(valueStart, i)
+    }
+  }
+  
+  return null
+}
+
+// Collect reference definitions in first pass
+export function collectReferenceDefinitions(
+  input: string,
+  refs: { [key: string]: { target: string; title: string | undefined } },
+  _options: ParseOptions
+): void {
+  let pos = 0
+  const len = input.length
+  
+  while (pos < len) {
+    // Skip to next line starting with [
+    const lineStart = pos
+    const lineEnd = input.indexOf('\n', pos)
+    const end = lineEnd < 0 ? len : lineEnd
+    
+    // Skip leading whitespace (up to 3 spaces)
+    let i = pos
+    let spaces = 0
+    while (i < end && spaces < 4) {
+      if (input.charCodeAt(i) === 32) { spaces++; i++ }
+      else if (input.charCodeAt(i) === 9) { spaces += 4; i++ }
+      else break
+    }
+    
+    // Check for [
+    if (spaces < 4 && i < end && input.charCodeAt(i) === 91) {
+      // Try to parse reference definition
+      const result = parseRefDef(input, i, refs)
+      if (result) {
+        pos = result
+        continue
+      }
+    }
+    
+    // Move to next line
+    pos = lineEnd < 0 ? len : lineEnd + 1
+  }
+}
+
+// Parse a reference definition [label]: url "title"
+function parseRefDef(
+  s: string,
+  p: number,
+  refs: { [key: string]: { target: string; title: string | undefined } }
+): number | null {
+  const len = s.length
+  if (s.charCodeAt(p) !== 91) return null // [
+  
+  // Find label end
+  let i = p + 1
+  let depth = 1
+  while (i < len && depth > 0) {
+    const c = s.charCodeAt(i)
+    if (c === 91) depth++
+    else if (c === 93) depth--
+    else if (c === 92 && i + 1 < len) i++ // escape
+    else if (c === 10) return null // no newline in label
+    i++
+  }
+  if (depth !== 0) return null
+  
+  const label = s.slice(p + 1, i - 1).toLowerCase().replace(/\s+/g, ' ').trim()
+  if (!label) return null
+  
+  // Expect :
+  if (i >= len || s.charCodeAt(i) !== 58) return null
+  i++
+  
+  // Skip whitespace (including one optional newline)
+  let hasNewline = false
+  while (i < len) {
+    const c = s.charCodeAt(i)
+    if (c === 32 || c === 9) i++
+    else if (c === 10 && !hasNewline) { hasNewline = true; i++ }
+    else break
+  }
+  
+  // Parse URL
+  let url: string
+  if (i < len && s.charCodeAt(i) === 60) { // <url>
+    i++
+    const urlStart = i
+    while (i < len && s.charCodeAt(i) !== 62 && s.charCodeAt(i) !== 10) i++
+    if (i >= len || s.charCodeAt(i) !== 62) return null
+    url = s.slice(urlStart, i)
+    i++
+  } else {
+    const urlStart = i
+    let parens = 0
+    while (i < len) {
+      const c = s.charCodeAt(i)
+      if (c === 40) parens++
+      else if (c === 41) { if (parens === 0) break; parens-- }
+      else if (c === 32 || c === 9 || c === 10) break
+      else if (c === 92 && i + 1 < len) i++ // escape
+      i++
+    }
+    url = s.slice(urlStart, i)
+  }
+  
+  if (!url) return null
+  
+  // Skip whitespace
+  const wsStart = i
+  while (i < len && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 9)) i++
+  
+  // Check for title or end of line
+  let title: string | undefined
+  const lineEnd = s.indexOf('\n', i)
+  const eol = lineEnd < 0 ? len : lineEnd
+  
+  if (i < eol) {
+    const tc = s.charCodeAt(i)
+    if (tc === 34 || tc === 39 || tc === 40) { // " ' (
+      const closeChar = tc === 40 ? 41 : tc
+      i++
+      const titleStart = i
+      while (i < len && s.charCodeAt(i) !== closeChar) {
+        if (s.charCodeAt(i) === 92 && i + 1 < len) i++ // escape
+        i++
+      }
+      if (i < len && s.charCodeAt(i) === closeChar) {
+        title = s.slice(titleStart, i)
+        i++
+      }
+    }
+  }
+  
+  // Skip trailing whitespace
+  while (i < eol && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 9)) i++
+  
+  // Must be at end of line (or end of string)
+  if (i < eol) return null
+  
+  refs[label] = { target: url, title }
+  return lineEnd < 0 ? len : lineEnd + 1
+}
+
+// ============================================================================
 // CHARACTER CLASSIFICATION TABLE
 // ============================================================================
 // Bitfield flags for character classification
@@ -959,7 +1213,8 @@ function scanEmphasis(s: string, p: number, e: number, state: MarkdownToJSX.Stat
   const leftFlanking = !afterWS && (!afterPunct || beforeWS || beforePunct)
   const rightFlanking = !beforeWS && (!beforePunct || afterWS || afterPunct)
   
-  // For _ we need stricter rules
+  // For _ we need stricter rules per CommonMark spec
+  // Can open: left-flanking AND (not right-flanking OR preceded by punctuation)
   const canOpen = ch === 42 
     ? leftFlanking 
     : leftFlanking && (!rightFlanking || beforePunct)
@@ -968,9 +1223,8 @@ function scanEmphasis(s: string, p: number, e: number, state: MarkdownToJSX.Stat
   
   // Find closing delimiter
   let searchPos = p + delimLen
-  let depth = delimLen
   
-  while (searchPos < e && depth > 0) {
+  while (searchPos < e) {
     const c = s.charCodeAt(searchPos)
     
     if (c === 92 && searchPos + 1 < e) {
@@ -988,11 +1242,15 @@ function scanEmphasis(s: string, p: number, e: number, state: MarkdownToJSX.Stat
       const closeBeforePunct = cc(closeBefore) & C_PUNCT
       const closeAfterPunct = cc(closeAfter) & C_PUNCT
       
+      // Right-flanking: not preceded by whitespace, and either not preceded by punctuation or followed by whitespace/punctuation
       const closeRightFlanking = !closeBeforeWS && (!closeBeforePunct || closeAfterWS || closeAfterPunct)
-      // For underscore: must also be left-flanking or preceded by punctuation
+      // Left-flanking at close position
+      const closeLeftFlanking = !closeAfterWS && (!closeAfterPunct || closeBeforeWS || closeBeforePunct)
+      
+      // Can close: for *, just right-flanking; for _, right-flanking AND (not left-flanking OR followed by punctuation)
       const closeCanClose = ch === 42
         ? closeRightFlanking
-        : closeRightFlanking && (!closeAfterWS || closeAfterPunct)
+        : closeRightFlanking && (!closeLeftFlanking || closeAfterPunct)
       
       if (closeCanClose) {
         const useLen = Math.min(delimLen, closeLen, 2)
@@ -1383,5 +1641,47 @@ export function parseMarkdownCompact(
   return parseBlocks(normalized, state || defaultState, options || {})
 }
 
+/**
+ * Main parser entry point - matches original parser interface
+ */
+export function parser(
+  source: string,
+  options?: MarkdownToJSX.Options
+): MarkdownToJSX.ASTNode[] {
+  // Strip BOM (U+FEFF) at document start per CommonMark spec
+  if (source.charCodeAt(0) === 0xfeff) {
+    source = source.slice(1)
+  }
+
+  // Normalize input: replace null bytes with U+FFFD per CommonMark spec
+  source = util.normalizeInput(source)
+
+  // Default state with refs object
+  const state: MarkdownToJSX.State = {
+    inline: false,
+    inAnchor: false,
+    inHTML: false,
+    inList: false,
+    inBlockQuote: false,
+    refs: {},
+  }
+
+  // Normalize options
+  const finalOptions = {
+    ...options,
+    slugify: options?.slugify
+      ? (input: string) => options.slugify!(input, util.slugify)
+      : util.slugify,
+    sanitizer: options?.sanitizer || util.sanitizer,
+    tagfilter: options?.tagfilter !== false,
+  }
+
+  // Parse markdown
+  return parseBlocks(source, state, finalOptions)
+}
+
 // Export for testing
 export { parseBlocks, parseInline, scanHeading, scanThematic, scanFenced, scanBlockquote }
+
+// Export parseMarkdown as alias for react.tsx compatibility
+export const parseMarkdown = parseBlocks

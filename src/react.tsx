@@ -3,11 +3,11 @@
 
 import * as React from 'react'
 import * as $ from './constants'
-import * as parse from './parse'
+import * as parse from './parse-compact'
 import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
 
-export { parser } from './parse'
+export { parser } from './parse-compact'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
