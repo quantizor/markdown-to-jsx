@@ -707,6 +707,114 @@ function scanTable(s: string, p: number, state: MarkdownToJSX.State, opts: any):
   }
 }
 
+/** Scan link reference definition [label]: url "title" */
+function scanRefDefinition(s: string, p: number, state: MarkdownToJSX.State): ScanResult {
+  const e = lineEnd(s, p)
+  const ind = indent(s, p, e)
+  if (ind.spaces > 3) return null
+  
+  let i = p + ind.chars
+  if (s.charCodeAt(i) !== 91) return null // [
+  i++
+  
+  // Parse label
+  const labelStart = i
+  let depth = 1
+  while (i < s.length && depth > 0) {
+    const c = s.charCodeAt(i)
+    if (c === 92 && i + 1 < s.length) { i += 2; continue }
+    if (c === 91) depth++
+    else if (c === 93) depth--
+    else if (c === 10) return null // no newlines in label
+    i++
+  }
+  if (depth !== 0) return null
+  
+  const label = s.slice(labelStart, i - 1).trim().toLowerCase()
+  if (!label) return null
+  
+  // Must be followed by :
+  if (i >= s.length || s.charCodeAt(i) !== 58) return null
+  i++
+  
+  // Skip whitespace (including one newline)
+  while (i < s.length && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 9)) i++
+  if (i < s.length && s.charCodeAt(i) === 10) {
+    i++
+    while (i < s.length && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 9)) i++
+  }
+  
+  // Parse URL (can be in angle brackets or bare)
+  let url = '', urlEnd = i
+  if (i < s.length && s.charCodeAt(i) === 60) { // <url>
+    i++
+    urlEnd = i
+    while (urlEnd < s.length && s.charCodeAt(urlEnd) !== 62 && s.charCodeAt(urlEnd) !== 10) urlEnd++
+    if (urlEnd >= s.length || s.charCodeAt(urlEnd) !== 62) return null
+    url = s.slice(i, urlEnd)
+    urlEnd++
+  } else {
+    while (urlEnd < s.length) {
+      const c = s.charCodeAt(urlEnd)
+      if (c === 32 || c === 9 || c === 10) break
+      urlEnd++
+    }
+    url = s.slice(i, urlEnd)
+  }
+  if (!url) return null
+  
+  i = urlEnd
+  
+  // Skip whitespace
+  while (i < s.length && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 9)) i++
+  
+  // Optional title (can be on next line)
+  let title: string | undefined
+  let end = i
+  
+  if (i < s.length && s.charCodeAt(i) === 10) {
+    // Title might be on next line
+    const nextLineStart = i + 1
+    let ti = nextLineStart
+    while (ti < s.length && (s.charCodeAt(ti) === 32 || s.charCodeAt(ti) === 9)) ti++
+    const tc = s.charCodeAt(ti)
+    if (tc === 34 || tc === 39 || tc === 40) {
+      i = ti  // Move to title start
+    } else {
+      // No title, end at newline
+      end = nextLine(s, i)
+      state.refs[label] = { target: url }
+      return { node: { type: RuleType.refCollection } as any, end }
+    }
+  }
+  
+  if (i < s.length) {
+    const tc = s.charCodeAt(i)
+    if (tc === 34 || tc === 39 || tc === 40) {
+      const closeChar = tc === 40 ? 41 : tc
+      i++
+      const titleStart = i
+      while (i < s.length && s.charCodeAt(i) !== closeChar && s.charCodeAt(i) !== 10) {
+        if (s.charCodeAt(i) === 92 && i + 1 < s.length) i++
+        i++
+      }
+      if (i < s.length && s.charCodeAt(i) === closeChar) {
+        title = s.slice(titleStart, i)
+        i++
+      }
+    }
+  }
+  
+  // Skip trailing whitespace and find end
+  while (i < s.length && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 9)) i++
+  end = i < s.length && s.charCodeAt(i) === 10 ? i + 1 : s.length
+  
+  // Store reference
+  state.refs[label] = { target: url, title }
+  
+  return { node: { type: RuleType.refCollection } as any, end }
+}
+
 /** Scan paragraph (fallback) */
 function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: any): ScanResult {
   let end = p
@@ -894,7 +1002,7 @@ function scanEmphasis(s: string, p: number, e: number, state: MarkdownToJSX.Stat
   return null
 }
 
-/** Scan link [text](url) or ![alt](url) */
+/** Scan link [text](url) or ![alt](url) or [text][ref] or [text] */
 function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: any): ScanResult {
   const isImage = s.charCodeAt(p) === 33 // !
   const start = isImage ? p + 1 : p
@@ -915,76 +1023,125 @@ function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, o
   const textEnd = i - 1
   const text = s.slice(start + 1, textEnd)
   
-  // Must be followed by (
-  if (i >= e || s.charCodeAt(i) !== 40) return null
-  i++
+  // Check what follows the ]
+  const nextChar = i < e ? s.charCodeAt(i) : 0
   
-  // Skip whitespace
-  while (i < e && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 10)) i++
-  
-  // Parse URL (can be in angle brackets or bare)
-  let url = '', urlEnd = i
-  if (i < e && s.charCodeAt(i) === 60) { // <url>
+  // Inline link: [text](url)
+  if (nextChar === 40) { // (
     i++
-    urlEnd = i
-    while (urlEnd < e && s.charCodeAt(urlEnd) !== 62) {
-      if (s.charCodeAt(urlEnd) === 10) return null // no newlines in angle URLs
-      urlEnd++
-    }
-    if (urlEnd >= e) return null
-    url = s.slice(i, urlEnd)
-    urlEnd++ // skip >
-  } else {
-    // Bare URL - count parens
-    let parenDepth = 0
-    while (urlEnd < e) {
-      const c = s.charCodeAt(urlEnd)
-      if (c === 92 && urlEnd + 1 < e) { urlEnd += 2; continue }
-      if (c === 40) parenDepth++
-      else if (c === 41) {
-        if (parenDepth === 0) break
-        parenDepth--
-      }
-      else if (c === 32 || c === 10) break
-      urlEnd++
-    }
-    url = s.slice(i, urlEnd)
-  }
-  
-  i = urlEnd
-  // Skip whitespace
-  while (i < e && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 10)) i++
-  
-  // Optional title
-  let title: string | undefined
-  if (i < e) {
-    const tc = s.charCodeAt(i)
-    if (tc === 34 || tc === 39 || tc === 40) { // " ' (
-      const closeChar = tc === 40 ? 41 : tc
+    
+    // Skip whitespace
+    while (i < e && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 10)) i++
+    
+    // Parse URL (can be in angle brackets or bare)
+    let url = '', urlEnd = i
+    if (i < e && s.charCodeAt(i) === 60) { // <url>
       i++
-      const titleStart = i
-      while (i < e && s.charCodeAt(i) !== closeChar) {
-        if (s.charCodeAt(i) === 92 && i + 1 < e) i++
-        i++
+      urlEnd = i
+      while (urlEnd < e && s.charCodeAt(urlEnd) !== 62) {
+        if (s.charCodeAt(urlEnd) === 10) return null // no newlines in angle URLs
+        urlEnd++
       }
-      if (i >= e) return null
-      title = s.slice(titleStart, i)
-      i++ // skip close quote
+      if (urlEnd >= e) return null
+      url = s.slice(i, urlEnd)
+      urlEnd++ // skip >
+    } else {
+      // Bare URL - count parens
+      let parenDepth = 0
+      while (urlEnd < e) {
+        const c = s.charCodeAt(urlEnd)
+        if (c === 92 && urlEnd + 1 < e) { urlEnd += 2; continue }
+        if (c === 40) parenDepth++
+        else if (c === 41) {
+          if (parenDepth === 0) break
+          parenDepth--
+        }
+        else if (c === 32 || c === 10) break
+        urlEnd++
+      }
+      url = s.slice(i, urlEnd)
+    }
+  
+    i = urlEnd
+    // Skip whitespace
+    while (i < e && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 10)) i++
+    
+    // Optional title
+    let title: string | undefined
+    if (i < e) {
+      const tc = s.charCodeAt(i)
+      if (tc === 34 || tc === 39 || tc === 40) { // " ' (
+        const closeChar = tc === 40 ? 41 : tc
+        i++
+        const titleStart = i
+        while (i < e && s.charCodeAt(i) !== closeChar) {
+          if (s.charCodeAt(i) === 92 && i + 1 < e) i++
+          i++
+        }
+        if (i >= e) return null
+        title = s.slice(titleStart, i)
+        i++ // skip close quote
+      }
+    }
+    
+    // Skip whitespace and find closing )
+    while (i < e && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 10)) i++
+    if (i >= e || s.charCodeAt(i) !== 41) return null
+    i++
+    
+    if (isImage) {
+      return {
+        node: {
+          type: RuleType.image,
+          target: url,
+          alt: text,
+          title,
+        } as MarkdownToJSX.ImageNode,
+        end: i
+      }
+    } else {
+      const children = state.inAnchor ? [{ type: RuleType.text, text } as MarkdownToJSX.TextNode]
+        : parseInline(text, 0, text.length, { ...state, inAnchor: true }, opts)
+      return {
+        node: {
+          type: RuleType.link,
+          target: url,
+          title,
+          children,
+        } as MarkdownToJSX.LinkNode,
+        end: i
+      }
     }
   }
   
-  // Skip whitespace and find closing )
-  while (i < e && (s.charCodeAt(i) === 32 || s.charCodeAt(i) === 10)) i++
-  if (i >= e || s.charCodeAt(i) !== 41) return null
-  i++
+  // Reference link: [text][ref] or [text][] or [text]
+  let label = text.trim().toLowerCase()
+  
+  if (nextChar === 91) { // [
+    // Full reference [text][ref] or collapsed [text][]
+    const refStart = i + 1
+    let refEnd = refStart
+    while (refEnd < e && s.charCodeAt(refEnd) !== 93) {
+      if (s.charCodeAt(refEnd) === 10) return null
+      refEnd++
+    }
+    if (refEnd >= e) return null
+    const ref = s.slice(refStart, refEnd).trim()
+    if (ref) label = ref.toLowerCase()
+    i = refEnd + 1
+  }
+  
+  // Look up reference
+  const refData = state.refs[label]
+  if (!refData) return null
   
   if (isImage) {
     return {
       node: {
         type: RuleType.image,
-        target: url,
+        target: refData.target,
         alt: text,
-        title,
+        title: refData.title,
       } as MarkdownToJSX.ImageNode,
       end: i
     }
@@ -994,8 +1151,8 @@ function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, o
     return {
       node: {
         type: RuleType.link,
-        target: url,
-        title,
+        target: refData.target,
+        title: refData.title,
         children,
       } as MarkdownToJSX.LinkNode,
       end: i
@@ -1157,6 +1314,8 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: any): Markdown
         result = scanHTMLBlock(s, p, state, opts)
       } else if (c === 124) { // |
         result = scanTable(s, p, state, opts)
+      } else if (c === 91) { // [ - could be reference definition
+        result = scanRefDefinition(s, p, state)
       }
     }
     
@@ -1171,7 +1330,10 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: any): Markdown
     }
     
     if (result) {
-      nodes.push(result.node)
+      // Don't add refCollection nodes to output
+      if (result.node.type !== RuleType.refCollection) {
+        nodes.push(result.node)
+      }
       p = result.end
     } else {
       // Skip line if nothing matched
