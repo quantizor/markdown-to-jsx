@@ -794,12 +794,36 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
   
   // Parse items
   for (const content of itemContents) {
-    if (isTight && !content.includes('\n')) {
+    let itemContent = content
+    let taskNode: MarkdownToJSX.GFMTaskNode | null = null
+    
+    // Check for GFM task list item [ ] or [x]
+    if (itemContent.length >= 3 && itemContent[0] === '[') {
+      const marker = itemContent[1]
+      if ((marker === ' ' || marker === 'x' || marker === 'X') && itemContent[2] === ']') {
+        taskNode = {
+          type: RuleType.gfmTask,
+          completed: marker.toLowerCase() === 'x',
+        } as MarkdownToJSX.GFMTaskNode
+        // Skip task marker only (keep the space after for text content)
+        itemContent = itemContent.slice(3)
+      }
+    }
+    
+    let itemNodes: MarkdownToJSX.ASTNode[]
+    if (isTight && !itemContent.includes('\n')) {
       // Tight list item - parse as inline, no wrapping paragraph
-      items.push(parseInline(content, 0, content.length, state, opts))
+      itemNodes = parseInline(itemContent, 0, itemContent.length, state, opts)
     } else {
       // Loose list item - parse as blocks
-      items.push(parseBlocks(content, { ...state, inList: true }, opts))
+      itemNodes = parseBlocks(itemContent, { ...state, inList: true }, opts)
+    }
+    
+    // Prepend task node if present
+    if (taskNode) {
+      items.push([taskNode, ...itemNodes])
+    } else {
+      items.push(itemNodes)
     }
   }
   
