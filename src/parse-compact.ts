@@ -1565,6 +1565,20 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: a
             }
           }
         }
+        // Tables can interrupt paragraphs if the line starts with |
+        if (c === 124) { // |
+          // Check if this could be a table (need to verify there's a delimiter row)
+          const thirdStart = nextLine(s, nextLe)
+          if (thirdStart < s.length) {
+            const thirdEnd = lineEnd(s, thirdStart)
+            const delimLine = s.slice(thirdStart, thirdEnd).trim()
+            const delimPattern = /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/
+            if (delimPattern.test(delimLine)) {
+              end = nextStart
+              break
+            }
+          }
+        }
         // Thematic break (but not setext underline)
         if ((c === 45 || c === 42 || c === 95) && scanThematic(s, nextStart)) {
           // For dashes, only break if it's really a thematic break not setext
