@@ -796,6 +796,8 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
   // Calculate content indent for continuation lines
   const firstMarkerEnd = marker.contentStart
   const contentIndent = firstMarkerEnd - p
+  // Marker width is the minimum indentation for nested content (more lenient than CommonMark)
+  const markerWidth = contentIndent > 1 ? Math.max(2, contentIndent - 1) : 2
   
   while (end < s.length) {
     const le = lineEnd(s, end)
@@ -831,7 +833,7 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
         if (!nextMarker || nextMarker.ordered !== marker.ordered) {
           // Check for continuation by indentation
           indent(s, nextStart, nextLe)
-          if (_indentSpaces < contentIndent && !isBlank(s, nextStart, nextLe)) {
+          if (_indentSpaces < markerWidth && !isBlank(s, nextStart, nextLe)) {
             break
           }
         }
@@ -839,20 +841,20 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
       continue
     }
     
-    // Check for indented continuation
-    if (_indentSpaces >= contentIndent || _indentSpaces >= 4) {
+    // Check for indented continuation - use more lenient markerWidth instead of contentIndent
+    if (_indentSpaces >= markerWidth || _indentSpaces >= 4) {
       // Check if this indented line is actually a nested list
       const nestedMarker = checkListMarker(s, end, le)
-      if (nestedMarker && _indentSpaces >= contentIndent) {
+      if (nestedMarker && _indentSpaces >= markerWidth) {
         // This is a nested list - collect all lines that belong to this nested content
         // Remove base indentation and add to current item for later parsing
-        const contentStart = Math.min(end + contentIndent, end + _indentChars)
+        const contentStart = Math.min(end + markerWidth, end + _indentChars)
         currentItem += s.slice(contentStart, le) + '\n'
         end = nextLine(s, le)
         continue
       }
       // Remove base indentation for continuation
-      const contentStart = Math.min(end + contentIndent, end + _indentChars)
+      const contentStart = Math.min(end + markerWidth, end + _indentChars)
       currentItem += s.slice(contentStart, le) + '\n'
       end = nextLine(s, le)
       continue
