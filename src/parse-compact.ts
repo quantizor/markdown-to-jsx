@@ -1250,8 +1250,9 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
   const closeEnd = findClosingTag(s, tagResult.end, tagName)
   if (closeEnd === -1) {
     // No closing tag found
-    // For HTML type 6 tags (block-level like div), continue until blank line
-    if (isStandardBlockTag || isCustomComponent) {
+    // For HTML type 6 tags (block-level like div) or unknown tags, continue until blank line
+    // This includes custom SVG elements (like <g>), custom web components, etc.
+    if (isStandardBlockTag || isCustomComponent || !isInlineTag) {
       // Find next blank line or end of document
       let blankLineEnd = tagResult.end
       while (blankLineEnd < s.length) {
@@ -1284,12 +1285,24 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
       const rawText = s.slice(tagResult.end, blankLineEnd)
       const end = blankLineEnd < s.length ? nextLine(s, blankLineEnd) : blankLineEnd
       
+      // Parse content as blocks (similar to closed tag handling)
+      let children: MarkdownToJSX.ASTNode[] = []
+      const trimmed = rawText.trim()
+      if (trimmed) {
+        const hasBlocks = /\n\n/.test(trimmed) || /^[#\-*>1-9`]/.test(trimmed) || /<[a-z]/i.test(trimmed)
+        if (hasBlocks) {
+          children = parseBlocks(trimmed, { ...state, inline: false }, opts)
+        } else {
+          children = parseInline(trimmed, 0, trimmed.length, { ...state, inline: true }, opts)
+        }
+      }
+      
       return {
         node: {
           type: RuleType.htmlBlock,
           tag: tagName,
           attrs: parseHTMLAttributes(Object.entries(tagResult.attrs).map(([k, v]) => v ? `${k}="${v}"` : k).join(' '), tagName, opts),
-          children: [],
+          children,
           rawText,
           text: rawText,
           verbatim: false,
