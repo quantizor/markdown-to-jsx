@@ -64,7 +64,7 @@ export function parseHTMLTag(
   }
   if (i === tagStart) return null
   
-  const tag = source.slice(tagStart, i).toLowerCase()
+  const tag = source.slice(tagStart, i) // Keep original case for custom components
   const attrs: Record<string, string> = {}
   
   // Skip whitespace and parse attributes
@@ -1067,9 +1067,13 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
   const tagName = tagResult.tag
   const tagNameLower = tagName.toLowerCase()
   
-  // Check if it's a block-level tag or custom component
-  const isBlockTag = HTML_TAGS_BLOCK.has(tagNameLower) || /^[A-Z]/.test(s.slice(start + 1, start + 2 + tagName.length))
-  if (!isBlockTag && tagNameLower !== tagName) return null
+  // Check if it's a block-level tag or custom component (uppercase first letter)
+  // Also accept any custom tag that's not standard inline HTML
+  const isCustomComponent = /^[A-Z]/.test(tagName)
+  const isStandardBlockTag = HTML_TAGS_BLOCK.has(tagNameLower)
+  // Accept: block tags, custom components, or custom unknown tags (not standard inline)
+  const isInlineTag = ['a', 'abbr', 'b', 'bdi', 'bdo', 'br', 'cite', 'code', 'data', 'dfn', 'em', 'i', 'kbd', 'mark', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'small', 'span', 'strong', 'sub', 'sup', 'time', 'u', 'var', 'wbr', 'img', 'input'].includes(tagNameLower)
+  if (isInlineTag && !isCustomComponent) return null
   
   // Self-closing tag
   if (tagResult.selfClosing || util.isVoidElement(tagName)) {
