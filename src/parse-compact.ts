@@ -2376,7 +2376,31 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
   
   // Flush remaining text
   if (e > textStart) {
-    nodes.push(textNode(s.slice(textStart, e)))
+    let remainingText = s.slice(textStart, e)
+    
+    // If streaming mode is enabled, strip incomplete markers from end of text
+    if (opts.streaming || opts.optimizeForStreaming) {
+      // Strip incomplete bold markers **text
+      remainingText = remainingText.replace(/\*\*([^*]+)$/, '$1')
+      // Strip incomplete italic markers *text (but not after stripping bold)
+      if (remainingText.match(/\*[^*]+$/)) {
+        remainingText = remainingText.replace(/\*([^*]+)$/, '$1')
+      }
+      // Strip incomplete underscore bold markers __text
+      remainingText = remainingText.replace(/__([^_]+)$/, '$1')
+      // Strip incomplete underscore italic markers _text
+      if (remainingText.match(/_[^_]+$/)) {
+        remainingText = remainingText.replace(/_([^_]+)$/, '$1')
+      }
+      // Strip incomplete strikethrough markers ~~text
+      remainingText = remainingText.replace(/~~([^~]+)$/, '$1')
+      // Strip incomplete link markers [text
+      remainingText = remainingText.replace(/\[([^\]]+)$/, '$1')
+    }
+    
+    if (remainingText) {
+      nodes.push(textNode(remainingText))
+    }
   }
   
   return nodes
@@ -2401,8 +2425,15 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: any): Markdown
   if (p === 0 && s.startsWith('---')) {
     const bounds = util.parseFrontmatterBounds(s)
     if (bounds) {
-      // Skip frontmatter (don't render by default per test expectations)
-      // The content between --- markers is ignored
+      // If preserveFrontmatter is enabled, render it as a pre block
+      if (opts.preserveFrontmatter) {
+        const frontmatterText = s.slice(0, bounds.endPos).trimEnd()
+        nodes.push({
+          type: RuleType.frontmatter,
+          text: frontmatterText,
+        } as MarkdownToJSX.FrontmatterNode)
+      }
+      // Skip past frontmatter
       p = bounds.endPos
     }
   }
