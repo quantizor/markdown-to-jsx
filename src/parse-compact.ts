@@ -1460,10 +1460,20 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
   
   if (isVerbatim) {
     // Keep content as raw text
-    if (innerContent.trim()) {
+    // Strip leading/trailing newlines but preserve internal whitespace
+    let textContent = innerContent
+    // Strip leading newline (comes after opening tag)
+    if (textContent.charCodeAt(0) === 10) {
+      textContent = textContent.slice(1)
+    }
+    // Strip trailing newline (comes before closing tag)
+    if (textContent.charCodeAt(textContent.length - 1) === 10) {
+      textContent = textContent.slice(0, -1)
+    }
+    if (textContent) {
       children = [{
         type: RuleType.text,
-        text: innerContent,
+        text: textContent,
       } as MarkdownToJSX.TextNode]
     }
   } else {
@@ -1486,7 +1496,11 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
   let rawTextStart = tagResult.end
   const hasMultilineAttrs = tagResult.rawAttrs && tagResult.rawAttrs.includes('\n')
   if (!hasMultilineAttrs && s.charCodeAt(rawTextStart) === 10) rawTextStart++
-  const rawText = s.slice(rawTextStart, closeTagStart)
+  let rawText = s.slice(rawTextStart, closeTagStart)
+  // For verbatim blocks, also strip trailing newline before closing tag
+  if (isVerbatim && rawText.charCodeAt(rawText.length - 1) === 10) {
+    rawText = rawText.slice(0, -1)
+  }
   
   return {
     node: {
