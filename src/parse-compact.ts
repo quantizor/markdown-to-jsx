@@ -1081,7 +1081,13 @@ function processHTMLAttributes(rawAttrs: Record<string, string>, tagName: string
     } else if (value === '' || value === true) {
       attrs[name] = true
     } else {
-      attrs[name] = value
+      // Handle JSX interpolation: {expression} -> expression
+      if (value.length >= 2 && value.charCodeAt(0) === 123 && value.charCodeAt(value.length - 1) === 125) {
+        // Strip braces for JSX interpolation
+        attrs[name] = value.slice(1, -1)
+      } else {
+        attrs[name] = value
+      }
     }
   }
   
