@@ -935,22 +935,25 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
         const firstLine = lines[0]
         const rest = lines.slice(1).join('\n').trim()
         
-        // Parse first line as inline
-        itemNodes = parseInline(firstLine, 0, firstLine.length, state, opts)
-        
-        // Check if rest starts with a list marker
+        // Check if rest starts with a list marker (nested list)
         if (rest) {
           const restFirstLine = lineEnd(rest, 0)
           const restMarker = checkListMarker(rest, 0, restFirstLine)
           if (restMarker) {
-            // Parse rest as blocks (will create nested list)
+            // Parse first line as inline, then rest as blocks (nested list)
+            itemNodes = parseInline(firstLine, 0, firstLine.length, state, opts)
             const nestedNodes = parseBlocks(rest, { ...state, inList: true }, opts)
             itemNodes = [...itemNodes, ...nestedNodes]
           } else {
-            // Parse rest as blocks and append
-            const restNodes = parseBlocks(rest, { ...state, inList: true }, opts)
-            itemNodes = [...itemNodes, ...restNodes]
+            // Not a nested list - join all lines with soft breaks (spaces) and parse as inline
+            // This is the CommonMark behavior for lazy continuation
+            // Normalize whitespace: collapse multiple spaces/newlines into single space
+            const joinedText = itemContent.replace(/\s+/g, ' ').trim()
+            itemNodes = parseInline(joinedText, 0, joinedText.length, state, opts)
           }
+        } else {
+          // Just first line
+          itemNodes = parseInline(firstLine, 0, firstLine.length, state, opts)
         }
       }
     } else {
