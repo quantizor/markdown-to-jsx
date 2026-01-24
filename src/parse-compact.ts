@@ -137,6 +137,7 @@ export function collectReferenceDefinitions(
 ): void {
   let pos = 0
   const len = input.length
+  let inParagraph = false // Track if we're in a paragraph (have seen non-ref content)
   
   while (pos < len) {
     // Skip to next line starting with [
@@ -153,14 +154,26 @@ export function collectReferenceDefinitions(
       else break
     }
     
+    // Check for blank line - resets paragraph state
+    if (i >= end) {
+      inParagraph = false
+      pos = lineEnd < 0 ? len : lineEnd + 1
+      continue
+    }
+    
     // Check for [
-    if (spaces < 4 && i < end && input.charCodeAt(i) === 91) {
+    if (!inParagraph && spaces < 4 && i < end && input.charCodeAt(i) === 91) {
       // Try to parse reference definition
       const result = parseRefDef(input, i, refs)
       if (result) {
         pos = result
         continue
       }
+    }
+    
+    // If we get here and this line has content, we're in a paragraph
+    if (i < end) {
+      inParagraph = true
     }
     
     // Move to next line
