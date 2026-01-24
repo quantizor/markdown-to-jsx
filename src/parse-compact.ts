@@ -2767,6 +2767,38 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
     }
     // Strip incomplete strikethrough markers ~~text
     content = content.replace(/~~([^~]+)$/, '$1')
+    // Strip incomplete inline code - count backticks to detect unmatched
+    // Only strip if there's an unmatched opening backtick
+    let backtickCount = 0
+    let lastBacktickPos = -1
+    for (let bi = 0; bi < content.length; bi++) {
+      if (content.charCodeAt(bi) === 96) { // `
+        backtickCount++
+        lastBacktickPos = bi
+      }
+    }
+    if (backtickCount % 2 === 1 && lastBacktickPos !== -1) {
+      // Find the last unmatched opening backtick and strip from there
+      // Work backwards to find where the incomplete code span starts
+      let inCode = false
+      let codeStart = -1
+      let i = 0
+      while (i < content.length) {
+        if (content.charCodeAt(i) === 96) {
+          if (!inCode) {
+            codeStart = i
+            inCode = true
+          } else {
+            inCode = false
+            codeStart = -1
+          }
+        }
+        i++
+      }
+      if (inCode && codeStart !== -1) {
+        content = content.slice(0, codeStart)
+      }
+    }
     // Strip incomplete link/image markers - strip everything from [ onwards if no closing ]
     content = content.replace(/!?\[([^\]]*$)/, '$1')
     // Strip [text]( without closing ) - partial inline link
