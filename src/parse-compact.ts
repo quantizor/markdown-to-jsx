@@ -1611,6 +1611,12 @@ function scanTable(s: string, p: number, state: MarkdownToJSX.State, opts: any):
     end = nextLine(s, le)
   }
   
+  // For streaming mode: suppress tables with header + separator but no data rows
+  // (data rows might be coming in a later stream chunk)
+  if ((opts.streaming || opts.optimizeForStreaming) && cells.length === 0) {
+    return null
+  }
+  
   return {
     node: {
       type: RuleType.table,
@@ -2933,6 +2939,34 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: any): Markdown
   
   // Create new state with incremented depth for recursive calls
   const childState = { ...state, _depth: depth + 1 } as any
+  
+  // For streaming mode: strip incomplete tables (header + separator without data rows)
+  // Only strip if the table is at the END of the input (might be incomplete during streaming)
+  if (opts.streaming || opts.optimizeForStreaming) {
+    // Pattern: table at end with only header + separator (no data rows after)
+    // Match: | header |\n| --- | followed by end of string or non-pipe line
+    const match = s.match(/(\|[^\n]+\n\|[\s\-:|]+\n?)$/)
+    if (match) {
+      const tableText = match[1]
+      const lines = tableText.split('\n').filter(l => l.trim() && l.includes('|'))
+      // Only strip if just 2 lines (header + separator) - no data rows
+      if (lines.length <= 2) {
+        s = s.slice(0, s.length - match[1].length)
+      }
+    }
+    
+    // Also handle single-line incomplete table (header and partial separator on same line)
+    // Pattern: | header | ... | :--- | :--- (all on one line, ends input)
+    // This catches tables being typed where the separator hasn't been moved to its own line yet
+    if (/^\|[^|\n]*(\|[^|\n]*)+\|?\s*(:?-+:?\s*\|?\s*)+$/m.test(s.trim())) {
+      const lines = s.trim().split('\n')
+      const lastLine = lines[lines.length - 1]
+      // If last line looks like incomplete table header + separator combo, strip it
+      if (/\|[^|]+\|[^|]*:?-+/.test(lastLine) && !/\n/.test(lastLine.trim())) {
+        s = s.slice(0, s.lastIndexOf(lastLine)).trimEnd()
+      }
+    }
+  }
   
   // If inline mode, just parse as inline content directly
   if (state.inline) {
