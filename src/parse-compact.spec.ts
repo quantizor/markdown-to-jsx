@@ -215,15 +215,20 @@ describe('Strikethrough', () => {
 describe('Reference links', () => {
   it('parses reference link definition', () => {
     const result = parseMarkdownCompact('[example]: http://example.com\n\n[link][example]')
-    expect(result.length).toBe(1)  // Just the paragraph, not the ref def
-    const link = (result[0] as any).children[0]
+    // Result includes refCollection node at position 0 and paragraph at position 1
+    expect(result.length).toBe(2)
+    expect(result[0].type).toBe(RuleType.refCollection)
+    const link = (result[1] as any).children[0]
     expect(link.type).toBe(RuleType.link)
     expect(link.target).toBe('http://example.com')
   })
   
   it('parses shortcut reference link', () => {
     const result = parseMarkdownCompact('[example]: http://example.com\n\n[example]')
-    const link = (result[0] as any).children[0]
+    // Result includes refCollection node at position 0 and paragraph at position 1
+    expect(result.length).toBe(2)
+    expect(result[0].type).toBe(RuleType.refCollection)
+    const link = (result[1] as any).children[0]
     expect(link.type).toBe(RuleType.link)
     expect(link.target).toBe('http://example.com')
   })
