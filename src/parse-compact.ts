@@ -42,7 +42,7 @@ export function isType1Block(tagLower: string): boolean {
 export function parseHTMLTag(
   source: string,
   pos: number
-): { tag: string; attrs: Record<string, string>; selfClosing: boolean; end: number } | null {
+): { tag: string; attrs: Record<string, string>; selfClosing: boolean; end: number; rawAttrs?: string } | null {
   if (source.charCodeAt(pos) !== 60) return null // <
   
   let i = pos + 1
@@ -66,6 +66,7 @@ export function parseHTMLTag(
   
   const tag = source.slice(tagStart, i) // Keep original case for custom components
   const attrs: Record<string, string> = {}
+  const attrStartPos = i  // Track where attributes start for rawAttrs
   
   // Skip whitespace and parse attributes
   while (i < len) {
@@ -74,10 +75,13 @@ export function parseHTMLTag(
     
     const c = source.charCodeAt(i)
     if (c === 62) { // >
-      return { tag, attrs, selfClosing: false, end: i + 1 }
+      // Preserve raw attributes (from after tag name to before >)
+      const rawAttrs = source.slice(attrStartPos, i)
+      return { tag, attrs, selfClosing: false, end: i + 1, rawAttrs }
     }
     if (c === 47 && i + 1 < len && source.charCodeAt(i + 1) === 62) { // />
-      return { tag, attrs, selfClosing: true, end: i + 2 }
+      const rawAttrs = source.slice(attrStartPos, i)
+      return { tag, attrs, selfClosing: true, end: i + 2, rawAttrs }
     }
     
     // Parse attribute name
@@ -1362,6 +1366,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
         type: RuleType.htmlBlock,
         tag: tagName,
         attrs: processHTMLAttributes(tagResult.attrs, tagName, opts),
+        rawAttrs: tagResult.rawAttrs,
         children: [],
         rawText: s.slice(start, tagResult.end),
         verbatim: true,
@@ -1429,6 +1434,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
           type: RuleType.htmlBlock,
           tag: tagName,
           attrs: processHTMLAttributes(tagResult.attrs, tagName, opts),
+          rawAttrs: tagResult.rawAttrs,
           children,
           rawText,
           text: rawText,
@@ -1470,9 +1476,10 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
   
   const end = nextLine(s, closeEnd)
   // rawText should be from after opening tag to BEFORE closing tag (not including it)
-  // Skip leading newline if present (original parser behavior)
+  // For multi-line attributes, preserve the newline after > to maintain formatting
   let rawTextStart = tagResult.end
-  if (s.charCodeAt(rawTextStart) === 10) rawTextStart++
+  const hasMultilineAttrs = tagResult.rawAttrs && tagResult.rawAttrs.includes('\n')
+  if (!hasMultilineAttrs && s.charCodeAt(rawTextStart) === 10) rawTextStart++
   const rawText = s.slice(rawTextStart, closeTagStart)
   
   return {
@@ -1480,6 +1487,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
       type: RuleType.htmlBlock,
       tag: tagName,
       attrs: processHTMLAttributes(tagResult.attrs, tagName, opts),
+      rawAttrs: tagResult.rawAttrs,
       children,
       rawText,
       text: innerContent, // deprecated
@@ -2708,6 +2716,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
       type: RuleType.htmlBlock,
       tag: tagName,
       attrs: processHTMLAttributes(tagResult.attrs, tagName, opts),
+      rawAttrs: tagResult.rawAttrs,
       children,
       // Note: inline HTML does NOT include rawText - this matches original parser behavior
       // rawText is only set for block-level HTML

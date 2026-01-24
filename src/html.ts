@@ -572,6 +572,13 @@ export function astToHTML(
             : htmlNode.rawText
           return `<${tag}${attrsStr}>${textContent}</${tag}>`
         }
+        // For multi-line attributes (rawAttrs contains newlines), preserve rawText formatting
+        if (htmlNode.rawAttrs && htmlNode.rawAttrs.includes('\n') && htmlNode.rawText) {
+          var rawTextContent = options.tagfilter
+            ? util.applyTagFilterToText(htmlNode.rawText)
+            : htmlNode.rawText
+          return `<${tag}${attrsStr}>${rawTextContent}</${tag}>`
+        }
         const children = htmlNode.children
           ? astToHTML(htmlNode.children, updatedOptions)
           : ''
