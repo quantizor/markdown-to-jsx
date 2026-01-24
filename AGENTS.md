@@ -25,6 +25,7 @@ The priorities of this library are **correctness, speed, and small output size**
 
 - **When working on difficult failing compiler tests, individually isolate them and validate parser output first before going on to debug the compiler.** This helps distinguish between parser bugs and compiler bugs.
 - **Add debug logging as needed to trace the behavior of the library.** Clean up debug logs only at the final end of the process after all tests are passing.
+- **Do not create summaries after working on a task unless explicitly directed by the user.**
 
 ## Commit Workflow
 
