@@ -65,7 +65,14 @@ export function htmlAttrsToVueProps(
   var vueProps: Record<string, any> = {}
   for (var key in attrs) {
     var keyLower = key.toLowerCase()
-    vueProps[keyLower === 'for' ? 'htmlFor' : key] = attrs[key]
+    // Convert React-style props back to Vue/HTML style
+    if (key === 'className') {
+      vueProps['class'] = attrs[key]
+    } else if (keyLower === 'for') {
+      vueProps['htmlFor'] = attrs[key]
+    } else {
+      vueProps[key] = attrs[key]
+    }
   }
   return vueProps
 }
