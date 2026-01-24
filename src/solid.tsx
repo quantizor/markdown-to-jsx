@@ -656,7 +656,11 @@ export function astToJSX(
           parse.UPPERCASE_TAG_R.test(value) ||
           parse.parseHTMLTag(value, 0))
       ) {
-        jsxProps[key] = compileHTML(value.trim())
+        const compiled = compileHTML(value.trim())
+        // For innerHTML, take first element if array (matches original parser behavior)
+        jsxProps[key] = key === 'innerHTML' && Array.isArray(compiled)
+          ? compiled[0]
+          : compiled
       }
     }
 

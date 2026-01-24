@@ -1456,25 +1456,38 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
   const closeTagStart = lastIndexOfCI(s, '</' + tagNameLower, closeEnd)
   const innerContent = s.slice(tagResult.end, closeTagStart)
   
+  // Check if content contains pre tags - if so, treat as verbatim for innerHTML handling
+  const containsPreTags = /<\/?pre\b/i.test(innerContent)
+  const shouldBeVerbatim = isVerbatim || containsPreTags
+  
   let children: MarkdownToJSX.ASTNode[] = []
   
-  if (isVerbatim) {
-    // Keep content as raw text
-    // Strip leading/trailing newlines but preserve internal whitespace
-    let textContent = innerContent
-    // Strip leading newline (comes after opening tag)
-    if (textContent.charCodeAt(0) === 10) {
-      textContent = textContent.slice(1)
-    }
-    // Strip trailing newline (comes before closing tag)
-    if (textContent.charCodeAt(textContent.length - 1) === 10) {
-      textContent = textContent.slice(0, -1)
-    }
-    if (textContent) {
-      children = [{
-        type: RuleType.text,
-        text: textContent,
-      } as MarkdownToJSX.TextNode]
+  if (shouldBeVerbatim) {
+    // For verbatim or pre-containing blocks, parse only the first HTML tag as the child
+    // This matches the original parser behavior where innerHTML uses the first child
+    const trimmed = innerContent.trim()
+    if (trimmed && trimmed.charCodeAt(0) === 60) { // starts with <
+      // Parse just the first block (the pre tag)
+      const firstBlockChildren = parseBlocks(trimmed, { ...state, inline: false }, opts)
+      // Only take the first child (the pre element)
+      if (firstBlockChildren.length > 0) {
+        children = [firstBlockChildren[0]]
+      }
+    } else if (isVerbatim) {
+      // For actual verbatim tags (script, style, pre, textarea), use raw text
+      let textContent = innerContent
+      if (textContent.charCodeAt(0) === 10) {
+        textContent = textContent.slice(1)
+      }
+      if (textContent.charCodeAt(textContent.length - 1) === 10) {
+        textContent = textContent.slice(0, -1)
+      }
+      if (textContent) {
+        children = [{
+          type: RuleType.text,
+          text: textContent,
+        } as MarkdownToJSX.TextNode]
+      }
     }
   } else {
     // Parse inner content as markdown
@@ -1490,15 +1503,21 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
     }
   }
   
-  const end = nextLine(s, closeEnd)
-  // rawText should be from after opening tag to BEFORE closing tag (not including it)
+  // Check if there's more content on the same line after the closing tag
+  // If so, don't skip to next line (allows parsing text after inline HTML)
+  const lineEndPos = lineEnd(s, closeEnd)
+  const afterClose = s.slice(closeEnd, lineEndPos).trim()
+  const end = afterClose ? closeEnd : nextLine(s, closeEnd)
+  // rawText should be from after opening tag to AFTER closing tag (including it)
+  // This matches the original parser behavior for verbatim blocks
   // For multi-line attributes, preserve the newline after > to maintain formatting
   let rawTextStart = tagResult.end
   const hasMultilineAttrs = tagResult.rawAttrs && tagResult.rawAttrs.includes('\n')
   if (!hasMultilineAttrs && s.charCodeAt(rawTextStart) === 10) rawTextStart++
-  let rawText = s.slice(rawTextStart, closeTagStart)
+  // Include the closing tag in rawText for verbatim blocks containing pre
+  let rawText = shouldBeVerbatim ? s.slice(rawTextStart, closeEnd) : s.slice(rawTextStart, closeTagStart)
   // For verbatim blocks, also strip trailing newline before closing tag
-  if (isVerbatim && rawText.charCodeAt(rawText.length - 1) === 10) {
+  if (shouldBeVerbatim && rawText.charCodeAt(rawText.length - 1) === 10) {
     rawText = rawText.slice(0, -1)
   }
   
@@ -1511,7 +1530,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
       children,
       rawText,
       text: innerContent, // deprecated
-      verbatim: isVerbatim,
+      verbatim: shouldBeVerbatim,
     } as MarkdownToJSX.HTMLNode,
     end
   }

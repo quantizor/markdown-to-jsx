@@ -37,6 +37,12 @@ function extractTextContent(
       const props = element.p as Record<string, unknown>
       const tag = (element as { t?: string }).t
       if (tag === 'img' && typeof props.alt === 'string') return props.alt
+      // Check innerHTML for text content
+      if (props.innerHTML !== undefined) {
+        return extractTextContent(
+          props.innerHTML as JSX.Element | JSX.Element[] | string
+        )
+      }
       if (props.children !== undefined) {
         return extractTextContent(
           props.children as JSX.Element | JSX.Element[] | string
@@ -49,7 +55,13 @@ function extractTextContent(
       element.props &&
       typeof element.props === 'object'
     ) {
-      const props = element.props as { children?: unknown }
+      const props = element.props as { children?: unknown; innerHTML?: unknown }
+      // Check innerHTML for text content
+      if (props.innerHTML !== undefined) {
+        return extractTextContent(
+          props.innerHTML as JSX.Element | JSX.Element[] | string
+        )
+      }
       if (props.children !== undefined) {
         return extractTextContent(
           props.children as JSX.Element | JSX.Element[] | string
