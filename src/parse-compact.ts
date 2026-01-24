@@ -112,6 +112,8 @@ export function parseHTMLTag(
     if (quote === 34 || quote === 39) { // " or '
       i++
       const valueStart = i
+      // If value starts with <, this looks like invalid HTML (nested tag in attr)
+      if (i < len && source.charCodeAt(i) === 60) return null
       while (i < len && source.charCodeAt(i) !== quote) i++
       attrs[attrName] = source.slice(valueStart, i)
       if (i < len) i++ // skip closing quote
