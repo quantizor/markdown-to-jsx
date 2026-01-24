@@ -2995,8 +2995,8 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: any): Markdown
   if (p === 0 && s.startsWith('---')) {
     const bounds = util.parseFrontmatterBounds(s)
     if (bounds) {
-      // If preserveFrontmatter is enabled, render it as a pre block
-      if (opts.preserveFrontmatter) {
+      // Output frontmatter by default, skip only if preserveFrontmatter === false
+      if (opts.preserveFrontmatter !== false) {
         const frontmatterText = s.slice(0, bounds.endPos).trimEnd()
         nodes.push({
           type: RuleType.frontmatter,

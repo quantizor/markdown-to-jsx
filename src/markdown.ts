@@ -592,12 +592,14 @@ function generateReferenceKey(url: string, state: CompilerState): string {
 
 function compileAttributes(attrs: Record<string, any>): string {
   return Object.entries(attrs || {})
-    .map(([key, value]) =>
-      typeof value === 'boolean'
+    .map(([key, value]) => {
+      // Convert className back to class for HTML output
+      const attrName = key === 'className' ? 'class' : key
+      return typeof value === 'boolean'
         ? value
-          ? ` ${key}`
+          ? ` ${attrName}`
           : ''
-        : ` ${key}="${String(value).replace(/"/g, '&quot;')}"`
-    )
+        : ` ${attrName}="${String(value).replace(/"/g, '&quot;')}"`
+    })
     .join('')
 }
