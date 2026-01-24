@@ -10,14 +10,21 @@ See README.md for the primary library documentation.
 
 ## Library Priorities
 
-The priorities of this library are bundle size, performance, and functionality in that order. Optimize code for best minification and tree shaking. Always prefer ES5 syntax when writing code to ensure the fastest implementation is used by the underlying JS engine.
+The priorities of this library are **correctness, speed, and small output size** in that order. Pursue these goals in sequence - correctness first, then performance, then bundle size optimization. Optimize code for best minification and tree shaking. Always prefer ES5 syntax when writing code to ensure the fastest implementation is used by the underlying JS engine.
 
 ## Testing Workflow
 
+- **There is no time limit for agent tasks.** Work until the task is complete.
+- **The main branch always has a 100% pass rate.** Broken tests are always due to changes in the current branch, not the test suite itself.
 - Run `bun test` after each set of changes to ensure no regressions (currently 100% passing)
 - Use `bun metrics` (run 3x) to check parser performance when changing library code
 - Use `bun metrics` for quick parse speed analysis
 - **Use inline snapshots (`toMatchInlineSnapshot()`) for parser, HTML compiler, and markdown compiler tests.** This makes test output explicit and easy to review. Avoid individual assertions like `expect(x).toBe(y)` when the full output can be captured in a snapshot.
+
+### Debugging Failing Compiler Tests
+
+- **When working on difficult failing compiler tests, individually isolate them and validate parser output first before going on to debug the compiler.** This helps distinguish between parser bugs and compiler bugs.
+- **Add debug logging as needed to trace the behavior of the library.** Clean up debug logs only at the final end of the process after all tests are passing.
 
 ## Commit Workflow
 
