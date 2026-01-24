@@ -3001,7 +3001,18 @@ export function parseMarkdownCompact(
     refs: {},
   }
   
-  return parseBlocks(normalized, state || defaultState, options || {})
+  const actualState = state || defaultState
+  const nodes = parseBlocks(normalized, actualState, options || {})
+  
+  // Add refCollection node at the start if there are refs
+  if (actualState.refs && Object.keys(actualState.refs).length > 0) {
+    return [
+      { type: RuleType.refCollection, refs: actualState.refs } as MarkdownToJSX.ReferenceCollectionNode,
+      ...nodes
+    ]
+  }
+  
+  return nodes
 }
 
 /**
@@ -3040,7 +3051,17 @@ export function parser(
   }
 
   // Parse markdown
-  return parseBlocks(source, state, finalOptions)
+  const nodes = parseBlocks(source, state, finalOptions)
+  
+  // Add refCollection node at the start if there are refs
+  if (state.refs && Object.keys(state.refs).length > 0) {
+    return [
+      { type: RuleType.refCollection, refs: state.refs } as MarkdownToJSX.ReferenceCollectionNode,
+      ...nodes
+    ]
+  }
+  
+  return nodes
 }
 
 // Export for testing
