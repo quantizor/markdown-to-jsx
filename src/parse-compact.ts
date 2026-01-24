@@ -884,6 +884,36 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
       continue
     }
     
+    // Check for lazy continuation - paragraph text can continue list item without indentation
+    // This only applies if the line doesn't start a new block type
+    const lineStart = end + _indentChars
+    const c = s.charCodeAt(lineStart)
+    
+    // Check if this line starts a new block
+    const startsNewBlock = 
+      // ATX heading
+      c === 35 || // #
+      // Thematic break or list marker
+      (c === 45 || c === 42 || c === 95 || c === 43) && (
+        scanThematic(s, end) !== 0 || 
+        checkListMarker(s, end, le)
+      ) ||
+      // Ordered list
+      (c >= 48 && c <= 57 && checkListMarker(s, end, le)) ||
+      // Fenced code
+      (c === 96 || c === 126) && scanFence(s, end, le) ||
+      // HTML block start
+      c === 60 ||
+      // Blockquote
+      c === 62
+    
+    if (!startsNewBlock && currentItem && !isBlank(s, end, le)) {
+      // Lazy continuation - add line to current item
+      currentItem += s.slice(lineStart, le) + '\n'
+      end = nextLine(s, le)
+      continue
+    }
+    
     // Line doesn't belong to list
     break
   }
@@ -945,11 +975,19 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: any): 
             const nestedNodes = parseBlocks(rest, { ...state, inList: true }, opts)
             itemNodes = [...itemNodes, ...nestedNodes]
           } else {
-            // Not a nested list - join all lines with soft breaks (spaces) and parse as inline
-            // This is the CommonMark behavior for lazy continuation
-            // Normalize whitespace: collapse multiple spaces/newlines into single space
-            const joinedText = itemContent.replace(/\s+/g, ' ').trim()
-            itemNodes = parseInline(joinedText, 0, joinedText.length, state, opts)
+            // Not a nested list - parse as inline content with soft breaks
+            // For indented continuation (like *   item\n    continuation), normalize whitespace
+            // For lazy continuation (like *   item\ncontunuation), keep newlines as soft breaks
+            const hasIndentedContinuation = lines.slice(1).some(l => /^[\t ]+/.test(l))
+            if (hasIndentedContinuation) {
+              // Normalize whitespace for indented continuation
+              const joinedText = itemContent.replace(/\s+/g, ' ').trim()
+              itemNodes = parseInline(joinedText, 0, joinedText.length, state, opts)
+            } else {
+              // Keep newlines for lazy continuation - render as soft breaks (literal newlines)
+              const joinedText = itemContent.replace(/\n/g, '\n')
+              itemNodes = parseInline(joinedText, 0, joinedText.length, state, opts)
+            }
           }
         } else {
           // Just first line
