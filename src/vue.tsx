@@ -11,12 +11,12 @@ import {
   type InjectionKey,
 } from 'vue'
 import * as $ from './constants'
-import * as parse from './parse'
+import * as parse from './parse-compact'
 import { MarkdownToJSX, RuleType, RequireAtLeastOne } from './types'
 import * as util from './utils'
 
-export { parser } from './parse'
-import { parser } from './parse'
+export { parser } from './parse-compact'
+import { parser } from './parse-compact'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
@@ -65,7 +65,14 @@ export function htmlAttrsToVueProps(
   var vueProps: Record<string, any> = {}
   for (var key in attrs) {
     var keyLower = key.toLowerCase()
-    vueProps[keyLower === 'for' ? 'htmlFor' : key] = attrs[key]
+    // Convert React-style props back to Vue/HTML style
+    if (key === 'className') {
+      vueProps['class'] = attrs[key]
+    } else if (keyLower === 'for') {
+      vueProps['htmlFor'] = attrs[key]
+    } else {
+      vueProps[key] = attrs[key]
+    }
   }
   return vueProps
 }
@@ -791,7 +798,11 @@ export function astToJSX(
             parse.UPPERCASE_TAG_R.test(value) ||
             parse.parseHTMLTag(value, 0))
         ) {
-          vueProps[key] = compileHTML(value.trim())
+          const compiled = compileHTML(value.trim())
+          // For innerHTML, take first element if array (matches original parser behavior)
+          vueProps[key] = key === 'innerHTML' && Array.isArray(compiled) 
+            ? compiled[0] 
+            : compiled
         }
       }
     }

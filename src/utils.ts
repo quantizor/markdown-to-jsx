@@ -144,7 +144,7 @@ export function htmlAttrsToJSXProps(
 }
 
 export const SHOULD_RENDER_AS_BLOCK_R: RegExp =
-  /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/
+  /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s|^<(div|p|h[1-6]|ul|ol|li|blockquote|pre|table|thead|tbody|tr|td|th|dl|dt|dd|hr|address|article|aside|details|dialog|figure|figcaption|footer|form|header|main|menu|nav|section|summary|textarea|fieldset|legend|center|dir|hgroup|marquee|search|output|template)\b)/i
 
 /**
  * Decode HTML entity references to Unicode characters
@@ -260,16 +260,13 @@ slugifyReplaceTable[376] =
 
 /**
  * Check if a character code is alphanumeric (0-9, A-Z, a-z)
+ * Uses optimized table lookup for ASCII characters
  *
  * @param code - Character code to check
  * @returns True if alphanumeric
  */
 export function isAlnumCode(code: number): boolean {
-  return (
-    (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
-    (code >= $.CHAR_A && code <= $.CHAR_Z) ||
-    (code >= $.CHAR_a && code <= $.CHAR_z)
-  )
+  return code < $.CHAR_ASCII_BOUNDARY && (charClassTable[code] & (CC_ALPHA | CC_DIGIT)) !== 0
 }
 
 /**
@@ -406,9 +403,15 @@ export const ATTRIBUTES_TO_SANITIZE: readonly string[] = [
   'action',
 ]
 
-// Character classification flags (bitfield)
-const CHAR_WHITESPACE = 1
-const CHAR_PUNCTUATION = 2
+// Character classification flags (bitfield) - optimized for fast lookup
+// These flags allow multiple classifications per character with bitwise AND/OR
+export const CC_WHITESPACE = 1 // space, tab, newline, cr, ff
+export const CC_PUNCTUATION = 2 // punctuation characters
+export const CC_ALPHA = 4 // a-z, A-Z
+export const CC_DIGIT = 8 // 0-9
+export const CC_NEWLINE = 16 // \n, \r
+export const CC_SPACE_TAB = 32 // space or tab only
+export const CC_ALPHA_UPPER = 64 // A-Z only
 
 // Inline character type constants
 // const INLINE_CHAR_TYPE_NORMAL = 0
@@ -418,20 +421,28 @@ const INLINE_CHAR_TYPE_DELIMITER = 3
 const INLINE_CHAR_TYPE_LINK = 4
 
 // Lookup table for ASCII characters (0-127)
+// Combines multiple flags for efficient multi-purpose lookup
 export const charClassTable: Uint8Array = (function () {
   const t = new Uint8Array(128)
   let i
-  t[$.CHAR_TAB] =
-    t[$.CHAR_NEWLINE] =
-    t[$.CHAR_FF] =
-    t[$.CHAR_CR] =
-    t[$.CHAR_SPACE] =
-      CHAR_WHITESPACE
-  for (i = $.CHAR_EXCLAMATION; i <= $.CHAR_SLASH; i++) t[i] = CHAR_PUNCTUATION
-  for (i = $.CHAR_COLON; i <= $.CHAR_AT; i++) t[i] = CHAR_PUNCTUATION
+  // Whitespace characters
+  t[$.CHAR_TAB] = CC_WHITESPACE | CC_SPACE_TAB
+  t[$.CHAR_NEWLINE] = CC_WHITESPACE | CC_NEWLINE
+  t[$.CHAR_FF] = CC_WHITESPACE
+  t[$.CHAR_CR] = CC_WHITESPACE | CC_NEWLINE
+  t[$.CHAR_SPACE] = CC_WHITESPACE | CC_SPACE_TAB
+  // Punctuation ranges
+  for (i = $.CHAR_EXCLAMATION; i <= $.CHAR_SLASH; i++) t[i] = CC_PUNCTUATION
+  for (i = $.CHAR_COLON; i <= $.CHAR_AT; i++) t[i] = CC_PUNCTUATION
   for (i = $.CHAR_BRACKET_OPEN; i <= $.CHAR_BACKTICK; i++)
-    t[i] = CHAR_PUNCTUATION
-  for (i = $.CHAR_BRACE_OPEN; i <= $.CHAR_TILDE; i++) t[i] = CHAR_PUNCTUATION
+    t[i] = CC_PUNCTUATION
+  for (i = $.CHAR_BRACE_OPEN; i <= $.CHAR_TILDE; i++) t[i] = CC_PUNCTUATION
+  // Digits 0-9
+  for (i = $.CHAR_DIGIT_0; i <= $.CHAR_DIGIT_9; i++) t[i] = CC_DIGIT
+  // Uppercase letters A-Z
+  for (i = $.CHAR_A; i <= $.CHAR_Z; i++) t[i] = CC_ALPHA | CC_ALPHA_UPPER
+  // Lowercase letters a-z
+  for (i = $.CHAR_a; i <= $.CHAR_z; i++) t[i] = CC_ALPHA
   return t
 })()
 
@@ -460,15 +471,30 @@ export const inlineCharTypeTable: Uint8Array = (function () {
 export function isASCIIPunctuation(code: number): boolean {
   return (
     code < $.CHAR_ASCII_BOUNDARY &&
-    (charClassTable[code] & CHAR_PUNCTUATION) !== 0
+    (charClassTable[code] & CC_PUNCTUATION) !== 0
   )
 }
 
 export function isASCIIWhitespace(code: number): boolean {
   return (
     code < $.CHAR_ASCII_BOUNDARY &&
-    (charClassTable[code] & CHAR_WHITESPACE) !== 0
+    (charClassTable[code] & CC_WHITESPACE) !== 0
   )
+}
+
+// Fast check for space or tab only (not newlines)
+export function isSpaceOrTabCode(code: number): boolean {
+  return code < $.CHAR_ASCII_BOUNDARY && (charClassTable[code] & CC_SPACE_TAB) !== 0
+}
+
+// Fast check for alpha (a-z, A-Z)
+export function isAlphaCode(code: number): boolean {
+  return code < $.CHAR_ASCII_BOUNDARY && (charClassTable[code] & CC_ALPHA) !== 0
+}
+
+// Fast check for digit (0-9)
+export function isDigitCode(code: number): boolean {
+  return code < $.CHAR_ASCII_BOUNDARY && (charClassTable[code] & CC_DIGIT) !== 0
 }
 
 // Unicode property escapes for spec-compliant character classification
@@ -482,19 +508,19 @@ export function isUnicodeWhitespace(c: string): boolean {
   if (!c) return true
   const code = c.charCodeAt(0)
   return code < $.CHAR_ASCII_BOUNDARY
-    ? (charClassTable[code] & CHAR_WHITESPACE) !== 0
+    ? (charClassTable[code] & CC_WHITESPACE) !== 0
     : UNICODE_WHITESPACE_R.test(c)
 }
 
 export function isUnicodePunctuation(c: string | number): boolean {
   if (typeof c === 'number')
     return (
-      c < $.CHAR_ASCII_BOUNDARY && (charClassTable[c] & CHAR_PUNCTUATION) !== 0
+      c < $.CHAR_ASCII_BOUNDARY && (charClassTable[c] & CC_PUNCTUATION) !== 0
     )
   if (!c) return false
   const code = c.charCodeAt(0)
   return code < $.CHAR_ASCII_BOUNDARY
-    ? (charClassTable[code] & CHAR_PUNCTUATION) !== 0
+    ? (charClassTable[code] & CC_PUNCTUATION) !== 0
     : UNICODE_PUNCT_R.test(c)
 }
 

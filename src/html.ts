@@ -1,11 +1,11 @@
 import * as $ from './constants'
-import * as parse from './parse'
+import * as parse from './parse-compact'
 import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
 const { hasKeys } = util
 
 // Re-export parser, types, and utils for the /html entry point
-export { parser } from './parse'
+export { parser } from './parse-compact'
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
@@ -571,6 +571,13 @@ export function astToHTML(
             ? util.applyTagFilterToText(htmlNode.rawText)
             : htmlNode.rawText
           return `<${tag}${attrsStr}>${textContent}</${tag}>`
+        }
+        // For multi-line attributes (rawAttrs contains newlines), preserve rawText formatting
+        if (htmlNode.rawAttrs && htmlNode.rawAttrs.includes('\n') && htmlNode.rawText) {
+          var rawTextContent = options.tagfilter
+            ? util.applyTagFilterToText(htmlNode.rawText)
+            : htmlNode.rawText
+          return `<${tag}${attrsStr}>${rawTextContent}</${tag}>`
         }
         const children = htmlNode.children
           ? astToHTML(htmlNode.children, updatedOptions)

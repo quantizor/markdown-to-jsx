@@ -16,7 +16,6 @@ describe('index.tsx exports', () => {
               "type": "text",
             },
           ],
-          "endPos": 7,
           "id": "hello",
           "level": 1,
           "type": "heading",

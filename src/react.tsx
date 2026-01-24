@@ -3,11 +3,11 @@
 
 import * as React from 'react'
 import * as $ from './constants'
-import * as parse from './parse'
+import * as parse from './parse-compact'
 import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
 
-export { parser } from './parse'
+export { parser } from './parse-compact'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
@@ -138,7 +138,7 @@ function render(
 
     case RuleType.footnoteReference:
       return (
-        <a key={state.key} href={sanitize(node.target, 'a', 'href')}>
+        <a key={state.key} href={sanitize(node.target, 'a', 'href') || undefined}>
           <sup key={state.key}>{node.text}</sup>
         </a>
       )
@@ -367,12 +367,13 @@ function render(
     }
 
     case RuleType.image: {
+      const src = node.target != null ? sanitize(node.target, 'img', 'src') : null
       return (
         <img
           key={state.key}
           alt={node.alt && node.alt.length > 0 ? node.alt : undefined}
           title={node.title || undefined}
-          src={sanitize(node.target, 'img', 'src')}
+          src={src || undefined}
         />
       )
     }
@@ -622,7 +623,11 @@ export function astToJSX(
             parse.UPPERCASE_TAG_R.test(value) ||
             parse.parseHTMLTag(value, 0))
         ) {
-          jsxProps[key] = compileHTML(value.trim())
+          const compiled = compileHTML(value.trim())
+          // For innerHTML, take first element if array (matches original parser behavior)
+          jsxProps[key] = key === 'innerHTML' && Array.isArray(compiled)
+            ? compiled[0]
+            : compiled
         }
       }
     }
