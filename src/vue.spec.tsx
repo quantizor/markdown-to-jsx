@@ -46,6 +46,10 @@ function extractTextContent(
     ) {
       return props.alt
     }
+    // Check innerHTML prop first (for verbatim blocks like pre/script)
+    if (props?.innerHTML !== undefined) {
+      return extractTextContent(props.innerHTML as VNode | VNode[] | string)
+    }
     const children =
       props?.children !== undefined
         ? props.children
