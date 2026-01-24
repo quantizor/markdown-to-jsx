@@ -1494,8 +1494,18 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: a
     const trimmed = innerContent.trim()
     if (trimmed) {
       // Check if content looks like block content
-      const hasBlocks = /\n\n/.test(trimmed) || /^[#\-*>1-9`]/.test(trimmed) || /<[a-z]/i.test(trimmed)
-      if (hasBlocks) {
+      // Be careful to distinguish emphasis markers (**,__) from list markers (* , - )
+      const firstChar = trimmed.charCodeAt(0)
+      const secondChar = trimmed.length > 1 ? trimmed.charCodeAt(1) : 0
+      const thirdChar = trimmed.length > 2 ? trimmed.charCodeAt(2) : 0
+      const hasParagraphBreak = /\n\n/.test(trimmed)
+      const hasBlockStart = firstChar === 35 || // # heading
+        firstChar === 62 || // > blockquote
+        firstChar === 96 || // ` code fence
+        (firstChar >= 49 && firstChar <= 57 && secondChar === 46 && thirdChar === 32) || // 1. ordered list
+        ((firstChar === 45 || firstChar === 42) && secondChar === 32) // - or * with space = list
+      const hasHTMLTag = /<[a-z]/i.test(trimmed)
+      if (hasParagraphBreak || hasBlockStart || hasHTMLTag) {
         children = parseBlocks(trimmed, { ...state, inline: false }, opts)
       } else {
         children = parseInline(trimmed, 0, trimmed.length, { ...state, inline: true }, opts)
