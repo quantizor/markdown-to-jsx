@@ -112,8 +112,6 @@ export function parseHTMLTag(
     if (quote === 34 || quote === 39) { // " or '
       i++
       const valueStart = i
-      // If value starts with <, this looks like invalid HTML (nested tag in attr)
-      if (i < len && source.charCodeAt(i) === 60) return null
       while (i < len && source.charCodeAt(i) !== quote) i++
       attrs[attrName] = source.slice(valueStart, i)
       if (i < len) i++ // skip closing quote
@@ -2914,6 +2912,19 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
     content = content.replace(/!?\[([^\]]+)\]\([^)]*$/, '$1 ')
     // Strip [text][ref without closing ]
     content = content.replace(/!?\[([^\]]+)\]\[[^\]]*$/, '$1')
+    // Strip incomplete HTML/JSX tags - <Tag>content but no closing </Tag>
+    // Match <TagName...>content at end without corresponding closing tag
+    const tagMatch = content.match(/<([A-Z][A-Za-z0-9]*)(?:\s[^>]*)?>([^<]*)$/)
+    if (tagMatch) {
+      const tagName = tagMatch[1]
+      const innerContent = tagMatch[2]
+      // Only strip if there's no closing tag for this tag
+      const closingTagPattern = new RegExp('</' + tagName + '\\s*>', 'i')
+      if (!closingTagPattern.test(content)) {
+        // Strip the unclosed tag but keep the inner content
+        content = content.replace(/<[A-Z][A-Za-z0-9]*(?:\s[^>]*)?>([^<]*)$/, '$1')
+      }
+    }
     
     if (content !== original) {
       s = s.slice(0, p) + content
