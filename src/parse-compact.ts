@@ -2757,16 +2757,20 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
 // Maximum inline recursion depth
 const MAX_INLINE_DEPTH = 200
 
+// Reusable state object to avoid allocations - use counter for depth tracking
+let _globalInlineDepth = 0
+
 function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: any): MarkdownToJSX.ASTNode[] {
-  // Track inline depth for stack overflow protection
-  const inlineDepth = (state as any)._inlineDepth || 0
-  if (inlineDepth > MAX_INLINE_DEPTH) {
+  // Track inline depth using global counter for stack overflow protection
+  _globalInlineDepth++
+  if (_globalInlineDepth > MAX_INLINE_DEPTH) {
+    _globalInlineDepth--
     // Return content as plain text to prevent stack overflow
     return [{ type: RuleType.text, text: s.slice(p, e) }]
   }
   
-  // Create state with incremented depth for recursive calls
-  const childState = { ...state, _inlineDepth: inlineDepth + 1 } as MarkdownToJSX.State
+  // Use state directly to avoid object spread allocation
+  const childState = state
   
   // If streaming mode, preprocess to strip incomplete markers BEFORE parsing
   // This prevents bare URLs inside incomplete links from being autolinked
@@ -2930,6 +2934,7 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
     }
   }
   
+  _globalInlineDepth--
   return nodes
 }
 
@@ -3084,6 +3089,9 @@ export function parseMarkdownCompact(
   state?: MarkdownToJSX.State,
   options?: any
 ): MarkdownToJSX.ASTNode[] {
+  // Reset global depth counter at the start of each parse
+  _globalInlineDepth = 0
+  
   // Normalize input
   const normalized = util.normalizeInput(source)
   
@@ -3117,6 +3125,9 @@ export function parser(
   source: string,
   options?: MarkdownToJSX.Options
 ): MarkdownToJSX.ASTNode[] {
+  // Reset global depth counter at the start of each parse
+  _globalInlineDepth = 0
+  
   // Strip BOM (U+FEFF) at document start per CommonMark spec
   if (source.charCodeAt(0) === 0xfeff) {
     source = source.slice(1)
@@ -3168,6 +3179,9 @@ export function parseMarkdown(
   state: MarkdownToJSX.State,
   opts: any
 ): MarkdownToJSX.ASTNode[] {
+  // Reset global depth counter at the start of each parse
+  _globalInlineDepth = 0
+  
   const nodes = parseBlocks(input, state, opts)
   
   // Add refCollection node at the start if there are refs
