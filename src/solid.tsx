@@ -12,12 +12,12 @@ import {
 } from 'solid-js'
 import solidH from 'solid-js/h'
 import * as $ from './constants'
-import * as parse from './parse'
+import * as parse from './parse-compact'
 import { MarkdownToJSX, RuleType, RequireAtLeastOne } from './types'
 import * as util from './utils'
 
-export { parser } from './parse'
-import { parser } from './parse'
+export { parser } from './parse-compact'
+import { parser } from './parse-compact'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
@@ -123,7 +123,7 @@ function render(
         const headerNode: MarkdownToJSX.HTMLNode = {
           attrs: {},
           children: [{ type: RuleType.text, text: node.alert }],
-          verbatim: true,
+          _verbatim: true,
           type: RuleType.htmlBlock,
           tag: 'header',
         }
@@ -187,22 +187,22 @@ function render(
       // Apply options.tagfilter: escape dangerous tags
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
         const tagText =
-          'rawText' in htmlNode && typeof htmlNode.rawText === 'string'
-            ? htmlNode.rawText
+          typeof htmlNode._rawText === 'string'
+            ? htmlNode._rawText
             : `<${htmlNode.tag}${formatFilteredTagAttrs(htmlNode.attrs)}>`
         return h('span', {}, tagText)
       }
 
-      if (htmlNode.rawText && htmlNode.verbatim) {
+      if (htmlNode._rawText && htmlNode._verbatim) {
         // Type 1 blocks (script, style, pre, textarea) must have verbatim text content
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
 
-        const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(htmlNode.rawText)
-        const containsPreTags = /<\/?pre\b/i.test(htmlNode.rawText)
+        const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)
+        const containsPreTags = /<\/?pre\b/i.test(htmlNode._rawText)
 
         if (isType1Block && !containsHTMLTags) {
-          let textContent = htmlNode.rawText.replace(
+          let textContent = htmlNode._rawText.replace(
             new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
             ''
           )
@@ -214,8 +214,8 @@ function render(
 
         if (containsPreTags) {
           const innerHtml = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode.rawText)
-            : htmlNode.rawText
+            ? util.applyTagFilterToText(htmlNode._rawText)
+            : htmlNode._rawText
           return h(node.tag, {
             ...node.attrs,
             innerHTML: innerHtml,
@@ -226,13 +226,8 @@ function render(
           node: MarkdownToJSX.ASTNode
         ): MarkdownToJSX.ASTNode[] {
           if (
-            node.type === RuleType.htmlSelfClosing &&
-            'isClosingTag' in node &&
-            (
-              node as MarkdownToJSX.HTMLSelfClosingNode & {
-                isClosingTag?: boolean
-              }
-            ).isClosingTag
+            (node.type === RuleType.htmlSelfClosing || node.type === RuleType.htmlBlock) &&
+            node._isClosingTag
           )
             return []
           if (node.type === RuleType.paragraph) {
@@ -268,7 +263,7 @@ function render(
           sanitizer: sanitize,
           tagfilter: true,
         }
-        const cleanedText = htmlNode.rawText
+        const cleanedText = htmlNode._rawText
           .replace(/>\s+</g, '><')
           .replace(/\n+/g, ' ')
           .trim()
@@ -304,8 +299,8 @@ function render(
       // Apply options.tagfilter: escape dangerous self-closing tags
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
         const tagText =
-          'rawText' in htmlNode && typeof htmlNode.rawText === 'string'
-            ? htmlNode.rawText
+          typeof htmlNode._rawText === 'string'
+            ? htmlNode._rawText
             : `<${htmlNode.tag}${formatFilteredTagAttrs(htmlNode.attrs)} />`
         return h('span', {}, tagText)
       }
@@ -656,7 +651,11 @@ export function astToJSX(
           parse.UPPERCASE_TAG_R.test(value) ||
           parse.parseHTMLTag(value, 0))
       ) {
-        jsxProps[key] = compileHTML(value.trim())
+        const compiled = compileHTML(value.trim())
+        // For innerHTML, take first element if array (matches original parser behavior)
+        jsxProps[key] = key === 'innerHTML' && Array.isArray(compiled)
+          ? compiled[0]
+          : compiled
       }
     }
 
@@ -696,10 +695,8 @@ export function astToJSX(
       const type = n.type
       if (type === RuleType.text) {
         text += (n as MarkdownToJSX.TextNode).text
-      } else if (type === RuleType.htmlSelfClosing && 'rawText' in n) {
-        const rawText = (
-          n as MarkdownToJSX.HTMLSelfClosingNode & { rawText?: string }
-        ).rawText
+      } else if (type === RuleType.htmlSelfClosing) {
+        const rawText = (n as MarkdownToJSX.HTMLSelfClosingNode)._rawText
         if (rawText) text += rawText
       } else if (type === RuleType.textFormatted) {
         const formattedNode = n as MarkdownToJSX.FormattedTextNode
@@ -724,9 +721,8 @@ export function astToJSX(
     const node = ast[i]
     if (
       node.type === RuleType.htmlBlock &&
-      'rawText' in node &&
-      node.rawText &&
-      /<\/?pre\b/i.test(node.rawText) &&
+      node._rawText &&
+      /<\/?pre\b/i.test(node._rawText) &&
       i + 1 < ast.length &&
       ast[i + 1].type === RuleType.paragraph &&
       'removedClosingTags' in ast[i + 1] &&
@@ -746,10 +742,8 @@ export function astToJSX(
         const closingTagText: string[] = []
         const closingTagEnd = `</${htmlNode.tag}>`
         for (const tag of paragraphNode.removedClosingTags) {
-          if (tag.type === RuleType.htmlSelfClosing && 'rawText' in tag) {
-            const rawText = (
-              tag as MarkdownToJSX.HTMLSelfClosingNode & { rawText?: string }
-            ).rawText
+          if (tag.type === RuleType.htmlSelfClosing) {
+            const rawText = tag._rawText
             if (rawText && rawText.indexOf(closingTagEnd) === -1) {
               closingTagText.push(rawText)
             }
@@ -759,10 +753,10 @@ export function astToJSX(
       }
       // Create a new node instead of mutating to avoid issues with memoization
       // When ast() is cached but jsx() recalculates, mutation would accumulate text
-      const newRawText = (htmlNode.rawText || '') + '\n' + combinedText
+      const newRawText = (htmlNode._rawText || '') + '\n' + combinedText
       const modifiedHtmlNode: MarkdownToJSX.HTMLNode = {
         ...htmlNode,
-        rawText: newRawText,
+        _rawText: newRawText,
         text: newRawText, // @deprecated - use rawText instead
       }
       postProcessedAst.push(modifiedHtmlNode)

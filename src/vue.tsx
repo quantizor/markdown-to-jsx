@@ -11,12 +11,12 @@ import {
   type InjectionKey,
 } from 'vue'
 import * as $ from './constants'
-import * as parse from './parse'
+import * as parse from './parse-compact'
 import { MarkdownToJSX, RuleType, RequireAtLeastOne } from './types'
 import * as util from './utils'
 
-export { parser } from './parse'
-import { parser } from './parse'
+export { parser } from './parse-compact'
+import { parser } from './parse-compact'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
@@ -65,7 +65,14 @@ export function htmlAttrsToVueProps(
   var vueProps: Record<string, any> = {}
   for (var key in attrs) {
     var keyLower = key.toLowerCase()
-    vueProps[keyLower === 'for' ? 'htmlFor' : key] = attrs[key]
+    // Convert React-style props back to Vue/HTML style
+    if (key === 'className') {
+      vueProps['class'] = attrs[key]
+    } else if (keyLower === 'for') {
+      vueProps['htmlFor'] = attrs[key]
+    } else {
+      vueProps[key] = attrs[key]
+    }
   }
   return vueProps
 }
@@ -158,7 +165,7 @@ const renderers: Record<
       const headerNode: MarkdownToJSX.HTMLNode = {
         attrs: {},
         children: [{ type: RuleType.text, text: node.alert }],
-        verbatim: true,
+        _verbatim: true,
         type: RuleType.htmlBlock,
         tag: 'header',
       }
@@ -219,20 +226,20 @@ const renderers: Record<
 
     if (options.tagfilter && util.shouldFilterTag(node.tag)) {
       const tagText =
-        'rawText' in node && typeof node.rawText === 'string'
-          ? node.rawText
+        typeof node._rawText === 'string'
+          ? node._rawText
           : `<${node.tag}${formatFilteredTagAttrs(node.attrs)}>`
       return h('span', { key: state.key }, tagText)
     }
 
-    if (node.rawText && node.verbatim) {
+    if (node._rawText && node._verbatim) {
       const tagLower = (node.tag as string).toLowerCase()
       const isType1Block = parse.isType1Block(tagLower)
-      const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(node.rawText)
-      const containsPreTags = /<\/?pre\b/i.test(node.rawText)
+      const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(node._rawText)
+      const containsPreTags = /<\/?pre\b/i.test(node._rawText)
 
       if (isType1Block && !containsHTMLTags) {
-        let textContent = node.rawText.replace(
+        let textContent = node._rawText.replace(
           new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
           ''
         )
@@ -241,25 +248,13 @@ const renderers: Record<
         return h(node.tag, { key: state.key, ...node.attrs }, textContent)
       }
 
-      if (containsPreTags) {
-        const innerHtml = options.tagfilter
-          ? util.applyTagFilterToText(node.rawText)
-          : node.rawText
-        return h(node.tag, {
-          key: state.key,
-          ...node.attrs,
-          innerHTML: innerHtml,
-        })
-      }
-
       // Use already-parsed children if available instead of re-parsing rawText
       const processNode = (
         node: MarkdownToJSX.ASTNode
       ): MarkdownToJSX.ASTNode[] => {
         if (
-          node.type === RuleType.htmlSelfClosing &&
-          'isClosingTag' in node &&
-          (node as any).isClosingTag
+          (node.type === RuleType.htmlSelfClosing || node.type === RuleType.htmlBlock) &&
+          node._isClosingTag
         )
           return []
         if (node.type === RuleType.paragraph) {
@@ -283,14 +278,22 @@ const renderers: Record<
         return [node]
       }
 
-      if (node.children && node.children.length > 0) {
-        return h(
-          node.tag,
-          { key: state.key, ...node.attrs },
-          ...normalizeChildren(
-            output(node.children.flatMap(processNode), state)
-          )
+      if (containsPreTags) {
+        // Strip the node's own closing tag from rawText (parser includes it)
+        var preRawText = node._rawText
+        var ownClosingTag = new RegExp(
+          '\\s*</' + tagLower + '>\\s*$',
+          'i'
         )
+        preRawText = preRawText.replace(ownClosingTag, '')
+        const innerHtml = options.tagfilter
+          ? util.applyTagFilterToText(preRawText)
+          : preRawText
+        return h(node.tag, {
+          key: state.key,
+          ...node.attrs,
+          innerHTML: innerHtml,
+        })
       }
 
       // Fallback to re-parsing rawText if children not available (edge case)
@@ -299,7 +302,7 @@ const renderers: Record<
         sanitizer: sanitize,
         tagfilter: true,
       }
-      const cleanedText = node.rawText
+      const cleanedText = node._rawText
         .replace(/>\s+</g, '><')
         .replace(/\n+/g, ' ')
         .trim()
@@ -338,8 +341,8 @@ const renderers: Record<
   ) => {
     if (options.tagfilter && util.shouldFilterTag(node.tag)) {
       const tagText =
-        'rawText' in node && typeof node.rawText === 'string'
-          ? node.rawText
+        typeof node._rawText === 'string'
+          ? node._rawText
           : `<${node.tag}${formatFilteredTagAttrs(node.attrs)} />`
       return h('span', { key: state.key }, tagText)
     }
@@ -642,8 +645,8 @@ function extractText(nodes: MarkdownToJSX.ASTNode[]): string {
     const type = n.type
     if (type === RuleType.text) {
       parts.push((n as MarkdownToJSX.TextNode).text)
-    } else if (type === RuleType.htmlSelfClosing && n.rawText) {
-      parts.push(n.rawText)
+    } else if (type === RuleType.htmlSelfClosing && n._rawText) {
+      parts.push(n._rawText)
     } else if (type === RuleType.textFormatted) {
       const formattedNode = n as MarkdownToJSX.FormattedTextNode
       const marker =
@@ -689,9 +692,8 @@ function postProcessAst(ast: MarkdownToJSX.ASTNode[]): MarkdownToJSX.ASTNode[] {
     const node = ast[i]
     if (
       node.type === RuleType.htmlBlock &&
-      'rawText' in node &&
-      node.rawText &&
-      /<\/?pre\b/i.test(node.rawText) &&
+      node._rawText &&
+      /<\/?pre\b/i.test(node._rawText) &&
       i + 1 < ast.length &&
       ast[i + 1].type === RuleType.paragraph &&
       'removedClosingTags' in ast[i + 1] &&
@@ -706,17 +708,17 @@ function postProcessAst(ast: MarkdownToJSX.ASTNode[]): MarkdownToJSX.ASTNode[] {
         const closingTagEnd = `</${htmlNode.tag}>`
         const closingTagText: string[] = []
         for (const tag of paragraphNode.removedClosingTags) {
-          if (tag.type === RuleType.htmlSelfClosing && tag.rawText) {
-            if (tag.rawText.indexOf(closingTagEnd) === -1)
-              closingTagText.push(tag.rawText)
+          if (tag.type === RuleType.htmlSelfClosing && tag._rawText) {
+            if (tag._rawText.indexOf(closingTagEnd) === -1)
+              closingTagText.push(tag._rawText)
           }
         }
         combinedText += closingTagText.join('')
       }
-      const newRawText = (htmlNode.rawText || '') + '\n' + combinedText
+      const newRawText = (htmlNode._rawText || '') + '\n' + combinedText
       postProcessedAst.push({
         ...htmlNode,
-        rawText: newRawText,
+        _rawText: newRawText,
         text: newRawText, // @deprecated - use rawText instead
       })
       i++
@@ -791,7 +793,11 @@ export function astToJSX(
             parse.UPPERCASE_TAG_R.test(value) ||
             parse.parseHTMLTag(value, 0))
         ) {
-          vueProps[key] = compileHTML(value.trim())
+          const compiled = compileHTML(value.trim())
+          // For innerHTML, take first element if array (matches original parser behavior)
+          vueProps[key] = key === 'innerHTML' && Array.isArray(compiled) 
+            ? compiled[0] 
+            : compiled
         }
       }
     }

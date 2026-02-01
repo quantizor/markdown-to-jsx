@@ -1172,7 +1172,7 @@ function parseInlineSpan(
     // Parse attributes from the tag (#781 fix for multi-line attributes)
     var rawAttrs = tagCheckResult.whitespaceBeforeAttrs + tagCheckResult.attrs
     var parsedAttrs = parseHTMLAttributes(
-      rawAttrs,
+      _rawAttrs: rawAttrs,
       tagName,
       tagCheckResult.tagName,
       options
@@ -1182,9 +1182,9 @@ function parseInlineSpan(
       tag: tagCheckResult.tagName as MarkdownToJSX.HTMLTags,
       attrs: parsedAttrs,
       children: children,
-      rawText: rawText,
+      _rawText: rawText,
       text: contentToParse, // @deprecated - cleaned up content without tags, use rawText for full raw HTML
-      verbatim: true,
+      _verbatim: true,
       endPos: tagCheckResult.endPos,
     } as MarkdownToJSX.HTMLNode & { endPos: number }
     flushText(pos)
@@ -3593,7 +3593,7 @@ function parseParagraph(
       var child = children[i]
       if (
         child.type === RuleType.htmlSelfClosing &&
-        child.isClosingTag === true
+        child._isClosingTag === true
       ) {
         closingTagIndices.push(i)
       } else if (child.type === RuleType.text) {
@@ -6919,12 +6919,12 @@ function createVerbatimHTMLBlock(
     type: RuleType.htmlBlock,
     tag: tagName as MarkdownToJSX.HTMLTags,
     attrs: attrs || {},
-    rawAttrs: rawAttrs,
+    _rawAttrs: rawAttrs,
     children: children,
-    rawText: finalText,
+    _rawText: finalText,
     text: contentToParse, // @deprecated - cleaned up content without tags, use rawText for full raw HTML
-    verbatim: true,
-    isClosingTag: isClosingTag,
+    _verbatim: true,
+    _isClosingTag: isClosingTag,
     canInterruptParagraph: canInterruptParagraph,
     endPos: endPos,
   } as MarkdownToJSX.HTMLNode & {
@@ -7185,11 +7185,11 @@ function processHTMLBlock(
       ? tagName
       : tagNameOriginal) as MarkdownToJSX.HTMLTags,
     attrs: attributes,
-    rawAttrs: attrs,
+    _rawAttrs: attrs,
     children: children,
-    rawText: finalText,
+    _rawText: finalText,
     text: trimmed, // @deprecated - cleaned up content without tags, use rawText for full raw HTML
-    verbatim: shouldTreatAsVerbatim,
+    _verbatim: shouldTreatAsVerbatim,
     canInterruptParagraph: true, // type 1-6 blocks can interrupt paragraphs
     endPos: endPos,
   } as MarkdownToJSX.HTMLNode & {
@@ -7433,7 +7433,7 @@ function parseHTML(
             blockEnd,
             {},
             undefined,
-            isClosingTag,
+            _isClosingTag: isClosingTag,
             false, // type 7 blocks cannot interrupt paragraphs
             options,
             state
@@ -7448,7 +7448,7 @@ function parseHTML(
           blockEnd,
           {},
           undefined,
-          isClosingTag,
+          _isClosingTag: isClosingTag,
           blockType === 'type6', // type 6 can interrupt, type 7 cannot
           options,
           state
@@ -7579,15 +7579,15 @@ function parseHTML(
     var rawText = source.slice(pos, tagResult.endPos)
     const result: MarkdownToJSX.HTMLSelfClosingNode & {
       endPos: number
-      isClosingTag?: boolean
-      rawText?: string
+      _isClosingTag?: boolean
+      _rawText?: string
     } = {
       type: RuleType.htmlSelfClosing,
       tag: tagResult.tagName,
       attrs: {},
       endPos: tagResult.endPos,
-      isClosingTag: true,
-      rawText: rawText,
+      _isClosingTag: true,
+      _rawText: rawText,
     }
     return result
   }
@@ -7662,7 +7662,7 @@ function parseHTML(
     var rawText = state.inline ? source.slice(pos, tagResult.endPos) : undefined
     const result: MarkdownToJSX.HTMLSelfClosingNode & {
       endPos: number
-      rawText?: string
+      _rawText?: string
     } = {
       type: RuleType.htmlSelfClosing,
       tag: tagResult.tagName,
@@ -7670,7 +7670,7 @@ function parseHTML(
       endPos: tagResult.endPos,
     }
     if (rawText !== undefined) {
-      result.rawText = rawText
+      result._rawText = rawText
     }
     return result
   }
@@ -7744,9 +7744,9 @@ function parseHTML(
       type: RuleType.htmlBlock,
       tag: tagResult.tagName as MarkdownToJSX.HTMLTags,
       attrs: inlineAttrs,
-      rawAttrs: rawAttrsWithWhitespace,
+      _rawAttrs: rawAttrsWithWhitespace,
       children: children,
-      verbatim: false,
+      _verbatim: false,
       endPos: inlineEndPos,
     } as MarkdownToJSX.HTMLNode & { endPos: number }
   }
@@ -8086,7 +8086,7 @@ function parseHTML(
         const rawAttrs = tagResult.whitespaceBeforeAttrs + tagResult.attrs
         return {
           parsed: parseHTMLAttributes(
-            rawAttrs,
+            _rawAttrs: rawAttrs,
             tagLower,
             tagResult.tagName,
             options
@@ -8118,7 +8118,7 @@ function parseHTML(
           blockEnd,
           type7Attrs.parsed,
           type7Attrs.raw,
-          isClosingTag,
+          _isClosingTag: isClosingTag,
           false, // type 7 blocks cannot interrupt paragraphs
           options,
           state
@@ -8144,7 +8144,7 @@ function parseHTML(
           blockEnd,
           multilineAttrs.parsed,
           multilineAttrs.raw,
-          isClosingTag,
+          _isClosingTag: isClosingTag,
           false, // type 7 blocks cannot interrupt paragraphs
           options,
           state
@@ -8241,7 +8241,7 @@ function parseHTML(
         blockEnd,
         blockAttributes,
         blockAttrs,
-        isClosingTag,
+        _isClosingTag: isClosingTag,
         blockType === 'type6' ? true : false, // type 6 can interrupt, type 7 cannot
         options,
         state
@@ -9793,7 +9793,7 @@ export function parseMarkdown(
       ) {
         const isSelfClosingClosingTag =
           parseResult.type === RuleType.htmlSelfClosing &&
-          parseResult.isClosingTag === true
+          parseResult._isClosingTag === true
         if (isSelfClosingClosingTag && !state.inline && !state.inHTML) {
           // Don't match, fall through to other parsers
         } else {

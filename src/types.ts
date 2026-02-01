@@ -105,11 +105,17 @@ declare namespace MarkdownToJSX {
     /** reference definitions (footnotes are stored with '^' prefix) */
     /** @lang zh 引用定义（脚注以 '^' 前缀存储） */
     /** @lang hi संदर्भ परिभाषाएं (फ़ुटनोट्स '^' उपसर्ग के साथ संग्रहीत हैं) */
-    refs?: { [key: string]: { target: string; title: string | undefined } }
+    refs?: { [key: string]: { target: string; title: string } }
     /** current recursion depth during rendering */
     /** @lang zh 渲染期间的当前递归深度 */
     /** @lang hi रेंडरिंग के दौरान वर्तमान पुनरावृत्ति गहराई */
     renderDepth?: number
+    /** internal: block parse recursion depth */
+    _depth?: number
+    /** internal: disable setext heading detection (lazy blockquote continuation) */
+    _noSetext?: boolean
+    /** internal: HTML nesting depth for stack overflow protection */
+    _htmlDepth?: number
   }
 
   /**
@@ -371,7 +377,7 @@ declare namespace MarkdownToJSX {
     /** Map of reference labels to their definitions */
     /** @lang zh 引用标签到其定义的映射 */
     /** @lang hi संदर्भ लेबल्स से उनकी परिभाषाओं का मैप */
-    refs: { [key: string]: { target: string; title: string | undefined } }
+    refs: { [key: string]: { target: string; title: string } }
   }
 
   /**
@@ -429,6 +435,9 @@ declare namespace MarkdownToJSX {
     children: MarkdownToJSX.ASTNode[]
   }
 
+  /** @deprecated Use `FormattedTextNode` instead. */
+  export type TextFormattedNode = FormattedTextNode
+
   /**
    * HTML block node (includes JSX components)
    * @lang zh HTML 块节点（包括 JSX 组件）
@@ -444,21 +453,15 @@ declare namespace MarkdownToJSX {
     /** @lang zh 解析后的子节点（始终解析，即使是逐字块） */
     /** @lang hi पार्स किए गए चाइल्ड नोड्स (हमेशा पार्स किए जाते हैं, यहां तक कि verbatim ब्लॉक्स के लिए भी) */
     children?: ASTNode[] | undefined
-    /** Whether this is a verbatim block (script, style, pre, etc.) */
-    /** @lang zh 这是否是逐字块（script、style、pre 等） */
-    /** @lang hi क्या यह एक verbatim ब्लॉक है (script, style, pre, आदि) */
-    verbatim?: boolean
-    /** Original raw attribute string */
-    /** @lang zh 原始属性字符串 */
-    /** @lang hi मूल raw एट्रिब्यूट स्ट्रिंग */
-    rawAttrs?: string
-    /** Original raw HTML content (for verbatim blocks) */
-    /** @lang zh 原始 HTML 内容（用于逐字块） */
-    /** @lang hi मूल raw HTML सामग्री (verbatim ब्लॉक्स के लिए) */
-    rawText?: string | undefined
-    /** @deprecated Use `rawText` instead. This property will be removed in a future major version. */
-    /** @lang zh @deprecated 请使用 `rawText` 代替。此属性将在未来的主要版本中移除。 */
-    /** @lang hi @deprecated कृपया इसके बजाय `rawText` का उपयोग करें। यह प्रॉपर्टी भविष्य के प्रमुख संस्करण में हटा दी जाएगी। */
+    /** @internal Whether this is a closing tag */
+    _isClosingTag?: boolean
+    /** @internal Whether this is a verbatim block (script, style, pre, etc.) */
+    _verbatim?: boolean
+    /** @internal Original raw attribute string */
+    _rawAttrs?: string
+    /** @internal Original raw HTML content (for verbatim blocks) */
+    _rawText?: string | undefined
+    /** @deprecated Use `_rawText` instead. This property will be removed in a future major version. */
     text?: string | undefined
     /** HTML tag name */
     /** @lang zh HTML 标签名称 */
@@ -477,18 +480,14 @@ declare namespace MarkdownToJSX {
     /** @lang zh 解析后的 HTML 属性 */
     /** @lang hi पार्स किए गए HTML एट्रिब्यूट्स */
     attrs?: Record<string, any>
-    /** Whether this is a closing tag */
-    /** @lang zh 这是否是闭合标签 */
-    /** @lang hi क्या यह एक बंद करने वाला टैग है */
-    isClosingTag?: boolean
+    /** @internal Whether this is a closing tag */
+    _isClosingTag?: boolean
     /** HTML tag name */
     /** @lang zh HTML 标签名称 */
     /** @lang hi HTML टैग नाम */
     tag: string
-    /** Original raw HTML content */
-    /** @lang zh 原始 HTML 内容 */
-    /** @lang hi मूल raw HTML सामग्री */
-    rawText?: string
+    /** @internal Original raw HTML content */
+    _rawText?: string
   }
 
   /**
@@ -587,6 +586,13 @@ declare namespace MarkdownToJSX {
      * @lang hi कंपाइलर के प्रदान किए गए raw HTML को JSX-समतुल्य में ट्रांसक्राइब करने के सर्वोत्तम प्रयास को अक्षम करें। यह वह कार्यक्षमता है जो React में `dangerouslySetInnerHTML` का उपयोग करने की आवश्यकता को रोकती है।
      */
     disableParsingRawHTML: boolean
+
+    /**
+     * Disable the compiler's parsing of HTML blocks.
+     * @lang zh 禁用编译器对 HTML 块的解析。
+     * @lang hi HTML ब्लॉक्स के कंपाइलर के पार्सिंग को अक्षम करें।
+     */
+    ignoreHTMLBlocks?: boolean
 
     /**
      * Enable GFM tagfilter extension to filter potentially dangerous HTML tags.

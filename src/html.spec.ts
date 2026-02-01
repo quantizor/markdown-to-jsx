@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
 import { compiler, astToHTML, RuleType } from './html'
-import { parser } from './parse'
+import { parser } from './parse-compact'
 import type { MarkdownToJSX } from './types'
 
 describe('html compiler', () => {
@@ -1015,7 +1015,7 @@ describe('html compiler', () => {
                 marginTop: '10px',
               },
             },
-            verbatim: false,
+            _verbatim: false,
             children: [],
           },
         ],
@@ -1039,7 +1039,7 @@ describe('html compiler', () => {
                 fontSize: undefined,
               },
             },
-            verbatim: false,
+            _verbatim: false,
             children: [],
           },
         ],
@@ -1149,8 +1149,8 @@ describe('html compiler', () => {
             type: RuleType.htmlBlock,
             tag: 'script',
             attrs: {},
-            verbatim: true,
-            rawText: 'console.log("test");</script>',
+            _verbatim: true,
+            _rawText: 'console.log("test");</script>',
             children: [],
           },
         ],
@@ -1168,8 +1168,8 @@ describe('html compiler', () => {
             type: RuleType.htmlBlock,
             tag: 'pre',
             attrs: {},
-            verbatim: true,
-            rawText: '<code>test</code></pre>',
+            _verbatim: true,
+            _rawText: '<code>test</code></pre>',
             children: [],
           },
         ],
@@ -1185,8 +1185,8 @@ describe('html compiler', () => {
             type: RuleType.htmlBlock,
             tag: 'script',
             attrs: {},
-            verbatim: true,
-            rawText: 'console.log("test");', // No closing tag
+            _verbatim: true,
+            _rawText: 'console.log("test");', // No closing tag
             children: [],
           },
         ],
@@ -1206,8 +1206,8 @@ describe('html compiler', () => {
             type: RuleType.htmlBlock,
             tag: 'div',
             attrs: {},
-            verbatim: true,
-            rawText: 'Content with <script>alert("xss")</script>',
+            _verbatim: true,
+            _rawText: 'Content with <script>alert("xss")</script>',
             children: [],
           },
         ],
@@ -1227,8 +1227,8 @@ describe('html compiler', () => {
             type: RuleType.htmlSelfClosing,
             tag: 'script',
             attrs: {},
-            rawText: '<script src="evil.js">',
-          } as MarkdownToJSX.HTMLSelfClosingNode & { rawText?: string },
+            _rawText: '<script src="evil.js">',
+          } as MarkdownToJSX.HTMLSelfClosingNode & { _rawText?: string },
         ],
         { tagfilter: true }
       )
@@ -1242,7 +1242,7 @@ describe('html compiler', () => {
             type: RuleType.htmlSelfClosing,
             tag: 'div',
             attrs: {},
-            isClosingTag: true,
+            _isClosingTag: true,
           },
         ],
         {}
@@ -1263,7 +1263,7 @@ describe('html compiler', () => {
                 type: RuleType.htmlBlock,
                 tag: 'div',
                 attrs: { title: 'Attribute with space \n newline' },
-                verbatim: false,
+                _verbatim: false,
                 children: [],
               },
               { type: RuleType.text, text: ' more text' },
@@ -1329,7 +1329,8 @@ describe('html compiler', () => {
         "<div
           class='container'
           data-test='value'
-        ><p>content</p>
+        >
+          <p>content</p>
         </div>"
       `)
     })

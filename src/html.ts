@@ -1,11 +1,11 @@
 import * as $ from './constants'
-import * as parse from './parse'
+import * as parse from './parse-compact'
 import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
 const { hasKeys } = util
 
 // Re-export parser, types, and utils for the /html entry point
-export { parser } from './parse'
+export { parser } from './parse-compact'
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
@@ -360,7 +360,7 @@ export function astToHTML(
       }
 
       case RuleType.breakLine: {
-        return '<br />'
+        return '<br />\n'
       }
       case RuleType.breakThematic: {
         return '<hr />'
@@ -432,16 +432,16 @@ export function astToHTML(
 
       case RuleType.htmlBlock: {
         const htmlNode = node as MarkdownToJSX.HTMLNode & {
-          rawAttrs?: string
-          isClosingTag?: boolean
+          _rawAttrs?: string
+          _isClosingTag?: boolean
         }
         const defaultTag = htmlNode.tag || 'div'
         const tag = util.getTag(defaultTag, overrides)
         const overrideProps = util.getOverrideProps(defaultTag, overrides)
         var attrsStr: string
-        if (htmlNode.rawAttrs !== undefined) {
+        if (htmlNode._rawAttrs !== undefined) {
           // Keep raw attributes as-is but ensure leading space for valid HTML
-          const rawAttrsValue = htmlNode.rawAttrs
+          const rawAttrsValue = htmlNode._rawAttrs
           // rawAttrs often starts with whitespace from the original HTML, preserve that
           // If it doesn't start with whitespace but has content, add a space
           const needsLeadingSpace = rawAttrsValue.length > 0 && 
@@ -456,16 +456,16 @@ export function astToHTML(
           attrsStr = formatAttributes(mergeAttrs(htmlNode.attrs, overrideProps))
         }
         if (options.tagfilter && util.shouldFilterTag(tag)) {
-          return htmlNode.isClosingTag
+          return htmlNode._isClosingTag
             ? `&lt;/${tag}>`
             : `&lt;${tag}${attrsStr}>`
         }
-        if (htmlNode.rawText) {
-          if (htmlNode.verbatim) {
+        if (htmlNode._rawText) {
+          if (htmlNode._verbatim) {
             var textContent = options.tagfilter
-              ? util.applyTagFilterToText(htmlNode.rawText)
-              : htmlNode.rawText
-            if (htmlNode.isClosingTag) return `</${tag}>${textContent}`
+              ? util.applyTagFilterToText(htmlNode._rawText)
+              : htmlNode._rawText
+            if (htmlNode._isClosingTag) return `</${tag}>${textContent}`
             var tagLower = tag.toLowerCase()
             var isType1Block =
               tagLower === 'pre' ||
@@ -473,20 +473,20 @@ export function astToHTML(
               tagLower === 'style' ||
               tagLower === 'textarea'
             if (isType1Block) {
-              var textLen = htmlNode.rawText.length
+              var textLen = htmlNode._rawText.length
               var textStart = 0
               while (
                 textStart < textLen &&
-                htmlNode.rawText.charCodeAt(textStart) === $.CHAR_SPACE
+                htmlNode._rawText.charCodeAt(textStart) === $.CHAR_SPACE
               )
                 textStart++
               if (
                 textStart < textLen &&
-                htmlNode.rawText.charCodeAt(textStart) === $.CHAR_LT
+                htmlNode._rawText.charCodeAt(textStart) === $.CHAR_LT
               ) {
-                var openingTagEnd = htmlNode.rawText.indexOf('>', textStart)
+                var openingTagEnd = htmlNode._rawText.indexOf('>', textStart)
                 if (openingTagEnd !== -1) {
-                  var rawOpeningTag = htmlNode.rawText.slice(
+                  var rawOpeningTag = htmlNode._rawText.slice(
                     textStart,
                     openingTagEnd + 1
                   )
@@ -506,7 +506,7 @@ export function astToHTML(
                       .slice(tagStart, tagEnd)
                       .toLowerCase()
                     if (foundTag === tagLower) {
-                      var innerText = htmlNode.rawText.slice(openingTagEnd + 1)
+                      var innerText = htmlNode._rawText.slice(openingTagEnd + 1)
                       return (
                         rawOpeningTag +
                         (options.tagfilter
@@ -518,12 +518,12 @@ export function astToHTML(
                 }
               }
               var closingTag = '</' + tagLower + '>'
-              var hasClosingTag = htmlNode.rawText.indexOf(closingTag) !== -1
+              var hasClosingTag = htmlNode._rawText.indexOf(closingTag) !== -1
               return hasClosingTag
                 ? `<${tag}${attrsStr}>${textContent}`
                 : `<${tag}${attrsStr}>${textContent}</${tag}>`
             }
-            var trimmed = htmlNode.rawText.trim()
+            var trimmed = htmlNode._rawText.trim()
             if (trimmed.length > 0 && trimmed.charCodeAt(0) === $.CHAR_LT) {
               var secondCharCode = trimmed.charCodeAt(1)
               // Check if second char is a letter (a-z or A-Z) - valid HTML tag name start
@@ -568,14 +568,21 @@ export function astToHTML(
             return `<${tag}${attrsStr}>${trimmedStart > 0 ? textContent.slice(trimmedStart) : trimmed ? textContent : ''}`
           }
           var textContent = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode.rawText)
-            : htmlNode.rawText
+            ? util.applyTagFilterToText(htmlNode._rawText)
+            : htmlNode._rawText
           return `<${tag}${attrsStr}>${textContent}</${tag}>`
+        }
+        // For multi-line attributes (rawAttrs contains newlines), preserve rawText formatting
+        if (htmlNode._rawAttrs && htmlNode._rawAttrs.includes('\n') && htmlNode._rawText) {
+          var rawTextContent = options.tagfilter
+            ? util.applyTagFilterToText(htmlNode._rawText)
+            : htmlNode._rawText
+          return `<${tag}${attrsStr}>${rawTextContent}</${tag}>`
         }
         const children = htmlNode.children
           ? astToHTML(htmlNode.children, updatedOptions)
           : ''
-        if (htmlNode.isClosingTag) return `</${tag}>${children}`
+        if (htmlNode._isClosingTag) return `</${tag}>${children}`
         return children.trim()
           ? `<${tag}${attrsStr}>${children}</${tag}>`
           : `<${tag}${attrsStr}>${children}`
@@ -583,17 +590,17 @@ export function astToHTML(
 
       case RuleType.htmlSelfClosing: {
         const htmlNode = node as MarkdownToJSX.HTMLSelfClosingNode & {
-          rawText?: string
-          isClosingTag?: boolean
+          _rawText?: string
+          _isClosingTag?: boolean
         }
         const defaultTag = htmlNode.tag || 'div'
         const tag = util.getTag(defaultTag, overrides)
-        if (htmlNode.rawText) {
+        if (htmlNode._rawText) {
           return options.tagfilter && util.shouldFilterTag(tag)
-            ? htmlNode.rawText.replace(/^</, '&lt;')
-            : htmlNode.rawText
+            ? htmlNode._rawText.replace(/^</, '&lt;')
+            : htmlNode._rawText
         }
-        if (htmlNode.isClosingTag) return `</${tag}>`
+        if (htmlNode._isClosingTag) return `</${tag}>`
         const overrideProps = util.getOverrideProps(defaultTag, overrides)
         const mergedAttrs = mergeAttrs(htmlNode.attrs, overrideProps)
         const attrsStr = formatAttributes(mergedAttrs)

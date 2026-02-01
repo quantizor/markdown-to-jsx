@@ -3,7 +3,7 @@
   "description": "A very fast and versatile markdown toolchain. AST, React, React Native, SolidJS, Vue, Markdown, and HTML output available with full customization.",
   "homepage": "https://markdown-to-jsx.quantizor.dev",
   "license": "MIT",
-  "version": "9.5.7",
+  "version": "9.6.1",
   "publishConfig": {
     "access": "public",
     "mangle": {
@@ -51,8 +51,14 @@
     "#entities": {
       "bun": "./src/entities.generated.ts",
       "browser": {
-        "types": "./dist/entities.browser.d.ts",
-        "default": "./dist/entities.browser.js"
+        "import": {
+          "types": "./dist/entities.browser.d.ts",
+          "default": "./dist/entities.browser.js"
+        },
+        "require": {
+          "types": "./dist/entities.browser.d.cts",
+          "default": "./dist/entities.browser.cjs"
+        }
       },
       "require": {
         "types": "./dist/entities.generated.d.cts",
@@ -168,7 +174,7 @@
     "in-publish": "^2.0.1",
     "jsdom": "^27.4.0",
     "markdown-it": "^14.0.0",
-    "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.5.7",
+    "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.6.1",
     "marked": "^17.0.0",
     "microbundle": "^0.15.1",
     "microtime": "^3.1.1",
@@ -228,7 +234,7 @@
     "entities": "bun scripts/generate-entities.ts",
     "fixture": "bun scripts/generate-fixture.ts",
     "metrics": "bun --expose-gc scripts/metrics.ts",
-    "profile": "bun --cpu-prof --expose-gc scripts/profile.ts",
+    "profile": "bun --cpu-prof --expose-gc --cpu-prof-md scripts/profile.ts",
     "bench": "bun --expose-gc scripts/benchmark.ts",
     "analyze": "bun scripts/analyze-patterns.ts",
     "bench:all": "bun scripts/benchmark.ts --all",

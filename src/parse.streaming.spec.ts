@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { parser } from './parse'
+import { parser } from './parse-compact'
 import { compiler as htmlCompiler } from './html'
 
 describe('Streaming optimization - inline code', () => {

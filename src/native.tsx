@@ -9,11 +9,11 @@ import type {
 } from 'react-native'
 import { Image, Linking, Text, View } from 'react-native'
 import * as $ from './constants'
-import * as parse from './parse'
+import * as parse from './parse-compact'
 import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
 
-export { parser } from './parse'
+export { parser } from './parse-compact'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
@@ -250,18 +250,18 @@ function render(
       const htmlNode = node as MarkdownToJSX.HTMLNode
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
         const tagText =
-          'rawText' in htmlNode && typeof htmlNode.rawText === 'string'
-            ? htmlNode.rawText
+          typeof htmlNode._rawText === 'string'
+            ? htmlNode._rawText
             : `<${htmlNode.tag}>`
         return h(Text, { key: state.key }, tagText)
       }
 
-      if (htmlNode.rawText && htmlNode.verbatim) {
+      if (htmlNode._rawText && htmlNode._verbatim) {
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
 
-        if (isType1Block && !/<[a-z][^>]{0,100}>/i.test(htmlNode.rawText)) {
-          let textContent = htmlNode.rawText.replace(
+        if (isType1Block && !/<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)) {
+          let textContent = htmlNode._rawText.replace(
             new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
             ''
           )
@@ -275,10 +275,10 @@ function render(
           )
         }
 
-        if (/<\/?pre\b/i.test(htmlNode.rawText)) {
+        if (/<\/?pre\b/i.test(htmlNode._rawText)) {
           const innerHtml = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode.rawText)
-            : htmlNode.rawText
+            ? util.applyTagFilterToText(htmlNode._rawText)
+            : htmlNode._rawText
           return h(Text, { key: state.key, style: styles.codeBlock }, innerHtml)
         }
 
@@ -287,13 +287,8 @@ function render(
           node: MarkdownToJSX.ASTNode
         ): MarkdownToJSX.ASTNode[] {
           if (
-            node.type === RuleType.htmlSelfClosing &&
-            'isClosingTag' in node &&
-            (
-              node as MarkdownToJSX.HTMLSelfClosingNode & {
-                isClosingTag?: boolean
-              }
-            ).isClosingTag
+            (node.type === RuleType.htmlSelfClosing || node.type === RuleType.htmlBlock) &&
+            node._isClosingTag
           ) {
             return []
           }
@@ -330,7 +325,7 @@ function render(
         }
 
         // Fallback to re-parsing rawText if children not available (edge case)
-        const cleanedText = htmlNode.rawText
+        const cleanedText = htmlNode._rawText
           .replace(/>\s+</g, '><')
           .replace(/\n+/g, ' ')
           .trim()
@@ -372,8 +367,8 @@ function render(
       const htmlNode = node as MarkdownToJSX.HTMLSelfClosingNode
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
         const tagText =
-          'rawText' in htmlNode && typeof htmlNode.rawText === 'string'
-            ? htmlNode.rawText
+          typeof htmlNode._rawText === 'string'
+            ? htmlNode._rawText
             : `<${htmlNode.tag} />`
         return h(Text, { key: state.key }, tagText)
       }

@@ -2,22 +2,82 @@ You are maintaining markdown-to-jsx, a TypeScript-based toolchain containing an 
 
 See README.md for the primary library documentation.
 
+## Agent Rules
+
+- never git push code that is broken or failing tests, 100% passing tests are required as a quality gate before committing
+- Use conventional commit syntax
+- Do not create summary documents, deliver a concise summary in the chat when appropriate.
+- Do not create helper functions unless there are at least two instances of the same pattern and overall LOC is reduced
+- Follow through on each refactor to its end, including cleanup of unused code (cleanup should be a separate TODO item)
+- Consider the following dimensions when authoring or refactoring code:
+  - Algorithmic Complexity: Optimize time (e.g., O(n) vs O(n²)) and space usage in loops, recursion, and data processing.
+  - Data Structures: Use efficient types like Arrays for ordered data, Maps/Sets for lookups, avoiding slow object key iterations.
+  - Function Overhead: Minimize deep recursion, excessive closures, or higher-order functions that create unnecessary scopes.
+  - Memory Management: Prevent leaks via weak references (WeakMap/WeakSet), timely nulling variables, and reducing object allocations.
+  - Garbage Collection: Avoid frequent allocations/deallocations that trigger GC pauses; use object pooling for reusables.
+  - Asynchronous Efficiency: Leverage Promises, async/await, or generators to avoid callback hell and unnecessary awaits in loops.
+  - Event Loop Blocking: Keep synchronous code short; offload heavy tasks to Web Workers or setTimeout for non-blocking.
+  - DOM Interactions: Batch updates (e.g., via DocumentFragment), minimize reflows/repaints, use virtual DOM in frameworks.
+  - Rendering Performance: Debounce/throttle event handlers, optimize CSS selectors, and use requestAnimationFrame for animations.
+  - Network I/O: Cache responses (Service Workers, localStorage), minimize requests, compress data, and use lazy loading.
+  - Parsing and Execution: Reduce code size via minification/tree-shaking, avoid eval(), and optimize regex patterns.
+  - Dependency Management: Limit third-party libraries, use tree-shakable imports, and profile for bottlenecks.
+  - Browser-Specific Quirks: Handle engine differences (e.g., V8 optimizations for hot paths), test on target environments.
+- When writing commit messages and changesets, speak in general terms, not specific implementation details. Keep language concise and to the point.
+- When writing commit messages on public code, focus on the user-facing change; how does this change benefit them? Ensure that noteworthy public changes and bugfixes have a changeset.
+- When writing commit messages on private/infra code, focus on the technical change; how does this change benefit the codebase?
+- Optimize new rules for token efficiency: no bold/emphasis, headers, and stylistic formatting, concise/compact and highly-specific language
+- Remove examples unless critical for understanding
+- Prefer abbreviations and acronyms when unambiguous
+- Use minimal punctuation, only where necessary for clarity
+- Remove meta-commentary about the rule itself
+- Focus on actionable directives, not explanations
+- Test assertions may only have a single possible result.
+- Test assertions should cover both the content and shape of the result.
+- Renderer suites should focus exclusively on renderer behavior, with the parser suite handling common parsing scenarios.
+- 80% or greater cumulative coverage is required.
+- Tests should always assert a specific result shape, generic existence checks like `toBeTruthy()` or `toBeDefined()` are not allowed.
+- Add tests to existing test files rather than creating new ones.
+- Inline snapshots are preferred for parser output tests instead of many small assertions against the structure of the AST.
+
 ## Repository Configuration
 
 - Use `bun` instead of `npm`. Use `bunx` instead of `npx`.
 - The repository uses bun package manager and the bun test runner.
 - The `scripts/metrics.ts` script accepts a `--target` parameter to measure performance across different entry points: `parser`, `react`, `react-native`, `html`, or `solid` (defaults to `parser`).
 
+## Coding Style
+
+- Prefer `$.CHAR_*` constants from `src/constants.ts` over raw char code numbers for readability (e.g., `$.CHAR_SPACE` instead of `32`)
+
+## Parser Performance
+
+- Never use unbounded `indexOf`/`lastIndexOf`/`includes` in loops; always bound searches to the relevant range (e.g., current line end). Unbounded searches on large documents cause O(n*m) when called per-block/paragraph.
+- Avoid nested quantifiers in regexes (e.g., `(\s*-+\s*)*`); these create exponential backtracking (ReDoS). Prefer charCode-based validators for hot-path patterns.
+- Use segment-tracking (`segStart`/`segEnd` indices, slice once) instead of char-by-char string concat (`out += s[i]`). Single-char concat dominates CPU on large inputs.
+- Avoid `.split()`, `.match()`, `.slice()` inside tight loops; prefer charCode walks that extract results in a single pass.
+- Profile with the largest benchmark input (`gfm-spec.md`, 211KB) to catch O(n*m) issues that only manifest at scale. Use `bun profile` to identify hot lines.
+- In Bun/JSC, string `+=` (rope concat) is faster than array-push + join for small/medium segments; only use array-join when building very large strings with many pieces.
+
 ## Library Priorities
 
-The priorities of this library are bundle size, performance, and functionality in that order. Optimize code for best minification and tree shaking. Always prefer ES5 syntax when writing code to ensure the fastest implementation is used by the underlying JS engine.
+The priorities of this library are **correctness, speed, and small output size** in that order. Pursue these goals in sequence - correctness first, then performance, then bundle size optimization. Optimize code for best minification and tree shaking. Always prefer ES5 syntax when writing code to ensure the fastest implementation is used by the underlying JS engine.
 
 ## Testing Workflow
 
+- **There is no time limit for agent tasks.** Work until the task is complete.
+- **The main branch always has a 100% pass rate.** Broken tests are always due to changes in the current branch, not the test suite itself.
+- Always use a 5s timeout when running tests (e.g., `timeout 5 bun test`). Never increase this timeout; the full suite executes within 500ms. If tests hang, it indicates an infinite loop or regression in the code being changed, not a need for more time.
 - Run `bun test` after each set of changes to ensure no regressions (currently 100% passing)
 - Use `bun metrics` (run 3x) to check parser performance when changing library code
 - Use `bun metrics` for quick parse speed analysis
 - **Use inline snapshots (`toMatchInlineSnapshot()`) for parser, HTML compiler, and markdown compiler tests.** This makes test output explicit and easy to review. Avoid individual assertions like `expect(x).toBe(y)` when the full output can be captured in a snapshot.
+
+### Debugging Failing Compiler Tests
+
+- **When working on difficult failing compiler tests, individually isolate them and validate parser output first before going on to debug the compiler.** This helps distinguish between parser bugs and compiler bugs.
+- **Add debug logging as needed to trace the behavior of the library.** Clean up debug logs only at the final end of the process after all tests are passing.
+- **Do not create summaries after working on a task unless explicitly directed by the user.**
 
 ## Commit Workflow
 
