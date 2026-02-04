@@ -1,6 +1,6 @@
 [install]
-minimumReleaseAge = 259200                             # 3d
-minimumReleaseAgeExcludes = ["markdown-to-jsx-latest"]
+minimumReleaseAge = 259200                      # 3d
+minimumReleaseAgeExcludes = ["markdown-to-jsx"]
 
 [run]
 bun = true
