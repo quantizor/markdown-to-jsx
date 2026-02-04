@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
     "allowImportingTsExtensions": true,
-    "allowSyntheticDefaultImports": true,
     "declaration": true,
     // Disable because enabling this option can also force consuming libraries to enable it
     "esModuleInterop": false,
@@ -10,7 +9,13 @@
     "module": "ESNext",
     "moduleResolution": "node",
     "noEmit": true,
+    "outDir": "./dist",
+    "paths": {
+      "markdown-to-jsx/entities": ["./src/entities.generated.ts"]
+    },
     "preserveConstEnums": true,
     "target": "ESNext"
   },
+  "files": ["src/index.tsx"],
+  "exclude": ["**/*.spec.ts", "**/*.spec.tsx"]
 }

@@ -19,15 +19,12 @@ import SimpleMarkdown from 'simple-markdown'
 import Benchmark from 'benchmark'
 import { marked } from 'marked'
 import * as prod from 'react/jsx-runtime'
-import { compiler, parser } from '../dist/react.js'
+import { compiler, parser } from 'markdown-to-jsx/react'
+import { compiler as htmlCompiler } from 'markdown-to-jsx/html'
 
 const { version: latestVersion } = JSON.parse(
   fs.readFileSync(
-    path.join(
-      import.meta.dirname,
-      '..',
-      'node_modules/markdown-to-jsx-latest/package.json'
-    ),
+    require.resolve('markdown-to-jsx-latest/package.json'),
     'utf8'
   )
 )
@@ -36,11 +33,11 @@ const mdIt = new MarkdownIt()
 const suite = new BenchTable('markdown-to-jsx benchmark')
 
 const fixture = fs.readFileSync(
-  path.join(import.meta.dirname, '..', './src/markdown-spec.md'),
+  path.join(import.meta.dirname, '..', 'lib/src/markdown-spec.md'),
   'utf8'
 )
 const largeFixture = fs.readFileSync(
-  path.join(import.meta.dirname, '..', './src/gfm-spec.md'),
+  path.join(import.meta.dirname, '..', 'lib/src/gfm-spec.md'),
   'utf8'
 )
 
@@ -137,10 +134,14 @@ const jsxTests = [
 
 const htmlTests = [
   (isAll || isHtml) && {
+    name: 'markdown-to-jsx (next) [html]',
+    fn: input => htmlCompiler(input),
+  },
+  (isAll || isHtml) && {
     name: 'Bun.markdown [html]',
     fn: input => Bun.markdown.html(input),
   },
-  isAll && {
+  (isAll || isHtml) && {
     name: 'markdown-it [html]',
     fn: input => mdIt.render(input),
   },

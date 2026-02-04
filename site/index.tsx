@@ -2,13 +2,13 @@ import TeX from '@matejmazur/react-katex'
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 
-import Markdown, { MarkdownToJSX, RuleType } from './src/react'
-import { presets, type Preset } from './src/site/presets'
-import { LANGUAGES, SUPPORTED_LANGUAGES } from './src/i18n/languages'
-import { UI_STRINGS } from './src/i18n/ui-strings'
+import Markdown, { MarkdownToJSX, RuleType } from '../lib/src/react'
+import { presets, type Preset } from './presets'
+import { LANGUAGES, SUPPORTED_LANGUAGES } from '../lib/src/i18n/languages'
+import { UI_STRINGS } from '../lib/src/i18n/ui-strings'
 
 const LavaLamp = React.lazy(() =>
-  import('./src/site/lava-lamp').then(m => ({ default: m.LavaLamp }))
+  import('./lava-lamp').then(m => ({ default: m.LavaLamp }))
 )
 
 declare global {
@@ -406,20 +406,20 @@ function TryItLive() {
     const loadI18nFiles = async () => {
       try {
         const module = await import(
-          `./src/i18n/${lang}/default-template.md?raw`
+          `../lib/src/i18n/${lang}/default-template.md?raw`
         )
         setMarkdown(module.default)
       } catch (error) {
-        const module = await import(`./src/i18n/en/default-template.md?raw`)
+        const module = await import(`../lib/src/i18n/en/default-template.md?raw`)
         setMarkdown(module.default)
       }
 
       try {
-        const module = await import(`./src/i18n/${lang}/README.md?raw`)
+        const module = await import(`../lib/src/i18n/${lang}/README.md?raw`)
         setReadmeContent(module.default)
         dispatchStreaming({ type: 'RESET' })
       } catch (error) {
-        const module = await import(`./src/i18n/en/README.md?raw`)
+        const module = await import(`../lib/src/i18n/en/README.md?raw`)
         setReadmeContent(module.default)
         dispatchStreaming({ type: 'RESET' })
       }
@@ -631,7 +631,7 @@ function TryItLive() {
       <div className="relative group max-w-full lg:max-w-2xl w-full">
         {lang !== 'en' && (
           <a
-            href={`https://github.com/quantizor/markdown-to-jsx/edit/main/src/i18n/${lang}/README.md`}
+            href={`https://github.com/quantizor/markdown-to-jsx/edit/main/lib/src/i18n/${lang}/README.md`}
             target="_blank"
             rel="noopener noreferrer"
             className="absolute -top-8 right-0 text-[10px] text-accent/50 hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity no-underline"

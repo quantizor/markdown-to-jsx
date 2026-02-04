@@ -12,10 +12,10 @@ export const presets: Preset[] = [
     descriptionKey: 'presetGfmDesc',
     load: async (lang: string) => {
       try {
-        const module = await import(`../i18n/${lang}/gfm-spec.md?raw`)
+        const module = await import(`../lib/src/i18n/${lang}/gfm-spec.md?raw`)
         return module.default
       } catch {
-        const fallback = await import('../i18n/en/gfm-spec.md?raw')
+        const fallback = await import('../lib/src/i18n/en/gfm-spec.md?raw')
         return fallback.default
       }
     },
@@ -26,10 +26,10 @@ export const presets: Preset[] = [
     descriptionKey: 'presetMarkdownDesc',
     load: async (lang: string) => {
       try {
-        const module = await import(`../i18n/${lang}/markdown-spec.md?raw`)
+        const module = await import(`../lib/src/i18n/${lang}/markdown-spec.md?raw`)
         return module.default
       } catch {
-        const fallback = await import('../i18n/en/markdown-spec.md?raw')
+        const fallback = await import('../lib/src/i18n/en/markdown-spec.md?raw')
         return fallback.default
       }
     },
