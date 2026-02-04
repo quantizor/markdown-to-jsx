@@ -296,23 +296,39 @@ export function isAlnumCode(code: number): boolean {
  * @lang hi @returns URL-सुरक्षित slug
  */
 export function slugify(str: string): string {
-  var parts: string[] = []
+  var out = ''
+  var segStart = -1
   for (var i = 0; i < str.length; i++) {
     var code = str.charCodeAt(i)
     if (isAlnumCode(code)) {
       if (code >= $.CHAR_A && code <= $.CHAR_Z) {
-        parts.push(String.fromCharCode(code + $.CHAR_CASE_OFFSET))
+        // Uppercase: flush segment, emit lowercase char
+        if (segStart >= 0) {
+          out += str.slice(segStart, i)
+          segStart = -1
+        }
+        out += String.fromCharCode(code + $.CHAR_CASE_OFFSET)
       } else {
-        parts.push(str[i])
+        // Lowercase alnum: extend current segment
+        if (segStart < 0) segStart = i
       }
     } else if (code === $.CHAR_SPACE || code === $.CHAR_DASH) {
-      parts.push('-')
+      if (segStart >= 0) {
+        out += str.slice(segStart, i)
+        segStart = -1
+      }
+      out += '-'
     } else {
+      if (segStart >= 0) {
+        out += str.slice(segStart, i)
+        segStart = -1
+      }
       var replacement = slugifyReplaceTable[code]
-      if (replacement) parts.push(replacement)
+      if (replacement) out += replacement
     }
   }
-  return parts.join('')
+  if (segStart >= 0) out += str.slice(segStart)
+  return out
 }
 
 /**
