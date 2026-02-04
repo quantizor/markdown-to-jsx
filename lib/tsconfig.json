@@ -14,6 +14,7 @@
       "markdown-to-jsx/entities": ["./src/entities.generated.ts"]
     },
     "preserveConstEnums": true,
+    "skipLibCheck": true,
     "target": "ESNext"
   },
   "files": ["src/index.tsx"],

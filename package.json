@@ -1,5 +1,5 @@
 {
-  "name": "markdown-to-jsx-root",
+  "name": "@markdown-to-jsx/root",
   "private": true,
   "type": "module",
   "workspaces": [
