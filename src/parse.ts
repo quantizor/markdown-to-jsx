@@ -33,7 +33,7 @@ type ASTNodeWithChildren = Extract<MarkdownToJSX.ASTNode, { children: MarkdownTo
 
 // Regex exports
 export const HTML_BLOCK_ELEMENT_START_R_ATTR: RegExp =
-  /^<([a-zA-Z][a-zA-Z0-9-]*)\s+[^>]*>/
+  /^<([a-zA-Z][a-zA-Z0-9-]*)\s[^>]*>/
 export const UPPERCASE_TAG_R: RegExp = /^<[A-Z]/
 // HTML Type 1 tags (raw HTML blocks) — CommonMark §4.6
 var TYPE1_TAG_LIST = ['script', 'pre', 'style', 'textarea']
@@ -4814,7 +4814,7 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
   if (opts.streaming || opts.optimizeForStreaming) {
     // Pattern: table at end with only header + separator (no data rows after)
     // Match: | header |\n| --- | followed by end of string or non-pipe line
-    const match = s.match(/(\|[^\n]+\n\|[\s\-:|]+\n?)$/)
+    const match = s.match(/(\|[^\n]+\n\|[ \t\-:|]+\n?)$/)
     if (match) {
       const tableText = match[1]
       const lines = tableText.split('\n').filter(l => l.trim() && l.includes('|'))
@@ -4845,7 +4845,7 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
     // Strip incomplete HTML tags at end of input (unclosed block-level tags)
     // Pattern: <tag>content at end without corresponding </tag>
     // But skip if the tag is inside a code span (backticks) or fenced code block
-    var htmlTagAtEnd = s.match(/<([a-zA-Z][a-zA-Z0-9]*)(?:\s[^>]*)?>([^<]*)$/)
+    var htmlTagAtEnd = s.match(/<([a-zA-Z][a-zA-Z0-9]*)[^>]*>([^<]*)$/)
     if (htmlTagAtEnd && htmlTagAtEnd.index !== undefined) {
       // Check if the match is inside backtick code spans
       var blockBtCount = 0

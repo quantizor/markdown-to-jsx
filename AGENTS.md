@@ -54,6 +54,9 @@ See README.md for the primary library documentation.
 
 - Never use unbounded `indexOf`/`lastIndexOf`/`includes` in loops; always bound searches to the relevant range (e.g., current line end). Unbounded searches on large documents cause O(n*m) when called per-block/paragraph.
 - Avoid nested quantifiers in regexes (e.g., `(\s*-+\s*)*`); these create exponential backtracking (ReDoS). Prefer charCode-based validators for hot-path patterns.
+- Never place two adjacent quantifiers over overlapping char classes (e.g., `\s+[^>]*`); use a fixed-count lead (e.g., `\s[^>]*`) or merge into one class (`[^>]*`).
+- Restrict `\s` to `[ \t]` when newlines are structurally invalid in the match (e.g., table separator lines); `\s` includes `\n` which causes cross-line backtracking.
+- Don't narrow a char class (e.g., `[^>]` → `[^\n>]`) to fix ReDoS if the pattern legitimately spans lines; restructure to eliminate quantifier overlap instead.
 - Use segment-tracking (`segStart`/`segEnd` indices, slice once) instead of char-by-char string concat (`out += s[i]`). Single-char concat dominates CPU on large inputs.
 - Avoid `.split()`, `.match()`, `.slice()` inside tight loops; prefer charCode walks that extract results in a single pass.
 - Profile with the largest benchmark input (`gfm-spec.md`, 211KB) to catch O(n*m) issues that only manifest at scale. Use `bun profile` to identify hot lines. The `--cpu-prof-md` flag produces a markdown-formatted profile (`CPU.*.md`) — prefer reading this file over parsing the raw `.cpuprofile` JSON.
