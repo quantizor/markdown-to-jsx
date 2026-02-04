@@ -29,21 +29,12 @@ describe('index.cjs.tsx exports', () => {
     expect(result).toMatchInlineSnapshot(`
       {
         "$$typeof": Symbol(react.transitional.element),
-        "_debugInfo": null,
-        "_debugStack": [Error: react-stack-top-frame],
-        "_debugTask": null,
-        "_owner": null,
-        "_store": {
-          "validated": 0,
-        },
         "key": "0",
         "props": {
           "children": [
             "Hello",
           ],
-          "className": undefined,
           "id": "hello",
-          "key": [native code],
         },
         "ref": null,
         "type": "h1",

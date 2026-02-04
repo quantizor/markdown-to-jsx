@@ -1435,20 +1435,12 @@ describe('arbitrary HTML', () => {
     expect(ast).toMatchInlineSnapshot(`
       {
         "$$typeof": Symbol(react.transitional.element),
-        "_debugInfo": null,
-        "_debugStack": [Error: react-stack-top-frame],
-        "_debugTask": null,
-        "_owner": null,
-        "_store": {
-          "validated": 0,
-        },
         "key": "0",
         "props": {
           "children": [
             "Hello",
           ],
           "className": "foo",
-          "key": [native code],
         },
         "ref": null,
         "type": "dd",
@@ -2359,7 +2351,7 @@ Yeah boi
     render(compiler('```\nfoo'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      "<pre><code>foo
+      "<pre><code class="">foo
       </code></pre>"
     `)
   })
@@ -2368,8 +2360,7 @@ Yeah boi
     render(compiler('```\n\\%\n```'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<pre><code>\\%</code></pre>"`
-    )
+      `"<pre><code class="">\\%</code></pre>"`)
   })
 })
 
@@ -2378,8 +2369,7 @@ describe('indented code blocks', () => {
     render(compiler('    foo\n\n'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<pre><code>foo</code></pre>"`
-    )
+      `"<pre><code class="">foo</code></pre>"`)
   })
 })
 
@@ -2595,40 +2585,22 @@ describe('options.wrapper', () => {
       [
         {
           "$$typeof": Symbol(react.transitional.element),
-          "_debugInfo": null,
-          "_debugStack": [Error: react-stack-top-frame],
-          "_debugTask": null,
-          "_owner": null,
-          "_store": {
-            "validated": 0,
-          },
           "key": "0",
           "props": {
             "children": [
               "Hello",
             ],
-            "className": undefined,
-            "key": [native code],
           },
           "ref": null,
           "type": "p",
         },
         {
           "$$typeof": Symbol(react.transitional.element),
-          "_debugInfo": null,
-          "_debugStack": [Error: react-stack-top-frame],
-          "_debugTask": null,
-          "_owner": null,
-          "_store": {
-            "validated": 0,
-          },
           "key": "1",
           "props": {
             "children": [
               "world!",
             ],
-            "className": undefined,
-            "key": [native code],
           },
           "ref": null,
           "type": "p",
@@ -3052,7 +3024,7 @@ it('correctly parses YAML front matter inside a code block', () => {
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(`
-    "<pre><code>---
+    "<pre><code class="">---
     key: value
     other_key: different value
     ---
