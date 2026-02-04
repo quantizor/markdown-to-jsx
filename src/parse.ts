@@ -604,6 +604,8 @@ CC[$.CHAR_BRACE_CLOSE] = C_PUNCT  // }
 
 /** Check if string contains unescaped [ or ] */
 function hasUnescapedBracket(s: string): boolean {
+  // Fast rejection: if no brackets at all, skip the escaping check
+  if (s.indexOf('[') < 0 && s.indexOf(']') < 0) return false
   for (var i = 0; i < s.length; i++) {
     if (s.charCodeAt(i) === $.CHAR_BACKSLASH) { i++; continue } // skip escaped char
     if (s.charCodeAt(i) === $.CHAR_BRACKET_OPEN || s.charCodeAt(i) === $.CHAR_BRACKET_CLOSE) return true
@@ -3171,21 +3173,16 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: P
 /** Parse inline with hard line break support */
 function parseInlineWithBreaks(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: ParseOptions): MarkdownToJSX.ASTNode[] {
   // Fast path: if no newlines in range, skip break processing entirely
-  var hasNewline = false
-  for (var ni = p; ni < e; ni++) {
-    if (s.charCodeAt(ni) === $.CHAR_NEWLINE) { hasNewline = true; break }
-  }
-  if (!hasNewline) {
+  // Use indexOf bounded to [p, e) — faster than a charCode loop for this check
+  var firstNL = s.indexOf('\n', p)
+  if (firstNL < 0 || firstNL >= e) {
     return parseInline(s, p, e, state, opts)
   }
 
-  // Segment-tracking approach: accumulate clean segments, only allocate when
-  // we need to insert break markers or modify code span content.
-  // This avoids O(n) rope concatenations for most paragraphs.
-  var parts: string[] = []
+  // Rope concat (faster in JSC than array-push + join for small/medium segments)
+  var out = ''
   var segStart = p
   var i = p
-  var hasModifications = false // Track if we made any real changes (hard breaks, code span newlines)
 
   while (i < e) {
     var ch = s.charCodeAt(i)
@@ -3200,11 +3197,9 @@ function parseInlineWithBreaks(s: string, p: number, e: number, state: MarkdownT
           if (s.charCodeAt(ci) === $.CHAR_NEWLINE) { hasCSNewline = true; break }
         }
         if (hasCSNewline) {
-          // Flush preceding segment, then add code span with newlines→spaces
-          parts.push(s.slice(segStart, i))
-          parts.push(s.slice(i, csEnd).replace(/\n/g, ' '))
+          out += s.slice(segStart, i)
+          out += s.slice(i, csEnd).replace(/\n/g, ' ')
           segStart = csEnd
-          hasModifications = true
         }
         i = csEnd
         continue
@@ -3222,17 +3217,13 @@ function parseInlineWithBreaks(s: string, p: number, e: number, state: MarkdownT
 
     // Check for newline
     if (ch === $.CHAR_NEWLINE) {
-      // Determine hard vs soft break by checking chars before newline
       var isHard = false
       var trimBack = 0
 
-      // Check for backslash before newline
       if (i > p && s.charCodeAt(i - 1) === $.CHAR_BACKSLASH) {
         isHard = true
         trimBack = 1
-      }
-      // Check for 2+ spaces before newline
-      else {
+      } else {
         var spCount = 0
         var j = i - 1
         while (j >= p && s.charCodeAt(j) === $.CHAR_SPACE) { spCount++; j-- }
@@ -3243,13 +3234,10 @@ function parseInlineWithBreaks(s: string, p: number, e: number, state: MarkdownT
       }
 
       if (isHard) {
-        // Flush segment up to (but not including) trailing spaces/backslash
-        parts.push(s.slice(segStart, i - trimBack))
-        parts.push('\u001F')
-        hasModifications = true
+        out += s.slice(segStart, i - trimBack)
+        out += '\u001F'
       } else {
-        // Soft break — keep as newline
-        parts.push(s.slice(segStart, i + 1))
+        out += s.slice(segStart, i + 1)
       }
       // Skip leading whitespace on next line
       i++
@@ -3261,20 +3249,11 @@ function parseInlineWithBreaks(s: string, p: number, e: number, state: MarkdownT
     i++
   }
 
-  // If no modifications were made, use original string range directly
-  if (parts.length === 0) {
-    return parseInline(s, p, e, state, opts)
-  }
-
   // Flush remaining segment
   if (segStart < e) {
-    parts.push(s.slice(segStart, e))
+    out += s.slice(segStart, e)
   }
 
-  // When only soft breaks (no hard breaks or code span newlines), the parts
-  // are contiguous slices with leading-whitespace-after-newline already stripped.
-  // A single join is needed to combine the segments.
-  var out = parts.join('')
   return parseInline(out, 0, out.length, state, opts)
 }
 
@@ -3290,10 +3269,10 @@ function scanCodeSpan(s: string, p: number, e: number): ScanResult {
   const openLen = countChar(s, p, e, 96)
   let i = p + openLen
 
-  // Find matching closing backticks
+  // Find matching closing backticks (bounded to [i, e))
   while (i < e) {
     const j = s.indexOf('`', i)
-    if (j < 0) return null
+    if (j < 0 || j >= e) return null
 
     const closeLen = countChar(s, j, e, 96)
     if (closeLen === openLen) {
@@ -3328,7 +3307,7 @@ function skipCodeSpan(s: string, i: number, e: number): number {
   let j = i + openLen
   while (j < e) {
     const k = s.indexOf('`', j)
-    if (k < 0) return i // no close found, not a valid code span
+    if (k < 0 || k >= e) return i // no close found within range
     const closeLen = countChar(s, k, e, 96)
     if (closeLen === openLen) return k + closeLen // return position after code span
     j = k + closeLen
@@ -3760,6 +3739,10 @@ function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, o
   const start = isImage ? p + 1 : p
 
   if (s.charCodeAt(start) !== $.CHAR_BRACKET_OPEN) return null // [
+
+  // Fast rejection: if no ] in range, no valid link possible
+  var closeBracket = s.indexOf(']', start + 1)
+  if (closeBracket < 0 || closeBracket >= e) return null
 
   // Find closing ] - skip code spans, HTML tags, and autolinks
   // Per CommonMark spec, we match brackets but don't nest them for link detection
@@ -4651,7 +4634,9 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
   var delimStack: DelimEntry[] = []
   let textStart = p
   // Pre-scan for @ position to avoid calling scanBareEmail on positions far before any @
-  var nextAtPos = s.indexOf('@', p)
+  // Skip scan entirely when autolinks are disabled or when in anchor context
+  var nextAtPos = (opts.disableAutoLink || opts.disableBareUrls || childState.inAnchor) ? -1 : s.indexOf('@', p)
+  if (nextAtPos >= e) nextAtPos = -1
 
   while (p < e) {
     const c = s.charCodeAt(p)
@@ -4724,9 +4709,10 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
     if (!result && nextAtPos >= 0 && nextAtPos - p <= 64 && !childState.inAnchor && !opts.disableAutoLink && !opts.disableBareUrls &&
         ((c >= $.CHAR_A && c <= $.CHAR_Z) || (c >= $.CHAR_a && c <= $.CHAR_z) || (c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9))) {
       result = scanBareEmail(s, p, e, opts)
-      // If we passed the @, advance to next one
+      // If we passed the @, advance to next one (bounded to [p+1, e))
       if (!result && p >= nextAtPos) {
         nextAtPos = s.indexOf('@', p + 1)
+        if (nextAtPos >= e) nextAtPos = -1
       }
     }
 
@@ -4961,12 +4947,13 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
   }
 
   while (p < e) {
-    // Skip blank lines, reuse lineEnd from last blank-check iteration
-    var le = lineEnd(s, p)
+    // Skip blank lines — inline lineEnd to avoid function call overhead on hot path
+    var _le = s.indexOf('\n', p)
+    var le = _le < 0 ? e : _le
     while (p < e) {
       if (!isBlank(s, p, le)) break
-      p = nextLine(s, le)
-      if (p < e) le = lineEnd(s, p)
+      p = le < e ? le + 1 : le
+      if (p < e) { _le = s.indexOf('\n', p); le = _le < 0 ? e : _le }
     }
     if (p >= e) break
 
@@ -5032,7 +5019,8 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
       p = result.end
     } else {
       // Skip line if nothing matched
-      p = nextLine(s, lineEnd(s, p))
+      var _skip = s.indexOf('\n', p)
+      p = _skip < 0 ? e : _skip + 1
     }
   }
 

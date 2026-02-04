@@ -56,7 +56,7 @@ See README.md for the primary library documentation.
 - Avoid nested quantifiers in regexes (e.g., `(\s*-+\s*)*`); these create exponential backtracking (ReDoS). Prefer charCode-based validators for hot-path patterns.
 - Use segment-tracking (`segStart`/`segEnd` indices, slice once) instead of char-by-char string concat (`out += s[i]`). Single-char concat dominates CPU on large inputs.
 - Avoid `.split()`, `.match()`, `.slice()` inside tight loops; prefer charCode walks that extract results in a single pass.
-- Profile with the largest benchmark input (`gfm-spec.md`, 211KB) to catch O(n*m) issues that only manifest at scale. Use `bun profile` to identify hot lines.
+- Profile with the largest benchmark input (`gfm-spec.md`, 211KB) to catch O(n*m) issues that only manifest at scale. Use `bun profile` to identify hot lines. The `--cpu-prof-md` flag produces a markdown-formatted profile (`CPU.*.md`) — prefer reading this file over parsing the raw `.cpuprofile` JSON.
 - In Bun/JSC, string `+=` (rope concat) is faster than array-push + join for small/medium segments; only use array-join when building very large strings with many pieces.
 
 ## Library Priorities
