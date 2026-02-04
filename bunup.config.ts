@@ -1,13 +1,37 @@
-import { defineConfig, BunupPlugin, DefineConfigItem } from 'bunup'
-import { removeDebugPlugin } from './scripts/build-plugins'
+import { defineConfig, type BunupPlugin, type DefineConfigItem } from 'bunup'
+import { transformSync } from 'esbuild'
+import { readFileSync, writeFileSync } from 'fs'
 
-const common = {
+function manglePropsPlugin(): BunupPlugin {
+  return {
+    name: 'mangle-props',
+    hooks: {
+      onBuildDone({ files }) {
+        for (var file of files) {
+          if (file.kind !== 'entry-point' && file.kind !== 'chunk') continue
+          if (!file.fullPath.endsWith('.js') && !file.fullPath.endsWith('.cjs')) continue
+
+          var code = readFileSync(file.fullPath, 'utf-8')
+          var result = transformSync(code, {
+            loader: 'js',
+            mangleProps: /^_/,
+            reserveProps: /__html/,
+            minifyWhitespace: true,
+            minifySyntax: true,
+          })
+          writeFileSync(file.fullPath, result.code)
+        }
+      },
+    },
+  }
+}
+
+var common = {
   define: {
     'process.env.NODE_ENV': '"production"',
-    'globalThis.parseMetrics': 'false',
   },
   minify: true,
-  plugins: [removeDebugPlugin() as unknown] as BunupPlugin[],
+  plugins: [manglePropsPlugin()],
   sourcemap: 'linked',
   splitting: false,
 } satisfies DefineConfigItem

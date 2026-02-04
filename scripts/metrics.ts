@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { performance } from 'perf_hooks'
-import { initializeParseMetrics, parser } from '../src/parse.ts'
+import { parser } from '../src/parse.ts'
 
 const WARMUP_ROUNDS = 50
 const SIGNIFICANCE_THRESHOLD = 2
@@ -97,133 +97,13 @@ global.gc()
 global.gc()
 process.stdout.write(' Done.\n\n')
 
-initializeParseMetrics()
-
 const t0 = performance.now()
 compiler(markdown)
 const t1 = performance.now()
 
-const m = global.parseMetrics
-if (!m) {
-  throw new Error('parseMetrics not initialized')
-}
-
 const isParserTarget = targetArg === 'parser'
-const metricsTitle = isParserTarget
-  ? 'MARKDOWN PARSING METRICS'
-  : 'MARKDOWN COMPILER METRICS'
 const timeLabel = isParserTarget ? 'Parse time' : 'Total time'
 
-const blockOrder = [
-  'blockQuote',
-  'breakThematic',
-  'codeBlock',
-  'codeFenced',
-  'footnote',
-  'frontmatter',
-  'heading',
-  'headingSetext',
-  'htmlBlock',
-  'htmlComment',
-  'listGfmTask',
-  'list',
-  'paragraph',
-  'table',
-]
-
-const inlineOrder = [
-  'breakLine',
-  'codeInline',
-  'escaped',
-  'formatting',
-  'footnoteRef',
-  'htmlComment',
-  'htmlElement',
-  'image',
-  'link',
-  'linkAngleBrace',
-  'linkBareUrl',
-  'linkEmail',
-  'linkRef',
-  'refImage',
-]
-
-const EMPTY_PARSER: { attempts: number; hits: number; hitTimings: number[] } = {
-  attempts: 0,
-  hits: 0,
-  hitTimings: [],
-}
-
-function calculateMedian(timings: number[]): number {
-  if (timings.length === 0) return 0
-  const sorted = timings.slice().sort((a, b) => a - b)
-  const mid = Math.floor(sorted.length / 2)
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1] + sorted[mid]) / 2
-    : sorted[mid]
-}
-
-function formatParser(name: string, data: typeof EMPTY_PARSER): string {
-  const attempts = data.attempts || 0
-  const hits = data.hits || 0
-  const hitPct = attempts > 0 ? ((hits / attempts) * 100).toFixed(2) : '0.00'
-  const missPct =
-    attempts > 0 ? (((attempts - hits) / attempts) * 100).toFixed(2) : '0.00'
-
-  const hitTimings = data.hitTimings || []
-  const medianHitTime = hitTimings.length > 0 ? calculateMedian(hitTimings) : 0
-
-  let result = `  ${name.padEnd(20)}Attempts:${String(attempts).padStart(7)} Hits:${String(hits).padStart(7)} (${hitPct}% hit, ${missPct}% miss)`
-
-  if (medianHitTime > 0) {
-    result += ` [median: ${(medianHitTime * 1000).toFixed(2)}μs]`
-  }
-
-  return result
-}
-
-function collectParserData(
-  order: string[],
-  parsers: Record<string, typeof EMPTY_PARSER>
-): Record<string, { attempts: number; hits: number }> {
-  const result: Record<string, { attempts: number; hits: number }> = {}
-  for (const name of order) {
-    const data = parsers[name] || EMPTY_PARSER
-    result[name] = { attempts: data.attempts, hits: data.hits }
-  }
-  return result
-}
-
-console.log('============================================================')
-console.log(metricsTitle)
-console.log(`Target: ${targetName}`)
-console.log('============================================================')
-console.log('')
-
-console.log('Block Parser Performance:')
-console.log('------------------------------------------------------------')
-for (const name of blockOrder) {
-  console.log(formatParser(name, m.blockParsers[name] || EMPTY_PARSER))
-}
-
-console.log('')
-console.log('Inline Parser Performance:')
-console.log('------------------------------------------------------------')
-for (const name of inlineOrder) {
-  console.log(formatParser(name, m.inlineParsers[name] || EMPTY_PARSER))
-}
-
-console.log('')
-console.log('Operation Counts:')
-console.log('------------------------------------------------------------')
-console.log(`  Total Operations:      ${String(m.totalOperations).padStart(6)}`)
-console.log(
-  `  Block Parse Iterations: ${String(m.blockParseIterations).padStart(6)}`
-)
-console.log(
-  `  Inline Parse Iterations: ${String(m.inlineParseIterations).padStart(6)}`
-)
-console.log('============================================================')
 console.log('==================================================')
 console.log(`Input size: ${Math.round(markdown.length / 1024)}KB`)
 console.log(`${timeLabel}: ${(t1 - t0).toFixed(2)}ms`)
@@ -234,13 +114,6 @@ const metricsData = {
   target: targetName,
   inputSize: Math.round(markdown.length / 1024),
   parseTime: +(t1 - t0).toFixed(2),
-  blockParsers: collectParserData(blockOrder, m.blockParsers),
-  inlineParsers: collectParserData(inlineOrder, m.inlineParsers),
-  operationCounts: {
-    totalOperations: m.totalOperations,
-    blockParseIterations: m.blockParseIterations,
-    inlineParseIterations: m.inlineParseIterations,
-  },
 }
 
 const baselinePath = path.join(import.meta.dirname, 'metrics.baseline.json')
@@ -291,42 +164,4 @@ if (baseline && !shouldUpdateBaseline) {
   console.log(
     `${timeLabel}: ${metricsData.parseTime}ms (${timeChange.symbol}${timeChange.colorCode}${timeChange.change}%${timeChange.resetCode})`
   )
-
-  console.log('\nOperation counts:')
-  Object.entries(metricsData.operationCounts).forEach(([key, value]) => {
-    const change = calcChange(value as number, baseline.operationCounts[key])
-    const displayKey = key.replace(/([A-Z])/g, ' $1').toLowerCase()
-    console.log(
-      `  ${displayKey}: ${(value as number).toLocaleString()} (${change.symbol}${change.colorCode}${change.change}%${change.resetCode})`
-    )
-  })
-
-  console.log('\nBlock parser changes:')
-  for (const name of blockOrder) {
-    const current = metricsData.blockParsers[name]
-    const baselineParser = baseline.blockParsers[name]
-
-    if (baselineParser && current.attempts > 0) {
-      const attemptChange = calcChange(
-        current.attempts,
-        baselineParser.attempts
-      )
-      const hitChangePercent =
-        current.hits > 0 && baselineParser.hits > 0
-          ? ((current.hits - baselineParser.hits) / baselineParser.hits) * 100
-          : null
-      const hitChange =
-        hitChangePercent !== null
-          ? calcChange(current.hits, baselineParser.hits)
-          : null
-
-      console.log(
-        `  ${name.padEnd(15)}: attempts ${attemptChange.symbol}${attemptChange.colorCode}${attemptChange.change}%${attemptChange.resetCode}, hits ${
-          hitChange
-            ? `${hitChange.symbol}${hitChange.colorCode}${hitChange.change}%${hitChange.resetCode}`
-            : 'N/A'
-        }`
-      )
-    }
-  }
 }

@@ -6,7 +6,6 @@ import theredoc from 'theredoc'
 import Markdown, {
   astToJSX,
   compiler,
-  htmlAttrsToVueProps,
   parser,
   RuleType,
   sanitizer,
@@ -45,6 +44,10 @@ function extractTextContent(
       typeof props.alt === 'string'
     ) {
       return props.alt
+    }
+    // Check innerHTML prop first (for verbatim blocks like pre/script)
+    if (props?.innerHTML !== undefined) {
+      return extractTextContent(props.innerHTML as VNode | VNode[] | string)
     }
     const children =
       props?.children !== undefined
@@ -385,19 +388,6 @@ describe('Vue-specific features', () => {
     expect(getVNodeType(result)).toBe('h1')
     expect(getProp(result, 'class')).toBe('custom-class')
     expect(getProp(result, 'className')).toBeUndefined()
-  })
-
-  it('should handle htmlAttrsToVueProps', () => {
-    const props = htmlAttrsToVueProps({ for: 'input-id', class: 'test' })
-    expect(props.htmlFor).toBe('input-id')
-    expect(props.class).toBe('test')
-  })
-
-  it('should handle case-insensitive attribute matching', () => {
-    const result = htmlAttrsToVueProps({ For: 'input-id', CLASS: 'test' })
-    expect(result.htmlFor).toBe('input-id')
-    expect(result.CLASS).toBe('test')
-    expect(result.For).toBeUndefined()
   })
 
   it('should handle component overrides', () => {

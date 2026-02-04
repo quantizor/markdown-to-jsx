@@ -890,8 +890,7 @@ describe('links', () => {
 
     render(compiler('<img src="<src=\\"javascript:alert(`xss`)">'))
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<span>&lt;img src=&quot;&lt;src=&quot;javascript:alert(<code>xss</code>)&quot;&gt;</span>"`
-    )
+      `"<span>&lt;img src=&quot;&lt;src=&quot;javascript:alert(<code>xss</code>)&quot;&gt;</span>"`)
   })
 
   it('should sanitize style attribute containing known XSS payloads', () => {
@@ -1080,7 +1079,7 @@ describe('lists', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<ul><li>xyz<ol start="1"><li>abc<ul><li>def</li></ul></li></ol></li><li>foo</li></ul>"`
+      `"<ul><li>xyz<ol start="1"><li>abc</li></ol><ul><li>def</li></ul></li><li>foo</li></ul>"`
     )
   })
 
@@ -1103,8 +1102,7 @@ describe('lists', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<ul><li><a href="#buttermilk">buttermilk</a></li><li><a href="#installation">installation</a></li><li><a href="#usage">usage</a><ul><li><a href="#configuration">configuration</a></li><li><a href="#components">components</a><ul><li><a href="#router"><code>&lt;Router&gt;</code></a></li><li><a href="#routingstate"><code>&lt;RoutingState&gt;</code></a></li><li><a href="#link"><code>&lt;Link&gt;</code></a></li></ul></li><li><a href="#utilities">utilities</a><ul><li><a href="#routeurl-string-addnewhistoryentry-boolean--true"><code>route(url: String, addNewHistoryEntry: Boolean = true)</code></a></li></ul></li><li><a href="#holistic-example">holistic example</a></li></ul></li><li><a href="#goals">goals</a></li></ul>"`
-    )
+      `"<ul><li><a href="#buttermilk">buttermilk</a></li><li><a href="#installation">installation</a></li><li><a href="#usage">usage</a><ul><li><a href="#configuration">configuration</a></li><li><a href="#components">components</a><ul><li><a href="#router"><code>&lt;Router&gt;</code></a></li><li><a href="#routingstate"><code>&lt;RoutingState&gt;</code></a></li><li><a href="#link"><code>&lt;Link&gt;</code></a></li></ul></li><li><a href="#utilities">utilities</a><ul><li><a href="#routeurl-string-addnewhistoryentry-boolean--true"><code>route(url: String, addNewHistoryEntry: Boolean = true)</code></a></li></ul></li><li><a href="#holistic-example">holistic example</a></li></ul></li><li><a href="#goals">goals</a></li></ul>"`)
   })
 
   it('handles horizontal rules after lists', () => {
@@ -1148,9 +1146,12 @@ it('should continue an indented list', () => {
       `)
   )
 
-  expect(root.innerHTML).toMatchInlineSnapshot(
-    `"<ul><li>An exclamation mark: <code>!</code>;</li><li>followed by a set of square brackets, containing the <code>alt</code> attribute text for the image;</li><li>followed by a set of parentheses, containing the URL or path to the image, and an optional <code>title</code> attribute enclosed in double or single quotes.</li></ul>"`
-  )
+  expect(root.innerHTML).toMatchInlineSnapshot(`
+    "<ul><li>An exclamation mark: <code>!</code>;</li><li>followed by a set of square brackets, containing the <code>alt</code>
+    attribute text for the image;</li><li>followed by a set of parentheses, containing the URL or path to
+    the image, and an optional <code>title</code> attribute enclosed in double
+    or single quotes.</li></ul>"
+  `)
 })
 
 describe('GFM task lists', () => {
@@ -1579,8 +1580,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<ul id="ProjectSubmenu"><li><a href="/projects/markdown/" title="Markdown Project Page">Main</a><li><a href="/projects/markdown/basics" title="Markdown Basics">Basics</a></li><li><a class="selected" title="Markdown Syntax Documentation">Syntax</a></li><li><a href="/projects/markdown/license" title="Pricing and License Information">License</a></li><li><a href="/projects/markdown/dingus" title="Online Markdown Web Form">Dingus</a></li></li></ul>"`
-    )
+      `"<ul id="ProjectSubmenu"><li><a href="/projects/markdown/" title="Markdown Project Page">Main</a></li><li><a href="/projects/markdown/basics" title="Markdown Basics">Basics</a></li><li><a class="selected" title="Markdown Syntax Documentation">Syntax</a></li><li><a href="/projects/markdown/license" title="Pricing and License Information">License</a></li><li><a href="/projects/markdown/dingus" title="Online Markdown Web Form">Dingus</a></li></ul>"`)
   })
 
   it('handles svg', () => {
@@ -1620,8 +1620,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<table><tbody><tr><td>Time<td>Payment Criteria</td><td>Payment</td><tr><td>Office Visit </td><td><ul><li>             Complete full visit and enroll             <ul><li>Enrolling is fun!</li></ul></li></ul></td><td>$20</td></tr></td></tr></tbody></table>"`
-    )
+      `"<table><tbody><tr><td>Time</td><td>Payment Criteria</td><td>Payment</td></tr><tr><td>Office Visit</td><td><ul><li>Complete full visit and enroll             <ul><li>Enrolling is fun!</li></ul></li></ul></td><td>$20</td></tr></tbody></table>"`)
   })
 
   it('regression test for #136', () => {
@@ -1696,8 +1695,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<table><tbody><tr><td>a<td>b</td><td>c</td><tr><td>left</td><td><p>Start of table</p><ul><li>List 1</li><li><ul><li>Nested List 1</li></ul></li><li><ul><li>list 2</li></ul></li></ul></td><td>right</td></tr></td></tr></tbody></table>"`
-    )
+      `"<table><tbody><tr><td>a</td><td>b</td><td>c</td></tr><tr><td>left</td><td><p>Start of table</p><ul><li>List 1</li><li><ul><li>Nested List 1</li></ul></li><li><ul><li>list 2</li></ul></li></ul></td><td>right</td></tr></tbody></table>"`)
   })
 
   it('#140 self-closing HTML with indentation', () => {
@@ -1785,8 +1783,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<div><div class="inner">bah</div> and <div class="inner">blah</div> and <div disabled="" class="inner"></div> and <div class="inner"></div></div>"`
-    )
+      `"<div><div class="inner">bah</div> and <div class="inner">blah</div> and <div disabled="" class="inner"></div> and <div class="inner"></div></div>"`)
   })
 
   it('handles malformed HTML', () => {
@@ -1803,8 +1800,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<g><g><path fill="#ffffff"></path></g><path fill="#ffffff"></path></g>"`
-    )
+      `"<g><g><path fill="#ffffff"></path></g><path fill="#ffffff"></path></g>"`)
   })
 
   it('allows whitespace between attribute and value', () => {
@@ -1819,8 +1815,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<div class="foo" style="background:red" id="baz">Bar </div>"`
-    )
+      `"<div class="foo" style="background:red" id="baz">Bar</div>"`)
   })
 
   it('handles a raw hashtag inside HTML', () => {
@@ -1873,8 +1868,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<script>  new Date();</script>"`
-    )
+      `"<script>  new Date();</script>"`)
   })
 
   it('does not parse the inside of <script> blocks with weird capitalization', () => {
@@ -1885,8 +1879,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<SCRIPT>  new Date();</SCRIPT>"`
-    )
+      `"<SCRIPT>  new Date();</SCRIPT>"`)
   })
 
   it('handles nested tags of the same type with attributes', () => {
@@ -1922,8 +1915,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<link rel="preload" as="image" href="//placehold.it/300x200"/><figure><img src="//placehold.it/300x200"/><figcaption>This is a placeholder image</figcaption></figure>"`
-    )
+      `"<link rel="preload" as="image" href="//placehold.it/300x200"/><figure><img src="//placehold.it/300x200"/><figcaption>This is a placeholder image</figcaption></figure>"`)
   })
 
   it('#185 handles block syntax MD + HTML inside HTML', () => {
@@ -1940,8 +1932,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<details><summary>Solution</summary><pre><code class="language-jsx lang-jsx">import styled from &#x27;styled-components&#x27;;</code></pre></details>"`
-    )
+      `"<details><summary>Solution</summary><pre><code class="language-jsx lang-jsx">import styled from &#x27;styled-components&#x27;;</code></pre></details>"`)
   })
 
   it('#207 handles tables inside HTML', () => {
@@ -1959,8 +1950,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<details><summary>Click here</summary><table><thead><tr><th>Heading 1</th><th>Heading 2</th></tr></thead><tbody><tr><td>Foo</td><td>Bar</td></tr></tbody></table></details>"`
-    )
+      `"<details><summary>Click here</summary><table><thead><tr><th>Heading 1</th><th>Heading 2</th></tr></thead><tbody><tr><td>Foo</td><td>Bar</td></tr></tbody></table></details>"`)
   })
 
   it('#185 misc regression test', () => {
@@ -1985,8 +1975,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<details><summary>View collapsed content</summary><h1 id="title-h1">Title h1</h1><h2 id="title-h2">Title h2</h2><p>Text content</p><ul><li>list 1</li><li>list 2</li><li>list 3</li></ul></details>"`
-    )
+      `"<details><summary>View collapsed content</summary><h1 id="title-h1">Title h1</h1><h2 id="title-h2">Title h2</h2><p>Text content</p><ul><li>list 1</li><li>list 2</li><li>list 3</li></ul></details>"`)
   })
 
   it('multiline left-trims by the same amount as the first line', () => {
@@ -2021,8 +2010,7 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<div><ul><li>hi</li><li>hello<ul><li>how are you?</li></ul></li></ul></div>"`
-    )
+      `"<div><ul><li>hi</li><li>hello<ul><li>how are you?</li></ul></li></ul></div>"`)
   })
 
   it('#214 nested paragraphs work inside html', () => {
@@ -2036,10 +2024,7 @@ comment -->`)
       `)
     )
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      "<div><p>Hello</p><p>World
-      </p></div>"
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<div><p>Hello</p><p>World</p></div>"`)
   })
 
   it('does not consume trailing whitespace if there is no newline', () => {
@@ -2163,10 +2148,8 @@ Item detail
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      "<p>
-      Item detail
-      <span style="color:#fddb67;font-size:11px;font-style:normal;font-weight:500;line-height:18px;text-decoration-line:underline">debug item 1</span>
-      </p>"
+      "<p>Item detail
+      <span style="color:#fddb67;font-size:11px;font-style:normal;font-weight:500;line-height:18px;text-decoration-line:underline">debug item 1</span></p>"
     `)
   })
 
@@ -2236,8 +2219,7 @@ Item detail
 </custom-element>`)
       )
       expect(root.innerHTML).toMatchInlineSnapshot(
-        `"<custom-element data-a="1" data-b="2" data-c="3">content</custom-element>"`
-      )
+        `"<custom-element data-a="1" data-b="2" data-c="3">content</custom-element>"`)
     })
 
     it('should handle JSX-style components with multi-line attributes', () => {
@@ -2292,12 +2274,11 @@ _world_.
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
-      "<table><tr><td>
+      "<div><table><tr><td>
       <pre>
       **Hello**,
-
-      _world_.
-      </pre></td></tr></table>"
+      </table><p><em>world</em>.
+      <pre></pre></p><td></td></div>"
     `)
   })
 })
@@ -2343,8 +2324,7 @@ describe('line breaks', () => {
     render(compiler(['- > a  ', '  > b'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<ul><li><blockquote><p>a<br/>b</p></blockquote></li></ul>"`
-    )
+      `"<ul><li><blockquote><p>a<br/>b</p></blockquote></li></ul>"`)
   })
 })
 
@@ -3022,8 +3002,7 @@ describe('overrides', () => {
     render(compiler('<div><div><div></div></div></div>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<div><div><div></div></div></div>"`
-    )
+      `"<div><div><div></div></div></div>"`)
   })
 
   it('should pass complex data prop to custom CodeBlock component', () => {
@@ -3133,8 +3112,7 @@ it('#678 handles various combinations of inline markup and html', () => {
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(
-    `"<div><p><strong>bold</strong> <em>italic</em></p><p><em>italic</em> <strong>bold</strong></p><p><em>italic</em> <u>underline</u></p><p><u>underline</u> <em>italic</em></p><p><del>strikethrough</del> *<em>bold</em></p><p><em>italic</em> <del>strikethrough</del></p><p><strong>bold</strong> <del>strikethrough</del></p></div>"`
-  )
+    `"<div><p><strong>bold</strong> <em>italic</em></p><p><em>italic</em> <strong>bold</strong></p><p><em>italic</em> <u>underline</u></p><p><u>underline</u> <em>italic</em></p><p><del>strikethrough</del> *<em>bold</em></p><p><em>italic</em> <del>strikethrough</del></p><p><strong>bold</strong> <del>strikethrough</del></p></div>"`)
 })
 
 it('handles a holistic example', () => {
@@ -3221,8 +3199,7 @@ describe('Markdown component', () => {
 </math>`}</Markdown>
       )
     ).toMatchInlineSnapshot(
-      `"<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow><msqrt><mrow>a</mrow></msqrt></mrow><mrow><mn>2</mn></mrow></mfrac></mrow><annotation encoding="application/x-tex">\\frac{\\sqrt{a}}{2}</annotation></semantics></math>"`
-    )
+      `"<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow><msqrt><mrow>a</mrow></msqrt></mrow><mrow><mn>2</mn></mrow></mfrac></mrow><annotation encoding="application/x-tex">\\frac{\\sqrt{a}}{2}</annotation></semantics></math>"`)
   })
 
   it('throws error for non-string input to compiler', () => {

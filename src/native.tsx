@@ -105,39 +105,6 @@ export type NativeOptions = Omit<MarkdownToJSX.Options, 'wrapperProps'> & {
   wrapperProps?: ViewProps | TextProps
 }
 
-function encodeUrlTarget(target: string): string {
-  let needsEncoding = false
-  for (let i = 0; i < target.length; i++) {
-    const code = target.charCodeAt(i)
-    if (code > 127 || code === $.CHAR_BACKSLASH || code === $.CHAR_BACKTICK) {
-      needsEncoding = true
-      break
-    }
-  }
-  if (!needsEncoding) return target
-
-  let result = ''
-  for (let i = 0; i < target.length; i++) {
-    const char = target[i]
-    if (
-      char === '%' &&
-      i + 2 < target.length &&
-      /[0-9A-Fa-f]/.test(target[i + 1]) &&
-      /[0-9A-Fa-f]/.test(target[i + 2])
-    ) {
-      result += target[i] + target[i + 1] + target[i + 2]
-      i += 2
-    } else if (char.charCodeAt(0) === $.CHAR_BACKSLASH) {
-      result += '%5C'
-    } else if (char.charCodeAt(0) === $.CHAR_BACKTICK) {
-      result += '%60'
-    } else {
-      const code = char.charCodeAt(0)
-      result += code > 127 ? encodeURIComponent(char) : char
-    }
-  }
-  return result
-}
 
 function render(
   node: MarkdownToJSX.ASTNode,
@@ -250,18 +217,18 @@ function render(
       const htmlNode = node as MarkdownToJSX.HTMLNode
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
         const tagText =
-          'rawText' in htmlNode && typeof htmlNode.rawText === 'string'
-            ? htmlNode.rawText
+          typeof htmlNode._rawText === 'string'
+            ? htmlNode._rawText
             : `<${htmlNode.tag}>`
         return h(Text, { key: state.key }, tagText)
       }
 
-      if (htmlNode.rawText && htmlNode.verbatim) {
+      if (htmlNode._rawText && htmlNode._verbatim) {
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
 
-        if (isType1Block && !/<[a-z][^>]{0,100}>/i.test(htmlNode.rawText)) {
-          let textContent = htmlNode.rawText.replace(
+        if (isType1Block && !/<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)) {
+          let textContent = htmlNode._rawText.replace(
             new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
             ''
           )
@@ -270,15 +237,15 @@ function render(
           }
           return h(
             htmlNode.tag,
-            { key: state.key, ...htmlNode.attrs },
+            { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) },
             textContent
           )
         }
 
-        if (/<\/?pre\b/i.test(htmlNode.rawText)) {
+        if (/<\/?pre\b/i.test(htmlNode._rawText)) {
           const innerHtml = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode.rawText)
-            : htmlNode.rawText
+            ? util.applyTagFilterToText(htmlNode._rawText)
+            : htmlNode._rawText
           return h(Text, { key: state.key, style: styles.codeBlock }, innerHtml)
         }
 
@@ -287,13 +254,8 @@ function render(
           node: MarkdownToJSX.ASTNode
         ): MarkdownToJSX.ASTNode[] {
           if (
-            node.type === RuleType.htmlSelfClosing &&
-            'isClosingTag' in node &&
-            (
-              node as MarkdownToJSX.HTMLSelfClosingNode & {
-                isClosingTag?: boolean
-              }
-            ).isClosingTag
+            (node.type === RuleType.htmlSelfClosing || node.type === RuleType.htmlBlock) &&
+            node._isClosingTag
           ) {
             return []
           }
@@ -324,13 +286,13 @@ function render(
         if (htmlNode.children && htmlNode.children.length > 0) {
           return h(
             htmlNode.tag,
-            { key: state.key, ...htmlNode.attrs },
+            { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) },
             output(htmlNode.children.flatMap(processNode), state)
           )
         }
 
         // Fallback to re-parsing rawText if children not available (edge case)
-        const cleanedText = htmlNode.rawText
+        const cleanedText = htmlNode._rawText
           .replace(/>\s+</g, '><')
           .replace(/\n+/g, ' ')
           .trim()
@@ -339,7 +301,7 @@ function render(
           'i'
         )
         if (selfTagRegex.test(cleanedText)) {
-          return h(htmlNode.tag, { key: state.key, ...htmlNode.attrs })
+          return h(htmlNode.tag, { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) })
         }
 
         const parseOptions: parse.ParseOptions = {
@@ -356,14 +318,14 @@ function render(
 
         return h(
           htmlNode.tag,
-          { key: state.key, ...htmlNode.attrs },
+          { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) },
           output(astNodes.flatMap(processNode), state)
         )
       }
 
       return h(
         htmlNode.tag,
-        { key: state.key, ...htmlNode.attrs },
+        { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) },
         htmlNode.children ? output(htmlNode.children, state) : ''
       )
     }
@@ -372,12 +334,12 @@ function render(
       const htmlNode = node as MarkdownToJSX.HTMLSelfClosingNode
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
         const tagText =
-          'rawText' in htmlNode && typeof htmlNode.rawText === 'string'
-            ? htmlNode.rawText
+          typeof htmlNode._rawText === 'string'
+            ? htmlNode._rawText
             : `<${htmlNode.tag} />`
         return h(Text, { key: state.key }, tagText)
       }
-      return h(htmlNode.tag, { key: state.key, ...htmlNode.attrs })
+      return h(htmlNode.tag, { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) })
     }
 
     case RuleType.image: {
@@ -405,7 +367,7 @@ function render(
       }
 
       if (linkNode.target != null) {
-        const url = encodeUrlTarget(linkNode.target)
+        const url = util.encodeUrlTarget(linkNode.target)
         props.onPress = () => {
           options.onLinkPress
             ? options.onLinkPress(url, linkNode.title)
@@ -618,20 +580,9 @@ const createRenderer = (
   return renderer
 }
 
-const get = (source: any, path: string, fallback: any): any => {
-  if (!source || typeof path !== 'string') return fallback
-  const segments = path.split('.')
-  let result = source
-  for (let i = 0; i < segments.length; i++) {
-    result = result?.[segments[i]]
-    if (result === undefined) return fallback
-  }
-  return result || fallback
-}
-
 const getTag = (tag: string, overrides?: MarkdownToJSX.Overrides) => {
   if (!overrides || typeof tag !== 'string') return tag
-  const override = get(overrides, tag, undefined)
+  const override = util.get(overrides, tag, undefined)
   if (!override) return tag
   if (
     typeof override === 'function' ||
@@ -639,7 +590,7 @@ const getTag = (tag: string, overrides?: MarkdownToJSX.Overrides) => {
   ) {
     return override
   }
-  return get(overrides, `${tag}.component`, tag)
+  return util.get(overrides, `${tag}.component`, tag)
 }
 
 // Map HTML tags to React Native components
@@ -724,7 +675,7 @@ export function astToNative(
       return createElement(tag, props, ...children)
     }
 
-    const overrideProps = get(opts.overrides || {}, `${tag}.props`, {})
+    const overrideProps = util.get(opts.overrides || {}, `${tag}.props`, {})
     const Component = getTag(tag, opts.overrides || {})
 
     const finalProps = {

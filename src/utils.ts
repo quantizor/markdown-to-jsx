@@ -120,6 +120,7 @@ export const HTML_TO_JSX_MAP: Record<string, string> = {
   srcset: 'srcSet',
   tabindex: 'tabIndex',
   usemap: 'useMap',
+  viewbox: 'viewBox',
 }
 
 /**
@@ -137,14 +138,24 @@ export function htmlAttrsToJSXProps(
   for (var key in attrs) {
     var keyLower = key.toLowerCase()
     var mappedKey = HTML_TO_JSX_MAP[keyLower]
-    jsxProps[mappedKey || key] = attrs[key]
+    if (mappedKey) {
+      jsxProps[mappedKey] = attrs[key]
+    } else {
+      var colonIdx = key.indexOf(':')
+      if (colonIdx !== -1) {
+        // xml:lang -> xmlLang, xlink:href -> xlinkHref
+        jsxProps[key.slice(0, colonIdx) + key[colonIdx + 1].toUpperCase() + key.slice(colonIdx + 2)] = attrs[key]
+      } else {
+        jsxProps[key] = attrs[key]
+      }
+    }
   }
 
   return jsxProps
 }
 
 export const SHOULD_RENDER_AS_BLOCK_R: RegExp =
-  /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s)/
+  /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s|^<(div|p|h[1-6]|ul|ol|li|blockquote|pre|table|thead|tbody|tr|td|th|dl|dt|dd|hr|address|article|aside|details|dialog|figure|figcaption|footer|form|header|main|menu|nav|section|summary|textarea|fieldset|legend|center|dir|hgroup|marquee|search|output|template)\b)/i
 
 /**
  * Decode HTML entity references to Unicode characters
@@ -260,16 +271,13 @@ slugifyReplaceTable[376] =
 
 /**
  * Check if a character code is alphanumeric (0-9, A-Z, a-z)
+ * Uses optimized table lookup for ASCII characters
  *
  * @param code - Character code to check
  * @returns True if alphanumeric
  */
 export function isAlnumCode(code: number): boolean {
-  return (
-    (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
-    (code >= $.CHAR_A && code <= $.CHAR_Z) ||
-    (code >= $.CHAR_a && code <= $.CHAR_z)
-  )
+  return code < $.CHAR_ASCII_BOUNDARY && (charClassTable[code] & (CC_ALPHA | CC_DIGIT)) !== 0
 }
 
 /**
@@ -305,17 +313,6 @@ export function slugify(str: string): string {
     }
   }
   return parts.join('')
-}
-
-/**
- * Check if a string includes a substring
- *
- * @param str - String to search in
- * @param search - Substring to search for
- * @returns True if substring is found
- */
-export function includes(str: string, search: string): boolean {
-  return str.indexOf(search) !== -1
 }
 
 /**
@@ -374,7 +371,6 @@ export const VOID_ELEMENTS: Set<string> = new Set([
   'use',
   'stop',
   'animate',
-  'animateTransform',
   'set',
 ])
 
@@ -406,9 +402,15 @@ export const ATTRIBUTES_TO_SANITIZE: readonly string[] = [
   'action',
 ]
 
-// Character classification flags (bitfield)
-const CHAR_WHITESPACE = 1
-const CHAR_PUNCTUATION = 2
+// Character classification flags (bitfield) - optimized for fast lookup
+// These flags allow multiple classifications per character with bitwise AND/OR
+export const CC_WHITESPACE = 1 // space, tab, newline, cr, ff
+export const CC_PUNCTUATION = 2 // punctuation characters
+export const CC_ALPHA = 4 // a-z, A-Z
+export const CC_DIGIT = 8 // 0-9
+export const CC_NEWLINE = 16 // \n, \r
+export const CC_SPACE_TAB = 32 // space or tab only
+export const CC_ALPHA_UPPER = 64 // A-Z only
 
 // Inline character type constants
 // const INLINE_CHAR_TYPE_NORMAL = 0
@@ -418,20 +420,28 @@ const INLINE_CHAR_TYPE_DELIMITER = 3
 const INLINE_CHAR_TYPE_LINK = 4
 
 // Lookup table for ASCII characters (0-127)
+// Combines multiple flags for efficient multi-purpose lookup
 export const charClassTable: Uint8Array = (function () {
   const t = new Uint8Array(128)
   let i
-  t[$.CHAR_TAB] =
-    t[$.CHAR_NEWLINE] =
-    t[$.CHAR_FF] =
-    t[$.CHAR_CR] =
-    t[$.CHAR_SPACE] =
-      CHAR_WHITESPACE
-  for (i = $.CHAR_EXCLAMATION; i <= $.CHAR_SLASH; i++) t[i] = CHAR_PUNCTUATION
-  for (i = $.CHAR_COLON; i <= $.CHAR_AT; i++) t[i] = CHAR_PUNCTUATION
+  // Whitespace characters
+  t[$.CHAR_TAB] = CC_WHITESPACE | CC_SPACE_TAB
+  t[$.CHAR_NEWLINE] = CC_WHITESPACE | CC_NEWLINE
+  t[$.CHAR_FF] = CC_WHITESPACE
+  t[$.CHAR_CR] = CC_WHITESPACE | CC_NEWLINE
+  t[$.CHAR_SPACE] = CC_WHITESPACE | CC_SPACE_TAB
+  // Punctuation ranges
+  for (i = $.CHAR_EXCLAMATION; i <= $.CHAR_SLASH; i++) t[i] = CC_PUNCTUATION
+  for (i = $.CHAR_COLON; i <= $.CHAR_AT; i++) t[i] = CC_PUNCTUATION
   for (i = $.CHAR_BRACKET_OPEN; i <= $.CHAR_BACKTICK; i++)
-    t[i] = CHAR_PUNCTUATION
-  for (i = $.CHAR_BRACE_OPEN; i <= $.CHAR_TILDE; i++) t[i] = CHAR_PUNCTUATION
+    t[i] = CC_PUNCTUATION
+  for (i = $.CHAR_BRACE_OPEN; i <= $.CHAR_TILDE; i++) t[i] = CC_PUNCTUATION
+  // Digits 0-9
+  for (i = $.CHAR_DIGIT_0; i <= $.CHAR_DIGIT_9; i++) t[i] = CC_DIGIT
+  // Uppercase letters A-Z
+  for (i = $.CHAR_A; i <= $.CHAR_Z; i++) t[i] = CC_ALPHA | CC_ALPHA_UPPER
+  // Lowercase letters a-z
+  for (i = $.CHAR_a; i <= $.CHAR_z; i++) t[i] = CC_ALPHA
   return t
 })()
 
@@ -460,15 +470,30 @@ export const inlineCharTypeTable: Uint8Array = (function () {
 export function isASCIIPunctuation(code: number): boolean {
   return (
     code < $.CHAR_ASCII_BOUNDARY &&
-    (charClassTable[code] & CHAR_PUNCTUATION) !== 0
+    (charClassTable[code] & CC_PUNCTUATION) !== 0
   )
 }
 
 export function isASCIIWhitespace(code: number): boolean {
   return (
     code < $.CHAR_ASCII_BOUNDARY &&
-    (charClassTable[code] & CHAR_WHITESPACE) !== 0
+    (charClassTable[code] & CC_WHITESPACE) !== 0
   )
+}
+
+// Fast check for space or tab only (not newlines)
+export function isSpaceOrTabCode(code: number): boolean {
+  return code < $.CHAR_ASCII_BOUNDARY && (charClassTable[code] & CC_SPACE_TAB) !== 0
+}
+
+// Fast check for alpha (a-z, A-Z)
+export function isAlphaCode(code: number): boolean {
+  return code < $.CHAR_ASCII_BOUNDARY && (charClassTable[code] & CC_ALPHA) !== 0
+}
+
+// Fast check for digit (0-9)
+export function isDigitCode(code: number): boolean {
+  return code < $.CHAR_ASCII_BOUNDARY && (charClassTable[code] & CC_DIGIT) !== 0
 }
 
 // Unicode property escapes for spec-compliant character classification
@@ -482,19 +507,19 @@ export function isUnicodeWhitespace(c: string): boolean {
   if (!c) return true
   const code = c.charCodeAt(0)
   return code < $.CHAR_ASCII_BOUNDARY
-    ? (charClassTable[code] & CHAR_WHITESPACE) !== 0
+    ? (charClassTable[code] & CC_WHITESPACE) !== 0
     : UNICODE_WHITESPACE_R.test(c)
 }
 
 export function isUnicodePunctuation(c: string | number): boolean {
   if (typeof c === 'number')
     return (
-      c < $.CHAR_ASCII_BOUNDARY && (charClassTable[c] & CHAR_PUNCTUATION) !== 0
+      c < $.CHAR_ASCII_BOUNDARY && (charClassTable[c] & CC_PUNCTUATION) !== 0
     )
   if (!c) return false
   const code = c.charCodeAt(0)
   return code < $.CHAR_ASCII_BOUNDARY
-    ? (charClassTable[code] & CHAR_PUNCTUATION) !== 0
+    ? (charClassTable[code] & CC_PUNCTUATION) !== 0
     : UNICODE_PUNCT_R.test(c)
 }
 
@@ -559,15 +584,6 @@ export function normalizeInput(text: string): string {
 }
 
 /**
- * @deprecated Use normalizeInput instead
- * Normalize CRLF and CR line endings to LF
- * Returns original string if no CR characters are present (fast path)
- */
-export function normalizeCRLF(text: string): string {
-  return normalizeInput(text)
-}
-
-/**
  * Skip whitespace characters
  */
 export function skipWhitespace(
@@ -609,6 +625,52 @@ export function get(source: any, path: string, fallback: any): any {
     i++
   }
   return result || fallback
+}
+
+/**
+ * Encode special characters in URL targets for safe rendering.
+ * Preserves existing percent-encoded sequences, encodes backslash/backtick,
+ * and percent-encodes non-ASCII characters.
+ */
+export function encodeUrlTarget(target: string): string {
+  // Fast path: skip encoding if URL contains only safe characters
+  // encodeURI encodes: control chars (0-31), space, ", %, <, >, [, \, ], ^, `, {, |, }, DEL, non-ASCII
+  var needsEncoding = false
+  for (var i = 0; i < target.length; i++) {
+    var code = target.charCodeAt(i)
+    if (code <= $.CHAR_SPACE || code === $.CHAR_DOUBLE_QUOTE || code === $.CHAR_PERCENT ||
+        code === $.CHAR_LT || code === $.CHAR_GT || code === $.CHAR_BRACKET_OPEN ||
+        code === $.CHAR_BACKSLASH || code === $.CHAR_BRACKET_CLOSE || code === $.CHAR_CARET ||
+        code === $.CHAR_BACKTICK || code >= 123) {
+      needsEncoding = true
+      break
+    }
+  }
+  if (!needsEncoding) return target
+
+  var result = ''
+  for (var i = 0; i < target.length; i++) {
+    var code = target.charCodeAt(i)
+    if (code === $.CHAR_PERCENT && i + 2 < target.length) {
+      var c1 = target.charCodeAt(i + 1)
+      var c2 = target.charCodeAt(i + 2)
+      if (
+        ((c1 >= $.CHAR_DIGIT_0 && c1 <= $.CHAR_DIGIT_9) || (c1 >= $.CHAR_A && c1 <= $.CHAR_F) || (c1 >= $.CHAR_a && c1 <= $.CHAR_f)) &&
+        ((c2 >= $.CHAR_DIGIT_0 && c2 <= $.CHAR_DIGIT_9) || (c2 >= $.CHAR_A && c2 <= $.CHAR_F) || (c2 >= $.CHAR_a && c2 <= $.CHAR_f))
+      ) {
+        result += target[i] + target[i + 1] + target[i + 2]
+        i += 2
+        continue
+      }
+    }
+    result += encodeURI(target[i])
+  }
+  return result
+}
+
+/** Concatenate class names, filtering falsy values */
+export function cx(...args: (string | undefined | null | false)[]): string {
+  return args.filter(Boolean).join(' ')
 }
 
 /**
@@ -658,34 +720,35 @@ export function extractPlainText(nodes: Array<any>, RuleType: any): string {
   return result
 }
 
+/** GFM tagfilter extension — security-sensitive tags whose `<` gets escaped */
+var TAGFILTER_TAGS = new Set([
+  'title', 'textarea', 'style', 'xmp', 'iframe', 'noembed', 'noframes', 'script', 'plaintext'
+])
+
+/** Matches tagfilter tags in raw HTML text (opening/closing) */
+var TAGFILTER_R = /<(\/?)(title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext)(\s|>|\/)/gi
+
 /**
  * Check if tag should be filtered per GFM tagfilter extension
  */
 export function shouldFilterTag(tagName: string): boolean {
-  var lowerTag = tagName.toLowerCase()
-  return (
-    lowerTag === 'title' ||
-    lowerTag === 'textarea' ||
-    lowerTag === 'style' ||
-    lowerTag === 'xmp' ||
-    lowerTag === 'iframe' ||
-    lowerTag === 'noembed' ||
-    lowerTag === 'noframes' ||
-    lowerTag === 'script' ||
-    lowerTag === 'plaintext'
-  )
+  return TAGFILTER_TAGS.has(tagName.toLowerCase())
+}
+
+/** Test if text contains any tagfilter tags */
+export function containsTagfilterTag(text: string): boolean {
+  TAGFILTER_R.lastIndex = 0
+  return TAGFILTER_R.test(text)
 }
 
 /**
  * Apply tagfilter to text content - escape dangerous tags
  */
 export function applyTagFilterToText(text: string): string {
-  // Escape dangerous tags in raw HTML text
-  // Matches opening tags like <tag> or <tag attr="val">
+  TAGFILTER_R.lastIndex = 0
   return text.replace(
-    /<(\/?)(title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext)(\s|>|\/)/gi,
+    TAGFILTER_R,
     function (match, slash, tagName, after) {
-      // Only escape the opening <
       return '&lt;' + slash + tagName + after
     }
   )
