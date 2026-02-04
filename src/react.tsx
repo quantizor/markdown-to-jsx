@@ -566,41 +566,38 @@ const createRenderer = (
   refs: { [key: string]: { target: string; title: string } },
   options: MarkdownToJSX.Options
 ) => {
-  const renderRule = (
-    node: MarkdownToJSX.ASTNode,
-    renderChildren: (children: MarkdownToJSX.ASTNode[]) => React.ReactNode,
-    state: MarkdownToJSX.State
-  ) => {
-    const defaultRender = () =>
-      render(node, renderChildren, state, h, sanitize, slug, refs, options)
-    return userRender
-      ? userRender(defaultRender, node, renderChildren, state)
-      : defaultRender()
-  }
-  const handleStackOverflow = (ast: MarkdownToJSX.ASTNode[]) =>
-    ast.map(node => ('text' in node ? node.text : ''))
-  const renderer = (
+  var handleStackOverflow = (ast: MarkdownToJSX.ASTNode[]) =>
+    ast.map(function(node) { return 'text' in node ? node.text : '' })
+  var renderer = (
     ast: MarkdownToJSX.ASTNode[],
     state: MarkdownToJSX.State = {}
   ) => {
-    const depth = (state.renderDepth || 0) + 1
+    var depth = (state.renderDepth || 0) + 1
     if (depth > 2500) return handleStackOverflow(ast)
     state.renderDepth = depth
 
-    const oldKey = state.key,
+    var oldKey = state.key,
       result: React.ReactNode[] = []
-    let lastWasString = false
-    for (let i = 0; i < ast.length; i++) {
+    var lastWasString = false
+    for (var i = 0; i < ast.length; i++) {
       state.key = i
-      const nodeOut = renderRule(ast[i], renderer, state),
-        isString = typeof nodeOut === 'string'
+      var nodeOut: React.ReactNode
+      if (userRender) {
+        var defaultRender = render.bind(
+          null, ast[i], renderer, state, h, sanitize, slug, refs, options
+        )
+        nodeOut = userRender(defaultRender, ast[i], renderer, state)
+      } else {
+        nodeOut = render(ast[i], renderer, state, h, sanitize, slug, refs, options)
+      }
+      var isString = typeof nodeOut === 'string'
       if (isString && lastWasString) {
         // Concatenate consecutive strings
         result[result.length - 1] += nodeOut
       } else if (nodeOut !== null) {
         if (Array.isArray(nodeOut)) {
           // Use loop instead of spread for better performance
-          for (let j = 0; j < nodeOut.length; j++) {
+          for (var j = 0; j < nodeOut.length; j++) {
             result.push(nodeOut[j])
           }
         } else {
@@ -657,7 +654,8 @@ export function astToJSX(
   const compileHTML = (input: string) =>
     compiler(input, { ...opts, wrapper: null })
 
-  // JSX custom pragma
+  // JSX custom pragma — props are already JSX-compatible (htmlAttrsToJSXProps
+  // is applied at call sites in render() that deal with HTML attributes).
   // eslint-disable-next-line no-unused-vars
   function h(
     // locally we always will render a known string tag
@@ -668,48 +666,46 @@ export function astToJSX(
     },
     ...children
   ) {
-    // Convert HTML attributes to JSX props and compile any HTML content
-    const jsxProps = htmlAttrsToJSXProps(props || {})
-    if (compileHTML) {
-      for (var key in jsxProps) {
-        var value = jsxProps[key]
-        if (
-          typeof value === 'string' &&
-          value.length > 0 &&
-          value[0] === '<' &&
-          (parse.HTML_BLOCK_ELEMENT_START_R_ATTR.test(value) ||
-            parse.UPPERCASE_TAG_R.test(value) ||
-            parse.parseHTMLTag(value, 0))
-        ) {
-          var compiled = compileHTML(value.trim())
-          // For innerHTML, take first element if array (matches original parser behavior)
-          jsxProps[key] = key === 'innerHTML' && Array.isArray(compiled)
-            ? compiled[0]
-            : compiled
-        }
+    var finalProps: any = props || {}
+
+    // Compile embedded HTML in prop values (needed for HTML block attrs that
+    // contain JSX-like markup, e.g. component={<Inner />}).
+    for (var pkey in finalProps) {
+      var pval = finalProps[pkey]
+      if (
+        typeof pval === 'string' &&
+        pval.length > 0 &&
+        pval.charCodeAt(0) === $.CHAR_LT &&
+        (parse.HTML_BLOCK_ELEMENT_START_R_ATTR.test(pval) ||
+          parse.UPPERCASE_TAG_R.test(pval) ||
+          parse.parseHTMLTag(pval, 0))
+      ) {
+        var compiled = compileHTML(pval.trim())
+        finalProps[pkey] = pkey === 'innerHTML' && Array.isArray(compiled)
+          ? compiled[0]
+          : compiled
       }
     }
 
     var resolvedTag: any = tag
-    var finalProps: any
 
     if (hasOverrides) {
       var overrideProps = util.get(opts.overrides, tag + '.props', {})
       resolvedTag = getTag(tag, opts.overrides)
       finalProps = {
-        ...jsxProps,
+        ...finalProps,
         ...overrideProps,
         className:
-          util.cx(jsxProps?.className, overrideProps.className) || undefined,
+          util.cx(finalProps.className, overrideProps.className) || undefined,
       }
-    } else {
-      finalProps = jsxProps
     }
 
     // Fast path: bypass React.createElement when no custom createElement
     if (!customCreateElement) {
       var elKey = finalProps.key
-      delete finalProps.key
+      if (elKey != null) {
+        delete finalProps.key
+      }
       if (children.length === 1) {
         finalProps.children = children[0]
       } else if (children.length > 1) {
