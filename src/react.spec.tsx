@@ -250,6 +250,22 @@ describe('misc block level elements', () => {
       `"<blockquote class="markdown-alert-note"><header>NOTE</header><p>Something important, perhaps?</p></blockquote>"`
     )
   })
+
+  it('should handle mixed-case alert types', () => {
+    render(compiler('> [!Tip]\n> Something something'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<blockquote class="markdown-alert-tip"><header>TIP</header><p>Something something</p></blockquote>"`
+    )
+  })
+
+  it('should handle lowercase alert types', () => {
+    render(compiler('> [!warning]\n> Be careful'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<blockquote class="markdown-alert-warning"><header>WARNING</header><p>Be careful</p></blockquote>"`
+    )
+  })
 })
 
 describe('headings', () => {

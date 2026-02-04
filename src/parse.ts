@@ -1072,9 +1072,9 @@ function scanBlockquote(s: string, p: number, state: MarkdownToJSX.State, opts: 
 
       // Check for alert syntax [!TYPE] on first line
       if (!content && !alertType) {
-        const alertMatch = lineContent.match(/^\[!([A-Z]+)\]\s*$/)
+        const alertMatch = lineContent.match(/^\[!([A-Za-z]+)\]\s*$/)
         if (alertMatch) {
-          alertType = alertMatch[1]
+          alertType = alertMatch[1].toUpperCase()
           end = nextLine(s, le)
           continue // Don't add alert marker to content
         }
