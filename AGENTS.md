@@ -66,6 +66,13 @@ See README.md for the primary library documentation.
 
 The priorities of this library are **correctness, speed, and small output size** in that order. Pursue these goals in sequence - correctness first, then performance, then bundle size optimization. Optimize code for best minification and tree shaking. Always prefer ES5 syntax when writing code to ensure the fastest implementation is used by the underlying JS engine.
 
+## No Runtime Remote Fetching
+
+- Library code (anything under `src/`) must never fetch, request, or depend on remote URLs/network resources at runtime. All assets required for library operation must be local, committed to the repo, and produced entirely within the build process.
+- Dev-time code generation scripts (e.g., `scripts/generate-entities.ts`) may fetch remote resources to produce local artifacts, but the generated output must be committed and verified.
+- Add tests that explicitly assert no runtime network dependencies exist: scan `src/` for `fetch(`, `XMLHttpRequest`, `http.get`, `http.request`, `https.get`, `https.request`, `navigator.sendBeacon`, `WebSocket`, `EventSource`, and any other network APIs. These tests serve as a guardrail against future regressions.
+- Any new asset or data dependency must be vendored locally and referenced via relative imports, never via remote URL.
+
 ## Testing Workflow
 
 - **There is no time limit for agent tasks.** Work until the task is complete.
