@@ -71,7 +71,7 @@ let totalCycles
 const isAll = process.argv.includes('--all')
 const isJsx = process.argv.includes('--jsx')
 const shouldUpdateSnapshot = process.argv.includes('-u')
-// const isHtml = process.argv.includes('--html')
+const isHtml = process.argv.includes('--html')
 
 type Test = {
   name: string
@@ -129,9 +129,17 @@ const jsxTests = [
     name: 'react-markdown [jsx]',
     fn: input => ReactMarkdown({ children: input }),
   },
+  (isAll || isJsx) && {
+    name: 'Bun.markdown [jsx]',
+    fn: input => Bun.markdown.react(input),
+  },
 ].filter(Boolean) as Test[]
 
 const htmlTests = [
+  (isAll || isHtml) && {
+    name: 'Bun.markdown [html]',
+    fn: input => Bun.markdown.html(input),
+  },
   isAll && {
     name: 'markdown-it [html]',
     fn: input => mdIt.render(input),
@@ -149,12 +157,12 @@ async function setupBenchmark() {
     for (const test of jsxTests) {
       evals.addFunction(test.name, test.fn, {})
     }
+  }
 
-    // if (isAll || isHtml) {
-    //   for (const test of htmlTests) {
-    //     evals.addFunction(test.name, test.fn)
-    //   }
-    // }
+  if (isAll || isHtml) {
+    for (const test of htmlTests) {
+      evals.addFunction(test.name, test.fn, {})
+    }
   }
 
   evals
