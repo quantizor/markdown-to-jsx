@@ -16,8 +16,8 @@
     "rimraf": "^6.1.0"
   },
   "scripts": {
-    "build": "bun run --filter markdown-to-jsx build",
-    "build-site": "bun run --filter @markdown-to-jsx/site build",
+    "build": "pushd lib; bun run build; popd",
+    "build-site": "pushd site; bun run build; popd",
     "dev": "bun run --filter @markdown-to-jsx/site dev",
     "entities": "bun scripts/generate-entities.ts",
     "fixture": "bun scripts/generate-fixture.ts",

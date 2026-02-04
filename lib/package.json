@@ -140,7 +140,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
-    "bunup": "0.16.22",
+    "bunup": "0.15.14",
     "esbuild": "^0.27.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
