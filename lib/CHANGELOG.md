@@ -1,5 +1,21 @@
 # markdown-to-jsx
 
+## 9.7.2
+
+### Patch Changes
+
+- 30db3f3: Accept case-insensitive GFM alert blockquote syntax (e.g., `[!Tip]`, `[!tip]`) matching GitHub's behavior.
+
+  接受不区分大小写的 GFM 警告引用块语法（例如 `[!Tip]`、`[!tip]`），与 GitHub 的行为保持一致。
+
+  GFM अलर्ट ब्लॉककोट सिंटैक्स में केस-इनसेंसिटिव मिलान स्वीकार करें (जैसे `[!Tip]`, `[!tip]`), GitHub के व्यवहार के अनुरूप।
+
+- da2eb8c: Moved benchmarking and documentation website dev dependencies out of the library package for cleaner dependency management.
+
+  将基准测试和文档网站开发依赖项移出库包以实现更清晰的依赖管理。
+
+  बेंचमार्किंग और डॉक्यूमेंटेशन वेबसाइट डेव डिपेंडेंसी को साफ डिपेंडेंसी मैनेजमेंट के लिए लाइब्रेरी पैकेज से बाहर ले जाया गया।
+
 ## 9.7.1
 
 ### Patch Changes
