@@ -15,6 +15,38 @@ export { sanitizer, slugify } from './utils'
 const TRIM_STARTING_NEWLINES = /^\n+/
 
 /**
+ * Symbol used by React to identify valid elements, auto-detected from the
+ * installed React version. React 18 uses react.element, React 19+ uses
+ * react.transitional.element, future versions may use something else.
+ */
+var REACT_ELEMENT_TYPE: symbol
+try {
+  REACT_ELEMENT_TYPE = React.createElement('div').$$typeof
+} catch (e) {
+  REACT_ELEMENT_TYPE = Symbol.for('react.transitional.element')
+}
+
+/**
+ * Create a React element without calling React.createElement.
+ * This avoids type validation, key/ref extraction, defaultProps merging,
+ * and dev-mode freezing that React.createElement performs.
+ * Inspired by Bun's JSReactElement approach.
+ */
+function createRawElement(
+  type: any,
+  props: any,
+  key: any
+): any {
+  return {
+    $$typeof: REACT_ELEMENT_TYPE,
+    type: type,
+    key: key != null ? '' + key : null,
+    ref: null,
+    props: props,
+  }
+}
+
+/**
  * React context for sharing compiler options across Markdown components
  * @lang zh 用于在 Markdown 组件之间共享编译器选项的 React 上下文
  * @lang hi Markdown कंपोनेंट्स के बीच कंपाइलर विकल्प साझा करने के लिए React संदर्भ
@@ -357,15 +389,19 @@ function render(
         if (splitResult.found && splitResult.afterClose.length > 0) {
           var beforeProcessed = splitResult.beforeClose.flatMap(processNode)
           var afterProcessed = splitResult.afterClose.flatMap(processNode)
-          return React.createElement(
+          return createRawElement(
             React.Fragment,
-            null,
-            h(
-              node.tag,
-              { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
-              output(beforeProcessed, state)
-            ),
-            output(afterProcessed, state)
+            {
+              children: [
+                h(
+                  node.tag,
+                  { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
+                  output(beforeProcessed, state)
+                ),
+                output(afterProcessed, state)
+              ]
+            },
+            null
           )
         }
 
@@ -614,7 +650,8 @@ export function astToJSX(
 
   const slug = opts.slugify || util.slugify
   const sanitize = opts.sanitizer || util.sanitizer
-  const createElement = opts.createElement || React.createElement
+  const customCreateElement = opts.createElement
+  const hasOverrides = opts.overrides && Object.keys(opts.overrides).length > 0
 
   // Recursive compile function for HTML content
   const compileHTML = (input: string) =>
@@ -631,12 +668,11 @@ export function astToJSX(
     },
     ...children
   ) {
-    const overrideProps = util.get(opts.overrides, `${tag}.props`, {})
-
     // Convert HTML attributes to JSX props and compile any HTML content
     const jsxProps = htmlAttrsToJSXProps(props || {})
     if (compileHTML) {
-      for (const [key, value] of Object.entries(jsxProps)) {
+      for (var key in jsxProps) {
+        var value = jsxProps[key]
         if (
           typeof value === 'string' &&
           value.length > 0 &&
@@ -645,7 +681,7 @@ export function astToJSX(
             parse.UPPERCASE_TAG_R.test(value) ||
             parse.parseHTMLTag(value, 0))
         ) {
-          const compiled = compileHTML(value.trim())
+          var compiled = compileHTML(value.trim())
           // For innerHTML, take first element if array (matches original parser behavior)
           jsxProps[key] = key === 'innerHTML' && Array.isArray(compiled)
             ? compiled[0]
@@ -654,14 +690,37 @@ export function astToJSX(
       }
     }
 
-    return createElement(
-      getTag(tag, opts.overrides),
-      {
+    var resolvedTag: any = tag
+    var finalProps: any
+
+    if (hasOverrides) {
+      var overrideProps = util.get(opts.overrides, tag + '.props', {})
+      resolvedTag = getTag(tag, opts.overrides)
+      finalProps = {
         ...jsxProps,
         ...overrideProps,
         className:
           util.cx(jsxProps?.className, overrideProps.className) || undefined,
-      },
+      }
+    } else {
+      finalProps = jsxProps
+    }
+
+    // Fast path: bypass React.createElement when no custom createElement
+    if (!customCreateElement) {
+      var elKey = finalProps.key
+      delete finalProps.key
+      if (children.length === 1) {
+        finalProps.children = children[0]
+      } else if (children.length > 1) {
+        finalProps.children = children
+      }
+      return createRawElement(resolvedTag, finalProps, elKey)
+    }
+
+    return customCreateElement(
+      resolvedTag,
+      finalProps,
       ...children
     )
   }
@@ -735,10 +794,12 @@ export function astToJSX(
     return null
   }
 
-  return createElement(
+  var wrapperProps = opts.wrapperProps ? { ...opts.wrapperProps } : {}
+  wrapperProps.children = jsx
+  return createRawElement(
     wrapper,
-    { key: 'outer', ...opts.wrapperProps },
-    jsx
+    wrapperProps,
+    'outer'
   ) as React.JSX.Element
 }
 
