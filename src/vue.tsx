@@ -638,97 +638,6 @@ export type VueOptions = Omit<
   overrides?: VueOverrides
 }
 
-// Extract text from AST nodes recursively
-function extractText(nodes: MarkdownToJSX.ASTNode[]): string {
-  const parts: string[] = []
-  for (const n of nodes) {
-    const type = n.type
-    if (type === RuleType.text) {
-      parts.push((n as MarkdownToJSX.TextNode).text)
-    } else if (type === RuleType.htmlSelfClosing && n._rawText) {
-      parts.push(n._rawText)
-    } else if (type === RuleType.textFormatted) {
-      const formattedNode = n as MarkdownToJSX.FormattedTextNode
-      const marker =
-        formattedNode.tag === 'em'
-          ? '_'
-          : formattedNode.tag === 'strong'
-            ? '**'
-            : ''
-      parts.push(marker + extractText(formattedNode.children) + marker)
-    } else if ('children' in n && n.children) {
-      parts.push(extractText(n.children))
-    }
-  }
-  return parts.join('')
-}
-
-// Post-process AST for JSX compatibility: combine HTML blocks with following paragraphs
-function postProcessAst(ast: MarkdownToJSX.ASTNode[]): MarkdownToJSX.ASTNode[] {
-  // Fast path: check if processing is needed (simple string check, avoid regex)
-  let needsProcessing = false
-  for (let i = 0; i < ast.length - 1; i++) {
-    if (
-      ast[i].type === RuleType.htmlBlock &&
-      ast[i + 1].type === RuleType.paragraph &&
-      'removedClosingTags' in ast[i + 1] &&
-      (ast[i + 1] as any).removedClosingTags &&
-      'text' in ast[i]
-    ) {
-      const text = (ast[i] as MarkdownToJSX.HTMLNode).text
-      if (
-        text &&
-        (text.indexOf('<pre') !== -1 || text.indexOf('</pre') !== -1)
-      ) {
-        needsProcessing = true
-        break
-      }
-    }
-  }
-  if (!needsProcessing) return ast
-
-  const postProcessedAst: MarkdownToJSX.ASTNode[] = []
-  for (let i = 0; i < ast.length; i++) {
-    const node = ast[i]
-    if (
-      node.type === RuleType.htmlBlock &&
-      node._rawText &&
-      /<\/?pre\b/i.test(node._rawText) &&
-      i + 1 < ast.length &&
-      ast[i + 1].type === RuleType.paragraph &&
-      'removedClosingTags' in ast[i + 1] &&
-      (ast[i + 1] as any).removedClosingTags
-    ) {
-      const htmlNode = node as MarkdownToJSX.HTMLNode
-      const paragraphNode = ast[i + 1] as MarkdownToJSX.ParagraphNode & {
-        removedClosingTags?: MarkdownToJSX.ASTNode[]
-      }
-      let combinedText = extractText(paragraphNode.children)
-      if (paragraphNode.removedClosingTags) {
-        const closingTagEnd = `</${htmlNode.tag}>`
-        const closingTagText: string[] = []
-        for (const tag of paragraphNode.removedClosingTags) {
-          if (tag.type === RuleType.htmlSelfClosing && tag._rawText) {
-            if (tag._rawText.indexOf(closingTagEnd) === -1)
-              closingTagText.push(tag._rawText)
-          }
-        }
-        combinedText += closingTagText.join('')
-      }
-      const newRawText = (htmlNode._rawText || '') + '\n' + combinedText
-      postProcessedAst.push({
-        ...htmlNode,
-        _rawText: newRawText,
-        text: newRawText, // @deprecated - use rawText instead
-      })
-      i++
-    } else {
-      postProcessedAst.push(node)
-    }
-  }
-  return postProcessedAst
-}
-
 /**
  * Convert AST nodes to Vue VNode elements
  * @lang zh 将 AST 节点转换为 Vue VNode 元素
@@ -836,8 +745,6 @@ export function astToJSX(
       ...children: VueChild[]
     ): VNode => h(tag, props || {}, ...children))
 
-  const postProcessedAst = postProcessAst(ast)
-
   const parseOptions: parse.ParseOptions = {
     slugify: i => slug(i, util.slugify),
     sanitizer: sanitize,
@@ -851,8 +758,8 @@ export function astToJSX(
   }
 
   const refs =
-    postProcessedAst[0] && postProcessedAst[0].type === RuleType.refCollection
-      ? (postProcessedAst[0] as MarkdownToJSX.ReferenceCollectionNode).refs
+    ast[0] && ast[0].type === RuleType.refCollection
+      ? (ast[0] as MarkdownToJSX.ReferenceCollectionNode).refs
       : {}
 
   const emitter = createRenderer(
@@ -863,7 +770,7 @@ export function astToJSX(
     refs,
     opts
   )
-  const arr = emitter(postProcessedAst, { inline: opts.forceInline, refs }) as (
+  const arr = emitter(ast, { inline: opts.forceInline, refs }) as (
     | VNode
     | string
   )[]

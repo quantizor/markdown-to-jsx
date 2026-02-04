@@ -254,120 +254,120 @@
     }
   },
   "parser": {
-    "timestamp": "2026-01-10T06:07:46.257Z",
+    "timestamp": "2026-02-04T04:30:00.792Z",
     "target": "parser",
     "inputSize": 173,
-    "parseTime": 4.6,
+    "parseTime": 1.89,
     "blockParsers": {
       "blockQuote": {
-        "attempts": 70,
-        "hits": 60
+        "attempts": 0,
+        "hits": 0
       },
       "breakThematic": {
-        "attempts": 573,
-        "hits": 55
+        "attempts": 0,
+        "hits": 0
       },
       "codeBlock": {
-        "attempts": 30,
-        "hits": 20
+        "attempts": 0,
+        "hits": 0
       },
       "codeFenced": {
-        "attempts": 184,
-        "hits": 21
+        "attempts": 0,
+        "hits": 0
       },
       "footnote": {
-        "attempts": 15,
+        "attempts": 0,
         "hits": 0
       },
       "frontmatter": {
-        "attempts": 1,
-        "hits": 1
+        "attempts": 0,
+        "hits": 0
       },
       "heading": {
-        "attempts": 794,
-        "hits": 787
+        "attempts": 0,
+        "hits": 0
       },
       "headingSetext": {
-        "attempts": 1124,
-        "hits": 11
+        "attempts": 0,
+        "hits": 0
       },
       "htmlBlock": {
-        "attempts": 88,
-        "hits": 10
+        "attempts": 0,
+        "hits": 0
       },
       "htmlComment": {
-        "attempts": 6,
-        "hits": 3
+        "attempts": 0,
+        "hits": 0
       },
       "listGfmTask": {
-        "attempts": 20,
-        "hits": 20
+        "attempts": 0,
+        "hits": 0
       },
       "list": {
-        "attempts": 261,
-        "hits": 151
+        "attempts": 0,
+        "hits": 0
       },
       "paragraph": {
-        "attempts": 852,
-        "hits": 301
+        "attempts": 0,
+        "hits": 0
       },
       "table": {
-        "attempts": 40,
-        "hits": 40
+        "attempts": 0,
+        "hits": 0
       }
     },
     "inlineParsers": {
       "breakLine": {
-        "attempts": 5,
-        "hits": 5
+        "attempts": 0,
+        "hits": 0
       },
       "codeInline": {
-        "attempts": 50,
-        "hits": 50
+        "attempts": 0,
+        "hits": 0
       },
       "escaped": {
-        "attempts": 5,
-        "hits": 5
+        "attempts": 0,
+        "hits": 0
       },
       "formatting": {
-        "attempts": 390,
-        "hits": 390
+        "attempts": 0,
+        "hits": 0
       },
       "footnoteRef": {
-        "attempts": 15,
-        "hits": 15
+        "attempts": 0,
+        "hits": 0
       },
       "htmlComment": {
-        "attempts": 20,
-        "hits": 10
+        "attempts": 0,
+        "hits": 0
       },
       "htmlElement": {
-        "attempts": 31,
-        "hits": 31
+        "attempts": 0,
+        "hits": 0
       },
       "image": {
-        "attempts": 25,
-        "hits": 25
+        "attempts": 0,
+        "hits": 0
       },
       "link": {
-        "attempts": 50,
-        "hits": 41
+        "attempts": 0,
+        "hits": 0
       },
       "linkAngleBrace": {
-        "attempts": 41,
-        "hits": 10
+        "attempts": 0,
+        "hits": 0
       },
       "linkBareUrl": {
-        "attempts": 25,
-        "hits": 25
+        "attempts": 0,
+        "hits": 0
       },
       "linkEmail": {
-        "attempts": 5,
-        "hits": 5
+        "attempts": 0,
+        "hits": 0
       },
       "linkRef": {
-        "attempts": 44,
-        "hits": 20
+        "attempts": 0,
+        "hits": 0
       },
       "refImage": {
         "attempts": 0,
@@ -375,9 +375,9 @@
       }
     },
     "operationCounts": {
-      "totalOperations": 3307,
-      "blockParseIterations": 893,
-      "inlineParseIterations": 1270
+      "totalOperations": 0,
+      "blockParseIterations": 0,
+      "inlineParseIterations": 0
     }
   },
   "react": {

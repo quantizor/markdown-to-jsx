@@ -688,84 +688,6 @@ export function astToJSX(
     ((tag: HTag, props: HProps, ...children: HChildren[]): JSX.Element =>
       createSolidElement(tag, props || {}, ...children))
 
-  // Extract text from AST nodes recursively
-  function extractText(nodes: MarkdownToJSX.ASTNode[]): string {
-    let text = ''
-    for (const n of nodes) {
-      const type = n.type
-      if (type === RuleType.text) {
-        text += (n as MarkdownToJSX.TextNode).text
-      } else if (type === RuleType.htmlSelfClosing) {
-        const rawText = (n as MarkdownToJSX.HTMLSelfClosingNode)._rawText
-        if (rawText) text += rawText
-      } else if (type === RuleType.textFormatted) {
-        const formattedNode = n as MarkdownToJSX.FormattedTextNode
-        const marker =
-          formattedNode.tag === 'em'
-            ? '_'
-            : formattedNode.tag === 'strong'
-              ? '**'
-              : ''
-        text += marker + extractText(formattedNode.children) + marker
-      } else if ('children' in n && n.children) {
-        text += extractText(n.children)
-      }
-    }
-    return text
-  }
-
-  // Post-process AST for JSX compatibility: combine HTML blocks with following paragraphs
-  // when the HTML block contains <pre> tags (to keep pre content as plain text)
-  const postProcessedAst: MarkdownToJSX.ASTNode[] = []
-  for (let i = 0; i < ast.length; i++) {
-    const node = ast[i]
-    if (
-      node.type === RuleType.htmlBlock &&
-      node._rawText &&
-      /<\/?pre\b/i.test(node._rawText) &&
-      i + 1 < ast.length &&
-      ast[i + 1].type === RuleType.paragraph &&
-      'removedClosingTags' in ast[i + 1] &&
-      (
-        ast[i + 1] as MarkdownToJSX.ParagraphNode & {
-          removedClosingTags?: MarkdownToJSX.ASTNode[]
-        }
-      ).removedClosingTags
-    ) {
-      const htmlNode = node as MarkdownToJSX.HTMLNode
-      const paragraphNode = ast[i + 1] as MarkdownToJSX.ParagraphNode & {
-        removedClosingTags?: MarkdownToJSX.ASTNode[]
-      }
-      let combinedText = extractText(paragraphNode.children)
-      if (paragraphNode.removedClosingTags) {
-        // Single-pass filter and extract (avoid filter/map/join chain)
-        const closingTagText: string[] = []
-        const closingTagEnd = `</${htmlNode.tag}>`
-        for (const tag of paragraphNode.removedClosingTags) {
-          if (tag.type === RuleType.htmlSelfClosing) {
-            const rawText = tag._rawText
-            if (rawText && rawText.indexOf(closingTagEnd) === -1) {
-              closingTagText.push(rawText)
-            }
-          }
-        }
-        combinedText += closingTagText.join('')
-      }
-      // Create a new node instead of mutating to avoid issues with memoization
-      // When ast() is cached but jsx() recalculates, mutation would accumulate text
-      const newRawText = (htmlNode._rawText || '') + '\n' + combinedText
-      const modifiedHtmlNode: MarkdownToJSX.HTMLNode = {
-        ...htmlNode,
-        _rawText: newRawText,
-        text: newRawText, // @deprecated - use rawText instead
-      }
-      postProcessedAst.push(modifiedHtmlNode)
-      i++ // Skip paragraph
-    } else {
-      postProcessedAst.push(node)
-    }
-  }
-
   const parseOptions: parse.ParseOptions = {
     slugify: i => slug(i, util.slugify),
     sanitizer: sanitize,
@@ -779,8 +701,8 @@ export function astToJSX(
   }
 
   const refs =
-    postProcessedAst[0] && postProcessedAst[0].type === RuleType.refCollection
-      ? (postProcessedAst[0] as MarkdownToJSX.ReferenceCollectionNode).refs
+    ast[0] && ast[0].type === RuleType.refCollection
+      ? (ast[0] as MarkdownToJSX.ReferenceCollectionNode).refs
       : {}
 
   const emitter = createRenderer(
@@ -799,7 +721,7 @@ export function astToJSX(
     opts
   )
 
-  const arr = emitter(postProcessedAst, {
+  const arr = emitter(ast, {
     inline: opts.forceInline,
     refs: refs,
   }) as (JSX.Element | string)[]

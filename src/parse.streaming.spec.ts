@@ -96,3 +96,77 @@ describe('Streaming optimization - tables', () => {
     expect(html).not.toContain('---')
   })
 })
+
+describe('Streaming optimization - list markers', () => {
+  it('should suppress a lone * at end of input', () => {
+    const html = htmlCompiler('*', { optimizeForStreaming: true })
+    expect(html).toBe('')
+  })
+
+  it('should suppress * followed by space at end of input', () => {
+    const html = htmlCompiler('* ', { optimizeForStreaming: true })
+    expect(html).toBe('')
+  })
+
+  it('should render * with content as a list', () => {
+    const html = htmlCompiler('* item', { optimizeForStreaming: true })
+    expect(html).toBe('<ul><li>item</li></ul>')
+  })
+
+  it('should suppress trailing empty list marker after content', () => {
+    const html = htmlCompiler('Hello\n* ', { optimizeForStreaming: true })
+    expect(html).toBe('<p>Hello</p>')
+  })
+
+  it('should render trailing list marker with content', () => {
+    const html = htmlCompiler('Hello\n* item', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<div><p>Hello</p><ul><li>item</li></ul></div>"`)
+  })
+
+  it('should suppress lone - at end of input', () => {
+    const html = htmlCompiler('- ', { optimizeForStreaming: true })
+    expect(html).toBe('')
+  })
+
+  it('should suppress lone + at end of input', () => {
+    const html = htmlCompiler('+ ', { optimizeForStreaming: true })
+    expect(html).toBe('')
+  })
+
+  it('should suppress empty ordered list marker at end of input', () => {
+    const html = htmlCompiler('1. ', { optimizeForStreaming: true })
+    expect(html).toBe('')
+  })
+
+  it('should not suppress multi-item lists', () => {
+    const html = htmlCompiler('* one\n* two', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<ul><li>one</li><li>two</li></ul>"`)
+  })
+
+  it('should not suppress list markers without streaming mode', () => {
+    const html = htmlCompiler('* ', {})
+    expect(html).toBe('<ul><li></li></ul>')
+  })
+})
+
+describe('Streaming optimization - HTML tags in code spans', () => {
+  it('should preserve HTML tags inside backtick code spans', () => {
+    const html = htmlCompiler('`<Markdown>`', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p><code>&lt;Markdown&gt;</code></p>"`)
+  })
+
+  it('should preserve HTML tags in code spans within text', () => {
+    const html = htmlCompiler('Use `<Markdown>` for rendering', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>Use <code>&lt;Markdown&gt;</code> for rendering</p>"`)
+  })
+
+  it('should still strip bare unclosed HTML tags in streaming mode', () => {
+    const html = htmlCompiler('<Markdown> some text', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>some text</p>"`)
+  })
+
+  it('should strip bare unclosed uppercase tags with no content', () => {
+    const html = htmlCompiler('<Markdown>', { optimizeForStreaming: true })
+    expect(html).toBe('')
+  })
+})

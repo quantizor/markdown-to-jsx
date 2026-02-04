@@ -371,7 +371,6 @@ export const VOID_ELEMENTS: Set<string> = new Set([
   'use',
   'stop',
   'animate',
-  'animateTransform',
   'set',
 ])
 

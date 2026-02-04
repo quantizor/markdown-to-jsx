@@ -467,11 +467,7 @@ export function astToHTML(
               : htmlNode._rawText
             if (htmlNode._isClosingTag) return `</${tag}>${textContent}`
             var tagLower = tag.toLowerCase()
-            var isType1Block =
-              tagLower === 'pre' ||
-              tagLower === 'script' ||
-              tagLower === 'style' ||
-              tagLower === 'textarea'
+            var isType1Block = parse.isType1Block(tagLower)
             if (isType1Block) {
               var textLen = htmlNode._rawText.length
               var textStart = 0
@@ -804,23 +800,7 @@ export function astToHTML(
         const attrsStr = formatAttributes(util.getOverrideProps('p', overrides))
         const tag = util.getTag('p', overrides)
 
-        const paragraphNode = node as MarkdownToJSX.ParagraphNode & {
-          removedClosingTags?: MarkdownToJSX.ASTNode[]
-        }
-        var closingTags = ''
-        if (paragraphNode.removedClosingTags?.length) {
-          for (
-            var cti = 0;
-            cti < paragraphNode.removedClosingTags.length;
-            cti++
-          ) {
-            closingTags += renderNode(
-              paragraphNode.removedClosingTags[cti],
-              state
-            )
-          }
-        }
-        return `<${tag}${attrsStr}>${children}</${tag}>${closingTags}`
+        return `<${tag}${attrsStr}>${children}</${tag}>`
       }
 
       default:
