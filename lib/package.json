@@ -172,7 +172,6 @@
   "scripts": {
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
     "build": "rimraf dist && bunup",
-    "build:debug": "rimraf dist && bunup --filter main --minifyIdentifiers=false --minifyWhitespace=false",
     "test": "bun test"
   }
 }

@@ -8,7 +8,7 @@
     "incremental": true,
     "jsx": "react",
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "noEmit": true,
     "preserveConstEnums": true,
     "target": "ESNext"

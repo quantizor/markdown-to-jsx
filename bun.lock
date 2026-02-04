@@ -25,7 +25,7 @@
         "benchtable": "^0.1.0",
         "cli-progress": "^3.12.0",
         "markdown-it": "^14.0.0",
-        "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.7.0",
+        "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.7.1",
         "marked": "^17.0.0",
         "react": "^19.2.0",
         "react-markdown": "^10.1.0",
@@ -995,7 +995,7 @@
 
     "markdown-to-jsx": ["markdown-to-jsx@workspace:lib"],
 
-    "markdown-to-jsx-latest": ["markdown-to-jsx@9.7.0", "", { "peerDependencies": { "react": ">= 16.0.0", "solid-js": ">=1.0.0", "vue": ">=3.0.0" }, "optionalPeers": ["react", "solid-js", "vue"] }, "sha512-mo8Bbdyc1yJs7yIPDFJi6IIzVfG1nzKRslNnx9HdOhQNa6xQumVohAD1u/CdxYIC5vHR4YFDrbjE8lICVIQIUg=="],
+    "markdown-to-jsx-latest": ["markdown-to-jsx@workspace:lib"],
 
     "marked": ["marked@17.0.1", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-boeBdiS0ghpWcSwoNm/jJBwdpFaMnZWRzjA6SkUMYb40SVaN1x7mmfGKp0jvexGcx+7y2La5zRZsYFZI6Qpypg=="],
 

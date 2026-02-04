@@ -1,3 +1,9 @@
 [install]
-minimumReleaseAge = 259200                      # 3d
-minimumReleaseAgeExcludes = ["markdown-to-jsx"]
+minimumReleaseAge = 259200                             # 3d
+minimumReleaseAgeExcludes = ["markdown-to-jsx-latest"]
+
+[run]
+bun = true
+
+[test]
+preload = ["./lib/src/__mocks__/react-native.ts"]
