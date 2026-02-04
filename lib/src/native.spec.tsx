@@ -1,7 +1,4 @@
 // @ts-nocheck
-// Import the mock setup FIRST - this sets up mock.module before native.tsx imports react-native
-import './__mocks__/react-native'
-
 // Now import test utilities and the module under test
 import { afterEach, expect, it, describe, mock, spyOn } from 'bun:test'
 import * as React from 'react'

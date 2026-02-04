@@ -1,0 +1,3 @@
+[install]
+minimumReleaseAge = 259200                      # 3d
+minimumReleaseAgeExcludes = ["markdown-to-jsx"]
