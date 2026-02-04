@@ -3841,14 +3841,6 @@ Final paragraph.`
   })
 })
 
-describe('initializeParseMetrics', () => {
-  it('should initialize parse metrics', () => {
-    p.initializeParseMetrics()
-    // This function initializes global state, so we just verify it doesn't throw
-    expect(true).toBe(true)
-  })
-})
-
 describe('Unserializable expression evaluation', () => {
   describe('with evalUnserializableExpressions: false (default)', () => {
     it('should keep function expressions as strings', () => {

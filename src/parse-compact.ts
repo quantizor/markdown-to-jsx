@@ -5124,15 +5124,6 @@ export function parseStyleAttribute(style: string) {
   }
   return result
 }
-export function initializeParseMetrics() {
-  ;(globalThis as any).parseMetrics = {
-    blockParsers: {},
-    inlineParsers: {},
-    totalOperations: 0,
-    blockParseIterations: 0,
-    inlineParseIterations: 0,
-  }
-}
 
 // Export parseMarkdown with refCollection node for react.tsx compatibility
 export function parseMarkdown(
