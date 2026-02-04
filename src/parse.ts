@@ -4813,14 +4813,30 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
   // Only strip if the table is at the END of the input (might be incomplete during streaming)
   if (opts.streaming || opts.optimizeForStreaming) {
     // Pattern: table at end with only header + separator (no data rows after)
-    // Match: | header |\n| --- | followed by end of string or non-pipe line
-    const match = s.match(/(\|[^\n]+\n\|[ \t\-:|]+\n?)$/)
-    if (match) {
-      const tableText = match[1]
-      const lines = tableText.split('\n').filter(l => l.trim() && l.includes('|'))
-      // Only strip if just 2 lines (header + separator) - no data rows
-      if (lines.length <= 2) {
-        s = s.slice(0, s.length - match[1].length)
+    // Scan backwards to find last two lines; check if they form header + separator
+    var sEnd = s.length
+    // skip trailing newline
+    if (sEnd > 0 && s.charCodeAt(sEnd - 1) === $.CHAR_NEWLINE) sEnd--
+    // find start of last line (separator candidate)
+    var sepStart = sEnd
+    while (sepStart > 0 && s.charCodeAt(sepStart - 1) !== $.CHAR_NEWLINE) sepStart--
+    if (sepStart > 0 && s.charCodeAt(sepStart) === $.CHAR_PIPE) {
+      // validate separator line contains only [ \t\-:|]
+      var isSep = true
+      for (var vi = sepStart; vi < sEnd; vi++) {
+        var vc = s.charCodeAt(vi)
+        if (vc !== $.CHAR_SPACE && vc !== $.CHAR_TAB && vc !== $.CHAR_DASH && vc !== $.CHAR_COLON && vc !== $.CHAR_PIPE) {
+          isSep = false
+          break
+        }
+      }
+      if (isSep) {
+        // find start of header line
+        var hdrStart = sepStart - 1 // skip the \n before separator
+        while (hdrStart > 0 && s.charCodeAt(hdrStart - 1) !== $.CHAR_NEWLINE) hdrStart--
+        if (s.charCodeAt(hdrStart) === $.CHAR_PIPE) {
+          s = s.slice(0, hdrStart).trimEnd()
+        }
       }
     }
 
@@ -4843,20 +4859,50 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
     }
 
     // Strip incomplete HTML tags at end of input (unclosed block-level tags)
-    // Pattern: <tag>content at end without corresponding </tag>
-    // But skip if the tag is inside a code span (backticks) or fenced code block
-    var htmlTagAtEnd = s.match(/<([a-zA-Z][a-zA-Z0-9]*)[^>]*>([^<]*)$/)
-    if (htmlTagAtEnd && htmlTagAtEnd.index !== undefined) {
+    // Scan backwards for last '<', then parse tag name and find '>' in a single forward pass
+    var htmlTagPos = -1, htmlTagEnd = -1, htmlContentStart = -1
+    for (var hi = s.length - 1; hi >= 0; hi--) {
+      if (s.charCodeAt(hi) === $.CHAR_LT) {
+        // check next char is a letter (tag name start)
+        var hc = hi + 1 < s.length ? s.charCodeAt(hi + 1) : 0
+        if ((hc >= $.CHAR_A && hc <= $.CHAR_Z) || (hc >= $.CHAR_a && hc <= $.CHAR_z)) {
+          // find end of tag name
+          var hn = hi + 2
+          while (hn < s.length) {
+            var hnc = s.charCodeAt(hn)
+            if ((hnc >= $.CHAR_A && hnc <= $.CHAR_Z) || (hnc >= $.CHAR_a && hnc <= $.CHAR_z) || (hnc >= $.CHAR_DIGIT_0 && hnc <= $.CHAR_DIGIT_9)) hn++
+            else break
+          }
+          // find '>' after tag name
+          var hg = hn
+          while (hg < s.length && s.charCodeAt(hg) !== $.CHAR_GT) hg++
+          if (hg < s.length) {
+            // verify no '<' in content after '>'
+            var hasLt = false
+            for (var hk = hg + 1; hk < s.length; hk++) {
+              if (s.charCodeAt(hk) === $.CHAR_LT) { hasLt = true; break }
+            }
+            if (!hasLt) {
+              htmlTagPos = hi
+              htmlTagEnd = hn // end of tag name
+              htmlContentStart = hg + 1
+            }
+          }
+        }
+        break
+      }
+    }
+    if (htmlTagPos >= 0) {
       // Check if the match is inside backtick code spans
       var blockBtCount = 0
-      for (var bci = 0; bci < htmlTagAtEnd.index; bci++) {
+      for (var bci = 0; bci < htmlTagPos; bci++) {
         if (s.charCodeAt(bci) === $.CHAR_BACKTICK) blockBtCount++
       }
       if (blockBtCount % 2 === 0) {
-        var hTag = htmlTagAtEnd[1]
+        var hTag = s.slice(htmlTagPos + 1, htmlTagEnd)
         if (indexOfCI(s, '</' + hTag, 0) === -1) {
           // Remove the unclosed tag but keep its content
-          s = s.slice(0, htmlTagAtEnd.index) + htmlTagAtEnd[2]
+          s = s.slice(0, htmlTagPos) + s.slice(htmlContentStart)
         }
       }
     }
