@@ -189,8 +189,7 @@ to be indented <em>twice</em> -- 8 spaces or two tabs:</p><pre><code>*   A list 
 
         &lt;code goes here&gt;</code></pre><p>It&#x27;s worth noting that it&#x27;s possible to trigger an ordered list by
 accident, by writing something like this:</p><pre><code>1986. What a great season.</code></pre><p>In other words, a <em>number-period-space</em> sequence at the beginning of a
-line. To avoid this, you can backslash-escape the period:</p><pre><code>1986\\. What a great season.
-</code></pre><h3 id="precode">Code Blocks</h3><p>Pre-formatted code blocks are used for writing about programming or
+line. To avoid this, you can backslash-escape the period:</p><pre><code>1986\\. What a great season.</code></pre><h3 id="precode">Code Blocks</h3><p>Pre-formatted code blocks are used for writing about programming or
 markup source code. Rather than forming normal paragraphs, the lines
 of a code block are interpreted literally. Markdown wraps a code block
 in both <code>&lt;pre&gt;</code> and <code>&lt;code&gt;</code> tags.</p><p>To produce a code block in Markdown, simply indent every line of the
@@ -245,7 +244,8 @@ title attribute.&lt;/p&gt;</code></pre><p>If you&#x27;re referring to a local re
 use relative paths:</p><pre><code>See my [About](/about/) page for details.</code></pre><p>Reference-style links use a second set of square brackets, inside
 which you place a label of your choosing to identify the link:</p><pre><code>This is [an example][id] reference-style link.</code></pre><p>You can optionally use a space to separate the sets of brackets:</p><pre><code>This is [an example] [id] reference-style link.</code></pre><p>Then, anywhere in the document, you define your link label like this,
 on a line by itself:</p><pre><code>[id]: http://example.com/  &quot;Optional Title Here&quot;</code></pre><p>That is:</p><ul><li>Square brackets containing the link identifier (optionally
-indented from the left margin using up to three spaces);</li><li>followed by a colon;</li><li>followed by one or more spaces (or tabs);</li><li>followed by the URL for the link;</li><li>optionally followed by a title attribute for the link, enclosed in double or single quotes, or enclosed in parentheses.</li></ul><p>The following three link definitions are equivalent:</p><pre><code>[foo]: http://example.com/  &quot;Optional Title Here&quot;
+indented from the left margin using up to three spaces);</li><li>followed by a colon;</li><li>followed by one or more spaces (or tabs);</li><li>followed by the URL for the link;</li><li>optionally followed by a title attribute for the link, enclosed
+in double or single quotes, or enclosed in parentheses.</li></ul><p>The following three link definitions are equivalent:</p><pre><code>[foo]: http://example.com/  &quot;Optional Title Here&quot;
 [foo]: http://example.com/  &#x27;Optional Title Here&#x27;
 [foo]: http://example.com/  (Optional Title Here)</code></pre><p><strong>Note:</strong> There is a known bug in Markdown.pl 1.0.1 which prevents
 single quotes from being used to delimit link titles.</p><p>The link URL may, optionally, be surrounded by angle brackets:</p><pre><code>[id]: &lt;http://example.com/&gt;  &quot;Optional Title Here&quot;</code></pre><p>You can put the title attribute on the next line and use extra spaces
@@ -306,8 +306,7 @@ __double underscores__</code></pre><p>will produce:</p><pre><code>&lt;em&gt;sing
 the same character must be used to open and close an emphasis span.</p><p>Emphasis can be used in the middle of a word:</p><pre><code>un*frigging*believable</code></pre><p>But if you surround an <code>*</code> or <code>_</code> with spaces, it&#x27;ll be treated as a
 literal asterisk or underscore.</p><p>To produce a literal asterisk or underscore at a position where it
 would otherwise be used as an emphasis delimiter, you can backslash
-escape it:</p><pre><code>\\*this text is surrounded by literal asterisks\\*
-</code></pre><h3 id="code">Code</h3><p>To indicate a span of code, wrap it with backtick quotes (<code>\`</code>).
+escape it:</p><pre><code>\\*this text is surrounded by literal asterisks\\*</code></pre><h3 id="code">Code</h3><p>To indicate a span of code, wrap it with backtick quotes (<code>\`</code>).
 Unlike a pre-formatted code block, a code span indicates code within a
 normal paragraph. For example:</p><pre><code>Use the \`printf()\` function.</code></pre><p>will produce:</p><pre><code>&lt;p&gt;Use the &lt;code&gt;printf()&lt;/code&gt; function.&lt;/p&gt;</code></pre><p>To include a literal backtick character within a code span, you can use
 multiple backticks as the opening and closing delimiters:</p><pre><code>\`\`There is a literal backtick (\`) here.\`\`</code></pre><p>which will produce this:</p><pre><code>&lt;p&gt;&lt;code&gt;There is a literal backtick (\`) here.&lt;/code&gt;&lt;/p&gt;</code></pre><p>The backtick delimiters surrounding a code span may include spaces --
@@ -319,12 +318,14 @@ A backtick-delimited string in a code span: \`\` \`foo\` \`\`</code></pre><p>wil
 &lt;p&gt;A backtick-delimited string in a code span: &lt;code&gt;\`foo\`&lt;/code&gt;&lt;/p&gt;</code></pre><p>With a code span, ampersands and angle brackets are encoded as HTML
 entities automatically, which makes it easy to include example HTML
 tags. Markdown will turn this:</p><pre><code>Please don&#x27;t use any \`&lt;blink&gt;\` tags.</code></pre><p>into:</p><pre><code>&lt;p&gt;Please don&#x27;t use any &lt;code&gt;&amp;lt;blink&amp;gt;&lt;/code&gt; tags.&lt;/p&gt;</code></pre><p>You can write this:</p><pre><code>\`&amp;#8212;\` is the decimal-encoded equivalent of \`&amp;mdash;\`.</code></pre><p>to produce:</p><pre><code>&lt;p&gt;&lt;code&gt;&amp;amp;#8212;&lt;/code&gt; is the decimal-encoded
-equivalent of &lt;code&gt;&amp;amp;mdash;&lt;/code&gt;.&lt;/p&gt;
-</code></pre><h3 id="img">Images</h3><p>Admittedly, it&#x27;s fairly difficult to devise a &quot;natural&quot; syntax for
+equivalent of &lt;code&gt;&amp;amp;mdash;&lt;/code&gt;.&lt;/p&gt;</code></pre><h3 id="img">Images</h3><p>Admittedly, it&#x27;s fairly difficult to devise a &quot;natural&quot; syntax for
 placing images into a plain text document format.</p><p>Markdown uses an image syntax that is intended to resemble the syntax
 for links, allowing for two styles: <em>inline</em> and <em>reference</em>.</p><p>Inline image syntax looks like this:</p><pre><code>![Alt text](/path/to/img.jpg)
 
-![Alt text](/path/to/img.jpg &quot;Optional title&quot;)</code></pre><p>That is:</p><ul><li>An exclamation mark: <code>!</code>;</li><li>followed by a set of square brackets, containing the <code>alt</code> attribute text for the image;</li><li>followed by a set of parentheses, containing the URL or path to the image, and an optional <code>title</code> attribute enclosed in double or single quotes.</li></ul><p>Reference-style image syntax looks like this:</p><pre><code>![Alt text][id]</code></pre><p>Where &quot;id&quot; is the name of a defined image reference. Image references
+![Alt text](/path/to/img.jpg &quot;Optional title&quot;)</code></pre><p>That is:</p><ul><li>An exclamation mark: <code>!</code>;</li><li>followed by a set of square brackets, containing the <code>alt</code>
+attribute text for the image;</li><li>followed by a set of parentheses, containing the URL or path to
+the image, and an optional <code>title</code> attribute enclosed in double
+or single quotes.</li></ul><p>Reference-style image syntax looks like this:</p><pre><code>![Alt text][id]</code></pre><p>Where &quot;id&quot; is the name of a defined image reference. Image references
 are defined using syntax identical to link references:</p><pre><code>[id]: url/to/image  &quot;Optional title attribute&quot;</code></pre><p>As of this writing, Markdown has no syntax for specifying the
 dimensions of an image; if this is important to you, you can simply
 use regular HTML <code>&lt;img&gt;</code> tags.</p><hr/><h2 id="misc">Miscellaneous</h2><h3 id="autolink">Automatic Links</h3><p>Markdown supports a shortcut style for creating &quot;automatic&quot; links for URLs and email addresses: simply surround the URL or email address with angle brackets. What this means is that if you want to show the actual text of a URL or email address, and also have it be a clickable link, you can do this:</p><pre><code>&lt;http://example.com/&gt;</code></pre><p>Markdown will turn this into:</p><pre><code>&lt;a href=&quot;http://example.com/&quot;&gt;http://example.com/&lt;/a&gt;</code></pre><p>Automatic links for email addresses work similarly, except that
@@ -333,7 +334,7 @@ entity-encoding to help obscure your address from address-harvesting
 spambots. For example, Markdown will turn this:</p><pre><code>&lt;address@example.com&gt;</code></pre><p>into something like this:</p><pre><code>&lt;a href=&quot;&amp;#x6D;&amp;#x61;i&amp;#x6C;&amp;#x74;&amp;#x6F;:&amp;#x61;&amp;#x64;&amp;#x64;&amp;#x72;&amp;#x65;
 &amp;#115;&amp;#115;&amp;#64;&amp;#101;&amp;#120;&amp;#x61;&amp;#109;&amp;#x70;&amp;#x6C;e&amp;#x2E;&amp;#99;&amp;#111;
 &amp;#109;&quot;&gt;&amp;#x61;&amp;#x64;&amp;#x64;&amp;#x72;&amp;#x65;&amp;#115;&amp;#115;&amp;#64;&amp;#101;&amp;#120;&amp;#x61;
-&amp;#109;&amp;#x70;&amp;#x6C;e&amp;#x2E;&amp;#99;&amp;#111;&amp;#109;&lt;/a&gt;</code></pre><p>which will render in a browser as a clickable link to &quot;address@example.com&quot;.</p><p>(This sort of entity-encoding trick will indeed fool many, if not
+&amp;#109;&amp;#x70;&amp;#x6C;e&amp;#x2E;&amp;#99;&amp;#111;&amp;#109;&lt;/a&gt;</code></pre><p>which will render in a browser as a clickable link to &quot;<a href="mailto:address@example.com">address@example.com</a>&quot;.</p><p>(This sort of entity-encoding trick will indeed fool many, if not
 most, address-harvesting bots, but it definitely won&#x27;t fool all of
 them. It&#x27;s better than nothing, but an address published in this way
 will probably eventually start receiving spam.)</p><h3 id="backslash">Backslash Escapes</h3><p>Markdown allows you to use backslash escapes to generate literal

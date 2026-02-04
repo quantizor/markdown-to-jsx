@@ -37,6 +37,7 @@ Some special features of the library:
     - [options.forceWrapper](#optionsforcewrapper)
     - [options.overrides](#optionsoverrides)
     - [options.evalUnserializableExpressions](#optionsevalunserializableexpressions)
+    - [options.ignoreHTMLBlocks](#optionsignorehtmlblocks)
     - [options.renderRule](#optionsrenderrule)
     - [options.sanitizer](#optionssanitizer)
     - [options.slugify](#optionsslugify)
@@ -425,6 +426,7 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 | `evalUnserializableExpressions` | `boolean`                     | `false`  | ⚠️ Eval unserializable props (DANGEROUS). See [evalUnserializableExpressions](#optionsevalunserializableexpressions) for details. |
 | `forceBlock`                    | `boolean`                     | `false`  | Force all content to be treated as block-level.                                                                                   |
 | `forceInline`                   | `boolean`                     | `false`  | Force all content to be treated as inline.                                                                                        |
+| `ignoreHTMLBlocks`              | `boolean`                     | `false`  | Disable parsing of HTML blocks, treating them as plain text.                                                                      |
 | `forceWrapper`                  | `boolean`                     | `false`  | Force wrapper even with single child (React/React Native/Vue only). See [forceWrapper](#optionsforcewrapper) for details.         |
 | `overrides`                     | `object`                      | -        | Override HTML tag rendering. See [overrides](#optionsoverrides) for details.                                                      |
 | `preserveFrontmatter`           | `boolean`                     | `false`  | Include frontmatter in rendered output (as `<pre>` for HTML/JSX, included in markdown). Behavior varies by compiler type.         |
@@ -522,7 +524,6 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
   - Booleans: `enabled={true}` → parsed as `true`
   - Functions: `onClick={() => ...}` → kept as string for security (use [renderRule](#optionsrenderrule) for case-by-case handling, or see [evalUnserializableExpressions](#optionsevalunserializableexpressions))
   - Complex expressions: `value={someVar}` → kept as string
-- The original raw attribute string is available in `node.rawAttrs` when using `parser()`
 - Some props are preserved: `a` (`href`, `title`), `img` (`src`, `alt`, `title`), `input[type="checkbox"]` (`checked`, `readonly`), `ol` (`start`), `td`/`th` (`style`)
 - Element mappings: `span` for inline text, `code` for inline code, `pre > code` for code blocks
 
@@ -611,6 +612,16 @@ compiler(markdown, {
 
 This approach gives you full control over which expressions are evaluated and under what conditions.
 
+#### options.ignoreHTMLBlocks
+
+When enabled, the parser will not attempt to parse HTML blocks. HTML syntax will be treated as plain text and rendered as-is.
+
+```tsx
+<Markdown options={{ ignoreHTMLBlocks: true }}>
+  {'<div class="custom">This will be rendered as text</div>'}
+</Markdown>
+```
+
 #### options.renderRule
 
 Supply your own rendering function that can selectively override how _rules_ are rendered (note, this is different than _`options.overrides`_ which operates at the HTML tag level and is more general). The `renderRule` function always executes before any other rendering code, giving you full control over how nodes are rendered, including normally-skipped nodes like `ref`, `footnote`, and `frontmatter`.
@@ -644,20 +655,16 @@ function App() {
 }
 ````
 
-**Accessing parsed HTML content:** For HTML blocks marked as `verbatim` (like `<script>`, `<style>`, `<pre>`), default renderers use `rawText` for CommonMark compliance, but `renderRule` can access the fully parsed AST in `children`:
+**Accessing parsed HTML content:** For HTML blocks (like `<script>`, `<style>`, `<pre>`), `renderRule` can access the fully parsed AST in `children`:
 
 ```tsx
 <Markdown
   options={{
     renderRule(next, node, renderChildren) {
       if (node.type === RuleType.htmlBlock && node.tag === 'script') {
-        // Access parsed children even for verbatim blocks
+        // Access parsed children for custom rendering
         const parsedContent = node.children || []
-        // Or use rawText for original content
-        const rawContent = node.rawText || ''
-
-        // Custom rendering logic here
-        return <CustomScript content={parsedContent} raw={rawContent} />
+        return <CustomScript content={parsedContent} />
       }
       return next()
     },
@@ -851,6 +858,26 @@ function StreamingMarkdown({ content }) {
 }
 ```
 
+**LLM / AI chatbot integration:**
+
+A common pattern is rendering streamed responses from LLM APIs (OpenAI, Anthropic, etc.) where tokens arrive one at a time. Without `optimizeForStreaming`, users see distracting flashes of raw markdown syntax between each token. With it enabled, incomplete structures are suppressed until the closing delimiter arrives, producing a smooth reading experience:
+
+```tsx
+import Markdown from 'markdown-to-jsx/react'
+import { useState, useEffect } from 'react'
+
+function ChatMessage({ stream }) {
+  const [content, setContent] = useState('')
+
+  useEffect(() => {
+    // Accumulate tokens from the LLM stream
+    stream.on('token', token => setContent(prev => prev + token))
+  }, [stream])
+
+  return <Markdown options={{ optimizeForStreaming: true }}>{content}</Markdown>
+}
+```
+
 **What it suppresses:**
 
 - Unclosed HTML tags (`<div>content` without `</div>`)
@@ -892,7 +919,7 @@ The AST consists of the following node types (use `RuleType` to check node types
   ```
 - `RuleType.codeBlock` - Fenced code blocks (```)
   ```tsx
-  { type: RuleType.codeBlock, lang: "javascript", text: "code content" }
+  { type: RuleType.codeBlock, lang: "javascript", text: "code content", attrs?: { "data-line": "1" } }
   ```
 - `RuleType.blockQuote` - Blockquotes (`>`)
   ```tsx
@@ -910,21 +937,12 @@ The AST consists of the following node types (use `RuleType` to check node types
 - `RuleType.htmlBlock` - HTML blocks and JSX components
 
   ```tsx
-  {
-    type: RuleType.htmlBlock,
-    tag: "div",
-    attrs: {},
-    rawAttrs?: string,
-    children?: ASTNode[],
-    verbatim?: boolean,
-    rawText?: string,
-    text?: string // @deprecated - use rawText instead
-  }
+  { type: RuleType.htmlBlock, tag: "div", attrs?: Record<string, any>, children?: ASTNode[] }
   ```
 
   **Note (v9.1+):** JSX components with blank lines between opening/closing tags now properly nest children instead of creating sibling nodes.
 
-  **HTML Block Parsing (v9.2+):** HTML blocks are always fully parsed into the `children` property, even when marked as `verbatim`. The `verbatim` flag acts as a rendering hint (default renderers use `rawText` for verbatim blocks to maintain CommonMark compliance), but `renderRule` implementations can access the fully parsed AST in `children` for all HTML blocks. The `rawText` field contains the original raw HTML content for verbatim blocks, while `rawAttrs` contains the original attribute string.
+  **HTML Block Parsing (v9.2+):** HTML blocks are always fully parsed into the `children` property. The `renderRule` callback can access the fully parsed AST in `children` for all HTML blocks.
 
 **Inline nodes:**
 
@@ -942,11 +960,11 @@ The AST consists of the following node types (use `RuleType` to check node types
   ```
 - `RuleType.link` - Links
   ```tsx
-  { type: RuleType.link, target: "https://example.com", children: [...] }
+  { type: RuleType.link, target: "https://example.com", title?: "Link title", children: [...] }
   ```
 - `RuleType.image` - Images
   ```tsx
-  { type: RuleType.image, target: "image.png", alt: "description" }
+  { type: RuleType.image, target: "image.png", alt?: "description", title?: "Image title" }
   ```
 
 **Other nodes:**
@@ -954,21 +972,30 @@ The AST consists of the following node types (use `RuleType` to check node types
 - `RuleType.breakLine` - Hard line breaks (`  `)
 - `RuleType.breakThematic` - Horizontal rules (`---`)
 - `RuleType.gfmTask` - GFM task list items (`- [ ]`)
+  ```tsx
+  { type: RuleType.gfmTask, completed: false }
+  ```
 - `RuleType.ref` - Reference definition node (not rendered, stored in refCollection)
 - `RuleType.refCollection` - Reference definitions collection (appears at AST root, includes footnotes with `^` prefix)
+  ```tsx
+  { type: RuleType.refCollection, refs: { "label": { target: "url", title: "title" } } }
+  ```
 - `RuleType.footnote` - Footnote definition node (not rendered, stored in refCollection)
 - `RuleType.footnoteReference` - Footnote reference (`[^identifier]`)
+  ```tsx
+  { type: RuleType.footnoteReference, target: "#fn-identifier", text: "1" }
+  ```
 - `RuleType.frontmatter` - YAML frontmatter blocks
   ```tsx
   { type: RuleType.frontmatter, text: "---\ntitle: My Title\n---" }
   ```
 - `RuleType.htmlComment` - HTML comment nodes
   ```tsx
-  { type: RuleType.htmlComment, text: "<!-- comment -->" }
+  { type: RuleType.htmlComment, text: "comment text" }
   ```
 - `RuleType.htmlSelfClosing` - Self-closing HTML tags
   ```tsx
-  { type: RuleType.htmlSelfClosing, tag: "img", attrs: { src: "image.png" } }
+  { type: RuleType.htmlSelfClosing, tag: "img", attrs?: { src: "image.png" } }
   ```
 
 **JSX Prop Parsing (v9.1+):**
@@ -978,7 +1005,6 @@ The parser intelligently parses JSX prop values:
 - Arrays/objects are parsed via `JSON.parse()`: `rows={[["a", "b"]]}` → `attrs.rows = [["a", "b"]]`
 - Functions are kept as strings for security: `onClick={() => ...}` → `attrs.onClick = "() => ..."`
 - Booleans are parsed: `enabled={true}` → `attrs.enabled = true`
-- The original raw attribute string is preserved in `rawAttrs` field
 
 #### Example AST Structure
 

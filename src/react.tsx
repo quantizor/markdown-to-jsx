@@ -34,42 +34,6 @@ export const MarkdownContext:
 import { htmlAttrsToJSXProps } from './utils'
 
 // Helper function for URL encoding backslashes and backticks per CommonMark spec
-function encodeUrlTarget(target: string): string {
-  // Fast path: check if encoding is needed
-  let needsEncoding = false
-  for (let i = 0; i < target.length; i++) {
-    const code = target.charCodeAt(i)
-    if (code > 127 || code === $.CHAR_BACKSLASH || code === $.CHAR_BACKTICK) {
-      needsEncoding = true
-      break
-    }
-  }
-  if (!needsEncoding) return target
-
-  // Encode character by character, preserving existing percent-encoded sequences
-  let result = ''
-  for (let i = 0; i < target.length; i++) {
-    const char = target[i]
-    if (
-      char === '%' &&
-      i + 2 < target.length &&
-      /[0-9A-Fa-f]/.test(target[i + 1]) &&
-      /[0-9A-Fa-f]/.test(target[i + 2])
-    ) {
-      // Preserve existing percent-encoded sequence
-      result += target[i] + target[i + 1] + target[i + 2]
-      i += 2
-    } else if (char.charCodeAt(0) === $.CHAR_BACKSLASH) {
-      result += '%5C'
-    } else if (char.charCodeAt(0) === $.CHAR_BACKTICK) {
-      result += '%60'
-    } else {
-      const code = char.charCodeAt(0)
-      result += code > 127 ? encodeURIComponent(char) : char
-    }
-  }
-  return result
-}
 
 function render(
   node: MarkdownToJSX.ASTNode,
@@ -94,7 +58,7 @@ function render(
         node.children.unshift({
           attrs: {},
           children: [{ type: RuleType.text, text: node.alert }],
-          verbatim: true,
+          _verbatim: true,
           type: RuleType.htmlBlock,
           tag: 'header',
         })
@@ -138,7 +102,7 @@ function render(
 
     case RuleType.footnoteReference:
       return (
-        <a key={state.key} href={sanitize(node.target, 'a', 'href')}>
+        <a key={state.key} href={sanitize(node.target, 'a', 'href') || undefined}>
           <sup key={state.key}>{node.text}</sup>
         </a>
       )
@@ -165,59 +129,63 @@ function render(
 
       // Apply options.tagfilter: escape dangerous tags
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
-        let tagText: string
-        if ('rawText' in htmlNode && typeof htmlNode.rawText === 'string') {
-          // Use raw text as-is, React will escape it
-          tagText = htmlNode.rawText
-        } else {
-          // Simple attribute formatting for filtered tags
-          let attrStr = ''
-          if (htmlNode.attrs) {
-            for (const [key, value] of Object.entries(htmlNode.attrs)) {
-              if (value === true) {
-                attrStr += ` ${key}`
-              } else if (
-                value !== undefined &&
-                value !== null &&
-                value !== false
-              ) {
-                attrStr += ` ${key}="${String(value)}"`
-              }
-            }
+        // Construct opening tag for display (React will escape the angle brackets)
+        var attrStr = ''
+        if (htmlNode.attrs) {
+          for (var k in htmlNode.attrs) {
+            var v = htmlNode.attrs[k]
+            if (v === true) attrStr += ' ' + k
+            else if (v !== undefined && v !== null && v !== false)
+              attrStr += ' ' + k + '="' + String(v) + '"'
           }
-          tagText = `<${htmlNode.tag}${attrStr}>`
         }
-        // Pass unescaped tag as text child - React will escape it automatically
-        return h('span', { key: state.key }, tagText)
+        return h('span', { key: state.key }, '<' + htmlNode.tag + attrStr + '>')
       }
 
-      if (htmlNode.rawText && htmlNode.verbatim) {
+      if (htmlNode._rawText && htmlNode._verbatim) {
         // For verbatim blocks, always use rawText for rendering (CommonMark compliance)
         // Children are available for renderRule but default rendering uses rawText
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
+        const hasChildren = htmlNode.children && htmlNode.children.length > 0
 
-        const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(htmlNode.rawText)
-        const containsPreTags = /<\/?pre\b/i.test(htmlNode.rawText)
+        const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)
 
         if (isType1Block && !containsHTMLTags) {
-          let textContent = htmlNode.rawText.replace(
+          let textContent = htmlNode._rawText.replace(
             new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
             ''
           )
           if (options.tagfilter) {
             textContent = util.applyTagFilterToText(textContent)
           }
-          return h(node.tag, { key: state.key, ...node.attrs }, textContent)
+          return h(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) }, textContent)
         }
 
-        if (containsPreTags) {
+        // When the tag itself is filtered (e.g. <script>, <iframe>), prefer
+        // children so each child element goes through its own tagfilter check
+        const startsWithOwnTagEarly = new RegExp(
+          `^<${htmlNode.tag}(\\s|>)`,
+          'i'
+        ).test(htmlNode._rawText)
+        if (hasChildren && !startsWithOwnTagEarly && options.tagfilter && util.containsTagfilterTag(htmlNode._rawText)) {
+          return h(
+            node.tag,
+            { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
+            output(htmlNode.children, state)
+          )
+        }
+
+        // Type 1 tags (pre, script, style, textarea) require verbatim content
+        // that cannot be re-parsed into JSX elements without losing fidelity
+        const containsVerbatimTags = parse.containsType1Tag(htmlNode._rawText)
+        if (containsVerbatimTags) {
           const innerHtml = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode.rawText)
-            : htmlNode.rawText
+            ? util.applyTagFilterToText(htmlNode._rawText)
+            : htmlNode._rawText
           return h(node.tag, {
             key: state.key,
-            ...node.attrs,
+            ...htmlAttrsToJSXProps(node.attrs || {}),
             dangerouslySetInnerHTML: { __html: innerHtml },
           })
         }
@@ -228,7 +196,7 @@ function render(
           sanitizer: sanitize,
           tagfilter: true,
         }
-        const cleanedText = htmlNode.rawText
+        const cleanedText = htmlNode._rawText
           .replace(/>\s+</g, '><')
           .replace(/\n+/g, ' ')
           .trim()
@@ -240,22 +208,24 @@ function render(
           'i'
         )
         if (selfTagRegex.test(cleanedText)) {
-          return h(node.tag, { key: state.key, ...node.attrs })
+          // If parser already produced children, use them instead of discarding
+          if (htmlNode.children && htmlNode.children.length > 0) {
+            return h(
+              node.tag,
+              { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
+              output(htmlNode.children, state)
+            )
+          }
+          return h(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) })
         }
 
         function processNode(
           node: MarkdownToJSX.ASTNode
         ): MarkdownToJSX.ASTNode[] {
           if (
-            node.type === RuleType.htmlSelfClosing &&
-            'isClosingTag' in node &&
-            (
-              node as MarkdownToJSX.HTMLSelfClosingNode & {
-                isClosingTag?: boolean
-              }
-            ).isClosingTag
-          )
-            return []
+            (node.type === RuleType.htmlSelfClosing || node.type === RuleType.htmlBlock) &&
+            node._isClosingTag
+          ) return []
           if (node.type === RuleType.paragraph) {
             const children = (node as MarkdownToJSX.ParagraphNode).children
             return children ? children.flatMap(processNode) : []
@@ -282,6 +252,19 @@ function render(
           { inline: false, refs: refs, inHTML: false },
           parseOptions
         )
+        // Recursively strip verbatim from re-parsed nodes to prevent infinite
+        // re-parse recursion when rendering nested HTML blocks
+        function stripVerbatim(nodes: MarkdownToJSX.ASTNode[]) {
+          for (var ai = 0; ai < nodes.length; ai++) {
+            if (nodes[ai].type === RuleType.htmlBlock) {
+              ;(nodes[ai] as MarkdownToJSX.HTMLNode)._verbatim = false
+            }
+            if ('children' in nodes[ai] && (nodes[ai] as MarkdownToJSX.HTMLNode).children) {
+              stripVerbatim((nodes[ai] as MarkdownToJSX.HTMLNode).children as MarkdownToJSX.ASTNode[])
+            }
+          }
+        }
+        stripVerbatim(astNodes)
 
         // Check if rawText represents the FULL outer block (starts with opening tag
         // and ends with closing tag of the same element, with no content after)
@@ -298,36 +281,103 @@ function render(
           .endsWith(closingTag)
         const isFullOuterBlock = startsWithOwnTag && endsWithClosingTag
 
-        const hasNoAttrs =
-          !htmlNode.attrs || Object.keys(htmlNode.attrs).length === 0
-        const hasChildren = htmlNode.children && htmlNode.children.length > 0
-
-        // Case 1: rawText contains full outer block AND no parsed attrs
-        // Skip wrapper and render the parsed nodes directly (attrs are in rawText)
-        if (isFullOuterBlock && hasNoAttrs) {
-          return output(astNodes.flatMap(processNode), state)
-        }
-
-        // Case 2: rawText contains full outer block AND we have parsed attrs (#781)
-        // Use children array instead of re-parsing rawText to avoid duplication
-        // The children contain the inner content without the outer tags
+        // When rawText wraps the full outer block, prefer children if available
         if (isFullOuterBlock && hasChildren) {
           return h(
             node.tag,
-            { key: state.key, ...node.attrs },
+            { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
             output(htmlNode.children, state)
+          )
+        }
+        if (isFullOuterBlock) {
+          return output(astNodes.flatMap(processNode), state)
+        }
+
+        // Check if re-parsed AST contains a closing tag for this element
+        // followed by sibling tags. If so, split: content before closing tag
+        // becomes children, content after becomes siblings rendered alongside.
+        // Must check raw AST (before processNode strips closing tags).
+        function findOwnCloseInAST(
+          nodes: MarkdownToJSX.ASTNode[],
+          tag: string
+        ): { found: boolean; beforeClose: MarkdownToJSX.ASTNode[]; afterClose: MarkdownToJSX.ASTNode[] } {
+          for (var i = 0; i < nodes.length; i++) {
+            var n = nodes[i]
+            // Check in paragraph children
+            if (n.type === RuleType.paragraph && (n as MarkdownToJSX.ParagraphNode).children) {
+              var pChildren = (n as MarkdownToJSX.ParagraphNode).children
+              for (var j = 0; j < pChildren.length; j++) {
+                var cn = pChildren[j]
+                if (
+                  cn.type === RuleType.htmlSelfClosing &&
+                  cn._isClosingTag &&
+                  cn.tag.toLowerCase() === tag
+                ) {
+                  // Found closing tag at pChildren[j]
+                  // Before: pChildren[0..j-1] as paragraph + nodes[0..i-1]
+                  // After: pChildren[j+1..] as paragraph + nodes[i+1..]
+                  var before: MarkdownToJSX.ASTNode[] = nodes.slice(0, i)
+                  if (j > 0) {
+                    before.push({ type: RuleType.paragraph, children: pChildren.slice(0, j) } as MarkdownToJSX.ParagraphNode)
+                  }
+                  var after: MarkdownToJSX.ASTNode[] = []
+                  if (j + 1 < pChildren.length) {
+                    // Remaining paragraph children become nodes after close
+                    var remaining = pChildren.slice(j + 1)
+                    // Filter out trailing closing tags for parent elements
+                    remaining = remaining.filter(function(r) {
+                      return !(r.type === RuleType.htmlSelfClosing && r._isClosingTag)
+                    })
+                    if (remaining.length > 0) {
+                      after = remaining
+                    }
+                  }
+                  after = after.concat(nodes.slice(i + 1))
+                  return { found: true, beforeClose: before, afterClose: after }
+                }
+              }
+            }
+            // Check direct closing tag
+            if (
+              (n.type === RuleType.htmlSelfClosing || n.type === RuleType.htmlBlock) &&
+              n._isClosingTag &&
+              n.tag.toLowerCase() === tag
+            ) {
+              return {
+                found: true,
+                beforeClose: nodes.slice(0, i),
+                afterClose: nodes.slice(i + 1)
+              }
+            }
+          }
+          return { found: false, beforeClose: nodes, afterClose: [] }
+        }
+
+        var splitResult = findOwnCloseInAST(astNodes, tagLowerCheck)
+        if (splitResult.found && splitResult.afterClose.length > 0) {
+          var beforeProcessed = splitResult.beforeClose.flatMap(processNode)
+          var afterProcessed = splitResult.afterClose.flatMap(processNode)
+          return React.createElement(
+            React.Fragment,
+            null,
+            h(
+              node.tag,
+              { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
+              output(beforeProcessed, state)
+            ),
+            output(afterProcessed, state)
           )
         }
 
         return h(
           node.tag,
-          { key: state.key, ...node.attrs },
+          { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
           output(astNodes.flatMap(processNode), state)
         )
       }
       return h(
         node.tag,
-        { key: state.key, ...node.attrs },
+        { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
         node.children ? output(node.children, state) : ''
       )
     }
@@ -337,42 +387,29 @@ function render(
 
       // Apply options.tagfilter: escape dangerous self-closing tags
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
-        let tagText: string
-        if ('rawText' in htmlNode && typeof htmlNode.rawText === 'string') {
-          // Use raw text as-is, React will escape it
-          tagText = htmlNode.rawText
-        } else {
-          // Simple attribute formatting for filtered self-closing tags
-          let attrStr = ''
-          if (htmlNode.attrs) {
-            for (const [key, value] of Object.entries(htmlNode.attrs)) {
-              if (value === true) {
-                attrStr += ` ${key}`
-              } else if (
-                value !== undefined &&
-                value !== null &&
-                value !== false
-              ) {
-                attrStr += ` ${key}="${String(value)}"`
-              }
-            }
+        var attrStr = ''
+        if (htmlNode.attrs) {
+          for (var k in htmlNode.attrs) {
+            var v = htmlNode.attrs[k]
+            if (v === true) attrStr += ' ' + k
+            else if (v !== undefined && v !== null && v !== false)
+              attrStr += ' ' + k + '="' + String(v) + '"'
           }
-          tagText = `<${htmlNode.tag}${attrStr} />`
         }
-        // Pass unescaped tag as text child - React will escape it automatically
-        return h('span', { key: state.key }, tagText)
+        return h('span', { key: state.key }, '<' + htmlNode.tag + attrStr + ' />')
       }
 
-      return h(node.tag, { key: state.key, ...node.attrs })
+      return h(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) })
     }
 
     case RuleType.image: {
+      const src = node.target != null ? sanitize(node.target, 'img', 'src') : null
       return (
         <img
           key={state.key}
           alt={node.alt && node.alt.length > 0 ? node.alt : undefined}
           title={node.title || undefined}
-          src={sanitize(node.target, 'img', 'src')}
+          src={src || undefined}
         />
       )
     }
@@ -382,7 +419,7 @@ function render(
       if (node.target != null) {
         // Entity references are already decoded during parsing (per CommonMark spec)
         // URL-encode backslashes and backticks (per CommonMark spec)
-        props.href = encodeUrlTarget(node.target)
+        props.href = util.encodeUrlTarget(node.target)
       }
       if (node.title) {
         // Entity references are already decoded during parsing (per CommonMark spec)
@@ -543,28 +580,14 @@ const createRenderer = (
   return renderer
 }
 
-const cx = (...args) => args.filter(Boolean).join(' ')
-
-const get = (source, path, fallback) => {
-  let result = source,
-    segments = path.split('.'),
-    i = 0
-  while (i < segments.length) {
-    result = result?.[segments[i]]
-    if (result === undefined) break
-    i++
-  }
-  return result || fallback
-}
-
 const getTag = (tag, overrides) => {
-  const override = get(overrides, tag, undefined)
+  const override = util.get(overrides, tag, undefined)
   return !override
     ? tag
     : typeof override === 'function' ||
         (typeof override === 'object' && 'render' in override)
       ? override
-      : get(overrides, `${tag}.component`, tag)
+      : util.get(overrides, `${tag}.component`, tag)
 }
 
 /**
@@ -608,7 +631,7 @@ export function astToJSX(
     },
     ...children
   ) {
-    const overrideProps = get(opts.overrides, `${tag}.props`, {})
+    const overrideProps = util.get(opts.overrides, `${tag}.props`, {})
 
     // Convert HTML attributes to JSX props and compile any HTML content
     const jsxProps = htmlAttrsToJSXProps(props || {})
@@ -622,7 +645,11 @@ export function astToJSX(
             parse.UPPERCASE_TAG_R.test(value) ||
             parse.parseHTMLTag(value, 0))
         ) {
-          jsxProps[key] = compileHTML(value.trim())
+          const compiled = compileHTML(value.trim())
+          // For innerHTML, take first element if array (matches original parser behavior)
+          jsxProps[key] = key === 'innerHTML' && Array.isArray(compiled)
+            ? compiled[0]
+            : compiled
         }
       }
     }
@@ -633,99 +660,11 @@ export function astToJSX(
         ...jsxProps,
         ...overrideProps,
         className:
-          cx(jsxProps?.className, overrideProps.className) || undefined,
+          util.cx(jsxProps?.className, overrideProps.className) || undefined,
       },
       ...children
     )
   }
-
-  // Post-process AST for JSX compatibility: combine HTML blocks with following paragraphs
-  // when the HTML block contains <pre> tags (to keep pre content as plain text)
-  const postProcessedAst: MarkdownToJSX.ASTNode[] = []
-  for (let i = 0; i < ast.length; i++) {
-    const node = ast[i]
-    if (
-      node.type === RuleType.htmlBlock &&
-      'rawText' in node &&
-      node.rawText &&
-      /<\/?pre\b/i.test(node.rawText) &&
-      i + 1 < ast.length &&
-      ast[i + 1].type === RuleType.paragraph &&
-      'removedClosingTags' in ast[i + 1] &&
-      (
-        ast[i + 1] as MarkdownToJSX.ParagraphNode & {
-          removedClosingTags?: MarkdownToJSX.ASTNode[]
-        }
-      ).removedClosingTags
-    ) {
-      const htmlNode = node as MarkdownToJSX.HTMLNode,
-        paragraphNode = ast[i + 1] as MarkdownToJSX.ParagraphNode & {
-          removedClosingTags?: MarkdownToJSX.ASTNode[]
-        }
-      function extractText(nodes: MarkdownToJSX.ASTNode[]): string {
-        let text = ''
-        for (const n of nodes) {
-          const type = n.type
-          if (type === RuleType.text) text += (n as MarkdownToJSX.TextNode).text
-          else if (
-            type === RuleType.htmlSelfClosing &&
-            'rawText' in n &&
-            (n as MarkdownToJSX.HTMLSelfClosingNode & { rawText?: string })
-              .rawText
-          )
-            text += (
-              n as MarkdownToJSX.HTMLSelfClosingNode & { rawText?: string }
-            ).rawText!
-          else if (type === RuleType.textFormatted) {
-            const formattedNode = n as MarkdownToJSX.FormattedTextNode
-            const marker =
-              formattedNode.tag === 'em'
-                ? '_'
-                : formattedNode.tag === 'strong'
-                  ? '**'
-                  : ''
-            text += marker + extractText(formattedNode.children) + marker
-          } else if ('children' in n && n.children)
-            text += extractText(n.children)
-        }
-        return text
-      }
-      let combinedText = extractText(paragraphNode.children)
-      if (paragraphNode.removedClosingTags) {
-        combinedText += paragraphNode.removedClosingTags
-          .filter(
-            (tag: MarkdownToJSX.ASTNode) =>
-              tag.type === RuleType.htmlSelfClosing &&
-              'rawText' in tag &&
-              (
-                tag as MarkdownToJSX.HTMLSelfClosingNode & {
-                  rawText?: string
-                }
-              ).rawText &&
-              (
-                tag as MarkdownToJSX.HTMLSelfClosingNode & {
-                  rawText?: string
-                }
-              ).rawText!.indexOf(`</${htmlNode.tag}>`) === -1
-          )
-          .map((tag: MarkdownToJSX.ASTNode) =>
-            tag.type === RuleType.htmlSelfClosing && 'rawText' in tag
-              ? (
-                  tag as MarkdownToJSX.HTMLSelfClosingNode & {
-                    rawText?: string
-                  }
-                ).rawText || ''
-              : ''
-          )
-          .join('')
-      }
-      htmlNode.rawText = (htmlNode.rawText || '') + '\n' + combinedText
-      htmlNode.text = htmlNode.rawText // @deprecated - use rawText instead
-      i++ // Skip paragraph
-    }
-    postProcessedAst.push(node)
-  }
-  ast = postProcessedAst
 
   const parseOptions: parse.ParseOptions = {
     ...opts,

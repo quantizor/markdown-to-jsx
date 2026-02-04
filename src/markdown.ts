@@ -514,8 +514,8 @@ function compileHTMLBlock(
 
   // For verbatim blocks, use rawText if available (CommonMark compliance)
   // Otherwise fall back to deprecated text field for backward compatibility
-  if (node.verbatim && (node.rawText || node.text)) {
-    const textContent = node.rawText || node.text
+  if (node._verbatim && (node._rawText || node.text)) {
+    const textContent = node._rawText || node.text
     // For HTML blocks with raw text content
     // textContent already includes the closing tag
     return `<${tag}${attrs}>${textContent}`
@@ -592,12 +592,14 @@ function generateReferenceKey(url: string, state: CompilerState): string {
 
 function compileAttributes(attrs: Record<string, any>): string {
   return Object.entries(attrs || {})
-    .map(([key, value]) =>
-      typeof value === 'boolean'
+    .map(([key, value]) => {
+      // Convert className back to class for HTML output
+      const attrName = key === 'className' ? 'class' : key
+      return typeof value === 'boolean'
         ? value
-          ? ` ${key}`
+          ? ` ${attrName}`
           : ''
-        : ` ${key}="${String(value).replace(/"/g, '&quot;')}"`
-    )
+        : ` ${attrName}="${String(value).replace(/"/g, '&quot;')}"`
+    })
     .join('')
 }

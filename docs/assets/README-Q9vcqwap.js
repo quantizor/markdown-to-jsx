@@ -36,6 +36,7 @@ const n=`[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://
     - [options.forceWrapper](#optionsforcewrapper)
     - [options.overrides](#optionsoverrides)
     - [options.evalUnserializableExpressions](#optionsevalunserializableexpressions)
+    - [options.ignoreHTMLBlocks](#optionsignorehtmlblocks)
     - [options.renderRule](#optionsrenderrule)
     - [options.sanitizer](#optionssanitizer)
     - [options.slugify](#optionsslugify)
@@ -424,6 +425,7 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 | \`evalUnserializableExpressions\` | \`boolean\`                     | \`false\` | ⚠️ 计算不可序列化的属性 (危险)。详见 [evalUnserializableExpressions](#optionsevalunserializableexpressions)。  |
 | \`forceBlock\`                    | \`boolean\`                     | \`false\` | 强制将所有内容视为块级元素。                                                                                   |
 | \`forceInline\`                   | \`boolean\`                     | \`false\` | 强制将所有内容视为内联元素。                                                                                   |
+| \`ignoreHTMLBlocks\`              | \`boolean\`                     | \`false\` | 禁用 HTML 块的解析，将其视为纯文本。                                                                            |
 | \`forceWrapper\`                  | \`boolean\`                     | \`false\` | 即使只有单个子元素也强制使用包装器 (仅限 React/React Native/Vue)。详见 [forceWrapper](#optionsforcewrapper)。  |
 | \`overrides\`                     | \`object\`                      | -       | 覆盖 HTML 标签渲染。详见 [overrides](#optionsoverrides)。                                                      |
 | \`preserveFrontmatter\`           | \`boolean\`                     | \`false\` | 在渲染输出中包含 Frontmatter (对于 HTML/JSX 为 \`<pre>\`，Markdown 则直接包含)。行为因编译器类型而异。           |
@@ -521,7 +523,6 @@ const md = \`<DatePicker timezone="UTC+5" startTime={1514579720511} />\`
   - 布尔值：\`enabled={true}\` → 解析为 \`true\`
   - 函数：\`onClick={() => ...}\` → 出于安全考虑保持为字符串 (使用 [renderRule](#optionsrenderrule) 进行逐例处理，或参阅 [evalUnserializableExpressions](#optionsevalunserializableexpressions))
   - 复杂表达式：\`value={someVar}\` → 保持为字符串
-- 使用 \`parser()\` 时，原始属性字符串可在 \`node.rawAttrs\` 中找到。
 - 某些属性会被保留：\`a\` (\`href\`, \`title\`)，\`img\` (\`src\`, \`alt\`, \`title\`)，\`input[type="checkbox"]\` (\`checked\`, \`readonly\`)，\`ol\` (\`start\`)，\`td\`/\`th\` (\`style\`)。
 - 元素映射：内联文本使用 \`span\`，内联代码使用 \`code\`，代码块使用 \`pre > code\`。
 
@@ -604,6 +605,16 @@ compiler(markdown, {
 
 这种方法让您可以完全控制在什么条件下评估哪些表达式。
 
+#### options.ignoreHTMLBlocks
+
+启用后，解析器将不会尝试解析 HTML 块。HTML 语法将被视为纯文本并按原样渲染。
+
+\`\`\`tsx
+<Markdown options={{ ignoreHTMLBlocks: true }}>
+  {'<div class="custom">这将被渲染为文本</div>'}
+</Markdown>
+\`\`\`
+
 #### options.renderRule
 
 提供您自己的渲染函数，可以有选择地覆盖规则 (Rules) 的渲染方式 (注意，这与 \`options.overrides\` 不同，后者在 HTML 标签级别运行且更为通用)。\`renderRule\` 函数始终在任何其他渲染代码之前执行，让您可以完全控制节点的渲染方式，包括通常被跳过的节点，如 \`ref\`, \`footnote\` 和 \`frontmatter\`。
@@ -637,20 +648,16 @@ function App() {
 }
 \`\`\`\`
 
-**访问已解析的 HTML 内容**：对于标记为 \`verbatim\` (逐字) 的 HTML 块 (如 \`<script>\`, \`<style>\`, \`<pre>\`)，默认渲染器使用 \`rawText\` 以符合 CommonMark 规范，但 \`renderRule\` 可以访问 \`children\` 中完整解析的 AST：
+**访问已解析的 HTML 内容**：对于 HTML 块 (如 \`<script>\`, \`<style>\`, \`<pre>\`)，\`renderRule\` 可以访问 \`children\` 中完整解析的 AST：
 
 \`\`\`tsx
 <Markdown
   options={{
     renderRule(next, node, renderChildren) {
       if (node.type === RuleType.htmlBlock && node.tag === 'script') {
-        // 即使对于逐字块，也可以访问解析后的子节点
+        // 访问解析后的子节点进行自定义渲染
         const parsedContent = node.children || []
-        // 或者使用 rawText 获取原始内容
-        const rawContent = node.rawText || ''
-
-        // 此处为自定义渲染逻辑
-        return <CustomScript content={parsedContent} raw={rawContent} />
+        return <CustomScript content={parsedContent} />
       }
       return next()
     },
@@ -848,6 +855,26 @@ function StreamingMarkdown({ content }) {
 }
 \`\`\`
 
+**LLM / AI 聊天机器人集成：**
+
+一个常见的模式是渲染来自 LLM API (OpenAI, Anthropic 等) 的流式响应，其中 token 逐个到达。如果不启用 \`optimizeForStreaming\`，用户会在每个 token 之间看到原始 Markdown 语法的闪烁。启用后，不完整的结构会被抑制直到闭合分隔符到达，从而提供流畅的阅读体验：
+
+\`\`\`tsx
+import Markdown from 'markdown-to-jsx/react'
+import { useState, useEffect } from 'react'
+
+function ChatMessage({ stream }) {
+  const [content, setContent] = useState('')
+
+  useEffect(() => {
+    // 从 LLM 流中累积 token
+    stream.on('token', token => setContent(prev => prev + token))
+  }, [stream])
+
+  return <Markdown options={{ optimizeForStreaming: true }}>{content}</Markdown>
+}
+\`\`\`
+
 **它抑制的内容：**
 
 - 未闭合的 HTML 标签（\`<div>内容\` 没有 \`</div>\`）
@@ -889,7 +916,7 @@ AST 由以下节点类型组成 (使用 \`RuleType\` 检查节点类型)：
   \`\`\`
 - \`RuleType.codeBlock\` - 围栏代码块 (\`\`\`)
   \`\`\`tsx
-  { type: RuleType.codeBlock, lang: "javascript", text: "code content" }
+  { type: RuleType.codeBlock, lang: "javascript", text: "code content", attrs?: { "data-line": "1" } }
   \`\`\`
 - \`RuleType.blockQuote\` - 引用 (\`>\`)
   \`\`\`tsx
@@ -907,21 +934,12 @@ AST 由以下节点类型组成 (使用 \`RuleType\` 检查节点类型)：
 - \`RuleType.htmlBlock\` - HTML 块和 JSX 组件
 
   \`\`\`tsx
-  {
-    type: RuleType.htmlBlock,
-    tag: "div",
-    attrs: {},
-    rawAttrs?: string,
-    children?: ASTNode[],
-    verbatim?: boolean,
-    rawText?: string,
-    text?: string // @deprecated - 改用 rawText
-  }
+  { type: RuleType.htmlBlock, tag: "div", attrs?: Record<string, any>, children?: ASTNode[] }
   \`\`\`
 
   **注意 (v9.1+)：** 在开始/结束标签之间有空行的 JSX 组件现在可以正确嵌套子组件，而不是创建兄弟节点。
 
-  **HTML 块解析 (v9.2+)：** 即使标记为 \`verbatim\`，HTML 块也始终会被完整解析到 \`children\` 属性中。\`verbatim\` 标志作为渲染提示 (默认渲染器对逐字块使用 \`rawText\` 以保持 CommonMark 规范)，但 \`renderRule\` 实现可以访问所有 HTML 块中 \`children\` 里的完整 AST。\`rawText\` 字段包含逐字块的原始 HTML 内容，而 \`rawAttrs\` 包含原始属性字符串。
+  **HTML 块解析 (v9.2+)：** HTML 块始终会被完整解析到 \`children\` 属性中。\`renderRule\` 回调可以访问所有 HTML 块中 \`children\` 里完整解析的 AST。
 
 **内联节点 (Inline nodes)：**
 
@@ -939,11 +957,11 @@ AST 由以下节点类型组成 (使用 \`RuleType\` 检查节点类型)：
   \`\`\`
 - \`RuleType.link\` - 链接
   \`\`\`tsx
-  { type: RuleType.link, target: "https://example.com", children: [...] }
+  { type: RuleType.link, target: "https://example.com", title?: "链接标题", children: [...] }
   \`\`\`
 - \`RuleType.image\` - 图像
   \`\`\`tsx
-  { type: RuleType.image, target: "image.png", alt: "description" }
+  { type: RuleType.image, target: "image.png", alt?: "描述", title?: "图像标题" }
   \`\`\`
 
 **其他节点：**
@@ -951,21 +969,30 @@ AST 由以下节点类型组成 (使用 \`RuleType\` 检查节点类型)：
 - \`RuleType.breakLine\` - 硬换行 (\`  \`)
 - \`RuleType.breakThematic\` - 分隔线 (\`---\`)
 - \`RuleType.gfmTask\` - GFM 任务列表项 (\`- [ ]\`)
+  \`\`\`tsx
+  { type: RuleType.gfmTask, completed: false }
+  \`\`\`
 - \`RuleType.ref\` - 参考定义节点 (不渲染，存储在 refCollection 中)
 - \`RuleType.refCollection\` - 参考定义集合 (出现在 AST 根部，包括带 \`^\` 前缀的脚注)
+  \`\`\`tsx
+  { type: RuleType.refCollection, refs: { "label": { target: "url", title: "标题" } } }
+  \`\`\`
 - \`RuleType.footnote\` - 脚注定义节点 (不渲染，存储在 refCollection 中)
 - \`RuleType.footnoteReference\` - 脚注引用 (\`[^identifier]\`)
+  \`\`\`tsx
+  { type: RuleType.footnoteReference, target: "#fn-identifier", text: "1" }
+  \`\`\`
 - \`RuleType.frontmatter\` - YAML Frontmatter 块
   \`\`\`tsx
   { type: RuleType.frontmatter, text: "---\\ntitle: My Title\\n---" }
   \`\`\`
 - \`RuleType.htmlComment\` - HTML 注释节点
   \`\`\`tsx
-  { type: RuleType.htmlComment, text: "<!-- comment -->" }
+  { type: RuleType.htmlComment, text: "注释文本" }
   \`\`\`
 - \`RuleType.htmlSelfClosing\` - 自闭合 HTML 标签
   \`\`\`tsx
-  { type: RuleType.htmlSelfClosing, tag: "img", attrs: { src: "image.png" } }
+  { type: RuleType.htmlSelfClosing, tag: "img", attrs?: { src: "image.png" } }
   \`\`\`
 
 **JSX 属性解析 (v9.1+)：**
@@ -975,7 +1002,6 @@ AST 由以下节点类型组成 (使用 \`RuleType\` 检查节点类型)：
 - 数组/对象通过 \`JSON.parse()\` 解析：\`rows={[["a", "b"]]}\` → \`attrs.rows = [["a", "b"]]\`
 - 出于安全考虑，函数保持为字符串：\`onClick={() => ...}\` → \`attrs.onClick = "() => ..."\`
 - 布尔值会被解析：\`enabled={true}\` → \`attrs.enabled = true\`
-- 原始属性字符串保存在 \`rawAttrs\` 字段中
 
 #### AST 结构示例
 

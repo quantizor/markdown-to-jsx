@@ -9,7 +9,7 @@
  * @lang hi @deprecated इस प्रवेश बिंदु से React exports अप्रचलित हैं। React-विशिष्ट उपयोग के लिए इसके बजाय `markdown-to-jsx/react` इम्पोर्ट का उपयोग करें।
  */
 
-// Re-export parser from parse.ts
+// Re-export parser
 export { parser } from './parse'
 
 // Re-export types

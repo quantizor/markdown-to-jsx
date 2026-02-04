@@ -5,16 +5,7 @@
   "license": "MIT",
   "version": "9.6.1",
   "publishConfig": {
-    "access": "public",
-    "mangle": {
-      "regex": "^_",
-      "reserved": [
-        "__html"
-      ],
-      "compress": {
-        "unsafe": true
-      }
-    }
+    "access": "public"
   },
   "engines": {
     "node": ">= 18"
@@ -174,7 +165,7 @@
     "in-publish": "^2.0.1",
     "jsdom": "^27.4.0",
     "markdown-it": "^14.0.0",
-    "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.5.7",
+    "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.6.1",
     "marked": "^17.0.0",
     "microbundle": "^0.15.1",
     "microtime": "^3.1.1",
@@ -184,7 +175,6 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
-    "recast": "^0.23.11",
     "rehype-raw": "^7.0.0",
     "rehype-react": "^8.0.0",
     "remark": "^15.0.1",
@@ -234,7 +224,7 @@
     "entities": "bun scripts/generate-entities.ts",
     "fixture": "bun scripts/generate-fixture.ts",
     "metrics": "bun --expose-gc scripts/metrics.ts",
-    "profile": "bun --cpu-prof --expose-gc scripts/profile.ts",
+    "profile": "bun --cpu-prof --expose-gc --cpu-prof-md scripts/profile.ts",
     "bench": "bun --expose-gc scripts/benchmark.ts",
     "analyze": "bun scripts/analyze-patterns.ts",
     "bench:all": "bun scripts/benchmark.ts --all",

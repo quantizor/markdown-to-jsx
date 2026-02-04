@@ -36,6 +36,7 @@
     - [options.forceWrapper](#optionsforcewrapper)
     - [options.overrides](#optionsoverrides)
     - [options.evalUnserializableExpressions](#optionsevalunserializableexpressions)
+    - [options.ignoreHTMLBlocks](#optionsignorehtmlblocks)
     - [options.renderRule](#optionsrenderrule)
     - [options.sanitizer](#optionssanitizer)
     - [options.slugify](#optionsslugify)
@@ -430,6 +431,7 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 | `renderRule`                    | `function`                    | -        | AST नियमों के लिए कस्टम रेंडरिंग। विवरण के लिए [renderRule](#optionsrenderrule) देखें।                                                                 |
 | `sanitizer`                     | `function`                    | built-in | कस्टम URL सैनिटाइज़र फ़ंक्शन। विवरण के लिए [sanitizer](#optionssanitizer) देखें।                                                                       |
 | `slugify`                       | `function`                    | built-in | हेडिंग IDs के लिए कस्टम slug जनरेशन। विवरण के लिए [slugify](#optionsslugify) देखें।                                                                    |
+| `ignoreHTMLBlocks`              | `boolean`                     | `false`  | HTML ब्लॉक्स की पार्सिंग को अक्षम करें, उन्हें प्लेन टेक्स्ट के रूप में माना जाए।                                                                         |
 | `optimizeForStreaming`          | `boolean`                     | `false`  | स्ट्रीमिंग के लिए अपूर्ण markdown सिंटैक्स की रेंडरिंग को दबाएं। विवरण के लिए [स्ट्रीमिंग Markdown](#स्ट्रीमिंग-markdown) देखें।                          |
 | `tagfilter`                     | `boolean`                     | `true`   | XSS को रोकने के लिए खतरनाक HTML टैग (`script`, `iframe`, `style`, आदि) को एस्केप करें।                                                                 |
 | `wrapper`                       | `string \| component \| null` | `'div'`  | एकाधिक children के लिए रैपर एलिमेंट (केवल React/React Native/Vue)। विवरण के लिए [wrapper](#optionswrapper) देखें।                                      |
@@ -521,7 +523,6 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
   - Booleans: `enabled={true}` → `true` के रूप में पार्स किया गया
   - Functions: `onClick={() => ...}` → सुरक्षा के लिए स्ट्रिंग के रूप में रखा गया (केस-बाई-केस हैंडलिंग के लिए [renderRule](#optionsrenderrule) का उपयोग करें, या [evalUnserializableExpressions](#optionsevalunserializableexpressions) देखें)
   - जटिल expressions: `value={someVar}` → स्ट्रिंग के रूप में रखा गया
-- `parser()` का उपयोग करते समय मूल raw attribute स्ट्रिंग `node.rawAttrs` में उपलब्ध है
 - कुछ props संरक्षित हैं: `a` (`href`, `title`), `img` (`src`, `alt`, `title`), `input[type="checkbox"]` (`checked`, `readonly`), `ol` (`start`), `td`/`th` (`style`)
 - एलिमेंट मैपिंग: इनलाइन टेक्स्ट के लिए `span`, इनलाइन कोड के लिए `code`, कोड ब्लॉक्स के लिए `pre > code`
 
@@ -610,6 +611,16 @@ compiler(markdown, {
 
 यह दृष्टिकोण आपको पूर्ण नियंत्रण देता है कि कौन से expressions का मूल्यांकन किया जाता है और किन शर्तों के तहत।
 
+<h4 id="optionsignorehtmlblocks">options.ignoreHTMLBlocks</h4>
+
+सक्षम होने पर, पार्सर HTML ब्लॉक्स को पार्स करने का प्रयास नहीं करेगा। HTML सिंटैक्स को प्लेन टेक्स्ट के रूप में माना जाएगा और जैसा है वैसा ही रेंडर किया जाएगा।
+
+```tsx
+<Markdown options={{ ignoreHTMLBlocks: true }}>
+  {'<div class="custom">यह टेक्स्ट के रूप में रेंडर किया जाएगा</div>'}
+</Markdown>
+```
+
 <h4 id="optionsrenderrule">options.renderRule</h4>
 
 अपना खुद का रेंडरिंग फ़ंक्शन प्रदान करें जो चुनिंदा रूप से ओवरराइड कर सकता है कि _नियम_ कैसे रेंडर किए जाते हैं (नोट करें, यह _`options.overrides`_ से अलग है जो HTML टैग स्तर पर संचालित होता है और अधिक सामान्य है)। `renderRule` फ़ंक्शन हमेशा किसी भी अन्य रेंडरिंग कोड से पहले निष्पादित होता है, जो आपको नोड्स के रेंडर होने के तरीके पर पूर्ण नियंत्रण देता है, जिसमें सामान्य रूप से छोड़े गए नोड्स जैसे `ref`, `footnote`, और `frontmatter` शामिल हैं।
@@ -643,20 +654,16 @@ function App() {
 }
 ````
 
-**पार्स की गई HTML सामग्री तक पहुंचना:** `verbatim` के रूप में चिह्नित HTML ब्लॉक्स के लिए (`<script>`, `<style>`, `<pre>` की तरह), डिफ़ॉल्ट रेंडरर्स CommonMark अनुपालन के लिए `rawText` का उपयोग करते हैं, लेकिन `renderRule` `children` में पूरी तरह से पार्स की गई AST तक पहुंच सकता है:
+**पार्स की गई HTML सामग्री तक पहुंचना:** HTML ब्लॉक्स (`<script>`, `<style>`, `<pre>` जैसे) के लिए, `renderRule` `children` में पूरी तरह से पार्स की गई AST तक पहुंच सकता है:
 
 ```tsx
 <Markdown
   options={{
     renderRule(next, node, renderChildren) {
       if (node.type === RuleType.htmlBlock && node.tag === 'script') {
-        // verbatim ब्लॉक्स के लिए भी पार्स किए गए children तक पहुंचें
+        // कस्टम रेंडरिंग के लिए पार्स किए गए children तक पहुंचें
         const parsedContent = node.children || []
-        // या मूल सामग्री के लिए rawText का उपयोग करें
-        const rawContent = node.rawText || ''
-
-        // यहां कस्टम रेंडरिंग लॉजिक
-        return <CustomScript content={parsedContent} raw={rawContent} />
+        return <CustomScript content={parsedContent} />
       }
       return next()
     },
@@ -855,6 +862,26 @@ function StreamingMarkdown({ content }) {
 }
 ```
 
+**LLM / AI चैटबॉट एकीकरण:**
+
+एक सामान्य पैटर्न LLM API (OpenAI, Anthropic, आदि) से स्ट्रीम किए गए प्रतिक्रियाओं को रेंडर करना है जहां tokens एक-एक करके आते हैं। `optimizeForStreaming` के बिना, उपयोगकर्ता प्रत्येक token के बीच raw markdown सिंटैक्स की विचलित करने वाली झलक देखते हैं। इसे सक्षम करने पर, अपूर्ण संरचनाओं को बंद करने वाले डेलिमीटर आने तक दबाया जाता है, जिससे एक सुचारू पठन अनुभव मिलता है:
+
+```tsx
+import Markdown from 'markdown-to-jsx/react'
+import { useState, useEffect } from 'react'
+
+function ChatMessage({ stream }) {
+  const [content, setContent] = useState('')
+
+  useEffect(() => {
+    // LLM स्ट्रीम से tokens संचित करें
+    stream.on('token', token => setContent(prev => prev + token))
+  }, [stream])
+
+  return <Markdown options={{ optimizeForStreaming: true }}>{content}</Markdown>
+}
+```
+
 **यह क्या दबाता है:**
 
 - अबंद HTML टैग (`<div>सामग्री` बिना `</div>`)
@@ -896,7 +923,7 @@ AST निम्नलिखित नोड प्रकारों से ब
   ```
 - `RuleType.codeBlock` - Fenced कोड ब्लॉक्स (```)
   ```tsx
-  { type: RuleType.codeBlock, lang: "javascript", text: "code content" }
+  { type: RuleType.codeBlock, lang: "javascript", text: "code content", attrs?: { "data-line": "1" } }
   ```
 - `RuleType.blockQuote` - ब्लॉककोट्स (`>`)
   ```tsx
@@ -914,21 +941,12 @@ AST निम्नलिखित नोड प्रकारों से ब
 - `RuleType.htmlBlock` - HTML ब्लॉक्स और JSX कंपोनेंट्स
 
   ```tsx
-  {
-    type: RuleType.htmlBlock,
-    tag: "div",
-    attrs: {},
-    rawAttrs?: string,
-    children?: ASTNode[],
-    verbatim?: boolean,
-    rawText?: string,
-    text?: string // @deprecated - इसके बजाय rawText का उपयोग करें
-  }
+  { type: RuleType.htmlBlock, tag: "div", attrs?: Record<string, any>, children?: ASTNode[] }
   ```
 
   **नोट (v9.1+):** opening/closing टैग के बीच खाली लाइनों वाले JSX कंपोनेंट्स अब sibling नोड्स बनाने के बजाय children को ठीक से nest करते हैं।
 
-  **HTML Block Parsing (v9.2+):** HTML ब्लॉक्स को हमेशा `children` property में पूरी तरह से पार्स किया जाता है, भले ही `verbatim` के रूप में चिह्नित हो। `verbatim` फ़्लैग एक रेंडरिंग संकेत के रूप में कार्य करता है (डिफ़ॉल्ट रेंडरर्स CommonMark अनुपालन बनाए रखने के लिए verbatim ब्लॉक्स के लिए `rawText` का उपयोग करते हैं), लेकिन `renderRule` कार्यान्वयन सभी HTML ब्लॉक्स के लिए `children` में पूरी तरह से पार्स की गई AST तक पहुंच सकते हैं। `rawText` फ़ील्ड verbatim ब्लॉक्स के लिए मूल raw HTML सामग्री शामिल करता है, जबकि `rawAttrs` में मूल attribute स्ट्रिंग शामिल है।
+  **HTML Block Parsing (v9.2+):** HTML ब्लॉक्स को हमेशा `children` property में पूरी तरह से पार्स किया जाता है। `renderRule` कॉलबैक सभी HTML ब्लॉक्स के लिए `children` में पूरी तरह से पार्स की गई AST तक पहुंच सकते हैं।
 
 **इनलाइन नोड्स:**
 
@@ -946,11 +964,11 @@ AST निम्नलिखित नोड प्रकारों से ब
   ```
 - `RuleType.link` - लिंक्स
   ```tsx
-  { type: RuleType.link, target: "https://example.com", children: [...] }
+  { type: RuleType.link, target: "https://example.com", title?: "लिंक शीर्षक", children: [...] }
   ```
 - `RuleType.image` - छवियां
   ```tsx
-  { type: RuleType.image, target: "image.png", alt: "description" }
+  { type: RuleType.image, target: "image.png", alt?: "description", title?: "छवि शीर्षक" }
   ```
 
 **अन्य नोड्स:**
@@ -958,21 +976,30 @@ AST निम्नलिखित नोड प्रकारों से ब
 - `RuleType.breakLine` - हार्ड लाइन ब्रेक्स (`  `)
 - `RuleType.breakThematic` - क्षैतिज नियम (`---`)
 - `RuleType.gfmTask` - GFM टास्क लिस्ट आइटम्स (`- [ ]`)
+  ```tsx
+  { type: RuleType.gfmTask, completed: false }
+  ```
 - `RuleType.ref` - संदर्भ परिभाषा नोड (रेंडर नहीं किया गया, refCollection में संग्रहीत)
 - `RuleType.refCollection` - संदर्भ परिभाषाएं संग्रह (AST root पर दिखाई देता है, `^` प्रीफ़िक्स के साथ footnotes शामिल हैं)
+  ```tsx
+  { type: RuleType.refCollection, refs: { "label": { target: "url", title: "शीर्षक" } } }
+  ```
 - `RuleType.footnote` - फ़ुटनोट परिभाषा नोड (रेंडर नहीं किया गया, refCollection में संग्रहीत)
 - `RuleType.footnoteReference` - फ़ुटनोट संदर्भ (`[^identifier]`)
+  ```tsx
+  { type: RuleType.footnoteReference, target: "#fn-identifier", text: "1" }
+  ```
 - `RuleType.frontmatter` - YAML frontmatter ब्लॉक्स
   ```tsx
   { type: RuleType.frontmatter, text: "---\ntitle: My Title\n---" }
   ```
 - `RuleType.htmlComment` - HTML कमेंट नोड्स
   ```tsx
-  { type: RuleType.htmlComment, text: "<!-- comment -->" }
+  { type: RuleType.htmlComment, text: "टिप्पणी टेक्स्ट" }
   ```
 - `RuleType.htmlSelfClosing` - स्व-बंद होने वाले HTML टैग
   ```tsx
-  { type: RuleType.htmlSelfClosing, tag: "img", attrs: { src: "image.png" } }
+  { type: RuleType.htmlSelfClosing, tag: "img", attrs?: { src: "image.png" } }
   ```
 
 **JSX Prop Parsing (v9.1+):**
@@ -982,7 +1009,6 @@ AST निम्नलिखित नोड प्रकारों से ब
 - Arrays/objects को `JSON.parse()` के माध्यम से पार्स किया जाता है: `rows={[["a", "b"]]}` → `attrs.rows = [["a", "b"]]`
 - Functions को सुरक्षा के लिए स्ट्रिंग्स के रूप में रखा जाता है: `onClick={() => ...}` → `attrs.onClick = "() => ..."`
 - Booleans को पार्स किया जाता है: `enabled={true}` → `attrs.enabled = true`
-- मूल raw attribute स्ट्रिंग `rawAttrs` फ़ील्ड में संरक्षित है
 
 <h4 id="example-ast-structure">उदाहरण AST संरचना</h4>
 

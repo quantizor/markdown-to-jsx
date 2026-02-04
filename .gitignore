@@ -3,6 +3,7 @@ node_modules/
 .DS_Store
 coverage/
 *.cpuprofile
+CPU*.md
 *.log
 package-lock.json
 

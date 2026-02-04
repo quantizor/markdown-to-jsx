@@ -469,8 +469,8 @@ describe('markdown compiler', () => {
             children: [{ type: RuleType.text, text: 'Content' }],
           },
         ],
-        verbatim: false,
-        rawText: undefined,
+        _verbatim: false,
+        _rawText: undefined,
       }
       expect(markdown(ast)).toBe('<div class="container">\nContent\n</div>')
     })
@@ -481,8 +481,8 @@ describe('markdown compiler', () => {
         tag: 'script',
         attrs: {},
         children: [],
-        verbatim: true,
-        rawText: 'console.log("hello");</script>',
+        _verbatim: true,
+        _rawText: 'console.log("hello");</script>',
       }
       expect(markdown(ast)).toBe('<script>console.log("hello");</script>')
     })
@@ -665,7 +665,7 @@ describe('markdown compiler', () => {
               children: [{ type: RuleType.text, text: 'Content' }],
             },
           ],
-          verbatim: false,
+          _verbatim: false,
           text: undefined,
         }
 
@@ -703,8 +703,8 @@ describe('markdown compiler', () => {
           type: RuleType.htmlBlock,
           tag: 'script',
           children: [],
-          verbatim: true,
-          rawText: 'console.log("hello");</script>',
+          _verbatim: true,
+          _rawText: 'console.log("hello");</script>',
         }
 
         expect(markdown(ast, options)).toBe(
@@ -723,7 +723,7 @@ describe('markdown compiler', () => {
               children: [{ type: RuleType.text, text: 'Content' }],
             },
           ],
-          verbatim: false,
+          _verbatim: false,
           text: undefined,
         }
 

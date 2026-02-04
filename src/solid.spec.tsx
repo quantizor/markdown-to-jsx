@@ -10,7 +10,6 @@ import Markdown, {
   parser,
   RuleType,
 } from './solid'
-import { htmlAttrsToJSXProps } from './utils'
 import type { MarkdownToJSX } from './types'
 
 afterEach(() => {
@@ -37,6 +36,12 @@ function extractTextContent(
       const props = element.p as Record<string, unknown>
       const tag = (element as { t?: string }).t
       if (tag === 'img' && typeof props.alt === 'string') return props.alt
+      // Check innerHTML for text content
+      if (props.innerHTML !== undefined) {
+        return extractTextContent(
+          props.innerHTML as JSX.Element | JSX.Element[] | string
+        )
+      }
       if (props.children !== undefined) {
         return extractTextContent(
           props.children as JSX.Element | JSX.Element[] | string
@@ -49,7 +54,13 @@ function extractTextContent(
       element.props &&
       typeof element.props === 'object'
     ) {
-      const props = element.props as { children?: unknown }
+      const props = element.props as { children?: unknown; innerHTML?: unknown }
+      // Check innerHTML for text content
+      if (props.innerHTML !== undefined) {
+        return extractTextContent(
+          props.innerHTML as JSX.Element | JSX.Element[] | string
+        )
+      }
       if (props.children !== undefined) {
         return extractTextContent(
           props.children as JSX.Element | JSX.Element[] | string
@@ -1248,50 +1259,6 @@ describe('Markdown component', () => {
     })
     const str = JSON.stringify(result)
     expect(str).toContain('test')
-  })
-})
-
-describe('htmlAttrsToJSXProps', () => {
-  it('should map class to className', () => {
-    const result = htmlAttrsToJSXProps({ class: 'test' })
-    expect(result.className).toBe('test')
-    expect(result.class).toBeUndefined()
-  })
-
-  it('should map for to htmlFor', () => {
-    const result = htmlAttrsToJSXProps({ for: 'input-id' })
-    expect(result.htmlFor).toBe('input-id')
-    expect(result.for).toBeUndefined()
-  })
-
-  it('should map all HTML attributes to JSX props', () => {
-    const attrs = {
-      class: 'test',
-      for: 'input-id',
-      allowfullscreen: 'true',
-      autocomplete: 'off',
-      readonly: 'true',
-      tabindex: '0',
-    }
-    const result = htmlAttrsToJSXProps(attrs)
-    expect(result.className).toBe('test')
-    expect(result.htmlFor).toBe('input-id')
-    expect(result.allowFullScreen).toBe('true')
-    expect(result.autoComplete).toBe('off')
-    expect(result.readOnly).toBe('true')
-    expect(result.tabIndex).toBe('0')
-  })
-
-  it('should handle case-insensitive attribute matching', () => {
-    const result = htmlAttrsToJSXProps({ CLASS: 'test', For: 'input-id' })
-    expect(result.className).toBe('test')
-    expect(result.htmlFor).toBe('input-id')
-  })
-
-  it('should pass through unmapped attributes unchanged', () => {
-    const result = htmlAttrsToJSXProps({ id: 'test', 'data-test': 'value' })
-    expect(result.id).toBe('test')
-    expect(result['data-test']).toBe('value')
   })
 })
 

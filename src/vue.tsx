@@ -41,84 +41,6 @@ type VueSanitizer = (
   attribute: string
 ) => string | null
 
-/**
- * Convert HTML attributes to Vue props
- * Vue uses HTML standard attributes (class, not className), so minimal mapping needed
- * Only 'for' -> 'htmlFor' needs mapping
- * @lang zh 将 HTML 属性转换为 Vue 属性
- * Vue 使用标准 HTML 属性（class，而不是 className），因此只需要最少的映射
- * 只需要映射 'for' -> 'htmlFor'
- * @lang hi HTML एट्रिब्यूट्स को Vue props में बदलें
- * Vue मानक HTML एट्रिब्यूट्स का उपयोग करता है (class, className नहीं), इसलिए न्यूनतम मैपिंग की आवश्यकता है
- * केवल 'for' -> 'htmlFor' मैपिंग की आवश्यकता है
- *
- * @param attrs - HTML attributes object
- * @lang zh @param attrs - HTML 属性对象
- * @lang hi @param attrs - HTML एट्रिब्यूट्स ऑब्जेक्ट
- * @returns Vue props object
- * @lang zh @returns Vue 属性对象
- * @lang hi @returns Vue props ऑब्जेक्ट
- */
-export function htmlAttrsToVueProps(
-  attrs: Record<string, any>
-): Record<string, any> {
-  var vueProps: Record<string, any> = {}
-  for (var key in attrs) {
-    var keyLower = key.toLowerCase()
-    vueProps[keyLower === 'for' ? 'htmlFor' : key] = attrs[key]
-  }
-  return vueProps
-}
-
-// Helper function for URL encoding backslashes and backticks per CommonMark spec
-function encodeUrlTarget(target: string): string {
-  // Fast path: check if encoding is needed
-  let needsEncoding = false
-  for (let i = 0; i < target.length; i++) {
-    const code = target.charCodeAt(i)
-    if (
-      code >= $.CHAR_ASCII_BOUNDARY ||
-      code === $.CHAR_BACKSLASH ||
-      code === $.CHAR_BACKTICK
-    ) {
-      needsEncoding = true
-      break
-    }
-  }
-  if (!needsEncoding) return target
-
-  // Encode character by character, preserving existing percent-encoded sequences
-  let result = ''
-  for (let i = 0; i < target.length; i++) {
-    const code = target.charCodeAt(i)
-    const c1 = i + 1 < target.length ? target.charCodeAt(i + 1) : 0
-    const c2 = i + 2 < target.length ? target.charCodeAt(i + 2) : 0
-    if (
-      code === $.CHAR_PERCENT &&
-      i + 2 < target.length &&
-      ((c1 >= $.CHAR_DIGIT_0 && c1 <= $.CHAR_DIGIT_9) ||
-        (c1 >= $.CHAR_A && c1 <= $.CHAR_F) ||
-        (c1 >= $.CHAR_a && c1 <= $.CHAR_f)) &&
-      ((c2 >= $.CHAR_DIGIT_0 && c2 <= $.CHAR_DIGIT_9) ||
-        (c2 >= $.CHAR_A && c2 <= $.CHAR_F) ||
-        (c2 >= $.CHAR_a && c2 <= $.CHAR_f))
-    ) {
-      result += target[i] + target[i + 1] + target[i + 2]
-      i += 2
-    } else if (code === $.CHAR_BACKSLASH) {
-      result += '%5C'
-    } else if (code === $.CHAR_BACKTICK) {
-      result += '%60'
-    } else {
-      result +=
-        code >= $.CHAR_ASCII_BOUNDARY
-          ? encodeURIComponent(target[i])
-          : target[i]
-    }
-  }
-  return result
-}
-
 type VueASTRender = (
   ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
   state: MarkdownToJSX.State
@@ -158,7 +80,7 @@ const renderers: Record<
       const headerNode: MarkdownToJSX.HTMLNode = {
         attrs: {},
         children: [{ type: RuleType.text, text: node.alert }],
-        verbatim: true,
+        _verbatim: true,
         type: RuleType.htmlBlock,
         tag: 'header',
       }
@@ -183,7 +105,7 @@ const renderers: Record<
   [RuleType.codeBlock]: (node, { h, state }) => {
     const decodedLang = node.lang ? util.decodeEntityReferences(node.lang) : ''
     const codeProps = {
-      ...htmlAttrsToVueProps((node.attrs || {}) as Record<string, unknown>),
+      ...(node.attrs || {}),
       class: decodedLang ? `language-${decodedLang} lang-${decodedLang}` : '',
     } as Record<string, unknown>
     return h('pre', { key: state.key }, h('code', codeProps, node.text))
@@ -219,20 +141,20 @@ const renderers: Record<
 
     if (options.tagfilter && util.shouldFilterTag(node.tag)) {
       const tagText =
-        'rawText' in node && typeof node.rawText === 'string'
-          ? node.rawText
+        typeof node._rawText === 'string'
+          ? node._rawText
           : `<${node.tag}${formatFilteredTagAttrs(node.attrs)}>`
       return h('span', { key: state.key }, tagText)
     }
 
-    if (node.rawText && node.verbatim) {
+    if (node._rawText && node._verbatim) {
       const tagLower = (node.tag as string).toLowerCase()
       const isType1Block = parse.isType1Block(tagLower)
-      const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(node.rawText)
-      const containsPreTags = /<\/?pre\b/i.test(node.rawText)
+      const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(node._rawText)
+      const containsPreTags = /<\/?pre\b/i.test(node._rawText)
 
       if (isType1Block && !containsHTMLTags) {
-        let textContent = node.rawText.replace(
+        let textContent = node._rawText.replace(
           new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
           ''
         )
@@ -241,25 +163,13 @@ const renderers: Record<
         return h(node.tag, { key: state.key, ...node.attrs }, textContent)
       }
 
-      if (containsPreTags) {
-        const innerHtml = options.tagfilter
-          ? util.applyTagFilterToText(node.rawText)
-          : node.rawText
-        return h(node.tag, {
-          key: state.key,
-          ...node.attrs,
-          innerHTML: innerHtml,
-        })
-      }
-
       // Use already-parsed children if available instead of re-parsing rawText
       const processNode = (
         node: MarkdownToJSX.ASTNode
       ): MarkdownToJSX.ASTNode[] => {
         if (
-          node.type === RuleType.htmlSelfClosing &&
-          'isClosingTag' in node &&
-          (node as any).isClosingTag
+          (node.type === RuleType.htmlSelfClosing || node.type === RuleType.htmlBlock) &&
+          node._isClosingTag
         )
           return []
         if (node.type === RuleType.paragraph) {
@@ -283,14 +193,22 @@ const renderers: Record<
         return [node]
       }
 
-      if (node.children && node.children.length > 0) {
-        return h(
-          node.tag,
-          { key: state.key, ...node.attrs },
-          ...normalizeChildren(
-            output(node.children.flatMap(processNode), state)
-          )
+      if (containsPreTags) {
+        // Strip the node's own closing tag from rawText (parser includes it)
+        var preRawText = node._rawText
+        var ownClosingTag = new RegExp(
+          '\\s*</' + tagLower + '>\\s*$',
+          'i'
         )
+        preRawText = preRawText.replace(ownClosingTag, '')
+        const innerHtml = options.tagfilter
+          ? util.applyTagFilterToText(preRawText)
+          : preRawText
+        return h(node.tag, {
+          key: state.key,
+          ...node.attrs,
+          innerHTML: innerHtml,
+        })
       }
 
       // Fallback to re-parsing rawText if children not available (edge case)
@@ -299,7 +217,7 @@ const renderers: Record<
         sanitizer: sanitize,
         tagfilter: true,
       }
-      const cleanedText = node.rawText
+      const cleanedText = node._rawText
         .replace(/>\s+</g, '><')
         .replace(/\n+/g, ' ')
         .trim()
@@ -338,8 +256,8 @@ const renderers: Record<
   ) => {
     if (options.tagfilter && util.shouldFilterTag(node.tag)) {
       const tagText =
-        'rawText' in node && typeof node.rawText === 'string'
-          ? node.rawText
+        typeof node._rawText === 'string'
+          ? node._rawText
           : `<${node.tag}${formatFilteredTagAttrs(node.attrs)} />`
       return h('span', { key: state.key }, tagText)
     }
@@ -356,7 +274,7 @@ const renderers: Record<
 
   [RuleType.link]: (node, { h, output, state }) => {
     const props: Record<string, unknown> = { key: state.key }
-    if (node.target != null) props.href = encodeUrlTarget(node.target)
+    if (node.target != null) props.href = util.encodeUrlTarget(node.target)
     if (node.title) props.title = node.title
     return h('a', props, ...normalizeChildren(output(node.children, state)))
   },
@@ -635,98 +553,6 @@ export type VueOptions = Omit<
   overrides?: VueOverrides
 }
 
-// Extract text from AST nodes recursively
-function extractText(nodes: MarkdownToJSX.ASTNode[]): string {
-  const parts: string[] = []
-  for (const n of nodes) {
-    const type = n.type
-    if (type === RuleType.text) {
-      parts.push((n as MarkdownToJSX.TextNode).text)
-    } else if (type === RuleType.htmlSelfClosing && n.rawText) {
-      parts.push(n.rawText)
-    } else if (type === RuleType.textFormatted) {
-      const formattedNode = n as MarkdownToJSX.FormattedTextNode
-      const marker =
-        formattedNode.tag === 'em'
-          ? '_'
-          : formattedNode.tag === 'strong'
-            ? '**'
-            : ''
-      parts.push(marker + extractText(formattedNode.children) + marker)
-    } else if ('children' in n && n.children) {
-      parts.push(extractText(n.children))
-    }
-  }
-  return parts.join('')
-}
-
-// Post-process AST for JSX compatibility: combine HTML blocks with following paragraphs
-function postProcessAst(ast: MarkdownToJSX.ASTNode[]): MarkdownToJSX.ASTNode[] {
-  // Fast path: check if processing is needed (simple string check, avoid regex)
-  let needsProcessing = false
-  for (let i = 0; i < ast.length - 1; i++) {
-    if (
-      ast[i].type === RuleType.htmlBlock &&
-      ast[i + 1].type === RuleType.paragraph &&
-      'removedClosingTags' in ast[i + 1] &&
-      (ast[i + 1] as any).removedClosingTags &&
-      'text' in ast[i]
-    ) {
-      const text = (ast[i] as MarkdownToJSX.HTMLNode).text
-      if (
-        text &&
-        (text.indexOf('<pre') !== -1 || text.indexOf('</pre') !== -1)
-      ) {
-        needsProcessing = true
-        break
-      }
-    }
-  }
-  if (!needsProcessing) return ast
-
-  const postProcessedAst: MarkdownToJSX.ASTNode[] = []
-  for (let i = 0; i < ast.length; i++) {
-    const node = ast[i]
-    if (
-      node.type === RuleType.htmlBlock &&
-      'rawText' in node &&
-      node.rawText &&
-      /<\/?pre\b/i.test(node.rawText) &&
-      i + 1 < ast.length &&
-      ast[i + 1].type === RuleType.paragraph &&
-      'removedClosingTags' in ast[i + 1] &&
-      (ast[i + 1] as any).removedClosingTags
-    ) {
-      const htmlNode = node as MarkdownToJSX.HTMLNode
-      const paragraphNode = ast[i + 1] as MarkdownToJSX.ParagraphNode & {
-        removedClosingTags?: MarkdownToJSX.ASTNode[]
-      }
-      let combinedText = extractText(paragraphNode.children)
-      if (paragraphNode.removedClosingTags) {
-        const closingTagEnd = `</${htmlNode.tag}>`
-        const closingTagText: string[] = []
-        for (const tag of paragraphNode.removedClosingTags) {
-          if (tag.type === RuleType.htmlSelfClosing && tag.rawText) {
-            if (tag.rawText.indexOf(closingTagEnd) === -1)
-              closingTagText.push(tag.rawText)
-          }
-        }
-        combinedText += closingTagText.join('')
-      }
-      const newRawText = (htmlNode.rawText || '') + '\n' + combinedText
-      postProcessedAst.push({
-        ...htmlNode,
-        rawText: newRawText,
-        text: newRawText, // @deprecated - use rawText instead
-      })
-      i++
-    } else {
-      postProcessedAst.push(node)
-    }
-  }
-  return postProcessedAst
-}
-
 /**
  * Convert AST nodes to Vue VNode elements
  * @lang zh 将 AST 节点转换为 Vue VNode 元素
@@ -776,7 +602,7 @@ export function astToJSX(
         >)
       : null
     const vueProps = props
-      ? (htmlAttrsToVueProps(props) as Record<string, unknown>)
+      ? (props as Record<string, unknown>)
       : null
 
     // Convert HTML content in props (early exit for non-HTML)
@@ -791,7 +617,11 @@ export function astToJSX(
             parse.UPPERCASE_TAG_R.test(value) ||
             parse.parseHTMLTag(value, 0))
         ) {
-          vueProps[key] = compileHTML(value.trim())
+          const compiled = compileHTML(value.trim())
+          // For innerHTML, take first element if array (matches original parser behavior)
+          vueProps[key] = key === 'innerHTML' && Array.isArray(compiled) 
+            ? compiled[0] 
+            : compiled
         }
       }
     }
@@ -830,8 +660,6 @@ export function astToJSX(
       ...children: VueChild[]
     ): VNode => h(tag, props || {}, ...children))
 
-  const postProcessedAst = postProcessAst(ast)
-
   const parseOptions: parse.ParseOptions = {
     slugify: i => slug(i, util.slugify),
     sanitizer: sanitize,
@@ -845,8 +673,8 @@ export function astToJSX(
   }
 
   const refs =
-    postProcessedAst[0] && postProcessedAst[0].type === RuleType.refCollection
-      ? (postProcessedAst[0] as MarkdownToJSX.ReferenceCollectionNode).refs
+    ast[0] && ast[0].type === RuleType.refCollection
+      ? (ast[0] as MarkdownToJSX.ReferenceCollectionNode).refs
       : {}
 
   const emitter = createRenderer(
@@ -857,7 +685,7 @@ export function astToJSX(
     refs,
     opts
   )
-  const arr = emitter(postProcessedAst, { inline: opts.forceInline, refs }) as (
+  const arr = emitter(ast, { inline: opts.forceInline, refs }) as (
     | VNode
     | string
   )[]

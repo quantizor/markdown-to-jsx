@@ -885,12 +885,14 @@ describe('edge cases - component overrides', () => {
         tagfilter: false,
       }
     )
-    // Custom HTML tags are parsed as htmlBlock nodes
-    // The result contains the Accordion element inside a wrapper
+    // Compact parser produces top-level htmlBlock (no paragraph wrapper)
+    // so the first element IS the Accordion itself
     const element = getFirstElement(result)
-    const accordionElement =
+    expect(element?.type).toBe(Accordion)
+    // AccordionItem is the first child of Accordion
+    const accordionItemElement =
       element.props?.children?.[0] || element.props?.children
-    expect(accordionElement?.type).toBe(Accordion)
+    expect(accordionItemElement?.type).toBe(AccordionItem)
     expect(extractTextContent(result)).toContain('test')
   })
 

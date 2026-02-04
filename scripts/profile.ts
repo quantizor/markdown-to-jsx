@@ -6,7 +6,7 @@ import { parser } from '../src/parse.ts'
 console.log = () => {}
 
 async function main() {
-  const markdown = fs.readFileSync('./src/stress-test.generated.md', 'utf8')
+  const markdown = fs.readFileSync('./src/gfm-spec.md', 'utf8')
 
   // Parse --target parameter
   const targetIndex = process.argv.indexOf('--target')
