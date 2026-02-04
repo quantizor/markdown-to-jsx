@@ -1,5 +1,5 @@
 ---
-'markdown-to-jsx': minor
+'markdown-to-jsx': patch
 ---
 
 Bypass React.createElement for ~2x faster JSX output by constructing raw React element objects directly. The $$typeof symbol is auto-detected from the installed React version for forward compatibility. Falls back to createElement when a custom createElement option is provided.
