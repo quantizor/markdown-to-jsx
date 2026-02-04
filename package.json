@@ -1,231 +1,34 @@
 {
-  "name": "markdown-to-jsx",
-  "description": "A very fast and versatile markdown toolchain. AST, React, React Native, SolidJS, Vue, Markdown, and HTML output available with full customization.",
-  "homepage": "https://markdown-to-jsx.quantizor.dev",
-  "license": "MIT",
-  "version": "9.7.1",
-  "publishConfig": {
-    "access": "public"
-  },
-  "engines": {
-    "node": ">= 18"
-  },
-  "keywords": [
-    "markdown",
-    "markdown parser",
-    "react",
-    "preact",
-    "jsx",
-    "vue",
-    "vuejs",
-    "vue3",
-    "solid",
-    "solidjs",
-    "react-native",
-    "html"
-  ],
-  "author": "Evan Jacobs <ej@quantizor.dev> (https://quantizor.dev)",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/quantizor/markdown-to-jsx.git"
-  },
-  "bugs": "https://github.com/quantizor/markdown-to-jsx/issues",
-  "files": [
-    "dist",
-    "LICENSE",
-    "README.md",
-    "package.json",
-    "src/entities.generated.ts"
-  ],
+  "name": "markdown-to-jsx-root",
+  "private": true,
   "type": "module",
-  "exports": {
-    "./entities": {
-      "browser": {
-        "import": {
-          "types": "./dist/entities.browser.d.ts",
-          "default": "./dist/entities.browser.js"
-        },
-        "require": {
-          "types": "./dist/entities.browser.d.cts",
-          "default": "./dist/entities.browser.cjs"
-        }
-      },
-      "import": {
-        "types": "./dist/entities.generated.d.ts",
-        "default": "./dist/entities.generated.js"
-      },
-      "require": {
-        "types": "./dist/entities.generated.d.cts",
-        "default": "./dist/entities.generated.cjs"
-      }
-    },
-    ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
-    },
-    "./react": {
-      "import": {
-        "types": "./dist/react.d.ts",
-        "default": "./dist/react.js"
-      },
-      "require": {
-        "types": "./dist/react.d.cts",
-        "default": "./dist/react.cjs"
-      }
-    },
-    "./html": {
-      "import": {
-        "types": "./dist/html.d.ts",
-        "default": "./dist/html.js"
-      },
-      "require": {
-        "types": "./dist/html.d.cts",
-        "default": "./dist/html.cjs"
-      }
-    },
-    "./markdown": {
-      "import": {
-        "types": "./dist/markdown.d.ts",
-        "default": "./dist/markdown.js"
-      },
-      "require": {
-        "types": "./dist/markdown.d.cts",
-        "default": "./dist/markdown.cjs"
-      }
-    },
-    "./native": {
-      "import": {
-        "types": "./dist/native.d.ts",
-        "default": "./dist/native.js"
-      },
-      "require": {
-        "types": "./dist/native.d.cts",
-        "default": "./dist/native.cjs"
-      }
-    },
-    "./solid": {
-      "import": {
-        "types": "./dist/solid.d.ts",
-        "default": "./dist/solid.js"
-      },
-      "require": {
-        "types": "./dist/solid.d.cts",
-        "default": "./dist/solid.cjs"
-      }
-    },
-    "./vue": {
-      "import": {
-        "types": "./dist/vue.d.ts",
-        "default": "./dist/vue.js"
-      },
-      "require": {
-        "types": "./dist/vue.d.cts",
-        "default": "./dist/vue.cjs"
-      }
-    }
-  },
-  "sideEffects": false,
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "workspaces": [
+    "lib",
+    "benchmarks",
+    "site"
+  ],
   "devDependencies": {
-    "@babel/plugin-proposal-nullish-coalescing-operator": "^7.18.6",
-    "@babel/plugin-proposal-object-rest-spread": "^7.20.7",
-    "@babel/plugin-proposal-optional-chaining": "^7.21.0",
-    "@babel/plugin-transform-typescript": "^7.23.6",
     "@changesets/cli": "^2.27.1",
-    "@matejmazur/react-katex": "^3.1.3",
-    "@solidjs/testing-library": "^0.8.10",
-    "@tailwindcss/typography": "^0.5.19",
-    "@tailwindcss/vite": "^4.1.18",
-    "@testing-library/react-native": "^13.3.3",
-    "@types/benchmark": "^2.1.5",
-    "@types/bun": "^1.3.2",
-    "@types/node": "^24.10.1",
     "@types/react": "^19.2.6",
-    "@types/react-dom": "^19.2.3",
-    "@types/react-native": "^0.73.0",
-    "@vitejs/plugin-react": "^5.1.1",
-    "@vue/test-utils": "^2.4.0",
-    "acorn": "^8.15.0",
-    "acorn-typescript": "^1.4.13",
-    "benchtable": "^0.1.0",
-    "bunup": "^0.15.14",
-    "cli-progress": "^3.12.0",
-    "happy-dom": "^20.0.10",
     "in-publish": "^2.0.1",
-    "jsdom": "^27.4.0",
-    "markdown-it": "^14.0.0",
-    "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.7.0",
-    "marked": "^17.0.0",
-    "microbundle": "^0.15.1",
-    "microtime": "^3.1.1",
-    "mkdirp": "^3.0.1",
-    "preact": "^10.19.3",
     "prettier": "^3.6.2",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-markdown": "^10.1.0",
-    "rehype-raw": "^7.0.0",
-    "rehype-react": "^8.0.0",
-    "remark": "^15.0.1",
-    "remark-directive": "^4.0.0",
-    "remark-gfm": "^4.0.1",
-    "remark-parse": "^11.0.0",
-    "remark-rehype": "^11.1.2",
-    "rimraf": "^6.1.0",
-    "simple-markdown": "^0.7.3",
-    "solid-js": "^1.9.10",
-    "source-map": "^0.7.6",
-    "styled-components": "^6.1.6",
-    "tailwindcss": "^4.0.0",
-    "theredoc": "^1.0.0",
-    "three": "^0.181.1",
-    "twgl": "^7.0.3",
-    "typescript": "^5.9.3",
-    "vite": "^7.3.0",
-    "vue": "^3.4.0",
-    "yaml-js": "^0.3.1"
-  },
-  "peerDependencies": {
-    "react": ">= 16.0.0",
-    "solid-js": ">=1.0.0",
-    "vue": ">=3.0.0"
-  },
-  "peerDependenciesMeta": {
-    "react": {
-      "optional": true
-    },
-    "react-native": {
-      "optional": true
-    },
-    "solid-js": {
-      "optional": true
-    },
-    "vue": {
-      "optional": true
-    }
+    "rimraf": "^6.1.0"
   },
   "scripts": {
-    "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
-    "build": "rimraf dist && bunup",
-    "build:debug": "rimraf dist && bunup --filter main --minifyIdentifiers=false --minifyWhitespace=false",
-    "build-site": "rimraf docs && vite build",
-    "dev": "vite dev --host",
+    "build": "bun run --filter markdown-to-jsx build",
+    "build:debug": "bun run --filter markdown-to-jsx build:debug",
+    "build-site": "bun run --filter @markdown-to-jsx/site build",
+    "dev": "bun run --filter @markdown-to-jsx/site dev",
     "entities": "bun scripts/generate-entities.ts",
     "fixture": "bun scripts/generate-fixture.ts",
     "metrics": "bun --expose-gc scripts/metrics.ts",
     "profile": "bun --cpu-prof --expose-gc --cpu-prof-md scripts/profile.ts",
-    "bench": "bun --expose-gc scripts/benchmark.ts",
+    "bench": "bun run --filter @markdown-to-jsx/benchmarks bench",
     "analyze": "bun scripts/analyze-patterns.ts",
-    "bench:all": "bun scripts/benchmark.ts --all",
-    "bench:jsx": "bun scripts/benchmark.ts --jsx",
+    "bench:all": "bun run --filter @markdown-to-jsx/benchmarks bench:all",
+    "bench:jsx": "bun run --filter @markdown-to-jsx/benchmarks bench:jsx",
+    "test": "bun run --filter markdown-to-jsx test",
     "changeset-publish": "bun run build && changeset publish",
     "validate-i18n": "bun run scripts/validate-i18n.ts",
     "prebuild-site": "bun run validate-i18n"

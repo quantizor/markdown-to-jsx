@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
-import { SUPPORTED_LANGUAGES } from '../src/i18n/languages'
-import { UI_STRINGS } from '../src/i18n/ui-strings'
+import { SUPPORTED_LANGUAGES } from '../lib/src/i18n/languages'
+import { UI_STRINGS } from '../lib/src/i18n/ui-strings'
 
 const REQUIRED_FILES = ['README.md', 'default-template.md', 'gfm-spec.md', 'markdown-spec.md']
 
@@ -32,7 +32,7 @@ function validateTranslations() {
   // 2. Validate required documentation files exist
   for (const lang of SUPPORTED_LANGUAGES) {
     for (const file of REQUIRED_FILES) {
-      const path = `src/i18n/${lang}/${file}`
+      const path = `lib/src/i18n/${lang}/${file}`
       if (!existsSync(path)) {
         errors.push(`[${lang}] Missing file: ${path}`)
       }

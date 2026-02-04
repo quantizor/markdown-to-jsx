@@ -1,12 +1,12 @@
 import fs from 'fs'
 import path from 'path'
 import { performance } from 'perf_hooks'
-import { parser } from '../src/parse.ts'
+import { parser } from '../lib/src/parse.ts'
 
 const WARMUP_ROUNDS = 50
 const SIGNIFICANCE_THRESHOLD = 2
 
-const markdown = fs.readFileSync('./src/stress-test.generated.md', 'utf8')
+const markdown = fs.readFileSync(path.join(import.meta.dirname, '../lib/src/stress-test.generated.md'), 'utf8')
 const shouldUpdateBaseline = process.argv.includes('-u')
 
 const targetIndex = process.argv.indexOf('--target')
@@ -26,7 +26,7 @@ if (targetArg === 'parser') {
   compiler = parser
   targetName = 'parser'
 } else if (targetArg === 'react') {
-  const reactModule = await import('../src/react.tsx')
+  const reactModule = await import('../lib/src/react.tsx')
   compiler = reactModule.compiler
   targetName = 'react'
 } else if (targetArg === 'react-native') {
@@ -62,19 +62,19 @@ if (targetArg === 'parser') {
     }
   })
 
-  const nativeModule = await import('../src/native.tsx')
+  const nativeModule = await import('../lib/src/native.tsx')
   compiler = nativeModule.compiler
   targetName = 'react-native'
 } else if (targetArg === 'html') {
-  const htmlModule = await import('../src/html.ts')
+  const htmlModule = await import('../lib/src/html.ts')
   compiler = htmlModule.compiler
   targetName = 'html'
 } else if (targetArg === 'solid') {
-  const solidModule = await import('../src/solid.tsx')
+  const solidModule = await import('../lib/src/solid.tsx')
   compiler = solidModule.compiler
   targetName = 'solid'
 } else if (targetArg === 'vue') {
-  const vueModule = await import('../src/vue.tsx')
+  const vueModule = await import('../lib/src/vue.tsx')
   compiler = vueModule.compiler
   targetName = 'vue'
 } else {

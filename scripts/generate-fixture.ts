@@ -8,7 +8,7 @@
  *   bun scripts/generate-fixture.ts
  *   npm run fixture
  *
- * Output: src/stress-test.generated.md
+ * Output: lib/src/stress-test.generated.md
  * The generated file will be over 100KB and contain systematic variations
  * of all markdown syntax elements for comprehensive parser testing.
  */
@@ -784,5 +784,5 @@ This file has been designed to comprehensively test all markdown syntax elements
 `
 
 // Write the output to file
-fs.writeFileSync('src/stress-test.generated.md', output)
+fs.writeFileSync('lib/src/stress-test.generated.md', output)
 console.log('Fixture file generated successfully!')

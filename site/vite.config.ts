@@ -2,18 +2,20 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 import tailwindcss from '@tailwindcss/vite'
-import packageJson from './package.json'
+import packageJson from '../lib/package.json'
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
+
+var rootDir = resolve(__dirname, '..')
 
 function copyLlmsTxtPlugin(): Plugin {
   return {
     name: 'copy-llms-txt',
     closeBundle() {
-      var readmePath = join(process.cwd(), 'README.md')
-      var outputPath = join(process.cwd(), 'docs', 'llms.txt')
+      var readmePath = join(rootDir, 'lib', 'README.md')
+      var outputPath = join(rootDir, 'docs', 'llms.txt')
       var readmeContent = readFileSync(readmePath, 'utf-8')
-      mkdirSync(join(process.cwd(), 'docs'), { recursive: true })
+      mkdirSync(join(rootDir, 'docs'), { recursive: true })
       writeFileSync(outputPath, readmeContent, 'utf-8')
     },
   }
@@ -25,7 +27,7 @@ function generateSitemapPlugin(): Plugin {
     closeBundle() {
       const baseUrl = 'https://markdown-to-jsx.quantizor.dev'
       const lastmod = new Date().toISOString().split('T')[0]
-      const sitemapPath = join(process.cwd(), 'docs', 'sitemap.xml')
+      const sitemapPath = join(rootDir, 'docs', 'sitemap.xml')
 
       const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -64,13 +66,13 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '#entities': resolve(__dirname, 'src/entities.generated.ts'),
+      '#entities': resolve(rootDir, 'lib/src/entities.generated.ts'),
     },
   },
   root: '.',
-  publicDir: 'public',
+  publicDir: resolve(rootDir, 'public'),
   build: {
-    outDir: 'docs',
+    outDir: resolve(rootDir, 'docs'),
     emptyOutDir: false,
     rollupOptions: {
       input: resolve(__dirname, 'index.html'),

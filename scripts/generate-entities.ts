@@ -45,7 +45,7 @@ function loadEntitiesFromVendoredFile(): Array<{
   name: string
   codepoints: number[]
 }> {
-  const filePath = path.join(__dirname, '..', 'data', 'entities.json')
+  const filePath = path.join(__dirname, '..', 'lib', 'data', 'entities.json')
   const raw = fs.readFileSync(filePath, 'utf8')
   const entitiesJson = JSON.parse(raw)
 
@@ -212,6 +212,7 @@ function main() {
     const outputPath = path.join(
       __dirname,
       '..',
+      'lib',
       'src',
       'entities.generated.ts'
     )
