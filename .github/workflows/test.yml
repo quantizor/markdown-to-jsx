@@ -3,9 +3,8 @@ name: test
 on:
   push:
     branches:
-      - 'main'
-  pull_request:
-    types: [opened, synchronize, reopened]
+      - "main"
+  pull_request_target:
 
 jobs:
   test:
