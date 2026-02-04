@@ -1,3 +1,5 @@
+import fs from 'fs'
+import path from 'path'
 import { describe, expect, it } from 'bun:test'
 import { type MarkdownToJSX, RuleType } from './types'
 import * as u from './utils'
@@ -1119,5 +1121,72 @@ describe('htmlAttrsToJSXProps', () => {
         "viewBox": "0 0 100 100",
       }
     `)
+  })
+})
+
+describe('no runtime remote fetching', () => {
+  var NETWORK_APIS = [
+    'fetch(',
+    'globalThis.fetch',
+    'self.fetch',
+    'window.fetch',
+    'XMLHttpRequest',
+    'http.get',
+    'http.request',
+    'https.get',
+    'https.request',
+    'navigator.sendBeacon',
+    'new WebSocket',
+    'new EventSource',
+  ]
+
+  var srcDir = path.join(__dirname)
+
+  function getSrcFiles(dir: string): string[] {
+    var results: string[] = []
+    for (var entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      var full = path.join(dir, entry.name)
+      if (entry.isDirectory() && entry.name !== 'node_modules') {
+        results = results.concat(getSrcFiles(full))
+      } else if (
+        entry.isFile() &&
+        /\.(ts|tsx)$/.test(entry.name) &&
+        !entry.name.includes('.spec.')
+      ) {
+        results.push(full)
+      }
+    }
+    return results
+  }
+
+  var files = getSrcFiles(srcDir)
+
+  it('should have src files to scan', () => {
+    expect(files.length).toBeGreaterThan(0)
+  })
+
+  it('should not contain network API calls in library source', () => {
+    var violations: string[] = []
+    for (var file of files) {
+      var content = fs.readFileSync(file, 'utf8')
+      var relPath = path.relative(path.join(__dirname, '..'), file)
+      for (var api of NETWORK_APIS) {
+        // skip comments — only match actual code usage
+        var lines = content.split('\n')
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].trim()
+          if (
+            line.startsWith('//') ||
+            line.startsWith('*') ||
+            line.startsWith('/*')
+          )
+            continue
+          if (line.includes(api)) {
+            violations.push(`${relPath}:${i + 1} contains "${api}"`)
+          }
+        }
+      }
+    }
+    expect(violations).toEqual([])
   })
 })
