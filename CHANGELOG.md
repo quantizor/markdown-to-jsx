@@ -1,5 +1,29 @@
 # markdown-to-jsx
 
+## 9.7.0
+
+### Minor Changes
+
+- ab93d7b: Replaced the rule-based markdown parser with a compact table-driven parser. Parsing is 27-82% faster depending on input size and bundle size is reduced by ~25% (gzip). Improved CommonMark compliance for HTML block handling and streaming mode reliability. No API changes.
+
+  用紧凑的表驱动解析器替换了基于规则的 markdown 解析器。根据输入大小，解析速度提升 27-82%，包体积减少约 25%（gzip）。改进了 HTML 块处理和流式模式可靠性的 CommonMark 合规性。无 API 更改。
+
+  नियम-आधारित markdown पार्सर को कॉम्पैक्ट टेबल-ड्रिवन पार्सर से बदला गया। इनपुट आकार के अनुसार पार्सिंग 27-82% तेज़ है और बंडल आकार ~25% (gzip) कम हुआ। HTML ब्लॉक हैंडलिंग और स्ट्रीमिंग मोड विश्वसनीयता के लिए CommonMark अनुपालन में सुधार। कोई API परिवर्तन नहीं।
+
+### Patch Changes
+
+- ab93d7b: Fixed attribute casing preservation across all output adapters. The parser no longer modifies attribute names; each adapter handles its own mappings. React/Native convert to JSX props (class->className, XML namespaces via colon-to-camelCase heuristic). Solid uses `class` per framework guidance. Vue passes HTML attributes directly.
+
+  修复了所有输出适配器中的属性大小写保留。解析器不再修改属性名称；每个适配器处理自己的映射。React/Native 转换为 JSX 属性（class->className，XML 命名空间通过冒号转驼峰启发式）。Solid 按框架指南使用 `class`。Vue 直接传递 HTML 属性。
+
+  सभी आउटपुट एडेप्टर में एट्रिब्यूट केसिंग संरक्षण ठीक किया गया। पार्सर अब एट्रिब्यूट नामों को संशोधित नहीं करता; प्रत्येक एडेप्टर अपनी मैपिंग संभालता है। React/Native JSX props में बदलता है (class->className, XML नेमस्पेस कोलन-टू-कैमलकेस से)। Solid फ्रेमवर्क दिशानिर्देश के अनुसार `class` उपयोग करता है। Vue सीधे HTML एट्रिब्यूट पास करता है।
+
+- ab93d7b: Improved `optimizeForStreaming` handling of incomplete inline syntax. Bold/italic/strikethrough markers, links, images, and nested badge constructs (`[![alt](img)](url)`) now stream cleanly without flashing raw markdown syntax. Incomplete images are fully suppressed instead of showing alt text.
+
+  改进了 `optimizeForStreaming` 对不完整内联语法的处理。粗体/斜体/删除线标记、链接、图片和嵌套徽章构造（`[![alt](img)](url)`）现在可以流畅地流式传输，不会闪烁原始 markdown 语法。不完整的图片会被完全抑制，而不是显示替代文本。
+
+  `optimizeForStreaming` में अपूर्ण इनलाइन सिंटैक्स की हैंडलिंग में सुधार। बोल्ड/इटैलिक/स्ट्राइकथ्रू मार्कर, लिंक, इमेज, और नेस्टेड बैज कंस्ट्रक्ट (`[![alt](img)](url)`) अब raw markdown सिंटैक्स की झलक के बिना सुचारू रूप से स्ट्रीम होते हैं। अपूर्ण इमेज alt टेक्स्ट दिखाने के बजाय पूरी तरह से दबा दी जाती हैं।
+
 ## 9.6.1
 
 ### Patch Changes
