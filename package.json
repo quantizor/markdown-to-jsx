@@ -17,20 +17,19 @@
   },
   "scripts": {
     "build": "bun run --filter markdown-to-jsx build",
-    "build:debug": "bun run --filter markdown-to-jsx build:debug",
     "build-site": "bun run --filter @markdown-to-jsx/site build",
     "dev": "bun run --filter @markdown-to-jsx/site dev",
     "entities": "bun scripts/generate-entities.ts",
     "fixture": "bun scripts/generate-fixture.ts",
     "metrics": "bun --expose-gc scripts/metrics.ts",
     "profile": "bun --cpu-prof --expose-gc --cpu-prof-md scripts/profile.ts",
-    "bench": "bun run --filter @markdown-to-jsx/benchmarks bench",
+    "bench": "pushd benchmarks; bun run bench; popd",
+    "bench:all": "pushd benchmarks; bun run bench:all; popd",
+    "bench:jsx": "pushd benchmarks; bun run bench:jsx; popd",
+    "bench:html": "pushd benchmarks; bun run bench:html; popd",
     "analyze": "bun scripts/analyze-patterns.ts",
-    "bench:all": "bun run --filter @markdown-to-jsx/benchmarks bench:all",
-    "bench:jsx": "bun run --filter @markdown-to-jsx/benchmarks bench:jsx",
     "test": "bun run --filter markdown-to-jsx test",
     "changeset-publish": "bun run build && changeset publish",
-    "validate-i18n": "bun run scripts/validate-i18n.ts",
-    "prebuild-site": "bun run validate-i18n"
+    "validate-i18n": "bun run scripts/validate-i18n.ts"
   }
 }
