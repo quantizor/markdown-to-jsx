@@ -1,6 +1,6 @@
 import fs from 'fs'
 import { performance } from 'perf_hooks'
-import { parser } from '../src/parse-compact.ts'
+import { parser } from '../src/parse.ts'
 
 // ssh mode
 console.log = () => {}

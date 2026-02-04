@@ -9,11 +9,11 @@ import type {
 } from 'react-native'
 import { Image, Linking, Text, View } from 'react-native'
 import * as $ from './constants'
-import * as parse from './parse-compact'
+import * as parse from './parse'
 import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
 
-export { parser } from './parse-compact'
+export { parser } from './parse'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
@@ -105,39 +105,6 @@ export type NativeOptions = Omit<MarkdownToJSX.Options, 'wrapperProps'> & {
   wrapperProps?: ViewProps | TextProps
 }
 
-function encodeUrlTarget(target: string): string {
-  let needsEncoding = false
-  for (let i = 0; i < target.length; i++) {
-    const code = target.charCodeAt(i)
-    if (code > 127 || code === $.CHAR_BACKSLASH || code === $.CHAR_BACKTICK) {
-      needsEncoding = true
-      break
-    }
-  }
-  if (!needsEncoding) return target
-
-  let result = ''
-  for (let i = 0; i < target.length; i++) {
-    const char = target[i]
-    if (
-      char === '%' &&
-      i + 2 < target.length &&
-      /[0-9A-Fa-f]/.test(target[i + 1]) &&
-      /[0-9A-Fa-f]/.test(target[i + 2])
-    ) {
-      result += target[i] + target[i + 1] + target[i + 2]
-      i += 2
-    } else if (char.charCodeAt(0) === $.CHAR_BACKSLASH) {
-      result += '%5C'
-    } else if (char.charCodeAt(0) === $.CHAR_BACKTICK) {
-      result += '%60'
-    } else {
-      const code = char.charCodeAt(0)
-      result += code > 127 ? encodeURIComponent(char) : char
-    }
-  }
-  return result
-}
 
 function render(
   node: MarkdownToJSX.ASTNode,
@@ -400,7 +367,7 @@ function render(
       }
 
       if (linkNode.target != null) {
-        const url = encodeUrlTarget(linkNode.target)
+        const url = util.encodeUrlTarget(linkNode.target)
         props.onPress = () => {
           options.onLinkPress
             ? options.onLinkPress(url, linkNode.title)
@@ -613,20 +580,9 @@ const createRenderer = (
   return renderer
 }
 
-const get = (source: any, path: string, fallback: any): any => {
-  if (!source || typeof path !== 'string') return fallback
-  const segments = path.split('.')
-  let result = source
-  for (let i = 0; i < segments.length; i++) {
-    result = result?.[segments[i]]
-    if (result === undefined) return fallback
-  }
-  return result || fallback
-}
-
 const getTag = (tag: string, overrides?: MarkdownToJSX.Overrides) => {
   if (!overrides || typeof tag !== 'string') return tag
-  const override = get(overrides, tag, undefined)
+  const override = util.get(overrides, tag, undefined)
   if (!override) return tag
   if (
     typeof override === 'function' ||
@@ -634,7 +590,7 @@ const getTag = (tag: string, overrides?: MarkdownToJSX.Overrides) => {
   ) {
     return override
   }
-  return get(overrides, `${tag}.component`, tag)
+  return util.get(overrides, `${tag}.component`, tag)
 }
 
 // Map HTML tags to React Native components
@@ -719,7 +675,7 @@ export function astToNative(
       return createElement(tag, props, ...children)
     }
 
-    const overrideProps = get(opts.overrides || {}, `${tag}.props`, {})
+    const overrideProps = util.get(opts.overrides || {}, `${tag}.props`, {})
     const Component = getTag(tag, opts.overrides || {})
 
     const finalProps = {

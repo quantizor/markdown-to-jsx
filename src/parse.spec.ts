@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test'
-import * as p from './parse-compact'
+import * as p from './parse'
 import { RuleType, type MarkdownToJSX } from './types'
 
 // Test fixtures factories

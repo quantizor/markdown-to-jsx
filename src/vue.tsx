@@ -11,12 +11,12 @@ import {
   type InjectionKey,
 } from 'vue'
 import * as $ from './constants'
-import * as parse from './parse-compact'
+import * as parse from './parse'
 import { MarkdownToJSX, RuleType, RequireAtLeastOne } from './types'
 import * as util from './utils'
 
-export { parser } from './parse-compact'
-import { parser } from './parse-compact'
+export { parser } from './parse'
+import { parser } from './parse'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
@@ -77,54 +77,6 @@ export function htmlAttrsToVueProps(
   return vueProps
 }
 
-// Helper function for URL encoding backslashes and backticks per CommonMark spec
-function encodeUrlTarget(target: string): string {
-  // Fast path: check if encoding is needed
-  let needsEncoding = false
-  for (let i = 0; i < target.length; i++) {
-    const code = target.charCodeAt(i)
-    if (
-      code >= $.CHAR_ASCII_BOUNDARY ||
-      code === $.CHAR_BACKSLASH ||
-      code === $.CHAR_BACKTICK
-    ) {
-      needsEncoding = true
-      break
-    }
-  }
-  if (!needsEncoding) return target
-
-  // Encode character by character, preserving existing percent-encoded sequences
-  let result = ''
-  for (let i = 0; i < target.length; i++) {
-    const code = target.charCodeAt(i)
-    const c1 = i + 1 < target.length ? target.charCodeAt(i + 1) : 0
-    const c2 = i + 2 < target.length ? target.charCodeAt(i + 2) : 0
-    if (
-      code === $.CHAR_PERCENT &&
-      i + 2 < target.length &&
-      ((c1 >= $.CHAR_DIGIT_0 && c1 <= $.CHAR_DIGIT_9) ||
-        (c1 >= $.CHAR_A && c1 <= $.CHAR_F) ||
-        (c1 >= $.CHAR_a && c1 <= $.CHAR_f)) &&
-      ((c2 >= $.CHAR_DIGIT_0 && c2 <= $.CHAR_DIGIT_9) ||
-        (c2 >= $.CHAR_A && c2 <= $.CHAR_F) ||
-        (c2 >= $.CHAR_a && c2 <= $.CHAR_f))
-    ) {
-      result += target[i] + target[i + 1] + target[i + 2]
-      i += 2
-    } else if (code === $.CHAR_BACKSLASH) {
-      result += '%5C'
-    } else if (code === $.CHAR_BACKTICK) {
-      result += '%60'
-    } else {
-      result +=
-        code >= $.CHAR_ASCII_BOUNDARY
-          ? encodeURIComponent(target[i])
-          : target[i]
-    }
-  }
-  return result
-}
 
 type VueASTRender = (
   ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
@@ -359,7 +311,7 @@ const renderers: Record<
 
   [RuleType.link]: (node, { h, output, state }) => {
     const props: Record<string, unknown> = { key: state.key }
-    if (node.target != null) props.href = encodeUrlTarget(node.target)
+    if (node.target != null) props.href = util.encodeUrlTarget(node.target)
     if (node.title) props.title = node.title
     return h('a', props, ...normalizeChildren(output(node.children, state)))
   },

@@ -1,8 +1,8 @@
 import { RuleType, type MarkdownToJSX } from './types'
 import { isVoidElement, getTag, getOverrideProps } from './utils'
-import { parser } from './parse-compact'
+import { parser } from './parse'
 
-export { parser } from './parse-compact'
+export { parser } from './parse'
 export { RuleType, type MarkdownToJSX } from './types'
 
 /**

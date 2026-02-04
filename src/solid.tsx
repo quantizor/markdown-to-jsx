@@ -12,12 +12,12 @@ import {
 } from 'solid-js'
 import solidH from 'solid-js/h'
 import * as $ from './constants'
-import * as parse from './parse-compact'
+import * as parse from './parse'
 import { MarkdownToJSX, RuleType, RequireAtLeastOne } from './types'
 import * as util from './utils'
 
-export { parser } from './parse-compact'
-import { parser } from './parse-compact'
+export { parser } from './parse'
+import { parser } from './parse'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
@@ -31,41 +31,6 @@ import { htmlAttrsToJSXProps } from './utils'
 const hasDOM = typeof document !== 'undefined'
 
 // Helper function for URL encoding backslashes and backticks per CommonMark spec
-function encodeUrlTarget(target: string): string {
-  // Fast path: check if encoding is needed
-  let needsEncoding = false
-  for (let i = 0; i < target.length; i++) {
-    const code = target.charCodeAt(i)
-    if (code > 127 || code === $.CHAR_BACKSLASH || code === $.CHAR_BACKTICK) {
-      needsEncoding = true
-      break
-    }
-  }
-  if (!needsEncoding) return target
-
-  // Encode character by character, preserving existing percent-encoded sequences
-  let result = ''
-  for (let i = 0; i < target.length; i++) {
-    const code = target.charCodeAt(i)
-    if (
-      target[i] === '%' &&
-      i + 2 < target.length &&
-      /[0-9A-Fa-f]/.test(target[i + 1]) &&
-      /[0-9A-Fa-f]/.test(target[i + 2])
-    ) {
-      // Preserve existing percent-encoded sequence
-      result += target[i] + target[i + 1] + target[i + 2]
-      i += 2
-    } else if (code === $.CHAR_BACKSLASH) {
-      result += '%5C'
-    } else if (code === $.CHAR_BACKTICK) {
-      result += '%60'
-    } else {
-      result += code > 127 ? encodeURIComponent(target[i]) : target[i]
-    }
-  }
-  return result
-}
 
 type SolidASTRender = (
   ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
@@ -318,7 +283,7 @@ function render(
 
     case RuleType.link: {
       const props: Record<string, unknown> = {}
-      if (node.target != null) props.href = encodeUrlTarget(node.target)
+      if (node.target != null) props.href = util.encodeUrlTarget(node.target)
       if (node.title) props.title = node.title
       return h('a', props, ...toArray(output(node.children, state)))
     }
@@ -481,9 +446,6 @@ const createRenderer = (
   }
   return renderer
 }
-
-const cx = (...args: (string | undefined | null | false)[]): string =>
-  args.filter(Boolean).join(' ')
 
 const getTag = (
   tag: string,
@@ -661,7 +623,7 @@ export function astToJSX(
 
     const finalTag = getTag(tag, opts.overrides)
     const mergedClassName =
-      cx(
+      util.cx(
         jsxProps?.className as string | undefined,
         (overrideProps.className as string | undefined) || undefined
       ) || undefined

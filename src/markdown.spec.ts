@@ -8,7 +8,7 @@ import {
   markdown,
   type MarkdownCompilerOptions,
 } from './markdown'
-import { parser } from './parse-compact'
+import { parser } from './parse'
 import type { MarkdownToJSX } from './types'
 import { RuleType } from './types'
 

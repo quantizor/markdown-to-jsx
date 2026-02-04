@@ -9,7 +9,7 @@
  */
 
 import Markdown, { compiler, RuleType } from './index.tsx'
-import { parser } from './parse-compact'
+import { parser } from './parse'
 
 Object.assign(Markdown, { compiler, Markdown, RuleType, parser })
 

@@ -521,14 +521,6 @@ describe('slugify', () => {
 })
 
 describe('string utilities', () => {
-  describe('includes', () => {
-    it('should check if string contains substring', () => {
-      expect(u.includes('hello world', 'world')).toBe(true)
-      expect(u.includes('hello world', 'goodbye')).toBe(false)
-      expect(u.includes('', '')).toBe(true)
-    })
-  })
-
   describe('startsWith', () => {
     it('should check if string starts with prefix', () => {
       expect(u.startsWith('hello world', 'hello')).toBe(true)
@@ -830,34 +822,34 @@ describe('text processing', () => {
     })
   })
 
-  describe('normalizeCRLF', () => {
+  describe('normalizeInput', () => {
     it('should normalize CRLF to LF', () => {
-      expect(u.normalizeCRLF('hello\r\nworld')).toBe('hello\nworld')
-      expect(u.normalizeCRLF('line1\r\nline2\r\nline3')).toBe(
+      expect(u.normalizeInput('hello\r\nworld')).toBe('hello\nworld')
+      expect(u.normalizeInput('line1\r\nline2\r\nline3')).toBe(
         'line1\nline2\nline3'
       )
     })
 
     it('should normalize standalone CR to LF', () => {
-      expect(u.normalizeCRLF('hello\rworld')).toBe('hello\nworld')
+      expect(u.normalizeInput('hello\rworld')).toBe('hello\nworld')
     })
 
     it('should handle mixed line endings', () => {
-      expect(u.normalizeCRLF('crlf\r\nlf\ncr\rend')).toBe('crlf\nlf\ncr\nend')
+      expect(u.normalizeInput('crlf\r\nlf\ncr\rend')).toBe('crlf\nlf\ncr\nend')
     })
 
     it('should return original string when no CR present (fast path)', () => {
       const original = 'hello\nworld'
-      expect(u.normalizeCRLF(original)).toBe(original)
+      expect(u.normalizeInput(original)).toBe(original)
     })
 
     it('should handle empty string', () => {
-      expect(u.normalizeCRLF('')).toBe('')
+      expect(u.normalizeInput('')).toBe('')
     })
 
     it('should handle string with only newlines', () => {
-      expect(u.normalizeCRLF('\r\n\r\n')).toBe('\n\n')
-      expect(u.normalizeCRLF('\n\n')).toBe('\n\n')
+      expect(u.normalizeInput('\r\n\r\n')).toBe('\n\n')
+      expect(u.normalizeInput('\n\n')).toBe('\n\n')
     })
   })
 

@@ -3,7 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import { astToHTML } from './html'
-import { parser } from './parse-compact'
+import { parser } from './parse'
 
 type SpecExample = {
   markdown: string

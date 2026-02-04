@@ -305,17 +305,6 @@ export function slugify(str: string): string {
 }
 
 /**
- * Check if a string includes a substring
- *
- * @param str - String to search in
- * @param search - Substring to search for
- * @returns True if substring is found
- */
-export function includes(str: string, search: string): boolean {
-  return str.indexOf(search) !== -1
-}
-
-/**
  * Check if a string starts with a prefix
  *
  * @param str - String to check
@@ -584,15 +573,6 @@ export function normalizeInput(text: string): string {
 }
 
 /**
- * @deprecated Use normalizeInput instead
- * Normalize CRLF and CR line endings to LF
- * Returns original string if no CR characters are present (fast path)
- */
-export function normalizeCRLF(text: string): string {
-  return normalizeInput(text)
-}
-
-/**
  * Skip whitespace characters
  */
 export function skipWhitespace(
@@ -634,6 +614,52 @@ export function get(source: any, path: string, fallback: any): any {
     i++
   }
   return result || fallback
+}
+
+/**
+ * Encode special characters in URL targets for safe rendering.
+ * Preserves existing percent-encoded sequences, encodes backslash/backtick,
+ * and percent-encodes non-ASCII characters.
+ */
+export function encodeUrlTarget(target: string): string {
+  // Fast path: skip encoding if URL contains only safe characters
+  // encodeURI encodes: control chars (0-31), space, ", %, <, >, [, \, ], ^, `, {, |, }, DEL, non-ASCII
+  var needsEncoding = false
+  for (var i = 0; i < target.length; i++) {
+    var code = target.charCodeAt(i)
+    if (code <= $.CHAR_SPACE || code === $.CHAR_DOUBLE_QUOTE || code === $.CHAR_PERCENT ||
+        code === $.CHAR_LT || code === $.CHAR_GT || code === $.CHAR_BRACKET_OPEN ||
+        code === $.CHAR_BACKSLASH || code === $.CHAR_BRACKET_CLOSE || code === $.CHAR_CARET ||
+        code === $.CHAR_BACKTICK || code >= 123) {
+      needsEncoding = true
+      break
+    }
+  }
+  if (!needsEncoding) return target
+
+  var result = ''
+  for (var i = 0; i < target.length; i++) {
+    var code = target.charCodeAt(i)
+    if (code === $.CHAR_PERCENT && i + 2 < target.length) {
+      var c1 = target.charCodeAt(i + 1)
+      var c2 = target.charCodeAt(i + 2)
+      if (
+        ((c1 >= $.CHAR_DIGIT_0 && c1 <= $.CHAR_DIGIT_9) || (c1 >= $.CHAR_A && c1 <= $.CHAR_F) || (c1 >= $.CHAR_a && c1 <= $.CHAR_f)) &&
+        ((c2 >= $.CHAR_DIGIT_0 && c2 <= $.CHAR_DIGIT_9) || (c2 >= $.CHAR_A && c2 <= $.CHAR_F) || (c2 >= $.CHAR_a && c2 <= $.CHAR_f))
+      ) {
+        result += target[i] + target[i + 1] + target[i + 2]
+        i += 2
+        continue
+      }
+    }
+    result += encodeURI(target[i])
+  }
+  return result
+}
+
+/** Concatenate class names, filtering falsy values */
+export function cx(...args: (string | undefined | null | false)[]): string {
+  return args.filter(Boolean).join(' ')
 }
 
 /**
@@ -683,34 +709,35 @@ export function extractPlainText(nodes: Array<any>, RuleType: any): string {
   return result
 }
 
+/** GFM tagfilter extension — security-sensitive tags whose `<` gets escaped */
+var TAGFILTER_TAGS = new Set([
+  'title', 'textarea', 'style', 'xmp', 'iframe', 'noembed', 'noframes', 'script', 'plaintext'
+])
+
+/** Matches tagfilter tags in raw HTML text (opening/closing) */
+var TAGFILTER_R = /<(\/?)(title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext)(\s|>|\/)/gi
+
 /**
  * Check if tag should be filtered per GFM tagfilter extension
  */
 export function shouldFilterTag(tagName: string): boolean {
-  var lowerTag = tagName.toLowerCase()
-  return (
-    lowerTag === 'title' ||
-    lowerTag === 'textarea' ||
-    lowerTag === 'style' ||
-    lowerTag === 'xmp' ||
-    lowerTag === 'iframe' ||
-    lowerTag === 'noembed' ||
-    lowerTag === 'noframes' ||
-    lowerTag === 'script' ||
-    lowerTag === 'plaintext'
-  )
+  return TAGFILTER_TAGS.has(tagName.toLowerCase())
+}
+
+/** Test if text contains any tagfilter tags */
+export function containsTagfilterTag(text: string): boolean {
+  TAGFILTER_R.lastIndex = 0
+  return TAGFILTER_R.test(text)
 }
 
 /**
  * Apply tagfilter to text content - escape dangerous tags
  */
 export function applyTagFilterToText(text: string): string {
-  // Escape dangerous tags in raw HTML text
-  // Matches opening tags like <tag> or <tag attr="val">
+  TAGFILTER_R.lastIndex = 0
   return text.replace(
-    /<(\/?)(title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext)(\s|>|\/)/gi,
+    TAGFILTER_R,
     function (match, slash, tagName, after) {
-      // Only escape the opening <
       return '&lt;' + slash + tagName + after
     }
   )

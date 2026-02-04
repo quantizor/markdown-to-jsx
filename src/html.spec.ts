@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
 import { compiler, astToHTML, RuleType } from './html'
-import { parser } from './parse-compact'
+import { parser } from './parse'
 import type { MarkdownToJSX } from './types'
 
 describe('html compiler', () => {

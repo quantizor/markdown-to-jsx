@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { parser } from './parse-compact'
+import { parser } from './parse'
 import { compiler as htmlCompiler } from './html'
 
 describe('Streaming optimization - inline code', () => {
@@ -168,5 +168,99 @@ describe('Streaming optimization - HTML tags in code spans', () => {
   it('should strip bare unclosed uppercase tags with no content', () => {
     const html = htmlCompiler('<Markdown>', { optimizeForStreaming: true })
     expect(html).toBe('')
+  })
+})
+
+describe('Streaming optimization - bold/italic markers', () => {
+  it('should strip incomplete italic marker', () => {
+    const html = htmlCompiler('*incomplete text', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>incomplete text</p>"`)
+  })
+
+  it('should strip incomplete bold marker', () => {
+    const html = htmlCompiler('**incomplete text', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>incomplete text</p>"`)
+  })
+
+  it('should strip incomplete italic before inline code', () => {
+    const html = htmlCompiler('*`ast` option removed:', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p><code>ast</code> option removed:</p>"`)
+  })
+
+  it('should preserve complete bold wrapping inline code', () => {
+    const html = htmlCompiler('**`ast` option removed:**', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p><strong><code>ast</code> option removed:</strong></p>"`)
+  })
+
+  it('should not strip closing ** from complete bold pair', () => {
+    const html = htmlCompiler('- **`ast` option removed**: The `ast: true` option.', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<ul><li><strong><code>ast</code> option removed</strong>: The <code>ast: true</code> option.</li></ul>"`)
+  })
+
+  it('should strip incomplete italic after complete bold', () => {
+    const html = htmlCompiler('**bold** *incomplete', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p><strong>bold</strong> incomplete</p>"`)
+  })
+
+  it('should not strip complete italic', () => {
+    const html = htmlCompiler('*italic* text', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p><em>italic</em> text</p>"`)
+  })
+})
+
+describe('Streaming optimization - links', () => {
+  it('should strip incomplete link with no closing bracket', () => {
+    const html = htmlCompiler('Check [link text', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>Check link text</p>"`)
+  })
+
+  it('should strip brackets from [text] at end of input', () => {
+    const html = htmlCompiler('Check [link text]', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>Check link text</p>"`)
+  })
+
+  it('should strip incomplete inline link [text](url', () => {
+    const html = htmlCompiler('Check [link text](http://example', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>Check link text</p>"`)
+  })
+
+  it('should strip incomplete ref link [text][ref', () => {
+    const html = htmlCompiler('[ref link][ref', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>ref link</p>"`)
+  })
+
+  it('should suppress incomplete image entirely', () => {
+    const html = htmlCompiler('![alt text](http://img', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p></p>"`)
+  })
+
+  it('should suppress incomplete image but keep preceding text', () => {
+    const html = htmlCompiler('Text ![alt text](http://img', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>Text </p>"`)
+  })
+
+  it('should preserve complete links', () => {
+    const html = htmlCompiler('[link](http://url) text', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p><a href="http://url">link</a> text</p>"`)
+  })
+
+  it('should strip only the incomplete link after a complete one', () => {
+    const html = htmlCompiler('[a](b) [c', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p><a href="b">a</a> c</p>"`)
+  })
+
+  it('should suppress incomplete nested image-in-link badge', () => {
+    const html = htmlCompiler('[![npm version](https://badge.svg', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p></p>"`)
+  })
+
+  it('should show image when inner image completes but outer link is incomplete', () => {
+    const html = htmlCompiler('[![npm version](https://badge.svg)](https://badge', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p><img src=\"https://badge.svg\" alt=\"npm version\" /></p>"`)
+  })
+
+  it('should render complete image-in-link badge', () => {
+    const html = htmlCompiler('[![npm version](https://badge.svg)](https://badge.io)', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p><a href=\"https://badge.io\"><img src=\"https://badge.svg\" alt=\"npm version\" /></a></p>"`)
   })
 })

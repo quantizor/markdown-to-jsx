@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { performance } from 'perf_hooks'
-import { parser } from '../src/parse-compact.ts'
+import { parser } from '../src/parse.ts'
 
 const WARMUP_ROUNDS = 50
 const SIGNIFICANCE_THRESHOLD = 2

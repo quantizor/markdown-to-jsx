@@ -1,11 +1,11 @@
 import * as $ from './constants'
-import * as parse from './parse-compact'
+import * as parse from './parse'
 import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
 const { hasKeys } = util
 
 // Re-export parser, types, and utils for the /html entry point
-export { parser } from './parse-compact'
+export { parser } from './parse'
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
@@ -269,51 +269,10 @@ export function astToHTML(
 
   var updatedOptions = { ...options, refs, overrides }
 
-  /**
-   * Encode special characters in URL (backslashes and backticks)
-   * Preserves existing percent-encoded sequences
-   */
-  function encodeUrlSpecialChars(url: string): string {
-    var result = ''
-    var i = 0
-    var len = url.length
-    while (i < len) {
-      // Preserve existing percent-encoded sequences
-      if (
-        url[i] === '%' &&
-        i + 2 < len &&
-        isHexChar(url.charCodeAt(i + 1)) &&
-        isHexChar(url.charCodeAt(i + 2))
-      ) {
-        result += url[i] + url[i + 1] + url[i + 2]
-        i += 3
-      } else {
-        var code = url.charCodeAt(i)
-        if (code === $.CHAR_BACKSLASH) {
-          result += '%5C'
-        } else if (code === $.CHAR_BACKTICK) {
-          result += '%60'
-        } else {
-          result += encodeURI(url[i])
-        }
-        i++
-      }
-    }
-    return result
-  }
-
-  function isHexChar(code: number): boolean {
-    return (
-      (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
-      (code >= $.CHAR_a && code <= $.CHAR_f) ||
-      (code >= $.CHAR_A && code <= $.CHAR_F)
-    )
-  }
-
   function sanitizeAndReencodeUrl(url: string): string | null {
     var sanitized = sanitize(url, 'a', 'href')
     if (sanitized === null || sanitized === url) return sanitized
-    return encodeUrlSpecialChars(sanitized)
+    return util.encodeUrlTarget(sanitized)
   }
 
   function mergeAttrs(
@@ -624,7 +583,7 @@ export function astToHTML(
         var attrs: Record<string, any> = { ...overrideProps }
         if (node.target != null) {
           const href = sanitizeAndReencodeUrl(
-            encodeUrlSpecialChars(util.decodeEntityReferences(node.target))
+            util.encodeUrlTarget(util.decodeEntityReferences(node.target))
           )
           if (href != null) attrs.href = href
         }

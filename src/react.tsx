@@ -3,11 +3,11 @@
 
 import * as React from 'react'
 import * as $ from './constants'
-import * as parse from './parse-compact'
+import * as parse from './parse'
 import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
 
-export { parser } from './parse-compact'
+export { parser } from './parse'
 
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
@@ -34,42 +34,6 @@ export const MarkdownContext:
 import { htmlAttrsToJSXProps } from './utils'
 
 // Helper function for URL encoding backslashes and backticks per CommonMark spec
-function encodeUrlTarget(target: string): string {
-  // Fast path: check if encoding is needed
-  let needsEncoding = false
-  for (let i = 0; i < target.length; i++) {
-    const code = target.charCodeAt(i)
-    if (code > 127 || code === $.CHAR_BACKSLASH || code === $.CHAR_BACKTICK) {
-      needsEncoding = true
-      break
-    }
-  }
-  if (!needsEncoding) return target
-
-  // Encode character by character, preserving existing percent-encoded sequences
-  let result = ''
-  for (let i = 0; i < target.length; i++) {
-    const char = target[i]
-    if (
-      char === '%' &&
-      i + 2 < target.length &&
-      /[0-9A-Fa-f]/.test(target[i + 1]) &&
-      /[0-9A-Fa-f]/.test(target[i + 2])
-    ) {
-      // Preserve existing percent-encoded sequence
-      result += target[i] + target[i + 1] + target[i + 2]
-      i += 2
-    } else if (char.charCodeAt(0) === $.CHAR_BACKSLASH) {
-      result += '%5C'
-    } else if (char.charCodeAt(0) === $.CHAR_BACKTICK) {
-      result += '%60'
-    } else {
-      const code = char.charCodeAt(0)
-      result += code > 127 ? encodeURIComponent(char) : char
-    }
-  }
-  return result
-}
 
 function render(
   node: MarkdownToJSX.ASTNode,
@@ -204,7 +168,7 @@ function render(
           `^<${htmlNode.tag}(\\s|>)`,
           'i'
         ).test(htmlNode._rawText)
-        if (hasChildren && !startsWithOwnTagEarly && options.tagfilter && /<(?:title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext)\b/i.test(htmlNode._rawText)) {
+        if (hasChildren && !startsWithOwnTagEarly && options.tagfilter && util.containsTagfilterTag(htmlNode._rawText)) {
           return h(
             node.tag,
             { key: state.key, ...node.attrs },
@@ -214,7 +178,7 @@ function render(
 
         // Type 1 tags (pre, script, style, textarea) require verbatim content
         // that cannot be re-parsed into JSX elements without losing fidelity
-        const containsVerbatimTags = /<(?:pre|script|style|textarea)\b/i.test(htmlNode._rawText)
+        const containsVerbatimTags = parse.containsType1Tag(htmlNode._rawText)
         if (containsVerbatimTags) {
           const innerHtml = options.tagfilter
             ? util.applyTagFilterToText(htmlNode._rawText)
@@ -295,8 +259,8 @@ function render(
             if (nodes[ai].type === RuleType.htmlBlock) {
               ;(nodes[ai] as MarkdownToJSX.HTMLNode)._verbatim = false
             }
-            if (nodes[ai].children) {
-              stripVerbatim(nodes[ai].children as MarkdownToJSX.ASTNode[])
+            if ('children' in nodes[ai] && (nodes[ai] as MarkdownToJSX.HTMLNode).children) {
+              stripVerbatim((nodes[ai] as MarkdownToJSX.HTMLNode).children as MarkdownToJSX.ASTNode[])
             }
           }
         }
@@ -455,7 +419,7 @@ function render(
       if (node.target != null) {
         // Entity references are already decoded during parsing (per CommonMark spec)
         // URL-encode backslashes and backticks (per CommonMark spec)
-        props.href = encodeUrlTarget(node.target)
+        props.href = util.encodeUrlTarget(node.target)
       }
       if (node.title) {
         // Entity references are already decoded during parsing (per CommonMark spec)
@@ -616,28 +580,14 @@ const createRenderer = (
   return renderer
 }
 
-const cx = (...args) => args.filter(Boolean).join(' ')
-
-const get = (source, path, fallback) => {
-  let result = source,
-    segments = path.split('.'),
-    i = 0
-  while (i < segments.length) {
-    result = result?.[segments[i]]
-    if (result === undefined) break
-    i++
-  }
-  return result || fallback
-}
-
 const getTag = (tag, overrides) => {
-  const override = get(overrides, tag, undefined)
+  const override = util.get(overrides, tag, undefined)
   return !override
     ? tag
     : typeof override === 'function' ||
         (typeof override === 'object' && 'render' in override)
       ? override
-      : get(overrides, `${tag}.component`, tag)
+      : util.get(overrides, `${tag}.component`, tag)
 }
 
 /**
@@ -681,7 +631,7 @@ export function astToJSX(
     },
     ...children
   ) {
-    const overrideProps = get(opts.overrides, `${tag}.props`, {})
+    const overrideProps = util.get(opts.overrides, `${tag}.props`, {})
 
     // Convert HTML attributes to JSX props and compile any HTML content
     const jsxProps = htmlAttrsToJSXProps(props || {})
@@ -710,7 +660,7 @@ export function astToJSX(
         ...jsxProps,
         ...overrideProps,
         className:
-          cx(jsxProps?.className, overrideProps.className) || undefined,
+          util.cx(jsxProps?.className, overrideProps.className) || undefined,
       },
       ...children
     )
