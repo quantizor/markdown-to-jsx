@@ -38,9 +38,8 @@
     "src/entities.generated.ts"
   ],
   "type": "module",
-  "imports": {
-    "#entities": {
-      "bun": "./src/entities.generated.ts",
+  "exports": {
+    "./entities": {
       "browser": {
         "import": {
           "types": "./dist/entities.browser.d.ts",
@@ -51,17 +50,15 @@
           "default": "./dist/entities.browser.cjs"
         }
       },
+      "import": {
+        "types": "./dist/entities.generated.d.ts",
+        "default": "./dist/entities.generated.js"
+      },
       "require": {
         "types": "./dist/entities.generated.d.cts",
         "default": "./dist/entities.generated.cjs"
-      },
-      "default": {
-        "types": "./dist/entities.generated.d.ts",
-        "default": "./dist/entities.generated.js"
       }
-    }
-  },
-  "exports": {
+    },
     ".": {
       "import": {
         "types": "./dist/index.d.ts",

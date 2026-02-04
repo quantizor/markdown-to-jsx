@@ -11,7 +11,7 @@
     "noEmit": true,
     "outDir": "./dist",
     "paths": {
-      "#entities": ["./src/entities.generated.ts"]
+      "markdown-to-jsx/entities": ["./src/entities.generated.ts"]
     },
     "preserveConstEnums": true,
     "target": "ESNext"

@@ -1,4 +1,4 @@
-import { NAMED_CODES_TO_UNICODE as util, decodeEntity } from '#entities'
+import { NAMED_CODES_TO_UNICODE as util, decodeEntity } from 'markdown-to-jsx/entities'
 import * as $ from './constants'
 
 /**
