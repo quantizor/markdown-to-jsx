@@ -391,3 +391,38 @@
   opacity: 1;
   transform: translateY(0);
 }
+
+/* Docs container with subtle backdrop blur for readability */
+.docs-container {
+  position: relative;
+}
+
+.docs-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: linear-gradient(
+    180deg,
+    rgba(26, 28, 35, 0.3) 0%,
+    rgba(26, 28, 35, 0.5) 50%,
+    rgba(26, 28, 35, 0.3) 100%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    black 3%,
+    black 97%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    black 3%,
+    black 97%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: -1;
+}

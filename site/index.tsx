@@ -628,25 +628,27 @@ function TryItLive() {
         />
       )}
 
-      <div className="relative group max-w-full lg:max-w-2xl w-full">
-        {lang !== 'en' && (
-          <a
-            href={`https://github.com/quantizor/markdown-to-jsx/edit/main/lib/src/i18n/${lang}/README.md`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="absolute -top-8 right-0 text-[10px] text-accent/50 hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity no-underline"
-          >
-            {t('editTranslation')}
-          </a>
-        )}
+      <div className="docs-container relative w-screen -mx-6 lg:mx-0 lg:w-full">
+        <div className="relative group max-w-full lg:max-w-2xl w-full mx-auto px-6 lg:px-8 py-8">
+          {lang !== 'en' && (
+            <a
+              href={`https://github.com/quantizor/markdown-to-jsx/edit/main/lib/src/i18n/${lang}/README.md`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute -top-8 right-6 lg:right-8 text-[10px] text-accent/50 hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity no-underline"
+            >
+              {t('editTranslation')}
+            </a>
+          )}
 
-        <Markdown
-          className="prose prose-invert prose-sm center mx-auto"
-          id="docs"
-          options={streamingOptions}
-        >
-          {displayedReadmeContent}
-        </Markdown>
+          <Markdown
+            className="prose prose-invert prose-sm center mx-auto"
+            id="docs"
+            options={streamingOptions}
+          >
+            {displayedReadmeContent}
+          </Markdown>
+        </div>
       </div>
     </main>
   )
