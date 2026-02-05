@@ -171,14 +171,6 @@ function LanguageSwitcher({
   lang: string
   onChange: (lang: string) => void
 }) {
-  const displayNames = React.useMemo(() => {
-    try {
-      return new Intl.DisplayNames([lang], { type: 'language' })
-    } catch {
-      return null
-    }
-  }, [lang])
-
   return (
     <div className="flex gap-4 items-center">
       {SUPPORTED_LANGUAGES.map(code => (
@@ -221,7 +213,7 @@ function StreamingSlider({
 
   return (
     <div
-      className={`hidden md:flex streaming-slider-container fixed bottom-0 left-0 right-0 flex-row items-center gap-4 px-6 py-3 backdrop-blur-md border-t border-white/10 z-50${isInteracted ? ' slider-interacted' : ''}`}
+      className={`hidden md:flex streaming-slider-container fixed -bottom-px left-0 right-0 flex-row items-center gap-4 px-6 py-3 backdrop-blur-md border-t border-white/10 z-50 ${isInteracted ? ' slider-interacted' : ''}`}
     >
       <button
         onClick={() => {
@@ -628,8 +620,8 @@ function TryItLive() {
         />
       )}
 
-      <div className="docs-container relative w-screen -mx-6 lg:mx-0 lg:w-full">
-        <div className="relative group max-w-full lg:max-w-2xl w-full mx-auto px-6 lg:px-8 py-8">
+      <div className="relative w-screen -mx-6 lg:mx-0 lg:w-full backdrop-blur-md bg-transparent">
+        <div className="group max-w-full lg:max-w-2xl w-full mx-auto px-6 lg:px-8 py-8">
           {lang !== 'en' && (
             <a
               href={`https://github.com/quantizor/markdown-to-jsx/edit/main/lib/src/i18n/${lang}/README.md`}
