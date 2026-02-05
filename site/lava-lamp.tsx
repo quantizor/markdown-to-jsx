@@ -625,20 +625,19 @@ export function LavaLamp({ className }: { className?: string }) {
 
         const updateCanvasSize = () => {
           if (isDestroyed) return
-          const width = window.visualViewport?.width || window.innerWidth
-          const height = window.visualViewport?.height || window.innerHeight
+          const rect = canvas.getBoundingClientRect()
+          const width = rect.width
+          const height = rect.height
           if (width > 0 && height > 0) {
             const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
-            const renderWidth = width * dpr
-            const renderHeight = height * dpr
+            const renderWidth = Math.round(width * dpr)
+            const renderHeight = Math.round(height * dpr)
             if (
               canvas.width !== renderWidth ||
               canvas.height !== renderHeight
             ) {
               canvas.width = renderWidth
               canvas.height = renderHeight
-              canvas.style.width = width + 'px'
-              canvas.style.height = height + 'px'
             }
           }
         }
@@ -662,17 +661,16 @@ export function LavaLamp({ className }: { className?: string }) {
           }
           lastFrameTime = time - (elapsed % frameInterval)
 
-          const width = window.visualViewport?.width || window.innerWidth
-          const height = window.visualViewport?.height || window.innerHeight
+          const rect = canvas.getBoundingClientRect()
+          const width = rect.width
+          const height = rect.height
           const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
-          const renderWidth = width * dpr
-          const renderHeight = height * dpr
+          const renderWidth = Math.round(width * dpr)
+          const renderHeight = Math.round(height * dpr)
 
           if (canvas.width !== renderWidth || canvas.height !== renderHeight) {
             canvas.width = renderWidth
             canvas.height = renderHeight
-            canvas.style.width = width + 'px'
-            canvas.style.height = height + 'px'
           }
 
           camAnglesRef.current.theta += 0.0003
@@ -878,12 +876,14 @@ export function LavaLamp({ className }: { className?: string }) {
   return (
     <canvas
       ref={canvasRef}
-      className={cn('fixed inset-0 -z-10', className)}
+      className={cn('fixed -z-10', className)}
       style={{
         pointerEvents: 'auto',
         display: 'block',
-        width: '100svw',
-        height: '100svh',
+        top: 'calc(-1 * env(safe-area-inset-top, 0px))',
+        left: 'calc(-1 * env(safe-area-inset-left, 0px))',
+        width: 'calc(100vw + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px))',
+        height: 'calc(100vh + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px))',
         imageRendering: 'auto',
         WebkitFontSmoothing: 'antialiased',
         MozOsxFontSmoothing: 'grayscale',
