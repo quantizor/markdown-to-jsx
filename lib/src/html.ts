@@ -2,7 +2,7 @@ import * as $ from './constants'
 import * as parse from './parse'
 import { MarkdownToJSX, RuleType } from './types'
 import * as util from './utils'
-const { hasKeys } = util
+var hasKeys = util.hasKeys
 
 // Re-export parser, types, and utils for the /html entry point
 export { parser } from './parse'
@@ -15,42 +15,39 @@ export { sanitizer, slugify } from './utils'
  */
 function escapeHtml(text: string): string {
   if (!text) return text
-  var needsEscape = false
-  var i = 0
+  // Use SIMD-accelerated indexOf to find earliest escapable char
+  var i = text.indexOf('&')
+  var lt = text.indexOf('<')
+  if (lt !== -1 && (i === -1 || lt < i)) i = lt
+  var gt = text.indexOf('>')
+  if (gt !== -1 && (i === -1 || gt < i)) i = gt
+  var qt = text.indexOf('"')
+  if (qt !== -1 && (i === -1 || qt < i)) i = qt
+  if (i === -1) return text
+  // Build result from first escapable char with charCode replacement loop
+  var result = text.slice(0, i)
+  var last = i
   var len = text.length
   while (i < len) {
     var code = text.charCodeAt(i)
-    if (
-      code === $.CHAR_AMPERSAND ||
-      code === $.CHAR_LT ||
-      code === $.CHAR_GT ||
-      code === $.CHAR_DOUBLE_QUOTE
-    ) {
-      needsEscape = true
-      break
-    }
-    i++
-  }
-  if (!needsEscape) return text
-  var result = ''
-  i = 0
-  var last = 0
-  while (i < len) {
-    var code = text.charCodeAt(i)
-    var replacement: string | null = null
-    if (code === $.CHAR_AMPERSAND) {
-      replacement = '&amp;'
-    } else if (code === $.CHAR_LT) {
-      replacement = '&lt;'
-    } else if (code === $.CHAR_GT) {
-      replacement = '&gt;'
-    } else if (code === $.CHAR_DOUBLE_QUOTE) {
-      replacement = '&quot;'
-    }
-    if (replacement) {
-      if (i > last) result += text.slice(last, i)
-      result += replacement
-      last = i + 1
+    if (code <= 62) {
+      if (code === $.CHAR_AMPERSAND) {
+        if (i > last) result += text.slice(last, i)
+        result += '&amp;'
+        last = i + 1
+      } else if (code === $.CHAR_LT) {
+        if (i > last) result += text.slice(last, i)
+        result += '&lt;'
+        last = i + 1
+      } else if (code === $.CHAR_GT) {
+        if (i > last) result += text.slice(last, i)
+        result += '&gt;'
+        last = i + 1
+      } else if (code === $.CHAR_DOUBLE_QUOTE) {
+        if (i > last) result += text.slice(last, i)
+        result += '&quot;'
+        last = i + 1
+      }
     }
     i++
   }
@@ -89,15 +86,7 @@ function escapeHtmlAttr(value: string): string {
     .replace(/&(?!([a-zA-Z0-9]+|#[0-9]+|#x[0-9a-fA-F]+);)/g, '&amp;')
 }
 
-function formatAttributes(attrs: Record<string, any> = {}): string {
-  // Fast-path: return empty string if no attributes
-  var hasAttrs = false
-  for (var key in attrs) {
-    hasAttrs = true
-    break
-  }
-  if (!hasAttrs) return ''
-
+function formatAttributes(attrs: Record<string, any>): string {
   var result = ''
   for (var key in attrs) {
     var value = attrs[key]
@@ -135,24 +124,6 @@ function formatAttributes(attrs: Record<string, any> = {}): string {
     }
   }
   return result
-}
-
-function renderTag(
-  defaultTag: string,
-  children: string,
-  overrides: HTMLOverrides,
-  attrs?: Record<string, any>
-): string {
-  const tag = util.getTag(defaultTag, overrides)
-  const overrideProps = util.getOverrideProps(defaultTag, overrides)
-  if (!attrs || !hasKeys(attrs)) {
-    const attrStr = formatAttributes(overrideProps)
-    return `<${tag}${attrStr}>${children}</${tag}>`
-  }
-  var finalAttrs = { ...overrideProps }
-  for (var aKey in attrs) finalAttrs[aKey] = attrs[aKey]
-  const attrStr = formatAttributes(finalAttrs)
-  return `<${tag}${attrStr}>${children}</${tag}>`
 }
 
 /**
@@ -214,6 +185,21 @@ export type HTMLOptions = Omit<
   wrapperWasAutoSet?: boolean
 }
 
+// Render context — created once per astToHTML call, shared across all recursive renders
+interface _Ctx {
+  sanitize: (url: string, tag: string, attr: string) => string | null
+  slug: (input: string, defaultFn: typeof util.slugify) => string
+  refs: { [key: string]: { target: string; title: string | undefined } }
+  overrides: HTMLOverrides
+  hasOverrides: boolean
+  preserveFrontmatter: boolean
+  tagfilter: boolean
+  forceInline: boolean
+  renderRule?: HTMLOptions['renderRule']
+}
+
+var _emptyObj: Record<string, any> = {}
+
 function shouldSkipNode(
   node: MarkdownToJSX.ASTNode,
   preserveFrontmatter: boolean
@@ -223,6 +209,503 @@ function shouldSkipNode(
     node.type === RuleType.ref ||
     (node.type === RuleType.frontmatter && !preserveFrontmatter)
   )
+}
+
+function _mergeAttrs(
+  base: Record<string, any> | undefined,
+  overrideProps: Record<string, any>
+): Record<string, any> {
+  if (!hasKeys(overrideProps)) return base || _emptyObj
+  var merged = base ? { ...base } : {}
+  for (var key in overrideProps) merged[key] = overrideProps[key]
+  return merged
+}
+
+function _renderTag(
+  defaultTag: string,
+  children: string,
+  ctx: _Ctx,
+  attrs?: Record<string, any>
+): string {
+  if (!ctx.hasOverrides) {
+    if (!attrs || !hasKeys(attrs)) {
+      return '<' + defaultTag + '>' + children + '</' + defaultTag + '>'
+    }
+    return '<' + defaultTag + formatAttributes(attrs) + '>' + children + '</' + defaultTag + '>'
+  }
+  var tag = util.getTag(defaultTag, ctx.overrides)
+  var overrideProps = util.getOverrideProps(defaultTag, ctx.overrides)
+  if (!attrs || !hasKeys(attrs)) {
+    return '<' + tag + formatAttributes(overrideProps) + '>' + children + '</' + tag + '>'
+  }
+  var finalAttrs = { ...overrideProps }
+  for (var aKey in attrs) finalAttrs[aKey] = attrs[aKey]
+  return '<' + tag + formatAttributes(finalAttrs) + '>' + children + '</' + tag + '>'
+}
+
+function _renderChildren(nodes: MarkdownToJSX.ASTNode[], ctx: _Ctx): string {
+  var result = ''
+  if (ctx.renderRule) {
+    for (var i = 0; i < nodes.length; i++) {
+      result += _renderNodeEntry(nodes[i], { key: i }, ctx)
+    }
+  } else {
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i]
+      if (node.type === RuleType.text) {
+        if (node.text) result += escapeHtml(node.text)
+      } else {
+        result += _renderNode(node, ctx)
+      }
+    }
+  }
+  return result
+}
+
+function _renderNodeEntry(
+  node: MarkdownToJSX.ASTNode,
+  state: MarkdownToJSX.State,
+  ctx: _Ctx
+): string {
+  if (!node || typeof node !== 'object') return ''
+
+  if (ctx.renderRule) {
+    return ctx.renderRule(
+      function () {
+        if (
+          node.type === RuleType.ref ||
+          node.type === RuleType.refCollection ||
+          shouldSkipNode(node, ctx.preserveFrontmatter)
+        )
+          return ''
+        return _renderNode(node, ctx)
+      },
+      node,
+      function (children: MarkdownToJSX.ASTNode[]) {
+        return _renderChildren(children, ctx)
+      },
+      state
+    )
+  }
+
+  if (
+    node.type === RuleType.ref ||
+    node.type === RuleType.refCollection ||
+    shouldSkipNode(node, ctx.preserveFrontmatter)
+  )
+    return ''
+
+  return _renderNode(node, ctx)
+}
+
+function _renderNode(
+  node: MarkdownToJSX.ASTNode,
+  ctx: _Ctx
+): string {
+  switch (node.type) {
+    case RuleType.blockQuote: {
+      var children = node.children
+        ? _renderChildren(node.children, ctx)
+        : ''
+      if (node.alert) {
+        children = '<header>' + escapeHtml(node.alert) + '</header>' + children
+        return _renderTag('blockquote', children, ctx, {
+          class:
+            'markdown-alert-' + ctx.slug(node.alert.toLowerCase(), util.slugify),
+        })
+      }
+      return _renderTag('blockquote', children, ctx)
+    }
+
+    case RuleType.breakLine: {
+      return '<br />\n'
+    }
+    case RuleType.breakThematic: {
+      return '<hr />'
+    }
+
+    case RuleType.frontmatter: {
+      return '<pre>' + escapeHtml(node.text) + '</pre>'
+    }
+
+    case RuleType.codeBlock: {
+      var codeAttrs: Record<string, any> = node.attrs || {}
+      if (node.lang) {
+        codeAttrs = { ...codeAttrs }
+        var decodedLang = util.decodeEntityReferences(node.lang)
+        var existingClass =
+          (codeAttrs.class as string) || (codeAttrs.className as string) || ''
+        codeAttrs.class = existingClass
+          ? existingClass + ' language-' + decodedLang
+          : 'language-' + decodedLang
+        delete codeAttrs.className
+      }
+      var codeAttrStr = formatAttributes(codeAttrs)
+      var codeText = node.text || ''
+      return '<pre><code' + codeAttrStr + '>' + escapeHtml(codeText) + '</code></pre>'
+    }
+
+    case RuleType.codeInline: {
+      return '<code>' + escapeHtml(node.text || '') + '</code>'
+    }
+
+    case RuleType.footnoteReference: {
+      var href = ctx.sanitize(node.target || '', 'a', 'href') || ''
+      var text = escapeHtml(node.text || '')
+      return '<a href="' + escapeHtml(href) + '"><sup>' + text + '</sup></a>'
+    }
+
+    case RuleType.gfmTask: {
+      return (
+        '<input' +
+        (node.completed ? ' checked=""' : '') +
+        ' disabled="" type="checkbox">'
+      )
+    }
+
+    case RuleType.heading: {
+      var level = node.level || 1
+      var headingAttrs = node.id?.trim() ? { id: node.id } : undefined
+      return _renderTag(
+        'h' + level,
+        node.children ? _renderChildren(node.children, ctx) : '',
+        ctx,
+        headingAttrs
+      )
+    }
+
+    case RuleType.htmlComment: {
+      var htmlCommentNode = node as MarkdownToJSX.HTMLCommentNode & {
+        raw?: boolean
+        endsWithGreaterThan?: boolean
+      }
+      if (htmlCommentNode.raw) {
+        return htmlCommentNode.text
+      }
+      if (htmlCommentNode.endsWithGreaterThan) {
+        return '<!--' + node.text + '>'
+      }
+      return '<!--' + node.text + '-->'
+    }
+
+    case RuleType.htmlBlock: {
+      var htmlNode = node as MarkdownToJSX.HTMLNode & {
+        _rawAttrs?: string
+        _isClosingTag?: boolean
+      }
+      var defaultTag = htmlNode.tag || 'div'
+      var tag = ctx.hasOverrides ? util.getTag(defaultTag, ctx.overrides) : defaultTag
+      var overrideProps = ctx.hasOverrides ? util.getOverrideProps(defaultTag, ctx.overrides) : _emptyObj
+      var attrsStr: string
+      if (htmlNode._rawAttrs !== undefined) {
+        var rawAttrsValue = htmlNode._rawAttrs
+        var needsLeadingSpace = rawAttrsValue.length > 0 &&
+          rawAttrsValue.charCodeAt(0) > $.CHAR_SPACE
+        attrsStr =
+          (needsLeadingSpace ? ' ' : '') +
+          rawAttrsValue +
+          (hasKeys(overrideProps)
+            ? ' ' + formatAttributes(overrideProps).trim()
+            : '')
+      } else {
+        attrsStr = formatAttributes(_mergeAttrs(htmlNode.attrs, overrideProps))
+      }
+      if (ctx.tagfilter && util.shouldFilterTag(tag)) {
+        return htmlNode._isClosingTag
+          ? '&lt;/' + tag + '>'
+          : '&lt;' + tag + attrsStr + '>'
+      }
+      if (htmlNode._rawText) {
+        if (htmlNode._verbatim) {
+          var textContent = ctx.tagfilter
+            ? util.applyTagFilterToText(htmlNode._rawText)
+            : htmlNode._rawText
+          if (htmlNode._isClosingTag) return '</' + tag + '>' + textContent
+          var tagLower = tag.toLowerCase()
+          var isType1Block = parse.isType1Block(tagLower)
+          if (isType1Block) {
+            var textLen = htmlNode._rawText.length
+            var textStart = 0
+            while (
+              textStart < textLen &&
+              htmlNode._rawText.charCodeAt(textStart) === $.CHAR_SPACE
+            )
+              textStart++
+            if (
+              textStart < textLen &&
+              htmlNode._rawText.charCodeAt(textStart) === $.CHAR_LT
+            ) {
+              var openingTagEnd = htmlNode._rawText.indexOf('>', textStart)
+              if (openingTagEnd !== -1) {
+                var rawOpeningTag = htmlNode._rawText.slice(
+                  textStart,
+                  openingTagEnd + 1
+                )
+                if (
+                  rawOpeningTag.charCodeAt(1) >= $.CHAR_a &&
+                  rawOpeningTag.charCodeAt(1) <= $.CHAR_z
+                ) {
+                  var tagStart = 1
+                  var tagEnd = tagStart
+                  while (
+                    tagEnd < rawOpeningTag.length &&
+                    rawOpeningTag.charCodeAt(tagEnd) >= $.CHAR_a &&
+                    rawOpeningTag.charCodeAt(tagEnd) <= $.CHAR_z
+                  )
+                    tagEnd++
+                  var foundTag = rawOpeningTag
+                    .slice(tagStart, tagEnd)
+                    .toLowerCase()
+                  if (foundTag === tagLower) {
+                    var innerText = htmlNode._rawText.slice(openingTagEnd + 1)
+                    return (
+                      rawOpeningTag +
+                      (ctx.tagfilter
+                        ? util.applyTagFilterToText(innerText)
+                        : innerText)
+                    )
+                  }
+                }
+              }
+            }
+            var closingTag = '</' + tagLower + '>'
+            var hasClosingTag = htmlNode._rawText.indexOf(closingTag) !== -1
+            return hasClosingTag
+              ? '<' + tag + attrsStr + '>' + textContent
+              : '<' + tag + attrsStr + '>' + textContent + '</' + tag + '>'
+          }
+          var trimmed = htmlNode._rawText.trim()
+          if (trimmed.length > 0 && trimmed.charCodeAt(0) === $.CHAR_LT) {
+            var secondCharCode = trimmed.charCodeAt(1)
+            if (
+              (secondCharCode >= $.CHAR_a && secondCharCode <= $.CHAR_z) ||
+              (secondCharCode >= $.CHAR_A && secondCharCode <= $.CHAR_Z)
+            ) {
+              var tagStart = 1
+              var tagEnd = tagStart
+              while (tagEnd < trimmed.length) {
+                var code = trimmed.charCodeAt(tagEnd)
+                if (
+                  (code >= $.CHAR_a && code <= $.CHAR_z) ||
+                  (code >= $.CHAR_A && code <= $.CHAR_Z) ||
+                  (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
+                  code === $.CHAR_DASH
+                ) {
+                  tagEnd++
+                } else {
+                  break
+                }
+              }
+              var foundTag = trimmed.slice(tagStart, tagEnd).toLowerCase()
+              if (foundTag === tagLower) {
+                return textContent
+              }
+            }
+          }
+          var trimmedStart = 0
+          while (
+            trimmedStart < textContent.length &&
+            textContent.charCodeAt(trimmedStart) === $.CHAR_SPACE
+          )
+            trimmedStart++
+          return '<' + tag + attrsStr + '>' + (trimmedStart > 0 ? textContent.slice(trimmedStart) : trimmed ? textContent : '')
+        }
+        var textContent = ctx.tagfilter
+          ? util.applyTagFilterToText(htmlNode._rawText)
+          : htmlNode._rawText
+        return '<' + tag + attrsStr + '>' + textContent + '</' + tag + '>'
+      }
+      // For multi-line attributes (rawAttrs contains newlines), preserve rawText formatting
+      if (htmlNode._rawAttrs && htmlNode._rawAttrs.indexOf('\n') !== -1 && htmlNode._rawText) {
+        var rawTextContent = ctx.tagfilter
+          ? util.applyTagFilterToText(htmlNode._rawText)
+          : htmlNode._rawText
+        return '<' + tag + attrsStr + '>' + rawTextContent + '</' + tag + '>'
+      }
+      var children = htmlNode.children
+        ? _renderChildren(htmlNode.children, ctx)
+        : ''
+      if (htmlNode._isClosingTag) return '</' + tag + '>' + children
+      // Check if children has non-whitespace content without allocating a trimmed string
+      var hasContent = false
+      for (var hci = 0; hci < children.length; hci++) {
+        var hcc = children.charCodeAt(hci)
+        if (hcc !== $.CHAR_SPACE && hcc !== $.CHAR_TAB && hcc !== $.CHAR_NEWLINE && hcc !== 13) {
+          hasContent = true
+          break
+        }
+      }
+      return hasContent
+        ? '<' + tag + attrsStr + '>' + children + '</' + tag + '>'
+        : '<' + tag + attrsStr + '>' + children
+    }
+
+    case RuleType.htmlSelfClosing: {
+      var scNode = node as MarkdownToJSX.HTMLSelfClosingNode & {
+        _rawText?: string
+        _isClosingTag?: boolean
+      }
+      var scDefaultTag = scNode.tag || 'div'
+      var scTag = ctx.hasOverrides ? util.getTag(scDefaultTag, ctx.overrides) : scDefaultTag
+      if (scNode._rawText) {
+        return ctx.tagfilter && util.shouldFilterTag(scTag)
+          ? scNode._rawText.replace(/^</, '&lt;')
+          : scNode._rawText
+      }
+      if (scNode._isClosingTag) return '</' + scTag + '>'
+      var scOverrideProps = ctx.hasOverrides ? util.getOverrideProps(scDefaultTag, ctx.overrides) : _emptyObj
+      var scMergedAttrs = _mergeAttrs(scNode.attrs, scOverrideProps)
+      var scAttrsStr = formatAttributes(scMergedAttrs)
+      if (ctx.tagfilter && util.shouldFilterTag(scTag)) {
+        return '&lt;' + scTag + scAttrsStr + ' />'
+      }
+      return '<' + scTag + scAttrsStr + ' />'
+    }
+
+    case RuleType.image: {
+      var imgTag = ctx.hasOverrides ? util.getTag('img', ctx.overrides) : 'img'
+      var imgOverrideProps = ctx.hasOverrides ? util.getOverrideProps('img', ctx.overrides) : _emptyObj
+      var src = ctx.sanitize(node.target || '', 'img', 'src') || ''
+      var imgAttrs: Record<string, any> = {
+        ...imgOverrideProps,
+        alt: node.alt || '',
+      }
+      if (node.title) imgAttrs.title = node.title
+      return '<' + imgTag + ' src="' + escapeHtml(src) + '"' + formatAttributes(imgAttrs) + ' />'
+    }
+
+    case RuleType.link: {
+      var linkTag = ctx.hasOverrides ? util.getTag('a', ctx.overrides) : 'a'
+      var linkOverrideProps = ctx.hasOverrides ? util.getOverrideProps('a', ctx.overrides) : _emptyObj
+      var linkAttrs: Record<string, any> = hasKeys(linkOverrideProps) ? { ...linkOverrideProps } : {}
+      if (node.target != null) {
+        var encodedTarget = util.encodeUrlTarget(util.decodeEntityReferences(node.target))
+        var sanitized = ctx.sanitize(encodedTarget, 'a', 'href')
+        if (sanitized !== null) {
+          linkAttrs.href = sanitized === encodedTarget
+            ? sanitized
+            : util.encodeUrlTarget(sanitized)
+        }
+      }
+      if (node.title) linkAttrs.title = util.decodeEntityReferences(node.title)
+      return '<' + linkTag + formatAttributes(linkAttrs) + '>' + (node.children ? _renderChildren(node.children, ctx) : '') + '</' + linkTag + '>'
+    }
+
+    case RuleType.table: {
+      var tableNode = node as MarkdownToJSX.TableNode
+      var alignments = tableNode.align || []
+      var header = ''
+      var headerCells = tableNode.header || []
+      for (var hi = 0; hi < headerCells.length; hi++) {
+        var align = alignments[hi]
+        header +=
+          '<th' +
+          (align ? ' align="' + align + '"' : '') +
+          '>' +
+          _renderChildren(headerCells[hi], ctx) +
+          '</th>'
+      }
+      var rows = ''
+      var tableRows = tableNode.cells || []
+      for (var ri = 0; ri < tableRows.length; ri++) {
+        var row = tableRows[ri] || []
+        rows += '<tr>'
+        for (var ci = 0; ci < row.length; ci++) {
+          var align = alignments[ci]
+          rows +=
+            '<td' +
+            (align ? ' align="' + align + '"' : '') +
+            '>' +
+            _renderChildren(row[ci], ctx) +
+            '</td>'
+        }
+        rows += '</tr>'
+      }
+      if (ctx.hasOverrides) {
+        var tblTag = util.getTag('table', ctx.overrides)
+        var tblAttrStr = formatAttributes(util.getOverrideProps('table', ctx.overrides))
+        return '<' + tblTag + tblAttrStr + '><thead><tr>' + header + '</tr></thead>' + (rows ? '<tbody>' + rows + '</tbody>' : '') + '</' + tblTag + '>'
+      }
+      return '<table><thead><tr>' + header + '</tr></thead>' + (rows ? '<tbody>' + rows + '</tbody>' : '') + '</table>'
+    }
+
+    case RuleType.text:
+      return escapeHtml(node.text || '')
+
+    case RuleType.textFormatted: {
+      return _renderTag(
+        node.tag || 'strong',
+        node.children ? _renderChildren(node.children, ctx) : '',
+        ctx
+      )
+    }
+
+    case RuleType.orderedList:
+    case RuleType.unorderedList: {
+      var items = ''
+      var listItems = node.items || []
+      for (var li = 0; li < listItems.length; li++) {
+        items += '<li>' + _renderChildren(listItems[li], ctx) + '</li>'
+      }
+      var listTag = node.type === RuleType.orderedList ? 'ol' : 'ul'
+      var listAttrs =
+        node.type === RuleType.orderedList &&
+        node.start != null &&
+        node.start !== 1
+          ? { start: node.start }
+          : undefined
+      return _renderTag(listTag, items, ctx, listAttrs)
+    }
+
+    case RuleType.paragraph: {
+      if (ctx.forceInline) {
+        return node.children ? _renderChildren(node.children, ctx) : ''
+      }
+      var children = node.children
+        ? _renderChildren(node.children, ctx)
+        : ''
+      // Per CommonMark: collapse trailing spaces before newlines (soft line breaks)
+      // Use indexOf to jump between occurrences (SIMD) instead of scanning every char
+      // Track tag boundaries to avoid collapsing inside HTML attribute values
+      var result = ''
+      var segStart = 0
+      var searchFrom = 0
+      var inTag = false
+      var quoteCount = 0
+      var idx = 0
+      while ((idx = children.indexOf(' \n', searchFrom)) !== -1) {
+        // Update tag tracking only in the gap since last search
+        for (var j = searchFrom; j < idx; j++) {
+          var code = children.charCodeAt(j)
+          if (code === $.CHAR_LT) { inTag = true; quoteCount = 0 }
+          else if (code === $.CHAR_GT) { inTag = false; quoteCount = 0 }
+          else if (inTag && code === $.CHAR_DOUBLE_QUOTE) { quoteCount++ }
+        }
+        if (inTag && quoteCount % 2 === 1) {
+          // Inside quoted attribute — preserve
+          searchFrom = idx + 2
+        } else {
+          result += children.slice(segStart, idx) + '\n'
+          segStart = idx + 2
+          searchFrom = segStart
+        }
+      }
+      if (segStart > 0) {
+        if (segStart < children.length) result += children.slice(segStart)
+        children = result
+      }
+
+      if (!ctx.hasOverrides) {
+        return '<p>' + children + '</p>'
+      }
+      var attrsStr = formatAttributes(util.getOverrideProps('p', ctx.overrides))
+      var tag = util.getTag('p', ctx.overrides)
+      return '<' + tag + attrsStr + '>' + children + '</' + tag + '>'
+    }
+
+    default:
+      return ''
+  }
 }
 
 /**
@@ -244,8 +727,8 @@ export function astToHTML(
   nodes: MarkdownToJSX.ASTNode[],
   options: HTMLOptions = {}
 ): string {
-  const sanitize = options.sanitizer || util.sanitizer
-  const slug = options.slugify || util.slugify
+  var sanitize = options.sanitizer || util.sanitizer
+  var slug = options.slugify || util.slugify
   var refs = options.refs || {}
   var overrides = options.overrides || {}
 
@@ -267,553 +750,35 @@ export function astToHTML(
   }
   for (var key in refsFromAST) refs[key] = refsFromAST[key]
 
-  var updatedOptions = { ...options, refs, overrides }
-
-  function sanitizeAndReencodeUrl(url: string): string | null {
-    var sanitized = sanitize(url, 'a', 'href')
-    if (sanitized === null || sanitized === url) return sanitized
-    return util.encodeUrlTarget(sanitized)
-  }
-
-  function mergeAttrs(
-    base: Record<string, any> | undefined,
-    overrideProps: Record<string, any>
-  ): Record<string, any> {
-    var merged = base || {}
-    if (hasKeys(overrideProps)) {
-      merged = { ...merged }
-      for (var key in overrideProps) merged[key] = overrideProps[key]
-    }
-    return merged
-  }
-
-  function renderChildren(children: MarkdownToJSX.ASTNode[]): string {
-    return children.length ? astToHTML(children, updatedOptions) : ''
-  }
-
-  function renderNode(
-    node: MarkdownToJSX.ASTNode,
-    state: MarkdownToJSX.State = {}
-  ): string {
-    if (!node || typeof node !== 'object') return ''
-    if (
-      node.type === RuleType.ref ||
-      node.type === RuleType.refCollection ||
-      shouldSkipNode(node, !!options.preserveFrontmatter)
-    )
-      return ''
-
-    switch (node.type) {
-      case RuleType.blockQuote: {
-        var children = node.children
-          ? astToHTML(node.children, updatedOptions)
-          : ''
-        if (node.alert) {
-          children = `<header>${escapeHtml(node.alert)}</header>` + children
-          return renderTag('blockquote', children, overrides, {
-            class:
-              'markdown-alert-' + slug(node.alert.toLowerCase(), util.slugify),
-          })
-        }
-        return renderTag('blockquote', children, overrides)
-      }
-
-      case RuleType.breakLine: {
-        return '<br />\n'
-      }
-      case RuleType.breakThematic: {
-        return '<hr />'
-      }
-
-      case RuleType.frontmatter: {
-        return '<pre>' + escapeHtml(node.text) + '</pre>'
-      }
-
-      case RuleType.codeBlock: {
-        var codeAttrs: Record<string, any> = node.attrs || {}
-        if (node.lang) {
-          codeAttrs = { ...codeAttrs }
-          const decodedLang = util.decodeEntityReferences(node.lang)
-          const existingClass =
-            (codeAttrs.class as string) || (codeAttrs.className as string) || ''
-          codeAttrs.class = existingClass
-            ? existingClass + ' language-' + decodedLang
-            : 'language-' + decodedLang
-          delete codeAttrs.className
-        }
-        const attrs = formatAttributes(codeAttrs)
-        const text = node.text || ''
-        return `<pre><code${attrs}>${escapeHtml(text)}</code></pre>`
-      }
-
-      case RuleType.codeInline: {
-        return '<code>' + escapeHtml(node.text || '') + '</code>'
-      }
-
-      case RuleType.footnoteReference: {
-        const href = sanitize(node.target || '', 'a', 'href') || ''
-        const text = escapeHtml(node.text || '')
-        return `<a href="${escapeHtml(href)}"><sup>${text}</sup></a>`
-      }
-
-      case RuleType.gfmTask: {
-        return (
-          '<input' +
-          (node.completed ? ' checked=""' : '') +
-          ' disabled="" type="checkbox">'
-        )
-      }
-
-      case RuleType.heading: {
-        const level = node.level || 1
-        const attrs = node.id?.trim() ? { id: node.id } : undefined
-        return renderTag(
-          'h' + level,
-          node.children ? astToHTML(node.children, updatedOptions) : '',
-          overrides,
-          attrs
-        )
-      }
-
-      case RuleType.htmlComment: {
-        const htmlCommentNode = node as MarkdownToJSX.HTMLCommentNode & {
-          raw?: boolean
-          endsWithGreaterThan?: boolean
-        }
-        if (htmlCommentNode.raw) {
-          return htmlCommentNode.text
-        }
-        if (htmlCommentNode.endsWithGreaterThan) {
-          return `<!--${node.text}>`
-        }
-        return `<!--${node.text}-->`
-      }
-
-      case RuleType.htmlBlock: {
-        const htmlNode = node as MarkdownToJSX.HTMLNode & {
-          _rawAttrs?: string
-          _isClosingTag?: boolean
-        }
-        const defaultTag = htmlNode.tag || 'div'
-        const tag = util.getTag(defaultTag, overrides)
-        const overrideProps = util.getOverrideProps(defaultTag, overrides)
-        var attrsStr: string
-        if (htmlNode._rawAttrs !== undefined) {
-          // Keep raw attributes as-is but ensure leading space for valid HTML
-          const rawAttrsValue = htmlNode._rawAttrs
-          // rawAttrs often starts with whitespace from the original HTML, preserve that
-          // If it doesn't start with whitespace but has content, add a space
-          const needsLeadingSpace = rawAttrsValue.length > 0 && 
-            !/^[\s]/.test(rawAttrsValue)
-          attrsStr =
-            (needsLeadingSpace ? ' ' : '') +
-            rawAttrsValue +
-            (hasKeys(overrideProps)
-              ? ' ' + formatAttributes(overrideProps).trim()
-              : '')
-        } else {
-          attrsStr = formatAttributes(mergeAttrs(htmlNode.attrs, overrideProps))
-        }
-        if (options.tagfilter && util.shouldFilterTag(tag)) {
-          return htmlNode._isClosingTag
-            ? `&lt;/${tag}>`
-            : `&lt;${tag}${attrsStr}>`
-        }
-        if (htmlNode._rawText) {
-          if (htmlNode._verbatim) {
-            var textContent = options.tagfilter
-              ? util.applyTagFilterToText(htmlNode._rawText)
-              : htmlNode._rawText
-            if (htmlNode._isClosingTag) return `</${tag}>${textContent}`
-            var tagLower = tag.toLowerCase()
-            var isType1Block = parse.isType1Block(tagLower)
-            if (isType1Block) {
-              var textLen = htmlNode._rawText.length
-              var textStart = 0
-              while (
-                textStart < textLen &&
-                htmlNode._rawText.charCodeAt(textStart) === $.CHAR_SPACE
-              )
-                textStart++
-              if (
-                textStart < textLen &&
-                htmlNode._rawText.charCodeAt(textStart) === $.CHAR_LT
-              ) {
-                var openingTagEnd = htmlNode._rawText.indexOf('>', textStart)
-                if (openingTagEnd !== -1) {
-                  var rawOpeningTag = htmlNode._rawText.slice(
-                    textStart,
-                    openingTagEnd + 1
-                  )
-                  if (
-                    rawOpeningTag.charCodeAt(1) >= $.CHAR_a &&
-                    rawOpeningTag.charCodeAt(1) <= $.CHAR_z
-                  ) {
-                    var tagStart = 1
-                    var tagEnd = tagStart
-                    while (
-                      tagEnd < rawOpeningTag.length &&
-                      rawOpeningTag.charCodeAt(tagEnd) >= $.CHAR_a &&
-                      rawOpeningTag.charCodeAt(tagEnd) <= $.CHAR_z
-                    )
-                      tagEnd++
-                    var foundTag = rawOpeningTag
-                      .slice(tagStart, tagEnd)
-                      .toLowerCase()
-                    if (foundTag === tagLower) {
-                      var innerText = htmlNode._rawText.slice(openingTagEnd + 1)
-                      return (
-                        rawOpeningTag +
-                        (options.tagfilter
-                          ? util.applyTagFilterToText(innerText)
-                          : innerText)
-                      )
-                    }
-                  }
-                }
-              }
-              var closingTag = '</' + tagLower + '>'
-              var hasClosingTag = htmlNode._rawText.indexOf(closingTag) !== -1
-              return hasClosingTag
-                ? `<${tag}${attrsStr}>${textContent}`
-                : `<${tag}${attrsStr}>${textContent}</${tag}>`
-            }
-            var trimmed = htmlNode._rawText.trim()
-            if (trimmed.length > 0 && trimmed.charCodeAt(0) === $.CHAR_LT) {
-              var secondCharCode = trimmed.charCodeAt(1)
-              // Check if second char is a letter (a-z or A-Z) - valid HTML tag name start
-              // Both cases are needed for custom elements (lowercase) and JSX components (uppercase)
-              if (
-                (secondCharCode >= $.CHAR_a && secondCharCode <= $.CHAR_z) ||
-                (secondCharCode >= $.CHAR_A && secondCharCode <= $.CHAR_Z)
-              ) {
-                var tagStart = 1
-                var tagEnd = tagStart
-                // Parse tag name: letters, digits, and hyphens (valid custom element names)
-                while (tagEnd < trimmed.length) {
-                  var code = trimmed.charCodeAt(tagEnd)
-                  if (
-                    (code >= $.CHAR_a && code <= $.CHAR_z) ||
-                    (code >= $.CHAR_A && code <= $.CHAR_Z) ||
-                    (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
-                    code === $.CHAR_DASH
-                  ) {
-                    tagEnd++
-                  } else {
-                    break
-                  }
-                }
-                var foundTag = trimmed.slice(tagStart, tagEnd).toLowerCase()
-                // Check if rawText contains the full block for this tag
-                // (i.e., starts with the same tag as we're rendering)
-                // For verbatim blocks, rawText contains the complete HTML content including
-                // opening and closing tags, so we can return it directly without wrapping
-                if (foundTag === tagLower) {
-                  // rawText already contains the full HTML block, just return it
-                  return textContent
-                }
-              }
-            }
-            var trimmedStart = 0
-            while (
-              trimmedStart < textContent.length &&
-              textContent.charCodeAt(trimmedStart) === $.CHAR_SPACE
-            )
-              trimmedStart++
-            return `<${tag}${attrsStr}>${trimmedStart > 0 ? textContent.slice(trimmedStart) : trimmed ? textContent : ''}`
-          }
-          var textContent = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode._rawText)
-            : htmlNode._rawText
-          return `<${tag}${attrsStr}>${textContent}</${tag}>`
-        }
-        // For multi-line attributes (rawAttrs contains newlines), preserve rawText formatting
-        if (htmlNode._rawAttrs && htmlNode._rawAttrs.includes('\n') && htmlNode._rawText) {
-          var rawTextContent = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode._rawText)
-            : htmlNode._rawText
-          return `<${tag}${attrsStr}>${rawTextContent}</${tag}>`
-        }
-        const children = htmlNode.children
-          ? astToHTML(htmlNode.children, updatedOptions)
-          : ''
-        if (htmlNode._isClosingTag) return `</${tag}>${children}`
-        return children.trim()
-          ? `<${tag}${attrsStr}>${children}</${tag}>`
-          : `<${tag}${attrsStr}>${children}`
-      }
-
-      case RuleType.htmlSelfClosing: {
-        const htmlNode = node as MarkdownToJSX.HTMLSelfClosingNode & {
-          _rawText?: string
-          _isClosingTag?: boolean
-        }
-        const defaultTag = htmlNode.tag || 'div'
-        const tag = util.getTag(defaultTag, overrides)
-        if (htmlNode._rawText) {
-          return options.tagfilter && util.shouldFilterTag(tag)
-            ? htmlNode._rawText.replace(/^</, '&lt;')
-            : htmlNode._rawText
-        }
-        if (htmlNode._isClosingTag) return `</${tag}>`
-        const overrideProps = util.getOverrideProps(defaultTag, overrides)
-        const mergedAttrs = mergeAttrs(htmlNode.attrs, overrideProps)
-        const attrsStr = formatAttributes(mergedAttrs)
-        if (options.tagfilter && util.shouldFilterTag(tag)) {
-          return `&lt;${tag}${attrsStr} />`
-        }
-        return `<${tag}${attrsStr} />`
-      }
-
-      case RuleType.image: {
-        const tag = util.getTag('img', overrides)
-        const overrideProps = util.getOverrideProps('img', overrides)
-        const src = sanitize(node.target || '', 'img', 'src') || ''
-        var attrs: Record<string, any> = {
-          ...overrideProps,
-          alt: node.alt || '',
-        }
-        if (node.title) attrs.title = node.title
-        return `<${tag} src="${escapeHtml(src)}"${formatAttributes(attrs)} />`
-      }
-
-      case RuleType.link: {
-        const tag = util.getTag('a', overrides)
-        const overrideProps = util.getOverrideProps('a', overrides)
-        var attrs: Record<string, any> = { ...overrideProps }
-        if (node.target != null) {
-          const href = sanitizeAndReencodeUrl(
-            util.encodeUrlTarget(util.decodeEntityReferences(node.target))
-          )
-          if (href != null) attrs.href = href
-        }
-        if (node.title) attrs.title = util.decodeEntityReferences(node.title)
-        return `<${tag}${formatAttributes(attrs)}>${node.children ? astToHTML(node.children, updatedOptions) : ''}</${tag}>`
-      }
-
-      case RuleType.table: {
-        const tableNode = node as MarkdownToJSX.TableNode
-        const alignments = tableNode.align || []
-        var header = ''
-        var headerCells = tableNode.header || []
-        for (var hi = 0; hi < headerCells.length; hi++) {
-          var align = alignments[hi]
-          header +=
-            '<th' +
-            (align ? ` align="${align}"` : '') +
-            '>' +
-            astToHTML(headerCells[hi], updatedOptions) +
-            '</th>'
-        }
-        var rows = ''
-        var tableRows = tableNode.cells || []
-        for (var ri = 0; ri < tableRows.length; ri++) {
-          var row = tableRows[ri] || []
-          rows += '<tr>'
-          for (var ci = 0; ci < row.length; ci++) {
-            var align = alignments[ci]
-            rows +=
-              '<td' +
-              (align ? ` align="${align}"` : '') +
-              '>' +
-              astToHTML(row[ci], updatedOptions) +
-              '</td>'
-          }
-          rows += '</tr>'
-        }
-        const tag = util.getTag('table', overrides)
-        const attrs = formatAttributes(
-          util.getOverrideProps('table', overrides)
-        )
-        return `<${tag}${attrs}><thead><tr>${header}</tr></thead>${rows ? `<tbody>${rows}</tbody>` : ''}</${tag}>`
-      }
-
-      case RuleType.text: {
-        // Inline escapeHtml for common text node case
-        var text = node.text || ''
-        if (!text) return text
-        var needsEscape = false
-        var i = 0
-        var len = text.length
-        while (i < len) {
-          var code = text.charCodeAt(i)
-          if (
-            code === $.CHAR_AMPERSAND ||
-            code === $.CHAR_LT ||
-            code === $.CHAR_GT ||
-            code === $.CHAR_DOUBLE_QUOTE
-          ) {
-            needsEscape = true
-            break
-          }
-          i++
-        }
-        if (!needsEscape) return text
-        var result = ''
-        i = 0
-        var last = 0
-        while (i < len) {
-          var code = text.charCodeAt(i)
-          var replacement: string | null = null
-          if (code === $.CHAR_AMPERSAND) {
-            replacement = '&amp;'
-          } else if (code === $.CHAR_LT) {
-            replacement = '&lt;'
-          } else if (code === $.CHAR_GT) {
-            replacement = '&gt;'
-          } else if (code === $.CHAR_DOUBLE_QUOTE) {
-            replacement = '&quot;'
-          }
-          if (replacement) {
-            if (i > last) result += text.slice(last, i)
-            result += replacement
-            last = i + 1
-          }
-          i++
-        }
-        if (last < len) result += text.slice(last)
-        return result
-      }
-
-      case RuleType.textFormatted: {
-        return renderTag(
-          node.tag || 'strong',
-          node.children ? astToHTML(node.children, updatedOptions) : '',
-          overrides
-        )
-      }
-
-      case RuleType.orderedList:
-      case RuleType.unorderedList: {
-        var items = ''
-        var listItems = node.items || []
-        for (var li = 0; li < listItems.length; li++) {
-          items += '<li>' + astToHTML(listItems[li], updatedOptions) + '</li>'
-        }
-        const tag = node.type === RuleType.orderedList ? 'ol' : 'ul'
-        const attrs =
-          node.type === RuleType.orderedList &&
-          node.start != null &&
-          node.start !== 1
-            ? { start: node.start }
-            : undefined
-        return renderTag(tag, items, overrides, attrs)
-      }
-
-      case RuleType.paragraph: {
-        var paragraphOpts = { ...updatedOptions, refs: {}, wrapper: null }
-        if (options.forceInline) {
-          return node.children ? astToHTML(node.children, paragraphOpts) : ''
-        }
-        var children = node.children
-          ? astToHTML(node.children, paragraphOpts)
-          : ''
-        // Per CommonMark: collapse trailing spaces before newlines (soft line breaks)
-        // Don't collapse spaces inside HTML attribute values
-        var hasSpaceNewline = false
-        for (var checki = 0; checki < children.length - 1; checki++) {
-          if (
-            children.charCodeAt(checki) === $.CHAR_SPACE &&
-            children.charCodeAt(checki + 1) === $.CHAR_NEWLINE
-          ) {
-            hasSpaceNewline = true
-            break
-          }
-        }
-        if (hasSpaceNewline) {
-          var result = ''
-          var i = 0
-          var len = children.length
-          var inTag = false
-          var quoteCount = 0
-          while (i < len) {
-            var code = children.charCodeAt(i)
-            if (code === $.CHAR_LT) {
-              inTag = true
-              quoteCount = 0
-            } else if (code === $.CHAR_GT) {
-              inTag = false
-              quoteCount = 0
-            } else if (inTag && code === $.CHAR_DOUBLE_QUOTE) {
-              quoteCount++
-            }
-            if (
-              code === $.CHAR_SPACE &&
-              i + 1 < len &&
-              children.charCodeAt(i + 1) === $.CHAR_NEWLINE
-            ) {
-              if (inTag && quoteCount % 2 === 1) {
-                result += ' \n'
-              } else {
-                result += '\n'
-              }
-              i += 2
-            } else {
-              result += children[i]
-              i++
-            }
-          }
-          children = result
-        }
-
-        const attrsStr = formatAttributes(util.getOverrideProps('p', overrides))
-        const tag = util.getTag('p', overrides)
-
-        return `<${tag}${attrsStr}>${children}</${tag}>`
-      }
-
-      default:
-        return ''
-    }
-  }
-
-  function renderNodeWithRule(
-    node: MarkdownToJSX.ASTNode,
-    state: MarkdownToJSX.State = {}
-  ): string {
-    if (!node || typeof node !== 'object') return ''
-
-    // renderRule must be checked FIRST, before any filtering or rendering logic
-    // This gives users full control to render even normally-skipped nodes
-    if (options.renderRule) {
-      return options.renderRule(
-        () => {
-          // Default behavior: skip ref, refCollection, and other filtered nodes
-          if (
-            node.type === RuleType.ref ||
-            node.type === RuleType.refCollection ||
-            shouldSkipNode(node, !!options.preserveFrontmatter)
-          )
-            return ''
-          return renderNode(node, state)
-        },
-        node,
-        renderChildren,
-        state
-      )
-    }
-
-    // Default filtering: skip ref, refCollection, and other filtered nodes
-    if (
-      node.type === RuleType.ref ||
-      node.type === RuleType.refCollection ||
-      shouldSkipNode(node, !!options.preserveFrontmatter)
-    )
-      return ''
-
-    return renderNode(node, state)
+  // Create render context once — shared across all recursive renders
+  var ctx: _Ctx = {
+    sanitize: sanitize,
+    slug: slug,
+    refs: refs,
+    overrides: overrides,
+    hasOverrides: hasKeys(overrides),
+    preserveFrontmatter: !!options.preserveFrontmatter,
+    tagfilter: !!options.tagfilter,
+    forceInline: !!options.forceInline,
+    renderRule: options.renderRule,
   }
 
   var content = ''
   if (Array.isArray(nodes)) {
-    for (var ci = 0; ci < nonRefCollectionNodes.length; ci++) {
-      content += renderNodeWithRule(nonRefCollectionNodes[ci], {
-        key: ci,
-        refs,
-      })
+    if (ctx.renderRule) {
+      for (var ci = 0; ci < nonRefCollectionNodes.length; ci++) {
+        content += _renderNodeEntry(nonRefCollectionNodes[ci], {
+          key: ci,
+          refs: refs,
+        }, ctx)
+      }
+    } else {
+      for (var ci = 0; ci < nonRefCollectionNodes.length; ci++) {
+        content += _renderNode(nonRefCollectionNodes[ci], ctx)
+      }
     }
   } else {
-    content = renderNodeWithRule(nodes, { refs })
+    content = _renderNodeEntry(nodes, { refs: refs }, ctx)
   }
 
   // Extract and render footnotes
@@ -821,16 +786,15 @@ export function astToHTML(
   for (var key in refs) {
     if (key.charCodeAt(0) === $.CHAR_CARET) {
       if (!footnoteFooter) footnoteFooter = '<footer>'
-      const id = key.slice(1)
-      const parsed = parse.parseMarkdown(
+      var id = key.slice(1)
+      var parsed = parse.parseMarkdown(
         refs[key].target,
         { inline: true, refs },
         {
-          ...updatedOptions,
-          overrides: updatedOptions.overrides as MarkdownToJSX.Overrides,
+          overrides: overrides as MarkdownToJSX.Overrides,
           sanitizer: sanitize,
-          slugify: (i: string) => slug(i, util.slugify),
-          tagfilter: updatedOptions.tagfilter !== false,
+          slugify: function (i: string) { return slug(i, util.slugify) },
+          tagfilter: options.tagfilter !== false,
         }
       )
       var filtered: MarkdownToJSX.ASTNode[] = []
@@ -838,13 +802,19 @@ export function astToHTML(
         if (parsed[pi].type !== RuleType.refCollection)
           filtered.push(parsed[pi])
       }
-      const footnoteContent = astToHTML(filtered, {
-        ...updatedOptions,
+      var footnoteCtx: _Ctx = {
+        sanitize: sanitize,
+        slug: slug,
         refs: {},
+        overrides: overrides,
+        hasOverrides: ctx.hasOverrides,
+        preserveFrontmatter: ctx.preserveFrontmatter,
+        tagfilter: ctx.tagfilter,
         forceInline: true,
-        wrapper: null,
-      })
-      footnoteFooter += `<div id="${escapeHtmlAttr(slug(id, util.slugify))}">${escapeHtml(id)}: ${footnoteContent}</div>`
+        renderRule: ctx.renderRule,
+      }
+      var footnoteContent = _renderChildren(filtered, footnoteCtx)
+      footnoteFooter += '<div id="' + escapeHtmlAttr(slug(id, util.slugify)) + '">' + escapeHtml(id) + ': ' + footnoteContent + '</div>'
     }
   }
   if (footnoteFooter) footnoteFooter += '</footer>'
@@ -855,11 +825,11 @@ export function astToHTML(
   }
 
   // Determine if content should be wrapped (only when explicitly requested)
-  const hasMultipleChildren = nonRefCollectionNodes.length > 1
-  const hasExplicitWrapper = options.wrapper != null
-  const wrapperWasExplicit =
+  var hasMultipleChildren = nonRefCollectionNodes.length > 1
+  var hasExplicitWrapper = options.wrapper != null
+  var wrapperWasExplicit =
     hasExplicitWrapper && typeof options.wrapper === 'string'
-  const shouldWrap =
+  var shouldWrap =
     options.forceWrapper ||
     (options.forceInline && hasExplicitWrapper) ||
     (hasMultipleChildren && hasExplicitWrapper)
@@ -879,21 +849,27 @@ export function astToHTML(
       nonRefCollectionNodes.length === 1 &&
       nonRefCollectionNodes[0].type === RuleType.paragraph
     ) {
-      const paragraphNode =
+      var paragraphNode =
         nonRefCollectionNodes[0] as MarkdownToJSX.ParagraphNode
       if (paragraphNode.children) {
-        contentToWrap = astToHTML(paragraphNode.children, {
-          ...updatedOptions,
+        var inlineCtx: _Ctx = {
+          sanitize: sanitize,
+          slug: slug,
           refs: {},
+          overrides: overrides,
+          hasOverrides: ctx.hasOverrides,
+          preserveFrontmatter: ctx.preserveFrontmatter,
+          tagfilter: ctx.tagfilter,
           forceInline: true,
-          wrapper: null,
-        })
+          renderRule: ctx.renderRule,
+        }
+        contentToWrap = _renderChildren(paragraphNode.children, inlineCtx)
       }
     }
   }
 
   // Determine wrapper tag
-  const wrapperTag =
+  var wrapperTag =
     typeof options.wrapper === 'string'
       ? options.wrapper
       : options.forceInline
@@ -913,7 +889,7 @@ export function astToHTML(
     wrapperAttrs = formatAttributes(sanitizedProps)
   }
 
-  return `<${wrapperTag}${wrapperAttrs}>${contentToWrap + footnoteFooter}</${wrapperTag}>`
+  return '<' + wrapperTag + wrapperAttrs + '>' + contentToWrap + footnoteFooter + '</' + wrapperTag + '>'
 }
 
 /**
@@ -935,18 +911,18 @@ export function astToHTML(
  * @lang hi @returns HTML स्ट्रिंग
  */
 export function compiler(markdown: string, options?: HTMLOptions): string {
-  const inline = options?.forceInline || false
-  const parseOptions: parse.ParseOptions = {
+  var inline = options?.forceInline || false
+  var parseOptions: parse.ParseOptions = {
     ...options,
     overrides: options?.overrides as MarkdownToJSX.Overrides,
     sanitizer: options?.sanitizer,
     slugify: options?.slugify
-      ? (i: string) => options.slugify!(i, util.slugify)
+      ? function (i: string) { return options.slugify!(i, util.slugify) }
       : util.slugify,
     tagfilter: options?.tagfilter !== false,
   }
-  const ast = parse.parser(markdown, { ...parseOptions, forceInline: inline })
-  const htmlOptions: HTMLOptions = {
+  var ast = parse.parser(markdown, { ...parseOptions, forceInline: inline })
+  var htmlOptions: HTMLOptions = {
     ...options,
     forceInline: inline,
   } as HTMLOptions
