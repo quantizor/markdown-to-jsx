@@ -5,7 +5,10 @@ import MarkdownIt from 'markdown-it'
 import {
   compiler as latestCompiler,
   parser as latestParser,
-} from 'markdown-to-jsx-latest'
+} from 'markdown-to-jsx-latest/react'
+import {
+  compiler as latestHtmlCompiler,
+} from 'markdown-to-jsx-latest/html'
 import path from 'path'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
@@ -136,6 +139,10 @@ const htmlTests = [
   (isAll || isHtml) && {
     name: 'markdown-to-jsx (next) [html]',
     fn: input => htmlCompiler(input),
+  },
+  (isAll || isHtml) && {
+    name: `markdown-to-jsx (${latestVersion}) [html]`,
+    fn: input => latestHtmlCompiler(input),
   },
   (isAll || isHtml) && {
     name: 'Bun.markdown [html]',
