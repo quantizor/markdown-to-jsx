@@ -158,14 +158,13 @@ function render(
       }
 
       if (htmlNode._rawText && htmlNode._verbatim) {
-        // Type 1 blocks (script, style, pre, textarea) must have verbatim text content
+        // Type 1 blocks (script, style, pre, textarea) always render verbatim
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
 
         const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)
-        const containsPreTags = /<\/?pre\b/i.test(htmlNode._rawText)
 
-        if (isType1Block && !containsHTMLTags) {
+        if (isType1Block) {
           let textContent = htmlNode._rawText.replace(
             new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
             ''
@@ -173,9 +172,16 @@ function render(
           if (options.tagfilter) {
             textContent = util.applyTagFilterToText(textContent)
           }
+          if (containsHTMLTags) {
+            return h(node.tag, {
+              ...node.attrs,
+              innerHTML: textContent,
+            })
+          }
           return h(node.tag, { ...node.attrs }, textContent)
         }
 
+        const containsPreTags = /<\/?pre\b/i.test(htmlNode._rawText)
         if (containsPreTags) {
           const innerHtml = options.tagfilter
             ? util.applyTagFilterToText(htmlNode._rawText)

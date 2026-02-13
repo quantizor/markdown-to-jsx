@@ -176,14 +176,14 @@ function render(
 
       if (htmlNode._rawText && htmlNode._verbatim) {
         // For verbatim blocks, always use rawText for rendering (CommonMark compliance)
-        // Children are available for renderRule but default rendering uses rawText
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
         const hasChildren = htmlNode.children && htmlNode.children.length > 0
 
         const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)
 
-        if (isType1Block && !containsHTMLTags) {
+        // Type 1 blocks (pre, script, style, textarea) always render verbatim
+        if (isType1Block) {
           let textContent = htmlNode._rawText.replace(
             new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
             ''
@@ -191,10 +191,17 @@ function render(
           if (options.tagfilter) {
             textContent = util.applyTagFilterToText(textContent)
           }
+          if (containsHTMLTags) {
+            return h(node.tag, {
+              key: state.key,
+              ...htmlAttrsToJSXProps(node.attrs || {}),
+              dangerouslySetInnerHTML: { __html: textContent },
+            })
+          }
           return h(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) }, textContent)
         }
 
-        // When the tag itself is filtered (e.g. <script>, <iframe>), prefer
+        // When the tag itself is filtered (e.g. <iframe>), prefer
         // children so each child element goes through its own tagfilter check
         const startsWithOwnTagEarly = new RegExp(
           `^<${htmlNode.tag}(\\s|>)`,
@@ -208,8 +215,7 @@ function render(
           )
         }
 
-        // Type 1 tags (pre, script, style, textarea) require verbatim content
-        // that cannot be re-parsed into JSX elements without losing fidelity
+        // Non-Type-1 verbatim blocks containing Type 1 tags use innerHTML
         const containsVerbatimTags = parse.containsType1Tag(htmlNode._rawText)
         if (containsVerbatimTags) {
           const innerHtml = options.tagfilter

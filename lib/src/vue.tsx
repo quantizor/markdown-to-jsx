@@ -151,15 +151,22 @@ const renderers: Record<
       const tagLower = (node.tag as string).toLowerCase()
       const isType1Block = parse.isType1Block(tagLower)
       const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(node._rawText)
-      const containsPreTags = /<\/?pre\b/i.test(node._rawText)
 
-      if (isType1Block && !containsHTMLTags) {
+      // Type 1 blocks (pre, script, style, textarea) always render verbatim
+      if (isType1Block) {
         let textContent = node._rawText.replace(
           new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
           ''
         )
         if (options.tagfilter)
           textContent = util.applyTagFilterToText(textContent)
+        if (containsHTMLTags) {
+          return h(node.tag, {
+            key: state.key,
+            ...node.attrs,
+            innerHTML: textContent,
+          })
+        }
         return h(node.tag, { key: state.key, ...node.attrs }, textContent)
       }
 
@@ -193,6 +200,7 @@ const renderers: Record<
         return [node]
       }
 
+      const containsPreTags = /<\/?pre\b/i.test(node._rawText)
       if (containsPreTags) {
         // Strip the node's own closing tag from rawText (parser includes it)
         var preRawText = node._rawText

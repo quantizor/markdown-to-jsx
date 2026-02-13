@@ -522,7 +522,7 @@ export function parseRefDef(
   }
 
   if (titleParsed) {
-    if (!refs[label]) refs[label] = { target: unescapeString(url), title: title !== undefined ? unescapeString(title) : title }
+    if (!refs[label]) refs[label] = { target: unescapeString(url), title: title !== undefined ? util.decodeEntityReferences(unescapeString(title)) : title }
     return titleEnd
   }
 
@@ -2086,13 +2086,6 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
       if (type1CloseIdx !== -1) {
         var type1Content = rawText.slice(type1ContentStart, type1CloseIdx)
         type1TextContent = type1Content.trim()
-        if (type1TextContent) {
-          // Parse as inline (no paragraph wrapping for Type 1)
-          var saved_inline1 = state.inline, saved_inHTML1 = state.inHTML
-          state.inline = true; state.inHTML = true
-          type1Children = parseInline(type1TextContent, 0, type1TextContent.length, state, opts)
-          state.inline = saved_inline1; state.inHTML = saved_inHTML1
-        }
       }
     }
 
@@ -3843,7 +3836,7 @@ function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, o
 
       // Unescape backslashes in URL and title
       url = unescapeString(url)
-      if (title !== undefined) title = unescapeString(title)
+      if (title !== undefined) title = util.decodeEntityReferences(unescapeString(title))
 
       // Sanitize URL - remove dangerous protocols
       var sanitizer = opts?.sanitizer || util.sanitizer
@@ -4154,6 +4147,7 @@ function scanBareEmail(s: string, p: number, e: number, opts: ParseOptions): Sca
   // Per GFM: last two segments can't have underscore, last char can't be - or _
   var domainStart = i
   var lastDot = -1
+  var labelStart = i
   while (i < e) {
     var c = s.charCodeAt(i)
     if ((c >= $.CHAR_A && c <= $.CHAR_Z) || (c >= $.CHAR_a && c <= $.CHAR_z) || (c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9)) {
@@ -4164,16 +4158,19 @@ function scanBareEmail(s: string, p: number, e: number, opts: ParseOptions): Sca
       if (i === domainStart) break
       var prev = s.charCodeAt(i - 1)
       if (prev === $.CHAR_DASH || prev === $.CHAR_UNDERSCORE) break // hyphen/underscore before dot invalid
+      if (i - labelStart > 63) break // DNS label max 63 chars (RFC 1035)
       // Only consume dot if followed by alphanumeric (valid domain continuation)
       if (i + 1 < e) {
         var nextDC = s.charCodeAt(i + 1)
         if ((nextDC >= $.CHAR_A && nextDC <= $.CHAR_Z) || (nextDC >= $.CHAR_a && nextDC <= $.CHAR_z) || (nextDC >= $.CHAR_DIGIT_0 && nextDC <= $.CHAR_DIGIT_9)) {
           lastDot = i
+          labelStart = i + 1
           i++
         } else break // trailing dot — don't consume
       } else break // dot at end — don't consume
     } else break
   }
+  if (i - labelStart > 63) return null // final label exceeds DNS limit
   if (lastDot < 0) return null // need at least one dot
   // Last char of domain must be alphanumeric (not hyphen, underscore, or dot)
   var lastDomainChar = s.charCodeAt(i - 1)

@@ -18,7 +18,7 @@
     "benchtable": "^0.1.0",
     "cli-progress": "^3.12.0",
     "markdown-it": "^14.0.0",
-    "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.7.1",
+    "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.7.2",
     "marked": "^17.0.0",
     "react": "^19.2.0",
     "react-markdown": "^10.1.0",

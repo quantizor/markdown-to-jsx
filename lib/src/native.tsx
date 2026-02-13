@@ -227,7 +227,8 @@ function render(
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
 
-        if (isType1Block && !/<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)) {
+        // Type 1 blocks (pre, script, style, textarea) always render verbatim
+        if (isType1Block) {
           let textContent = htmlNode._rawText.replace(
             new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
             ''

@@ -4004,7 +4004,7 @@ describe('Unserializable expression evaluation', () => {
   })
 
   describe('verbatim HTML blocks with parsed children', () => {
-    it('should parse markdown content in script tags into children even when verbatim', () => {
+    it('should not parse markdown content in script tags (verbatim)', () => {
       const result = p.parser(
         '<script>Hello **world**</script>'
       ) as MarkdownToJSX.ASTNode[]
@@ -4019,22 +4019,7 @@ describe('Unserializable expression evaluation', () => {
           "_verbatim": true,
           "attrs": {},
           "canInterruptParagraph": true,
-          "children": [
-            {
-              "text": "Hello ",
-              "type": "text",
-            },
-            {
-              "children": [
-                {
-                  "text": "world",
-                  "type": "text",
-                },
-              ],
-              "tag": "strong",
-              "type": "textFormatted",
-            },
-          ],
+          "children": [],
           "endPos": 32,
           "tag": "script",
           "text": "Hello **world**",
@@ -4043,7 +4028,7 @@ describe('Unserializable expression evaluation', () => {
       `)
     })
 
-    it('should parse nested HTML in pre tags into children even when verbatim', () => {
+    it('should not parse nested HTML in pre tags (verbatim)', () => {
       const result = p.parser(
         '<pre><code>const x = 1;</code></pre>'
       ) as MarkdownToJSX.ASTNode[]
@@ -4060,22 +4045,7 @@ describe('Unserializable expression evaluation', () => {
           "_verbatim": true,
           "attrs": {},
           "canInterruptParagraph": true,
-          "children": [
-            {
-              "_rawAttrs": "",
-              "_verbatim": false,
-              "attrs": {},
-              "children": [
-                {
-                  "text": "const x = 1;",
-                  "type": "text",
-                },
-              ],
-              "tag": "code",
-              "text": "const x = 1;",
-              "type": "htmlBlock",
-            },
-          ],
+          "children": [],
           "endPos": 36,
           "tag": "pre",
           "text": "<code>const x = 1;</code>",
@@ -4084,7 +4054,7 @@ describe('Unserializable expression evaluation', () => {
       `)
     })
 
-    it('should parse complex markdown in style tags into children even when verbatim', () => {
+    it('should not parse markdown in style tags (verbatim)', () => {
       const result = p.parser(
         '<style>body { color: red; }\n\n/* Comment */</style>'
       ) as MarkdownToJSX.ASTNode[]
@@ -4103,16 +4073,7 @@ describe('Unserializable expression evaluation', () => {
           "_verbatim": true,
           "attrs": {},
           "canInterruptParagraph": true,
-          "children": [
-            {
-              "text": 
-        "body { color: red; }
-
-        /* Comment */"
-        ,
-              "type": "text",
-            },
-          ],
+          "children": [],
           "endPos": 50,
           "tag": "style",
           "text": 
@@ -4392,6 +4353,1704 @@ describe('text normalization edge cases', () => {
     it('should handle multiple control characters', () => {
       const result = p.parser('a\x07b\x08c\x1Bd\x7Fe')
       expect(result[0].children[0].text).toBe('a\x07b\x08c\x1Bd\x7Fe')
+    })
+  })
+
+  // md4c regression edge cases
+  // Sourced from https://github.com/mity/md4c/blob/master/test/regressions.txt
+  // Tests md4c-specific extensions (--fpermissive-url-autolinks, --fwiki-links) are excluded.
+  // Single-tilde strikethrough tests adapted to double-tilde (~~) for markdown-to-jsx.
+  describe('md4c regression edge cases', () => {
+    // Issue 2: Raw HTML
+    it('md4c#2: raw HTML block with attributes', () => {
+      const result = p.parser('<gi att1=tok1 att2=tok2>')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "_isClosingTag": false,
+            "_rawAttrs": " att1=tok1 att2=tok2",
+            "_rawText": "",
+            "_verbatim": true,
+            "attrs": {
+              "att1": "tok1",
+              "att2": "tok2",
+            },
+            "canInterruptParagraph": false,
+            "children": [],
+            "endPos": 24,
+            "tag": "gi",
+            "text": "",
+            "type": "htmlBlock",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#2: inline HTML with attributes', () => {
+      const result = p.parser('foo <gi att1=tok1 att2=tok2> bar')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "foo ",
+                "type": "text",
+              },
+              {
+                "_rawText": "<gi att1=tok1 att2=tok2>",
+                "attrs": {
+                  "att1": "tok1",
+                  "att2": "tok2",
+                },
+                "tag": "gi",
+                "type": "htmlSelfClosing",
+              },
+              {
+                "text": " bar",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#2: inline HTML with line break in attributes', () => {
+      const result = p.parser('foo <gi att1=tok1\natt2=tok2> bar')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "foo ",
+                "type": "text",
+              },
+              {
+                "_rawText": 
+        "<gi att1=tok1
+        att2=tok2>"
+        ,
+                "attrs": {
+                  "att1": "tok1",
+                  "att2": "tok2",
+                },
+                "tag": "gi",
+                "type": "htmlSelfClosing",
+              },
+              {
+                "text": " bar",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 4: Image with entity in alt text
+    it('md4c#4: image alt text with entity', () => {
+      const result = p.parser("![alt text with *entity* &copy;](img.png 'title')")
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "alt": "alt text with entity ©",
+                "target": "img.png",
+                "title": "title",
+                "type": "image",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 9: Reference link in blockquote
+    it('md4c#9: reference link defined inside blockquote', () => {
+      const result = p.parser('> [foo\n> bar]: /url\n>\n> [foo bar]')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "refs": {
+              "foo > bar": {
+                "target": "/url",
+                "title": undefined,
+              },
+              "foo bar": {
+                "target": "/url",
+                "title": undefined,
+              },
+            },
+            "type": "refCollection",
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "text": "foo bar",
+                        "type": "text",
+                      },
+                    ],
+                    "target": "/url",
+                    "title": undefined,
+                    "type": "link",
+                  },
+                ],
+                "type": "paragraph",
+              },
+            ],
+            "type": "blockQuote",
+          },
+        ]
+      `)
+    })
+
+    // Issue 10: Link def + list with processing instruction
+    it('md4c#10: link def then list with processing instruction', () => {
+      const result = p.parser('[x]:\nx\n- <?\n\n  x')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "refs": {
+              "x": {
+                "target": "x",
+                "title": undefined,
+              },
+            },
+            "type": "refCollection",
+          },
+          {
+            "items": [
+              [
+                {
+                  "endPos": 5,
+                  "raw": true,
+                  "text": 
+        "<?
+
+        x"
+        ,
+                  "type": "htmlComment",
+                },
+              ],
+            ],
+            "start": undefined,
+            "type": "unorderedList",
+          },
+        ]
+      `)
+    })
+
+    // Issue 11: Link title with HTML entity
+    it('md4c#11: link with entity in title', () => {
+      const result = p.parser('x [link](/url "foo &ndash; bar") x')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "x ",
+                "type": "text",
+              },
+              {
+                "children": [
+                  {
+                    "text": "link",
+                    "type": "text",
+                  },
+                ],
+                "target": "/url",
+                "title": "foo – bar",
+                "type": "link",
+              },
+              {
+                "text": " x",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 14: Complex emphasis
+    it('md4c#14: emphasis edge case a***b* c*', () => {
+      const result = p.parser('a***b* c*')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "a**",
+                "type": "text",
+              },
+              {
+                "children": [
+                  {
+                    "text": "b",
+                    "type": "text",
+                  },
+                ],
+                "tag": "em",
+                "type": "textFormatted",
+              },
+              {
+                "text": " c*",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 15: Complex emphasis
+    it('md4c#15: emphasis edge case ***b* c*', () => {
+      const result = p.parser('***b* c*')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "*",
+                "type": "text",
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "text": "b",
+                        "type": "text",
+                      },
+                    ],
+                    "tag": "em",
+                    "type": "textFormatted",
+                  },
+                  {
+                    "text": " c",
+                    "type": "text",
+                  },
+                ],
+                "tag": "em",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 21: Complex emphasis
+    it('md4c#21: emphasis edge case a*b**c*', () => {
+      const result = p.parser('a*b**c*')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "a",
+                "type": "text",
+              },
+              {
+                "children": [
+                  {
+                    "text": "b",
+                    "type": "text",
+                  },
+                  {
+                    "text": "**",
+                    "type": "text",
+                  },
+                  {
+                    "text": "c",
+                    "type": "text",
+                  },
+                ],
+                "tag": "em",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 33: Code fence with entities in info string
+    it('md4c#33: unclosed code fence with entities in info string', () => {
+      const result = p.parser('```&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": undefined,
+            "infoString": undefined,
+            "lang": "&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;",
+            "text": "",
+            "type": "codeBlock",
+          },
+        ]
+      `)
+    })
+
+    // Issue 36: Underscore emphasis
+    it('md4c#36: underscore emphasis __x_ _x___', () => {
+      const result = p.parser('__x_ _x___')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "text": "x",
+                        "type": "text",
+                      },
+                    ],
+                    "tag": "em",
+                    "type": "textFormatted",
+                  },
+                  {
+                    "text": " ",
+                    "type": "text",
+                  },
+                  {
+                    "children": [
+                      {
+                        "text": "x",
+                        "type": "text",
+                      },
+                    ],
+                    "tag": "em",
+                    "type": "textFormatted",
+                  },
+                ],
+                "tag": "em",
+                "type": "textFormatted",
+              },
+              {
+                "text": "_",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 39: Backslash in reference definition
+    it('md4c#39: reference def with backslash label', () => {
+      const result = p.parser('[\\\\]: x')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "refs": {
+              "\\\\\\\\": {
+                "target": "x",
+                "title": undefined,
+              },
+            },
+            "type": "refCollection",
+          },
+        ]
+      `)
+    })
+
+    // Issue 40: Multiline link with title
+    it('md4c#40: link with multiline title', () => {
+      const result = p.parser("[x](url\n'title'\n)x")
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "x",
+                    "type": "text",
+                  },
+                ],
+                "target": "url",
+                "title": "title",
+                "type": "link",
+              },
+              {
+                "text": "x",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 42: Table with fewer body columns and link
+    it('md4c#42: table with link in cell and fewer body columns', () => {
+      const result = p.parser('A | B\n--- | ---\n[x](url)')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "align": [
+              null,
+              null,
+            ],
+            "cells": [
+              [
+                [
+                  {
+                    "children": [
+                      {
+                        "text": "x",
+                        "type": "text",
+                      },
+                    ],
+                    "target": "url",
+                    "title": undefined,
+                    "type": "link",
+                  },
+                ],
+                [],
+              ],
+            ],
+            "header": [
+              [
+                {
+                  "text": "A",
+                  "type": "text",
+                },
+              ],
+              [
+                {
+                  "text": "B",
+                  "type": "text",
+                },
+              ],
+            ],
+            "type": "table",
+          },
+        ]
+      `)
+    })
+
+    // Issue 65: Single backtick
+    it('md4c#65: single backtick as paragraph', () => {
+      const result = p.parser('`')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "\`",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 69: Strikethrough with code/emphasis (adapted to ~~)
+    it('md4c#69: strikethrough wrapping code', () => {
+      const result = p.parser('~~`foo`~~')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "foo",
+                    "type": "codeInline",
+                  },
+                ],
+                "tag": "del",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#69: strikethrough wrapping emphasis', () => {
+      const result = p.parser('~~*foo*~~')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "text": "foo",
+                        "type": "text",
+                      },
+                    ],
+                    "tag": "em",
+                    "type": "textFormatted",
+                  },
+                ],
+                "tag": "del",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#69: emphasis wrapping strikethrough', () => {
+      const result = p.parser('*~~foo~~*')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "text": "foo",
+                        "type": "text",
+                      },
+                    ],
+                    "tag": "del",
+                    "type": "textFormatted",
+                  },
+                ],
+                "tag": "em",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 74: Link def then indented code and list
+    it('md4c#74: link def followed by indented code and list', () => {
+      const result = p.parser('[f]:\n-\n    xx\n-')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "refs": {
+              "f": {
+                "target": "-",
+                "title": undefined,
+              },
+            },
+            "type": "refCollection",
+          },
+          {
+            "text": "xx",
+            "type": "codeBlock",
+          },
+          {
+            "items": [
+              [],
+            ],
+            "start": undefined,
+            "type": "unorderedList",
+          },
+        ]
+      `)
+    })
+
+    // Issue 78: Unicode case folding in reference labels
+    it('md4c#78: unicode sharp-s case folding in refs', () => {
+      const result = p.parser('[SS ẞ]: /url\n[ẞ SS]')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "refs": {
+              "ss ss": {
+                "target": "/url",
+                "title": undefined,
+              },
+            },
+            "type": "refCollection",
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "ẞ SS",
+                    "type": "text",
+                  },
+                ],
+                "target": "/url",
+                "title": undefined,
+                "type": "link",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 83: Paragraph followed by empty blockquote
+    it('md4c#83: paragraph followed by empty blockquote', () => {
+      const result = p.parser('foo\n>')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "foo",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+          {
+            "children": [],
+            "type": "blockQuote",
+          },
+        ]
+      `)
+    })
+
+    // Issue 95: Dot followed by text is not ordered list
+    it('md4c#95: dot-space is not an ordered list', () => {
+      const result = p.parser('. foo')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": ". foo",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 96: Reference link matching
+    it('md4c#96: reference link exact match only', () => {
+      const result = p.parser('[ab]: /foo\n[a] [ab] [abc]')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "refs": {
+              "ab": {
+                "target": "/foo",
+                "title": undefined,
+              },
+            },
+            "type": "refCollection",
+          },
+          {
+            "children": [
+              {
+                "text": "[a] ",
+                "type": "text",
+              },
+              {
+                "children": [
+                  {
+                    "text": "ab",
+                    "type": "text",
+                  },
+                ],
+                "target": "/foo",
+                "title": undefined,
+                "type": "link",
+              },
+              {
+                "text": " [abc]",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#96: reference link with internal whitespace', () => {
+      const result = p.parser('[a b]: /foo\n[a   b]')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "refs": {
+              "a b": {
+                "target": "/foo",
+                "title": undefined,
+              },
+            },
+            "type": "refCollection",
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "a   b",
+                    "type": "text",
+                  },
+                ],
+                "target": "/foo",
+                "title": undefined,
+                "type": "link",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 97: Complex emphasis
+    it('md4c#97: emphasis *a **b c* d**', () => {
+      const result = p.parser('*a **b c* d**')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "a ",
+                    "type": "text",
+                  },
+                  {
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "text": "b c",
+                            "type": "text",
+                          },
+                        ],
+                        "tag": "em",
+                        "type": "textFormatted",
+                      },
+                      {
+                        "text": " d",
+                        "type": "text",
+                      },
+                    ],
+                    "tag": "em",
+                    "type": "textFormatted",
+                  },
+                ],
+                "tag": "em",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 100: Autolink email with long labels
+    it('md4c#100: autolink email at max label length', () => {
+      const result = p.parser('<foo@123456789012345678901234567890123456789012345678901234567890123.123456789012345678901234567890123456789012345678901234567890123>')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "foo@123456789012345678901234567890123456789012345678901234567890123.123456789012345678901234567890123456789012345678901234567890123",
+                    "type": "text",
+                  },
+                ],
+                "target": "mailto:foo@123456789012345678901234567890123456789012345678901234567890123.123456789012345678901234567890123456789012345678901234567890123",
+                "type": "link",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#100: autolink email exceeding max label length', () => {
+      const result = p.parser('<foo@123456789012345678901234567890123456789012345678901234567890123x.123456789012345678901234567890123456789012345678901234567890123>')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "<foo@123456789012345678901234567890123456789012345678901234567890123x.123456789012345678901234567890123456789012345678901234567890123>",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 104: Table with link in cell
+    it('md4c#104: table cell containing a link', () => {
+      const result = p.parser('A | B\n--- | ---\n[x](url)')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "align": [
+              null,
+              null,
+            ],
+            "cells": [
+              [
+                [
+                  {
+                    "children": [
+                      {
+                        "text": "x",
+                        "type": "text",
+                      },
+                    ],
+                    "target": "url",
+                    "title": undefined,
+                    "type": "link",
+                  },
+                ],
+                [],
+              ],
+            ],
+            "header": [
+              [
+                {
+                  "text": "A",
+                  "type": "text",
+                },
+              ],
+              [
+                {
+                  "text": "B",
+                  "type": "text",
+                },
+              ],
+            ],
+            "type": "table",
+          },
+        ]
+      `)
+    })
+
+    // Issue 107: Complex emphasis
+    it('md4c#107: emphasis ***foo *bar baz***', () => {
+      const result = p.parser('***foo *bar baz***')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "*",
+                "type": "text",
+              },
+              {
+                "children": [
+                  {
+                    "text": "foo ",
+                    "type": "text",
+                  },
+                  {
+                    "children": [
+                      {
+                        "text": "bar baz",
+                        "type": "text",
+                      },
+                    ],
+                    "tag": "em",
+                    "type": "textFormatted",
+                  },
+                ],
+                "tag": "strong",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 124: Code fence preserving leading spaces
+    it('md4c#124: code fence preserves many leading spaces', () => {
+      const result = p.parser('~~~\n                x\n~~~\n\n~~~\n                 x\n~~~')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "attrs": undefined,
+            "infoString": undefined,
+            "lang": undefined,
+            "text": "                x",
+            "type": "codeBlock",
+          },
+          {
+            "attrs": undefined,
+            "infoString": undefined,
+            "lang": undefined,
+            "text": "                 x",
+            "type": "codeBlock",
+          },
+        ]
+      `)
+    })
+
+    // Issue 131: Image inside link using reference definitions
+    it('md4c#131: image inside link via reference defs', () => {
+      const result = p.parser('[![alt][img]][link]\n\n[img]: img_url\n[link]: link_url')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "refs": {
+              "img": {
+                "target": "img_url",
+                "title": undefined,
+              },
+              "link": {
+                "target": "link_url",
+                "title": undefined,
+              },
+            },
+            "type": "refCollection",
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "alt": "alt",
+                    "target": "img_url",
+                    "title": undefined,
+                    "type": "image",
+                  },
+                ],
+                "target": "link_url",
+                "title": undefined,
+                "type": "link",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 138: Table with header row only
+    it('md4c#138: table with header only, no body rows', () => {
+      const result = p.parser('| abc | def |\n| --- | --- |')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "align": [
+              null,
+              null,
+            ],
+            "cells": [],
+            "header": [
+              [
+                {
+                  "text": "abc",
+                  "type": "text",
+                },
+              ],
+              [
+                {
+                  "text": "def",
+                  "type": "text",
+                },
+              ],
+            ],
+            "type": "table",
+          },
+        ]
+      `)
+    })
+
+    // Issue 142: Unicode ligature case folding
+    it('md4c#142: unicode ligature not matching in ref labels', () => {
+      const result = p.parser('[foo\uFB17]: /url\n[foo\uFB15]')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "refs": {
+              "fooﬗ": {
+                "target": "/url",
+                "title": undefined,
+              },
+            },
+            "type": "refCollection",
+          },
+          {
+            "children": [
+              {
+                "text": "[fooﬕ]",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 149: Script tag in list
+    it('md4c#149: script tag inside list items', () => {
+      const result = p.parser('- <script>\n- foo\nbar\n</script>')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "items": [
+              [
+                {
+                  "_isClosingTag": false,
+                  "_rawAttrs": "",
+                  "_rawText": "<script>",
+                  "_verbatim": true,
+                  "attrs": {},
+                  "canInterruptParagraph": true,
+                  "children": [],
+                  "endPos": 8,
+                  "tag": "script",
+                  "text": "",
+                  "type": "htmlBlock",
+                },
+              ],
+              [
+                {
+                  "text": 
+        "foo
+        bar"
+        ,
+                  "type": "text",
+                },
+              ],
+            ],
+            "start": undefined,
+            "type": "unorderedList",
+          },
+          {
+            "_isClosingTag": true,
+            "_rawText": "</script>",
+            "attrs": {},
+            "endPos": 30,
+            "tag": "script",
+            "type": "htmlSelfClosing",
+          },
+        ]
+      `)
+    })
+
+    // Issue 190: Empty list item then indented code
+    it('md4c#190: empty list item followed by indented code block', () => {
+      const result = p.parser('-\n\n    foo')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "items": [
+              [],
+            ],
+            "start": undefined,
+            "type": "unorderedList",
+          },
+          {
+            "text": "foo",
+            "type": "codeBlock",
+          },
+        ]
+      `)
+    })
+
+    // Issue 200: HTML comment then indented code
+    it('md4c#200: HTML comment followed by indented code', () => {
+      const result = p.parser('<!-- foo -->\n    ```\n    bar\n    ```')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "endPos": 13,
+            "raw": true,
+            "text": 
+        "<!-- foo -->
+        "
+        ,
+            "type": "htmlComment",
+          },
+          {
+            "text": 
+        "\`\`\`
+        bar
+        \`\`\`"
+        ,
+            "type": "codeBlock",
+          },
+        ]
+      `)
+    })
+
+    // Issue 201: Paragraph lazy continuation with code
+    it('md4c#201: lazy continuation with indented backtick code', () => {
+      const result = p.parser('foo\n    ```\n    bar\n    ```')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": 
+        "foo
+        "
+        ,
+                "type": "text",
+              },
+              {
+                "text": "    bar    ",
+                "type": "codeInline",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 207: Textarea HTML block
+    it('md4c#207: textarea preserves inner markdown verbatim', () => {
+      const result = p.parser('<textarea>\n\n*foo*\n\n_bar_\n\n</textarea>\n\nbaz')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "_isClosingTag": false,
+            "_rawAttrs": "",
+            "_rawText": 
+        "
+        *foo*
+
+        _bar_
+
+        </textarea>"
+        ,
+            "_verbatim": true,
+            "attrs": {},
+            "canInterruptParagraph": true,
+            "children": [],
+            "endPos": 38,
+            "tag": "textarea",
+            "text": 
+        "*foo*
+
+        _bar_"
+        ,
+            "type": "htmlBlock",
+          },
+          {
+            "children": [
+              {
+                "text": "baz",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 210: Nested images
+    it('md4c#210: nested image in image alt text', () => {
+      const result = p.parser('![outer ![inner](img_inner "inner title")](img_outer "outer title")')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "alt": "outer inner",
+                "target": "img_outer",
+                "title": "outer title",
+                "type": "image",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 215: Setext heading with tab after dashes
+    it('md4c#215: setext heading underline with trailing tab', () => {
+      const result = p.parser('title\n--\t')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "title",
+                "type": "text",
+              },
+            ],
+            "id": "title",
+            "level": 2,
+            "type": "heading",
+          },
+        ]
+      `)
+    })
+
+    // Issue 216: Inline HTML declaration
+    it('md4c#216: inline HTML declaration <!A>', () => {
+      const result = p.parser('x <!A>')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "x ",
+                "type": "text",
+              },
+              {
+                "_rawText": "<!A>",
+                "attrs": {},
+                "tag": "!A",
+                "type": "htmlSelfClosing",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 217: Complex emphasis patterns
+    it('md4c#217: emphasis __!_!__', () => {
+      const result = p.parser('__!_!__')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "!",
+                    "type": "text",
+                  },
+                  {
+                    "text": "_",
+                    "type": "text",
+                  },
+                  {
+                    "text": "!",
+                    "type": "text",
+                  },
+                ],
+                "tag": "strong",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#217: emphasis __!x!__', () => {
+      const result = p.parser('__!x!__')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "!x!",
+                    "type": "text",
+                  },
+                ],
+                "tag": "strong",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#217: emphasis **!*!**', () => {
+      const result = p.parser('**!*!**')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "!",
+                    "type": "text",
+                  },
+                  {
+                    "text": "*",
+                    "type": "text",
+                  },
+                  {
+                    "text": "!",
+                    "type": "text",
+                  },
+                ],
+                "tag": "strong",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#217: emphasis _*__*_*', () => {
+      const result = p.parser('_*__*_*')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "text": "__",
+                        "type": "text",
+                      },
+                    ],
+                    "tag": "em",
+                    "type": "textFormatted",
+                  },
+                ],
+                "tag": "em",
+                "type": "textFormatted",
+              },
+              {
+                "text": "*",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#217: emphasis _*xx*_*', () => {
+      const result = p.parser('_*xx*_*')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "text": "xx",
+                        "type": "text",
+                      },
+                    ],
+                    "tag": "em",
+                    "type": "textFormatted",
+                  },
+                ],
+                "tag": "em",
+                "type": "textFormatted",
+              },
+              {
+                "text": "*",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#217: emphasis _*__-_-', () => {
+      const result = p.parser('_*__-_-')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "*",
+                    "type": "text",
+                  },
+                  {
+                    "text": "__",
+                    "type": "text",
+                  },
+                  {
+                    "text": "-",
+                    "type": "text",
+                  },
+                ],
+                "tag": "em",
+                "type": "textFormatted",
+              },
+              {
+                "text": "-",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#217: emphasis _*xx-_-', () => {
+      const result = p.parser('_*xx-_-')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "*",
+                    "type": "text",
+                  },
+                  {
+                    "text": "xx-",
+                    "type": "text",
+                  },
+                ],
+                "tag": "em",
+                "type": "textFormatted",
+              },
+              {
+                "text": "-",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 222: Strikethrough (adapted to ~~)
+    it('md4c#222: strikethrough not opening mid-word', () => {
+      const result = p.parser('~~foo ~~bar baz~~')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "foo ",
+                    "type": "text",
+                  },
+                ],
+                "tag": "del",
+                "type": "textFormatted",
+              },
+              {
+                "text": "bar baz~~",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 223: Code spans with newlines
+    it('md4c#223: code span with leading newline', () => {
+      const result = p.parser('`\nfoo`')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": " foo",
+                "type": "codeInline",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#223: code span with trailing newline', () => {
+      const result = p.parser('`foo\n`')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "foo ",
+                "type": "codeInline",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#223: code span with both leading and trailing newlines', () => {
+      const result = p.parser('`\nfoo\n`')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "foo",
+                "type": "codeInline",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 242: Tilde in paths should not trigger strikethrough
+    it('md4c#242: tildes in file paths not strikethrough', () => {
+      const result = p.parser('copy ~user1/file to ~user2/file')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "copy ~user1/file to ~user2/file",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue 248: Heading with tab after #
+    it('md4c#248: ATX heading with tab after #', () => {
+      const result = p.parser('#\tFoo')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "Foo",
+                "type": "text",
+              },
+            ],
+            "id": "foo",
+            "level": 1,
+            "type": "heading",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#248: setext heading with tab in content', () => {
+      const result = p.parser('  Foo *bar\nbaz*\t\n====')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "Foo ",
+                "type": "text",
+              },
+              {
+                "children": [
+                  {
+                    "text": 
+        "bar
+        baz"
+        ,
+                    "type": "text",
+                  },
+                ],
+                "tag": "em",
+                "type": "textFormatted",
+              },
+            ],
+            "id": "foo-barbaz",
+            "level": 1,
+            "type": "heading",
+          },
+        ]
+      `)
+    })
+
+    // Issue 250: Hard break with tabs
+    it('md4c#250: space+space+tab+newline is not hard break', () => {
+      const result = p.parser('foo  \t\nbar')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": 
+        "foo  	
+        bar"
+        ,
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('md4c#250: tab+space+space+newline is hard break', () => {
+      const result = p.parser('foo\t  \nbar')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "foo	",
+                "type": "text",
+              },
+              {
+                "type": "breakLine",
+              },
+              {
+                "text": "bar",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
     })
   })
 })
