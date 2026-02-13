@@ -12,10 +12,10 @@
     "parseTime": 6.12
   },
   "parser": {
-    "timestamp": "2026-02-04T06:31:07.911Z",
+    "timestamp": "2026-02-13T03:39:29.258Z",
     "target": "parser",
     "inputSize": 173,
-    "parseTime": 1.87
+    "parseTime": 1.57
   },
   "react": {
     "timestamp": "2026-02-04T06:31:15.912Z",

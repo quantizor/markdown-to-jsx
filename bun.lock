@@ -25,7 +25,7 @@
         "benchtable": "^0.1.0",
         "cli-progress": "^3.12.0",
         "markdown-it": "^14.0.0",
-        "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.7.1",
+        "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.7.2",
         "marked": "^17.0.0",
         "react": "^19.2.0",
         "react-markdown": "^10.1.0",
@@ -41,7 +41,7 @@
     },
     "lib": {
       "name": "markdown-to-jsx",
-      "version": "9.7.2",
+      "version": "9.7.3",
       "devDependencies": {
         "@types/bun": "^1.3.8",
         "@types/node": "^24.10.1",
@@ -998,7 +998,7 @@
 
     "markdown-to-jsx": ["markdown-to-jsx@workspace:lib"],
 
-    "markdown-to-jsx-latest": ["markdown-to-jsx@9.7.1", "", { "peerDependencies": { "react": ">= 16.0.0", "solid-js": ">=1.0.0", "vue": ">=3.0.0" }, "optionalPeers": ["react", "solid-js", "vue"] }, "sha512-s6AVFIVxmfLBT/SIIJwc7WDos/4AvM2iToPfhZ7D36BOA6DKs+KwB91+thZZSfbDJvcskmqtabLJZ6xMWDukLg=="],
+    "markdown-to-jsx-latest": ["markdown-to-jsx@9.7.2", "", { "peerDependencies": { "react": ">= 16.0.0", "solid-js": ">=1.0.0", "vue": ">=3.0.0" }, "optionalPeers": ["react", "solid-js", "vue"] }, "sha512-DTWRWPPyTVww//5s/dZgq1Pl6i5CclnKvx847Hpj6/GQDpYzM1xkD/Z84PzaVPk/zWfEdJKZSr2G/Y7RTYw7Fw=="],
 
     "marked": ["marked@17.0.1", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-boeBdiS0ghpWcSwoNm/jJBwdpFaMnZWRzjA6SkUMYb40SVaN1x7mmfGKp0jvexGcx+7y2La5zRZsYFZI6Qpypg=="],
 
