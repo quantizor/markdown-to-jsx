@@ -29,6 +29,7 @@ describe('index.tsx exports', () => {
     expect(result).toMatchInlineSnapshot(`
       {
         "$$typeof": Symbol(react.transitional.element),
+        "_store": {},
         "key": "0",
         "props": {
           "children": [

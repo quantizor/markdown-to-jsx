@@ -46,6 +46,15 @@ it('should handle a basic string', () => {
   expect(root.innerHTML).toBe('Hello.')
 })
 
+it('raw elements have _store for React dev-mode validation (issue #821)', () => {
+  // React's dev-mode reconciler sets element._store.validated to track whether
+  // elements were created via JSX vs createElement. Without _store this throws
+  // "Cannot set properties of undefined (setting 'validated')".
+  expect(() => render(compiler('# Title\n\nParagraph\n\n- item 1\n- item 2'))).not.toThrow()
+  expect(root.innerHTML).toContain('Title')
+  expect(root.innerHTML).toContain('Paragraph')
+})
+
 it('wraps multiple block element returns in a div to avoid invalid nesting errors', () => {
   render(compiler('# Boop\n\n## Blep'))
 
@@ -1451,6 +1460,7 @@ describe('arbitrary HTML', () => {
     expect(ast).toMatchInlineSnapshot(`
       {
         "$$typeof": Symbol(react.transitional.element),
+        "_store": {},
         "key": "0",
         "props": {
           "children": [
@@ -2601,6 +2611,7 @@ describe('options.wrapper', () => {
       [
         {
           "$$typeof": Symbol(react.transitional.element),
+          "_store": {},
           "key": "0",
           "props": {
             "children": [
@@ -2612,6 +2623,7 @@ describe('options.wrapper', () => {
         },
         {
           "$$typeof": Symbol(react.transitional.element),
+          "_store": {},
           "key": "1",
           "props": {
             "children": [
