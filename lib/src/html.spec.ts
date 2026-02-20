@@ -824,6 +824,16 @@ describe('html compiler', () => {
       expect(result).toContain('<hr class="separator" />')
     })
 
+    it('void element block does not render children (issue #823)', () => {
+      const result = compiler('\n<br>')
+      expect(result).toMatchInlineSnapshot(`"<br>"`)
+    })
+
+    it('void element block separates trailing content (issue #823)', () => {
+      const result = compiler('\n<br>\nsome text')
+      expect(result).toMatchInlineSnapshot(`"<div><br><p>some text</p></div>"`)
+    })
+
     it('applies overrides recursively to nested content', () => {
       const result = astToHTML(
         [

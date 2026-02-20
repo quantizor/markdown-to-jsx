@@ -256,6 +256,9 @@ function render(
         const processedChildren = output(astNodes.flatMap(processNode), state)
         return h(node.tag, { ...node.attrs }, ...toArray(processedChildren))
       }
+      if (util.isVoidElement(node.tag)) {
+        return h(node.tag, { ...node.attrs })
+      }
       return h(
         node.tag,
         { ...node.attrs },

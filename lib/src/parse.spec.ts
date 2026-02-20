@@ -3443,6 +3443,36 @@ This is paragraph after the unordered nested list.`
     )
   })
 
+  it('should not assign content to void elements in block-level HTML (issue #823)', () => {
+    const result = p.parser('\n<br>')
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "_isClosingTag": false,
+          "_rawAttrs": "",
+          "_rawText": "",
+          "_verbatim": false,
+          "attrs": {},
+          "canInterruptParagraph": false,
+          "children": [],
+          "endPos": 5,
+          "tag": "br",
+          "text": "",
+          "type": "htmlBlock",
+        },
+      ]
+    `)
+  })
+
+  it('should separate trailing content from void elements (issue #823)', () => {
+    const result = p.parser('\n<br>\nsome text')
+    expect(result.length).toBe(2)
+    expect(result[0].type).toBe(RuleType.htmlBlock)
+    expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('br')
+    expect((result[0] as MarkdownToJSX.HTMLNode)._rawText).toBe('')
+    expect(result[1].type).toBe(RuleType.paragraph)
+  })
+
   it('should handle ordered nested list with paragraph after blank line', () => {
     const md = `1. Ordered list
    1. Ordered nested list

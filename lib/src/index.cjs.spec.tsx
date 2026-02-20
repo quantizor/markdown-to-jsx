@@ -29,6 +29,7 @@ describe('index.cjs.tsx exports', () => {
     expect(result).toMatchInlineSnapshot(`
       {
         "$$typeof": Symbol(react.transitional.element),
+        "_owner": null,
         "_store": {},
         "key": "0",
         "props": {

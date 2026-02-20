@@ -1460,6 +1460,7 @@ describe('arbitrary HTML', () => {
     expect(ast).toMatchInlineSnapshot(`
       {
         "$$typeof": Symbol(react.transitional.element),
+        "_owner": null,
         "_store": {},
         "key": "0",
         "props": {
@@ -1675,6 +1676,18 @@ comment -->`)
       <br/>
       <br/></p>"
     `)
+  })
+
+  it('regression test for #823 - void element after blank line', () => {
+    render(compiler('\n<br>'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<br/>"`)
+  })
+
+  it('regression test for #823 - void element with trailing content', () => {
+    render(compiler('\n<br>\nsome text'))
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><br/><p>some text</p></div>"`
+    )
   })
 
   it('regression test for #170', () => {
@@ -2611,6 +2624,7 @@ describe('options.wrapper', () => {
       [
         {
           "$$typeof": Symbol(react.transitional.element),
+          "_owner": null,
           "_store": {},
           "key": "0",
           "props": {
@@ -2623,6 +2637,7 @@ describe('options.wrapper', () => {
         },
         {
           "$$typeof": Symbol(react.transitional.element),
+          "_owner": null,
           "_store": {},
           "key": "1",
           "props": {

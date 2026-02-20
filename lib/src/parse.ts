@@ -2143,13 +2143,33 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         }
       }
 
+      // Void/self-closing elements: return immediately with no content
+      if (tagResult67.selfClosing || util.isVoidElement(tagName67)) {
+        return {
+          node: {
+            type: RuleType.htmlBlock,
+            tag: tagName67,
+            attrs: processHTMLAttributes(tagResult67.attrs, tagName67, opts),
+            _rawAttrs: tagResult67.whitespaceBeforeAttrs + tagResult67.rawAttrs,
+            children: [],
+            _rawText: '',
+            text: '',
+            _verbatim: false,
+            _isClosingTag: false,
+            endPos: tagResult67.end,
+            canInterruptParagraph: htmlBlockType === 6,
+          } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; canInterruptParagraph: boolean },
+          end: nextLine(s, tagResult67.end)
+        }
+      }
+
       // Opening tag - search for closing tag WITHIN this block (before blank line)
       // Limit search depth to prevent O(n²) on deeply nested same-tag structures
       var htmlDepth67 = (state._htmlDepth || 0)
       var blockContent67 = s.slice(start, rawEnd6)
       var closeIdx67 = -1
       var closeEndRel67 = -1
-      if (!tagResult67.selfClosing && !util.isVoidElement(tagName67) && htmlDepth67 < 10) {
+      if (htmlDepth67 < 10) {
         var closeTag67 = '</' + tagNameLower67
         var searchStart67 = tagResult67.end - start
         var depth67 = 1

@@ -522,6 +522,9 @@ function _renderNode(
           : htmlNode._rawText
         return '<' + tag + attrsStr + '>' + rawTextContent + '</' + tag + '>'
       }
+      if (util.isVoidElement(tag)) {
+        return '<' + tag + attrsStr + '>'
+      }
       var children = htmlNode.children
         ? _renderChildren(htmlNode.children, ctx)
         : ''

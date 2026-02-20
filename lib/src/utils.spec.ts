@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { type MarkdownToJSX, RuleType } from './types'
 import * as u from './utils'
 
@@ -238,6 +238,15 @@ describe('decodeEntityReferences', () => {
 })
 
 describe('sanitizer', () => {
+  var originalWarn: typeof console.warn
+  beforeEach(() => {
+    originalWarn = console.warn
+    console.warn = () => {}
+  })
+  afterEach(() => {
+    console.warn = originalWarn
+  })
+
   it('should return input unchanged for safe URLs', () => {
     expect(u.sanitizer('https://example.com')).toBe('https://example.com')
     expect(u.sanitizer('mailto:test@example.com')).toBe(
@@ -283,7 +292,6 @@ describe('sanitizer', () => {
     const originalEnv = process.env.NODE_ENV
     process.env.NODE_ENV = 'development'
 
-    const originalWarn = console.warn
     let warningMessage = ''
     let warningArgs: any[] = []
 
@@ -299,7 +307,6 @@ describe('sanitizer', () => {
     )
     expect(warningArgs[1]).toBe('javascript:alert(1)')
 
-    console.warn = originalWarn
     process.env.NODE_ENV = originalEnv
   })
 

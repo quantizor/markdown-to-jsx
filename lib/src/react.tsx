@@ -43,6 +43,7 @@ function createRawElement(
     key: key != null ? '' + key : null,
     ref: null,
     props: props,
+    _owner: null,
   }
   if (process.env.NODE_ENV !== 'production') {
     // React's dev-mode reconciler sets element._store.validated to track
@@ -423,6 +424,9 @@ function render(
           { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
           output(astNodes.flatMap(processNode), state)
         )
+      }
+      if (util.isVoidElement(node.tag)) {
+        return h(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) })
       }
       return h(
         node.tag,
