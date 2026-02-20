@@ -893,6 +893,19 @@ describe('edge cases - component overrides', () => {
     expect(extractTextContent(result)).toContain('test')
   })
 
+  it('regression test for #823 - void element after blank line', () => {
+    const result = compiler('\n<br>')
+    const element = getFirstElement(result)
+    expect(React.isValidElement(element)).toBe(true)
+    expect(element.props.children).toBeUndefined()
+  })
+
+  it('regression test for #823 - void element with trailing content', () => {
+    const result = compiler('\n<br>\nsome text')
+    expect(React.isValidElement(result)).toBe(true)
+    expect(extractTextContent(result)).toContain('some text')
+  })
+
   it('should handle override with forwardRef component', () => {
     const CustomText = React.forwardRef((props, ref) =>
       React.createElement('Text', { ...props, ref })
