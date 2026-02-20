@@ -251,6 +251,9 @@ const renderers: Record<
       )
     }
 
+    if (util.isVoidElement(node.tag)) {
+      return h(node.tag, { key: state.key, ...node.attrs })
+    }
     return h(
       node.tag,
       { key: state.key, ...node.attrs },

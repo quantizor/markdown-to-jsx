@@ -324,6 +324,9 @@ function render(
         )
       }
 
+      if (util.isVoidElement(htmlNode.tag)) {
+        return h(htmlNode.tag, { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) })
+      }
       return h(
         htmlNode.tag,
         { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) },

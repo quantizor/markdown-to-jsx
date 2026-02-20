@@ -1677,6 +1677,18 @@ comment -->`)
     `)
   })
 
+  it('regression test for #823 - void element after blank line', () => {
+    render(compiler('\n<br>'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<br/>"`)
+  })
+
+  it('regression test for #823 - void element with trailing content', () => {
+    render(compiler('\n<br>\nsome text'))
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><br/><p>some text</p></div>"`
+    )
+  })
+
   it('regression test for #170', () => {
     render(
       compiler(theredoc`

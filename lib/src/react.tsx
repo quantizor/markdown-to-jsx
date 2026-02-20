@@ -424,6 +424,9 @@ function render(
           output(astNodes.flatMap(processNode), state)
         )
       }
+      if (util.isVoidElement(node.tag)) {
+        return h(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) })
+      }
       return h(
         node.tag,
         { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
