@@ -1460,6 +1460,7 @@ describe('arbitrary HTML', () => {
     expect(ast).toMatchInlineSnapshot(`
       {
         "$$typeof": Symbol(react.transitional.element),
+        "_owner": null,
         "_store": {},
         "key": "0",
         "props": {
@@ -2623,6 +2624,7 @@ describe('options.wrapper', () => {
       [
         {
           "$$typeof": Symbol(react.transitional.element),
+          "_owner": null,
           "_store": {},
           "key": "0",
           "props": {
@@ -2635,6 +2637,7 @@ describe('options.wrapper', () => {
         },
         {
           "$$typeof": Symbol(react.transitional.element),
+          "_owner": null,
           "_store": {},
           "key": "1",
           "props": {

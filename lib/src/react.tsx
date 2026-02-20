@@ -43,6 +43,7 @@ function createRawElement(
     key: key != null ? '' + key : null,
     ref: null,
     props: props,
+    _owner: null,
   }
   if (process.env.NODE_ENV !== 'production') {
     // React's dev-mode reconciler sets element._store.validated to track
