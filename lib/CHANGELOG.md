@@ -1,5 +1,25 @@
 # markdown-to-jsx
 
+## 9.7.6
+
+### Patch Changes
+
+- 565e3ea: fix: add missing `_owner` field on raw React elements for dev-mode compatibility
+
+  Fixes "Cannot set properties of undefined (setting 'validated')" errors in React 19 dev mode by adding the `_owner` field that React's reconciler expects on all elements.
+
+  修复：在原始 React 元素上添加缺失的 `_owner` 字段，解决 React 19 开发模式下的兼容性问题。
+
+  सुधार: React 19 डेवलपमेंट मोड में "Cannot set properties of undefined" त्रुटि को ठीक करने के लिए raw React तत्वों पर गायब `_owner` फ़ील्ड जोड़ा गया।
+
+- 565e3ea: fix: prevent void elements from receiving children when preceded by a blank line
+
+  Void HTML elements (e.g. `<br>`, `<hr>`, `<img>`) preceded by a blank line no longer cause React error #137. The parser now returns void elements as content-less blocks, and all compilers guard against passing children to void elements.
+
+  修复：当空行后跟空元素（如 `<br>`、`<hr>`、`<img>`）时，不再触发 React 错误 #137。解析器现在将空元素作为无内容块返回，所有编译器均防止向空元素传递子元素。
+
+  सुधार: जब खाली पंक्ति के बाद void तत्व (जैसे `<br>`, `<hr>`, `<img>`) आते हैं, तो अब React त्रुटि #137 नहीं होती। पार्सर अब void तत्वों को बिना सामग्री वाले ब्लॉक के रूप में लौटाता है, और सभी कंपाइलर void तत्वों को चाइल्ड तत्व देने से रोकते हैं।
+
 ## 9.7.5
 
 ### Patch Changes
