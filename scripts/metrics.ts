@@ -8,6 +8,7 @@ const SIGNIFICANCE_THRESHOLD = 2
 
 const markdown = fs.readFileSync(path.join(import.meta.dirname, '../lib/src/stress-test.generated.md'), 'utf8')
 const shouldUpdateBaseline = process.argv.includes('-u')
+const isStreaming = process.argv.includes('--streaming')
 
 const targetIndex = process.argv.indexOf('--target')
 const targetArg = targetIndex !== -1 ? process.argv[targetIndex + 1] : 'parser'
@@ -87,9 +88,12 @@ if (!global.gc) {
   )
 }
 
-process.stdout.write(`Running warmup rounds (target: ${targetName})`)
+const compilerOpts = isStreaming ? { optimizeForStreaming: true } : undefined
+const streamLabel = isStreaming ? ', streaming' : ''
+
+process.stdout.write(`Running warmup rounds (target: ${targetName}${streamLabel})`)
 for (let i = 0; i < WARMUP_ROUNDS; i++) {
-  compiler(markdown)
+  compiler(markdown, compilerOpts)
   if (i % 5 === 4) process.stdout.write('.')
 }
 
@@ -98,7 +102,7 @@ global.gc()
 process.stdout.write(' Done.\n\n')
 
 const t0 = performance.now()
-compiler(markdown)
+compiler(markdown, compilerOpts)
 const t1 = performance.now()
 
 const isParserTarget = targetArg === 'parser'
@@ -109,9 +113,12 @@ console.log(`Input size: ${Math.round(markdown.length / 1024)}KB`)
 console.log(`${timeLabel}: ${(t1 - t0).toFixed(2)}ms`)
 console.log('==================================================')
 
+const baselineKey = isStreaming ? targetName + ':streaming' : targetName
+
 const metricsData = {
   timestamp: new Date().toISOString(),
   target: targetName,
+  streaming: isStreaming,
   inputSize: Math.round(markdown.length / 1024),
   parseTime: +(t1 - t0).toFixed(2),
 }
@@ -127,17 +134,17 @@ if (fs.existsSync(baselinePath)) {
   }
 }
 
-const wasMissing = !allBaselines[targetName]
+const wasMissing = !allBaselines[baselineKey]
 const needsWrite = wasMissing || shouldUpdateBaseline
 if (needsWrite) {
-  allBaselines[targetName] = metricsData
+  allBaselines[baselineKey] = metricsData
   fs.writeFileSync(baselinePath, JSON.stringify(allBaselines, null, 2))
   console.log(
-    `Metrics baseline ${wasMissing ? 'created' : 'updated'} for target: ${targetName}!`
+    `Metrics baseline ${wasMissing ? 'created' : 'updated'} for target: ${baselineKey}!`
   )
 }
 
-const baseline = allBaselines[targetName]
+const baseline = allBaselines[baselineKey]
 if (baseline && !shouldUpdateBaseline) {
   console.log('\n=== Metrics vs Baseline ===')
 

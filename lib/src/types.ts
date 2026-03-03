@@ -116,6 +116,8 @@ declare namespace MarkdownToJSX {
     _noSetext?: boolean
     /** internal: HTML nesting depth for stack overflow protection */
     _htmlDepth?: number
+    /** internal: set by collectReferenceDefinitions when input ends inside an unclosed fence */
+    _endsInsideFence?: boolean
   }
 
   /**
