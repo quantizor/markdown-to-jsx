@@ -264,3 +264,129 @@ describe('Streaming optimization - links', () => {
     expect(html).toMatchInlineSnapshot(`"<p><a href=\"https://badge.io\"><img src=\"https://badge.svg\" alt=\"npm version\" /></a></p>"`)
   })
 })
+
+describe('Streaming optimization - setext heading ambiguity', () => {
+  it('should suppress dash underline at end of input (ambiguous with list)', () => {
+    const html = htmlCompiler('Some Text\n---', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>Some Text</p>"`)
+  })
+
+  it('should suppress double dash underline at end of input', () => {
+    const html = htmlCompiler('Some Text\n--', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>Some Text</p>"`)
+  })
+
+  it('should suppress equals underline at end of input', () => {
+    const html = htmlCompiler('Some Text\n===', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>Some Text</p>"`)
+  })
+
+  it('should suppress single equals at end of input', () => {
+    const html = htmlCompiler('Some Text\n=', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>Some Text</p>"`)
+  })
+
+  it('should suppress dash underline with trailing newline', () => {
+    const html = htmlCompiler('Some Text\n---\n', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>Some Text</p>"`)
+  })
+
+  it('should suppress indented dash underline at end of input', () => {
+    const html = htmlCompiler('Some Text\n  ---', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<p>Some Text</p>"`)
+  })
+
+  it('should preserve setext heading when disambiguated by following content', () => {
+    const html = htmlCompiler('Some Text\n---\n\nMore text', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<div><h2 id=\"some-text\">Some Text</h2><p>More text</p></div>"`)
+  })
+
+  it('should preserve thematic break after blank line', () => {
+    const html = htmlCompiler('Some Text\n\n---', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<div><p>Some Text</p><hr /></div>"`)
+  })
+
+  it('should preserve standalone thematic break', () => {
+    const html = htmlCompiler('---', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<hr />"`)
+  })
+
+  it('should not suppress setext heading in non-streaming mode', () => {
+    const html = htmlCompiler('Some Text\n---', {})
+    expect(html).toMatchInlineSnapshot(`"<h2 id=\"some-text\">Some Text</h2>"`)
+  })
+
+  it('should render list items that follow text normally', () => {
+    const html = htmlCompiler('Some Text\n- item1\n- item2', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<div><p>Some Text</p><ul><li>item1</li><li>item2</li></ul></div>"`)
+  })
+})
+
+describe('Streaming optimization - fenced code block protection', () => {
+  it('should not strip --- inside unclosed backtick fence', () => {
+    const html = htmlCompiler('```\nSome Text\n---', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`
+      "<pre><code>Some Text
+      ---</code></pre>"
+    `)
+  })
+
+  it('should not strip === inside unclosed backtick fence', () => {
+    const html = htmlCompiler('```\nSome Text\n===', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`
+      "<pre><code>Some Text
+      ===</code></pre>"
+    `)
+  })
+
+  it('should not strip --- inside unclosed tilde fence', () => {
+    const html = htmlCompiler('~~~\nSome Text\n---', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`
+      "<pre><code>Some Text
+      ---</code></pre>"
+    `)
+  })
+
+  it('should not strip list markers inside unclosed fence', () => {
+    const html = htmlCompiler('```\ncode\n-', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`
+      "<pre><code>code
+      -</code></pre>"
+    `)
+  })
+
+  it('should not strip table-like content inside unclosed fence', () => {
+    const html = htmlCompiler('```\n| col |\n|---|', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`
+      "<pre><code>| col |
+      |---|</code></pre>"
+    `)
+  })
+
+  it('should not strip HTML tags inside unclosed fence', () => {
+    const html = htmlCompiler('```\n<div>content', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<pre><code>&lt;div&gt;content</code></pre>"`)
+  })
+
+  it('should still strip setext after a closed fence', () => {
+    const html = htmlCompiler('```\ncode\n```\nSome Text\n---', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`"<div><pre><code>code</code></pre><p>Some Text</p></div>"`)
+  })
+
+  it('should not strip inside fence with info string', () => {
+    const html = htmlCompiler('```js\nconst x = 1\n---', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`
+      "<pre><code class="language-js">const x = 1
+      ---</code></pre>"
+    `)
+  })
+
+  it('should handle nested fence chars inside code block', () => {
+    const html = htmlCompiler('````\n```\ncode\n---', { optimizeForStreaming: true })
+    expect(html).toMatchInlineSnapshot(`
+      "<pre><code>\`\`\`
+      code
+      ---</code></pre>"
+    `)
+  })
+})

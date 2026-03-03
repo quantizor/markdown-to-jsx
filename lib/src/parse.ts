@@ -255,11 +255,12 @@ export function collectReferenceDefinitions(
   input: string,
   refs: { [key: string]: { target: string; title: string } },
   _options: ParseOptions
-): void {
+): boolean {
   var pos = 0
   var len = input.length
   // Track whether prev line was paragraph content — ref defs can't interrupt paragraphs
   var prevWasContent = false
+  var endsInsideFence = false
 
   while (pos < len) {
     var lineEnd = input.indexOf('\n', pos)
@@ -290,6 +291,14 @@ export function collectReferenceDefinitions(
         var fi = i
         while (fi < end && input.charCodeAt(fi) === fenceChar) { fenceCount++; fi++ }
         if (fenceCount >= 3) {
+          // Backtick fences: info string must not contain backticks
+          var validFence = true
+          if (fenceChar === $.CHAR_BACKTICK) {
+            for (var bi = fi; bi < end; bi++) {
+              if (input.charCodeAt(bi) === $.CHAR_BACKTICK) { validFence = false; break }
+            }
+          }
+          if (validFence) {
           prevWasContent = false
           // Skip fenced block: scan for close fence using direct charCode walk
           // Avoids per-line indexOf('\n') overhead for 5000+ fenced lines in large docs
@@ -320,8 +329,9 @@ export function collectReferenceDefinitions(
             while (scanPos < len && input.charCodeAt(scanPos) !== $.CHAR_NEWLINE) scanPos++
             if (scanPos < len) scanPos++ // skip past \n
           }
-          if (scanPos >= len) pos = len
+          if (scanPos >= len) { pos = len; endsInsideFence = true }
           continue
+          }
         }
       }
     }
@@ -374,6 +384,7 @@ export function collectReferenceDefinitions(
     // Move to next line
     pos = lineEnd < 0 ? len : lineEnd + 1
   }
+  return endsInsideFence
 }
 
 // Parse a reference definition [label]: url "title" or footnote [^id]: content
@@ -4829,6 +4840,10 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
   // For streaming mode: strip incomplete tables (header + separator without data rows)
   // Only strip if the table is at the END of the input (might be incomplete during streaming)
   if (opts.streaming || opts.optimizeForStreaming) {
+    // Guard: skip all streaming pre-parse mutations if end of input is inside
+    // an unclosed fenced code block — mutations would corrupt code block content
+    if (!state._endsInsideFence) {
+
     // Pattern: table at end with only header + separator (no data rows after)
     // Scan backwards to find last two lines; check if they form header + separator
     var sEnd = s.length
@@ -4924,6 +4939,24 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
       }
     }
 
+    // Strip ambiguous setext underlines at end of input
+    // (dashes could start a list, equals could be incomplete; defer until disambiguated)
+    var stEnd = s.length
+    while (stEnd > 0 && s.charCodeAt(stEnd - 1) === $.CHAR_NEWLINE) stEnd--
+    if (stEnd > 0) {
+      var stLS = stEnd
+      while (stLS > 0 && s.charCodeAt(stLS - 1) !== $.CHAR_NEWLINE) stLS--
+      // Skip up to 3 leading spaces (CommonMark setext indent limit)
+      var stP = stLS, stSp = 0
+      while (stP < stEnd && s.charCodeAt(stP) === $.CHAR_SPACE && stSp < 3) { stP++; stSp++ }
+      if (stLS > 0 && stP < stEnd && isSetextUnderline(s, stP, stEnd)) {
+        // Only strip if preceded by non-blank line (setext requires adjacent text)
+        var pLE = stLS - 1, pLS = pLE
+        while (pLS > 0 && s.charCodeAt(pLS - 1) !== $.CHAR_NEWLINE) pLS--
+        if (!isBlank(s, pLS, pLE)) s = s.slice(0, stLS).trimEnd()
+      }
+    }
+
     // Strip incomplete list items at end of input
     // A lone list marker (*, -, +, or digit./digit)) with no content or only whitespace
     // should be suppressed since the content hasn't finished arriving
@@ -4969,6 +5002,8 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
         }
       }
     }
+
+    } // end if (!insideFence)
   }
 
   // If inline mode, just parse as inline content directly
@@ -5122,7 +5157,7 @@ export function parser(
   }
 
   // First pass: collect all reference definitions so they're available during inline parsing
-  collectReferenceDefinitions(source, state.refs!, finalOptions)
+  state._endsInsideFence = collectReferenceDefinitions(source, state.refs!, finalOptions)
 
   // Parse markdown
   const nodes = parseBlocks(source, state, finalOptions)
@@ -5209,7 +5244,7 @@ export function parseMarkdown(
 
   // First pass: collect all reference definitions
   if (!state.refs) state.refs = {}
-  collectReferenceDefinitions(input, state.refs, opts)
+  state._endsInsideFence = collectReferenceDefinitions(input, state.refs, opts)
 
   const nodes = parseBlocks(input, state, opts)
 

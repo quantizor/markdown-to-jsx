@@ -9,7 +9,8 @@ console.log = () => {}
 async function main() {
   const markdown = fs.readFileSync(path.join(import.meta.dirname, '../lib/src/gfm-spec.md'), 'utf8')
 
-  // Parse --target parameter
+  // Parse flags
+  const isStreaming = process.argv.includes('--streaming')
   const targetIndex = process.argv.indexOf('--target')
   const targetArg =
     targetIndex !== -1 ? process.argv[targetIndex + 1] : 'parser'
@@ -93,8 +94,10 @@ async function main() {
     throw new Error(`Invalid target: ${targetArg}`)
   }
 
+  const compilerOpts = isStreaming ? { optimizeForStreaming: true } : undefined
+
   console.info('Starting profile...')
-  console.info('Target:', targetName)
+  console.info('Target:', targetName + (isStreaming ? ' (streaming)' : ''))
   console.info('Input size:', Math.round(markdown.length / 1024) + 'KB')
 
   const t0 = performance.now()
@@ -102,7 +105,7 @@ async function main() {
 
   // Run compiler multiple times to get good sampling
   for (let i = 0; i < numberOfIterations; i++) {
-    compiler(markdown)
+    compiler(markdown, compilerOpts)
   }
 
   const t1 = performance.now()
