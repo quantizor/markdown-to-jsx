@@ -34,5 +34,12 @@
     "target": "react-native",
     "inputSize": 173,
     "parseTime": 3.77
+  },
+  "parser:streaming": {
+    "timestamp": "2026-03-05T23:35:51.117Z",
+    "target": "parser",
+    "streaming": true,
+    "inputSize": 173,
+    "parseTime": 2.56
   }
 }
