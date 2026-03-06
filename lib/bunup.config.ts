@@ -47,7 +47,7 @@ export default defineConfig([
     dts: true,
     target: 'browser',
   },
-  // Main library build - ESM and CJS (includes index, react, html, markdown, native, solid, and vue entry points)
+  // Main library build - ESM and CJS
   {
     ...common,
     name: 'main',
