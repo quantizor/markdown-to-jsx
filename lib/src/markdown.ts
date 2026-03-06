@@ -181,10 +181,14 @@ export function astToMarkdown(
     return renderNodeDefault(node)
   }
 
+  var _emptyState: MarkdownToJSX.State = {}
+
   function renderChildren(children: MarkdownToJSX.ASTNode[]): string {
-    // For inline content (like paragraph children), render without block separators
-    // Use renderNodeWithRule to ensure renderRule is invoked for children
-    return children.map(child => nestedStatefulRender(child, {})).join('')
+    var out = ''
+    for (var ci = 0; ci < children.length; ci++) {
+      out += nestedStatefulRender(children[ci], _emptyState)
+    }
+    return out
   }
 
   const state: CompilerState = {
@@ -195,20 +199,16 @@ export function astToMarkdown(
     renderChild: nestedStatefulRender,
   }
 
-  // Filter out refCollection from nodes that get keys (it's rendered separately)
-  const renderableNodes = nonRefCollectionNodes.filter(
-    node => node.type !== RuleType.refCollection
-  )
-  const content = nonRefCollectionNodes
-    .map((node, i) => {
-      // Only assign keys to renderable nodes (exclude refCollection from key counting)
-      const keyIndex =
-        node.type === RuleType.refCollection
-          ? undefined
-          : renderableNodes.indexOf(node)
-      return nestedStatefulRender(node, { key: keyIndex, refs })
-    })
-    .join('\n\n')
+  // Render nodes, tracking key indices without O(n^2) indexOf
+  var keyOffset = 0
+  var contentParts = ''
+  for (var ni = 0; ni < nonRefCollectionNodes.length; ni++) {
+    var n = nonRefCollectionNodes[ni]
+    if (ni > 0) contentParts += '\n\n'
+    var keyIndex = n.type === RuleType.refCollection ? undefined : keyOffset++
+    contentParts += nestedStatefulRender(n, { key: keyIndex, refs })
+  }
+  var content = contentParts
 
   if (state.options.useReferenceLinks && state.references.size > 0) {
     const references = Array.from(state.references.entries())
@@ -330,16 +330,17 @@ function compileParagraph(
   node: MarkdownToJSX.ParagraphNode,
   state: CompilerState
 ): string {
-  return node.children.map(child => state.renderChild(child, {})).join('')
+  var out = ''
+  for (var i = 0; i < node.children.length; i++) out += state.renderChild(node.children[i], {})
+  return out
 }
 
 function compileHeading(
   node: MarkdownToJSX.HeadingNode,
   state: CompilerState
 ): string {
-  const content = node.children
-    .map(child => state.renderChild(child, {}))
-    .join('')
+  var content = ''
+  for (var hi = 0; hi < node.children.length; hi++) content += state.renderChild(node.children[hi], {})
 
   if (
     state.options.useSetextHeaders &&
@@ -373,9 +374,8 @@ function compileTextFormatted(
   node: MarkdownToJSX.FormattedTextNode,
   state: CompilerState
 ): string {
-  const content = node.children
-    .map(child => state.renderChild(child, {}))
-    .join('')
+  var content = ''
+  for (var fi = 0; fi < node.children.length; fi++) content += state.renderChild(node.children[fi], {})
   switch (node.tag) {
     case 'em':
     case 'i':
@@ -397,7 +397,8 @@ function compileLink(
   node: MarkdownToJSX.LinkNode,
   state: CompilerState
 ): string {
-  const text = node.children.map(child => state.renderChild(child, {})).join('')
+  var text = ''
+  for (var li = 0; li < node.children.length; li++) text += state.renderChild(node.children[li], {})
   const url = node.target || ''
   const title = node.title
 
@@ -435,68 +436,94 @@ function compileOrderedList(
   node: MarkdownToJSX.OrderedListNode,
   state: CompilerState
 ): string {
-  const start = node.start || 1
-  return node.items
-    .map((item, index) => {
-      const content = item.map(child => state.renderChild(child, {})).join('')
-      return `${start + index}. ${content.replace(/\n/g, '\n    ')}`
-    })
-    .join('\n')
+  var start = node.start || 1
+  var out = ''
+  for (var oi = 0; oi < node.items.length; oi++) {
+    var itemContent = ''
+    var item = node.items[oi]
+    for (var oj = 0; oj < item.length; oj++) itemContent += state.renderChild(item[oj], {})
+    if (oi > 0) out += '\n'
+    out += (start + oi) + '. ' + itemContent.replace(/\n/g, '\n    ')
+  }
+  return out
 }
 
 function compileUnorderedList(
   node: MarkdownToJSX.UnorderedListNode,
   state: CompilerState
 ): string {
-  return node.items
-    .map(item => {
-      const content = item.map(child => state.renderChild(child, {})).join('')
-      return `- ${content.replace(/\n/g, '\n  ')}`
-    })
-    .join('\n')
+  var out = ''
+  for (var ui = 0; ui < node.items.length; ui++) {
+    var uContent = ''
+    var uItem = node.items[ui]
+    for (var uj = 0; uj < uItem.length; uj++) uContent += state.renderChild(uItem[uj], {})
+    if (ui > 0) out += '\n'
+    out += '- ' + uContent.replace(/\n/g, '\n  ')
+  }
+  return out
 }
 
 function compileBlockQuote(
   node: MarkdownToJSX.BlockQuoteNode,
   state: CompilerState
 ): string {
-  return node.children
-    .map(child => state.renderChild(child, {}))
-    .join('\n\n')
-    .split('\n')
-    .map(line => (line.trim() ? `> ${line}` : '>'))
-    .join('\n')
+  // Single-pass: render children, then prefix lines with > while scanning for \n
+  var rendered = ''
+  for (var qi = 0; qi < node.children.length; qi++) {
+    if (qi > 0) rendered += '\n\n'
+    rendered += state.renderChild(node.children[qi], {})
+  }
+  // Prefix each line with >
+  var out = ''
+  var segStart = 0
+  for (var ri = 0; ri <= rendered.length; ri++) {
+    if (ri === rendered.length || rendered.charCodeAt(ri) === 10) {
+      var line = rendered.slice(segStart, ri)
+      if (out) out += '\n'
+      out += line.trim() ? '> ' + line : '>'
+      segStart = ri + 1
+    }
+  }
+  return out
 }
 
 function compileTable(
   node: MarkdownToJSX.TableNode,
   state: CompilerState
 ): string {
-  const headerRow = node.header
-    .map(cell => cell.map(child => state.renderChild(child, {})).join(''))
-    .join(' | ')
+  var headerRow = ''
+  for (var hi2 = 0; hi2 < node.header.length; hi2++) {
+    if (hi2 > 0) headerRow += ' | '
+    var cell = node.header[hi2]
+    for (var hj = 0; hj < cell.length; hj++) headerRow += state.renderChild(cell[hj], {})
+  }
 
-  const finalSeparator =
-    node.align.length > 0
-      ? node.align
-          .map(align => {
-            if (align === 'left') return ':---'
-            if (align === 'right') return '---:'
-            if (align === 'center') return ':---:'
-            return '---'
-          })
-          .join('|')
-      : Array(node.header.length).fill('---').join('|')
+  var finalSeparator = ''
+  if (node.align.length > 0) {
+    for (var ai = 0; ai < node.align.length; ai++) {
+      if (ai > 0) finalSeparator += '|'
+      var align = node.align[ai]
+      finalSeparator += align === 'left' ? ':---' : align === 'right' ? '---:' : align === 'center' ? ':---:' : '---'
+    }
+  } else {
+    for (var si = 0; si < node.header.length; si++) {
+      if (si > 0) finalSeparator += '|'
+      finalSeparator += '---'
+    }
+  }
 
-  const dataRows = node.cells
-    .map(row =>
-      row
-        .map(cell => cell.map(child => state.renderChild(child, {})).join(''))
-        .join(' | ')
-    )
-    .join('\n')
+  var dataRows = ''
+  for (var di = 0; di < node.cells.length; di++) {
+    if (di > 0) dataRows += '\n'
+    var row = node.cells[di]
+    for (var dj = 0; dj < row.length; dj++) {
+      if (dj > 0) dataRows += ' | '
+      var dCell = row[dj]
+      for (var dk = 0; dk < dCell.length; dk++) dataRows += state.renderChild(dCell[dk], {})
+    }
+  }
 
-  return `${headerRow}\n${finalSeparator}\n${dataRows}`
+  return headerRow + '\n' + finalSeparator + '\n' + dataRows
 }
 
 function compileHTMLBlock(
