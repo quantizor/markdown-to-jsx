@@ -4,44 +4,55 @@ See README.md for the primary library documentation.
 
 ## Principles
 
-**Never ship unverified work.** Quality gates (tests, builds) must pass before any commit or push.
+Never ship unverified work. Quality gates (tests, builds) must pass before any commit or push.
 - 100% passing tests required before committing or pushing
 - Run `bun test` after each set of changes to ensure no regressions
 - Rebuild the site (`bun build-site`) before committing if there are README.md or library code changes (test files are exempt)
 
-**Minimize artifacts; communicate in-context.** Don't create files when conversation suffices.
+Think before you code. Most critical bugs come from misunderstanding the problem, not from typos. Build a mental model first. When a bug appears, reason about how the model is wrong, not just where the symptom is.
+
+Data first, code second. Choose data structures before writing algorithms; the algorithm should emerge from the data layout. Understand the shape, volume, and access patterns of data before designing code around it.
+
+Simplicity is not optional. Simple means not interleaved, not "easy to type." Every abstraction must justify itself with concrete reuse and net reduction in complexity. Never include code that isn't used. Don't generalize before you need to. N is usually small; fancy algorithms have big constants and more bugs.
+- Do not create helper functions unless there are at least two instances of the same pattern and overall LOC is reduced
+
+Eliminate edge cases through better abstractions. Good taste means reformulating problems so special cases disappear -- the right data structure, the right interface, the right level of indirection.
+
+Compose small, focused units. Each function/module should do one thing well. Design how modules communicate, not what they contain internally.
+
+Fail explicitly, recover independently. Don't hide errors behind silent fallbacks. Make failures observable and isolated. Prefer corrective code over defensive code.
+
+Complete all work end-to-end. Refactors include cleanup of dead code (as a separate step).
+
+Minimize artifacts; communicate in-context. Don't create files when conversation suffices.
 - Do not create summary documents; deliver concise summaries in chat
 - Do not create summaries after working on a task unless explicitly directed
 
-**Don't abstract prematurely.** Every abstraction must justify itself with concrete reuse and net reduction in complexity.
-- Do not create helper functions unless there are at least two instances of the same pattern and overall LOC is reduced
+Reason about efficiency across all dimensions. Understand how CPUs, caches, and memory work -- smaller data structures mean faster programs via cache effects. This is foundational design, not premature optimization. Consider algorithmic complexity, data structures, function overhead, memory management, GC pressure, event loop blocking, DOM interactions, rendering performance, parsing/execution cost, dependency weight, and browser-specific quirks when authoring or refactoring code.
+- Minimize intermediate representations; every serialization/deserialization boundary is wasted work. Do maximum work per pass. Keep data in a single consistent format throughout the pipeline
 
-**Complete all work end-to-end.** Refactors include cleanup of dead code (as a separate step).
-
-**Reason about efficiency across all dimensions.** Consider algorithmic complexity, data structures, function overhead, memory management, GC pressure, async efficiency, event loop blocking, DOM interactions, rendering performance, network I/O, parsing/execution cost, dependency weight, and browser-specific quirks when authoring or refactoring code.
-
-**All string operations must complete in bounded linear time with no backtracking.** Prefer single-pass charCode scans over regex on hot paths.
+All string operations must complete in bounded linear time with no backtracking. Prefer single-pass charCode scans over regex on hot paths.
 - Never use unbounded `indexOf`/`lastIndexOf`/`includes` in loops; bound searches to the relevant range (e.g., current line end)
 - Avoid nested quantifiers in regexes (e.g., `(\s*-+\s*)*`); these create exponential backtracking (ReDoS)
 - Adjacent capture groups with overlapping char classes cause backtracking when the delimiter is absent; replace with charCode scans in a single forward pass
 - Regexes applied to unbounded input (e.g., entire document via `.match()`) are inherently risky; prefer charCode scans that walk the string once
 - Restrict `\s` to `[ \t]` when newlines are structurally invalid in the match; `\s` includes `\n` which causes cross-line backtracking
 
-**Minimize allocations in hot paths.** Use segment tracking (start/end indices, slice once) over incremental string building.
+Minimize allocations in hot paths. Use segment tracking (start/end indices, slice once) over incremental string building.
 - Avoid char-by-char string concat (`out += s[i]`); use `segStart`/`segEnd` indices and slice once
 - Avoid `.split()`, `.match()`, `.slice()` inside tight loops; prefer charCode walks that extract results in a single pass
 - In Bun/JSC, string `+=` (rope concat) is faster than array-push + join for small/medium segments; only use array-join when building very large strings with many pieces
 
-**Profile against worst-case inputs.** Use the largest benchmark (`gfm-spec.md`, 211KB) to surface O(n*m) issues.
+Measure, don't guess. Never optimize without profiling. Bottlenecks occur in surprising places. But when you find the critical path, optimize it ruthlessly. Use the largest benchmark (`gfm-spec.md`, 211KB) to surface O(n*m) issues.
 - Use `bun profile` to identify hot lines. The `--cpu-prof-md` flag produces a markdown-formatted profile (`CPU.*.md`)
 - Use `bun metrics` (run 3x) to check parser performance when changing library code
 
-**Tests are the source of truth; never work around them.**
+Tests are the source of truth; never work around them.
 - The main branch always has a 100% pass rate. Broken tests are due to changes in the current branch, not the suite itself
 - Always use a 5s timeout when running tests (e.g., `timeout 5 bun test`). The full suite executes within 500ms; hangs indicate infinite loops or regressions
 - There is no time limit for agent tasks. Work until the task is complete
 
-**Tests must be deterministic, specific, and structural.** Every assertion has exactly one valid outcome and covers both content and shape.
+Tests must be deterministic, specific, and structural. Every assertion has exactly one valid outcome and covers both content and shape.
 - Prefer inline snapshots (`toMatchInlineSnapshot()`) over many small assertions against AST structure
 - No generic existence checks like `toBeTruthy()` or `toBeDefined()`
 - Renderer suites focus exclusively on renderer behavior; parser suite handles common parsing scenarios
@@ -50,18 +61,18 @@ See README.md for the primary library documentation.
 - When debugging failing compiler tests, isolate them and validate parser output first to distinguish parser bugs from compiler bugs
 - Add debug logging as needed; clean up only after all tests pass
 
-**Commit messages serve their audience.** Public: user-facing impact. Private: technical impact. Always concise.
+Commit messages serve their audience. Public: user-facing impact. Private: technical impact. Always concise.
 - Use conventional commit syntax
 - Speak in general terms, not specific implementation details
 - Public code: focus on how the change benefits users. Ensure noteworthy changes and bugfixes have a changeset
 - Private/infra code: focus on how the change benefits the codebase
 
-**Rules must be maximally concise and actionable.** No decoration, no meta-commentary, no examples unless critical.
+Rules must be maximally concise and actionable. No decoration, no meta-commentary, no examples unless critical.
 - Optimize for token efficiency: no bold/emphasis, headers, or stylistic formatting in rules
 - Prefer abbreviations and acronyms when unambiguous
 - Use minimal punctuation, only where necessary for clarity
 
-**Library code must be fully self-contained at runtime.** Zero network dependencies, zero remote fetches.
+Library code must be fully self-contained at runtime. Zero network dependencies, zero remote fetches.
 - Code under `src/` must never fetch, request, or depend on remote URLs/network resources at runtime
 - Dev-time scripts may fetch remote resources to produce local artifacts, but generated output must be committed and verified
 - Tests must assert no runtime network dependencies exist (scan `src/` for `fetch(`, `XMLHttpRequest`, `http.get`, `http.request`, `https.get`, `https.request`, `navigator.sendBeacon`, `WebSocket`, `EventSource`)
@@ -77,9 +88,13 @@ See README.md for the primary library documentation.
 
 - Prefer `$.CHAR_*` constants from `src/constants.ts` over raw char code numbers for readability (e.g., `$.CHAR_SPACE` instead of `32`)
 
+## Reference Documents
+
+- [compiler-wisdom.md](compiler-wisdom.md) -- Read before designing or optimizing parser/compiler code. Covers production compiler techniques (AST design, scanner optimization, string handling, parallelism) and practitioner wisdom from 20 engineering legends.
+
 ## Library Priorities
 
-The priorities of this library are **correctness, speed, and small output size** in that order. Pursue these goals in sequence - correctness first, then performance, then bundle size optimization. Optimize code for best minification and tree shaking. Always prefer ES5 syntax when writing code to ensure the fastest implementation is used by the underlying JS engine.
+The priorities of this library are correctness, speed, and small output size in that order. Pursue these goals in sequence - correctness first, then performance, then bundle size optimization. Optimize code for best minification and tree shaking. Always prefer ES5 syntax when writing code to ensure the fastest implementation is used by the underlying JS engine.
 
 ## Key Library Files
 
