@@ -2237,27 +2237,20 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         // Exclude table-related tags to preserve inner structure across blank lines.
         var blockWasExtended67 = false
         if (closeIdx67 === -1 && htmlBlockType === 6 && !tagResult67.isClosing && !TABLE_TAGS.has(tagNameLower67)) {
-          var extSearchContent = s.slice(tagResult67.end)
-          var extCloseIdx = indexOfCI(extSearchContent, closeTag67, 0)
-          if (extCloseIdx !== -1) {
-            var extContent = extSearchContent.slice(0, extCloseIdx)
-            // Only extend if content has blank lines (block content)
-            if (extContent.indexOf('\n\n') !== -1) {
-              var extCloseAbs = tagResult67.end + extCloseIdx
-              var extAfterClose = extCloseAbs + closeTag67.length
-              while (extAfterClose < s.length && s.charCodeAt(extAfterClose) !== $.CHAR_GT) extAfterClose++
-              if (extAfterClose < s.length && s.charCodeAt(extAfterClose) === $.CHAR_GT) {
-                var extCloseEnd = extAfterClose + 1
-                var extLineEnd = lineEnd(s, extCloseEnd)
-                // Extend block boundaries
-                rawEnd6 = extLineEnd
-                end6 = nextLine(s, extLineEnd)
-                blockContent67 = s.slice(start, rawEnd6)
-                rawText6 = s.slice(start, rawEnd6)
-                closeIdx67 = extCloseAbs - start
-                closeEndRel67 = extCloseEnd - start
-                blockWasExtended67 = true
-              }
+          var extCloseEnd = findClosingTag(s, tagResult67.end, tagNameLower67)
+          if (extCloseEnd !== -1) {
+            var extCloseAbs = _closeTagStart
+            // Only extend if content between open and close tags has blank lines (block content)
+            var extBetween = s.substring(tagResult67.end, extCloseAbs)
+            if (extBetween.indexOf('\n\n') !== -1) {
+              var extLineEnd = lineEnd(s, extCloseEnd)
+              rawEnd6 = extLineEnd
+              end6 = nextLine(s, extLineEnd)
+              blockContent67 = s.slice(start, rawEnd6)
+              rawText6 = s.slice(start, rawEnd6)
+              closeIdx67 = extCloseAbs - start
+              closeEndRel67 = extCloseEnd - start
+              blockWasExtended67 = true
             }
           }
         }
