@@ -12,7 +12,7 @@ const isStreaming = process.argv.includes('--streaming')
 
 const targetIndex = process.argv.indexOf('--target')
 const targetArg = targetIndex !== -1 ? process.argv[targetIndex + 1] : 'parser'
-const validTargets = ['parser', 'react', 'react-native', 'html', 'solid', 'vue']
+const validTargets = ['parser', 'react', 'react-native', 'html', 'solid', 'vue', 'markdown']
 if (!validTargets.includes(targetArg)) {
   console.error(
     `Invalid target: ${targetArg}. Valid targets are: ${validTargets.join(', ')}`
@@ -78,6 +78,10 @@ if (targetArg === 'parser') {
   const vueModule = await import('../lib/src/vue.tsx')
   compiler = vueModule.compiler
   targetName = 'vue'
+} else if (targetArg === 'markdown') {
+  const mdModule = await import('../lib/src/markdown.ts')
+  compiler = mdModule.compiler
+  targetName = 'markdown'
 } else {
   throw new Error(`Invalid target: ${targetArg}`)
 }

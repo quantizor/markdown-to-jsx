@@ -21,6 +21,7 @@ async function main() {
     'html',
     'solid',
     'vue',
+    'markdown',
   ]
   if (!validTargets.includes(targetArg)) {
     console.error(
@@ -89,6 +90,10 @@ async function main() {
     const vueModule = await import('../lib/src/vue.tsx')
     compiler = vueModule.compiler
     targetName = 'vue'
+  } else if (targetArg === 'markdown') {
+    const mdModule = await import('../lib/src/markdown.ts')
+    compiler = mdModule.compiler
+    targetName = 'markdown'
   } else {
     // This should never happen due to validation above, but satisfies TypeScript
     throw new Error(`Invalid target: ${targetArg}`)
