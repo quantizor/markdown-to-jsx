@@ -231,10 +231,14 @@ async function setupBenchmark() {
 
           // Compare results - only show markdown-to-jsx (next) comparisons
           if (suite._results && baseline.results) {
+            var prevGroup = ''
             Object.entries(suite._results).forEach(
               ([functionName, benchmarks]: [string, Benchmark[]]) => {
                 // Only compare markdown-to-jsx (next) results
                 if (functionName.includes('markdown-to-jsx (next)')) {
+                  var group = functionName.replace(/.*\[(\w+)\].*/, '$1')
+                  if (prevGroup && group !== prevGroup) console.log()
+                  prevGroup = group
                   benchmarks.forEach(benchmark => {
                     if (benchmark && benchmark.name && benchmark.hz) {
                       // Find corresponding benchmark in baseline
