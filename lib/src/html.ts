@@ -668,6 +668,9 @@ function _renderNode(
         ? _renderChildren(node.children, ctx)
         : ''
       // Per CommonMark: collapse trailing spaces before newlines (soft line breaks)
+      // Fast-path: skip collapsing if no newline in rendered output (most paragraphs)
+      var idx = 0
+      if (children.indexOf('\n') !== -1) {
       // Use indexOf to jump between occurrences (SIMD) instead of scanning every char
       // Track tag boundaries to avoid collapsing inside HTML attribute values
       var result = ''
@@ -675,7 +678,6 @@ function _renderNode(
       var searchFrom = 0
       var inTag = false
       var quoteCount = 0
-      var idx = 0
       while ((idx = children.indexOf(' \n', searchFrom)) !== -1) {
         // Update tag tracking only in the gap since last search
         for (var j = searchFrom; j < idx; j++) {
@@ -697,6 +699,7 @@ function _renderNode(
         if (segStart < children.length) result += children.slice(segStart)
         children = result
       }
+      } // end if (indexOf('\n'))
 
       if (!ctx.hasOverrides) {
         return '<p>' + children + '</p>'

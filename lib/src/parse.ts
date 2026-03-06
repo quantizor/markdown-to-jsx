@@ -3249,7 +3249,11 @@ function parseInlineWithBreaks(s: string, p: number, e: number, state: MarkdownT
         out += s.slice(segStart, i - trimBack)
         out += '\u001F'
       } else {
-        out += s.slice(segStart, i + 1)
+        // Strip trailing spaces before soft break (CommonMark: insignificant whitespace)
+        // This normalizes data at parse time so compilers don't need to scan for " \n"
+        var softEnd = i
+        while (softEnd > segStart && s.charCodeAt(softEnd - 1) === $.CHAR_SPACE) softEnd--
+        out += s.slice(segStart, softEnd) + '\n'
       }
       // Skip leading whitespace on next line
       i++

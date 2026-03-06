@@ -296,38 +296,31 @@ export function isAlnumCode(code: number): boolean {
  * @lang hi @returns URL-सुरक्षित slug
  */
 export function slugify(str: string): string {
+  // Lowercase upfront: eliminates per-char uppercase handling and String.fromCharCode
+  var s = str.toLowerCase()
   var out = ''
   var segStart = -1
-  for (var i = 0; i < str.length; i++) {
-    var code = str.charCodeAt(i)
-    if (isAlnumCode(code)) {
-      if (code >= $.CHAR_A && code <= $.CHAR_Z) {
-        // Uppercase: flush segment, emit lowercase char
-        if (segStart >= 0) {
-          out += str.slice(segStart, i)
-          segStart = -1
-        }
-        out += String.fromCharCode(code + $.CHAR_CASE_OFFSET)
-      } else {
-        // Lowercase alnum: extend current segment
-        if (segStart < 0) segStart = i
-      }
+  for (var i = 0; i < s.length; i++) {
+    var code = s.charCodeAt(i)
+    // Inline alnum check: avoid function call per char
+    if (code < $.CHAR_ASCII_BOUNDARY && (charClassTable[code] & (CC_ALPHA | CC_DIGIT)) !== 0) {
+      if (segStart < 0) segStart = i
     } else if (code === $.CHAR_SPACE || code === $.CHAR_DASH) {
       if (segStart >= 0) {
-        out += str.slice(segStart, i)
+        out += s.slice(segStart, i)
         segStart = -1
       }
       out += '-'
     } else {
       if (segStart >= 0) {
-        out += str.slice(segStart, i)
+        out += s.slice(segStart, i)
         segStart = -1
       }
       var replacement = slugifyReplaceTable[code]
       if (replacement) out += replacement
     }
   }
-  if (segStart >= 0) out += str.slice(segStart)
+  if (segStart >= 0) out += s.slice(segStart)
   return out
 }
 
