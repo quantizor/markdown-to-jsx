@@ -7,7 +7,9 @@ import { parser } from '../lib/src/parse.ts'
 console.log = () => {}
 
 async function main() {
-  const markdown = fs.readFileSync(path.join(import.meta.dirname, '../lib/src/gfm-spec.md'), 'utf8')
+  const fileArg = process.argv.indexOf('--file')
+  const filePath = fileArg !== -1 ? process.argv[fileArg + 1] : path.join(import.meta.dirname, '../lib/src/gfm-spec.md')
+  const markdown = fs.readFileSync(filePath, 'utf8')
 
   // Parse flags
   const isStreaming = process.argv.includes('--streaming')
