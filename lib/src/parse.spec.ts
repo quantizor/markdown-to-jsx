@@ -4165,6 +4165,69 @@ describe('Unserializable expression evaluation', () => {
         }
         `)
     })
+
+    it('should handle nested same-tag HTML blocks with blank lines (#829)', () => {
+      expect(p.parser('<div>\n<div>\ninner\n</div>\n\n</div>\n\nafter')).toMatchInlineSnapshot(`
+        [
+          {
+            "_isClosingTag": false,
+            "_rawAttrs": "",
+            "_rawText": "",
+            "_verbatim": false,
+            "attrs": {},
+            "canInterruptParagraph": true,
+            "children": [
+              {
+                "_isClosingTag": false,
+                "_rawAttrs": "",
+                "_rawText": 
+        "
+        inner
+        "
+        ,
+                "_verbatim": true,
+                "attrs": {},
+                "canInterruptParagraph": true,
+                "children": [
+                  {
+                    "text": "inner",
+                    "type": "text",
+                  },
+                ],
+                "endPos": 19,
+                "tag": "div",
+                "text": 
+        "
+        inner
+        "
+        ,
+                "type": "htmlBlock",
+              },
+            ],
+            "endPos": 32,
+            "tag": "div",
+            "text": 
+        "
+        <div>
+        inner
+        </div>
+
+        "
+        ,
+            "type": "htmlBlock",
+          },
+          {
+            "children": [
+              {
+                "text": "after",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
   })
 })
 
