@@ -25,12 +25,12 @@ import _default, { Markdown as _Markdown, compiler as _compiler } from './react'
 /** @deprecated Use the `markdown-to-jsx/react` import instead */
 /** @lang zh @deprecated 请改用 `markdown-to-jsx/react` 导入 */
 /** @lang hi @deprecated कृपया इसके बजाय `markdown-to-jsx/react` इम्पोर्ट का उपयोग करें */
-var Markdown = _Markdown
+var Markdown: typeof _Markdown = _Markdown
 
 /** @deprecated Use the `markdown-to-jsx/react` import instead */
 /** @lang zh @deprecated 请改用 `markdown-to-jsx/react` 导入 */
 /** @lang hi @deprecated कृपया इसके बजाय `markdown-to-jsx/react` इम्पोर्ट का उपयोग करें */
-var compiler = _compiler
+var compiler: typeof _compiler = _compiler
 
 export default _default
 export { Markdown, compiler }

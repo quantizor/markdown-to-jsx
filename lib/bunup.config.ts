@@ -1,6 +1,6 @@
 import { defineConfig, type BunupPlugin, type DefineConfigItem } from 'bunup'
 import { transformSync } from 'esbuild'
-import { readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
 
 function manglePropsPlugin(): BunupPlugin {
   return {
@@ -26,12 +26,42 @@ function manglePropsPlugin(): BunupPlugin {
   }
 }
 
+function verifyDtsPlugin(): BunupPlugin {
+  return {
+    name: 'verify-dts',
+    hooks: {
+      onBuildDone({ files }) {
+        var missing: string[] = []
+        for (var file of files) {
+          if (file.kind !== 'entry-point') continue
+          if (!file.fullPath.endsWith('.js') && !file.fullPath.endsWith('.cjs'))
+            continue
+
+          var dtsPath = file.fullPath.replace(
+            /\.(js|cjs)$/,
+            function (_, ext) {
+              return ext === 'cjs' ? '.d.cts' : '.d.ts'
+            }
+          )
+          if (!existsSync(dtsPath)) missing.push(dtsPath)
+        }
+        if (missing.length > 0) {
+          throw new Error(
+            'Type declarations missing after build:\n  ' +
+              missing.join('\n  ')
+          )
+        }
+      },
+    },
+  }
+}
+
 var common = {
   define: {
     'process.env.NODE_ENV': '"production"',
   },
   minify: true,
-  plugins: [manglePropsPlugin()],
+  plugins: [manglePropsPlugin(), verifyDtsPlugin()],
   sourcemap: 'linked',
   splitting: false,
 } satisfies DefineConfigItem
