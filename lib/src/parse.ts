@@ -4093,7 +4093,10 @@ function scanBareUrl(s: string, p: number, e: number, opts: ParseOptions): ScanR
   let end = i
   while (end > p + prefix.length) {
     const c = s.charCodeAt(end - 1)
-    if (c === $.CHAR_PERIOD || c === $.CHAR_COMMA || c === $.CHAR_COLON || // . , :
+    if (c === $.CHAR_ASTERISK) {
+      // Trailing * (e.g. from **url** bold markdown) must not appear in href
+      end--
+    } else if (c === $.CHAR_PERIOD || c === $.CHAR_COMMA || c === $.CHAR_COLON || // . , :
         c === $.CHAR_EXCLAMATION || c === $.CHAR_QUESTION || c === $.CHAR_PAREN_CLOSE) { // ! ? )
       // But keep ) if there's a matching (
       if (c === $.CHAR_PAREN_CLOSE) {
