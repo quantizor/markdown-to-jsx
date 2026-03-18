@@ -371,6 +371,23 @@ describe('parseMarkdown', () => {
     ])
   })
 
+  it('strips trailing asterisks from bare URL href (e.g. URL wrapped in bold **url**)', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'https://acme.com/foo**',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toHaveLength(2)
+    expect(result[0]).toEqual({
+      type: RuleType.link,
+      target: 'https://acme.com/foo',
+      children: [{ type: RuleType.text, text: 'https://acme.com/foo' }],
+    })
+    expect((result[1] as MarkdownToJSX.TextNode).text).toBe('**')
+  })
+
   it('rejects angle autolinks containing tabs', () => {
     const state = createInlineState()
     const options: p.ParseOptions = {
