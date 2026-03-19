@@ -37,21 +37,20 @@ function createRawElement(
   props: any,
   key: any
 ): any {
-  var el: any = {
+  // React's dev-mode reconciler sets element._store.validated to track
+  // whether elements were created via JSX vs createElement. Without _store,
+  // this throws "Cannot set properties of undefined (setting 'validated')".
+  // _store must be included unconditionally because the library build replaces
+  // process.env.NODE_ENV with "production", which strips dev-only branches.
+  return {
     $$typeof: REACT_ELEMENT_TYPE,
     type: type,
     key: key != null ? '' + key : null,
     ref: null,
     props: props,
     _owner: null,
+    _store: {},
   }
-  if (process.env.NODE_ENV !== 'production') {
-    // React's dev-mode reconciler sets element._store.validated to track
-    // whether elements were created via JSX vs createElement. Without _store,
-    // this throws "Cannot set properties of undefined (setting 'validated')".
-    el._store = {}
-  }
-  return el
 }
 
 /**
