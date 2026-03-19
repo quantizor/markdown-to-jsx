@@ -8,7 +8,7 @@
 import { RuleType, type MarkdownToJSX } from './types'
 import * as $ from './constants'
 import * as util from './utils'
-import { CC as _CC, C_WS, C_NL, C_PUNCT, C_ALPHA, C_DIGIT, C_BLOCK, C_INLINE } from './utils'
+import { CC as _CC, C_WS, C_NL, C_PUNCT, C_ALPHA, C_DIGIT, C_BLOCK, C_INLINE, UNICODE_PUNCT_R, UNICODE_WHITESPACE_R } from './utils'
 
 // ============================================================================
 // EXPORTS FOR REACT.TSX COMPATIBILITY
@@ -42,6 +42,11 @@ var TYPE1_TAGS = new Set(TYPE1_TAG_LIST)
 
 /** Matches Type 1 tags in raw HTML text */
 var TYPE1_R = /<(?:pre|script|style|textarea)\b/i
+
+// Detects block-level markdown syntax at the start of a line (heading, list, blockquote, fenced code)
+var BLOCK_SYNTAX_R = /^(\s{0,3}#[#\s]|\s{0,3}[-*+]\s|\s{0,3}\d+\.\s|\s{0,3}>\s|\s{0,3}```)/m
+// Detects HTML opening tags
+var HTML_OPEN_TAG_R = /^<([a-z][^ >/\n\r]*) ?([^>]*?)>/im
 
 // Table-related tags excluded from type 6/7 block extension across blank lines
 var TABLE_TAGS = new Set([
@@ -2304,8 +2309,8 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           } else {
             // Detect block content using raw content (before trim) to preserve blank line detection
             var hasDoubleNewline67 = rawContent67.indexOf('\n\n') !== -1
-            var hasBlockSyntax67 = /^(\s{0,3}#[#\s]|\s{0,3}[-*+]\s|\s{0,3}\d+\.\s|\s{0,3}>\s|\s{0,3}```)/m.test(trimmed67)
-            var hasHTMLTags67 = /^<([a-z][^ >/\n\r]*) ?([^>]*?)>/im.test(trimmed67)
+            var hasBlockSyntax67 = BLOCK_SYNTAX_R.test(trimmed67)
+            var hasHTMLTags67 = HTML_OPEN_TAG_R.test(trimmed67)
             var contentHasBlocks67 = hasDoubleNewline67 || hasBlockSyntax67 || (state.inHTML && hasHTMLTags67)
 
             if (contentHasBlocks67 || hasHTMLTags67) {
@@ -2496,8 +2501,8 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
     if (trimmed) {
       // Detect block content vs inline content (same logic as Type 6/7 path)
       var hasDoubleNL = rawContent.indexOf('\n\n') !== -1
-      var hasBlockSyn = /^(\s{0,3}#[#\s]|\s{0,3}[-*+]\s|\s{0,3}\d+\.\s|\s{0,3}>\s|\s{0,3}```)/m.test(trimmed)
-      var hasHTMLTagsS = /^<([a-z][^ >/\n\r]*) ?([^>]*?)>/im.test(trimmed)
+      var hasBlockSyn = BLOCK_SYNTAX_R.test(trimmed)
+      var hasHTMLTagsS = HTML_OPEN_TAG_R.test(trimmed)
       var s_inl = state.inline, s_htm = state.inHTML, s_hd = state._htmlDepth
       state.inHTML = true; state._htmlDepth = (state._htmlDepth || 0) + 1
       if (hasDoubleNL || hasBlockSyn || hasHTMLTagsS) {
@@ -3506,9 +3511,6 @@ function scanMarked(s: string, p: number, e: number, state: MarkdownToJSX.State,
   return null
 }
 
-// Unicode punctuation regex for non-ASCII chars (matches \p{P} and \p{S} per CommonMark/GFM)
-var UNICODE_PUNCT_R = /[\p{P}\p{S}]/u
-
 /** Check if a character (code or string) is Unicode/ASCII punctuation */
 function isUPunct(code: number, s: string, pos: number): boolean {
   if (code < $.CHAR_ASCII_BOUNDARY) return !!(cc(code) & C_PUNCT)
@@ -3518,8 +3520,7 @@ function isUPunct(code: number, s: string, pos: number): boolean {
 /** Check if a character code is Unicode whitespace */
 function isUWS(code: number, s: string, pos: number): boolean {
   if (code < $.CHAR_ASCII_BOUNDARY) return !!(cc(code) & C_WS)
-  // Unicode Zs category
-  return /\p{Zs}/u.test(s[pos])
+  return UNICODE_WHITESPACE_R.test(s[pos])
 }
 
 /** Delimiter entry for emphasis processing */
@@ -4753,27 +4754,9 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
   if (e > textStart) {
     let remainingText = s.slice(textStart, e)
 
-    // If streaming mode is enabled, strip incomplete markers from end of text
-    if (opts.streaming || opts.optimizeForStreaming) {
-      // Strip incomplete bold markers **text
-      remainingText = remainingText.replace(/\*\*([^*]+)$/, '$1')
-      // Strip incomplete italic markers *text (but not after stripping bold)
-      if (remainingText.match(/\*[^*]+$/)) {
-        remainingText = remainingText.replace(/\*([^*]+)$/, '$1')
-      }
-      // Strip incomplete underscore bold markers __text
-      remainingText = remainingText.replace(/__([^_]+)$/, '$1')
-      // Strip incomplete underscore italic markers _text
-      if (remainingText.match(/_[^_]+$/)) {
-        remainingText = remainingText.replace(/_([^_]+)$/, '$1')
-      }
-      // Strip incomplete strikethrough markers ~~text
-      remainingText = remainingText.replace(/~~([^~]+)$/, '$1')
-      // Strip incomplete link markers [text (no ])
-      remainingText = remainingText.replace(/\[([^\]]+)$/, '$1')
-      // Strip [text]( without closing ) - partial inline link
-      remainingText = remainingText.replace(/\[([^\]]+)\]\([^)]*$/, '$1')
-    }
+    // NOTE: Pre-parse streaming mutation (line ~4438) already handles
+    // incomplete emphasis, links, and code spans before parsing begins.
+    // This post-flush block was redundant and has been removed.
 
     if (remainingText) {
       nodes.push(textNode(remainingText))
