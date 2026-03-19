@@ -1,5 +1,29 @@
 # markdown-to-jsx
 
+## 9.7.10
+
+### Patch Changes
+
+- 3daa41e: fix: strip trailing asterisks from bare URL href (fixes #839)
+
+  When a bare URL was wrapped in bold markdown (`**url**`), the generated link's `href` incorrectly included the closing asterisks (e.g. `href="https://example.com/foo**"`). The parser now trims trailing `*` from bare URLs so the href is correct. No consumer changes required.
+
+  当裸 URL 包裹在粗体 markdown（`**url**`）中时，生成的链接 `href` 错误地包含了闭合星号（例如 `href="https://example.com/foo**"`）。解析器现在会从裸 URL 中去除尾部的 `*`，使 href 正确。无需更改消费者代码。
+
+  जब एक बेयर URL बोल्ड markdown (`**url**`) में लपेटा गया था, तो जनरेट किए गए लिंक का `href` गलत तरीके से क्लोज़िंग एस्टेरिस्क शामिल करता था (जैसे `href="https://example.com/foo**"`)। पार्सर अब बेयर URL से अनुगामी `*` को हटा देता है ताकि href सही हो। कोई उपभोक्ता परिवर्तन आवश्यक नहीं है।
+
+- f520531: resolve emphasis delimiters closing before hard line breaks (two trailing spaces or backslash before newline)
+
+  解决在硬换行符（换行前有两个尾随空格或反斜杠）之前关闭强调分隔符的问题
+
+  हार्ड लाइन ब्रेक (न्यूलाइन से पहले दो ट्रेलिंग स्पेस या बैकस्लैश) से पहले एम्फ़ैसिस डिलीमिटर बंद होने की समस्या हल की
+
+- f520531: include \_store on raw React elements unconditionally so React dev-mode validation works in all bundler environments
+
+  无条件地在原始 React 元素上包含 \_store，使 React 开发模式验证在所有打包器环境中正常工作
+
+  सभी बंडलर वातावरण में React डेव-मोड सत्यापन काम करने के लिए रॉ React एलिमेंट्स पर बिना शर्त \_store शामिल करें
+
 ## 9.7.9
 
 ### Patch Changes
