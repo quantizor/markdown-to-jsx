@@ -319,28 +319,30 @@ function render(
             })
           )
         ),
-        h(
-          'tbody',
-          {},
-          ...table.cells.map(function generateTableRow(row, i) {
-            return h(
-              'tr',
+        table.cells.length > 0
+          ? h(
+              'tbody',
               {},
-              ...row.map(function generateTableCell(content, c) {
+              ...table.cells.map(function generateTableRow(row, i) {
                 return h(
-                  'td',
-                  {
-                    style:
-                      table.align[c] == null
-                        ? {}
-                        : { textAlign: table.align[c] },
-                  },
-                  ...toArray(output(content, state))
+                  'tr',
+                  {},
+                  ...row.map(function generateTableCell(content, c) {
+                    return h(
+                      'td',
+                      {
+                        style:
+                          table.align[c] == null
+                            ? {}
+                            : { textAlign: table.align[c] },
+                      },
+                      ...toArray(output(content, state))
+                    )
+                  })
                 )
               })
             )
-          })
-        )
+          : null
       )
     }
 

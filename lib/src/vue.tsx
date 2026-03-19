@@ -317,12 +317,9 @@ const renderers: Record<
       )
     )
 
-    return h(
-      'table',
-      { key: state.key },
-      h('thead', {}, h('tr', {}, ...headerCells)),
-      h('tbody', {}, ...rows)
-    )
+    var tableChildren = [h('thead', {}, h('tr', {}, ...headerCells))]
+    if (node.cells.length > 0) tableChildren.push(h('tbody', {}, ...rows))
+    return h('table', { key: state.key }, ...tableChildren)
   },
 
   [RuleType.text]: node => node.text,

@@ -499,28 +499,30 @@ function render(
             </tr>
           </thead>
 
-          <tbody>
-            {table.cells.map(function generateTableRow(row, i) {
-              return (
-                <tr key={i}>
-                  {row.map(function generateTableCell(content, c) {
-                    return (
-                      <td
-                        key={c}
-                        style={
-                          table.align[c] == null
-                            ? {}
-                            : { textAlign: table.align[c] }
-                        }
-                      >
-                        {output(content, state)}
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })}
-          </tbody>
+          {table.cells.length > 0 && (
+            <tbody>
+              {table.cells.map(function generateTableRow(row, i) {
+                return (
+                  <tr key={i}>
+                    {row.map(function generateTableCell(content, c) {
+                      return (
+                        <td
+                          key={c}
+                          style={
+                            table.align[c] == null
+                              ? {}
+                              : { textAlign: table.align[c] }
+                          }
+                        >
+                          {output(content, state)}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+            </tbody>
+          )}
         </table>
       )
     }
