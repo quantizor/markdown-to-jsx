@@ -25,8 +25,6 @@ const TRIM_STARTING_NEWLINES = /^\n+/
 
 /**
  * Vue injection key for sharing compiler options across Markdown components
- * @lang zh 用于在 Markdown 组件之间共享编译器选项的 Vue 注入键
- * @lang hi Markdown कंपोनेंट्स के बीच कंपाइलर विकल्प साझा करने के लिए Vue इंजेक्शन कुंजी
  */
 export const MarkdownOptionsKey: InjectionKey<VueOptions | undefined> =
   Symbol('markdown-options')
@@ -512,8 +510,6 @@ const getTag = (
 
 /**
  * Override configuration for HTML tags or custom components in Vue output
- * @lang zh Vue 输出中 HTML 标签或自定义组件的覆盖配置
- * @lang hi Vue आउटपुट में HTML टैग्स या कस्टम कंपोनेंट्स के लिए ओवरराइड कॉन्फ़िगरेशन
  */
 export type VueOverride =
   | RequireAtLeastOne<{
@@ -525,8 +521,6 @@ export type VueOverride =
 
 /**
  * Map of HTML tags and custom components to their override configurations
- * @lang zh HTML 标签和自定义组件到其覆盖配置的映射
- * @lang hi HTML टैग्स और कस्टम कंपोनेंट्स से उनकी ओवरराइड कॉन्फ़िगरेशन का मैप
  */
 export type VueOverrides = {
   [tag: string]: VueOverride
@@ -534,24 +528,16 @@ export type VueOverrides = {
 
 /**
  * Vue compiler options
- * @lang zh Vue 编译器选项
- * @lang hi Vue कंपाइलर विकल्प
  */
 export type VueOptions = Omit<
   MarkdownToJSX.Options,
   'createElement' | 'wrapperProps' | 'renderRule' | 'overrides'
 > & {
   /** Custom createElement function (Vue's h function) */
-  /** @lang zh 自定义 createElement 函数（Vue 的 h 函数） */
-  /** @lang hi कस्टम createElement फ़ंक्शन (Vue का h फ़ंक्शन) */
   createElement?: typeof h
   /** Props for wrapper element */
-  /** @lang zh 包装元素的属性 */
-  /** @lang hi रैपर एलिमेंट के लिए props */
   wrapperProps?: Record<string, unknown>
   /** Custom rendering function for AST rules */
-  /** @lang zh AST 规则的自定义渲染函数 */
-  /** @lang hi AST नियमों के लिए कस्टम रेंडरिंग फ़ंक्शन */
   renderRule?: (
     next: () => VueChild | null,
     node: MarkdownToJSX.ASTNode,
@@ -559,25 +545,15 @@ export type VueOptions = Omit<
     state: MarkdownToJSX.State
   ) => VueChild | null
   /** Override configurations for HTML tags */
-  /** @lang zh HTML 标签的覆盖配置 */
-  /** @lang hi HTML टैग्स के लिए ओवरराइड कॉन्फ़िगरेशन */
   overrides?: VueOverrides
 }
 
 /**
  * Convert AST nodes to Vue VNode elements
- * @lang zh 将 AST 节点转换为 Vue VNode 元素
- * @lang hi AST नोड्स को Vue VNode एलिमेंट्स में बदलें
  *
  * @param ast - Array of AST nodes to render
- * @lang zh @param ast - 要渲染的 AST 节点数组
- * @lang hi @param ast - रेंडर करने के लिए AST नोड्स की सरणी
  * @param options - Vue compiler options
- * @lang zh @param options - Vue 编译器选项
- * @lang hi @param options - Vue कंपाइलर विकल्प
  * @returns Vue VNode element(s)
- * @lang zh @returns Vue VNode 元素
- * @lang hi @returns Vue VNode एलिमेंट(s)
  */
 export function astToJSX(
   ast: MarkdownToJSX.ASTNode[],
@@ -750,18 +726,10 @@ export function astToJSX(
 
 /**
  * Compile markdown string to Vue VNode elements
- * @lang zh 将 Markdown 字符串编译为 Vue VNode 元素
- * @lang hi Markdown स्ट्रिंग को Vue VNode एलिमेंट्स में कंपाइल करें
  *
  * @param markdown - Markdown string to compile
- * @lang zh @param markdown - 要编译的 Markdown 字符串
- * @lang hi @param markdown - कंपाइल करने के लिए Markdown स्ट्रिंग
  * @param options - Vue compiler options
- * @lang zh @param options - Vue 编译器选项
- * @lang hi @param options - Vue कंपाइलर विकल्प
  * @returns Vue VNode element(s)
- * @lang zh @returns Vue VNode 元素
- * @lang hi @returns Vue VNode एलिमेंट(s)
  */
 export function compiler(
   markdown: string = '',
@@ -836,15 +804,9 @@ export function compiler(
 
 /**
  * Vue context provider for sharing compiler options across Markdown components
- * @lang zh 用于在 Markdown 组件之间共享编译器选项的 Vue 上下文提供者
- * @lang hi Markdown कंपोनेंट्स के बीच कंपाइलर विकल्प साझा करने के लिए Vue संदर्भ प्रदाता
  *
  * @param options - Default compiler options to share
- * @lang zh @param options - 要共享的默认编译器选项
- * @lang hi @param options - साझा करने के लिए डिफ़ॉल्ट कंपाइलर विकल्प
  * @param children - Vue children
- * @lang zh @param children - Vue 子元素
- * @lang hi @param children - Vue चाइल्ड एलिमेंट्स
  */
 export const MarkdownProvider: Component<{
   options?: VueOptions
@@ -857,15 +819,9 @@ export const MarkdownProvider: Component<{
 /**
  * A Vue component for easy markdown rendering. Feed the markdown content as a direct child
  * and the rest is taken care of automatically. Supports computed memoization for optimal performance.
- * @lang zh 用于轻松渲染 Markdown 的 Vue 组件。将 Markdown 内容作为直接子元素提供，其余部分会自动处理。支持计算属性记忆化以获得最佳性能。
- * @lang hi आसान markdown रेंडरिंग के लिए एक Vue कंपोनेंट। markdown सामग्री को सीधे चाइल्ड के रूप में प्रदान करें और बाकी स्वचालित रूप से संभाला जाता है। इष्टतम प्रदर्शन के लिए computed मेमोइज़ेशन का समर्थन करता है।
  *
  * @param children - Markdown string content
- * @lang zh @param children - Markdown 字符串内容
- * @lang hi @param children - Markdown स्ट्रिंग सामग्री
  * @param options - Compiler options
- * @lang zh @param options - 编译器选项
- * @lang hi @param options - कंपाइलर विकल्प
  */
 export const Markdown: Component<{
   children?: string | null
