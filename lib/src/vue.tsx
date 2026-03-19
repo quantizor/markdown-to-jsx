@@ -318,9 +318,7 @@ const renderers: Record<
     )
 
     var tableChildren = [h('thead', {}, h('tr', {}, ...headerCells))]
-    if (rows.length > 0) {
-      tableChildren.push(h('tbody', {}, ...rows))
-    }
+    if (node.cells.length > 0) tableChildren.push(h('tbody', {}, ...rows))
     return h('table', { key: state.key }, ...tableChildren)
   },
 
