@@ -569,6 +569,7 @@ CC[$.CHAR_SPACE] = C_WS                          // space
 CC[$.CHAR_TAB] = C_WS                           // tab
 CC[$.CHAR_NEWLINE] = C_WS | C_NL                   // newline
 CC[$.CHAR_CR] = C_WS | C_NL                   // carriage return
+CC[$.CHAR_UNIT_SEP] = C_WS                      // \u001F hard break marker
 
 // Block starters
 CC[$.CHAR_HASH] = C_BLOCK | C_PUNCT             // # (heading)
@@ -4093,11 +4094,9 @@ function scanBareUrl(s: string, p: number, e: number, opts: ParseOptions): ScanR
   let end = i
   while (end > p + prefix.length) {
     const c = s.charCodeAt(end - 1)
-    if (c === $.CHAR_ASTERISK) {
-      // Trailing * (e.g. from **url** bold markdown) must not appear in href
-      end--
-    } else if (c === $.CHAR_PERIOD || c === $.CHAR_COMMA || c === $.CHAR_COLON || // . , :
-        c === $.CHAR_EXCLAMATION || c === $.CHAR_QUESTION || c === $.CHAR_PAREN_CLOSE) { // ! ? )
+    if (c === $.CHAR_PERIOD || c === $.CHAR_COMMA || c === $.CHAR_COLON || // . , :
+        c === $.CHAR_EXCLAMATION || c === $.CHAR_QUESTION || c === $.CHAR_PAREN_CLOSE || // ! ? )
+        c === $.CHAR_ASTERISK || c === $.CHAR_UNDERSCORE || c === $.CHAR_TILDE) { // * _ ~ (emphasis/strikethrough delimiters)
       // But keep ) if there's a matching (
       if (c === $.CHAR_PAREN_CLOSE) {
         if (openParens >= closeParens) break

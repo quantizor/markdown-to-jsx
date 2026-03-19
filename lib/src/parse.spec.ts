@@ -408,6 +408,73 @@ describe('parseMarkdown', () => {
       { type: RuleType.text, text: '<https://example.com\tpath>' },
     ])
   })
+
+  // Issue #839: bare URL inside emphasis gets trailing delimiters in href
+  it('trims emphasis delimiters from bare URL endings', () => {
+    const result = p.parser('**www.acme.com/training**')
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "text": "www.acme.com/training",
+                      "type": "text",
+                    },
+                  ],
+                  "target": "http://www.acme.com/training",
+                  "type": "link",
+                },
+              ],
+              "tag": "strong",
+              "type": "textFormatted",
+            },
+          ],
+          "type": "paragraph",
+        },
+      ]
+    `)
+  })
+
+  it('trims emphasis delimiters from https bare URL endings', () => {
+    const result = p.parser('Visit **https://acme.com/path** for more.')
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            {
+              "text": "Visit ",
+              "type": "text",
+            },
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "text": "https://acme.com/path",
+                      "type": "text",
+                    },
+                  ],
+                  "target": "https://acme.com/path",
+                  "type": "link",
+                },
+              ],
+              "tag": "strong",
+              "type": "textFormatted",
+            },
+            {
+              "text": " for more.",
+              "type": "text",
+            },
+          ],
+          "type": "paragraph",
+        },
+      ]
+    `)
+  })
 })
 
 describe('collectReferenceDefinitions', () => {
@@ -6154,6 +6221,67 @@ describe('text normalization edge cases', () => {
               },
               {
                 "text": "bar",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue #830: emphasis closing before a hard break
+    it('emphasis can close before a hard break (two trailing spaces)', () => {
+      const result = p.parser('**TEST:**  \nTEST')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "TEST:",
+                    "type": "text",
+                  },
+                ],
+                "tag": "strong",
+                "type": "textFormatted",
+              },
+              {
+                "type": "breakLine",
+              },
+              {
+                "text": "TEST",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('emphasis can close before a hard break (backslash)', () => {
+      const result = p.parser('**TEST:**\\\nTEST')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "TEST:",
+                    "type": "text",
+                  },
+                ],
+                "tag": "strong",
+                "type": "textFormatted",
+              },
+              {
+                "type": "breakLine",
+              },
+              {
+                "text": "TEST",
                 "type": "text",
               },
             ],
