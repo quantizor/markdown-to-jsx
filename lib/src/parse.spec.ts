@@ -426,6 +426,7 @@ describe('parseMarkdown', () => {
                     },
                   ],
                   "target": "http://www.acme.com/training",
+                  "title": undefined,
                   "type": "link",
                 },
               ],
@@ -459,6 +460,7 @@ describe('parseMarkdown', () => {
                     },
                   ],
                   "target": "https://acme.com/path",
+                  "title": undefined,
                   "type": "link",
                 },
               ],
@@ -1989,6 +1991,7 @@ describe('multi-line HTML attributes', () => {
     ).toMatchInlineSnapshot(`
       [
         {
+          "_canInterrupt": false,
           "_isClosingTag": false,
           "_rawAttrs": 
       "
@@ -2007,15 +2010,14 @@ describe('multi-line HTML attributes', () => {
           "attrs": {
             "data-variant": "horizontalTable",
           },
-          "canInterruptParagraph": false,
           "children": [
             {
+              "_canInterrupt": true,
               "_isClosingTag": false,
               "_rawAttrs": "",
               "_rawText": "title 1",
               "_verbatim": true,
               "attrs": {},
-              "canInterruptParagraph": true,
               "children": [
                 {
                   "text": "title 1",
@@ -2028,12 +2030,12 @@ describe('multi-line HTML attributes', () => {
               "type": "htmlBlock",
             },
             {
+              "_canInterrupt": true,
               "_isClosingTag": false,
               "_rawAttrs": "",
               "_rawText": "description 1",
               "_verbatim": true,
               "attrs": {},
-              "canInterruptParagraph": true,
               "children": [
                 {
                   "text": "description 1",
@@ -2072,6 +2074,7 @@ describe('multi-line HTML attributes', () => {
     ).toMatchInlineSnapshot(`
       [
         {
+          "_canInterrupt": true,
           "_isClosingTag": false,
           "_rawAttrs": 
       "
@@ -2093,7 +2096,6 @@ describe('multi-line HTML attributes', () => {
             "data-value": "123",
             "id": "main",
           },
-          "canInterruptParagraph": true,
           "children": [
             {
               "text": "content",
@@ -2125,6 +2127,7 @@ describe('multi-line HTML attributes', () => {
     ).toMatchInlineSnapshot(`
       [
         {
+          "_canInterrupt": true,
           "_isClosingTag": false,
           "_rawAttrs": 
       "
@@ -2146,7 +2149,6 @@ describe('multi-line HTML attributes', () => {
             "data-value": "123",
             "id": "main",
           },
-          "canInterruptParagraph": true,
           "children": [
             {
               "text": "content",
@@ -2179,6 +2181,7 @@ describe('multi-line HTML attributes', () => {
     ).toMatchInlineSnapshot(`
       [
         {
+          "_canInterrupt": false,
           "_isClosingTag": false,
           "_rawAttrs": 
       "
@@ -2199,7 +2202,6 @@ describe('multi-line HTML attributes', () => {
             "className": "wrapper",
             "onClick": "handleClick",
           },
-          "canInterruptParagraph": false,
           "children": [
             {
               "text": "inner content",
@@ -2241,6 +2243,7 @@ describe('multi-line HTML attributes', () => {
           "type": "paragraph",
         },
         {
+          "alert": undefined,
           "children": [
             {
               "children": [
@@ -2275,6 +2278,7 @@ describe('multi-line HTML attributes', () => {
     ).toMatchInlineSnapshot(`
       [
         {
+          "_canInterrupt": true,
           "_isClosingTag": false,
           "_rawAttrs": 
       "
@@ -2296,7 +2300,6 @@ describe('multi-line HTML attributes', () => {
             "data-mixed": "value",
             "id": "single-quoted",
           },
-          "canInterruptParagraph": true,
           "children": [
             {
               "text": "content",
@@ -2330,6 +2333,7 @@ describe('multi-line HTML attributes', () => {
         {
           "children": [
             {
+              "_isClosingTag": false,
               "_rawText": 
       "<input
       type="checkbox"
@@ -2362,6 +2366,7 @@ describe('multi-line HTML attributes', () => {
     ).toMatchInlineSnapshot(`
       [
         {
+          "_canInterrupt": false,
           "_isClosingTag": false,
           "_rawAttrs": 
       "
@@ -2383,7 +2388,6 @@ describe('multi-line HTML attributes', () => {
             "data-b": "2",
             "data-c": "3",
           },
-          "canInterruptParagraph": false,
           "children": [
             {
               "text": "inner",
@@ -2411,6 +2415,7 @@ describe('multi-line HTML attributes', () => {
       expect(p.parser(baseInput)).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2429,15 +2434,14 @@ describe('multi-line HTML attributes', () => {
             "attrs": {
               "data-variant": "horizontalTable",
             },
-            "canInterruptParagraph": false,
             "children": [
               {
+                "_canInterrupt": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "title 1",
                 "_verbatim": true,
                 "attrs": {},
-                "canInterruptParagraph": true,
                 "children": [
                   {
                     "text": "title 1",
@@ -2450,12 +2454,12 @@ describe('multi-line HTML attributes', () => {
                 "type": "htmlBlock",
               },
               {
+                "_canInterrupt": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "description 1",
                 "_verbatim": true,
                 "attrs": {},
-                "canInterruptParagraph": true,
                 "children": [
                   {
                     "text": "description 1",
@@ -2488,6 +2492,7 @@ describe('multi-line HTML attributes', () => {
       expect(p.parser(baseInput + '\n')).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2507,15 +2512,14 @@ describe('multi-line HTML attributes', () => {
             "attrs": {
               "data-variant": "horizontalTable",
             },
-            "canInterruptParagraph": false,
             "children": [
               {
+                "_canInterrupt": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "title 1",
                 "_verbatim": true,
                 "attrs": {},
-                "canInterruptParagraph": true,
                 "children": [
                   {
                     "text": "title 1",
@@ -2528,12 +2532,12 @@ describe('multi-line HTML attributes', () => {
                 "type": "htmlBlock",
               },
               {
+                "_canInterrupt": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "description 1",
                 "_verbatim": true,
                 "attrs": {},
-                "canInterruptParagraph": true,
                 "children": [
                   {
                     "text": "description 1",
@@ -2567,6 +2571,7 @@ describe('multi-line HTML attributes', () => {
       expect(p.parser(baseInput + '\n\n')).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2586,15 +2591,14 @@ describe('multi-line HTML attributes', () => {
             "attrs": {
               "data-variant": "horizontalTable",
             },
-            "canInterruptParagraph": false,
             "children": [
               {
+                "_canInterrupt": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "title 1",
                 "_verbatim": true,
                 "attrs": {},
-                "canInterruptParagraph": true,
                 "children": [
                   {
                     "text": "title 1",
@@ -2607,12 +2611,12 @@ describe('multi-line HTML attributes', () => {
                 "type": "htmlBlock",
               },
               {
+                "_canInterrupt": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "description 1",
                 "_verbatim": true,
                 "attrs": {},
-                "canInterruptParagraph": true,
                 "children": [
                   {
                     "text": "description 1",
@@ -2646,6 +2650,7 @@ describe('multi-line HTML attributes', () => {
       expect(p.parser('\n' + baseInput)).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2664,15 +2669,14 @@ describe('multi-line HTML attributes', () => {
             "attrs": {
               "data-variant": "horizontalTable",
             },
-            "canInterruptParagraph": false,
             "children": [
               {
+                "_canInterrupt": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "title 1",
                 "_verbatim": true,
                 "attrs": {},
-                "canInterruptParagraph": true,
                 "children": [
                   {
                     "text": "title 1",
@@ -2685,12 +2689,12 @@ describe('multi-line HTML attributes', () => {
                 "type": "htmlBlock",
               },
               {
+                "_canInterrupt": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "description 1",
                 "_verbatim": true,
                 "attrs": {},
-                "canInterruptParagraph": true,
                 "children": [
                   {
                     "text": "description 1",
@@ -2723,6 +2727,7 @@ describe('multi-line HTML attributes', () => {
       expect(p.parser('\n' + baseInput + '\n')).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2742,15 +2747,14 @@ describe('multi-line HTML attributes', () => {
             "attrs": {
               "data-variant": "horizontalTable",
             },
-            "canInterruptParagraph": false,
             "children": [
               {
+                "_canInterrupt": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "title 1",
                 "_verbatim": true,
                 "attrs": {},
-                "canInterruptParagraph": true,
                 "children": [
                   {
                     "text": "title 1",
@@ -2763,12 +2767,12 @@ describe('multi-line HTML attributes', () => {
                 "type": "htmlBlock",
               },
               {
+                "_canInterrupt": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "description 1",
                 "_verbatim": true,
                 "attrs": {},
-                "canInterruptParagraph": true,
                 "children": [
                   {
                     "text": "description 1",
@@ -2802,6 +2806,7 @@ describe('multi-line HTML attributes', () => {
       expect(p.parser(baseInput.replace(/\n/g, '\r\n'))).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2820,15 +2825,14 @@ describe('multi-line HTML attributes', () => {
             "attrs": {
               "data-variant": "horizontalTable",
             },
-            "canInterruptParagraph": false,
             "children": [
               {
+                "_canInterrupt": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "title 1",
                 "_verbatim": true,
                 "attrs": {},
-                "canInterruptParagraph": true,
                 "children": [
                   {
                     "text": "title 1",
@@ -2841,12 +2845,12 @@ describe('multi-line HTML attributes', () => {
                 "type": "htmlBlock",
               },
               {
+                "_canInterrupt": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "description 1",
                 "_verbatim": true,
                 "attrs": {},
-                "canInterruptParagraph": true,
                 "children": [
                   {
                     "text": "description 1",
@@ -2888,6 +2892,7 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2908,7 +2913,6 @@ describe('multi-line HTML attributes', () => {
               "propA": "value1",
               "propB": "value2",
             },
-            "canInterruptParagraph": false,
             "children": [
               {
                 "text": "content",
@@ -2940,6 +2944,7 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2963,7 +2968,6 @@ describe('multi-line HTML attributes', () => {
               "data": "myData",
               "onRowClick": "handleClick",
             },
-            "canInterruptParagraph": false,
             "children": [
               {
                 "text": "Loading...",
@@ -2996,6 +3000,7 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -3022,7 +3027,6 @@ describe('multi-line HTML attributes', () => {
               "disabled": true,
               "onClick": "handleClick",
             },
-            "canInterruptParagraph": false,
             "children": [
               {
                 "text": "content",
@@ -3060,6 +3064,7 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -3085,9 +3090,9 @@ describe('multi-line HTML attributes', () => {
             "attrs": {
               "level": "1",
             },
-            "canInterruptParagraph": false,
             "children": [
               {
+                "_canInterrupt": false,
                 "_isClosingTag": false,
                 "_rawAttrs": 
         "
@@ -3109,9 +3114,9 @@ describe('multi-line HTML attributes', () => {
                 "attrs": {
                   "level": "2",
                 },
-                "canInterruptParagraph": false,
                 "children": [
                   {
+                    "_canInterrupt": false,
                     "_isClosingTag": false,
                     "_rawAttrs": 
         "
@@ -3129,7 +3134,6 @@ describe('multi-line HTML attributes', () => {
                     "attrs": {
                       "level": "3",
                     },
-                    "canInterruptParagraph": false,
                     "children": [
                       {
                         "text": "content",
@@ -3192,6 +3196,7 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -3209,7 +3214,6 @@ describe('multi-line HTML attributes', () => {
               "name": "star",
               "size": "24",
             },
-            "canInterruptParagraph": false,
             "children": [],
             "endPos": 58,
             "tag": "Icon",
@@ -3231,6 +3235,7 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": true,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -3249,7 +3254,6 @@ describe('multi-line HTML attributes', () => {
               "class": "test",
               "id": "main",
             },
-            "canInterruptParagraph": true,
             "children": [
               {
                 "text": "content",
@@ -3279,6 +3283,7 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": true,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -3297,7 +3302,6 @@ describe('multi-line HTML attributes', () => {
               "class": "test",
               "id": "main",
             },
-            "canInterruptParagraph": true,
             "children": [
               {
                 "text": "content",
@@ -3326,6 +3330,7 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": " data-variant='horizontalTable'",
             "_rawText": 
@@ -3336,15 +3341,14 @@ describe('multi-line HTML attributes', () => {
             "attrs": {
               "data-variant": "horizontalTable",
             },
-            "canInterruptParagraph": false,
             "children": [
               {
+                "_canInterrupt": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "title",
                 "_verbatim": true,
                 "attrs": {},
-                "canInterruptParagraph": true,
                 "children": [
                   {
                     "text": "title",
@@ -3378,6 +3382,7 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -3394,7 +3399,6 @@ describe('multi-line HTML attributes', () => {
             "attrs": {
               "data-variant": "horizontalTable",
             },
-            "canInterruptParagraph": false,
             "children": [],
             "endPos": 58,
             "tag": "dl-custom",
@@ -3532,12 +3536,12 @@ This is paragraph after the unordered nested list.`
     expect(result).toMatchInlineSnapshot(`
       [
         {
+          "_canInterrupt": false,
           "_isClosingTag": false,
           "_rawAttrs": "",
           "_rawText": "",
           "_verbatim": false,
           "attrs": {},
-          "canInterruptParagraph": false,
           "children": [],
           "endPos": 5,
           "tag": "br",
@@ -4127,12 +4131,12 @@ describe('Unserializable expression evaluation', () => {
       ) as MarkdownToJSX.HTMLNode
       expect(htmlNode).toMatchInlineSnapshot(`
         {
+          "_canInterrupt": true,
           "_isClosingTag": false,
           "_rawAttrs": "",
           "_rawText": "Hello **world**</script>",
           "_verbatim": true,
           "attrs": {},
-          "canInterruptParagraph": true,
           "children": [],
           "endPos": 32,
           "tag": "script",
@@ -4153,12 +4157,12 @@ describe('Unserializable expression evaluation', () => {
       ) as MarkdownToJSX.HTMLNode
       expect(htmlNode).toMatchInlineSnapshot(`
         {
+          "_canInterrupt": true,
           "_isClosingTag": false,
           "_rawAttrs": "",
           "_rawText": "<code>const x = 1;</code></pre>",
           "_verbatim": true,
           "attrs": {},
-          "canInterruptParagraph": true,
           "children": [],
           "endPos": 36,
           "tag": "pre",
@@ -4177,6 +4181,7 @@ describe('Unserializable expression evaluation', () => {
       ) as MarkdownToJSX.HTMLNode
       expect(htmlNode).toMatchInlineSnapshot(`
         {
+          "_canInterrupt": true,
           "_isClosingTag": false,
           "_rawAttrs": "",
           "_rawText": 
@@ -4186,7 +4191,6 @@ describe('Unserializable expression evaluation', () => {
         ,
           "_verbatim": true,
           "attrs": {},
-          "canInterruptParagraph": true,
           "children": [],
           "endPos": 50,
           "tag": "style",
@@ -4211,12 +4215,12 @@ describe('Unserializable expression evaluation', () => {
       ) as MarkdownToJSX.HTMLNode
       expect(htmlNode).toMatchInlineSnapshot(`
         {
+          "_canInterrupt": true,
           "_isClosingTag": false,
           "_rawAttrs": "",
           "_rawText": "",
           "_verbatim": false,
           "attrs": {},
-          "canInterruptParagraph": true,
           "children": [
             {
               "children": [
@@ -4254,14 +4258,15 @@ describe('Unserializable expression evaluation', () => {
       expect(p.parser('<div>\n<div>\ninner\n</div>\n\n</div>\n\nafter')).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": true,
             "_isClosingTag": false,
             "_rawAttrs": "",
             "_rawText": "",
             "_verbatim": false,
             "attrs": {},
-            "canInterruptParagraph": true,
             "children": [
               {
+                "_canInterrupt": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": 
@@ -4271,7 +4276,6 @@ describe('Unserializable expression evaluation', () => {
         ,
                 "_verbatim": true,
                 "attrs": {},
-                "canInterruptParagraph": true,
                 "children": [
                   {
                     "text": "inner",
@@ -4544,6 +4548,7 @@ describe('text normalization edge cases', () => {
       expect(result).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": " att1=tok1 att2=tok2",
             "_rawText": "",
@@ -4552,7 +4557,6 @@ describe('text normalization edge cases', () => {
               "att1": "tok1",
               "att2": "tok2",
             },
-            "canInterruptParagraph": false,
             "children": [],
             "endPos": 24,
             "tag": "gi",
@@ -4574,6 +4578,7 @@ describe('text normalization edge cases', () => {
                 "type": "text",
               },
               {
+                "_isClosingTag": false,
                 "_rawText": "<gi att1=tok1 att2=tok2>",
                 "attrs": {
                   "att1": "tok1",
@@ -4604,6 +4609,7 @@ describe('text normalization edge cases', () => {
                 "type": "text",
               },
               {
+                "_isClosingTag": false,
                 "_rawText": 
         "<gi att1=tok1
         att2=tok2>"
@@ -4665,6 +4671,7 @@ describe('text normalization edge cases', () => {
             "type": "refCollection",
           },
           {
+            "alert": undefined,
             "children": [
               {
                 "children": [
@@ -4707,6 +4714,7 @@ describe('text normalization edge cases', () => {
             "items": [
               [
                 {
+                  "_endsWithGT": false,
                   "endPos": 5,
                   "raw": true,
                   "text": 
@@ -5138,6 +5146,9 @@ describe('text normalization edge cases', () => {
             "type": "refCollection",
           },
           {
+            "attrs": undefined,
+            "infoString": undefined,
+            "lang": undefined,
             "text": "xx",
             "type": "codeBlock",
           },
@@ -5201,6 +5212,7 @@ describe('text normalization edge cases', () => {
             "type": "paragraph",
           },
           {
+            "alert": undefined,
             "children": [],
             "type": "blockQuote",
           },
@@ -5360,6 +5372,7 @@ describe('text normalization edge cases', () => {
                   },
                 ],
                 "target": "mailto:foo@123456789012345678901234567890123456789012345678901234567890123.123456789012345678901234567890123456789012345678901234567890123",
+                "title": undefined,
                 "type": "link",
               },
             ],
@@ -5602,12 +5615,12 @@ describe('text normalization edge cases', () => {
             "items": [
               [
                 {
+                  "_canInterrupt": true,
                   "_isClosingTag": false,
                   "_rawAttrs": "",
                   "_rawText": "<script>",
                   "_verbatim": true,
                   "attrs": {},
-                  "canInterruptParagraph": true,
                   "children": [],
                   "endPos": 8,
                   "tag": "script",
@@ -5653,6 +5666,9 @@ describe('text normalization edge cases', () => {
             "type": "unorderedList",
           },
           {
+            "attrs": undefined,
+            "infoString": undefined,
+            "lang": undefined,
             "text": "foo",
             "type": "codeBlock",
           },
@@ -5666,6 +5682,7 @@ describe('text normalization edge cases', () => {
       expect(result).toMatchInlineSnapshot(`
         [
           {
+            "_endsWithGT": false,
             "endPos": 13,
             "raw": true,
             "text": 
@@ -5675,6 +5692,9 @@ describe('text normalization edge cases', () => {
             "type": "htmlComment",
           },
           {
+            "attrs": undefined,
+            "infoString": undefined,
+            "lang": undefined,
             "text": 
         "\`\`\`
         bar
@@ -5717,6 +5737,7 @@ describe('text normalization edge cases', () => {
       expect(result).toMatchInlineSnapshot(`
         [
           {
+            "_canInterrupt": true,
             "_isClosingTag": false,
             "_rawAttrs": "",
             "_rawText": 
@@ -5729,7 +5750,6 @@ describe('text normalization edge cases', () => {
         ,
             "_verbatim": true,
             "attrs": {},
-            "canInterruptParagraph": true,
             "children": [],
             "endPos": 38,
             "tag": "textarea",
@@ -5805,6 +5825,7 @@ describe('text normalization edge cases', () => {
                 "type": "text",
               },
               {
+                "_isClosingTag": false,
                 "_rawText": "<!A>",
                 "attrs": {},
                 "tag": "!A",

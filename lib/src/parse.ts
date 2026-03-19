@@ -25,8 +25,8 @@ export type ParseOptions = Omit<MarkdownToJSX.Options, 'slugify'> & {
   disableBareUrls?: boolean
 }
 
-/** HTMLCommentNode with endsWithGreaterThan flag for empty/special comments */
-type HTMLCommentNodeExt = MarkdownToJSX.HTMLCommentNode & { endsWithGreaterThan: boolean }
+/** HTMLCommentNode with _endsWithGT flag for empty/special comments */
+type HTMLCommentNodeExt = MarkdownToJSX.HTMLCommentNode & { _endsWithGT: boolean }
 
 /** Union of AST nodes that have a children array */
 type ASTNodeWithChildren = Extract<MarkdownToJSX.ASTNode, { children: MarkdownToJSX.ASTNode[] }>
@@ -1012,7 +1012,10 @@ function scanIndented(s: string, p: number): ScanResult {
   return {
     node: {
       type: RuleType.codeBlock,
+      lang: undefined,
       text: content,
+      infoString: undefined,
+      attrs: undefined,
     } as MarkdownToJSX.CodeBlockNode,
     end
   }
@@ -1147,9 +1150,7 @@ function scanBlockquote(s: string, p: number, state: MarkdownToJSX.State, opts: 
   const node: MarkdownToJSX.BlockQuoteNode = {
     type: RuleType.blockQuote,
     children,
-  }
-  if (alertType) {
-    node.alert = alertType
+    alert: alertType || undefined,
   }
 
   return { node, end }
@@ -2046,9 +2047,10 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         node: {
           type: RuleType.htmlComment,
           text: rawText,
+          _endsWithGT: false,
           raw: true,
           endPos: rawEnd,
-        } as MarkdownToJSX.HTMLCommentNode & { raw: boolean; endPos: number },
+        } as MarkdownToJSX.HTMLCommentNode & { _endsWithGT: boolean; raw: boolean; endPos: number },
         end: rawEnd
       }
     }
@@ -2114,8 +2116,8 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         _verbatim: true,
         _isClosingTag: type1IsClosing,
         endPos: rawEnd,
-        canInterruptParagraph: true,
-      } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; canInterruptParagraph: boolean },
+        _canInterrupt: true,
+      } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
       end: rawEnd
     }
   }
@@ -2149,8 +2151,8 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
             _verbatim: true,
             _isClosingTag: true,
             endPos: rawEnd6,
-            canInterruptParagraph: htmlBlockType === 6,
-          } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; canInterruptParagraph: boolean },
+            _canInterrupt: htmlBlockType === 6,
+          } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
           end: end6
         }
       }
@@ -2169,8 +2171,8 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
             _verbatim: false,
             _isClosingTag: false,
             endPos: tagResult67.end,
-            canInterruptParagraph: htmlBlockType === 6,
-          } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; canInterruptParagraph: boolean },
+            _canInterrupt: htmlBlockType === 6,
+          } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
           end: nextLine(s, tagResult67.end)
         }
       }
@@ -2438,8 +2440,8 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
             _verbatim: true,
             _isClosingTag: false,
             endPos: effectiveEndPos,
-            canInterruptParagraph: htmlBlockType === 6,
-          } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; canInterruptParagraph: boolean },
+            _canInterrupt: htmlBlockType === 6,
+          } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
           end: effectiveEnd
         }
       }
@@ -2459,8 +2461,8 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           _verbatim: false,
           _isClosingTag: false,
           endPos: effectiveEndPos,
-          canInterruptParagraph: htmlBlockType === 6,
-        } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; canInterruptParagraph: boolean },
+          _canInterrupt: htmlBlockType === 6,
+        } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
         end: effectiveEnd
       }
     }
@@ -2488,8 +2490,8 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         _verbatim: true,
         _isClosingTag: type67IsClosingF,
         endPos: rawEnd6,
-        canInterruptParagraph: htmlBlockType === 6,
-      } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; canInterruptParagraph: boolean },
+        _canInterrupt: htmlBlockType === 6,
+      } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
       end: end6
     }
   }
@@ -2515,9 +2517,9 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         type: RuleType.htmlSelfClosing,
         tag: tagName,
         attrs: {},
-        endPos: tagResult.end,
-        _isClosingTag: true,
         _rawText: s.slice(start, tagResult.end),
+        _isClosingTag: true,
+        endPos: tagResult.end,
       } as MarkdownToJSX.HTMLSelfClosingNode & { endPos: number; _isClosingTag: boolean; _rawText: string },
       end: tagResult.end
     }
@@ -2568,8 +2570,8 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         _verbatim: true,
         _isClosingTag: false,
         endPos: nodeEndPos,
-        canInterruptParagraph: false,
-      } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; canInterruptParagraph: boolean },
+        _canInterrupt: false,
+      } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
       end: endPos
     }
   }
@@ -2600,8 +2602,8 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
       _verbatim: true,
       _isClosingTag: false,
       endPos: blankLineEnd,
-      canInterruptParagraph: false,
-    } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; canInterruptParagraph: boolean },
+      _canInterrupt: false,
+    } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
     end: endFallback
   }
 }
@@ -4005,6 +4007,7 @@ function scanAutolink(s: string, p: number, e: number): ScanResult {
       node: {
         type: RuleType.link,
         target: content,
+        title: undefined,
         children: [{ type: RuleType.text, text: content } as MarkdownToJSX.TextNode],
       } as MarkdownToJSX.LinkNode,
       end: i + 1
@@ -4017,6 +4020,7 @@ function scanAutolink(s: string, p: number, e: number): ScanResult {
       node: {
         type: RuleType.link,
         target: 'mailto:' + content,
+        title: undefined,
         children: [{ type: RuleType.text, text: content } as MarkdownToJSX.TextNode],
       } as MarkdownToJSX.LinkNode,
       end: i + 1
@@ -4148,6 +4152,7 @@ function scanBareUrl(s: string, p: number, e: number, opts: ParseOptions): ScanR
     node: {
       type: RuleType.link,
       target: target,
+      title: undefined,
       children: [{ type: RuleType.text, text: url } as MarkdownToJSX.TextNode],
     } as MarkdownToJSX.LinkNode,
     end
@@ -4221,6 +4226,7 @@ function scanBareEmail(s: string, p: number, e: number, opts: ParseOptions): Sca
     node: {
       type: RuleType.link,
       target: 'mailto:' + email,
+      title: undefined,
       children: [{ type: RuleType.text, text: email } as MarkdownToJSX.TextNode],
     } as MarkdownToJSX.LinkNode,
     end: i
@@ -4273,14 +4279,14 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
     // Special case: <!--> (empty comment)
     if (commentStart < e && s.charCodeAt(commentStart) === $.CHAR_GT) {
       return {
-        node: { type: RuleType.htmlComment, text: '', endsWithGreaterThan: true } as HTMLCommentNodeExt,
+        node: { type: RuleType.htmlComment, text: '', _endsWithGT: true } as HTMLCommentNodeExt,
         end: commentStart + 1
       }
     }
     // Special case: <!---> (comment with single dash)
     if (commentStart + 1 < e && s.charCodeAt(commentStart) === $.CHAR_DASH && s.charCodeAt(commentStart + 1) === $.CHAR_GT) {
       return {
-        node: { type: RuleType.htmlComment, text: '-', endsWithGreaterThan: true } as HTMLCommentNodeExt,
+        node: { type: RuleType.htmlComment, text: '-', _endsWithGT: true } as HTMLCommentNodeExt,
         end: commentStart + 2
       }
     }
@@ -4291,7 +4297,8 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
         node: {
           type: RuleType.htmlComment,
           text: s.slice(p + 4, endComment),
-        } as MarkdownToJSX.HTMLCommentNode,
+          _endsWithGT: false,
+        } as HTMLCommentNodeExt,
         end: endComment + 3
       }
     }
@@ -4303,7 +4310,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
     var endPI = s.indexOf('?>', i + 1)
     if (endPI !== -1 && endPI < e) {
       return {
-        node: { type: RuleType.htmlSelfClosing, tag: '?', attrs: {}, _rawText: s.slice(p, endPI + 2) } as MarkdownToJSX.HTMLSelfClosingNode,
+        node: { type: RuleType.htmlSelfClosing, tag: '?', attrs: {}, _rawText: s.slice(p, endPI + 2), _isClosingTag: false } as MarkdownToJSX.HTMLSelfClosingNode,
         end: endPI + 2
       }
     }
@@ -4318,7 +4325,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
       var endCDATA = s.indexOf(']]>', i + 8)
       if (endCDATA !== -1 && endCDATA < e) {
         return {
-          node: { type: RuleType.htmlSelfClosing, tag: '![CDATA[', attrs: {}, _rawText: s.slice(p, endCDATA + 3) } as MarkdownToJSX.HTMLSelfClosingNode,
+          node: { type: RuleType.htmlSelfClosing, tag: '![CDATA[', attrs: {}, _rawText: s.slice(p, endCDATA + 3), _isClosingTag: false } as MarkdownToJSX.HTMLSelfClosingNode,
           end: endCDATA + 3
         }
       }
@@ -4329,7 +4336,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
       var endDecl = s.indexOf('>', i + 2)
       if (endDecl !== -1 && endDecl < e) {
         return {
-          node: { type: RuleType.htmlSelfClosing, tag: '!' + s.slice(i + 1, endDecl), attrs: {}, _rawText: s.slice(p, endDecl + 1) } as MarkdownToJSX.HTMLSelfClosingNode,
+          node: { type: RuleType.htmlSelfClosing, tag: '!' + s.slice(i + 1, endDecl), attrs: {}, _rawText: s.slice(p, endDecl + 1), _isClosingTag: false } as MarkdownToJSX.HTMLSelfClosingNode,
           end: endDecl + 1
         }
       }
@@ -4355,7 +4362,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
     if (j < e && s.charCodeAt(j) === $.CHAR_GT) {
       var closeTagName = s.slice(i + 1, j).trim()
       return {
-        node: { type: RuleType.htmlSelfClosing, tag: closeTagName, attrs: {}, _rawText: s.slice(p, j + 1), _isClosingTag: true } as MarkdownToJSX.HTMLSelfClosingNode,
+        node: { type: RuleType.htmlSelfClosing, tag: closeTagName, attrs: {}, _rawText: s.slice(p, j + 1), _isClosingTag: true } as MarkdownToJSX.HTMLSelfClosingNode & { _isClosingTag: boolean },
         end: j + 1
       }
     }
@@ -4381,6 +4388,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
         tag: tagName,
         attrs: processHTMLAttributes(tagResult.attrs, tagName, opts),
         _rawText: s.slice(p, tagResult.end),
+        _isClosingTag: false,
       } as MarkdownToJSX.HTMLSelfClosingNode,
       end: tagResult.end
     }
@@ -4394,7 +4402,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
   if (closeEnd === -1) {
     // No closing tag found - pass through as raw HTML open tag (CommonMark spec)
     return {
-      node: { type: RuleType.htmlSelfClosing, tag: tagName, attrs: processHTMLAttributes(tagResult.attrs, tagName, opts), _rawText: s.slice(p, tagResult.end) } as MarkdownToJSX.HTMLSelfClosingNode,
+      node: { type: RuleType.htmlSelfClosing, tag: tagName, attrs: processHTMLAttributes(tagResult.attrs, tagName, opts), _rawText: s.slice(p, tagResult.end), _isClosingTag: false } as MarkdownToJSX.HTMLSelfClosingNode,
       end: tagResult.end
     }
   }
@@ -4435,9 +4443,13 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
       attrs: processHTMLAttributes(tagResult.attrs, tagName, opts),
       _rawAttrs: tagResult.rawAttrs,
       children,
+      _rawText: undefined,
       text: innerContent,
       _verbatim: false,
-    } as MarkdownToJSX.HTMLNode,
+      _isClosingTag: false,
+      endPos: closeEnd,
+      _canInterrupt: false,
+    } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
     end: closeEnd
   }
 }
