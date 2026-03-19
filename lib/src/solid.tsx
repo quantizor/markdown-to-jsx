@@ -298,9 +298,7 @@ function render(
 
     case RuleType.table: {
       const table = node as MarkdownToJSX.TableNode
-      return h(
-        'table',
-        {},
+      var tableChildren = [
         h(
           'thead',
           {},
@@ -319,31 +317,34 @@ function render(
             })
           )
         ),
-        table.cells.length > 0
-          ? h(
-              'tbody',
-              {},
-              ...table.cells.map(function generateTableRow(row, i) {
-                return h(
-                  'tr',
-                  {},
-                  ...row.map(function generateTableCell(content, c) {
-                    return h(
-                      'td',
-                      {
-                        style:
-                          table.align[c] == null
-                            ? {}
-                            : { textAlign: table.align[c] },
-                      },
-                      ...toArray(output(content, state))
-                    )
-                  })
-                )
-              })
-            )
-          : null
-      )
+      ]
+      if (table.cells.length > 0) {
+        tableChildren.push(
+          h(
+            'tbody',
+            {},
+            ...table.cells.map(function generateTableRow(row, i) {
+              return h(
+                'tr',
+                {},
+                ...row.map(function generateTableCell(content, c) {
+                  return h(
+                    'td',
+                    {
+                      style:
+                        table.align[c] == null
+                          ? {}
+                          : { textAlign: table.align[c] },
+                    },
+                    ...toArray(output(content, state))
+                  )
+                })
+              )
+            })
+          )
+        )
+      }
+      return h('table', {}, ...tableChildren)
     }
 
     case RuleType.text:
