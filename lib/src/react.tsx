@@ -37,11 +37,12 @@ function createRawElement(
   props: any,
   key: any
 ): any {
-  // React's dev-mode reconciler sets element._store.validated to track
-  // whether elements were created via JSX vs createElement. Without _store,
-  // this throws "Cannot set properties of undefined (setting 'validated')".
-  // _store must be included unconditionally because the library build replaces
-  // process.env.NODE_ENV with "production", which strips dev-only branches.
+  // These internal properties must be included unconditionally because the
+  // library build replaces process.env.NODE_ENV, which strips dev-only branches.
+  // _store: React's dev reconciler writes _store.validated; without _store it throws.
+  // _debugStack/_debugTask: React's RSC Flight server (used by Next.js) warns
+  // "Attempted to render without development properties" when these are undefined.
+  // null (not undefined) satisfies the !== undefined check.
   return {
     $$typeof: REACT_ELEMENT_TYPE,
     type: type,
@@ -50,6 +51,8 @@ function createRawElement(
     props: props,
     _owner: null,
     _store: {},
+    _debugStack: null,
+    _debugTask: null,
   }
 }
 

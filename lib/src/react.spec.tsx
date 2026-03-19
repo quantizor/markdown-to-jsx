@@ -1472,6 +1472,8 @@ describe('arbitrary HTML', () => {
     expect(ast).toMatchInlineSnapshot(`
       {
         "$$typeof": Symbol(react.transitional.element),
+        "_debugStack": null,
+        "_debugTask": null,
         "_owner": null,
         "_store": {},
         "key": "0",
@@ -2636,6 +2638,8 @@ describe('options.wrapper', () => {
       [
         {
           "$$typeof": Symbol(react.transitional.element),
+          "_debugStack": null,
+          "_debugTask": null,
           "_owner": null,
           "_store": {},
           "key": "0",
@@ -2649,6 +2653,8 @@ describe('options.wrapper', () => {
         },
         {
           "$$typeof": Symbol(react.transitional.element),
+          "_debugStack": null,
+          "_debugTask": null,
           "_owner": null,
           "_store": {},
           "key": "1",
