@@ -377,12 +377,12 @@ function _renderNode(
     case RuleType.htmlComment: {
       var htmlCommentNode = node as MarkdownToJSX.HTMLCommentNode & {
         raw?: boolean
-        endsWithGreaterThan?: boolean
+        _endsWithGT?: boolean
       }
       if (htmlCommentNode.raw) {
         return htmlCommentNode.text
       }
-      if (htmlCommentNode.endsWithGreaterThan) {
+      if (htmlCommentNode._endsWithGT) {
         return '<!--' + node.text + '>'
       }
       return '<!--' + node.text + '-->'
