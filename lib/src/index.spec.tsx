@@ -29,6 +29,8 @@ describe('index.tsx exports', () => {
     expect(result).toMatchInlineSnapshot(`
       {
         "$$typeof": Symbol(react.transitional.element),
+        "_debugStack": null,
+        "_debugTask": null,
         "_owner": null,
         "_store": {},
         "key": "0",
