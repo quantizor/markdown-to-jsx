@@ -407,38 +407,40 @@ function render(
             })
           )
         ),
-        h(
-          View,
-          {},
-          tableNode.cells.map(function generateTableRow(row, i) {
-            return h(
+        tableNode.cells.length > 0
+          ? h(
               View,
-              { key: i, style: { flexDirection: 'row' } },
-              row.map(function generateTableCell(content, c) {
+              {},
+              tableNode.cells.map(function generateTableRow(row, i) {
                 return h(
                   View,
-                  {
-                    key: c,
-                    style: [
-                      styles.tableCell,
-                      tableNode.align[c] != null
-                        ? {
-                            alignItems:
-                              tableNode.align[c] === 'center'
-                                ? 'center'
-                                : tableNode.align[c] === 'right'
-                                  ? 'flex-end'
-                                  : 'flex-start',
-                          }
-                        : {},
-                    ],
-                  },
-                  output(content, state)
+                  { key: i, style: { flexDirection: 'row' } },
+                  row.map(function generateTableCell(content, c) {
+                    return h(
+                      View,
+                      {
+                        key: c,
+                        style: [
+                          styles.tableCell,
+                          tableNode.align[c] != null
+                            ? {
+                                alignItems:
+                                  tableNode.align[c] === 'center'
+                                    ? 'center'
+                                    : tableNode.align[c] === 'right'
+                                      ? 'flex-end'
+                                      : 'flex-start',
+                              }
+                            : {},
+                        ],
+                      },
+                      output(content, state)
+                    )
+                  })
                 )
-              })
-            )
           })
         )
+          : null
       )
     }
 

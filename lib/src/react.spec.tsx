@@ -1438,6 +1438,18 @@ describe('GFM tables', () => {
     )
   })
 
+  it('#513 should not render empty tbody when table has no data rows', () => {
+    render(
+      compiler(theredoc`
+        |9563|Some|Some text|
+        | --- | --- | --- |
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><thead><tr><th>9563</th><th>Some</th><th>Some text</th></tr></thead></table>"`)
+  })
+
   it('#641 handles only a single newline prior to the start of the table', () => {
     render(
       compiler(theredoc`

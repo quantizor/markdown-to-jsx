@@ -343,6 +343,12 @@ describe('tables', () => {
       compiler('| Left | Center |\n|:-----|:------:|\n| L    |   C    |')
     ).not.toBeNull()
   })
+
+  it('#513 should not render empty tbody when table has no data rows', () => {
+    const result = compiler('| A | B |\n|---|---|')
+    const str = JSON.stringify(result)
+    expect(str).not.toContain('tbody')
+  })
 })
 
 describe('blockquotes', () => {

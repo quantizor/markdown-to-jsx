@@ -471,6 +471,14 @@ describe('tables', () => {
     expect(getVNodeType(vnode.children?.[0] as VNode)).toBe('thead')
     expect(getVNodeType(vnode.children?.[1] as VNode)).toBe('tbody')
   })
+
+  it('#513 should not render empty tbody when table has no data rows', () => {
+    const result = compiler('| A | B |\n|---|---|')
+    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    const vnode = result
+    expect(vnode.children?.length).toBe(1)
+    expect(getVNodeType(vnode.children?.[0] as VNode)).toBe('thead')
+  })
 })
 
 describe('blockquotes', () => {

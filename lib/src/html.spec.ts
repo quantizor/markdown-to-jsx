@@ -777,6 +777,24 @@ describe('html compiler', () => {
       expect(result).toContain('<td')
     })
 
+    it('#513 should not render empty tbody when table has no data rows', () => {
+      const result = astToHTML(
+        [
+          {
+            type: RuleType.table,
+            align: ['left', 'right'],
+            header: [
+              [{ type: RuleType.text, text: 'Header 1' }],
+              [{ type: RuleType.text, text: 'Header 2' }],
+            ],
+            cells: [],
+          },
+        ],
+        {}
+      )
+      expect(result).toMatchInlineSnapshot(`"<table><thead><tr><th align="left">Header 1</th><th align="right">Header 2</th></tr></thead></table>"`)
+    })
+
     it('works with HTML blocks', () => {
       const result = astToHTML(
         [
