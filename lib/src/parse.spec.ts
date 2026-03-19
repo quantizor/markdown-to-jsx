@@ -126,6 +126,55 @@ describe('parser', () => {
       width: '100%',
     })
   })
+
+  it('should preserve > and < inside quoted attribute values (#263)', () => {
+    const result = p.parser(
+      '<CustomSmall data="hello > world"/>'
+    )
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "_canInterrupt": false,
+          "_isClosingTag": false,
+          "_rawAttrs": " data="hello > world"",
+          "_rawText": "",
+          "_verbatim": false,
+          "attrs": {
+            "data": "hello > world",
+          },
+          "children": [],
+          "endPos": 35,
+          "tag": "CustomSmall",
+          "text": "",
+          "type": "htmlBlock",
+        },
+      ]
+    `)
+
+    const result2 = p.parser(
+      '<Comp x="1>2" y="3<4"/>'
+    )
+    expect(result2).toMatchInlineSnapshot(`
+      [
+        {
+          "_canInterrupt": false,
+          "_isClosingTag": false,
+          "_rawAttrs": " x="1>2" y="3<4"",
+          "_rawText": "",
+          "_verbatim": false,
+          "attrs": {
+            "x": "1>2",
+            "y": "3<4",
+          },
+          "children": [],
+          "endPos": 23,
+          "tag": "Comp",
+          "text": "",
+          "type": "htmlBlock",
+        },
+      ]
+    `)
+  })
 })
 
 describe('parseMarkdown', () => {
@@ -1784,6 +1833,53 @@ describe('parseHTMLTag', () => {
     // Per CommonMark: < after tag name without whitespace is invalid
     const result = p.parseHTMLTag('<div<inner>>', 0)
     expect(result).toBeNull()
+  })
+
+  it('should parse > and < inside quoted attribute values (#263)', () => {
+    const result = p.parseHTMLTag('<CustomSmall data="hello > world"/>', 0)
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "attrs": "data="hello > world"",
+        "endPos": 35,
+        "hasNewline": false,
+        "hasSpaceBeforeSlash": false,
+        "isClosing": false,
+        "isSelfClosing": true,
+        "tagLower": "customsmall",
+        "tagName": "CustomSmall",
+        "whitespaceBeforeAttrs": " ",
+      }
+    `)
+
+    const result2 = p.parseHTMLTag('<CustomSmall data="hello < world"/>', 0)
+    expect(result2).toMatchInlineSnapshot(`
+      {
+        "attrs": "data="hello < world"",
+        "endPos": 35,
+        "hasNewline": false,
+        "hasSpaceBeforeSlash": false,
+        "isClosing": false,
+        "isSelfClosing": true,
+        "tagLower": "customsmall",
+        "tagName": "CustomSmall",
+        "whitespaceBeforeAttrs": " ",
+      }
+    `)
+
+    const result3 = p.parseHTMLTag('<Comp x="1>2" y="3<4"/>', 0)
+    expect(result3).toMatchInlineSnapshot(`
+      {
+        "attrs": "x="1>2" y="3<4"",
+        "endPos": 23,
+        "hasNewline": false,
+        "hasSpaceBeforeSlash": false,
+        "isClosing": false,
+        "isSelfClosing": true,
+        "tagLower": "comp",
+        "tagName": "Comp",
+        "whitespaceBeforeAttrs": " ",
+      }
+    `)
   })
 })
 
@@ -6273,6 +6369,133 @@ describe('text normalization edge cases', () => {
               },
               {
                 "text": "TEST",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue #271: backslash-escaped underscores are literal, unescaped ones still form emphasis
+    it('backslash-escaped underscores become literal text inside emphasis', () => {
+      // Per CommonMark: \_  is a literal underscore. The outer unescaped _ delimiters
+      // still form valid emphasis. Only \_ prevents that specific underscore from
+      // being a delimiter.
+      const result = p.parser('_{over\\_flow}_')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "{over",
+                    "type": "text",
+                  },
+                  {
+                    "text": "_",
+                    "type": "text",
+                  },
+                  {
+                    "text": "flow}",
+                    "type": "text",
+                  },
+                ],
+                "tag": "em",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue #271: escaping ALL underscores prevents emphasis entirely
+    it('all underscores escaped produces literal text', () => {
+      const result = p.parser('\\_test\\_')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "_",
+                "type": "text",
+              },
+              {
+                "text": "test",
+                "type": "text",
+              },
+              {
+                "text": "_",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue #271: escaped underscore inside emphasis is literal
+    it('escaped underscore inside emphasis is literal', () => {
+      const result = p.parser('*foo\\_bar*')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "foo",
+                    "type": "text",
+                  },
+                  {
+                    "text": "_",
+                    "type": "text",
+                  },
+                  {
+                    "text": "bar",
+                    "type": "text",
+                  },
+                ],
+                "tag": "em",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    // Issue #271: fully escaped example from the issue
+    it('all three underscores escaped produces all literal text', () => {
+      const result = p.parser('\\_{over\\_flow}\\_')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "_",
+                "type": "text",
+              },
+              {
+                "text": "{over",
+                "type": "text",
+              },
+              {
+                "text": "_",
+                "type": "text",
+              },
+              {
+                "text": "flow}",
+                "type": "text",
+              },
+              {
+                "text": "_",
                 "type": "text",
               },
             ],
