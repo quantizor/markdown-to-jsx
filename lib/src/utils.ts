@@ -277,7 +277,7 @@ slugifyReplaceTable[376] =
  * @returns True if alphanumeric
  */
 export function isAlnumCode(code: number): boolean {
-  return code < $.CHAR_ASCII_BOUNDARY && (charClassTable[code] & (CC_ALPHA | CC_DIGIT)) !== 0
+  return code < $.CHAR_ASCII_BOUNDARY && (CC[code] & (C_ALPHA | C_DIGIT)) !== 0
 }
 
 /**
@@ -303,7 +303,7 @@ export function slugify(str: string): string {
   for (var i = 0; i < s.length; i++) {
     var code = s.charCodeAt(i)
     // Inline alnum check: avoid function call per char
-    if (code < $.CHAR_ASCII_BOUNDARY && (charClassTable[code] & (CC_ALPHA | CC_DIGIT)) !== 0) {
+    if (code < $.CHAR_ASCII_BOUNDARY && (CC[code] & (C_ALPHA | C_DIGIT)) !== 0) {
       if (segStart < 0) segStart = i
     } else if (code === $.CHAR_SPACE || code === $.CHAR_DASH) {
       if (segStart >= 0) {
@@ -411,15 +411,15 @@ export const ATTRIBUTES_TO_SANITIZE: readonly string[] = [
   'action',
 ]
 
-// Character classification flags (bitfield) - optimized for fast lookup
+// Character classification flags (bitfield) - shared by parser and utils
 // These flags allow multiple classifications per character with bitwise AND/OR
-export const CC_WHITESPACE = 1 // space, tab, newline, cr, ff
-export const CC_PUNCTUATION = 2 // punctuation characters
-export const CC_ALPHA = 4 // a-z, A-Z
-export const CC_DIGIT = 8 // 0-9
-export const CC_NEWLINE = 16 // \n, \r
-export const CC_SPACE_TAB = 32 // space or tab only
-export const CC_ALPHA_UPPER = 64 // A-Z only
+export var C_WS = 1        // Whitespace (space, tab, newline, cr, ff)
+export var C_NL = 2        // Newline (\n, \r)
+export var C_PUNCT = 4     // Punctuation
+export var C_ALPHA = 8     // Letter (a-z, A-Z)
+export var C_DIGIT = 16    // Digit (0-9)
+export var C_BLOCK = 32    // Can start a block (parser-specific)
+export var C_INLINE = 64   // Can start inline syntax (parser-specific)
 
 // Inline character type constants
 // const INLINE_CHAR_TYPE_NORMAL = 0
@@ -428,29 +428,27 @@ const INLINE_CHAR_TYPE_ESCAPE = 2
 const INLINE_CHAR_TYPE_DELIMITER = 3
 const INLINE_CHAR_TYPE_LINK = 4
 
-// Lookup table for ASCII characters (0-127)
-// Combines multiple flags for efficient multi-purpose lookup
-export const charClassTable: Uint8Array = (function () {
-  const t = new Uint8Array(128)
-  let i
+// Unified character class lookup table (ASCII 0-127)
+// Shared by parser (parse.ts) and utilities (utils.ts)
+export var CC: Uint8Array = (function () {
+  var t = new Uint8Array(128)
+  var i
   // Whitespace characters
-  t[$.CHAR_TAB] = CC_WHITESPACE | CC_SPACE_TAB
-  t[$.CHAR_NEWLINE] = CC_WHITESPACE | CC_NEWLINE
-  t[$.CHAR_FF] = CC_WHITESPACE
-  t[$.CHAR_CR] = CC_WHITESPACE | CC_NEWLINE
-  t[$.CHAR_SPACE] = CC_WHITESPACE | CC_SPACE_TAB
-  // Punctuation ranges
-  for (i = $.CHAR_EXCLAMATION; i <= $.CHAR_SLASH; i++) t[i] = CC_PUNCTUATION
-  for (i = $.CHAR_COLON; i <= $.CHAR_AT; i++) t[i] = CC_PUNCTUATION
-  for (i = $.CHAR_BRACKET_OPEN; i <= $.CHAR_BACKTICK; i++)
-    t[i] = CC_PUNCTUATION
-  for (i = $.CHAR_BRACE_OPEN; i <= $.CHAR_TILDE; i++) t[i] = CC_PUNCTUATION
+  t[$.CHAR_TAB] = C_WS
+  t[$.CHAR_NEWLINE] = C_WS | C_NL
+  t[$.CHAR_FF] = C_WS
+  t[$.CHAR_CR] = C_WS | C_NL
+  t[$.CHAR_SPACE] = C_WS
+  // Punctuation ranges (all ASCII punctuation for CommonMark escape handling)
+  for (i = $.CHAR_EXCLAMATION; i <= $.CHAR_SLASH; i++) t[i] = C_PUNCT
+  for (i = $.CHAR_COLON; i <= $.CHAR_AT; i++) t[i] = C_PUNCT
+  for (i = $.CHAR_BRACKET_OPEN; i <= $.CHAR_BACKTICK; i++) t[i] = C_PUNCT
+  for (i = $.CHAR_BRACE_OPEN; i <= $.CHAR_TILDE; i++) t[i] = C_PUNCT
   // Digits 0-9
-  for (i = $.CHAR_DIGIT_0; i <= $.CHAR_DIGIT_9; i++) t[i] = CC_DIGIT
-  // Uppercase letters A-Z
-  for (i = $.CHAR_A; i <= $.CHAR_Z; i++) t[i] = CC_ALPHA | CC_ALPHA_UPPER
-  // Lowercase letters a-z
-  for (i = $.CHAR_a; i <= $.CHAR_z; i++) t[i] = CC_ALPHA
+  for (i = $.CHAR_DIGIT_0; i <= $.CHAR_DIGIT_9; i++) t[i] = C_DIGIT
+  // Letters
+  for (i = $.CHAR_A; i <= $.CHAR_Z; i++) t[i] = C_ALPHA
+  for (i = $.CHAR_a; i <= $.CHAR_z; i++) t[i] = C_ALPHA
   return t
 })()
 
@@ -479,30 +477,15 @@ export const inlineCharTypeTable: Uint8Array = (function () {
 export function isASCIIPunctuation(code: number): boolean {
   return (
     code < $.CHAR_ASCII_BOUNDARY &&
-    (charClassTable[code] & CC_PUNCTUATION) !== 0
+    (CC[code] & C_PUNCT) !== 0
   )
 }
 
 export function isASCIIWhitespace(code: number): boolean {
   return (
     code < $.CHAR_ASCII_BOUNDARY &&
-    (charClassTable[code] & CC_WHITESPACE) !== 0
+    (CC[code] & C_WS) !== 0
   )
-}
-
-// Fast check for space or tab only (not newlines)
-export function isSpaceOrTabCode(code: number): boolean {
-  return code < $.CHAR_ASCII_BOUNDARY && (charClassTable[code] & CC_SPACE_TAB) !== 0
-}
-
-// Fast check for alpha (a-z, A-Z)
-export function isAlphaCode(code: number): boolean {
-  return code < $.CHAR_ASCII_BOUNDARY && (charClassTable[code] & CC_ALPHA) !== 0
-}
-
-// Fast check for digit (0-9)
-export function isDigitCode(code: number): boolean {
-  return code < $.CHAR_ASCII_BOUNDARY && (charClassTable[code] & CC_DIGIT) !== 0
 }
 
 // Unicode property escapes for spec-compliant character classification
@@ -516,19 +499,19 @@ export function isUnicodeWhitespace(c: string): boolean {
   if (!c) return true
   const code = c.charCodeAt(0)
   return code < $.CHAR_ASCII_BOUNDARY
-    ? (charClassTable[code] & CC_WHITESPACE) !== 0
+    ? (CC[code] & C_WS) !== 0
     : UNICODE_WHITESPACE_R.test(c)
 }
 
 export function isUnicodePunctuation(c: string | number): boolean {
   if (typeof c === 'number')
     return (
-      c < $.CHAR_ASCII_BOUNDARY && (charClassTable[c] & CC_PUNCTUATION) !== 0
+      c < $.CHAR_ASCII_BOUNDARY && (CC[c] & C_PUNCT) !== 0
     )
   if (!c) return false
   const code = c.charCodeAt(0)
   return code < $.CHAR_ASCII_BOUNDARY
-    ? (charClassTable[code] & CC_PUNCTUATION) !== 0
+    ? (CC[code] & C_PUNCT) !== 0
     : UNICODE_PUNCT_R.test(c)
 }
 

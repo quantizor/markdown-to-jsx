@@ -8,6 +8,7 @@
 import { RuleType, type MarkdownToJSX } from './types'
 import * as $ from './constants'
 import * as util from './utils'
+import { CC as _CC, C_WS, C_NL, C_PUNCT, C_ALPHA, C_DIGIT, C_BLOCK, C_INLINE } from './utils'
 
 // ============================================================================
 // EXPORTS FOR REACT.TSX COMPATIBILITY
@@ -551,68 +552,27 @@ export function parseRefDef(
 // ============================================================================
 // CHARACTER CLASSIFICATION TABLE
 // ============================================================================
-// Bitfield flags for character classification
-const C_WS = 1        // Whitespace (space, tab, newline)
-const C_NL = 2        // Newline
-const C_PUNCT = 4     // Punctuation
-const C_ALPHA = 8     // Letter
-const C_DIGIT = 16    // Digit
-const C_BLOCK = 32    // Can start a block
-const C_INLINE = 64   // Can start inline syntax
+// Base table (WS, NL, PUNCT, ALPHA, DIGIT) imported from utils.ts
+// Parser overlays BLOCK/INLINE flags for syntax dispatch
+var CC = new Uint8Array(_CC)
 
-// Character class lookup table (ASCII 0-127)
-const CC = new Uint8Array(128)
+// Parser-specific: hard break marker is whitespace
+CC[$.CHAR_UNIT_SEP] = C_WS
 
-// Initialize character classes
-// Whitespace
-CC[$.CHAR_SPACE] = C_WS                          // space
-CC[$.CHAR_TAB] = C_WS                           // tab
-CC[$.CHAR_NEWLINE] = C_WS | C_NL                   // newline
-CC[$.CHAR_CR] = C_WS | C_NL                   // carriage return
-CC[$.CHAR_UNIT_SEP] = C_WS                      // \u001F hard break marker
-
-// Block starters
-CC[$.CHAR_HASH] = C_BLOCK | C_PUNCT             // # (heading)
-CC[$.CHAR_GT] = C_BLOCK | C_PUNCT             // > (blockquote)
-CC[$.CHAR_DASH] = C_BLOCK | C_INLINE | C_PUNCT  // - (list, thematic, strikethrough)
-CC[$.CHAR_PLUS] = C_BLOCK | C_PUNCT             // + (list)
-CC[$.CHAR_ASTERISK] = C_BLOCK | C_INLINE | C_PUNCT  // * (list, thematic, emphasis)
-CC[$.CHAR_UNDERSCORE] = C_BLOCK | C_INLINE | C_PUNCT  // _ (thematic, emphasis)
-CC[$.CHAR_BACKTICK] = C_BLOCK | C_INLINE | C_PUNCT  // ` (code fence, code span)
-CC[$.CHAR_TILDE] = C_BLOCK | C_INLINE | C_PUNCT // ~ (code fence, strikethrough)
-CC[$.CHAR_LT] = C_BLOCK | C_INLINE | C_PUNCT  // < (HTML, autolink)
-CC[$.CHAR_BRACKET_OPEN] = C_INLINE | C_PUNCT            // [ (link, image, footnote)
-CC[$.CHAR_EXCLAMATION] = C_INLINE | C_PUNCT            // ! (image)
-CC[$.CHAR_PIPE] = C_BLOCK | C_PUNCT            // | (table)
-
-// Digits
-for (let i = $.CHAR_DIGIT_0; i <= $.CHAR_DIGIT_9; i++) CC[i] = C_DIGIT | C_BLOCK  // 0-9 (ordered list)
-
-// Letters
-for (let i = $.CHAR_A; i <= $.CHAR_Z; i++) CC[i] = C_ALPHA   // A-Z
-for (let i = $.CHAR_a; i <= $.CHAR_z; i++) CC[i] = C_ALPHA  // a-z
-
-// Other punctuation - all ASCII punctuation must be classified for CommonMark escape handling
-CC[$.CHAR_BACKSLASH] = C_PUNCT   // \ (escape)
-CC[$.CHAR_BRACKET_CLOSE] = C_PUNCT   // ]
-CC[$.CHAR_PAREN_OPEN] = C_PUNCT   // (
-CC[$.CHAR_PAREN_CLOSE] = C_PUNCT   // )
-CC[$.CHAR_COLON] = C_PUNCT   // :
-CC[$.CHAR_DOUBLE_QUOTE] = C_PUNCT   // "
-CC[$.CHAR_SINGLE_QUOTE] = C_PUNCT   // '
-CC[$.CHAR_AMPERSAND] = C_PUNCT   // &
-CC[$.CHAR_EQ] = C_PUNCT   // =
-CC[$.CHAR_DOLLAR] = C_PUNCT   // $
-CC[$.CHAR_PERCENT] = C_PUNCT   // %
-CC[$.CHAR_COMMA] = C_PUNCT   // ,
-CC[$.CHAR_PERIOD] = C_PUNCT   // .
-CC[$.CHAR_SLASH] = C_PUNCT   // /
-CC[$.CHAR_SEMICOLON] = C_PUNCT   // ;
-CC[$.CHAR_QUESTION] = C_PUNCT   // ?
-CC[$.CHAR_AT] = C_PUNCT   // @
-CC[$.CHAR_CARET] = C_PUNCT   // ^
-CC[$.CHAR_BRACE_OPEN] = C_PUNCT  // {
-CC[$.CHAR_BRACE_CLOSE] = C_PUNCT  // }
+// Parser-specific: block/inline starter flags
+CC[$.CHAR_HASH] |= C_BLOCK                        // # (heading)
+CC[$.CHAR_GT] |= C_BLOCK                        // > (blockquote)
+CC[$.CHAR_DASH] |= C_BLOCK | C_INLINE             // - (list, thematic, strikethrough)
+CC[$.CHAR_PLUS] |= C_BLOCK                        // + (list)
+CC[$.CHAR_ASTERISK] |= C_BLOCK | C_INLINE           // * (list, thematic, emphasis)
+CC[$.CHAR_UNDERSCORE] |= C_BLOCK | C_INLINE           // _ (thematic, emphasis)
+CC[$.CHAR_BACKTICK] |= C_BLOCK | C_INLINE           // ` (code fence, code span)
+CC[$.CHAR_TILDE] |= C_BLOCK | C_INLINE           // ~ (code fence, strikethrough)
+CC[$.CHAR_LT] |= C_BLOCK | C_INLINE             // < (HTML, autolink)
+CC[$.CHAR_BRACKET_OPEN] |= C_INLINE                   // [ (link, image, footnote)
+CC[$.CHAR_EXCLAMATION] |= C_INLINE                   // ! (image)
+CC[$.CHAR_PIPE] |= C_BLOCK                        // | (table)
+for (var i = $.CHAR_DIGIT_0; i <= $.CHAR_DIGIT_9; i++) CC[i] |= C_BLOCK  // 0-9 (ordered list)
 
 /** Check if string contains unescaped [ or ] */
 function hasUnescapedBracket(s: string): boolean {
