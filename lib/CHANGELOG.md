@@ -1,5 +1,21 @@
 # markdown-to-jsx
 
+## 9.7.11
+
+### Patch Changes
+
+- 5eecb05: Skip rendering empty tbody when a table has only a header row and no data rows.
+
+  仅有表头行而无数据行的表格不再渲染空的 tbody。
+
+  केवल हेडर पंक्ति और कोई डेटा पंक्ति न होने पर खाली tbody रेंडर नहीं किया जाता।
+
+- 130cc33: Suppress React 19 RSC development warning about missing internal properties on manually-created elements.
+
+  修复 React 19 RSC 开发模式下手动创建的元素缺少内部属性时产生的警告。
+
+  React 19 RSC के विकास मोड में मैन्युअल रूप से बनाए गए तत्वों पर आंतरिक गुणों की अनुपस्थिति संबंधी चेतावनी को ठीक किया।
+
 ## 9.7.10
 
 ### Patch Changes
