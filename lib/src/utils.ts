@@ -464,8 +464,8 @@ export function isASCIIWhitespace(code: number): boolean {
 // Per GFM spec Section 2.1: "A punctuation character is a character in the general Unicode categories
 // Pc, Pd, Pe, Pf, Pi, Po, or Ps" - this is \p{P}
 // BUT also includes some currency symbols and other symbols per the spec's explicit list
-export var UNICODE_PUNCT_R = /[\p{P}\p{S}]/u
-export var UNICODE_WHITESPACE_R = /\p{Zs}/u
+export var UNICODE_PUNCT_R: RegExp = /[\p{P}\p{S}]/u
+export var UNICODE_WHITESPACE_R: RegExp = /\p{Zs}/u
 
 export function isUnicodeWhitespace(c: string): boolean {
   if (!c) return true
