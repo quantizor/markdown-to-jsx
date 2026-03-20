@@ -16,7 +16,7 @@
     "rimraf": "^6.1.0"
   },
   "scripts": {
-    "build": "pushd lib; bun run build; popd",
+    "build": "pushd lib; bun run build; popd && bun scripts/verify-declarations.ts",
     "build-site": "pushd site; bun run build; popd",
     "dev": "bun run --filter @markdown-to-jsx/site dev",
     "entities": "bun scripts/generate-entities.ts",
