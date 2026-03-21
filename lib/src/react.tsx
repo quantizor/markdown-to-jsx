@@ -867,6 +867,14 @@ export function compiler(
           processedInput = processedInput.slice(0, lastLt)
         }
       }
+      // Apply the same truncation to inline input
+      lastLt = input.lastIndexOf('<')
+      if (lastLt !== -1) {
+        let afterLt = input.slice(lastLt)
+        if (afterLt.indexOf('>') === -1) {
+          input = input.slice(0, lastLt)
+        }
+      }
     }
 
     let astNodes = parse.parseMarkdown(

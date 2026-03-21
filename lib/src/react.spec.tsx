@@ -3725,3 +3725,76 @@ describe('optimizeForStreaming option', () => {
     expect(result).toContain('complete')
   })
 })
+
+
+
+describe('optimizeForStreaming with custom JSX overrides', () => {
+  it('strips a trailing incomplete custom tag in inline content', () => {
+    const Citation: React.FC = () => <cite />
+    render(
+      compiler('Hello <Citation', {
+        optimizeForStreaming: true,
+        overrides: { Citation },
+      })
+    )
+    expect(root.innerHTML).toContain('Hello')
+    expect(root.innerHTML).not.toContain('Citation')
+  })
+
+  it('preserves successive self-closing override components', () => {
+    const CustomButton: React.FC<
+      React.JSX.IntrinsicElements['button']
+    > = props => <button {...props} />
+    render(
+      compiler('<CustomButton /><CustomButton />', {
+        optimizeForStreaming: true,
+        overrides: { CustomButton },
+      })
+    )
+    expect(root.innerHTML).toBe(
+      '<span><button></button><button></button></span>'
+    )
+  })
+  it('strips a trailing bare < after complete override components', () => {
+    const CustomButton: React.FC<
+      React.JSX.IntrinsicElements['button']
+    > = props => <button {...props} />
+    render(
+      compiler('<CustomButton /><CustomButton /><', {
+        optimizeForStreaming: true,
+        overrides: { CustomButton },
+      })
+    )
+    expect(root.innerHTML).toBe(
+      '<span><button></button><button></button></span>'
+    )
+  })
+  it('strips a trailing incomplete tag name after complete override components', () => {
+    const CustomButton: React.FC<
+      React.JSX.IntrinsicElements['button']
+    > = props => <button {...props} />
+    render(
+      compiler('<CustomButton /><CustomButton /><CustomButton', {
+        optimizeForStreaming: true,
+        overrides: { CustomButton },
+      })
+    )
+    expect(root.innerHTML).toBe(
+      '<span><button></button><button></button></span>'
+    )
+  })
+  it('renders three complete self-closing override components', () => {
+    const CustomButton: React.FC<
+      React.JSX.IntrinsicElements['button']
+    > = props => <button {...props} />
+    render(
+      compiler('<CustomButton /><CustomButton /><CustomButton />', {
+        optimizeForStreaming: true,
+        overrides: { CustomButton },
+      })
+    )
+    expect(root.innerHTML).toBe(
+      '<span><button></button><button></button><button></button></span>'
+    )
+  })
+})

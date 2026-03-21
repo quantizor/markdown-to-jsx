@@ -4595,19 +4595,24 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
     // But skip if the tag is inside a code span (backticks)
     const tagMatch = content.match(/<([A-Z][A-Za-z0-9]*)(?:\s[^>]*)?>([^<]*)$/)
     if (tagMatch && tagMatch.index !== undefined) {
-      // Check if the match position is inside backtick code spans
-      var inCodeSpan = false
-      var btCount = 0
-      for (var ci = 0; ci < tagMatch.index; ci++) {
-        if (content.charCodeAt(ci) === $.CHAR_BACKTICK) btCount++
-      }
-      inCodeSpan = btCount % 2 === 1
-      if (!inCodeSpan) {
-        const tagName = tagMatch[1]
-        // Only strip if there's no closing tag for this tag
-        if (indexOfCI(content, '</' + tagName, 0) === -1) {
-          // Strip the unclosed tag but keep the inner content
-          content = content.replace(/<[A-Z][A-Za-z0-9]*(?:\s[^>]*)?>([^<]*)$/, '$1')
+      // Skip self-closing tags (e.g. <Tag />) — they are complete
+      var tagPortionLen = tagMatch[0].length - tagMatch[2].length
+      var isSelfClosingTag = tagPortionLen >= 2 && tagMatch[0].charCodeAt(tagPortionLen - 2) === $.CHAR_SLASH
+      if (!isSelfClosingTag) {
+        // Check if the match position is inside backtick code spans
+        var inCodeSpan = false
+        var btCount = 0
+        for (var ci = 0; ci < tagMatch.index; ci++) {
+          if (content.charCodeAt(ci) === $.CHAR_BACKTICK) btCount++
+        }
+        inCodeSpan = btCount % 2 === 1
+        if (!inCodeSpan) {
+          const tagName = tagMatch[1]
+          // Only strip if there's no closing tag for this tag
+          if (indexOfCI(content, '</' + tagName, 0) === -1) {
+            // Strip the unclosed tag but keep the inner content
+            content = content.replace(/<[A-Z][A-Za-z0-9]*(?:\s[^>]*)?>([^<]*)$/, '$1')
+          }
         }
       }
     }
@@ -4862,7 +4867,7 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
           // find '>' after tag name
           var hg = hn
           while (hg < s.length && s.charCodeAt(hg) !== $.CHAR_GT) hg++
-          if (hg < s.length) {
+          if (hg < s.length && s.charCodeAt(hg - 1) !== $.CHAR_SLASH) {
             // verify no '<' in content after '>'
             var hasLt = false
             for (var hk = hg + 1; hk < s.length; hk++) {
