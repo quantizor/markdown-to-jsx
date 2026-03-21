@@ -3755,6 +3755,18 @@ describe('optimizeForStreaming with custom JSX overrides', () => {
       '<span><button></button><button></button></span>'
     )
   })
+  it('preserves self-closing override components with attributes', () => {
+    const CustomButton: React.FC<
+      React.JSX.IntrinsicElements['button']
+    > = props => <button {...props} />
+    render(
+      compiler('<CustomButton label="hi" />', {
+        optimizeForStreaming: true,
+        overrides: { CustomButton },
+      })
+    )
+    expect(root.innerHTML).toBe('<button label="hi"></button>')
+  })
   it('strips a trailing bare < after complete override components', () => {
     const CustomButton: React.FC<
       React.JSX.IntrinsicElements['button']
