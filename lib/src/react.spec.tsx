@@ -1464,6 +1464,34 @@ describe('GFM tables', () => {
       `"<div><p>Test</p><table><thead><tr><th>Nested HTML</th><th>Link</th></tr></thead><tbody><tr><td><div><strong>Nested</strong></div></td><td><a href="www.google.com">I&#x27;m a <code>link</code></a></td></tr></tbody></table></div>"`
     )
   })
+
+  it('assigns key prop to thead and tbody', () => {
+    const ast = compiler(theredoc`
+        |foo|bar|
+        ---|---
+        1  |2
+      `)
+
+    expect(React.isValidElement(ast)).toBe(true)
+    if (!React.isValidElement(ast)) return
+
+    const { children } = ast.props as { children: React.ReactElement[] }
+
+    const thead = children.find(
+      (child): child is React.ReactElement =>
+        React.isValidElement(child) && child.type === 'thead'
+    )
+    const tbody = children.find(
+      (child): child is React.ReactElement =>
+        React.isValidElement(child) && child.type === 'tbody'
+    )
+
+    expect(thead).toBeDefined()
+    expect(thead?.key).toBe('thead')
+
+    expect(tbody).toBeDefined()
+    expect(tbody?.key).toBe('tbody')
+  })
 })
 
 describe('arbitrary HTML', () => {
