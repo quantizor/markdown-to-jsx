@@ -138,6 +138,19 @@ describe('parseFrontmatterBounds', () => {
     expect(result).toEqual({ endPos: 21, hasValidYaml: true })
   })
 
+  it('should validate YAML keys correctly with CRLF line endings', () => {
+    expect(u.parseFrontmatterBounds('---\r\ntitle: Hello\r\n---\r\n')).toEqual({
+      endPos: 24,
+      hasValidYaml: true,
+    })
+    expect(
+      u.parseFrontmatterBounds('---\r\ndescription:\r\n---\r\n')
+    ).toEqual({ endPos: 24, hasValidYaml: true })
+    expect(
+      u.parseFrontmatterBounds('---\r\n**Subject: Hello**\r\n---\r\n')
+    ).toEqual({ endPos: 30, hasValidYaml: false })
+  })
+
   it('should reject markdown bold with colon (false positive)', () => {
     const result = u.parseFrontmatterBounds('---\n**Subject: Hello**\n---\n')
     expect(result).toEqual({ endPos: 27, hasValidYaml: false })
@@ -170,6 +183,13 @@ describe('parseFrontmatterBounds', () => {
       '---\n\n**Subject: Hello World**\n\nSome content.\n\n---\n'
     )
     expect(result).toEqual({ endPos: 50, hasValidYaml: false })
+  })
+
+  it('should detect YAML when valid key exists among non-YAML lines', () => {
+    const result = u.parseFrontmatterBounds(
+      '---\nnot yaml\ntitle: value\nalso not yaml\n---\n'
+    )
+    expect(result).toEqual({ endPos: 44, hasValidYaml: true })
   })
 })
 

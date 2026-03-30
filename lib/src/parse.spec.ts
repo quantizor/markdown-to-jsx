@@ -4077,6 +4077,17 @@ describe('CRLF line endings', () => {
         ]
       `)
     })
+
+    it('should not consume content as frontmatter when colons appear in markdown (issue #861)', () => {
+      const result = p.parser(
+        '---\n\n**Subject: Hello World**\n\nSome content here.\n\n---\n\n> Final section'
+      )
+      expect(result[0].type).toBe('breakThematic')
+      expect(result[1].type).toBe('paragraph')
+      expect(result[3].type).toBe('breakThematic')
+      expect(result[4].type).toBe('blockQuote')
+      expect(result).toHaveLength(5)
+    })
   })
 
   describe('complex documents', () => {
