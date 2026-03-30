@@ -3443,6 +3443,18 @@ tags:
       `
     )
   })
+
+  it('should not treat thematic break with colons in content as frontmatter (issue #861)', () => {
+    render(
+      compiler(
+        '---\n\n**Subject: Hello World**\n\nSome content here.\n\n---\n\n> Final section'
+      )
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><hr/><p><strong>Subject: Hello World</strong></p><p>Some content here.</p><hr/><blockquote><p>Final section</p></blockquote></div>"`
+    )
+  })
 })
 
 describe('options immutability', () => {

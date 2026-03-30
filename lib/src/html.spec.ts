@@ -1522,6 +1522,16 @@ tags:
         '<pre>---\ntitle: My Document\nauthor: John Doe\ndate: 2023-11-22\ntags:\n  - test\n  - example\n---</pre><h1 id="content">Content</h1>'
       )
     })
+
+    it('should not treat thematic break with colons in content as frontmatter (issue #861)', () => {
+      const result = compiler(
+        '---\n\n**Subject: Hello World**\n\nSome content here.\n\n---\n\n> Final section'
+      )
+
+      expect(result).toMatchInlineSnapshot(
+        `"<div><hr /><p><strong>Subject: Hello World</strong></p><p>Some content here.</p><hr /><blockquote><p>Final section</p></blockquote></div>"`
+      )
+    })
   })
 })
 

@@ -417,6 +417,13 @@ declare namespace MarkdownToJSX {
     ) => React.ReactNode
 
     /**
+     * Disable frontmatter detection at the start of the document.
+     * When enabled, `---` at position 0 will be parsed as a thematic break
+     * instead of being treated as a YAML frontmatter delimiter.
+     */
+    disableFrontmatter: boolean
+
+    /**
      * The library automatically generates an anchor tag for bare URLs included in the markdown
      * document, but this behavior can be disabled if desired.
      */

@@ -3963,6 +3963,120 @@ describe('CRLF line endings', () => {
     it('should handle YAML frontmatter', () => {
       expectCRLFEquivalent('---\ntitle: Test\nauthor: Me\n---\n\nContent')
     })
+
+    it('should skip frontmatter detection when disableFrontmatter is true', () => {
+      const result = p.parser('---\ntitle: Hello\n---\ncontent', {
+        disableFrontmatter: true,
+      })
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "type": "breakThematic",
+          },
+          {
+            "children": [
+              {
+                "text": "title: Hello",
+                "type": "text",
+              },
+            ],
+            "id": "title-hello",
+            "level": 2,
+            "type": "heading",
+          },
+          {
+            "children": [
+              {
+                "text": "content",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('should detect frontmatter normally when disableFrontmatter is not set', () => {
+      const result = p.parser('---\ntitle: Hello\n---\ncontent')
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "text": 
+        "---
+        title: Hello
+        ---"
+        ,
+            "type": "frontmatter",
+          },
+          {
+            "children": [
+              {
+                "text": "content",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('should parse issue #861 input as thematic breaks when disableFrontmatter is true', () => {
+      const result = p.parser(
+        '---\n\n**Subject: Hello World**\n\nSome content here.\n\n---\n\n> Final section',
+        { disableFrontmatter: true }
+      )
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "type": "breakThematic",
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "Subject: Hello World",
+                    "type": "text",
+                  },
+                ],
+                "tag": "strong",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+          {
+            "children": [
+              {
+                "text": "Some content here.",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+          {
+            "type": "breakThematic",
+          },
+          {
+            "alert": undefined,
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "Final section",
+                    "type": "text",
+                  },
+                ],
+                "type": "paragraph",
+              },
+            ],
+            "type": "blockQuote",
+          },
+        ]
+      `)
+    })
   })
 
   describe('complex documents', () => {
