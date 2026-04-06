@@ -4975,7 +4975,7 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
   const e = s.length
 
   // Check for frontmatter at the start of the document (requires valid YAML)
-  if (p === 0 && s.startsWith('---')) {
+  if (p === 0 && !opts.disableFrontmatter && s.startsWith('---')) {
     const bounds = util.parseFrontmatterBounds(s)
     if (bounds && bounds.hasValidYaml) {
       // Output frontmatter by default, skip only if preserveFrontmatter === false

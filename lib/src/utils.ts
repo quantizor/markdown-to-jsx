@@ -33,10 +33,45 @@ export function parseFrontmatterBounds(
     if (pos < input.length && input[pos] === '\n') pos++
     if (startsWith(input, '---', lineStart))
       return { endPos: pos, hasValidYaml }
-    // Check if line contains ':' anywhere
-    // OPTIMIZATION: Use indexOf directly to avoid slice allocation
-    const colonIndex = input.indexOf(':', lineStart)
-    if (colonIndex !== -1 && colonIndex < lineEnd) hasValidYaml = true
+    // Validate YAML key-value pattern: [ws] key ":" (space|tab|EOL)
+    if (!hasValidYaml) {
+      let scanPos = skipWhitespace(input, lineStart, lineEnd)
+      if (scanPos < lineEnd) {
+        let c = input.charCodeAt(scanPos)
+        if (
+          (c >= $.CHAR_a && c <= $.CHAR_z) ||
+          (c >= $.CHAR_A && c <= $.CHAR_Z) ||
+          (c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9) ||
+          c === $.CHAR_UNDERSCORE
+        ) {
+          scanPos++
+          while (scanPos < lineEnd) {
+            c = input.charCodeAt(scanPos)
+            if (
+              (c >= $.CHAR_a && c <= $.CHAR_z) ||
+              (c >= $.CHAR_A && c <= $.CHAR_Z) ||
+              (c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9) ||
+              c === $.CHAR_UNDERSCORE ||
+              c === $.CHAR_DASH ||
+              c === $.CHAR_PERIOD
+            ) {
+              scanPos++
+            } else {
+              break
+            }
+          }
+          if (scanPos < lineEnd && input.charCodeAt(scanPos) === $.CHAR_COLON) {
+            scanPos++
+            if (scanPos >= lineEnd) {
+              hasValidYaml = true
+            } else {
+              c = input.charCodeAt(scanPos)
+              if (c === $.CHAR_SPACE || c === $.CHAR_TAB) hasValidYaml = true
+            }
+          }
+        }
+      }
+    }
   }
   return null
 }
