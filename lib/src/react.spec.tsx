@@ -1466,31 +1466,28 @@ describe('GFM tables', () => {
   })
 
   it('assigns key prop to thead and tbody', () => {
-    const ast = compiler(theredoc`
+    const root = compiler(theredoc`
         |foo|bar|
         ---|---
         1  |2
-      `)
+      `) as React.ReactElement
 
-    expect(React.isValidElement(ast)).toBe(true)
-    if (!React.isValidElement(ast)) return
+    const children = (root.props as { children: React.ReactElement[] })
+      .children
 
-    const { children } = ast.props as { children: React.ReactElement[] }
+    expect(
+      children.find(
+        (c): c is React.ReactElement =>
+          React.isValidElement(c) && c.type === 'thead'
+      )?.key
+    ).toMatchInlineSnapshot(`"thead"`)
 
-    const thead = children.find(
-      (child): child is React.ReactElement =>
-        React.isValidElement(child) && child.type === 'thead'
-    )
-    const tbody = children.find(
-      (child): child is React.ReactElement =>
-        React.isValidElement(child) && child.type === 'tbody'
-    )
-
-    expect(thead).toBeDefined()
-    expect(thead?.key).toBe('thead')
-
-    expect(tbody).toBeDefined()
-    expect(tbody?.key).toBe('tbody')
+    expect(
+      children.find(
+        (c): c is React.ReactElement =>
+          React.isValidElement(c) && c.type === 'tbody'
+      )?.key
+    ).toMatchInlineSnapshot(`"tbody"`)
   })
 })
 
