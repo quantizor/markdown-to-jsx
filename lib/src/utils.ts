@@ -34,45 +34,40 @@ export function parseFrontmatterBounds(
     if (startsWith(input, '---', lineStart))
       return { endPos: pos, hasValidYaml }
     // Validate YAML key-value pattern: [ws] key ":" (space|tab|EOL)
-    let scanPos = lineStart
-    // Skip leading whitespace
-    while (scanPos < lineEnd && (input[scanPos] === ' ' || input[scanPos] === '\t'))
-      scanPos++
-    // Check for valid key start char: a-z, A-Z, 0-9, _
-    if (scanPos < lineEnd) {
-      let c = input.charCodeAt(scanPos)
-      if (
-        (c >= $.CHAR_a && c <= $.CHAR_z) ||
-        (c >= $.CHAR_A && c <= $.CHAR_Z) ||
-        (c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9) ||
-        c === $.CHAR_UNDERSCORE
-      ) {
-        scanPos++
-        // Consume key continuation chars: a-z, A-Z, 0-9, _, -, .
-        while (scanPos < lineEnd) {
-          c = input.charCodeAt(scanPos)
-          if (
-            (c >= $.CHAR_a && c <= $.CHAR_z) ||
-            (c >= $.CHAR_A && c <= $.CHAR_Z) ||
-            (c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9) ||
-            c === $.CHAR_UNDERSCORE ||
-            c === $.CHAR_DASH ||
-            c === $.CHAR_PERIOD
-          ) {
-            scanPos++
-          } else {
-            break
-          }
-        }
-        // Require colon
-        if (scanPos < lineEnd && input.charCodeAt(scanPos) === $.CHAR_COLON) {
+    if (!hasValidYaml) {
+      let scanPos = skipWhitespace(input, lineStart, lineEnd)
+      if (scanPos < lineEnd) {
+        let c = input.charCodeAt(scanPos)
+        if (
+          (c >= $.CHAR_a && c <= $.CHAR_z) ||
+          (c >= $.CHAR_A && c <= $.CHAR_Z) ||
+          (c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9) ||
+          c === $.CHAR_UNDERSCORE
+        ) {
           scanPos++
-          // After colon: accept space, tab, or EOL
-          if (scanPos >= lineEnd) {
-            hasValidYaml = true
-          } else {
+          while (scanPos < lineEnd) {
             c = input.charCodeAt(scanPos)
-            if (c === $.CHAR_SPACE || c === $.CHAR_TAB) hasValidYaml = true
+            if (
+              (c >= $.CHAR_a && c <= $.CHAR_z) ||
+              (c >= $.CHAR_A && c <= $.CHAR_Z) ||
+              (c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9) ||
+              c === $.CHAR_UNDERSCORE ||
+              c === $.CHAR_DASH ||
+              c === $.CHAR_PERIOD
+            ) {
+              scanPos++
+            } else {
+              break
+            }
+          }
+          if (scanPos < lineEnd && input.charCodeAt(scanPos) === $.CHAR_COLON) {
+            scanPos++
+            if (scanPos >= lineEnd) {
+              hasValidYaml = true
+            } else {
+              c = input.charCodeAt(scanPos)
+              if (c === $.CHAR_SPACE || c === $.CHAR_TAB) hasValidYaml = true
+            }
           }
         }
       }

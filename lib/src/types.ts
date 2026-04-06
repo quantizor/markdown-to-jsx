@@ -418,7 +418,7 @@ declare namespace MarkdownToJSX {
 
     /**
      * Disable frontmatter detection at the start of the document.
-     * When enabled, `---` at position 0 will be parsed as a thematic break
+     * When `true`, `---` at position 0 will be parsed as a thematic break
      * instead of being treated as a YAML frontmatter delimiter.
      */
     disableFrontmatter: boolean
