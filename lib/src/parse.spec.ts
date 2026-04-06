@@ -4082,11 +4082,55 @@ describe('CRLF line endings', () => {
       const result = p.parser(
         '---\n\n**Subject: Hello World**\n\nSome content here.\n\n---\n\n> Final section'
       )
-      expect(result[0].type).toBe('breakThematic')
-      expect(result[1].type).toBe('paragraph')
-      expect(result[3].type).toBe('breakThematic')
-      expect(result[4].type).toBe('blockQuote')
-      expect(result).toHaveLength(5)
+      expect(result).toMatchInlineSnapshot(`
+        [
+          {
+            "type": "breakThematic",
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "Subject: Hello World",
+                    "type": "text",
+                  },
+                ],
+                "tag": "strong",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+          {
+            "children": [
+              {
+                "text": "Some content here.",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+          {
+            "type": "breakThematic",
+          },
+          {
+            "alert": undefined,
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "Final section",
+                    "type": "text",
+                  },
+                ],
+                "type": "paragraph",
+              },
+            ],
+            "type": "blockQuote",
+          },
+        ]
+      `)
     })
   })
 

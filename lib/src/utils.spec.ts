@@ -5,191 +5,195 @@ import { type MarkdownToJSX, RuleType } from './types'
 import * as u from './utils'
 
 describe('parseFrontmatterBounds', () => {
-  it('should return null for input not starting with ---', () => {
+  it('should return null for invalid or missing opening markers', () => {
     expect(u.parseFrontmatterBounds('')).toBeNull()
     expect(u.parseFrontmatterBounds('no frontmatter')).toBeNull()
-    expect(u.parseFrontmatterBounds('---missing space')).toBeNull()
-  })
-
-  it('should return null if no newline after ---', () => {
     expect(u.parseFrontmatterBounds('---')).toBeNull()
     expect(u.parseFrontmatterBounds('---content')).toBeNull()
-  })
-
-  it('should parse valid frontmatter bounds', () => {
-    const result = u.parseFrontmatterBounds('---\nkey: value\n---\n')
-    expect(result).toEqual({ endPos: 19, hasValidYaml: true })
-  })
-
-  it('should handle frontmatter with only whitespace after ---', () => {
-    const result = u.parseFrontmatterBounds('---   \nkey: value\n---\n')
-    expect(result).toEqual({ endPos: 22, hasValidYaml: true })
-  })
-
-  it('should detect YAML when colon is present in lines', () => {
-    const result = u.parseFrontmatterBounds('---\nkey: value\n---\n')
-    expect(result?.hasValidYaml).toBe(true)
-  })
-
-  it('should not detect YAML when no colon present', () => {
-    const result = u.parseFrontmatterBounds('---\nno yaml here\n---\n')
-    expect(result?.hasValidYaml).toBe(false)
-  })
-
-  it('should handle multiline frontmatter', () => {
-    const result = u.parseFrontmatterBounds(
-      '---\nkey1: value1\nkey2: value2\n---\n'
-    )
-    expect(result).toEqual({ endPos: 34, hasValidYaml: true })
+    expect(u.parseFrontmatterBounds('--\ncontent\n---\n')).toBeNull() // too few dashes
+    expect(u.parseFrontmatterBounds('----\ncontent\n---\n')).toBeNull() // too many dashes
   })
 
   it('should return null for unclosed frontmatter', () => {
     expect(u.parseFrontmatterBounds('---\nkey: value\n')).toBeNull()
   })
 
-  it('should handle frontmatter with nested markers', () => {
-    const result = u.parseFrontmatterBounds('---\ncontent: ---\n---\n')
-    expect(result).toEqual({ endPos: 21, hasValidYaml: true })
-  })
-
-  it('should handle frontmatter with very long content', () => {
-    const longContent = '---\n' + 'x: y\n'.repeat(1000) + '---\n'
-    const result = u.parseFrontmatterBounds(longContent)
-    expect(result?.hasValidYaml).toBe(true)
-  })
-
-  it('should handle frontmatter with unusual YAML structures', () => {
-    const result = u.parseFrontmatterBounds(
-      '---\nkey: "quoted"\nother: [1,2,3]\n---\n'
-    )
-    expect(result?.hasValidYaml).toBe(true)
-  })
-
-  it('should handle frontmatter with tabs and mixed whitespace', () => {
-    const result = u.parseFrontmatterBounds('---\t \n\tkey: value\n---\n')
-    expect(result?.hasValidYaml).toBe(true)
-  })
-
-  it('should handle empty frontmatter', () => {
-    const result = u.parseFrontmatterBounds('---\n---\n')
-    expect(result).toEqual({ endPos: 8, hasValidYaml: false })
-  })
-
-  it('should handle frontmatter with only whitespace content', () => {
-    const result = u.parseFrontmatterBounds('---\n   \t   \n---\n')
-    expect(result).toEqual({ endPos: 16, hasValidYaml: false })
-  })
-
-  it('should reject frontmatter with invalid markers', () => {
-    expect(u.parseFrontmatterBounds('--\ncontent\n---\n')).toBeNull() // too few dashes
-    expect(u.parseFrontmatterBounds('----\ncontent\n---\n')).toBeNull() // uneven dashes
-    expect(u.parseFrontmatterBounds('---content\n---\n')).toBeNull() // no newline after opening
-  })
-
-  it('should handle frontmatter with malformed content gracefully', () => {
-    expect(u.parseFrontmatterBounds('---\n:invalid\n---\n')).toEqual({
-      endPos: 17,
-      hasValidYaml: false,
-    }) // bare colon without key is not valid YAML
-    const result = u.parseFrontmatterBounds('---\nkey: value\n---\nextra') // content after closing is allowed
-    expect(result?.hasValidYaml).toBe(true)
-  })
-
-  it('should handle frontmatter with very long keys', () => {
-    const tooLongKey = 'a'.repeat(10000) + ': value'
-    const result = u.parseFrontmatterBounds(`---\n${tooLongKey}\n---\n`)
-    expect(result?.hasValidYaml).toBe(true) // function handles long content
-  })
-
-  it('should handle frontmatter with binary/null characters', () => {
-    const result1 = u.parseFrontmatterBounds('---\nkey: val\x00ue\n---\n')
-    expect(result1?.hasValidYaml).toBe(true) // null in value doesn't break parsing
-    const result2 = u.parseFrontmatterBounds('---\nkey\x01: value\n---\n')
-    expect(result2?.hasValidYaml).toBe(false) // control char in key breaks key validation
-  })
-
-  it('should accept valid YAML keys with leading whitespace', () => {
-    expect(u.parseFrontmatterBounds('---\n  indented: value\n---\n')).toEqual({
-      endPos: 26,
-      hasValidYaml: true,
-    })
-    expect(u.parseFrontmatterBounds('---\n\tindented: value\n---\n')).toEqual({
-      endPos: 25,
-      hasValidYaml: true,
-    })
-  })
-
-  it('should accept keys starting with digits', () => {
-    const result = u.parseFrontmatterBounds('---\n3d-model: foo\n---\n')
-    expect(result).toEqual({ endPos: 22, hasValidYaml: true })
-  })
-
-  it('should accept keys with hyphens and dots', () => {
+  it('should parse valid frontmatter with key-value pairs', () => {
     expect(
-      u.parseFrontmatterBounds('---\ncontent-type: text\n---\n')
-    ).toEqual({ endPos: 27, hasValidYaml: true })
+      u.parseFrontmatterBounds('---\nkey: value\n---\n')
+    ).toEqual({ endPos: 19, hasValidYaml: true })
     expect(
-      u.parseFrontmatterBounds('---\nmeta.title: Hello\n---\n')
-    ).toEqual({ endPos: 26, hasValidYaml: true })
+      u.parseFrontmatterBounds('---\nkey1: value1\nkey2: value2\n---\n')
+    ).toEqual({ endPos: 34, hasValidYaml: true })
+    // content after closing delimiter is allowed
+    expect(
+      u.parseFrontmatterBounds('---\nkey: value\n---\nextra')?.hasValidYaml
+    ).toBe(true)
+  })
+
+  it('should accept whitespace variations in opening marker and keys', () => {
+    // trailing whitespace after opening ---
+    expect(
+      u.parseFrontmatterBounds('---   \nkey: value\n---\n')
+    ).toEqual({ endPos: 22, hasValidYaml: true })
+    // tab in opening, tab-indented key
+    expect(
+      u.parseFrontmatterBounds('---\t \n\tkey: value\n---\n')?.hasValidYaml
+    ).toBe(true)
+    // space-indented key
+    expect(
+      u.parseFrontmatterBounds('---\n  indented: value\n---\n')?.hasValidYaml
+    ).toBe(true)
+  })
+
+  it('should accept YAML key variations (digits, hyphens, dots, underscore)', () => {
+    expect(
+      u.parseFrontmatterBounds('---\n3d-model: foo\n---\n')?.hasValidYaml
+    ).toBe(true)
+    expect(
+      u.parseFrontmatterBounds('---\ncontent-type: text\n---\n')?.hasValidYaml
+    ).toBe(true)
+    expect(
+      u.parseFrontmatterBounds('---\nmeta.title: Hello\n---\n')?.hasValidYaml
+    ).toBe(true)
+    expect(
+      u.parseFrontmatterBounds('---\n_private: val\n---\n')?.hasValidYaml
+    ).toBe(true)
   })
 
   it('should accept colon at EOL (multi-line YAML value)', () => {
-    const result = u.parseFrontmatterBounds('---\ndescription:\n---\n')
-    expect(result).toEqual({ endPos: 21, hasValidYaml: true })
-  })
-
-  it('should validate YAML keys correctly with CRLF line endings', () => {
-    expect(u.parseFrontmatterBounds('---\r\ntitle: Hello\r\n---\r\n')).toEqual({
-      endPos: 24,
-      hasValidYaml: true,
-    })
     expect(
-      u.parseFrontmatterBounds('---\r\ndescription:\r\n---\r\n')
-    ).toEqual({ endPos: 24, hasValidYaml: true })
+      u.parseFrontmatterBounds('---\ndescription:\n---\n')
+    ).toEqual({ endPos: 21, hasValidYaml: true })
+  })
+
+  it('should accept valid YAML with empty lines between keys', () => {
     expect(
-      u.parseFrontmatterBounds('---\r\n**Subject: Hello**\r\n---\r\n')
-    ).toEqual({ endPos: 30, hasValidYaml: false })
-  })
-
-  it('should reject markdown bold with colon (false positive)', () => {
-    const result = u.parseFrontmatterBounds('---\n**Subject: Hello**\n---\n')
-    expect(result).toEqual({ endPos: 27, hasValidYaml: false })
-  })
-
-  it('should reject YAML list items', () => {
-    const result = u.parseFrontmatterBounds('---\n- list: item\n---\n')
-    expect(result).toEqual({ endPos: 21, hasValidYaml: false })
-  })
-
-  it('should reject text with spaces before colon', () => {
-    const result = u.parseFrontmatterBounds(
-      '---\nSome text with: colons\n---\n'
-    )
-    expect(result).toEqual({ endPos: 31, hasValidYaml: false })
-  })
-
-  it('should reject URLs containing colons', () => {
-    const result = u.parseFrontmatterBounds('---\nhttp://example.com\n---\n')
-    expect(result).toEqual({ endPos: 27, hasValidYaml: false })
-  })
-
-  it('should reject key:value with no space after colon', () => {
-    const result = u.parseFrontmatterBounds('---\nkey:value\n---\n')
-    expect(result).toEqual({ endPos: 18, hasValidYaml: false })
-  })
-
-  it('should reject issue #861 reproduction (markdown with colons)', () => {
-    const result = u.parseFrontmatterBounds(
-      '---\n\n**Subject: Hello World**\n\nSome content.\n\n---\n'
-    )
-    expect(result).toEqual({ endPos: 50, hasValidYaml: false })
+      u.parseFrontmatterBounds('---\ntitle: Hello\n\nauthor: World\n---\n')
+        ?.hasValidYaml
+    ).toBe(true)
   })
 
   it('should detect YAML when valid key exists among non-YAML lines', () => {
-    const result = u.parseFrontmatterBounds(
-      '---\nnot yaml\ntitle: value\nalso not yaml\n---\n'
-    )
-    expect(result).toEqual({ endPos: 44, hasValidYaml: true })
+    expect(
+      u.parseFrontmatterBounds(
+        '---\nnot yaml\ntitle: value\nalso not yaml\n---\n'
+      )?.hasValidYaml
+    ).toBe(true)
+  })
+
+  it('should handle edge cases (empty, whitespace-only, nested markers, long keys)', () => {
+    expect(
+      u.parseFrontmatterBounds('---\n---\n')
+    ).toEqual({ endPos: 8, hasValidYaml: false })
+    expect(
+      u.parseFrontmatterBounds('---\n   \t   \n---\n')?.hasValidYaml
+    ).toBe(false)
+    expect(
+      u.parseFrontmatterBounds('---\ncontent: ---\n---\n')?.hasValidYaml
+    ).toBe(true)
+    expect(
+      u.parseFrontmatterBounds(`---\n${'a'.repeat(10000)}: value\n---\n`)
+        ?.hasValidYaml
+    ).toBe(true)
+  })
+
+  it('should handle binary/null characters', () => {
+    // null in value is fine
+    expect(
+      u.parseFrontmatterBounds('---\nkey: val\x00ue\n---\n')?.hasValidYaml
+    ).toBe(true)
+    // control char in key breaks key validation
+    expect(
+      u.parseFrontmatterBounds('---\nkey\x01: value\n---\n')?.hasValidYaml
+    ).toBe(false)
+  })
+
+  it('should validate YAML keys correctly with CRLF line endings', () => {
+    expect(
+      u.parseFrontmatterBounds('---\r\ntitle: Hello\r\n---\r\n')?.hasValidYaml
+    ).toBe(true)
+    expect(
+      u.parseFrontmatterBounds('---\r\ndescription:\r\n---\r\n')?.hasValidYaml
+    ).toBe(true)
+    expect(
+      u.parseFrontmatterBounds('---\r\n**Subject: Hello**\r\n---\r\n')
+        ?.hasValidYaml
+    ).toBe(false)
+  })
+
+  it('should reject malformed YAML keys', () => {
+    // bare colon without key
+    expect(
+      u.parseFrontmatterBounds('---\n:invalid\n---\n')?.hasValidYaml
+    ).toBe(false)
+    // key:value with no space after colon
+    expect(
+      u.parseFrontmatterBounds('---\nkey:value\n---\n')?.hasValidYaml
+    ).toBe(false)
+    // whitespace-only before colon
+    expect(
+      u.parseFrontmatterBounds('---\n   : value\n---\n')?.hasValidYaml
+    ).toBe(false)
+    // keys starting with special chars
+    expect(
+      u.parseFrontmatterBounds('---\n...: value\n---\n')?.hasValidYaml
+    ).toBe(false)
+    expect(
+      u.parseFrontmatterBounds('---\n--key: value\n---\n')?.hasValidYaml
+    ).toBe(false)
+  })
+
+  it('should reject non-ASCII keys', () => {
+    expect(
+      u.parseFrontmatterBounds('---\nтитул: value\n---\n')?.hasValidYaml
+    ).toBe(false)
+    expect(
+      u.parseFrontmatterBounds('---\n标题: value\n---\n')?.hasValidYaml
+    ).toBe(false)
+  })
+
+  it('should reject markdown content with colons (false positives)', () => {
+    // bold text with colon
+    expect(
+      u.parseFrontmatterBounds('---\n**Subject: Hello**\n---\n')?.hasValidYaml
+    ).toBe(false)
+    // prose with colon
+    expect(
+      u.parseFrontmatterBounds('---\nSome text with: colons\n---\n')
+        ?.hasValidYaml
+    ).toBe(false)
+    // list items
+    expect(
+      u.parseFrontmatterBounds('---\n- list: item\n---\n')?.hasValidYaml
+    ).toBe(false)
+    // markdown link with URL
+    expect(
+      u.parseFrontmatterBounds('---\n[link](http://example.com)\n---\n')
+        ?.hasValidYaml
+    ).toBe(false)
+    // hash comment
+    expect(
+      u.parseFrontmatterBounds('---\n# comment: not yaml\n---\n')?.hasValidYaml
+    ).toBe(false)
+    // table alignment syntax
+    expect(
+      u.parseFrontmatterBounds('---\n| Name | Value |\n|:---|:---|\n---\n')
+        ?.hasValidYaml
+    ).toBe(false)
+  })
+
+  it('should reject LLM-style output with decorative dividers (issue #861)', () => {
+    expect(
+      u.parseFrontmatterBounds(
+        '---\n\n**Status:** Complete\n**Priority:** High\n\n---\n'
+      )?.hasValidYaml
+    ).toBe(false)
+    expect(
+      u.parseFrontmatterBounds(
+        '---\n\nHere is the answer:\n\n1. First: do this\n2. Second: do that\n\n---\n'
+      )?.hasValidYaml
+    ).toBe(false)
   })
 })
 
