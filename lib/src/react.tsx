@@ -483,7 +483,7 @@ function render(
       const table = node as MarkdownToJSX.TableNode
       return (
         <table key={state.key}>
-          <thead>
+          <thead key="thead">
             <tr>
               {table.header.map(function generateHeaderCell(content, i) {
                 return (
@@ -503,7 +503,7 @@ function render(
           </thead>
 
           {table.cells.length > 0 && (
-            <tbody>
+            <tbody key="tbody">
               {table.cells.map(function generateTableRow(row, i) {
                 return (
                   <tr key={i}>
