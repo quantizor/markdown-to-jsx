@@ -56,6 +56,10 @@ function extractTextContent(
           ? vnode.children
           : undefined
     if (children !== undefined) {
+      // Handle slot functions (e.g., { default: () => [...] })
+      if (typeof children === 'object' && children !== null && !Array.isArray(children) && typeof (children as Record<string, unknown>).default === 'function') {
+        return extractTextContent((children as Record<string, () => VNode[]>).default() as VNode[])
+      }
       return extractTextContent(children as VNode | VNode[] | string)
     }
   }
