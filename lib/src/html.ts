@@ -513,18 +513,19 @@ function _renderNode(
         ? _renderChildren(htmlNode.children, ctx)
         : ''
       if (htmlNode._isClosingTag) return '</' + tag + '>' + children
-      // Check if children has non-whitespace content without allocating a trimmed string
-      var hasContent = false
+      // Structurally-closed elements always emit </tag>, even when empty.
+      // _verbatim is raw source pass-through (e.g. unclosed <div>); only then
+      // do we suppress the close, and only when children is whitespace-only.
+      if (!htmlNode._verbatim) {
+        return '<' + tag + attrsStr + '>' + children + '</' + tag + '>'
+      }
       for (var hci = 0; hci < children.length; hci++) {
         var hcc = children.charCodeAt(hci)
         if (hcc !== $.CHAR_SPACE && hcc !== $.CHAR_TAB && hcc !== $.CHAR_NEWLINE && hcc !== 13) {
-          hasContent = true
-          break
+          return '<' + tag + attrsStr + '>' + children + '</' + tag + '>'
         }
       }
-      return hasContent
-        ? '<' + tag + attrsStr + '>' + children + '</' + tag + '>'
-        : '<' + tag + attrsStr + '>' + children
+      return '<' + tag + attrsStr + '>' + children
     }
 
     case RuleType.htmlSelfClosing: {

@@ -854,7 +854,7 @@ describe('html compiler', () => {
 
     it('regression test for #856 - hr without newline drops subsequent content', () => {
       const result = compiler('<p></p><hr><p></p>')
-      expect(result).toMatchInlineSnapshot(`"<div><p><hr><p></div>"`)
+      expect(result).toMatchInlineSnapshot(`"<div><p></p><hr><p></p></div>"`)
     })
 
     it('regression test for #856 - hr without newline drops text content after', () => {
@@ -865,6 +865,17 @@ describe('html compiler', () => {
     it('regression test for #856 - self-closing hr without newline drops subsequent content', () => {
       const result = compiler('<p>before</p><hr /><p>after</p>')
       expect(result).toMatchInlineSnapshot(`"<div><p>before</p><hr ><p>after</p></div>"`)
+    })
+
+    it('empty non-void element preserves closing tag', () => {
+      expect(compiler('<p></p>')).toMatchInlineSnapshot(`"<p></p>"`)
+      expect(compiler('<div></div>')).toMatchInlineSnapshot(`"<div></div>"`)
+      expect(compiler('<span></span>')).toMatchInlineSnapshot(`"<p><span></span></p>"`)
+    })
+
+    it('unclosed non-void element does not synthesize a closing tag', () => {
+      expect(compiler('<div>')).toMatchInlineSnapshot(`"<div>"`)
+      expect(compiler('<p>')).toMatchInlineSnapshot(`"<p>"`)
     })
 
     it('applies overrides recursively to nested content', () => {
@@ -1317,7 +1328,7 @@ describe('html compiler', () => {
       )
       expect(result).toMatchInlineSnapshot(`
         "<p>Text with <div title="Attribute with space 
-         newline"> more text</p>"
+         newline"></div> more text</p>"
       `)
     })
 
