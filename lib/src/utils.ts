@@ -303,31 +303,48 @@ export function isAlnumCode(code: number): boolean {
  * @returns URL-safe slug
  */
 export function slugify(str: string): string {
-  // Lowercase upfront: eliminates per-char uppercase handling and String.fromCharCode
-  var s = str.toLowerCase()
+  // One-pass scan without the upfront toLowerCase() allocation. Uppercase
+  // ASCII letters are lowered inline by a segment break; we flush the prior
+  // lowercase segment via slice, then append the single lowered char, then
+  // start a new segment. This avoids the full-string allocation from
+  // toLowerCase() which on long headings is a real cost.
   var out = ''
   var segStart = -1
-  for (var i = 0; i < s.length; i++) {
-    var code = s.charCodeAt(i)
-    // Inline alnum check: avoid function call per char
-    if (code < $.CHAR_ASCII_BOUNDARY && (CC[code] & (C_ALPHA | C_DIGIT)) !== 0) {
+  var n = str.length
+  for (var i = 0; i < n; i++) {
+    var code = str.charCodeAt(i)
+    // lowercase ASCII letter / digit — fastest and most common path
+    if ((code >= $.CHAR_a && code <= $.CHAR_z) || (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9)) {
       if (segStart < 0) segStart = i
-    } else if (code === $.CHAR_SPACE || code === $.CHAR_DASH) {
+      continue
+    }
+    // uppercase ASCII letter — flush, emit lowered single char
+    if (code >= $.CHAR_A && code <= $.CHAR_Z) {
       if (segStart >= 0) {
-        out += s.slice(segStart, i)
+        out += str.slice(segStart, i)
+        segStart = -1
+      }
+      out += String.fromCharCode(code + $.CHAR_CASE_OFFSET)
+      continue
+    }
+    // space / dash — flush, emit '-'
+    if (code === $.CHAR_SPACE || code === $.CHAR_DASH) {
+      if (segStart >= 0) {
+        out += str.slice(segStart, i)
         segStart = -1
       }
       out += '-'
-    } else {
-      if (segStart >= 0) {
-        out += s.slice(segStart, i)
-        segStart = -1
-      }
-      var replacement = slugifyReplaceTable[code]
-      if (replacement) out += replacement
+      continue
     }
+    // anything else: flush, try replacement table
+    if (segStart >= 0) {
+      out += str.slice(segStart, i)
+      segStart = -1
+    }
+    var replacement = slugifyReplaceTable[code]
+    if (replacement) out += replacement
   }
-  if (segStart >= 0) out += s.slice(segStart)
+  if (segStart >= 0) out += str.slice(segStart)
   return out
 }
 

@@ -771,12 +771,6 @@ export function compiler(
       preserveFrontmatter: opts.preserveFrontmatter,
     }
 
-    // First pass: collect all reference definitions
-    // This ensures refs are available during inline parsing, even when they appear after their usage
-    if (!inline) {
-      parse.collectReferenceDefinitions(input, refs, parseOptions)
-    }
-
     // Inline trimEnd: trim trailing newlines and carriage returns
     let processedInput = input
     if (!inline) {

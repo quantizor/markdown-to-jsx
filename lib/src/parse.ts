@@ -42,16 +42,13 @@ var TYPE1_TAGS = new Set(TYPE1_TAG_LIST)
 
 /** Matches Type 1 tags in raw HTML text */
 var TYPE1_R = /<(?:pre|script|style|textarea)\b/i
+// Sticky variant for matching at a specific position without substring allocation
+var TYPE1_STICKY_R = /<(?:pre|script|style|textarea)\b/iy
 
 // Detects block-level markdown syntax at the start of a line (heading, list, blockquote, fenced code)
 var BLOCK_SYNTAX_R = /^(\s{0,3}#[#\s]|\s{0,3}[-*+]\s|\s{0,3}\d+\.\s|\s{0,3}>\s|\s{0,3}```)/m
 // Detects HTML opening tags
 var HTML_OPEN_TAG_R = /^<([a-z][^ >/\n\r]*) ?([^>]*?)>/im
-
-// Table-related tags excluded from type 6/7 block extension across blank lines
-var TABLE_TAGS = new Set([
-  'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th'
-])
 
 // Inline special character lookup — true for chars that need processing in parseInline
 // ` * _ ~ = [ ! < \ h w f \u001F (and alphanumeric for email near @)
@@ -262,6 +259,13 @@ export function collectReferenceDefinitions(
   refs: { [key: string]: { target: string; title: string } },
   _options: ParseOptions
 ): boolean {
+  // Fast-path exit: without '[' there cannot be any reference definitions.
+  // Non-streaming callers don't need _endsInsideFence, so we can bail out
+  // entirely; streaming callers need fence detection and take the slow path.
+  if (!_options.streaming && !_options.optimizeForStreaming &&
+      input.indexOf('[') === -1) {
+    return false
+  }
   var pos = 0
   var len = input.length
   // Track whether prev line was paragraph content — ref defs can't interrupt paragraphs
@@ -615,8 +619,17 @@ function unescapeString(s: string): string {
   return s.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '$1')
 }
 
+// Single-entry cache for the currently-dispatched line's end.
+// parseBlocks populates this before invoking a scanner; the scanner's
+// entry-point lineEnd(s, p) call gets a free hit. Keyed by (string, pos)
+// so recursive parseBlocks calls with different substrings don't alias.
+var _leCacheS: string | null = null
+var _leCacheP = -1
+var _leCacheE = -1
+
 /** Find end of current line (position of \n or end of string) */
 function lineEnd(s: string, p: number): number {
+  if (p === _leCacheP && s === _leCacheS) return _leCacheE
   var i = s.indexOf('\n', p)
   return i < 0 ? s.length : i
 }
@@ -1860,14 +1873,44 @@ export function parseHTMLAttributes(attrStr: string, tagName: string, opts: Pars
   return attrs
 }
 
-/** Case-insensitive indexOf without allocating new string */
+/**
+ * Case-insensitive indexOf without allocating new string.
+ *
+ * Fast path: when the search string starts with a non-letter ASCII char
+ * (the only callers here all start with '<'), use native indexOf to SIMD-skip
+ * past non-matching positions, then verify the rest CI. This is typically
+ * 4-16x faster than a manual scan because '<' is rare in typical markdown.
+ */
 function indexOfCI(str: string, search: string, from: number): number {
   const searchLen = search.length
-  // Pre-compute lowercase first char for fast rejection
+  if (searchLen === 0) return from
   var fc = search.charCodeAt(0)
+  // Fast path: first char is a non-letter (e.g. '<') — native indexOf is SIMD
+  var fcIsLetter = (fc >= $.CHAR_A && fc <= $.CHAR_Z) || (fc >= $.CHAR_a && fc <= $.CHAR_z)
+  if (!fcIsLetter) {
+    var searchCh = String.fromCharCode(fc)
+    var strEnd = str.length - searchLen
+    var j = from
+    while (j <= strEnd) {
+      var found = str.indexOf(searchCh, j)
+      if (found === -1 || found > strEnd) return -1
+      // Verify tail case-insensitively
+      var match = true
+      for (var k = 1; k < searchLen; k++) {
+        var c1 = str.charCodeAt(found + k)
+        var c2 = search.charCodeAt(k)
+        if (c1 >= $.CHAR_A && c1 <= $.CHAR_Z) c1 += $.CHAR_CASE_OFFSET
+        if (c2 >= $.CHAR_A && c2 <= $.CHAR_Z) c2 += $.CHAR_CASE_OFFSET
+        if (c1 !== c2) { match = false; break }
+      }
+      if (match) return found
+      j = found + 1
+    }
+    return -1
+  }
+  // Slow path: first char is a letter — fall back to manual CI scan
   if (fc >= $.CHAR_A && fc <= $.CHAR_Z) fc += $.CHAR_CASE_OFFSET
   for (let j = from; j <= str.length - searchLen; j++) {
-    // Fast first-char check before entering inner loop
     var c0 = str.charCodeAt(j)
     if (c0 >= $.CHAR_A && c0 <= $.CHAR_Z) c0 += $.CHAR_CASE_OFFSET
     if (c0 !== fc) continue
@@ -2138,7 +2181,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
             endPos: tagResult67.end,
             _canInterrupt: htmlBlockType === 6,
           } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
-          end: nextLine(s, tagResult67.end)
+          end: tagResult67.end < s.length && s.charCodeAt(tagResult67.end) === $.CHAR_NEWLINE ? tagResult67.end + 1 : tagResult67.end
         }
       }
 
@@ -2198,25 +2241,67 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           }
         }
 
-        // Block extension: when no closing tag found within block (before blank line),
-        // search beyond for the closing tag. If content between tags has blank lines
-        // (block content), extend the block to include the closing tag.
-        // This matches reference parser behavior for cases like <div>...\n\n</div>
-        // Exclude table-related tags to preserve inner structure across blank lines.
+        // Block extension: when no closing tag was found within the pre-blank-line
+        // range, search beyond for the matching close tag and extend the block.
+        // Skip extension when the opening tag is alone on its line followed by a
+        // blank line and then another HTML tag (CommonMark Examples 190/191 — the
+        // reference parser treats each blank-line-separated element as top level),
+        // or when the content contains a Type 1 raw-content element (`<pre>`,
+        // `<script>`, `<style>`, `<textarea>`) whose blank lines are structurally
+        // inside raw content (CommonMark Example 148).
         var blockWasExtended67 = false
-        if (closeIdx67 === -1 && htmlBlockType === 6 && !tagResult67.isClosing && !TABLE_TAGS.has(tagNameLower67)) {
+        if (closeIdx67 === -1 && htmlBlockType === 6 && !tagResult67.isClosing) {
           var extCloseEnd = findClosingTag(s, tagResult67.end, tagNameLower67)
           if (extCloseEnd !== -1) {
-            var extCloseAbs = _closeTagStart
-            // Only extend if content between open and close tags has blank lines (block content)
-            var extBetween = s.substring(tagResult67.end, extCloseAbs)
-            if (extBetween.indexOf('\n\n') !== -1) {
+            var extEnd67 = _closeTagStart
+            var extStart67 = tagResult67.end
+            // Single forward scan: detect blank line presence, fragment pattern,
+            // and Type 1 raw-content tags in one pass over [extStart67, extEnd67).
+            var hasBlank67 = false
+            var hasType1_67 = false
+            var shouldFragment67 = false
+            var prefixNL67 = 0
+            var prefixDone67 = false
+            var prevNL67 = false
+            var p67 = extStart67
+            while (p67 < extEnd67) {
+              var c67 = s.charCodeAt(p67)
+              if (c67 === $.CHAR_NEWLINE) {
+                if (prevNL67) hasBlank67 = true
+                if (!prefixDone67) prefixNL67++
+                prevNL67 = true
+                p67++
+              } else if (c67 === $.CHAR_SPACE || c67 === $.CHAR_TAB) {
+                p67++
+              } else {
+                if (!prefixDone67) {
+                  prefixDone67 = true
+                  if (prefixNL67 >= 2 && c67 === $.CHAR_LT) {
+                    shouldFragment67 = true
+                    break
+                  }
+                }
+                prevNL67 = false
+                if (c67 === $.CHAR_LT) {
+                  var nameC67 = s.charCodeAt(p67 + 1) | 0x20
+                  if (nameC67 === $.CHAR_p || nameC67 === $.CHAR_s || nameC67 === $.CHAR_t) {
+                    TYPE1_STICKY_R.lastIndex = p67
+                    if (TYPE1_STICKY_R.test(s)) {
+                      hasType1_67 = true
+                      break
+                    }
+                  }
+                }
+                p67++
+              }
+            }
+            if (hasBlank67 && !shouldFragment67 && !hasType1_67) {
               var extLineEnd = lineEnd(s, extCloseEnd)
               rawEnd6 = extLineEnd
               end6 = nextLine(s, extLineEnd)
               blockContent67 = s.slice(start, rawEnd6)
               rawText6 = s.slice(start, rawEnd6)
-              closeIdx67 = extCloseAbs - start
+              closeIdx67 = extEnd67 - start
               closeEndRel67 = extCloseEnd - start
               blockWasExtended67 = true
             }
@@ -2313,7 +2398,19 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
             var hasHTMLTags67 = HTML_OPEN_TAG_R.test(trimmed67)
             var contentHasBlocks67 = hasDoubleNewline67 || hasBlockSyntax67 || (state.inHTML && hasHTMLTags67)
 
-            if (contentHasBlocks67 || hasHTMLTags67) {
+            // CommonMark Example 189 / GFM #860: A Type 6 HTML block whose content
+            // occupies its own line(s) (newline-separated from the tags) with no
+            // blank lines is raw — markdown must NOT be processed. A blank line
+            // separating content from tags is required to enable markdown parsing
+            // (Example 188). When content is inline with tags (e.g. <div>**x**</div>)
+            // the library's markdown-inside-HTML feature still applies.
+            var isNewlineWrapped67 = rawContent67.length >= 2 &&
+              rawContent67.charCodeAt(0) === $.CHAR_NEWLINE &&
+              rawContent67.charCodeAt(rawContent67.length - 1) === $.CHAR_NEWLINE &&
+              !hasDoubleNewline67
+            if (isNewlineWrapped67 && !hasBlockSyntax67 && !hasHTMLTags67) {
+              children67 = [{ type: RuleType.text, text: trimmed67 } as MarkdownToJSX.TextNode]
+            } else if (contentHasBlocks67 || hasHTMLTags67) {
               state.inline = false
               children67 = parseBlocks(rawContent67, state, opts)
             } else {
@@ -2349,7 +2446,10 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           type6InlineVerbatim67 = true
         }
       }
-      var useVerbatim67 = state.inHTML || htmlBlockType === 7 || hasMultiLineAttrs67 || !isCleanBlock67 || type6InlineVerbatim67
+      // Block extension (content has blank lines; closing tag found beyond) means
+      // the block is authoritatively nested — render children instead of rawText
+      // so the HTML/React compilers produce correct <tag>…children…</tag> output.
+      var useVerbatim67 = !blockWasExtended67 && (state.inHTML || htmlBlockType === 7 || hasMultiLineAttrs67 || !isCleanBlock67 || type6InlineVerbatim67)
 
       if (useVerbatim67) {
         // Determine rawText based on context:
@@ -4692,9 +4792,19 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
         result = scanInlineHTML(s, p, e, childState, opts)
       }
     } else if ((c === $.CHAR_H || c === $.CHAR_W || c === $.CHAR_f) && !childState.inAnchor && !opts.disableAutoLink) {
-      // h, w, f - potential http://, https://, www., or ftp://
+      // h/w/f — potential http://, https://, www., or ftp://
+      // Cheap pre-check: the second char must be `t` (http/ttp), `w` (www), or `t` (ftp)
+      // before we pay the scanBareUrl call. This rejects the vast majority of English
+      // words (the, what, with, here, for, from...) at one compare each.
       if (p === 0 || s.charCodeAt(p - 1) !== $.CHAR_LT) {
-        result = scanBareUrl(s, p, e, opts)
+        var nextAfterPrefix = p + 1 < e ? s.charCodeAt(p + 1) : 0
+        if (
+          (c === $.CHAR_H && nextAfterPrefix === $.CHAR_t) ||
+          (c === $.CHAR_f && nextAfterPrefix === $.CHAR_t) ||
+          (c === $.CHAR_W && nextAfterPrefix === $.CHAR_W)
+        ) {
+          result = scanBareUrl(s, p, e, opts)
+        }
       }
     }
     // Email autolink: try when we see alphanumeric that could be local part of email
@@ -5011,6 +5121,11 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
     indent(s, p, le)
 
     let result: ScanResult = null
+
+    // Seed the lineEnd cache so scanners called below get their entry-point
+    // lineEnd(s, p) for free (their very first line of work is almost always
+    // `var e = lineEnd(s, p)`). This eliminates one SIMD indexOf per block.
+    _leCacheS = s; _leCacheP = p; _leCacheE = le
 
     // Check for indented code block (4+ spaces) - skip when inside HTML blocks
     if (s.charCodeAt(p) !== $.CHAR_RECORD_SEP && _indentSpaces >= 4 && !state.inHTML) {
