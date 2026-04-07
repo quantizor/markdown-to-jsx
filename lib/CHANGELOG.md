@@ -1,5 +1,20 @@
 # markdown-to-jsx
 
+## 9.7.14
+
+### Patch Changes
+
+- 3df970f: Fix frontmatter detection silently consuming content when a thematic break (`---`) starts the document. The colon-anywhere heuristic is replaced with proper YAML key-value validation, and a new `disableFrontmatter` option is added to skip detection entirely.
+- c7e0d07: Fix `<hr>` and other void HTML elements silently dropping all subsequent content when not followed by a newline (#856)
+- c7e0d07: Fix HTML blocks with markdown content inside tables (#862) and restore CommonMark-correct behavior for HTML block content without blank lines (#860)
+  - Markdown lists inside HTML table cells now render as proper nested lists instead of breaking the table structure
+  - HTML block content on its own line without surrounding blank lines (e.g. `<div>\n*text*\n</div>`) is now preserved as literal text per CommonMark Example 189
+  - HTML block content surrounded by blank lines (e.g. `<div>\n\n*text*\n\n</div>`) continues to parse markdown as before (CommonMark Example 188)
+
+- 0dfde05: Fix HTML compiler dropping the closing tag for empty non-void elements (e.g. `<p></p>` rendered as `<p>`, `<div></div>` rendered as `<div>`)
+- b0a7c68: fix: add key props to thead/tbody in table rendering to resolve React key warning (#858)
+- c7e0d07: Fix Vue adapter "Non-function value encountered for default slot" warning when using component overrides (#855)
+
 ## 9.7.13
 
 ### Patch Changes
@@ -26,6 +41,7 @@
 - 3daa41e: fix: strip trailing asterisks from bare URL href (fixes #839)
 
   When a bare URL was wrapped in bold markdown (`**url**`), the generated link's `href` incorrectly included the closing asterisks (e.g. `href="https://example.com/foo**"`). The parser now trims trailing `*` from bare URLs so the href is correct. No consumer changes required.
+
 - f520531: resolve emphasis delimiters closing before hard line breaks (two trailing spaces or backslash before newline)
 - f520531: include \_store on raw React elements unconditionally so React dev-mode validation works in all bundler environments
 
@@ -55,6 +71,7 @@
 - 565e3ea: fix: add missing `_owner` field on raw React elements for dev-mode compatibility
 
   Fixes "Cannot set properties of undefined (setting 'validated')" errors in React 19 dev mode by adding the `_owner` field that React's reconciler expects on all elements.
+
 - 565e3ea: fix: prevent void elements from receiving children when preceded by a blank line
 
   Void HTML elements (e.g. `<br>`, `<hr>`, `<img>`) preceded by a blank line no longer cause React error #137. The parser now returns void elements as content-less blocks, and all compilers guard against passing children to void elements.
@@ -130,6 +147,7 @@
 - 13bdaf7: Fixed HTML tags with attributes spanning multiple lines being incorrectly parsed.
 
   Previously, HTML tags with attributes on separate lines (like `<dl-custom\n  data-variant='horizontalTable'\n>`) would have their attributes incorrectly parsed, sometimes causing duplicate tags or missing attribute values. This fix ensures that newlines between HTML attributes are properly recognized as whitespace separators.
+
 - 13bdaf7: The `text` field in HTML AST nodes now contains cleaned inner content without opening/closing tags. Use `rawText` for full raw HTML. This affects custom `renderRule` implementations that rely on the `text` field.
 
 ## 9.5.5
@@ -289,6 +307,7 @@
     )
   }
   ```
+
 - ef8a002: Added opt-in `options.evalUnserializableExpressions` to eval function expressions and other unserializable JSX props from trusted markdown sources.
 
   **⚠️ SECURITY WARNING: STRONGLY DISCOURAGED FOR USER INPUTS**
@@ -315,6 +334,7 @@
   **Safer alternative:** Use `renderRule` to handle stringified expressions on a case-by-case basis with your own validation and allowlists.
 
   See the README for detailed security considerations and safe alternatives.
+
 - ef8a002: JSX prop values are now intelligently parsed instead of always being strings:
   - **Arrays and objects** are parsed via `JSON.parse()`: `data={[1, 2, 3]}` → `attrs.data = [1, 2, 3]`
   - **Booleans** are parsed: `enabled={true}` → `attrs.enabled = true`
@@ -556,6 +576,7 @@
   <strong>This is
   bold</strong>
   ```
+
 - 1ce83eb: Remove internal type definitions and rename `MarkdownToJSX.RuleOutput` to `MarkdownToJSX.ASTRender`
 
   This change removes internal type definitions from the `MarkdownToJSX` namespace:
@@ -571,11 +592,13 @@
   - Code referencing `MarkdownToJSX.NestedParser`, `MarkdownToJSX.Parser`, `MarkdownToJSX.Rule`, or `MarkdownToJSX.Rules` will need to be updated
   - The `renderRule` option in `MarkdownToJSX.Options` now uses `ASTRender` instead of `RuleOutput` for the `renderChildren` parameter type
   - `HTMLNode.children` type changed from `ReturnType<MarkdownToJSX.NestedParser>` to `ASTNode[]` (semantically equivalent, but requires updates if using the old type)
+
 - 1ce83eb: Remove `options.namedCodesToUnicode`. The library now encodes the full HTML entity list by default per CommonMark specification requirements.
 
   **Migration:**
 
   If you were using `options.namedCodesToUnicode` to add custom entity mappings, you can remove the option entirely as all specified HTML entities are now supported automatically.
+
 - 1ce83eb: Drop support for React versions less than 16
   - Update peer dependency requirement from `>= 0.14.0` to `>= 16.0.0`
   - Remove legacy code that wrapped string children in `<span>` elements for React < 16 compatibility
@@ -617,6 +640,7 @@
   ```html
   <pre><code class="language-js lang-js">console.log('hello');</code></pre>
   ```
+
 - 1ce83eb: Separate JSX renderer from compiler and add new entry points
 
   ## New Features
@@ -703,6 +727,7 @@
   ```
 
   The AST format is `MarkdownToJSX.ASTNode[]`. When footnotes are present, the returned value will be an object with `ast` and `footnotes` properties instead of just the AST array.
+
 - 3fa0c22: Refactored inline formatting parsing to eliminate ReDoS vulnerabilities and improve performance. The previous regex-based approach was susceptible to exponential backtracking on certain inputs and had several edge case bugs with nested formatting, escaped characters, and formatting inside links. The new implementation uses a custom iterative scanner that runs in O(n) time and is immune to ReDoS attacks.
 
   This also consolidates multiple formatting rule types into a single unified rule with boolean flags, reducing code duplication and bundle size. Performance has improved measurably on simple markdown strings:
@@ -741,6 +766,7 @@
   - Prevents crashes while maintaining O(n) parsing complexity
 
   This fix ensures stability even with adversarial or malformed inputs while having no impact on normal markdown documents.
+
 - fe95c02: Remove unnecessary wrapper when footnotes are present.
 
 ## 7.7.17
