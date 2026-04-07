@@ -815,10 +815,6 @@ export function compiler(
       enforceAtxHeadings: opts.enforceAtxHeadings,
     }
 
-    if (!inline) {
-      parse.collectReferenceDefinitions(input, refs, parseOptions)
-    }
-
     let processedInput = input
     if (!inline) {
       let e = processedInput.length

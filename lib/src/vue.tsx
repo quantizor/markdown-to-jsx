@@ -618,7 +618,12 @@ export function astToJSX(
         ? `${vueClass} ${overrideClass}`
         : vueClass || overrideClass || undefined
 
+    const isComponent = typeof finalTag !== 'string'
+
     if (!hasOverrides && !mergedClass && !vueProps?.innerHTML) {
+      if (isComponent && children.length > 0) {
+        return h(finalTag, vueProps || {}, { default: () => children })
+      }
       return h(finalTag, vueProps || {}, ...children)
     }
 
@@ -633,6 +638,9 @@ export function astToJSX(
       finalProps.innerHTML = vueProps.innerHTML
     }
 
+    if (isComponent && children.length > 0) {
+      return h(finalTag, finalProps, { default: () => children })
+    }
     return h(finalTag, finalProps, ...children)
   }
 
@@ -642,7 +650,12 @@ export function astToJSX(
       tag: string | Component,
       props: Record<string, unknown>,
       ...children: VueChild[]
-    ): VNode => h(tag, props || {}, ...children))
+    ): VNode => {
+      if (typeof tag !== 'string' && children.length > 0) {
+        return h(tag, props || {}, { default: () => children })
+      }
+      return h(tag, props || {}, ...children)
+    })
 
   const parseOptions: parse.ParseOptions = {
     slugify: i => slug(i, util.slugify),
@@ -771,11 +784,6 @@ export function compiler(
 
   const refs: { [key: string]: { target: string; title: string | undefined } } =
     {}
-
-  // First pass: collect all reference definitions
-  if (!inline) {
-    parse.collectReferenceDefinitions(markdown, refs, parseOptions)
-  }
 
   // Inline trimEnd: trim trailing newlines and carriage returns
   let processedInput = markdown

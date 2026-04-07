@@ -81,7 +81,8 @@ function render(
   sanitize: (value: string, tag: string, attribute: string) => string | null,
   slug: (input: string, defaultFn: (input: string) => string) => string,
   refs: { [key: string]: { target: string; title: string } },
-  options: MarkdownToJSX.Options
+  options: MarkdownToJSX.Options,
+  hJSX: (tag: any, props: any, ...children: any[]) => any
 ): React.ReactNode {
   switch (node.type) {
     case RuleType.blockQuote: {
@@ -198,13 +199,13 @@ function render(
             textContent = util.applyTagFilterToText(textContent)
           }
           if (containsHTMLTags) {
-            return h(node.tag, {
+            return hJSX(node.tag, {
               key: state.key,
               ...htmlAttrsToJSXProps(node.attrs || {}),
               dangerouslySetInnerHTML: { __html: textContent },
             })
           }
-          return h(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) }, textContent)
+          return hJSX(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) }, textContent)
         }
 
         // When the tag itself is filtered (e.g. <iframe>), prefer
@@ -214,7 +215,7 @@ function render(
           'i'
         ).test(htmlNode._rawText)
         if (hasChildren && !startsWithOwnTagEarly && options.tagfilter && util.containsTagfilterTag(htmlNode._rawText)) {
-          return h(
+          return hJSX(
             node.tag,
             { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
             output(htmlNode.children, state)
@@ -227,7 +228,7 @@ function render(
           const innerHtml = options.tagfilter
             ? util.applyTagFilterToText(htmlNode._rawText)
             : htmlNode._rawText
-          return h(node.tag, {
+          return hJSX(node.tag, {
             key: state.key,
             ...htmlAttrsToJSXProps(node.attrs || {}),
             dangerouslySetInnerHTML: { __html: innerHtml },
@@ -254,13 +255,13 @@ function render(
         if (selfTagRegex.test(cleanedText)) {
           // If parser already produced children, use them instead of discarding
           if (htmlNode.children && htmlNode.children.length > 0) {
-            return h(
+            return hJSX(
               node.tag,
               { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
               output(htmlNode.children, state)
             )
           }
-          return h(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) })
+          return hJSX(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) })
         }
 
         function processNode(
@@ -327,7 +328,7 @@ function render(
 
         // When rawText wraps the full outer block, prefer children if available
         if (isFullOuterBlock && hasChildren) {
-          return h(
+          return hJSX(
             node.tag,
             { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
             output(htmlNode.children, state)
@@ -405,7 +406,7 @@ function render(
             React.Fragment,
             {
               children: [
-                h(
+                hJSX(
                   node.tag,
                   { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
                   output(beforeProcessed, state)
@@ -417,16 +418,16 @@ function render(
           )
         }
 
-        return h(
+        return hJSX(
           node.tag,
           { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
           output(astNodes.flatMap(processNode), state)
         )
       }
       if (util.isVoidElement(node.tag)) {
-        return h(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) })
+        return hJSX(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) })
       }
-      return h(
+      return hJSX(
         node.tag,
         { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
         node.children ? output(node.children, state) : ''
@@ -450,7 +451,7 @@ function render(
         return h('span', { key: state.key }, '<' + htmlNode.tag + attrStr + ' />')
       }
 
-      return h(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) })
+      return hJSX(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) })
     }
 
     case RuleType.image: {
@@ -581,7 +582,8 @@ const createRenderer = (
   sanitize: (value: string, tag: string, attribute: string) => string | null,
   slug: (input: string, defaultFn: (input: string) => string) => string,
   refs: { [key: string]: { target: string; title: string } },
-  options: MarkdownToJSX.Options
+  options: MarkdownToJSX.Options,
+  hJSX: (tag: any, props: any, ...children: any[]) => any
 ) => {
   var handleStackOverflow = (ast: MarkdownToJSX.ASTNode[]) =>
     ast.map(function(node) { return 'text' in node ? node.text : '' })
@@ -601,11 +603,11 @@ const createRenderer = (
       var nodeOut: React.ReactNode
       if (userRender) {
         var defaultRender = render.bind(
-          null, ast[i], renderer, state, h, sanitize, slug, refs, options
+          null, ast[i], renderer, state, h, sanitize, slug, refs, options, hJSX
         )
         nodeOut = userRender(defaultRender, ast[i], renderer, state)
       } else {
-        nodeOut = render(ast[i], renderer, state, h, sanitize, slug, refs, options)
+        nodeOut = render(ast[i], renderer, state, h, sanitize, slug, refs, options, hJSX)
       }
       var isString = typeof nodeOut === 'string'
       if (isString && lastWasString) {
@@ -663,8 +665,33 @@ export function astToJSX(
   const compileHTML = (input: string) =>
     compiler(input, { ...opts, wrapper: null })
 
+  // Compile any JSX-like string values in props. Only called from the HTML
+  // block/self-closing render cases via hJSX — the vast majority of h()
+  // calls (paragraphs, headings, lists, inline emphasis, etc.) never contain
+  // embedded JSX strings so running this per-element is a profiled hot path.
+  function _compilePropsJSX(props: Record<string, any>): void {
+    for (var pkey in props) {
+      var pval = props[pkey]
+      if (
+        typeof pval === 'string' &&
+        pval.length > 0 &&
+        pval.charCodeAt(0) === $.CHAR_LT &&
+        (parse.HTML_BLOCK_ELEMENT_START_R_ATTR.test(pval) ||
+          parse.UPPERCASE_TAG_R.test(pval) ||
+          parse.parseHTMLTag(pval, 0))
+      ) {
+        var compiled = compileHTML(pval.trim())
+        props[pkey] = pkey === 'innerHTML' && Array.isArray(compiled)
+          ? compiled[0]
+          : compiled
+      }
+    }
+  }
+
   // JSX custom pragma — props are already JSX-compatible (htmlAttrsToJSXProps
   // is applied at call sites in render() that deal with HTML attributes).
+  // Fast path: does NOT run the embedded-JSX compile loop. Use hJSX for HTML
+  // render cases where props may contain JSX-like strings.
   // eslint-disable-next-line no-unused-vars
   function h(
     // locally we always will render a known string tag
@@ -676,25 +703,6 @@ export function astToJSX(
     ...children
   ) {
     var finalProps: any = props || {}
-
-    // Compile embedded HTML in prop values (needed for HTML block attrs that
-    // contain JSX-like markup, e.g. component={<Inner />}).
-    for (var pkey in finalProps) {
-      var pval = finalProps[pkey]
-      if (
-        typeof pval === 'string' &&
-        pval.length > 0 &&
-        pval.charCodeAt(0) === $.CHAR_LT &&
-        (parse.HTML_BLOCK_ELEMENT_START_R_ATTR.test(pval) ||
-          parse.UPPERCASE_TAG_R.test(pval) ||
-          parse.parseHTMLTag(pval, 0))
-      ) {
-        var compiled = compileHTML(pval.trim())
-        finalProps[pkey] = pkey === 'innerHTML' && Array.isArray(compiled)
-          ? compiled[0]
-          : compiled
-      }
-    }
 
     var resolvedTag: any = tag
 
@@ -730,9 +738,17 @@ export function astToJSX(
     )
   }
 
+  // Variant that runs the embedded-JSX compile loop on props before
+  // delegating to h. Used only by HTML block / self-closing render cases.
+  function hJSX(tag: any, props: any, ...children: any[]): any {
+    if (props) _compilePropsJSX(props)
+    return h(tag, props, ...children)
+  }
+
   const parseOptions: parse.ParseOptions = {
     ...opts,
-    slugify: i => slug(i, util.slugify),
+    // Fast path: when no user slugify, pass util.slugify directly (no closure)
+    slugify: opts.slugify ? (i => opts.slugify!(i, util.slugify)) : util.slugify,
     sanitizer: sanitize,
     tagfilter: opts.tagfilter !== false,
   }
@@ -742,7 +758,7 @@ export function astToJSX(
       ? (ast[0] as MarkdownToJSX.ReferenceCollectionNode).refs
       : {}
 
-  const emitter = createRenderer(opts.renderRule, h, sanitize, slug, refs, opts)
+  const emitter = createRenderer(opts.renderRule, h, sanitize, slug, refs, opts, hJSX)
 
   const arr = emitter(ast, {
     inline: opts.forceInline,
@@ -831,15 +847,10 @@ export function compiler(
       (!opts.forceBlock && !util.SHOULD_RENDER_AS_BLOCK_R.test(input))
     const parseOptions: parse.ParseOptions = {
       ...opts,
-      slugify: i => slug(i, util.slugify),
+      // Fast path: when no user slugify, pass util.slugify directly (no closure)
+      slugify: opts.slugify ? (i => opts.slugify!(i, util.slugify)) : util.slugify,
       sanitizer: sanitize,
       tagfilter: opts.tagfilter !== false,
-    }
-
-    // First pass: collect all reference definitions
-    // This ensures refs are available during inline parsing, even when they appear after their usage
-    if (!inline) {
-      parse.collectReferenceDefinitions(input, refs, parseOptions)
     }
 
     // Inline trimEnd: trim trailing newlines and carriage returns
