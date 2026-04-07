@@ -1729,6 +1729,67 @@ comment -->`)
     )
   })
 
+  it('regression test for #856 - hr without newline drops subsequent content', () => {
+    render(compiler('<p></p><hr><p></p>'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<div><p></p><hr/><p></p></div>"`)
+  })
+
+  it('regression test for #856 - hr without newline drops text content after', () => {
+    render(compiler('<p>before</p><hr><p>after</p>'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<div><p>before</p><hr/><p>after</p></div>"`)
+  })
+
+  it('regression test for #856 - self-closing hr without newline drops subsequent content', () => {
+    render(compiler('<p>before</p><hr /><p>after</p>'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<div><p>before</p><hr/><p>after</p></div>"`)
+  })
+
+  it('regression test for #862 - markdown list inside HTML table cell', () => {
+    render(
+      compiler(theredoc`
+        <table>
+          <tbody>
+            <tr>
+              <td>Foo 1</td>
+              <td>Bar 1</td>
+            </tr>
+            <tr>
+              <td>Foo 2</td>
+              <td>A list:
+
+        - one
+        - two
+        - three
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      `)
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<table><tbody><tr><td>Foo 1</td><td>Bar 1</td></tr><tr><td>Foo 2</td><td><p>A list:</p><ul><li>one</li><li>two</li><li>three</li></ul></td></tr></tbody></table>"`
+    )
+  })
+
+  it('regression test for #860 - HTML block content without blank lines preserves literal markdown', () => {
+    // Per CommonMark Example 189: content in an HTML block without blank lines
+    // must not be processed as markdown.
+    render(compiler('<div>\n*Emphasized* text.\n</div>'))
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div>*Emphasized* text.</div>"`
+    )
+  })
+
+  it('regression test for #860 - HTML block with blank-line-delimited content does parse markdown', () => {
+    // Per CommonMark Example 188: blank lines around content inside an HTML block
+    // allow markdown parsing to apply.
+    render(compiler('<div>\n\n*Emphasized* text.\n\n</div>'))
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p><em>Emphasized</em> text.</p></div>"`
+    )
+  })
+
   it('regression test for #170', () => {
     render(
       compiler(theredoc`

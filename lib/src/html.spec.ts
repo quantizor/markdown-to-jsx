@@ -852,6 +852,21 @@ describe('html compiler', () => {
       expect(result).toMatchInlineSnapshot(`"<div><br><p>some text</p></div>"`)
     })
 
+    it('regression test for #856 - hr without newline drops subsequent content', () => {
+      const result = compiler('<p></p><hr><p></p>')
+      expect(result).toMatchInlineSnapshot(`"<div><p><hr><p></div>"`)
+    })
+
+    it('regression test for #856 - hr without newline drops text content after', () => {
+      const result = compiler('<p>before</p><hr><p>after</p>')
+      expect(result).toMatchInlineSnapshot(`"<div><p>before</p><hr><p>after</p></div>"`)
+    })
+
+    it('regression test for #856 - self-closing hr without newline drops subsequent content', () => {
+      const result = compiler('<p>before</p><hr /><p>after</p>')
+      expect(result).toMatchInlineSnapshot(`"<div><p>before</p><hr ><p>after</p></div>"`)
+    })
+
     it('applies overrides recursively to nested content', () => {
       const result = astToHTML(
         [
