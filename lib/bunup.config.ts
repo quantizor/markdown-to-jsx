@@ -2,16 +2,13 @@ import { defineConfig, type BunupPlugin, type DefineConfigItem } from 'bunup'
 import { transformSync } from 'esbuild'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 
-// React reads these element fields by literal name in dev/RSC builds. They
-// must survive prop mangling or createRawElement output trips dev warnings
-// like "Attempted to render without development properties" under React 19.
-var REACT_ELEMENT_INTERNALS = ['_store', '_owner', '_debugStack', '_debugTask']
+// Property names that must survive mangling. React reads `_store`, `_owner`,
+// `_debugStack`, `_debugTask` by literal name in dev/RSC builds and warns
+// when they are missing. `__html` is the dangerouslySetInnerHTML payload key.
+var RESERVED_PROPS = ['__html', '_store', '_owner', '_debugStack', '_debugTask']
+var RESERVED_PROPS_PATTERN = new RegExp('\\b(?:' + RESERVED_PROPS.join('|') + ')\\b')
 
 function manglePropsPlugin(): BunupPlugin {
-  var reservePattern = new RegExp(
-    '__html|^(?:' + REACT_ELEMENT_INTERNALS.join('|') + ')$'
-  )
-
   return {
     name: 'mangle-props',
     hooks: {
@@ -24,7 +21,7 @@ function manglePropsPlugin(): BunupPlugin {
           var result = transformSync(code, {
             loader: 'js',
             mangleProps: /^_/,
-            reserveProps: reservePattern,
+            reserveProps: RESERVED_PROPS_PATTERN,
             minifyWhitespace: true,
             minifySyntax: true,
           })
@@ -35,12 +32,12 @@ function manglePropsPlugin(): BunupPlugin {
   }
 }
 
-// Build-time guard against the bug fixed in this commit: if the mangler ever
-// strips a React element internal field again, fail the build instead of
-// shipping a dist that breaks under React 19 RSC.
-function verifyReactInternalsPlugin(): BunupPlugin {
+// Guard against the regression fixed in this commit: if the mangler ever
+// strips a reserved field again, fail the build instead of shipping a
+// broken dist.
+function verifyReservedPropsPlugin(): BunupPlugin {
   return {
-    name: 'verify-react-internals',
+    name: 'verify-reserved-props',
     hooks: {
       onBuildDone({ files }) {
         var failures: string[] = []
@@ -49,15 +46,16 @@ function verifyReactInternalsPlugin(): BunupPlugin {
           if (!file.fullPath.endsWith('react.js') && !file.fullPath.endsWith('react.cjs')) continue
 
           var code = readFileSync(file.fullPath, 'utf-8')
-          for (var prop of REACT_ELEMENT_INTERNALS) {
-            if (!code.includes(prop)) {
-              failures.push(file.fullPath + ' is missing literal property name ' + prop)
+          for (var prop of RESERVED_PROPS) {
+            if (prop === '__html') continue
+            if (!new RegExp('\\b' + prop + '\\b').test(code)) {
+              failures.push(file.fullPath + ' is missing reserved property ' + prop)
             }
           }
         }
         if (failures.length > 0) {
           throw new Error(
-            'React element internals were mangled out of the published dist:\n  ' +
+            'Reserved property names were mangled out of the published dist:\n  ' +
               failures.join('\n  ')
           )
         }
@@ -101,7 +99,7 @@ var common = {
     'process.env.NODE_ENV': '"production"',
   },
   minify: true,
-  plugins: [manglePropsPlugin(), verifyReactInternalsPlugin(), verifyDtsPlugin()],
+  plugins: [manglePropsPlugin(), verifyReservedPropsPlugin(), verifyDtsPlugin()],
   sourcemap: 'linked',
   splitting: false,
 } satisfies DefineConfigItem
