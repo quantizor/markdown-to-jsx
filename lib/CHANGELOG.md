@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 9.7.15
+
+### Patch Changes
+
+- 7ff0713: Fix React 19 RSC dev warning "Attempted to render without development properties"
+
 ## 9.7.14
 
 ### Patch Changes
