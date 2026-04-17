@@ -66,6 +66,7 @@ Commit messages serve their audience. Public: user-facing impact. Private: techn
 - Speak in general terms, not specific implementation details
 - Public code: focus on how the change benefits users. Ensure noteworthy changes and bugfixes have a changeset
 - Private/infra code: focus on how the change benefits the codebase
+- Changesets and PR descriptions are public-facing only. Describe the perceived change to users in plain terms. No internal mechanics, file paths, flag names, or parser/AST terminology
 
 Rules must be maximally concise and actionable. No decoration, no meta-commentary, no examples unless critical.
 - Optimize for token efficiency: no bold/emphasis, headers, or stylistic formatting in rules
