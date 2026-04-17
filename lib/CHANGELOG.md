@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 9.7.16
+
+### Patch Changes
+
+- fb5efc2: Fix HTML output for markdown inside `<table>` cells (#862). Lists, blockquotes, fenced code, and headings inside a cell now render as nested content without breaking the surrounding rows or dropping closing tags.
+
 ## 9.7.15
 
 ### Patch Changes
