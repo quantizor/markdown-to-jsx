@@ -2459,6 +2459,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         // - inHTML without close tag: block from start to effective end
         // - Others: full block text from start (rawText6)
         var rawText67v: string
+        var emitOwnClose67 = false
         if (closeIdx67 !== -1 && useInHTMLBounds) {
           // When inside HTML with same-line siblings after closing tag,
           // rawText includes everything from after opening tag (including closing tag
@@ -2478,6 +2479,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           rawText67v = hasAfterClose67
             ? blockContent67.slice(tagResult67.end - start)
             : rawContent67
+          emitOwnClose67 = true
         } else if ((htmlBlockType === 7 || state.inHTML) && closeIdx67 !== -1) {
           // For Type 7 and inHTML: rawText = content after opening tag including close tag
           rawText67v = blockContent67.slice(tagResult67.end - start)
@@ -2493,20 +2495,22 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           if (rawText67v.charCodeAt(0) === $.CHAR_NEWLINE) rawText67v = rawText67v.slice(1)
         }
 
+        var verbatimNode67 = {
+          type: RuleType.htmlBlock,
+          tag: tagName67,
+          attrs: processHTMLAttributes(tagResult67.attrs, tagName67, opts),
+          _rawAttrs: tagResult67.whitespaceBeforeAttrs + tagResult67.rawAttrs,
+          children: children67,
+          _rawText: rawText67v,
+          text: rawText67v,
+          _verbatim: true,
+          _isClosingTag: false,
+          endPos: effectiveEndPos,
+          _canInterrupt: htmlBlockType === 6,
+        } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; _emitOwnClose?: boolean; endPos: number; _canInterrupt: boolean }
+        if (emitOwnClose67) verbatimNode67._emitOwnClose = true
         return {
-          node: {
-            type: RuleType.htmlBlock,
-            tag: tagName67,
-            attrs: processHTMLAttributes(tagResult67.attrs, tagName67, opts),
-            _rawAttrs: tagResult67.whitespaceBeforeAttrs + tagResult67.rawAttrs,
-            children: children67,
-            _rawText: rawText67v,
-            text: rawText67v,
-            _verbatim: true,
-            _isClosingTag: false,
-            endPos: effectiveEndPos,
-            _canInterrupt: htmlBlockType === 6,
-          } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
+          node: verbatimNode67,
           end: effectiveEnd
         }
       }

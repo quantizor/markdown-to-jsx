@@ -1252,6 +1252,110 @@ describe('html compiler', () => {
     })
   })
 
+  describe('raw HTML <table> with markdown in cells (#862)', () => {
+    it('preserves row structure when second row cell contains a block-level list', () => {
+      expect(
+        compiler('<table><tr><td>a</td></tr><tr><td>\n\n- x\n\n</td></tr></table>')
+      ).toMatchInlineSnapshot(
+        `"<table><tr><td>a</td></tr><tr><td><ul><li>x</li></ul></td></tr></table>"`
+      )
+    })
+
+    it('preserves all rows when first row contains a block-level list', () => {
+      expect(
+        compiler('<table><tr><td>\n\n- x\n\n</td></tr><tr><td>plain</td></tr></table>')
+      ).toMatchInlineSnapshot(
+        `"<table><tr><td><ul><li>x</li></ul></td></tr><tr><td>plain</td></tr></table>"`
+      )
+    })
+
+    it('preserves all three rows when middle row contains a list', () => {
+      expect(
+        compiler('<table><tr><td>r1</td></tr><tr><td>\n\n- x\n\n</td></tr><tr><td>r3</td></tr></table>')
+      ).toMatchInlineSnapshot(
+        `"<table><tr><td>r1</td></tr><tr><td><ul><li>x</li></ul></td></tr><tr><td>r3</td></tr></table>"`
+      )
+    })
+
+    it('handles original issue repro with tbody wrapper and indentation', () => {
+      const input = `<table>
+  <tbody>
+    <tr>
+      <td>Foo 1</td>
+      <td>Bar 1</td>
+    </tr>
+    <tr>
+      <td>Foo 2</td>
+      <td>A list:
+
+- one
+- two
+- three
+      </td>
+    </tr>
+  </tbody>
+</table>`
+      const out = compiler(input)
+      expect(out).toContain('<td>Foo 1</td>')
+      expect(out).toContain('<td>Bar 1</td>')
+      expect(out).toContain('<td>Foo 2</td>')
+      expect(out).toContain('<ul><li>one</li><li>two</li><li>three</li></ul>')
+      // No duplicated row openings and all rows close.
+      expect(out.match(/<tr>/g)?.length).toBe(2)
+      expect(out.match(/<\/tr>/g)?.length).toBe(2)
+      expect(out.match(/<td>/g)?.length).toBe(4)
+      expect(out.match(/<\/td>/g)?.length).toBe(4)
+    })
+
+    it('handles ordered list in cell', () => {
+      expect(
+        compiler('<table><tr><td>r1</td></tr><tr><td>\n\n1. x\n2. y\n\n</td></tr></table>')
+      ).toMatchInlineSnapshot(
+        `"<table><tr><td>r1</td></tr><tr><td><ol><li>x</li><li>y</li></ol></td></tr></table>"`
+      )
+    })
+
+    it('handles blockquote in cell', () => {
+      expect(
+        compiler('<table><tr><td>r1</td></tr><tr><td>\n\n> q\n\n</td></tr></table>')
+      ).toMatchInlineSnapshot(
+        `"<table><tr><td>r1</td></tr><tr><td><blockquote><p>q</p></blockquote></td></tr></table>"`
+      )
+    })
+
+    it('handles fenced code block in cell', () => {
+      expect(
+        compiler('<table><tr><td>r1</td></tr><tr><td>\n\n```\ncode\n```\n\n</td></tr></table>')
+      ).toMatchInlineSnapshot(
+        `"<table><tr><td>r1</td></tr><tr><td><pre><code>code</code></pre></td></tr></table>"`
+      )
+    })
+
+    it('handles heading in cell', () => {
+      expect(
+        compiler('<table><tr><td>r1</td></tr><tr><td>\n\n# h\n\n</td></tr></table>')
+      ).toMatchInlineSnapshot(
+        `"<table><tr><td>r1</td></tr><tr><td><h1 id="h">h</h1></td></tr></table>"`
+      )
+    })
+
+    it('handles list in <th> cell', () => {
+      expect(
+        compiler('<table><thead><tr><th>\n\n- x\n\n</th></tr></thead><tbody><tr><td>r1</td></tr></tbody></table>')
+      ).toMatchInlineSnapshot(
+        `"<table><thead><tr><th><ul><li>x</li></ul></th></tr></thead><tbody><tr><td>r1</td></tr></tbody></table>"`
+      )
+    })
+
+    it('leaves inline markdown in cell as raw when no blank line (GFM raw HTML block)', () => {
+      expect(
+        compiler('<table><tbody><tr><td>**bold**</td><td>r1</td></tr></tbody></table>')
+      ).toMatchInlineSnapshot(
+        `"<table><tbody><tr><td>**bold**</td><td>r1</td></tr></tbody></table>"`
+      )
+    })
+  })
+
   describe('HTML block with text content and tagfilter', () => {
     it('should apply tagfilter to text content in HTML blocks', () => {
       const result = astToHTML(
