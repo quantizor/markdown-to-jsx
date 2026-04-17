@@ -17,7 +17,7 @@
   },
   "scripts": {
     "build": "pushd lib; bun run build; popd && bun scripts/verify-declarations.ts",
-    "build-site": "pushd site; bun run build; popd",
+    "build-site": "bun run --filter markdown-to-jsx build && pushd site; bun run build; popd",
     "dev": "bun run --filter @markdown-to-jsx/site dev",
     "entities": "bun scripts/generate-entities.ts",
     "fixture": "bun scripts/generate-fixture.ts",
