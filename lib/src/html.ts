@@ -376,6 +376,7 @@ function _renderNode(
       var htmlNode = node as MarkdownToJSX.HTMLNode & {
         _rawAttrs?: string
         _isClosingTag?: boolean
+        _emitOwnClose?: boolean
       }
       var defaultTag = htmlNode.tag || 'div'
       var tag = ctx.hasOverrides ? util.getTag(defaultTag, ctx.overrides) : defaultTag
@@ -485,6 +486,15 @@ function _renderNode(
                 return textContent
               }
             }
+          }
+          // Parser sets _emitOwnClose when rawText represents a closed HTML
+          // block nested inside another HTML block. rawText may carry trailing
+          // same-line siblings (kept for the React re-parse split), so slice
+          // at the own close tag and always emit our own </tag> (#862).
+          if (htmlNode._emitOwnClose) {
+            var ownCloseIdx67 = textContent.indexOf('</' + tagLower + '>')
+            var body67 = ownCloseIdx67 !== -1 ? textContent.slice(0, ownCloseIdx67) : textContent
+            return '<' + tag + attrsStr + '>' + body67 + '</' + tag + '>'
           }
           var trimmedStart = 0
           while (

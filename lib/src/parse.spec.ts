@@ -2070,6 +2070,7 @@ describe('multi-line HTML attributes', () => {
           "children": [
             {
               "_canInterrupt": true,
+              "_emitOwnClose": true,
               "_isClosingTag": false,
               "_rawAttrs": "",
               "_rawText": "title 1",
@@ -2088,6 +2089,7 @@ describe('multi-line HTML attributes', () => {
             },
             {
               "_canInterrupt": true,
+              "_emitOwnClose": true,
               "_isClosingTag": false,
               "_rawAttrs": "",
               "_rawText": "description 1",
@@ -2494,6 +2496,7 @@ describe('multi-line HTML attributes', () => {
             "children": [
               {
                 "_canInterrupt": true,
+                "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "title 1",
@@ -2512,6 +2515,7 @@ describe('multi-line HTML attributes', () => {
               },
               {
                 "_canInterrupt": true,
+                "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "description 1",
@@ -2572,6 +2576,7 @@ describe('multi-line HTML attributes', () => {
             "children": [
               {
                 "_canInterrupt": true,
+                "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "title 1",
@@ -2590,6 +2595,7 @@ describe('multi-line HTML attributes', () => {
               },
               {
                 "_canInterrupt": true,
+                "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "description 1",
@@ -2651,6 +2657,7 @@ describe('multi-line HTML attributes', () => {
             "children": [
               {
                 "_canInterrupt": true,
+                "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "title 1",
@@ -2669,6 +2676,7 @@ describe('multi-line HTML attributes', () => {
               },
               {
                 "_canInterrupt": true,
+                "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "description 1",
@@ -2729,6 +2737,7 @@ describe('multi-line HTML attributes', () => {
             "children": [
               {
                 "_canInterrupt": true,
+                "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "title 1",
@@ -2747,6 +2756,7 @@ describe('multi-line HTML attributes', () => {
               },
               {
                 "_canInterrupt": true,
+                "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "description 1",
@@ -2807,6 +2817,7 @@ describe('multi-line HTML attributes', () => {
             "children": [
               {
                 "_canInterrupt": true,
+                "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "title 1",
@@ -2825,6 +2836,7 @@ describe('multi-line HTML attributes', () => {
               },
               {
                 "_canInterrupt": true,
+                "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "description 1",
@@ -2885,6 +2897,7 @@ describe('multi-line HTML attributes', () => {
             "children": [
               {
                 "_canInterrupt": true,
+                "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "title 1",
@@ -2903,6 +2916,7 @@ describe('multi-line HTML attributes', () => {
               },
               {
                 "_canInterrupt": true,
+                "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "description 1",
@@ -3401,6 +3415,7 @@ describe('multi-line HTML attributes', () => {
             "children": [
               {
                 "_canInterrupt": true,
+                "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": "title",
@@ -4493,6 +4508,7 @@ describe('Unserializable expression evaluation', () => {
             "children": [
               {
                 "_canInterrupt": true,
+                "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
                 "_rawText": 
