@@ -71,10 +71,17 @@ function isComponentType(
 
 function findAllByType(
   element: React.ReactNode,
-  component: React.ComponentType<any>
+  component: React.ComponentType
 ): React.ReactElement[] {
+  if (Array.isArray(element)) {
+    const out: React.ReactElement[] = []
+    for (const item of element) {
+      out.push(...findAllByType(item, component))
+    }
+    return out
+  }
+  if (!React.isValidElement(element)) return []
   const results: React.ReactElement[] = []
-  if (!React.isValidElement(element)) return results
   if (isComponentType(element, component)) results.push(element)
   const props = element.props
   if (props.children) {
@@ -403,6 +410,213 @@ describe('component overrides', () => {
   })
 })
 
+function findFirst(
+  element: React.ReactNode,
+  component: React.ComponentType
+): React.ReactElement | undefined {
+  return findAllByType(element, component)[0]
+}
+
+describe('parsed-markdown overrides', () => {
+  it('fires code override for inline backticks', () => {
+    const Code = props =>
+      React.createElement(Text, { ...props, testID: 'code' })
+    const result = compiler('Text with `inline` code', {
+      overrides: { code: Code },
+    })
+    expect(extractTextContent(findFirst(result, Code))).toBe('inline')
+  })
+
+  it('fires pre override for fenced code blocks', () => {
+    const Pre = props => React.createElement(View, { ...props, testID: 'pre' })
+    const result = compiler('```\nblock\n```', { overrides: { pre: Pre } })
+    expect(extractTextContent(findFirst(result, Pre))).toContain('block')
+  })
+
+  it('fires code override on inner element of fenced code blocks', () => {
+    const Code = props =>
+      React.createElement(Text, { ...props, testID: 'fenced-code' })
+    const result = compiler('```\nblock\n```', { overrides: { code: Code } })
+    expect(extractTextContent(findFirst(result, Code))).toContain('block')
+  })
+
+  it('fires strong override for **bold**', () => {
+    const Strong = props =>
+      React.createElement(Text, { ...props, testID: 'strong' })
+    const result = compiler('**bold**', { overrides: { strong: Strong } })
+    expect(extractTextContent(findFirst(result, Strong))).toBe('bold')
+  })
+
+  it('fires em override for *italic*', () => {
+    const Em = props => React.createElement(Text, { ...props, testID: 'em' })
+    const result = compiler('*italic*', { overrides: { em: Em } })
+    expect(extractTextContent(findFirst(result, Em))).toBe('italic')
+  })
+
+  it('fires del override for ~~strikethrough~~', () => {
+    const Del = props => React.createElement(Text, { ...props, testID: 'del' })
+    const result = compiler('~~struck~~', { overrides: { del: Del } })
+    expect(extractTextContent(findFirst(result, Del))).toBe('struck')
+  })
+
+  it('fires blockquote override for > quote', () => {
+    const BQ = props => React.createElement(View, { ...props, testID: 'bq' })
+    const result = compiler('> quote', {
+      forceBlock: true,
+      overrides: { blockquote: BQ },
+    })
+    expect(extractTextContent(findFirst(result, BQ))).toContain('quote')
+  })
+
+  it('fires hr override for ---', () => {
+    const HR = props => React.createElement(View, { ...props, testID: 'hr' })
+    const result = compiler('---\n', { overrides: { hr: HR } })
+    expect(findFirst(result, HR)).toBeDefined()
+  })
+
+  it('fires h1-h6 overrides for ATX headings', () => {
+    const make = (id: string) => props =>
+      React.createElement(Text, { ...props, testID: id })
+    const H1 = make('h1'),
+      H2 = make('h2'),
+      H3 = make('h3'),
+      H4 = make('h4'),
+      H5 = make('h5'),
+      H6 = make('h6')
+    const md = '# A\n\n## B\n\n### C\n\n#### D\n\n##### E\n\n###### F'
+    const result = compiler(md, {
+      overrides: { h1: H1, h2: H2, h3: H3, h4: H4, h5: H5, h6: H6 },
+    })
+    expect(extractTextContent(findFirst(result, H1))).toBe('A')
+    expect(extractTextContent(findFirst(result, H2))).toBe('B')
+    expect(extractTextContent(findFirst(result, H3))).toBe('C')
+    expect(extractTextContent(findFirst(result, H4))).toBe('D')
+    expect(extractTextContent(findFirst(result, H5))).toBe('E')
+    expect(extractTextContent(findFirst(result, H6))).toBe('F')
+  })
+
+  it('fires ul override for unordered lists (outer)', () => {
+    const UL = props => React.createElement(View, { ...props, testID: 'ul' })
+    const result = compiler('- one\n- two', { overrides: { ul: UL } })
+    const text = extractTextContent(findFirst(result, UL))
+    expect(text).toContain('one')
+    expect(text).toContain('two')
+  })
+
+  it('fires ol override for ordered lists (outer)', () => {
+    const OL = props => React.createElement(View, { ...props, testID: 'ol' })
+    const result = compiler('1. one\n2. two', { overrides: { ol: OL } })
+    const text = extractTextContent(findFirst(result, OL))
+    expect(text).toContain('one')
+    expect(text).toContain('two')
+  })
+
+  it('fires li override for each list row', () => {
+    const LI = props => React.createElement(View, { ...props, testID: 'li' })
+    const result = compiler('- one\n- two\n- three', {
+      overrides: { li: LI },
+    })
+    expect(findAllByType(result, LI).length).toBe(3)
+  })
+
+  it('fires input override for GFM task checkboxes with checked prop', () => {
+    const Checkbox = props =>
+      React.createElement(View, { ...props, testID: 'checkbox' })
+    const result = compiler('- [x] Done\n- [ ] Pending', {
+      overrides: { input: Checkbox },
+    })
+    const checkboxes = findAllByType(result, Checkbox)
+    expect(checkboxes.length).toBe(2)
+    expect(checkboxes[0].props.checked).toBe(true)
+    expect(checkboxes[0].props.type).toBe('checkbox')
+    expect(checkboxes[0].props.readOnly).toBe(true)
+    expect(checkboxes[1].props.checked).toBe(false)
+  })
+
+  it('preserves user styles passed alongside an override', () => {
+    const Code = props => React.createElement(Text, props)
+    const result = compiler('Text with `code` inline', {
+      overrides: { code: Code },
+      styles: { codeInline: { color: 'crimson', fontFamily: 'IBM Plex Mono' } },
+    })
+    const style = getComponentStyle(findFirst(result, Code)!)
+    expect(style.color).toBe('crimson')
+    expect(style.fontFamily).toBe('IBM Plex Mono')
+  })
+
+  it('merges textFormatted default style with user style instead of replacing', () => {
+    const result = compiler('**bold**', {
+      styles: { strong: { color: 'crimson' } },
+    })
+    const style = getComponentStyle(getFirstElement(result))
+    expect(style.fontWeight).toBe('bold')
+    expect(style.color).toBe('crimson')
+  })
+
+  it('merges override.props.style with renderer-supplied style', () => {
+    const Code = props => React.createElement(Text, props)
+    const result = compiler('Text with `code` inline', {
+      overrides: { code: { component: Code, props: { style: { color: 'gold' } } } },
+      styles: { codeInline: { fontFamily: 'IBM Plex Mono' } },
+    })
+    const style = getComponentStyle(findFirst(result, Code)!)
+    expect(style.fontFamily).toBe('IBM Plex Mono')
+    expect(style.color).toBe('gold')
+  })
+
+  it('renders frontmatter as Text-mapped tag when in inline mode', () => {
+    // Defensive: an inline-mode renderer wrapped in Text must not nest a View.
+    // Construct the AST directly since the parser would not normally emit
+    // frontmatter in inline mode.
+    const ast: MarkdownToJSX.FrontmatterNode[] = [
+      { type: RuleType.frontmatter, text: 'title: hi' },
+    ]
+    const result = astToNative(ast, { preserveFrontmatter: true, forceInline: true })
+    const element = getFirstElement(result)
+    expect(isComponentType(element, Text)).toBe(true)
+    expect(extractTextContent(element)).toContain('title: hi')
+  })
+
+  it('applies TextStyle (codeInline) to inline frontmatter and ViewStyle (codeBlock) to block', () => {
+    const ast: MarkdownToJSX.FrontmatterNode[] = [
+      { type: RuleType.frontmatter, text: 'title: hi' },
+    ]
+    const inlineResult = astToNative(ast, {
+      preserveFrontmatter: true,
+      forceInline: true,
+      styles: { codeInline: { color: 'red' }, codeBlock: { padding: 8 } },
+    })
+    const inlineEl = getFirstElement(inlineResult)
+    expect(getComponentStyle(inlineEl).color).toBe('red')
+
+    const blockResult = astToNative(ast, {
+      preserveFrontmatter: true,
+      styles: { codeInline: { color: 'red' }, codeBlock: { padding: 8 } },
+    })
+    const blockEl = getFirstElement(blockResult)
+    expect(getComponentStyle(blockEl).padding).toBe(8)
+  })
+
+  it('does not pass DOM-only props to View when no input override is set', () => {
+    const result = compiler('- [x] Task')
+    const allViews = findAllByType(result, View)
+    const taskView = allViews.find(v => extractTextContent(v) === '[x]')
+    expect(taskView).toBeDefined()
+    expect(taskView!.props.type).toBeUndefined()
+    expect(taskView!.props.checked).toBeUndefined()
+    expect(taskView!.props.readOnly).toBeUndefined()
+  })
+})
+
+describe('Markdown component children handling', () => {
+  it('accepts string-array children and concatenates', () => {
+    const result = React.createElement(Markdown, {
+      children: ['# Hello ', 'world'],
+    })
+    expect(extractTextContent(result)).toContain('Hello world')
+  })
+})
+
 describe('AST node rendering', () => {
   it('should render paragraph node as Text component', () => {
     const ast = parser('Hello world')
@@ -552,7 +766,7 @@ describe('AST node rendering', () => {
     expect(text).toContain('Cell')
   })
 
-  it('should render GFM task as Text with checkbox marker', () => {
+  it('should render GFM task as View with checkbox marker child', () => {
     const result = compiler('- [x] Task')
     const element = getFirstElement(result)
     expect(isComponentType(element, View)).toBe(true)
