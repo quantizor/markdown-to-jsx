@@ -751,12 +751,7 @@ export function astToNative(
   })
   const arr: React.ReactNode[] = Array.isArray(emitted) ? emitted : [emitted]
 
-  const footnoteEntries: { identifier: string; footnote: string }[] = []
-  for (const key in refs) {
-    if (key.charCodeAt(0) === $.CHAR_CARET) {
-      footnoteEntries.push({ identifier: key, footnote: refs[key].target })
-    }
-  }
+  const footnoteEntries = util.extractFootnoteEntries(refs as { [key: string]: { target: string; title: string } })
 
   if (footnoteEntries.length) {
     arr.push(

@@ -84,14 +84,7 @@ function render(
       if (node.alert) {
         props.class =
           'markdown-alert-' + slug(node.alert.toLowerCase(), util.slugify)
-        const headerNode: MarkdownToJSX.HTMLNode = {
-          attrs: {},
-          children: [{ type: RuleType.text, text: node.alert }],
-          _verbatim: true,
-          type: RuleType.htmlBlock,
-          tag: 'header',
-        }
-        children = [headerNode, ...children]
+        children = [util.alertHeaderNode(node.alert), ...children]
       }
       return h('blockquote', props, ...toArray(output(children, state)))
     }
@@ -676,13 +669,7 @@ export function astToJSX(
     refs: refs,
   }) as (JSX.Element | string)[]
 
-  // Extract footnotes from refs (keys starting with '^')
-  const footnoteEntries: { identifier: string; footnote: string }[] = []
-  for (const key in refs) {
-    if (key.charCodeAt(0) === $.CHAR_CARET) {
-      footnoteEntries.push({ identifier: key, footnote: refs[key].target })
-    }
-  }
+  const footnoteEntries = util.extractFootnoteEntries(refs)
 
   if (footnoteEntries.length) {
     arr.push(

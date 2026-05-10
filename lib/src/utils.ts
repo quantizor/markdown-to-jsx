@@ -1,5 +1,6 @@
 import { NAMED_CODES_TO_UNICODE as util, decodeEntity } from 'markdown-to-jsx/entities'
 import * as $ from './constants'
+import { RuleType, type MarkdownToJSX } from './types'
 
 /**
  * Parse frontmatter bounds and validate YAML
@@ -425,16 +426,6 @@ export function isVoidElement(tagName: string): boolean {
   return false
 }
 
-/** Attributes that should be sanitized for security */
-export const ATTRIBUTES_TO_SANITIZE: readonly string[] = [
-  'src',
-  'href',
-  'data',
-  'formAction',
-  'srcDoc',
-  'action',
-]
-
 // Character classification flags (bitfield) - shared by parser and utils
 // These flags allow multiple classifications per character with bitwise AND/OR
 export var C_WS = 1        // Whitespace (space, tab, newline, cr, ff)
@@ -625,9 +616,36 @@ export function hasKeys(obj: Record<string, any> | null | undefined): boolean {
 }
 
 /**
- * Extract plain text from AST nodes (for image alt text, heading slugs, etc.)
- * Shared between JSX and HTML renderers
+ * GFM alert blockquotes need a `<header>` node injected with the alert label
+ * (CommonMark Example 175 et al). Renderer-agnostic.
  */
+export function alertHeaderNode(alert: string): MarkdownToJSX.HTMLNode {
+  return {
+    attrs: {},
+    children: [{ type: RuleType.text, text: alert }],
+    _verbatim: true,
+    type: RuleType.htmlBlock,
+    tag: 'header',
+  } as MarkdownToJSX.HTMLNode
+}
+
+/**
+ * Footnote keys are stored in the refs map with a leading `^` (CHAR_CARET).
+ * Each renderer needs the same `{ identifier, footnote }` list for output.
+ */
+export function extractFootnoteEntries(
+  refs: { [key: string]: { target: string; title: string } } | undefined
+): { identifier: string; footnote: string }[] {
+  var entries: { identifier: string; footnote: string }[] = []
+  if (!refs) return entries
+  for (var key in refs) {
+    if (key.charCodeAt(0) === 94 /* ^ */) {
+      entries.push({ identifier: key, footnote: refs[key].target })
+    }
+  }
+  return entries
+}
+
 /**
  * Get nested property from object using dot notation path
  */
@@ -715,25 +733,6 @@ export function getOverrideProps<
   if (!overrides) return {}
   const override = get(overrides, tag, undefined)
   return typeof override === 'object' && override.props ? override.props : {}
-}
-
-export function extractPlainText(nodes: Array<any>, RuleType: any): string {
-  var result = ''
-  for (var i = 0, len = nodes.length; i < len; i++) {
-    var node = nodes[i],
-      type = node.type
-    if (type === RuleType.text || type === RuleType.codeInline) {
-      var text = node.text
-      if (text) result += text
-    } else if (type === RuleType.textFormatted || type === RuleType.link) {
-      if (node.children) result += extractPlainText(node.children, RuleType)
-    } else if (type === RuleType.image) {
-      if (node.alt) {
-        result += node.alt
-      }
-    }
-  }
-  return result
 }
 
 /** GFM tagfilter extension — security-sensitive tags whose `<` gets escaped */
