@@ -606,6 +606,37 @@ describe('parsed-markdown overrides', () => {
     expect(taskView!.props.checked).toBeUndefined()
     expect(taskView!.props.readOnly).toBeUndefined()
   })
+
+  it('task list item wrapper opts into row+center layout by default', () => {
+    const ul = getFirstElement(compiler('- [x] Task'))
+    const li = ul.props.children[0] as React.ReactElement
+    const innerItemView = li.props.children[1] as React.ReactElement
+    const style = getComponentStyle(innerItemView)
+    expect(style.flexDirection).toBe('row')
+    expect(style.alignItems).toBe('center')
+  })
+
+  it('non-task list items do not inherit task row defaults', () => {
+    const ul = getFirstElement(compiler('- regular item'))
+    const li = ul.props.children[0] as React.ReactElement
+    const innerItemView = li.props.children[1] as React.ReactElement
+    expect(innerItemView.props.style).toBeUndefined()
+  })
+
+  it('consumer styles.listItem overrides task row defaults via mergeStyle', () => {
+    const ul = getFirstElement(
+      compiler('- [x] Task', {
+        styles: { listItem: { flexDirection: 'column' } },
+      })
+    )
+    const li = ul.props.children[0] as React.ReactElement
+    const innerItemView = li.props.children[1] as React.ReactElement
+    const style = getComponentStyle(innerItemView)
+    // mergeStyle puts user style last → user flexDirection wins.
+    expect(style.flexDirection).toBe('column')
+    // alignItems from the default is preserved (user didn't override it).
+    expect(style.alignItems).toBe('center')
+  })
 })
 
 describe('Markdown component children handling', () => {

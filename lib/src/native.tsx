@@ -20,6 +20,10 @@ export { sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
 const LIST_ITEM_ROW_STYLE: ViewStyle = { flexDirection: 'row' }
+const GFM_TASK_ITEM_ROW_STYLE: ViewStyle = {
+  flexDirection: 'row',
+  alignItems: 'center',
+}
 const LINK_DEFAULT_STYLE: TextStyle = { textDecorationLine: 'underline' }
 const TEXT_FORMAT_STYLES: Record<string, TextStyle> = {
   em: { fontStyle: 'italic' },
@@ -521,11 +525,22 @@ function render(
             ? styles.listItemNumber
             : styles.listItemBullet
 
+          // When an item begins with a GFM task marker, the marker and label
+          // are sibling AST nodes. The inner wrapper opts into row+center
+          // alignment so the checkbox sits next to its label by default;
+          // styles.listItem (when provided) still wins on collision via
+          // mergeStyle's [default, user] ordering.
+          const itemIsTask =
+            item.length > 0 && item[0].type === RuleType.gfmTask
+          const innerItemStyle = itemIsTask
+            ? mergeStyle(GFM_TASK_ITEM_ROW_STYLE, styles.listItem)
+            : styles.listItem
+
           return h(
             'li',
             { key: i, style: liStyle },
             h(Text, { style: bulletStyle }, bullet + ' '),
-            h(View, { style: styles.listItem }, output(item, state))
+            h(View, { style: innerItemStyle }, output(item, state))
           )
         })
       )

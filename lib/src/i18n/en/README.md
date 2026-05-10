@@ -311,6 +311,8 @@ When both a renderer-supplied style (`styles.codeInline`, `styles.gfmTask`, etc.
 
 Task checkboxes (`- [x]`, `- [ ]`) route through an `<input type="checkbox">` tag that maps to `View` by default. Use `styles.gfmTask` to style the container, or override `input` to replace the checkbox visual entirely (for a real `<Image>` checkbox, animated state, etc.). Your override receives `checked`, `type: 'checkbox'`, `readOnly`, the merged `style`, and a default `<Text>` child rendering `[x]` or `[ ]` so the marker stays visible without an override. The marker child is library-controlled and not separately styleable; consumers that fully customize the visual should ignore the child and render their own indicator from `props.checked`.
 
+The list item wrapper around a task gets `flexDirection: 'row'` and `alignItems: 'center'` applied by default so the checkbox and label sit on the same row out of the box. Override these by passing your own `styles.listItem` — `mergeStyle` keeps the row defaults underneath, so any property you set wins on collision (e.g. supply `alignItems: 'flex-start'` for tasks with multi-line labels).
+
 **HTML Tag Mapping:**
 HTML tags are automatically mapped to React Native components:
 
