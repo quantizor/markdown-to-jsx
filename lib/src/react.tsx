@@ -94,13 +94,7 @@ function render(
         props.className =
           'markdown-alert-' + slug(node.alert.toLowerCase(), util.slugify)
 
-        node.children.unshift({
-          attrs: {},
-          children: [{ type: RuleType.text, text: node.alert }],
-          _verbatim: true,
-          type: RuleType.htmlBlock,
-          tag: 'header',
-        })
+        node.children.unshift(util.alertHeaderNode(node.alert))
       }
 
       return h('blockquote', props, output(node.children, state))
@@ -765,13 +759,7 @@ export function astToJSX(
     refs: refs,
   }) as React.ReactNode[]
 
-  // Extract footnotes from refs (keys starting with '^')
-  const footnoteEntries: { identifier: string; footnote: string }[] = []
-  for (const key in refs) {
-    if (key.charCodeAt(0) === $.CHAR_CARET) {
-      footnoteEntries.push({ identifier: key, footnote: refs[key].target })
-    }
-  }
+  const footnoteEntries = util.extractFootnoteEntries(refs)
 
   if (footnoteEntries.length) {
     arr.push(

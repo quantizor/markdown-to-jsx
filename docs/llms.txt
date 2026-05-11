@@ -300,15 +300,27 @@ function App() {
 
 - `onLinkPress?: (url: string, title?: string) => void` - Custom handler for link presses (defaults to `Linking.openURL`)
 - `onLinkLongPress?: (url: string, title?: string) => void` - Handler for link long presses
-- `styles?: Partial<Record<NativeStyleKey, StyleProp<ViewStyle | TextStyle | ImageStyle>>>` - Style overrides for each element type
+- `styles?: NativeStyles` - Per-key style overrides keyed by element type. Each key is narrowed to the style accepted by its target component (`TextStyle` for inline content and headings, `ViewStyle` for containers, `ImageStyle` for images).
 - `wrapperProps?: ViewProps | TextProps` - Props for the wrapper component (defaults to `View` for block, `Text` for inline)
+
+**Overrides:**
+
+Overrides on native work the same as on web — `overrides` keys correspond to HTML tag names and fire for parsed markdown as well as raw HTML. For example, override `code` to swap inline backticks and the inner element of fenced code blocks, override `pre` to wrap fenced code, override `input` to render real checkbox visuals for GFM tasks, and override `ul`/`ol`/`li` to swap list containers and rows. Bullets and numbers remain library-controlled inside `li`.
+
+When both a renderer-supplied style (`styles.codeInline`, `styles.gfmTask`, etc.) and `overrides[tag].props.style` are set, they merge as a React Native style array — override-level styling wins on conflict.
+
+**GFM task checkboxes:**
+
+Task checkboxes (`- [x]`, `- [ ]`) route through an `<input type="checkbox">` tag that maps to `View` by default. Use `styles.gfmTask` to style the container, or override `input` to replace the checkbox visual entirely (for a real `<Image>` checkbox, animated state, etc.). Your override receives `checked`, `type: 'checkbox'`, `readOnly`, the merged `style`, and a default `<Text>` child rendering `[x]` or `[ ]` so the marker stays visible without an override. The marker child is library-controlled and not separately styleable; consumers that fully customize the visual should ignore the child and render their own indicator from `props.checked`.
+
+The list item wrapper around a task gets `flexDirection: 'row'` and `alignItems: 'center'` applied by default so the checkbox and label sit on the same row out of the box. Override these by passing your own `styles.listItem` — `mergeStyle` keeps the row defaults underneath, so any property you set wins on collision (e.g. supply `alignItems: 'flex-start'` for tasks with multi-line labels).
 
 **HTML Tag Mapping:**
 HTML tags are automatically mapped to React Native components:
 
 - `<img>` → `Image` component
-- Block elements (`<div>`, `<section>`, `<article>`, `<blockquote>`, `<ul>`, `<ol>`, `<li>`, `<table>`, etc.) → `View` component
-- Inline elements (`<span>`, `<strong>`, `<em>`, `<a>`, etc.) → `Text` component
+- Block elements (`<div>`, `<section>`, `<article>`, `<blockquote>`, `<hr>`, `<input>`, `<ul>`, `<ol>`, `<li>`, `<table>`, etc.) → `View` component
+- Inline elements (`<span>`, `<strong>`, `<em>`, `<a>`, headings, `<code>`, etc.) → `Text` component
 - Type 1 blocks (`<pre>`, `<script>`, `<style>`, `<textarea>`) → `View` component
 
 **Note:** Links are underlined by default for better accessibility and discoverability. You can override this via the `styles.link` option.

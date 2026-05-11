@@ -299,15 +299,27 @@ function App() {
 
 - `onLinkPress?: (url: string, title?: string) => void` - 自定义链接点击处理器（默认为 `Linking.openURL`）
 - `onLinkLongPress?: (url: string, title?: string) => void` - 链接长按处理器
-- `styles?: Partial<Record<NativeStyleKey, StyleProp<ViewStyle | TextStyle | ImageStyle>>>` - 每个元素类型的样式覆盖
+- `styles?: NativeStyles` - 按元素类型分键的样式覆盖。每个键根据其目标组件收窄为对应的样式类型（内联内容和标题为 `TextStyle`，容器为 `ViewStyle`，图片为 `ImageStyle`）。
 - `wrapperProps?: ViewProps | TextProps` - 包装组件的属性（块级元素默认为 `View`，内联元素默认为 `Text`）
+
+**覆盖（Overrides）：**
+
+Native 端的覆盖与 Web 端一致——`overrides` 的键对应 HTML 标签名，对解析后的 Markdown 和原始 HTML 都生效。例如，覆盖 `code` 可同时替换行内反引号和围栏代码块的内层元素，覆盖 `pre` 可包裹围栏代码，覆盖 `input` 可为 GFM 任务渲染真实的复选框，覆盖 `ul`/`ol`/`li` 可替换列表容器与每行。项目符号和编号仍由库在 `li` 内控制。
+
+当渲染器提供的样式（`styles.codeInline`、`styles.gfmTask` 等）与 `overrides[tag].props.style` 同时存在时，会合并为 React Native 样式数组——冲突时覆盖级样式胜出。
+
+**GFM 任务复选框：**
+
+任务复选框（`- [x]`、`- [ ]`）通过 `<input type="checkbox">` 标签渲染，默认映射为 `View`。使用 `styles.gfmTask` 设置容器样式，或覆盖 `input` 完全替换复选框的视觉表现（例如使用真实的 `<Image>` 复选框、添加动画状态等）。你的覆盖组件会接收 `checked`、`type: 'checkbox'`、`readOnly`、合并后的 `style`，以及一个渲染 `[x]` 或 `[ ]` 的默认 `<Text>` 子元素——它确保未提供覆盖时标记仍可见。标记子元素由库控制且无法单独设置样式；如需完全自定义视觉，请忽略该子元素并基于 `props.checked` 自行渲染指示器。
+
+任务项外层的列表项包装器默认会应用 `flexDirection: 'row'` 和 `alignItems: 'center'`，让复选框与标签开箱即用地处于同一行。传入自定义的 `styles.listItem` 即可覆盖这些值——`mergeStyle` 会保留行布局默认值在底层，因此你设置的任何属性在冲突时都会胜出（例如对于多行标签的任务，可传入 `alignItems: 'flex-start'`）。
 
 **HTML 标签映射：**
 HTML 标签会自动映射到 React Native 组件：
 
 - `<img>` → `Image` 组件
-- 块级元素 (`<div>`, `<section>`, `<article>`, `<blockquote>`, `<ul>`, `<ol>`, `<li>`, `<table>` 等) → `View` 组件
-- 内联元素 (`<span>`, `<strong>`, `<em>`, `<a>` 等) → `Text` 组件
+- 块级元素 (`<div>`, `<section>`, `<article>`, `<blockquote>`, `<hr>`, `<input>`, `<ul>`, `<ol>`, `<li>`, `<table>` 等) → `View` 组件
+- 内联元素 (`<span>`, `<strong>`, `<em>`, `<a>`, 标题, `<code>` 等) → `Text` 组件
 - 类型 1 块 (`<pre>`, `<script>`, `<style>`, `<textarea>`) → `View` 组件
 
 **注意：** 为了更好的可访问性和可发现性，链接默认带有下划线。您可以通过 `styles.link` 选项覆盖此行为。

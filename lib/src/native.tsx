@@ -19,6 +19,22 @@ export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
 const TRIM_STARTING_NEWLINES = /^\n+/
+const LIST_ITEM_ROW_STYLE: ViewStyle = { flexDirection: 'row' }
+const GFM_TASK_ITEM_ROW_STYLE: ViewStyle = {
+  flexDirection: 'row',
+  alignItems: 'center',
+}
+const LINK_DEFAULT_STYLE: TextStyle = { textDecorationLine: 'underline' }
+const TEXT_FORMAT_STYLES: Record<string, TextStyle> = {
+  em: { fontStyle: 'italic' },
+  strong: { fontWeight: 'bold' },
+  del: { textDecorationLine: 'line-through' },
+}
+
+// Merge a default style with a user-supplied one. RN accepts a style array, so
+// we return [default, user] when both exist; otherwise return whichever is set.
+const mergeStyle = <T,>(d: T | undefined, u: T | undefined): T | T[] | undefined =>
+  u ? (d ? [d, u] : u) : d
 
 /**
  * React context for sharing compiler options across Markdown components in React Native
@@ -27,53 +43,62 @@ export const MarkdownContext: React.Context<NativeOptions | undefined> =
   React.createContext<NativeOptions | undefined>(undefined)
 
 /**
+ * Per-key style map for React Native rendering. Each key is narrowed to the
+ * style type accepted by the component it targets — Text styles for inline /
+ * text content, View styles for block containers, ImageStyle for images.
+ */
+export interface NativeStyles {
+  text?: StyleProp<TextStyle>
+  paragraph?: StyleProp<TextStyle>
+  heading1?: StyleProp<TextStyle>
+  heading2?: StyleProp<TextStyle>
+  heading3?: StyleProp<TextStyle>
+  heading4?: StyleProp<TextStyle>
+  heading5?: StyleProp<TextStyle>
+  heading6?: StyleProp<TextStyle>
+  link?: StyleProp<TextStyle>
+  image?: StyleProp<ImageStyle>
+  codeBlock?: StyleProp<ViewStyle>
+  codeInline?: StyleProp<TextStyle>
+  blockquote?: StyleProp<ViewStyle>
+  listOrdered?: StyleProp<ViewStyle>
+  listUnordered?: StyleProp<ViewStyle>
+  listItem?: StyleProp<ViewStyle>
+  listItemBullet?: StyleProp<TextStyle>
+  listItemNumber?: StyleProp<TextStyle>
+  thematicBreak?: StyleProp<ViewStyle>
+  table?: StyleProp<ViewStyle>
+  tableHeader?: StyleProp<ViewStyle>
+  tableHeaderCell?: StyleProp<ViewStyle>
+  tableRow?: StyleProp<ViewStyle>
+  tableCell?: StyleProp<ViewStyle>
+  em?: StyleProp<TextStyle>
+  strong?: StyleProp<TextStyle>
+  del?: StyleProp<TextStyle>
+  mark?: StyleProp<TextStyle>
+  gfmTask?: StyleProp<ViewStyle>
+  // HTML semantic block elements (rendered as View by default)
+  div?: StyleProp<ViewStyle>
+  section?: StyleProp<ViewStyle>
+  article?: StyleProp<ViewStyle>
+  aside?: StyleProp<ViewStyle>
+  header?: StyleProp<ViewStyle>
+  footer?: StyleProp<ViewStyle>
+  main?: StyleProp<ViewStyle>
+  nav?: StyleProp<ViewStyle>
+  figure?: StyleProp<ViewStyle>
+  figcaption?: StyleProp<ViewStyle>
+  ul?: StyleProp<ViewStyle>
+  ol?: StyleProp<ViewStyle>
+  li?: StyleProp<ViewStyle>
+  th?: StyleProp<ViewStyle>
+  td?: StyleProp<ViewStyle>
+}
+
+/**
  * Style keys for React Native components
  */
-export type NativeStyleKey =
-  | 'text'
-  | 'paragraph'
-  | 'heading1'
-  | 'heading2'
-  | 'heading3'
-  | 'heading4'
-  | 'heading5'
-  | 'heading6'
-  | 'link'
-  | 'image'
-  | 'codeBlock'
-  | 'codeInline'
-  | 'blockquote'
-  | 'listOrdered'
-  | 'listUnordered'
-  | 'listItem'
-  | 'listItemBullet'
-  | 'listItemNumber'
-  | 'thematicBreak'
-  | 'table'
-  | 'tableHeader'
-  | 'tableHeaderCell'
-  | 'tableRow'
-  | 'tableCell'
-  | 'em'
-  | 'strong'
-  | 'del'
-  | 'gfmTask'
-  // HTML semantic elements
-  | 'div'
-  | 'section'
-  | 'article'
-  | 'aside'
-  | 'header'
-  | 'footer'
-  | 'main'
-  | 'nav'
-  | 'figure'
-  | 'figcaption'
-  | 'ul'
-  | 'ol'
-  | 'li'
-  | 'th'
-  | 'td'
+export type NativeStyleKey = keyof NativeStyles
 
 /**
  * React Native compiler options
@@ -84,9 +109,7 @@ export type NativeOptions = Omit<MarkdownToJSX.Options, 'wrapperProps'> & {
   /** Handler for link long press events */
   onLinkLongPress?: (url: string, title?: string) => void
   /** Style overrides for React Native components */
-  styles?: Partial<
-    Record<NativeStyleKey, StyleProp<ViewStyle | TextStyle | ImageStyle>>
-  >
+  styles?: NativeStyles
   /** Props for wrapper component (View or Text) */
   wrapperProps?: ViewProps | TextProps
 }
@@ -108,7 +131,7 @@ function render(
     case RuleType.blockQuote: {
       const blockquoteNode = node as MarkdownToJSX.BlockQuoteNode
       return h(
-        View,
+        'blockquote',
         {
           key: state.key,
           style: styles.blockquote,
@@ -121,7 +144,7 @@ function render(
       return '\n'
 
     case RuleType.breakThematic:
-      return h(View, {
+      return h('hr', {
         key: state.key,
         style: styles.thematicBreak,
       })
@@ -129,9 +152,15 @@ function render(
     case RuleType.frontmatter:
       if (options.preserveFrontmatter) {
         const frontmatterNode = node as MarkdownToJSX.FrontmatterNode
+        // In inline mode the wrapper is Text and View cannot nest inside it.
+        // 'pre' maps to View (safe in block, takes ViewStyle);
+        // 'code' maps to Text (safe inline, takes TextStyle).
         return h(
-          Text,
-          { key: state.key, style: styles.codeBlock },
+          state.inline ? 'code' : 'pre',
+          {
+            key: state.key,
+            style: state.inline ? styles.codeInline : styles.codeBlock,
+          },
           frontmatterNode.text
         )
       }
@@ -140,16 +169,16 @@ function render(
     case RuleType.codeBlock: {
       const codeNode = node as MarkdownToJSX.CodeBlockNode
       return h(
-        View,
+        'pre',
         { key: state.key, style: styles.codeBlock },
-        h(Text, { style: styles.codeInline }, codeNode.text)
+        h('code', { style: styles.codeInline }, codeNode.text)
       )
     }
 
     case RuleType.codeInline: {
       const codeNode = node as MarkdownToJSX.CodeInlineNode
       return h(
-        Text,
+        'code',
         { key: state.key, style: styles.codeInline },
         codeNode.text
       )
@@ -178,10 +207,23 @@ function render(
 
     case RuleType.gfmTask: {
       const taskNode = node as MarkdownToJSX.GFMTaskNode
+      // Only attach DOM-only props (type/checked/readOnly) when the consumer
+      // has overridden 'input'. Without an override the fallback is RN View,
+      // which would log unknown-prop warnings for these in dev mode.
+      const hasInputOverride = !!(options.overrides && options.overrides.input)
+      const inputProps: Record<string, unknown> = {
+        key: state.key,
+        style: styles.gfmTask,
+      }
+      if (hasInputOverride) {
+        inputProps.type = 'checkbox'
+        inputProps.checked = taskNode.completed
+        inputProps.readOnly = true
+      }
       return h(
-        Text,
-        { key: state.key, style: styles.gfmTask },
-        taskNode.completed ? '[x]' : '[ ]'
+        'input',
+        inputProps,
+        h(Text, {}, taskNode.completed ? '[x]' : '[ ]')
       )
     }
 
@@ -190,7 +232,7 @@ function render(
       const headingStyleKey = `heading${headingNode.level}` as NativeStyleKey
       const headingStyle = styles[headingStyleKey]
       return h(
-        Text,
+        `h${headingNode.level}`,
         {
           key: state.key,
           style: headingStyle,
@@ -346,14 +388,9 @@ function render(
 
     case RuleType.link: {
       const linkNode = node as MarkdownToJSX.LinkNode
-      const defaultLinkStyle: TextStyle = { textDecorationLine: 'underline' }
-      const linkStyle = styles.link
-        ? [defaultLinkStyle, styles.link]
-        : defaultLinkStyle
-
       const props: Record<string, unknown> = {
         key: state.key,
-        style: linkStyle,
+        style: mergeStyle(LINK_DEFAULT_STYLE, styles.link),
       }
 
       if (linkNode.target != null) {
@@ -451,16 +488,15 @@ function render(
 
     case RuleType.textFormatted: {
       const formattedNode = node as MarkdownToJSX.FormattedTextNode
-      const tagStyles: Record<string, TextStyle> = {
-        em: { fontStyle: 'italic' },
-        strong: { fontWeight: 'bold' },
-        del: { textDecorationLine: 'line-through' },
-      }
-      const defaultStyle = tagStyles[formattedNode.tag]
-      const style = styles[formattedNode.tag as NativeStyleKey] || defaultStyle
       return h(
-        Text,
-        { key: state.key, style },
+        formattedNode.tag,
+        {
+          key: state.key,
+          style: mergeStyle(
+            TEXT_FORMAT_STYLES[formattedNode.tag],
+            styles[formattedNode.tag as NativeStyleKey]
+          ),
+        },
         output(formattedNode.children, state)
       )
     }
@@ -471,11 +507,14 @@ function render(
         | MarkdownToJSX.OrderedListNode
         | MarkdownToJSX.UnorderedListNode
       const isOrdered = node.type === RuleType.orderedList
-      const listStyle = isOrdered ? styles.listOrdered : styles.listUnordered
+      const liStyle = mergeStyle(LIST_ITEM_ROW_STYLE, styles.li)
 
       return h(
-        View,
-        { key: state.key, style: listStyle },
+        isOrdered ? 'ol' : 'ul',
+        {
+          key: state.key,
+          style: isOrdered ? styles.listOrdered : styles.listUnordered,
+        },
         listNode.items.map((item, i) => {
           const number =
             isOrdered && 'start' in listNode && listNode.start != null
@@ -486,11 +525,22 @@ function render(
             ? styles.listItemNumber
             : styles.listItemBullet
 
+          // When an item begins with a GFM task marker, the marker and label
+          // are sibling AST nodes. The inner wrapper opts into row+center
+          // alignment so the checkbox sits next to its label by default;
+          // styles.listItem (when provided) still wins on collision via
+          // mergeStyle's [default, user] ordering.
+          const itemIsTask =
+            item.length > 0 && item[0].type === RuleType.gfmTask
+          const innerItemStyle = itemIsTask
+            ? mergeStyle(GFM_TASK_ITEM_ROW_STYLE, styles.listItem)
+            : styles.listItem
+
           return h(
-            View,
-            { key: i, style: { flexDirection: 'row' } },
+            'li',
+            { key: i, style: liStyle },
             h(Text, { style: bulletStyle }, bullet + ' '),
-            h(View, { style: styles.listItem }, output(item, state))
+            h(View, { style: innerItemStyle }, output(item, state))
           )
         })
       )
@@ -572,7 +622,10 @@ const createRenderer = (
   return renderer
 }
 
-const getTag = (tag: string, overrides?: MarkdownToJSX.Overrides) => {
+const getTag = (
+  tag: string,
+  overrides?: MarkdownToJSX.Overrides
+): React.ElementType => {
   if (!overrides || typeof tag !== 'string') return tag
   const override = util.get(overrides, tag, undefined)
   if (!override) return tag
@@ -580,53 +633,46 @@ const getTag = (tag: string, overrides?: MarkdownToJSX.Overrides) => {
     typeof override === 'function' ||
     (typeof override === 'object' && override !== null && 'render' in override)
   ) {
-    return override
+    return override as React.ElementType
   }
-  return util.get(overrides, `${tag}.component`, tag)
+  return util.get(overrides, `${tag}.component`, tag) as React.ElementType
 }
+
+// HTML tags that map to View on native. Set for O(1) lookups (matches
+// utils.VOID_ELEMENTS precedent).
+const VIEW_TAGS: Set<string> = new Set([
+  'div',
+  'section',
+  'article',
+  'aside',
+  'header',
+  'footer',
+  'main',
+  'nav',
+  'figure',
+  'figcaption',
+  'blockquote',
+  'hr',
+  'input',
+  'ul',
+  'ol',
+  'li',
+  'table',
+  'thead',
+  'tbody',
+  'tr',
+  'th',
+  'td',
+])
 
 // Map HTML tags to React Native components
 // React Native doesn't support arbitrary HTML tags, so we map them to Text or View
 const mapHTMLTagToNativeComponent = (tag: string): React.ElementType => {
   const tagLower = tag.toLowerCase()
-
-  // Media elements
-  if (tagLower === 'img') {
-    return Image
-  }
-
-  // Semantic block containers
-  if (
-    tagLower === 'div' ||
-    tagLower === 'section' ||
-    tagLower === 'article' ||
-    tagLower === 'aside' ||
-    tagLower === 'header' ||
-    tagLower === 'footer' ||
-    tagLower === 'main' ||
-    tagLower === 'nav' ||
-    tagLower === 'figure' ||
-    tagLower === 'figcaption' ||
-    tagLower === 'blockquote' ||
-    tagLower === 'ul' ||
-    tagLower === 'ol' ||
-    tagLower === 'li' ||
-    tagLower === 'table' ||
-    tagLower === 'thead' ||
-    tagLower === 'tbody' ||
-    tagLower === 'tr' ||
-    tagLower === 'th' ||
-    tagLower === 'td'
-  ) {
-    return View
-  }
-
+  if (tagLower === 'img') return Image
+  if (VIEW_TAGS.has(tagLower)) return View
   // Type 1 blocks (pre, script, style, textarea)
-  if (parse.isType1Block(tagLower)) {
-    return View
-  }
-
-  // Everything else (inline elements, text content, etc.)
+  if (parse.isType1Block(tagLower)) return View
   return Text
 }
 
@@ -647,40 +693,46 @@ export function astToNative(
   const slug = opts.slugify || util.slugify
   const sanitize = opts.sanitizer || util.sanitizer
   const createElement = opts.createElement || React.createElement
+  const hasOverrides = Object.keys(opts.overrides).length > 0
 
   function h(
-    tag: string,
-    props: Record<string, any> & {
+    tag: React.ElementType,
+    props: Record<string, unknown> & {
       style?: StyleProp<ViewStyle | TextStyle | ImageStyle>
     },
-    ...children: any[]
-  ) {
+    ...children: React.ReactNode[]
+  ): React.ReactNode {
     if (typeof tag !== 'string') {
       return createElement(tag, props, ...children)
     }
 
-    const overrideProps = util.get(opts.overrides || {}, `${tag}.props`, {})
-    const Component = getTag(tag, opts.overrides || {})
-
-    const finalProps = {
-      ...props,
-      ...overrideProps,
-      style: props.style || overrideProps.style || undefined,
+    let finalProps = props
+    let Component: React.ElementType = tag
+    if (hasOverrides) {
+      const overrideProps = util.get(opts.overrides, `${tag}.props`, {}) as {
+        [key: string]: unknown
+        style?: StyleProp<ViewStyle | TextStyle | ImageStyle>
+      }
+      Component = getTag(tag, opts.overrides)
+      // Merge so override.props.style and renderer-supplied style both apply.
+      // Later entries in an RN style array win, so override-level styling has
+      // precedence over the renderer's default — matches user intent for the
+      // more-specific override entry.
+      finalProps = {
+        ...props,
+        ...overrideProps,
+        style: mergeStyle(props.style, overrideProps.style),
+      }
     }
 
-    if (
-      typeof Component === 'function' ||
-      (typeof Component === 'object' && Component !== null)
-    ) {
-      return createElement(
-        Component as React.ElementType,
-        finalProps,
-        ...children
-      )
+    if (typeof Component !== 'string') {
+      return createElement(Component, finalProps, ...children)
     }
-    // Component is still a string (HTML tag name) - map it to React Native component
-    const NativeComponent = mapHTMLTagToNativeComponent(Component)
-    return createElement(NativeComponent, finalProps, ...children)
+    return createElement(
+      mapHTMLTagToNativeComponent(Component),
+      finalProps,
+      ...children
+    )
   }
 
   const parseOptions: parse.ParseOptions = {
@@ -714,12 +766,7 @@ export function astToNative(
   })
   const arr: React.ReactNode[] = Array.isArray(emitted) ? emitted : [emitted]
 
-  const footnoteEntries: { identifier: string; footnote: string }[] = []
-  for (const key in refs) {
-    if (key.charCodeAt(0) === $.CHAR_CARET) {
-      footnoteEntries.push({ identifier: key, footnote: refs[key].target })
-    }
-  }
+  const footnoteEntries = util.extractFootnoteEntries(refs as { [key: string]: { target: string; title: string } })
 
   if (footnoteEntries.length) {
     arr.push(
@@ -892,7 +939,7 @@ export const MarkdownProvider: React.FC<{
  */
 export const Markdown: React.FC<
   Omit<ViewProps, 'children'> & {
-    children?: string | null
+    children?: string | string[] | null
     options?: NativeOptions
   }
 > = ({ children: rawChildren, options, ...props }) => {
@@ -916,7 +963,11 @@ export const Markdown: React.FC<
   }, [contextOptions, options, props])
 
   const content =
-    rawChildren === null || rawChildren === undefined ? '' : rawChildren
+    rawChildren == null
+      ? ''
+      : Array.isArray(rawChildren)
+        ? rawChildren.join('')
+        : rawChildren
 
   const jsx = React.useMemo(
     () => compiler(content, mergedOptions),

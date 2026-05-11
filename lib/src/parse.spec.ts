@@ -2048,7 +2048,6 @@ describe('multi-line HTML attributes', () => {
     ).toMatchInlineSnapshot(`
       [
         {
-          "_canInterrupt": false,
           "_isClosingTag": false,
           "_rawAttrs": 
       "
@@ -2069,7 +2068,6 @@ describe('multi-line HTML attributes', () => {
           },
           "children": [
             {
-              "_canInterrupt": true,
               "_emitOwnClose": true,
               "_isClosingTag": false,
               "_rawAttrs": "",
@@ -2082,13 +2080,11 @@ describe('multi-line HTML attributes', () => {
                   "type": "text",
                 },
               ],
-              "endPos": 19,
               "tag": "dt",
               "text": "title 1",
               "type": "htmlBlock",
             },
             {
-              "_canInterrupt": true,
               "_emitOwnClose": true,
               "_isClosingTag": false,
               "_rawAttrs": "",
@@ -2101,13 +2097,11 @@ describe('multi-line HTML attributes', () => {
                   "type": "text",
                 },
               ],
-              "endPos": 44,
               "tag": "dd",
               "text": "description 1",
               "type": "htmlBlock",
             },
           ],
-          "endPos": 102,
           "tag": "dl-custom",
           "text": 
       "<dl-custom
@@ -2133,7 +2127,6 @@ describe('multi-line HTML attributes', () => {
     ).toMatchInlineSnapshot(`
       [
         {
-          "_canInterrupt": true,
           "_isClosingTag": false,
           "_rawAttrs": 
       "
@@ -2161,7 +2154,6 @@ describe('multi-line HTML attributes', () => {
               "type": "text",
             },
           ],
-          "endPos": 65,
           "tag": "div",
           "text": 
       "<div
@@ -2186,7 +2178,6 @@ describe('multi-line HTML attributes', () => {
     ).toMatchInlineSnapshot(`
       [
         {
-          "_canInterrupt": true,
           "_isClosingTag": false,
           "_rawAttrs": 
       "
@@ -2214,7 +2205,6 @@ describe('multi-line HTML attributes', () => {
               "type": "text",
             },
           ],
-          "endPos": 65,
           "tag": "div",
           "text": 
       "<div
@@ -2240,7 +2230,6 @@ describe('multi-line HTML attributes', () => {
     ).toMatchInlineSnapshot(`
       [
         {
-          "_canInterrupt": false,
           "_isClosingTag": false,
           "_rawAttrs": 
       "
@@ -2267,7 +2256,6 @@ describe('multi-line HTML attributes', () => {
               "type": "text",
             },
           ],
-          "endPos": 91,
           "tag": "MyComponent",
           "text": 
       "
@@ -2337,7 +2325,6 @@ describe('multi-line HTML attributes', () => {
     ).toMatchInlineSnapshot(`
       [
         {
-          "_canInterrupt": true,
           "_isClosingTag": false,
           "_rawAttrs": 
       "
@@ -2365,7 +2352,6 @@ describe('multi-line HTML attributes', () => {
               "type": "text",
             },
           ],
-          "endPos": 85,
           "tag": "div",
           "text": 
       "<div
@@ -2425,7 +2411,6 @@ describe('multi-line HTML attributes', () => {
     ).toMatchInlineSnapshot(`
       [
         {
-          "_canInterrupt": false,
           "_isClosingTag": false,
           "_rawAttrs": 
       "
@@ -2453,7 +2438,6 @@ describe('multi-line HTML attributes', () => {
               "type": "text",
             },
           ],
-          "endPos": 88,
           "tag": "CustomElement",
           "text": "inner",
           "type": "htmlBlock",
@@ -2474,7 +2458,6 @@ describe('multi-line HTML attributes', () => {
       expect(p.parser(baseInput)).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2495,7 +2478,6 @@ describe('multi-line HTML attributes', () => {
             },
             "children": [
               {
-                "_canInterrupt": true,
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
@@ -2508,13 +2490,11 @@ describe('multi-line HTML attributes', () => {
                     "type": "text",
                   },
                 ],
-                "endPos": 19,
                 "tag": "dt",
                 "text": "title 1",
                 "type": "htmlBlock",
               },
               {
-                "_canInterrupt": true,
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
@@ -2527,13 +2507,11 @@ describe('multi-line HTML attributes', () => {
                     "type": "text",
                   },
                 ],
-                "endPos": 44,
                 "tag": "dd",
                 "text": "description 1",
                 "type": "htmlBlock",
               },
             ],
-            "endPos": 102,
             "tag": "dl-custom",
             "text": 
         "<dl-custom
@@ -2553,7 +2531,6 @@ describe('multi-line HTML attributes', () => {
       expect(p.parser(baseInput + '\n')).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2575,7 +2552,6 @@ describe('multi-line HTML attributes', () => {
             },
             "children": [
               {
-                "_canInterrupt": true,
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
@@ -2588,13 +2564,11 @@ describe('multi-line HTML attributes', () => {
                     "type": "text",
                   },
                 ],
-                "endPos": 19,
                 "tag": "dt",
                 "text": "title 1",
                 "type": "htmlBlock",
               },
               {
-                "_canInterrupt": true,
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
@@ -2607,13 +2581,11 @@ describe('multi-line HTML attributes', () => {
                     "type": "text",
                   },
                 ],
-                "endPos": 44,
                 "tag": "dd",
                 "text": "description 1",
                 "type": "htmlBlock",
               },
             ],
-            "endPos": 103,
             "tag": "dl-custom",
             "text": 
         "<dl-custom
@@ -2634,7 +2606,6 @@ describe('multi-line HTML attributes', () => {
       expect(p.parser(baseInput + '\n\n')).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2656,7 +2627,6 @@ describe('multi-line HTML attributes', () => {
             },
             "children": [
               {
-                "_canInterrupt": true,
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
@@ -2669,13 +2639,11 @@ describe('multi-line HTML attributes', () => {
                     "type": "text",
                   },
                 ],
-                "endPos": 19,
                 "tag": "dt",
                 "text": "title 1",
                 "type": "htmlBlock",
               },
               {
-                "_canInterrupt": true,
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
@@ -2688,13 +2656,11 @@ describe('multi-line HTML attributes', () => {
                     "type": "text",
                   },
                 ],
-                "endPos": 44,
                 "tag": "dd",
                 "text": "description 1",
                 "type": "htmlBlock",
               },
             ],
-            "endPos": 103,
             "tag": "dl-custom",
             "text": 
         "<dl-custom
@@ -2715,7 +2681,6 @@ describe('multi-line HTML attributes', () => {
       expect(p.parser('\n' + baseInput)).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2736,7 +2701,6 @@ describe('multi-line HTML attributes', () => {
             },
             "children": [
               {
-                "_canInterrupt": true,
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
@@ -2749,13 +2713,11 @@ describe('multi-line HTML attributes', () => {
                     "type": "text",
                   },
                 ],
-                "endPos": 19,
                 "tag": "dt",
                 "text": "title 1",
                 "type": "htmlBlock",
               },
               {
-                "_canInterrupt": true,
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
@@ -2768,13 +2730,11 @@ describe('multi-line HTML attributes', () => {
                     "type": "text",
                   },
                 ],
-                "endPos": 44,
                 "tag": "dd",
                 "text": "description 1",
                 "type": "htmlBlock",
               },
             ],
-            "endPos": 103,
             "tag": "dl-custom",
             "text": 
         "<dl-custom
@@ -2794,7 +2754,6 @@ describe('multi-line HTML attributes', () => {
       expect(p.parser('\n' + baseInput + '\n')).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2816,7 +2775,6 @@ describe('multi-line HTML attributes', () => {
             },
             "children": [
               {
-                "_canInterrupt": true,
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
@@ -2829,13 +2787,11 @@ describe('multi-line HTML attributes', () => {
                     "type": "text",
                   },
                 ],
-                "endPos": 19,
                 "tag": "dt",
                 "text": "title 1",
                 "type": "htmlBlock",
               },
               {
-                "_canInterrupt": true,
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
@@ -2848,13 +2804,11 @@ describe('multi-line HTML attributes', () => {
                     "type": "text",
                   },
                 ],
-                "endPos": 44,
                 "tag": "dd",
                 "text": "description 1",
                 "type": "htmlBlock",
               },
             ],
-            "endPos": 104,
             "tag": "dl-custom",
             "text": 
         "<dl-custom
@@ -2875,7 +2829,6 @@ describe('multi-line HTML attributes', () => {
       expect(p.parser(baseInput.replace(/\n/g, '\r\n'))).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2896,7 +2849,6 @@ describe('multi-line HTML attributes', () => {
             },
             "children": [
               {
-                "_canInterrupt": true,
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
@@ -2909,13 +2861,11 @@ describe('multi-line HTML attributes', () => {
                     "type": "text",
                   },
                 ],
-                "endPos": 19,
                 "tag": "dt",
                 "text": "title 1",
                 "type": "htmlBlock",
               },
               {
-                "_canInterrupt": true,
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
@@ -2928,13 +2878,11 @@ describe('multi-line HTML attributes', () => {
                     "type": "text",
                   },
                 ],
-                "endPos": 44,
                 "tag": "dd",
                 "text": "description 1",
                 "type": "htmlBlock",
               },
             ],
-            "endPos": 102,
             "tag": "dl-custom",
             "text": 
         "<dl-custom
@@ -2963,7 +2911,6 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -2990,7 +2937,6 @@ describe('multi-line HTML attributes', () => {
                 "type": "text",
               },
             ],
-            "endPos": 85,
             "tag": "MyCustomComponent",
             "text": 
         "
@@ -3015,7 +2961,6 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -3045,7 +2990,6 @@ describe('multi-line HTML attributes', () => {
                 "type": "text",
               },
             ],
-            "endPos": 101,
             "tag": "DataTable",
             "text": 
         "
@@ -3071,7 +3015,6 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -3104,7 +3047,6 @@ describe('multi-line HTML attributes', () => {
                 "type": "text",
               },
             ],
-            "endPos": 104,
             "tag": "Widget",
             "text": 
         "
@@ -3135,7 +3077,6 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -3163,7 +3104,6 @@ describe('multi-line HTML attributes', () => {
             },
             "children": [
               {
-                "_canInterrupt": false,
                 "_isClosingTag": false,
                 "_rawAttrs": 
         "
@@ -3187,7 +3127,6 @@ describe('multi-line HTML attributes', () => {
                 },
                 "children": [
                   {
-                    "_canInterrupt": false,
                     "_isClosingTag": false,
                     "_rawAttrs": 
         "
@@ -3211,7 +3150,6 @@ describe('multi-line HTML attributes', () => {
                         "type": "text",
                       },
                     ],
-                    "endPos": 60,
                     "tag": "Inner",
                     "text": 
         "
@@ -3221,7 +3159,6 @@ describe('multi-line HTML attributes', () => {
                     "type": "htmlBlock",
                   },
                 ],
-                "endPos": 100,
                 "tag": "Middle",
                 "text": 
         "
@@ -3235,7 +3172,6 @@ describe('multi-line HTML attributes', () => {
                 "type": "htmlBlock",
               },
             ],
-            "endPos": 129,
             "tag": "Outer",
             "text": 
         "
@@ -3267,7 +3203,6 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -3286,7 +3221,6 @@ describe('multi-line HTML attributes', () => {
               "size": "24",
             },
             "children": [],
-            "endPos": 58,
             "tag": "Icon",
             "text": "",
             "type": "htmlBlock",
@@ -3306,7 +3240,6 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": true,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -3331,7 +3264,6 @@ describe('multi-line HTML attributes', () => {
                 "type": "text",
               },
             ],
-            "endPos": 44,
             "tag": "div",
             "text": 
         "<div
@@ -3354,7 +3286,6 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": true,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -3379,7 +3310,6 @@ describe('multi-line HTML attributes', () => {
                 "type": "text",
               },
             ],
-            "endPos": 48,
             "tag": "div",
             "text": 
         "<div
@@ -3401,7 +3331,6 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": " data-variant='horizontalTable'",
             "_rawText": 
@@ -3414,7 +3343,6 @@ describe('multi-line HTML attributes', () => {
             },
             "children": [
               {
-                "_canInterrupt": true,
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
@@ -3427,13 +3355,11 @@ describe('multi-line HTML attributes', () => {
                     "type": "text",
                   },
                 ],
-                "endPos": 17,
                 "tag": "dt",
                 "text": "title",
                 "type": "htmlBlock",
               },
             ],
-            "endPos": 72,
             "tag": "dl-custom",
             "text": 
         "  <dt>title</dt>
@@ -3454,7 +3380,6 @@ describe('multi-line HTML attributes', () => {
       ).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": 
         "
@@ -3472,7 +3397,6 @@ describe('multi-line HTML attributes', () => {
               "data-variant": "horizontalTable",
             },
             "children": [],
-            "endPos": 58,
             "tag": "dl-custom",
             "text": 
         "<dl-custom
@@ -3608,14 +3532,12 @@ This is paragraph after the unordered nested list.`
     expect(result).toMatchInlineSnapshot(`
       [
         {
-          "_canInterrupt": false,
           "_isClosingTag": false,
           "_rawAttrs": "",
           "_rawText": "",
           "_verbatim": false,
           "attrs": {},
           "children": [],
-          "endPos": 5,
           "tag": "br",
           "text": "",
           "type": "htmlBlock",
@@ -4372,14 +4294,12 @@ describe('Unserializable expression evaluation', () => {
       ) as MarkdownToJSX.HTMLNode
       expect(htmlNode).toMatchInlineSnapshot(`
         {
-          "_canInterrupt": true,
           "_isClosingTag": false,
           "_rawAttrs": "",
           "_rawText": "Hello **world**</script>",
           "_verbatim": true,
           "attrs": {},
           "children": [],
-          "endPos": 32,
           "tag": "script",
           "text": "Hello **world**",
           "type": "htmlBlock",
@@ -4398,14 +4318,12 @@ describe('Unserializable expression evaluation', () => {
       ) as MarkdownToJSX.HTMLNode
       expect(htmlNode).toMatchInlineSnapshot(`
         {
-          "_canInterrupt": true,
           "_isClosingTag": false,
           "_rawAttrs": "",
           "_rawText": "<code>const x = 1;</code></pre>",
           "_verbatim": true,
           "attrs": {},
           "children": [],
-          "endPos": 36,
           "tag": "pre",
           "text": "<code>const x = 1;</code>",
           "type": "htmlBlock",
@@ -4422,7 +4340,6 @@ describe('Unserializable expression evaluation', () => {
       ) as MarkdownToJSX.HTMLNode
       expect(htmlNode).toMatchInlineSnapshot(`
         {
-          "_canInterrupt": true,
           "_isClosingTag": false,
           "_rawAttrs": "",
           "_rawText": 
@@ -4433,7 +4350,6 @@ describe('Unserializable expression evaluation', () => {
           "_verbatim": true,
           "attrs": {},
           "children": [],
-          "endPos": 50,
           "tag": "style",
           "text": 
         "body { color: red; }
@@ -4456,7 +4372,6 @@ describe('Unserializable expression evaluation', () => {
       ) as MarkdownToJSX.HTMLNode
       expect(htmlNode).toMatchInlineSnapshot(`
         {
-          "_canInterrupt": true,
           "_isClosingTag": false,
           "_rawAttrs": "",
           "_rawText": "",
@@ -4483,7 +4398,6 @@ describe('Unserializable expression evaluation', () => {
               "type": "paragraph",
             },
           ],
-          "endPos": 28,
           "tag": "div",
           "text": 
         "Hello **world**
@@ -4499,7 +4413,6 @@ describe('Unserializable expression evaluation', () => {
       expect(p.parser('<div>\n<div>\ninner\n</div>\n\n</div>\n\nafter')).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": true,
             "_isClosingTag": false,
             "_rawAttrs": "",
             "_rawText": "",
@@ -4507,7 +4420,6 @@ describe('Unserializable expression evaluation', () => {
             "attrs": {},
             "children": [
               {
-                "_canInterrupt": true,
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
@@ -4524,7 +4436,6 @@ describe('Unserializable expression evaluation', () => {
                     "type": "text",
                   },
                 ],
-                "endPos": 19,
                 "tag": "div",
                 "text": 
         "
@@ -4534,7 +4445,6 @@ describe('Unserializable expression evaluation', () => {
                 "type": "htmlBlock",
               },
             ],
-            "endPos": 32,
             "tag": "div",
             "text": 
         "
@@ -4790,7 +4700,6 @@ describe('text normalization edge cases', () => {
       expect(result).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": false,
             "_isClosingTag": false,
             "_rawAttrs": " att1=tok1 att2=tok2",
             "_rawText": "",
@@ -4800,7 +4709,6 @@ describe('text normalization edge cases', () => {
               "att2": "tok2",
             },
             "children": [],
-            "endPos": 24,
             "tag": "gi",
             "text": "",
             "type": "htmlBlock",
@@ -4957,7 +4865,6 @@ describe('text normalization edge cases', () => {
               [
                 {
                   "_endsWithGT": false,
-                  "endPos": 5,
                   "raw": true,
                   "text": 
         "<?
@@ -5857,14 +5764,12 @@ describe('text normalization edge cases', () => {
             "items": [
               [
                 {
-                  "_canInterrupt": true,
                   "_isClosingTag": false,
                   "_rawAttrs": "",
                   "_rawText": "<script>",
                   "_verbatim": true,
                   "attrs": {},
                   "children": [],
-                  "endPos": 8,
                   "tag": "script",
                   "text": "",
                   "type": "htmlBlock",
@@ -5887,7 +5792,6 @@ describe('text normalization edge cases', () => {
             "_isClosingTag": true,
             "_rawText": "</script>",
             "attrs": {},
-            "endPos": 30,
             "tag": "script",
             "type": "htmlSelfClosing",
           },
@@ -5925,7 +5829,6 @@ describe('text normalization edge cases', () => {
         [
           {
             "_endsWithGT": false,
-            "endPos": 13,
             "raw": true,
             "text": 
         "<!-- foo -->
@@ -5979,7 +5882,6 @@ describe('text normalization edge cases', () => {
       expect(result).toMatchInlineSnapshot(`
         [
           {
-            "_canInterrupt": true,
             "_isClosingTag": false,
             "_rawAttrs": "",
             "_rawText": 
@@ -5993,7 +5895,6 @@ describe('text normalization edge cases', () => {
             "_verbatim": true,
             "attrs": {},
             "children": [],
-            "endPos": 38,
             "tag": "textarea",
             "text": 
         "*foo*

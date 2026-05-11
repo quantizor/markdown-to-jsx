@@ -1,9 +1,12 @@
 import { RuleType, type MarkdownToJSX } from './types'
 import { isVoidElement, getTag, getOverrideProps } from './utils'
 import { parser } from './parse'
+import * as $ from './constants'
 
 export { parser } from './parse'
 export { RuleType, type MarkdownToJSX } from './types'
+
+var _emptyState: MarkdownToJSX.State = {}
 
 /**
  * Override configuration for HTML tags or custom components in Markdown output
@@ -127,10 +130,8 @@ export function astToMarkdown(
 
   function nestedStatefulRender(
     node: MarkdownToJSX.ASTNode,
-    stateWithKey: MarkdownToJSX.State = {}
+    stateWithKey: MarkdownToJSX.State = _emptyState
   ): string {
-    if (!node || typeof node !== 'object') return ''
-
     // renderRule must be checked FIRST, before any filtering or rendering logic
     // This gives users full control to render even normally-skipped nodes
     if (options?.renderRule) {
@@ -144,8 +145,6 @@ export function astToMarkdown(
 
     return renderNodeDefault(node)
   }
-
-  var _emptyState: MarkdownToJSX.State = {}
 
   function renderChildren(children: MarkdownToJSX.ASTNode[]): string {
     var out = ''
@@ -295,7 +294,7 @@ function compileParagraph(
   state: CompilerState
 ): string {
   var out = ''
-  for (var i = 0; i < node.children.length; i++) out += state.renderChild(node.children[i], {})
+  for (var i = 0; i < node.children.length; i++) out += state.renderChild(node.children[i], _emptyState)
   return out
 }
 
@@ -304,7 +303,7 @@ function compileHeading(
   state: CompilerState
 ): string {
   var content = ''
-  for (var hi = 0; hi < node.children.length; hi++) content += state.renderChild(node.children[hi], {})
+  for (var hi = 0; hi < node.children.length; hi++) content += state.renderChild(node.children[hi], _emptyState)
 
   if (
     state.options.useSetextHeaders &&
@@ -339,7 +338,7 @@ function compileTextFormatted(
   state: CompilerState
 ): string {
   var content = ''
-  for (var fi = 0; fi < node.children.length; fi++) content += state.renderChild(node.children[fi], {})
+  for (var fi = 0; fi < node.children.length; fi++) content += state.renderChild(node.children[fi], _emptyState)
   switch (node.tag) {
     case 'em':
     case 'i':
@@ -362,7 +361,7 @@ function compileLink(
   state: CompilerState
 ): string {
   var text = ''
-  for (var li = 0; li < node.children.length; li++) text += state.renderChild(node.children[li], {})
+  for (var li = 0; li < node.children.length; li++) text += state.renderChild(node.children[li], _emptyState)
   const url = node.target || ''
   const title = node.title
 
@@ -405,7 +404,7 @@ function compileOrderedList(
   for (var oi = 0; oi < node.items.length; oi++) {
     var itemContent = ''
     var item = node.items[oi]
-    for (var oj = 0; oj < item.length; oj++) itemContent += state.renderChild(item[oj], {})
+    for (var oj = 0; oj < item.length; oj++) itemContent += state.renderChild(item[oj], _emptyState)
     if (oi > 0) out += '\n'
     out += (start + oi) + '. ' + itemContent.replace(/\n/g, '\n    ')
   }
@@ -420,7 +419,7 @@ function compileUnorderedList(
   for (var ui = 0; ui < node.items.length; ui++) {
     var uContent = ''
     var uItem = node.items[ui]
-    for (var uj = 0; uj < uItem.length; uj++) uContent += state.renderChild(uItem[uj], {})
+    for (var uj = 0; uj < uItem.length; uj++) uContent += state.renderChild(uItem[uj], _emptyState)
     if (ui > 0) out += '\n'
     out += '- ' + uContent.replace(/\n/g, '\n  ')
   }
@@ -435,13 +434,13 @@ function compileBlockQuote(
   var rendered = ''
   for (var qi = 0; qi < node.children.length; qi++) {
     if (qi > 0) rendered += '\n\n'
-    rendered += state.renderChild(node.children[qi], {})
+    rendered += state.renderChild(node.children[qi], _emptyState)
   }
   // Prefix each line with >
   var out = ''
   var segStart = 0
   for (var ri = 0; ri <= rendered.length; ri++) {
-    if (ri === rendered.length || rendered.charCodeAt(ri) === 10) {
+    if (ri === rendered.length || rendered.charCodeAt(ri) === $.CHAR_NEWLINE) {
       var line = rendered.slice(segStart, ri)
       if (out) out += '\n'
       out += line.trim() ? '> ' + line : '>'
@@ -459,7 +458,7 @@ function compileTable(
   for (var hi2 = 0; hi2 < node.header.length; hi2++) {
     if (hi2 > 0) headerRow += ' | '
     var cell = node.header[hi2]
-    for (var hj = 0; hj < cell.length; hj++) headerRow += state.renderChild(cell[hj], {})
+    for (var hj = 0; hj < cell.length; hj++) headerRow += state.renderChild(cell[hj], _emptyState)
   }
 
   var finalSeparator = ''
@@ -483,7 +482,7 @@ function compileTable(
     for (var dj = 0; dj < row.length; dj++) {
       if (dj > 0) dataRows += ' | '
       var dCell = row[dj]
-      for (var dk = 0; dk < dCell.length; dk++) dataRows += state.renderChild(dCell[dk], {})
+      for (var dk = 0; dk < dCell.length; dk++) dataRows += state.renderChild(dCell[dk], _emptyState)
     }
   }
 
@@ -520,7 +519,7 @@ function compileHTMLBlock(
 
   // For HTML blocks with children, reconstruct the HTML
   const content = node.children
-    ? `\n${node.children.map(child => state.renderChild(child, {})).join('\n')}\n`
+    ? `\n${node.children.map(child => state.renderChild(child, _emptyState)).join('\n')}\n`
     : ''
   const closingTag = isVoid ? '' : `</${tag}>`
   return `<${tag}${attrs}>${content}${closingTag}`

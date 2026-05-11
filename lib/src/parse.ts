@@ -20,7 +20,6 @@ export type ParseOptions = Omit<MarkdownToJSX.Options, 'slugify'> & {
   sanitizer: (tag: string, attr: string, value: string) => string | null
   tagfilter?: boolean
   forceBlock?: boolean
-  streaming?: boolean
   inList?: boolean
   inHTML?: boolean
   disableBareUrls?: boolean
@@ -260,10 +259,8 @@ export function collectReferenceDefinitions(
   _options: ParseOptions
 ): boolean {
   // Fast-path exit: without '[' there cannot be any reference definitions.
-  // Non-streaming callers don't need _endsInsideFence, so we can bail out
-  // entirely; streaming callers need fence detection and take the slow path.
-  if (!_options.streaming && !_options.optimizeForStreaming &&
-      input.indexOf('[') === -1) {
+  // Streaming callers need fence detection and take the slow path.
+  if (!_options.optimizeForStreaming && input.indexOf('[') === -1) {
     return false
   }
   var pos = 0
@@ -615,7 +612,8 @@ function cc(code: number): number {
 
 /** Unescape backslash escapes in a string */
 function unescapeString(s: string): string {
-  // Replace \X with X when X is an ASCII punctuation character
+  // Most link URLs/titles contain no backslash; skip the regex pass entirely.
+  if (s.indexOf('\\') === -1) return s
   return s.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '$1')
 }
 
@@ -1746,133 +1744,6 @@ function processHTMLAttributes(rawAttrs: Record<string, string>, tagName: string
   return attrs
 }
 
-/** Parse HTML attributes from a string */
-export function parseHTMLAttributes(attrStr: string, tagName: string, opts: ParseOptions): Record<string, any> {
-  const attrs: Record<string, any> = {}
-  let i = 0
-  const len = attrStr.length
-
-  while (i < len) {
-    // Skip whitespace (space, tab, newline, carriage return)
-    var c = attrStr.charCodeAt(i)
-    while (i < len && (c === $.CHAR_SPACE || c === $.CHAR_TAB || c === $.CHAR_NEWLINE || c === $.CHAR_CR)) {
-      i++
-      c = attrStr.charCodeAt(i)
-    }
-    if (i >= len) break
-
-    // Parse attribute name (not whitespace, =, /, >)
-    const nameStart = i
-    c = attrStr.charCodeAt(i)
-    while (i < len && c !== $.CHAR_SPACE && c !== $.CHAR_TAB && c !== $.CHAR_NEWLINE && c !== $.CHAR_CR && c !== $.CHAR_EQ && c !== $.CHAR_SLASH && c !== $.CHAR_GT) {
-      i++
-      c = attrStr.charCodeAt(i)
-    }
-    if (i === nameStart) break
-    var name = attrStr.slice(nameStart, i)
-    var nameLower2 = name.toLowerCase()
-
-    // Skip whitespace
-    c = attrStr.charCodeAt(i)
-    while (i < len && (c === $.CHAR_SPACE || c === $.CHAR_TAB || c === $.CHAR_NEWLINE || c === $.CHAR_CR)) {
-      i++
-      c = attrStr.charCodeAt(i)
-    }
-
-    // Check for =
-    if (attrStr.charCodeAt(i) !== $.CHAR_EQ) {
-      attrs[name] = true
-      continue
-    }
-    i++ // skip =
-
-    // Skip whitespace
-    c = attrStr.charCodeAt(i)
-    while (i < len && (c === $.CHAR_SPACE || c === $.CHAR_TAB || c === $.CHAR_NEWLINE || c === $.CHAR_CR)) {
-      i++
-      c = attrStr.charCodeAt(i)
-    }
-
-    // Parse value
-    let value: string
-    const quote = attrStr.charCodeAt(i)
-    if (quote === $.CHAR_DOUBLE_QUOTE || quote === $.CHAR_SINGLE_QUOTE) { // " or '
-      i++
-      const valueStart = i
-      while (i < len && attrStr.charCodeAt(i) !== quote) i++
-      value = attrStr.slice(valueStart, i)
-      if (i < len) i++ // skip closing quote
-    } else {
-      const valueStart = i
-      c = attrStr.charCodeAt(i)
-      while (i < len && c !== $.CHAR_SPACE && c !== $.CHAR_TAB && c !== $.CHAR_NEWLINE && c !== $.CHAR_CR && c !== $.CHAR_GT) {
-        i++
-        c = attrStr.charCodeAt(i)
-      }
-      value = attrStr.slice(valueStart, i)
-    }
-
-    // Handle special cases
-    if (nameLower2 === 'style') {
-      // Parse inline styles - handle url() values properly
-      const styles: Record<string, string> = {}
-      // Split by ; but not inside url()
-      let decls: string[] = []
-      let depth = 0
-      let start = 0
-      for (let j = 0; j < value.length; j++) {
-        const c = value.charCodeAt(j)
-        if (c === $.CHAR_PAREN_OPEN) depth++ // (
-        else if (c === $.CHAR_PAREN_CLOSE) depth-- // )
-        else if (c === $.CHAR_SEMICOLON && depth === 0) { // ;
-          decls.push(value.slice(start, j))
-          start = j + 1
-        }
-      }
-      if (start < value.length) decls.push(value.slice(start))
-
-      let hasXSS = false
-      decls.forEach(decl => {
-        // Split property: value, but only on first colon (handle url() with colons)
-        const colonIdx = decl.indexOf(':')
-        if (colonIdx === -1) return
-        const prop = decl.slice(0, colonIdx).trim()
-        const val = decl.slice(colonIdx + 1).trim()
-        if (prop && val) {
-          // Check for XSS in url() values
-          if (/url\s*\(\s*(javascript|vbscript|data:(?!image\/))/i.test(val)) {
-            hasXSS = true
-            if (process.env.NODE_ENV !== 'production') {
-              console.warn('Style attribute contains an unsafe URL expression, it will not be rendered.', val)
-            }
-            return
-          }
-          // Convert CSS property to camelCase
-          const camelProp = prop.indexOf('-') !== -1
-            ? prop.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase())
-            : prop
-          styles[camelProp] = val
-        }
-      })
-      // If XSS was detected, don't include any styles
-      if (!hasXSS && Object.keys(styles).length > 0) {
-        attrs[name] = styles
-      }
-    } else if ((nameLower2 === 'href' || nameLower2 === 'src') && opts?.sanitizer) {
-      // Sanitize href and src attributes
-      const sanitized = opts.sanitizer(value, tagName, nameLower2)
-      if (sanitized !== null) {
-        attrs[name] = sanitized
-      }
-      // if null, don't include the attribute (security)
-    } else {
-      attrs[name] = value
-    }
-  }
-
-  return attrs
-}
-
 /**
  * Case-insensitive indexOf without allocating new string.
  *
@@ -2057,8 +1928,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           text: rawText,
           _endsWithGT: false,
           raw: true,
-          endPos: rawEnd,
-        } as MarkdownToJSX.HTMLCommentNode & { _endsWithGT: boolean; raw: boolean; endPos: number },
+        } as MarkdownToJSX.HTMLCommentNode & { _endsWithGT: boolean; raw: boolean },
         end: rawEnd
       }
     }
@@ -2123,9 +1993,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         text: type1TextContent,
         _verbatim: true,
         _isClosingTag: type1IsClosing,
-        endPos: rawEnd,
-        _canInterrupt: true,
-      } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
+      } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
       end: rawEnd
     }
   }
@@ -2158,9 +2026,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
             text: afterTag67,
             _verbatim: true,
             _isClosingTag: true,
-            endPos: rawEnd6,
-            _canInterrupt: htmlBlockType === 6,
-          } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
+          } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
           end: end6
         }
       }
@@ -2178,9 +2044,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
             text: '',
             _verbatim: false,
             _isClosingTag: false,
-            endPos: tagResult67.end,
-            _canInterrupt: htmlBlockType === 6,
-          } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
+          } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
           end: tagResult67.end < s.length && s.charCodeAt(tagResult67.end) === $.CHAR_NEWLINE ? tagResult67.end + 1 : tagResult67.end
         }
       }
@@ -2505,9 +2369,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           text: rawText67v,
           _verbatim: true,
           _isClosingTag: false,
-          endPos: effectiveEndPos,
-          _canInterrupt: htmlBlockType === 6,
-        } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; _emitOwnClose?: boolean; endPos: number; _canInterrupt: boolean }
+        } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; _emitOwnClose?: boolean }
         if (emitOwnClose67) verbatimNode67._emitOwnClose = true
         return {
           node: verbatimNode67,
@@ -2529,9 +2391,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           text: rawContent67,
           _verbatim: false,
           _isClosingTag: false,
-          endPos: effectiveEndPos,
-          _canInterrupt: htmlBlockType === 6,
-        } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
+        } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
         end: effectiveEnd
       }
     }
@@ -2558,9 +2418,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         text: type67RawTextF,
         _verbatim: true,
         _isClosingTag: type67IsClosingF,
-        endPos: rawEnd6,
-        _canInterrupt: htmlBlockType === 6,
-      } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
+      } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
       end: end6
     }
   }
@@ -2588,8 +2446,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         attrs: {},
         _rawText: s.slice(start, tagResult.end),
         _isClosingTag: true,
-        endPos: tagResult.end,
-      } as MarkdownToJSX.HTMLSelfClosingNode & { endPos: number; _isClosingTag: boolean; _rawText: string },
+      } as MarkdownToJSX.HTMLSelfClosingNode & { _isClosingTag: boolean; _rawText: string },
       end: tagResult.end
     }
   }
@@ -2638,9 +2495,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         text: isJSX ? rawContent : rawTextJSX,
         _verbatim: true,
         _isClosingTag: false,
-        endPos: nodeEndPos,
-        _canInterrupt: false,
-      } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
+      } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
       end: endPos
     }
   }
@@ -2670,9 +2525,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
       text: contentFallback,
       _verbatim: true,
       _isClosingTag: false,
-      endPos: blankLineEnd,
-      _canInterrupt: false,
-    } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
+    } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
     end: endFallback
   }
 }
@@ -2923,7 +2776,7 @@ function scanTable(s: string, p: number, state: MarkdownToJSX.State, opts: Parse
 
   // For streaming mode: suppress tables with header + separator but no data rows
   // (data rows might be coming in a later stream chunk)
-  if ((opts.streaming || opts.optimizeForStreaming) && cells.length === 0) {
+  if (opts.optimizeForStreaming && cells.length === 0) {
     return null
   }
 
@@ -3569,7 +3422,7 @@ function scanStrikethrough(s: string, p: number, e: number, state: MarkdownToJSX
           type: RuleType.textFormatted,
           tag: 'del',
           children,
-        } as MarkdownToJSX.TextFormattedNode,
+        } as MarkdownToJSX.FormattedTextNode,
         end: i + 2
       }
     }
@@ -3603,7 +3456,7 @@ function scanMarked(s: string, p: number, e: number, state: MarkdownToJSX.State,
             type: RuleType.textFormatted,
             tag: 'mark',
             children,
-          } as MarkdownToJSX.TextFormattedNode,
+          } as MarkdownToJSX.FormattedTextNode,
           end: i + 2
         }
       }
@@ -3739,7 +3592,7 @@ function processEmphasis(
     var contentNodes = nodes.slice(contentStart, contentEnd)
 
     // Create emphasis node - recursively process content for nested emphasis
-    var emphNode: MarkdownToJSX.TextFormattedNode = {
+    var emphNode: MarkdownToJSX.FormattedTextNode = {
       type: RuleType.textFormatted,
       tag: isStrong ? 'strong' : 'em',
       children: contentNodes,
@@ -4512,9 +4365,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
       text: innerContent,
       _verbatim: false,
       _isClosingTag: false,
-      endPos: closeEnd,
-      _canInterrupt: false,
-    } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; endPos: number; _canInterrupt: boolean },
+    } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
     end: closeEnd
   }
 }
@@ -4540,7 +4391,7 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
 
   // If streaming mode, preprocess to strip incomplete markers BEFORE parsing
   // This prevents bare URLs inside incomplete links from being autolinked
-  if (opts.streaming || opts.optimizeForStreaming) {
+  if (opts.optimizeForStreaming) {
     let content = s.slice(p, e)
     const original = content
     // Strip incomplete emphasis/strikethrough by counting delimiter pairs
@@ -4912,7 +4763,7 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
 
   // For streaming mode: strip incomplete tables (header + separator without data rows)
   // Only strip if the table is at the END of the input (might be incomplete during streaming)
-  if (opts.streaming || opts.optimizeForStreaming) {
+  if (opts.optimizeForStreaming) {
     // Guard: skip all streaming pre-parse mutations if end of input is inside
     // an unclosed fenced code block — mutations would corrupt code block content
     if (!state._endsInsideFence) {
@@ -5241,7 +5092,7 @@ export function parser(
   const nodes = parseBlocks(source, state, finalOptions)
 
   // Add refCollection node at the start if there are refs
-  if (state.refs && Object.keys(state.refs).length > 0) {
+  if (util.hasKeys(state.refs)) {
     return [
       { type: RuleType.refCollection, refs: state.refs } as MarkdownToJSX.ReferenceCollectionNode,
       ...nodes
@@ -5327,7 +5178,7 @@ export function parseMarkdown(
   const nodes = parseBlocks(input, state, opts)
 
   // Add refCollection node at the start if there are refs
-  if (state.refs && Object.keys(state.refs).length > 0) {
+  if (util.hasKeys(state.refs)) {
     return [
       { type: RuleType.refCollection, refs: state.refs } as MarkdownToJSX.ReferenceCollectionNode,
       ...nodes

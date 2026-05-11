@@ -251,8 +251,6 @@ function _renderNodeEntry(
   state: MarkdownToJSX.State,
   ctx: _Ctx
 ): string {
-  if (!node || typeof node !== 'object') return ''
-
   if (ctx.renderRule) {
     return ctx.renderRule(
       function () {
