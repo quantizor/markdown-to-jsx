@@ -1,5 +1,12 @@
 # markdown-to-jsx
 
+## 9.8.1
+
+### Patch Changes
+
+- 24661c0: fix: stop fast-skip from truncating bare email local-parts containing inline-special chars
+- c0c432f: Markdown with many malformed link starts (e.g. repeated `[](`) now parses quickly instead of slowing to a crawl on large inputs.
+
 ## 9.8.0
 
 ### Minor Changes
