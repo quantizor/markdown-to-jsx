@@ -398,7 +398,79 @@ describe('parseMarkdown', () => {
     expect((result[1] as MarkdownToJSX.TextNode).text).toBe('**')
   })
 
-  it('rejects angle autolinks containing tabs', () => {
+  it('correctly autolinks bare email whose local-part starts before an INLINE_SPECIAL char, when @ is far from parse start (issue #877)', () => {
+    // The fast-skip optimisation uses INLINE_SPECIAL (which includes 'h', 'w', 'f' for URL
+    // detection) to jump to the next interesting character.  When the @ is more than 64 chars
+    // from the beginning of the parsed string the outer guard disables the email check and the
+    // inner loop can leap over the start of the email's local-part, landing on the 'h' inside
+    // e.g. "technicalsupport" and producing "tec" + link("hnicalsupport@example.com") instead
+    // of the correct link("technicalsupport@example.com").
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    // The long prefix places the @ sign > 64 characters from the start of the string,
+    // triggering the fast-skip path that previously caused the truncation.
+    const input =
+      'Please contact Support at 1-111-111-1111 or email technicalsupport@example.com for further assistance.'
+    const result = p.parseMarkdown(input, state, options) as MarkdownToJSX.ASTNode[]
+    expect(result).toEqual([
+      { type: RuleType.text, text: 'Please contact Support at 1-111-111-1111 or email ' },
+      {
+        type: RuleType.link,
+        target: 'mailto:technicalsupport@example.com',
+        title: undefined,
+        children: [{ type: RuleType.text, text: 'technicalsupport@example.com' }],
+      } as MarkdownToJSX.ASTNode,
+      { type: RuleType.text, text: ' for further assistance.' },
+    ])
+  })
+
+  it('correctly autolinks bare email whose local-part contains w or f before the @ far from parse start', () => {
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    // 'w': @ at position 68 (prefix=50 + local-part=18), which is > 65, so the fast-skip path fires.
+    // Without the fix the loop lands on the 'h' inside "technicalsupworker" and links only
+    // "hnicalsupworker@example.com", leaving "technicalsup" as plain text.
+    const inputW =
+      'Please contact Support at 1-111-111-1111 or email technicalsupworker@example.com for further assistance.'
+    const resultW = p.parseMarkdown(inputW, createInlineState(), options) as MarkdownToJSX.ASTNode[]
+    expect(resultW[1]).toEqual({
+      type: RuleType.link,
+      target: 'mailto:technicalsupworker@example.com',
+      title: undefined,
+      children: [{ type: RuleType.text, text: 'technicalsupworker@example.com' }],
+    } as MarkdownToJSX.ASTNode)
+    // 'f': @ at position 66 (prefix=50 + local-part=16), which is > 65, so the fast-skip path fires.
+    // Without the fix the loop lands on the 'h' inside "technicalsupfool" and links only
+    // "hnicalsupfool@example.com", leaving "technicalsup" as plain text.
+    const inputF =
+      'Please contact Support at 1-111-111-1111 or email technicalsupfool@example.com for further assistance.'
+    const resultF = p.parseMarkdown(inputF, createInlineState(), options) as MarkdownToJSX.ASTNode[]
+    expect(resultF[1]).toEqual({
+      type: RuleType.link,
+      target: 'mailto:technicalsupfool@example.com',
+      title: undefined,
+      children: [{ type: RuleType.text, text: 'technicalsupfool@example.com' }],
+    } as MarkdownToJSX.ASTNode)
+  })
+
+  it('still autolinks bare email at the very start of the string (no fast-skip involved)', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'technicalsupport@example.com',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toEqual([
+      {
+        type: RuleType.link,
+        target: 'mailto:technicalsupport@example.com',
+        title: undefined,
+        children: [{ type: RuleType.text, text: 'technicalsupport@example.com' }],
+      } as MarkdownToJSX.ASTNode,
+    ])
+  })
+
+    it('rejects angle autolinks containing tabs', () => {
     const state = createInlineState()
     const options: p.ParseOptions = {
       disableParsingRawHTML: true,
