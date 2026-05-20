@@ -425,27 +425,30 @@ describe('parseMarkdown', () => {
   })
 
   it('correctly autolinks bare email whose local-part contains w or f before the @ far from parse start', () => {
-    const state = createInlineState()
     const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
-    // 'w': local-part starts with plain chars then 'w' which is in INLINE_SPECIAL
+    // 'w': @ at position 68 (prefix=50 + local-part=18), which is > 65, so the fast-skip path fires.
+    // Without the fix the loop lands on the 'h' inside "technicalsupworker" and links only
+    // "hnicalsupworker@example.com", leaving "technicalsup" as plain text.
     const inputW =
-      'Please contact Support at 1-111-111-1111 or email techsupworker@example.com for further assistance.'
-    const resultW = p.parseMarkdown(inputW, state, options) as MarkdownToJSX.ASTNode[]
+      'Please contact Support at 1-111-111-1111 or email technicalsupworker@example.com for further assistance.'
+    const resultW = p.parseMarkdown(inputW, createInlineState(), options) as MarkdownToJSX.ASTNode[]
     expect(resultW[1]).toEqual({
       type: RuleType.link,
-      target: 'mailto:techsupworker@example.com',
+      target: 'mailto:technicalsupworker@example.com',
       title: undefined,
-      children: [{ type: RuleType.text, text: 'techsupworker@example.com' }],
+      children: [{ type: RuleType.text, text: 'technicalsupworker@example.com' }],
     } as MarkdownToJSX.ASTNode)
-    // 'f': local-part starts with plain chars then 'f' which is in INLINE_SPECIAL
+    // 'f': @ at position 66 (prefix=50 + local-part=16), which is > 65, so the fast-skip path fires.
+    // Without the fix the loop lands on the 'h' inside "technicalsupfool" and links only
+    // "hnicalsupfool@example.com", leaving "technicalsup" as plain text.
     const inputF =
-      'Please contact Support at 1-111-111-1111 or email techsupfoo@example.com for further assistance.'
-    const resultF = p.parseMarkdown(inputF, state, options) as MarkdownToJSX.ASTNode[]
+      'Please contact Support at 1-111-111-1111 or email technicalsupfool@example.com for further assistance.'
+    const resultF = p.parseMarkdown(inputF, createInlineState(), options) as MarkdownToJSX.ASTNode[]
     expect(resultF[1]).toEqual({
       type: RuleType.link,
-      target: 'mailto:techsupfoo@example.com',
+      target: 'mailto:technicalsupfool@example.com',
       title: undefined,
-      children: [{ type: RuleType.text, text: 'techsupfoo@example.com' }],
+      children: [{ type: RuleType.text, text: 'technicalsupfool@example.com' }],
     } as MarkdownToJSX.ASTNode)
   })
 
