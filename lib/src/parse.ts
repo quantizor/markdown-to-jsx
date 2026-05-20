@@ -3733,8 +3733,9 @@ function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, o
       }
     } else if (inlineOk) {
       // Bare URL - count parens. If a prior scan from <= i walked to
-      // end-of-input without examining any ')' at all, every later start sees
-      // the same ')'-free suffix and also fails — short-circuit (issue #874).
+      // end-of-input without examining any unescaped ')' (escaped `\)` is
+      // skipped by the backslash branch above), every later start sees the
+      // same `)`-free suffix and also fails — short-circuit (issue #874).
       // Caching on parenDepth alone would be unsound: a ')' seen at depth>0
       // from here may sit at depth 0 from a later start (e.g. `[](([](a)`).
       // Scoped per parseInline call so the source string can't change
@@ -3743,20 +3744,20 @@ function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, o
         inlineOk = false
       } else {
         var parenDepth = 0
-        var sawCloseParen = false
+        var sawUnescapedCloseParen = false
         while (urlEnd < e) {
           var c2 = s.charCodeAt(urlEnd)
           if (c2 === $.CHAR_BACKSLASH && urlEnd + 1 < e) { urlEnd += 2; continue }
           if (c2 === $.CHAR_PAREN_OPEN) parenDepth++
           else if (c2 === $.CHAR_PAREN_CLOSE) {
-            sawCloseParen = true
+            sawUnescapedCloseParen = true
             if (parenDepth === 0) break
             parenDepth--
           }
           else if (c2 === $.CHAR_SPACE || c2 === $.CHAR_NEWLINE) break
           urlEnd++
         }
-        if (urlEnd >= e && !sawCloseParen && (state._inlineUrlFailFrom === undefined || i < state._inlineUrlFailFrom)) {
+        if (urlEnd >= e && !sawUnescapedCloseParen && (state._inlineUrlFailFrom === undefined || i < state._inlineUrlFailFrom)) {
           state._inlineUrlFailFrom = i
         }
         url = s.slice(i, urlEnd)
