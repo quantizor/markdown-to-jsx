@@ -92,6 +92,8 @@ declare namespace MarkdownToJSX {
     _htmlDepth?: number
     /** internal: set by collectReferenceDefinitions when input ends inside an unclosed fence */
     _endsInsideFence?: boolean
+    /** internal: smallest bare-URL start position known to fail by reaching end-of-input (issue #874); scoped per parseInline call */
+    _inlineUrlFailFrom?: number
   }
 
   /**

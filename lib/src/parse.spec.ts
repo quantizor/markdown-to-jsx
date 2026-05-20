@@ -294,6 +294,52 @@ describe('parseMarkdown', () => {
     ])
   })
 
+  it('parses many unterminated inline-link openers in linear time (issue #874)', () => {
+    // Pre-fix, each `[](` retried the bare-URL scan to end-of-input, giving
+    // O(N^2) total work (N=8000 ~260ms, N=32000 ~4s). Compare doubling-size
+    // runs and assert sub-quadratic scaling, which is robust to absolute
+    // machine speed.
+    function timeParse(N: number) {
+      const input = '[]('.repeat(N)
+      // One warmup to stabilize JIT.
+      p.parser(input)
+      const start = performance.now()
+      const result = p.parser(input)
+      return { ms: performance.now() - start, result, input }
+    }
+    const small = timeParse(8000)
+    const large = timeParse(16000)
+    // 2x input should be <3x time for linear behavior. Pre-fix this ratio was
+    // ~4x. Use 3x to absorb timing noise on small absolute durations.
+    expect(large.ms).toBeLessThan(small.ms * 3 + 50)
+    expect(large.result).toEqual([
+      {
+        type: RuleType.paragraph,
+        children: [{ type: RuleType.text, text: large.input }],
+      },
+    ])
+  })
+
+  it('does not let the failed-link cache reject a valid trailing link (issue #874 follow-up)', () => {
+    // `[](([](a)` — outer link fails because the bare URL walks to end without
+    // a balanced ')'. The cache must not block the inner `[](a)` from parsing.
+    const result = p.parser('[](([](a)')
+    expect(result).toEqual([
+      {
+        type: RuleType.paragraph,
+        children: [
+          { type: RuleType.text, text: '[]((' },
+          {
+            type: RuleType.link,
+            target: 'a',
+            title: undefined,
+            children: [],
+          },
+        ],
+      },
+    ])
+  })
+
   it('parses mailto autolinks with label preserved', () => {
     const state = createInlineState()
     const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
