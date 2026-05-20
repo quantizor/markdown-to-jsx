@@ -3732,11 +3732,12 @@ function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, o
         urlEnd++ // skip >
       }
     } else if (inlineOk) {
-      // Bare URL - count parens. If a prior scan from a position <= i on this
-      // same source already walked to end-of-input without finding a balanced
-      // ')' (no backslash escapes seen), the same is true for any later start,
-      // so we can short-circuit (issue #874).
-      if (state._inlineUrlFailSrc === s && state._inlineUrlFailFrom !== undefined && i >= state._inlineUrlFailFrom) {
+      // Bare URL - count parens. If a prior scan on this same string already
+      // reached end-of-input without finding a balanced ')' (no backslash
+      // escapes seen), every later start fails too — short-circuit (issue
+      // #874). Cache is scoped to the enclosing parseInline call so the source
+      // string can't change underneath us.
+      if (state._inlineUrlFailFrom !== undefined && i >= state._inlineUrlFailFrom) {
         inlineOk = false
       } else {
         var parenDepth = 0
@@ -3752,13 +3753,8 @@ function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, o
           else if (c2 === $.CHAR_SPACE || c2 === $.CHAR_NEWLINE) break
           urlEnd++
         }
-        if (urlEnd >= e && !sawBackslash) {
-          if (state._inlineUrlFailSrc !== s) {
-            state._inlineUrlFailSrc = s
-            state._inlineUrlFailFrom = i
-          } else if (state._inlineUrlFailFrom === undefined || i < state._inlineUrlFailFrom) {
-            state._inlineUrlFailFrom = i
-          }
+        if (urlEnd >= e && !sawBackslash && (state._inlineUrlFailFrom === undefined || i < state._inlineUrlFailFrom)) {
+          state._inlineUrlFailFrom = i
         }
         url = s.slice(i, urlEnd)
       }
@@ -4402,6 +4398,11 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
     return [{ type: RuleType.text, text: s.slice(p, e) }]
   }
 
+  // Scope scanLink's URL-scan failure cache to this call so positions can't
+  // bleed across different source strings (issue #874).
+  var savedUrlFailFrom = state._inlineUrlFailFrom
+  state._inlineUrlFailFrom = undefined
+
   // Use state directly to avoid object spread allocation
   const childState = state
 
@@ -4759,6 +4760,7 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
     processEmphasis(nodes, delimStack, state, opts)
   }
 
+  state._inlineUrlFailFrom = savedUrlFailFrom
   _globalInlineDepth--
   return nodes
 }
