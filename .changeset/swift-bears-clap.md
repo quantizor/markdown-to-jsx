@@ -2,4 +2,4 @@
 "markdown-to-jsx": patch
 ---
 
-fix: avoid slow parsing of pathological input with many unterminated link openers
+Markdown with many malformed link starts (e.g. repeated `[](`) now parses quickly instead of slowing to a crawl on large inputs.
