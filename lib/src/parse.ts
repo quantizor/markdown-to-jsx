@@ -3732,20 +3732,36 @@ function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, o
         urlEnd++ // skip >
       }
     } else if (inlineOk) {
-      // Bare URL - count parens
-      var parenDepth = 0
-      while (urlEnd < e) {
-        var c2 = s.charCodeAt(urlEnd)
-        if (c2 === $.CHAR_BACKSLASH && urlEnd + 1 < e) { urlEnd += 2; continue }
-        if (c2 === $.CHAR_PAREN_OPEN) parenDepth++
-        else if (c2 === $.CHAR_PAREN_CLOSE) {
-          if (parenDepth === 0) break
-          parenDepth--
+      // Bare URL - count parens. If a prior scan from a position <= i on this
+      // same source already walked to end-of-input without finding a balanced
+      // ')' (no backslash escapes seen), the same is true for any later start,
+      // so we can short-circuit (issue #874).
+      if (state._inlineUrlFailSrc === s && state._inlineUrlFailFrom !== undefined && i >= state._inlineUrlFailFrom) {
+        inlineOk = false
+      } else {
+        var parenDepth = 0
+        var sawBackslash = false
+        while (urlEnd < e) {
+          var c2 = s.charCodeAt(urlEnd)
+          if (c2 === $.CHAR_BACKSLASH && urlEnd + 1 < e) { sawBackslash = true; urlEnd += 2; continue }
+          if (c2 === $.CHAR_PAREN_OPEN) parenDepth++
+          else if (c2 === $.CHAR_PAREN_CLOSE) {
+            if (parenDepth === 0) break
+            parenDepth--
+          }
+          else if (c2 === $.CHAR_SPACE || c2 === $.CHAR_NEWLINE) break
+          urlEnd++
         }
-        else if (c2 === $.CHAR_SPACE || c2 === $.CHAR_NEWLINE) break
-        urlEnd++
+        if (urlEnd >= e && !sawBackslash) {
+          if (state._inlineUrlFailSrc !== s) {
+            state._inlineUrlFailSrc = s
+            state._inlineUrlFailFrom = i
+          } else if (state._inlineUrlFailFrom === undefined || i < state._inlineUrlFailFrom) {
+            state._inlineUrlFailFrom = i
+          }
+        }
+        url = s.slice(i, urlEnd)
       }
-      url = s.slice(i, urlEnd)
     }
 
     if (inlineOk) {

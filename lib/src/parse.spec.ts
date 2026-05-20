@@ -294,6 +294,23 @@ describe('parseMarkdown', () => {
     ])
   })
 
+  it('parses many unterminated inline-link openers in linear time (issue #874)', () => {
+    // Pre-fix, each `[](` retries the bare-URL scan to end-of-input, giving
+    // O(N^2) total work. With N=20000 (60KB) this took ~1s; N=32000 ~4s.
+    const N = 20000
+    const input = '[]('.repeat(N)
+    const start = performance.now()
+    const result = p.parser(input)
+    const elapsed = performance.now() - start
+    expect(elapsed).toBeLessThan(500)
+    expect(result).toEqual([
+      {
+        type: RuleType.paragraph,
+        children: [{ type: RuleType.text, text: input }],
+      },
+    ])
+  })
+
   it('parses mailto autolinks with label preserved', () => {
     const state = createInlineState()
     const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
