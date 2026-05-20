@@ -4712,6 +4712,11 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
       // Only skip when not near an @ (email detection needs alphanumeric chars)
       if (nextAtPos < 0 || nextAtPos - p > 64) {
         while (p < e) {
+          // Stop before entering the email detection window — the fast-skip must not
+          // jump past the start of an email's local-part (max 64 chars before @).
+          // Without this, an INLINE_SPECIAL char inside the local-part (e.g. 'h' in
+          // "technicalsupport@…") becomes the scan start, silently truncating the address.
+          if (nextAtPos >= 0 && nextAtPos - p <= 64) break
           var nc = s.charCodeAt(p)
           if (nc < $.CHAR_ASCII_BOUNDARY && !INLINE_SPECIAL[nc]) p++
           else break
