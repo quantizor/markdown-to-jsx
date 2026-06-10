@@ -1,5 +1,5 @@
 /**
- * renderToString byte-equality self-check for the React emit path.
+ * renderToStaticMarkup byte-equality self-check for the React emit path.
  *
  * Compiles every bench corpus through compiler() and renderToStaticMarkup,
  * writing a golden file on first run (--save) or diffing against it otherwise.

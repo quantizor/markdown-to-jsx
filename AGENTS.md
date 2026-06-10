@@ -74,20 +74,22 @@ Rules must be maximally concise and actionable. No decoration, no meta-commentar
 - Use minimal punctuation, only where necessary for clarity
 
 Library code must be fully self-contained at runtime. Zero network dependencies, zero remote fetches.
-- Code under `src/` must never fetch, request, or depend on remote URLs/network resources at runtime
+- Code under `lib/src/` must never fetch, request, or depend on remote URLs/network resources at runtime
 - Dev-time scripts may fetch remote resources to produce local artifacts, but generated output must be committed and verified
-- Tests must assert no runtime network dependencies exist (scan `src/` for `fetch(`, `XMLHttpRequest`, `http.get`, `http.request`, `https.get`, `https.request`, `navigator.sendBeacon`, `WebSocket`, `EventSource`)
+- Tests must assert no runtime network dependencies exist (scan `lib/src/` for `fetch(`, `XMLHttpRequest`, `http.get`, `http.request`, `https.get`, `https.request`, `navigator.sendBeacon`, `WebSocket`, `EventSource`)
 - All data dependencies must be vendored locally via relative imports
 
 ## Repository Configuration
 
 - Use `bun` instead of `npm`. Use `bunx` instead of `npx`.
 - The repository uses bun package manager and the bun test runner.
-- The `scripts/metrics.ts` script accepts a `--target` parameter to measure performance across different entry points: `parser`, `react`, `react-native`, `html`, or `solid` (defaults to `parser`).
+- `bun metrics --target <name>` (`scripts/metrics.ts`) measures this library against its own stored baseline for a single entry point: `parser`, `react`, `react-native`, `html`, `solid`, `vue`, or `markdown` (defaults to `parser`). Use it for quick regression checks while editing library code.
+- The `benchmarks/` workspace is the single cross-library benchmark surface. `bun bench` compares the working copy against the published version; `bun bench:jsx`, `bun bench:html`, and `bun bench:all` add `Bun.markdown` and other parsers (marked, markdown-it, react-markdown, remark) across 1kB/27kB/211kB inputs, with a baseline diff. Do not add standalone benchmark scripts; extend this workspace instead.
+- `bun scripts/emit-selfcheck.ts [--save]` checks renderToStaticMarkup byte-equality against a golden file; run in both dev and `NODE_ENV=production` modes when touching the React emit path.
 
 ## Coding Style
 
-- Prefer `$.CHAR_*` constants from `src/constants.ts` over raw char code numbers for readability (e.g., `$.CHAR_SPACE` instead of `32`)
+- Prefer `$.CHAR_*` constants from `lib/src/constants.ts` over raw char code numbers for readability (e.g., `$.CHAR_SPACE` instead of `32`)
 
 ## Reference Documents
 
@@ -97,41 +99,48 @@ Library code must be fully self-contained at runtime. Zero network dependencies,
 
 The priorities of this library are correctness, speed, and small output size in that order. Pursue these goals in sequence - correctness first, then performance, then bundle size optimization. Optimize code for best minification and tree shaking. Always prefer ES5 syntax when writing code to ensure the fastest implementation is used by the underlying JS engine.
 
+## Compiler Parity
+
+There are six output compilers: react, native, solid, vue, html, markdown. Any change to rendering behavior (especially HTML block handling) must be verified across all six, not just the one in front of you. They drift: the JSX renderers (react/native/solid/vue) share AST logic via utils.ts but assemble elements with their own primitives (React.Fragment, Solid/Vue arrays, normalizeChildren), and html/markdown emit strings.
+- Put renderer-agnostic AST logic in utils.ts and call it from each compiler; keep only element assembly per-renderer
+- Add a regression test to every affected compiler suite when fixing a rendering bug. Output shape differs by renderer, so assert each one's actual structure (serialize JSX renderers to a string and snapshot; html/markdown snapshot the returned string)
+- react-native cannot be imported directly in `bun -e`; preload the mock: `bun --preload ./lib/src/__mocks__/react-native.ts`. react-dom/server is unavailable there, so walk React elements via `.type`/`.props.children`
+
 ## Key Library Files
 
 ### Core Parser & Types
 
-- `src/parse.ts` - Core markdown parser with AST generation
-- `src/types.ts` - TypeScript type definitions for AST nodes, options, and state
-- `src/utils.ts` - Utility functions (entity decoding, sanitization, slugification, character classification)
-- `src/constants.ts` - Character code constants (CHAR_SPACE, CHAR_TAB, etc.)
-- `src/entities.generated.ts` - Auto-generated HTML entity mappings for CommonMark compliance
+- `lib/src/parse.ts` - Core markdown parser with AST generation
+- `lib/src/types.ts` - TypeScript type definitions for AST nodes, options, and state
+- `lib/src/utils.ts` - Utility functions (entity decoding, sanitization, slugification, character classification)
+- `lib/src/constants.ts` - Character code constants (CHAR_SPACE, CHAR_TAB, etc.)
+- `lib/src/entities.generated.ts` - Auto-generated HTML entity mappings for CommonMark compliance
 
 ### Output Adapters
 
-- `src/react.tsx` - React JSX compiler with rendering logic and component overrides
-- `src/native.tsx` - React Native adapter
-- `src/html.ts` - HTML output compiler with tag filtering and entity escaping
-- `src/markdown.ts` - Markdown output adapter
-- `src/solid.tsx` - SolidJS adapter
-- `src/vue.tsx` - Vue.js adapter
+- `lib/src/react.tsx` - React JSX compiler with rendering logic and component overrides
+- `lib/src/native.tsx` - React Native adapter
+- `lib/src/html.ts` - HTML output compiler with tag filtering and entity escaping
+- `lib/src/markdown.ts` - Markdown output adapter
+- `lib/src/solid.tsx` - SolidJS adapter
+- `lib/src/vue.tsx` - Vue.js adapter
 
 ### Entry Points
 
-- `src/index.tsx` - Main entry point re-exporting parser, types, and utilities
-- `src/index.cjs.tsx` - CommonJS entry point with deprecated exports
+- `lib/src/index.tsx` - Main entry point re-exporting parser, types, and utilities
+- `lib/src/index.cjs.tsx` - CommonJS entry point with deprecated exports
 
 ## Internationalization (i18n)
 
-- All localized content in `src/i18n/`.
+- All localized content in `lib/src/i18n/`.
 - Required files per language: `README.md`, `default-template.md`, `gfm-spec.md`, `markdown-spec.md`.
-- UI strings in `src/i18n/ui-strings.ts`.
-- Supported languages in `src/i18n/languages.ts`.
+- UI strings in `lib/src/i18n/ui-strings.ts`.
+- Supported languages in `lib/src/i18n/languages.ts`.
 - Language ordering by global speakers ([Ethnologue 2025](https://www.ethnologue.com/insights/most-spoken-language/)): English, Mandarin Chinese, Hindi, Spanish, Arabic.
 - Technical documentation standards: Simplified Chinese (Mandarin, 普通话), Modern Standard Hindi (मानक हिन्दी with formal आप pronoun).
 - Code examples: Keep API names, package names, technical constants in English. Translate text content within code blocks (string literals, user-facing text, natural language comments, example markdown text) while preserving syntax and markup.
 - Do not add `@lang` JSDoc tags or inline translations to source code. Keep JSDoc English-only.
-- Updates to `README.md` or public API documentation must be mirrored in all `src/i18n/{lang}/` files.
+- Updates to `README.md` or public API documentation must be mirrored in all `lib/src/i18n/{lang}/` files.
 - Changesets are English-only. Do not translate changeset bodies.
 - Run `bun run validate-i18n` before committing any i18n or documentation changes.
 - New languages should have a PATCH changeset.
