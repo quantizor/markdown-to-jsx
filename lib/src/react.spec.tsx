@@ -1543,6 +1543,62 @@ describe('arbitrary HTML', () => {
     )
   })
 
+  it('regression #871 - paired inline tag at start of a container keeps trailing text inline', () => {
+    render(compiler('<ul><li><strong>bold</strong> text</li></ul>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li><strong>bold</strong> text</li></ul>"`
+    )
+  })
+
+  it('regression #872 - space before an inline HTML tag is preserved', () => {
+    render(compiler('Click <strong>here</strong> for more'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span>Click <strong>here</strong> for more</span>"`
+    )
+  })
+
+  it('regression #872 - space before a self-closing tag is preserved', () => {
+    render(compiler('Line one <br/>Line two'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span>Line one <br/>Line two</span>"`
+    )
+  })
+
+  it('regression #881 - text line after a nested block element is preserved', () => {
+    render(compiler('<details>\n<summary>a</summary>\nx\n</details>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<details><summary>a</summary> x </details>"`
+    )
+  })
+
+  it('regression #881 - text line after a nested paragraph is preserved', () => {
+    render(compiler('<div>\n<p>a</p>\nx\n</div>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>a</p> x </div>"`
+    )
+  })
+
+  it('regression #881 - markdown in the trailing text line is processed', () => {
+    render(compiler('<details>\n<summary>a</summary>\n**bold** text\n</details>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<details><summary>a</summary><strong>bold</strong> text </details>"`
+    )
+  })
+
+  it('regression #881 - text line between nested paragraphs is preserved', () => {
+    render(compiler('<div>\n<p>a</p>\nx\n<p>b</p>\n</div>'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>a</p> x <p>b</p></div>"`
+    )
+  })
+
   it('processes attributes within inline HTML', () => {
     render(compiler('<time data-foo="bar">Hello</time>'))
 

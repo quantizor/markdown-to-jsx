@@ -1276,3 +1276,60 @@ describe('MarkdownProvider and MarkdownContext', () => {
     expect(MarkdownContext).toBeDefined()
   })
 })
+
+// Serialize a native element tree to a tag-and-text string so nesting and
+// sibling order (not just text presence) are asserted. RN primitives render as
+// Text/View; HTML tags with no RN mapping keep their tag name.
+function serialize(el: React.ReactNode): string {
+  if (el == null || typeof el === 'boolean') return ''
+  if (typeof el === 'string' || typeof el === 'number') return String(el)
+  if (Array.isArray(el)) return el.map(serialize).join('')
+  if (!React.isValidElement(el)) return ''
+  const t = el.type as any
+  const name =
+    typeof t === 'string'
+      ? t
+      : t === Text
+        ? 'Text'
+        : t === View
+          ? 'View'
+          : t === React.Fragment
+            ? ''
+            : t?.displayName || t?.name || '?'
+  const inner = serialize((el.props as any).children)
+  return name ? `<${name}>${inner}</${name}>` : inner
+}
+
+describe('regression #881 - trailing text after a nested HTML element', () => {
+  it('text line after a nested block element is preserved', () => {
+    expect(
+      serialize(compiler('<details>\n<summary>a</summary>\nx\n</details>'))
+    ).toMatchInlineSnapshot(`"<Text><Text>a</Text> x </Text>"`)
+  })
+
+  it('text line after a nested paragraph is preserved', () => {
+    expect(
+      serialize(compiler('<div>\n<p>a</p>\nx\n</div>'))
+    ).toMatchInlineSnapshot(`"<View><Text>a</Text> x </View>"`)
+  })
+
+  it('markdown in the trailing text line is processed', () => {
+    expect(
+      serialize(
+        compiler('<details>\n<summary>a</summary>\n**bold** text\n</details>')
+      )
+    ).toMatchInlineSnapshot(`"<Text><Text>a</Text><Text>bold</Text> text </Text>"`)
+  })
+
+  it('text line between nested paragraphs is preserved', () => {
+    expect(
+      serialize(compiler('<div>\n<p>a</p>\nx\n<p>b</p>\n</div>'))
+    ).toMatchInlineSnapshot(`"<View><Text>a</Text> x <Text>b</Text></View>"`)
+  })
+
+  it('text after the element own closing tag renders as a sibling', () => {
+    expect(
+      serialize(compiler('<div>\n<span>a</span>\n</div>\ntail'))
+    ).toMatchInlineSnapshot(`"<View><Text>a</Text></View> tail"`)
+  })
+})

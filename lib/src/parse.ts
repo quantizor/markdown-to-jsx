@@ -25,9 +25,6 @@ export type ParseOptions = Omit<MarkdownToJSX.Options, 'slugify'> & {
   disableBareUrls?: boolean
 }
 
-/** HTMLCommentNode with _endsWithGT flag for empty/special comments */
-type HTMLCommentNodeExt = MarkdownToJSX.HTMLCommentNode & { _endsWithGT: boolean }
-
 /** Union of AST nodes that have a children array */
 type ASTNodeWithChildren = Extract<MarkdownToJSX.ASTNode, { children: MarkdownToJSX.ASTNode[] }>
 
@@ -118,7 +115,7 @@ function isDelimiterRow(s: string, start: number, end: number): boolean {
 }
 
 // Parse an HTML tag at position
-export function __parseHTMLTag(
+function __parseHTMLTag(
   source: string,
   pos: number
 ): {
@@ -178,7 +175,6 @@ export function __parseHTMLTag(
       return { tag, attrs, selfClosing: true, end: i + 2, rawAttrs, whitespaceBeforeAttrs, isClosing, hasSpaceBeforeSlash }
     }
 
-    // Parse attribute name per CommonMark: [a-zA-Z_:][a-zA-Z0-9_.:-]*
     // Parse attribute name per CommonMark: [a-zA-Z_:][a-zA-Z0-9_.:-]*
     var attrStart = i
     var fc = source.charCodeAt(i)
@@ -395,7 +391,7 @@ export function collectReferenceDefinitions(
 }
 
 // Parse a reference definition [label]: url "title" or footnote [^id]: content
-export function parseRefDef(
+function parseRefDef(
   s: string,
   p: number,
   refs: { [key: string]: { target: string; title: string | undefined } }
@@ -675,10 +671,10 @@ function countChar(s: string, p: number, e: number, ch: number): number {
 }
 
 // Reusable indent result to avoid allocations
-export var _indentSpaces = 0, _indentChars = 0
+var _indentSpaces = 0, _indentChars = 0
 
 /** Calculate indentation (spaces, with tabs = 4 spaces). Results in _indentSpaces and _indentChars */
-export function indent(s: string, p: number, e: number): void {
+function indent(s: string, p: number, e: number): void {
   _indentSpaces = 0
   _indentChars = 0
   while (p + _indentChars < e) {
@@ -981,7 +977,6 @@ function scanIndented(s: string, p: number): ScanResult {
 
   // Trim trailing blank lines
   while (content.length > 0 && content.charCodeAt(content.length - 1) === $.CHAR_NEWLINE) content = content.slice(0, -1)
-  while (content.length > 0 && content.charCodeAt(content.length - 1) === $.CHAR_NEWLINE) content = content.slice(0, -1)
 
   if (!content) return null
 
@@ -1078,8 +1073,6 @@ function scanBlockquote(s: string, p: number, state: MarkdownToJSX.State, opts: 
         contentHasOpenBlock = !contentHasOpenBlock
       } else if (lineContent.startsWith('    ') || lineContent.startsWith('\t')) {
         contentHasOpenBlock = true
-      } else if (trimLine.length > 0 && !contentHasOpenBlock) {
-        contentHasOpenBlock = false
       }
       // After a blank quoted line (e.g. ">\n"), no lazy continuation allowed
       lastLineWasQuoted = trimLine.length > 0
@@ -1659,9 +1652,8 @@ const BLOCK_TAGS = new Set([
 function processHTMLAttributes(rawAttrs: Record<string, string>, tagName: string, opts: ParseOptions): Record<string, any> {
   const attrs: Record<string, any> = {}
 
-  for (const [rawName, value] of Object.entries(rawAttrs)) {
-    const name = rawName
-    const nameLower = rawName.toLowerCase()
+  for (const [name, value] of Object.entries(rawAttrs)) {
+    const nameLower = name.toLowerCase()
 
     if (nameLower === 'style' && typeof value === 'string') {
       // Parse inline styles - handle url() values properly
@@ -1928,7 +1920,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           text: rawText,
           _endsWithGT: false,
           raw: true,
-        } as MarkdownToJSX.HTMLCommentNode & { _endsWithGT: boolean; raw: boolean },
+        } as MarkdownToJSX.HTMLCommentNode,
         end: rawEnd
       }
     }
@@ -2300,12 +2292,11 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
       // to allow React compiler to re-parse and split sibling elements (e.g., dt/dd)
       var type6InlineVerbatim67 = false
       if (htmlBlockType === 6 && closeIdx67 !== -1 && !state.inHTML && !hasMultiLineAttrs67) {
-        var contentBetween67 = rawContent67
         // Only force verbatim if content has HTML tags (sibling elements to split)
         // AND no block-level syntax (which needs children-based parsing)
-        var hasHTMLInContent67 = /<[a-zA-Z][^>]*>/.test(contentBetween67)
-        var hasBlockInContent67 = /\n\n/.test(contentBetween67) ||
-          /^(\s{0,3}#[#\s]|\s{0,3}[-*+]\s|\s{0,3}\d+\.\s|\s{0,3}>\s|\s{0,3}```)/m.test(contentBetween67)
+        var hasHTMLInContent67 = /<[a-zA-Z][^>]*>/.test(rawContent67)
+        var hasBlockInContent67 = rawContent67.indexOf('\n\n') !== -1 ||
+          BLOCK_SYNTAX_R.test(rawContent67)
         if (hasHTMLInContent67 && !hasBlockInContent67) {
           type6InlineVerbatim67 = true
         }
@@ -2369,7 +2360,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           text: rawText67v,
           _verbatim: true,
           _isClosingTag: false,
-        } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; _emitOwnClose?: boolean }
+        } as MarkdownToJSX.HTMLNode
         if (emitOwnClose67) verbatimNode67._emitOwnClose = true
         return {
           node: verbatimNode67,
@@ -2451,7 +2442,6 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
     }
   }
 
-  var shouldSearchForClosingTag = true
   var closeEnd = findClosingTag(s, tagResult.end, tagName)
 
   var children: MarkdownToJSX.ASTNode[] = []
@@ -4187,7 +4177,6 @@ function extractText(nodes: MarkdownToJSX.ASTNode[]): string {
     else if (n.type === RuleType.codeInline) result += (n as MarkdownToJSX.CodeInlineNode).text
     else if ('children' in n && Array.isArray((n as ASTNodeWithChildren).children)) result += extractText((n as ASTNodeWithChildren).children)
     else if (n.type === RuleType.image) result += (n as MarkdownToJSX.ImageNode).alt || ''
-    else if (n.type === RuleType.link) result += extractText((n as MarkdownToJSX.LinkNode).children)
   }
   return result
 }
@@ -4213,14 +4202,14 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
     // Special case: <!--> (empty comment)
     if (commentStart < e && s.charCodeAt(commentStart) === $.CHAR_GT) {
       return {
-        node: { type: RuleType.htmlComment, text: '', _endsWithGT: true } as HTMLCommentNodeExt,
+        node: { type: RuleType.htmlComment, text: '', _endsWithGT: true } as MarkdownToJSX.HTMLCommentNode,
         end: commentStart + 1
       }
     }
     // Special case: <!---> (comment with single dash)
     if (commentStart + 1 < e && s.charCodeAt(commentStart) === $.CHAR_DASH && s.charCodeAt(commentStart + 1) === $.CHAR_GT) {
       return {
-        node: { type: RuleType.htmlComment, text: '-', _endsWithGT: true } as HTMLCommentNodeExt,
+        node: { type: RuleType.htmlComment, text: '-', _endsWithGT: true } as MarkdownToJSX.HTMLCommentNode,
         end: commentStart + 2
       }
     }
@@ -4232,7 +4221,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
           type: RuleType.htmlComment,
           text: s.slice(p + 4, endComment),
           _endsWithGT: false,
-        } as HTMLCommentNodeExt,
+        } as MarkdownToJSX.HTMLCommentNode,
         end: endComment + 3
       }
     }
@@ -4586,8 +4575,9 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
           const tagName = tagMatch[1]
           // Only strip if there's no closing tag for this tag
           if (indexOfCI(content, '</' + tagName, 0) === -1) {
-            // Strip the unclosed tag but keep the inner content
-            content = content.replace(/<[A-Z][A-Za-z0-9]*(?:\s[^>]*)?>([^<]*)$/, '$1')
+            // Strip the unclosed tag but keep the inner content; the match
+            // bounds are already in hand, so splice instead of rescanning
+            content = content.slice(0, tagMatch.index) + tagMatch[2]
           }
         }
       }
@@ -4748,15 +4738,7 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
 
   // Flush remaining text
   if (e > textStart) {
-    let remainingText = s.slice(textStart, e)
-
-    // NOTE: Pre-parse streaming mutation (line ~4438) already handles
-    // incomplete emphasis, links, and code spans before parsing begins.
-    // This post-flush block was redundant and has been removed.
-
-    if (remainingText) {
-      nodes.push(textNode(remainingText))
-    }
+    nodes.push(textNode(s.slice(textStart, e)))
   }
 
   // Phase 2: Process emphasis delimiters using CommonMark algorithm
@@ -4994,11 +4976,9 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
     }
     if (p >= e) break
 
-    // Check for lazy continuation marker (\u001E) — treat as paragraph text
-    if (s.charCodeAt(p) === $.CHAR_RECORD_SEP) {
-      // Strip marker and fall through to paragraph
-      // The paragraph scanner will handle \u001E-prefixed continuation lines
-    }
+    // Lazy continuation marker (\u001E) forces paragraph treatment; the
+    // paragraph scanner handles \u001E-prefixed continuation lines
+    var isLazyContinuation = s.charCodeAt(p) === $.CHAR_RECORD_SEP
 
     indent(s, p, le)
 
@@ -5010,9 +4990,9 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
     _leCacheS = s; _leCacheP = p; _leCacheE = le
 
     // Check for indented code block (4+ spaces) - skip when inside HTML blocks
-    if (s.charCodeAt(p) !== $.CHAR_RECORD_SEP && _indentSpaces >= 4 && !state.inHTML) {
+    if (!isLazyContinuation && _indentSpaces >= 4 && !state.inHTML) {
       result = scanIndented(s, p)
-    } else if (s.charCodeAt(p) !== $.CHAR_RECORD_SEP) {
+    } else if (!isLazyContinuation) {
       const i = p + _indentChars
       const c = s.charCodeAt(i)
 
@@ -5081,16 +5061,10 @@ export function parser(
   source: string,
   options?: MarkdownToJSX.Options
 ): MarkdownToJSX.ASTNode[] {
-  // Reset global depth counter at the start of each parse
-  _globalInlineDepth = 0
-
   // Strip BOM (U+FEFF) at document start per CommonMark spec
   if (source.charCodeAt(0) === 0xfeff) {
     source = source.slice(1)
   }
-
-  // Normalize input: replace null bytes with U+FFFD per CommonMark spec
-  source = util.normalizeInput(source)
 
   // Default state with refs object
   const state: MarkdownToJSX.State = {
@@ -5112,26 +5086,9 @@ export function parser(
     tagfilter: options?.tagfilter !== false,
   }
 
-  // First pass: collect all reference definitions so they're available during inline parsing
-  state._endsInsideFence = collectReferenceDefinitions(source, state.refs!, finalOptions)
-
-  // Parse markdown
-  const nodes = parseBlocks(source, state, finalOptions)
-
-  // Add refCollection node at the start if there are refs
-  if (util.hasKeys(state.refs)) {
-    return [
-      { type: RuleType.refCollection, refs: state.refs } as MarkdownToJSX.ReferenceCollectionNode,
-      ...nodes
-    ]
-  }
-
-  return nodes
+  return parseMarkdown(source, state, finalOptions)
 }
 
-// Export for testing
-export { parseBlocks, parseInline }
-export { scanHeading, scanThematic, scanBlockquote }
 export function parseCodeFenced(s: string, p: number, state: MarkdownToJSX.State): { endPos: number; end: number; node: MarkdownToJSX.ASTNode; type: number; text: string; lang: string | undefined; attrs: Record<string, string> | undefined } | null {
   var res = scanFenced(s, p, state)
   if (!res) return null

@@ -66,6 +66,30 @@ function extractTextContent(
   return ''
 }
 
+// Serialize a Vue VNode tree to an HTML-like string so nesting and sibling
+// order (not just text presence) are asserted.
+function serialize(el: unknown): string {
+  if (el == null || typeof el === 'boolean') return ''
+  if (typeof el === 'string' || typeof el === 'number') return String(el)
+  if (Array.isArray(el)) return el.map(serialize).join('')
+  const vnode = el as VNode
+  const props = (vnode.props as Record<string, unknown>) || {}
+  let kids: unknown = vnode.children
+  if (
+    kids &&
+    typeof kids === 'object' &&
+    !Array.isArray(kids) &&
+    typeof (kids as Record<string, unknown>).default === 'function'
+  ) {
+    kids = (kids as { default: () => unknown }).default()
+  }
+  if (props.innerHTML !== undefined) kids = props.innerHTML
+  const inner = typeof kids === 'string' ? kids : serialize(kids)
+  return typeof vnode.type === 'string'
+    ? `<${vnode.type}>${inner}</${vnode.type}>`
+    : inner
+}
+
 // Type guard to check if result is a single VNode (not array or null)
 function isSingleVNode(vnode: VNode | VNode[] | null): vnode is VNode {
   return vnode !== null && !Array.isArray(vnode)
@@ -1200,5 +1224,42 @@ describe('MarkdownProvider (provide/inject)', () => {
     const { MarkdownProvider, MarkdownOptionsKey } = require('./vue')
     expect(MarkdownProvider).toBeDefined()
     expect(MarkdownOptionsKey).toBeDefined()
+  })
+})
+
+describe('regression #881 - trailing text after a nested HTML element', () => {
+  it('text line after a nested block element is preserved', () => {
+    expect(
+      serialize(compiler('<details>\n<summary>a</summary>\nx\n</details>'))
+    ).toMatchInlineSnapshot(`"<details><summary>a</summary> x </details>"`)
+  })
+
+  it('text line after a nested paragraph is preserved', () => {
+    expect(
+      serialize(compiler('<div>\n<p>a</p>\nx\n</div>'))
+    ).toMatchInlineSnapshot(`"<div><p>a</p> x </div>"`)
+  })
+
+  it('markdown in the trailing text line is processed', () => {
+    expect(
+      serialize(
+        compiler('<details>\n<summary>a</summary>\n**bold** text\n</details>')
+      )
+    ).toMatchInlineSnapshot(
+      `"<details><summary>a</summary><strong>bold</strong> text </details>"`
+    )
+  })
+
+  it('text line between nested paragraphs is preserved', () => {
+    expect(
+      serialize(compiler('<div>\n<p>a</p>\nx\n<p>b</p>\n</div>'))
+    ).toMatchInlineSnapshot(`"<div><p>a</p> x <p>b</p></div>"`)
+  })
+
+  it('text after the element own closing tag renders as a sibling', () => {
+    // tail is a sibling of the span's div, wrapped in Vue's multi-root container
+    expect(
+      serialize(compiler('<div>\n<span>a</span>\n</div>\ntail'))
+    ).toMatchInlineSnapshot(`"<div><div><span>a</span></div> tail</div>"`)
   })
 })

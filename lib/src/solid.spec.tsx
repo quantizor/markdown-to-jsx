@@ -71,6 +71,23 @@ function extractTextContent(
   return ''
 }
 
+// Serialize a Solid structural element tree to an HTML-like string so nesting
+// and sibling order (not just text presence) are asserted.
+function serialize(el: unknown): string {
+  if (el == null || typeof el === 'boolean') return ''
+  if (typeof el === 'string' || typeof el === 'number') return String(el)
+  if (Array.isArray(el)) return el.map(serialize).join('')
+  const node = el as { t?: string; p?: Record<string, unknown> }
+  const tag = node.t
+  const props = node.p || {}
+  if (!tag) return serialize(props.children ?? props.innerHTML ?? '')
+  const inner =
+    props.innerHTML !== undefined
+      ? String(props.innerHTML)
+      : serialize(props.children ?? '')
+  return `<${tag}>${inner}</${tag}>`
+}
+
 it('should throw if not passed a string (first arg)', () => {
   expect(() => compiler('')).not.toThrow()
   // @ts-ignore
@@ -1889,5 +1906,42 @@ describe('MarkdownProvider', () => {
   it('should handle MarkdownProvider with options', () => {
     // This tests lines 1104-1109 - MarkdownProvider
     const result = compiler('# Test')
+  })
+})
+
+describe('regression #881 - trailing text after a nested HTML element', () => {
+  it('text line after a nested block element is preserved', () => {
+    expect(
+      serialize(compiler('<details>\n<summary>a</summary>\nx\n</details>'))
+    ).toMatchInlineSnapshot(`"<details><summary>a</summary> x </details>"`)
+  })
+
+  it('text line after a nested paragraph is preserved', () => {
+    expect(
+      serialize(compiler('<div>\n<p>a</p>\nx\n</div>'))
+    ).toMatchInlineSnapshot(`"<div><p>a</p> x </div>"`)
+  })
+
+  it('markdown in the trailing text line is processed', () => {
+    expect(
+      serialize(
+        compiler('<details>\n<summary>a</summary>\n**bold** text\n</details>')
+      )
+    ).toMatchInlineSnapshot(
+      `"<details><summary>a</summary><strong>bold</strong> text </details>"`
+    )
+  })
+
+  it('text line between nested paragraphs is preserved', () => {
+    expect(
+      serialize(compiler('<div>\n<p>a</p>\nx\n<p>b</p>\n</div>'))
+    ).toMatchInlineSnapshot(`"<div><p>a</p> x <p>b</p></div>"`)
+  })
+
+  it('text after the element own closing tag renders as a sibling', () => {
+    // tail is a sibling of the span's div, wrapped in Solid's multi-root container
+    expect(
+      serialize(compiler('<div>\n<span>a</span>\n</div>\ntail'))
+    ).toMatchInlineSnapshot(`"<div><div><span>a</span></div> tail</div>"`)
   })
 })

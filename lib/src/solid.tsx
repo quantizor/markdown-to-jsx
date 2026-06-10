@@ -22,14 +22,8 @@ import { parser } from './parse'
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
-const TRIM_STARTING_NEWLINES = /^\n+/
 
-// Import shared HTML to JSX conversion utilities
-
-// Internal helper to create SolidJS elements
 const hasDOM = typeof document !== 'undefined'
-
-// Helper function for URL encoding backslashes and backticks per CommonMark spec
 
 type SolidASTRender = (
   ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
@@ -50,22 +44,6 @@ const isComponent = (
 ): value is Component<Record<string, unknown>> =>
   typeof value === 'function' ||
   (typeof value === 'object' && value !== null && 'render' in value)
-
-// Format HTML attributes for filtered tags
-function formatFilteredTagAttrs(
-  attrs: Record<string, unknown> | undefined
-): string {
-  if (!attrs) return ''
-  let attrStr = ''
-  for (const [key, value] of Object.entries(attrs)) {
-    if (value === true) {
-      attrStr += ` ${key}`
-    } else if (value !== undefined && value !== null && value !== false) {
-      attrStr += ` ${key}="${String(value)}"`
-    }
-  }
-  return attrStr
-}
 
 function render(
   node: MarkdownToJSX.ASTNode,
@@ -146,7 +124,7 @@ function render(
         const tagText =
           typeof htmlNode._rawText === 'string'
             ? htmlNode._rawText
-            : `<${htmlNode.tag}${formatFilteredTagAttrs(htmlNode.attrs)}>`
+            : `<${htmlNode.tag}${util.formatFilteredTagAttrs(htmlNode.attrs)}>`
         return h('span', {}, tagText)
       }
 
@@ -155,17 +133,13 @@ function render(
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
 
-        const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)
-
         if (isType1Block) {
-          let textContent = htmlNode._rawText.replace(
-            new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
-            ''
+          const textContent = util.type1TextContent(
+            htmlNode._rawText,
+            tagLower,
+            options.tagfilter
           )
-          if (options.tagfilter) {
-            textContent = util.applyTagFilterToText(textContent)
-          }
-          if (containsHTMLTags) {
+          if (/<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)) {
             return h(node.tag, {
               ...node.attrs,
               innerHTML: textContent,
@@ -184,43 +158,9 @@ function render(
             innerHTML: innerHtml,
           })
         }
-        // Use already-parsed children if available instead of re-parsing rawText
-        function processNode(
-          node: MarkdownToJSX.ASTNode
-        ): MarkdownToJSX.ASTNode[] {
-          if (
-            (node.type === RuleType.htmlSelfClosing || node.type === RuleType.htmlBlock) &&
-            node._isClosingTag
-          )
-            return []
-          if (node.type === RuleType.paragraph) {
-            const children = (node as MarkdownToJSX.ParagraphNode).children
-            return children ? children.flatMap(processNode) : []
-          }
-          if (node.type === RuleType.text) {
-            return (node as MarkdownToJSX.TextNode).text?.trim() ? [node] : []
-          }
-          if (
-            node.type === RuleType.htmlBlock &&
-            (node as MarkdownToJSX.HTMLNode).children
-          ) {
-            return [
-              {
-                ...node,
-                children: node.children?.flatMap(processNode),
-              } as MarkdownToJSX.HTMLNode,
-            ]
-          }
-          return [node]
-        }
-        if (htmlNode.children && htmlNode.children.length > 0) {
-          return h(
-            node.tag,
-            { ...node.attrs },
-            output(htmlNode.children.flatMap(processNode), state)
-          )
-        }
-        // Fallback to re-parsing rawText if children not available (edge case)
+        // Re-parse rawText so a nested element does not absorb a following text
+        // line, then split at this element's own closing tag so any trailing
+        // content renders as siblings (issue #881).
         const parseOptions: parse.ParseOptions = {
           slugify: (input: string) => slug(input, util.slugify),
           sanitizer: sanitize,
@@ -231,8 +171,6 @@ function render(
           .replace(/\n+/g, ' ')
           .trim()
 
-        // Avoid infinite recursion: if cleanedText is just the same HTML tag we're processing,
-        // render as an empty element
         const selfTagRegex = new RegExp(
           `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,
           'i'
@@ -246,7 +184,23 @@ function render(
           { inline: false, refs: refs, inHTML: false },
           parseOptions
         )
-        const processedChildren = output(astNodes.flatMap(processNode), state)
+        util.stripVerbatim(astNodes)
+
+        // rawText already contains its own wrapper element, so emit the parsed
+        // nodes directly instead of nesting them in another copy of the tag.
+        if (util.isFullVerbatimBlock(cleanedText, htmlNode.tag as string)) {
+          return output(astNodes.flatMap(util.processVerbatimNode), state)
+        }
+
+        const split = util.findOwnCloseInAST(astNodes, tagLower)
+        if (split.found && split.afterClose.length > 0) {
+          return [
+            h(node.tag, { ...node.attrs }, ...toArray(output(split.beforeClose.flatMap(util.processVerbatimNode), state))),
+            ...toArray(output(split.afterClose.flatMap(util.processVerbatimNode), state)),
+          ]
+        }
+
+        const processedChildren = output(astNodes.flatMap(util.processVerbatimNode), state)
         return h(node.tag, { ...node.attrs }, ...toArray(processedChildren))
       }
       if (util.isVoidElement(node.tag)) {
@@ -267,7 +221,7 @@ function render(
         const tagText =
           typeof htmlNode._rawText === 'string'
             ? htmlNode._rawText
-            : `<${htmlNode.tag}${formatFilteredTagAttrs(htmlNode.attrs)} />`
+            : `<${htmlNode.tag}${util.formatFilteredTagAttrs(htmlNode.attrs)} />`
         return h('span', {}, tagText)
       }
 
@@ -530,41 +484,6 @@ export function astToJSX(
   const compileHTML = (input: string) =>
     compiler(input, { ...opts, wrapper: null })
 
-  function createSolidElement(
-    tag: string | Component<Record<string, unknown>>,
-    props: Record<string, unknown>,
-    ...children: HChildren[]
-  ): JSX.Element {
-    if (!hasDOM) {
-      // Non-DOM environments (tests/SSR) get a structural representation or component output
-      const childValue =
-        children.length === 0
-          ? undefined
-          : children.length === 1
-            ? children[0]
-            : children
-      const propsWithChildren =
-        childValue === undefined ? props : { ...props, children: childValue }
-      if (typeof tag === 'function') {
-        return (tag as Component<Record<string, unknown>>)(
-          propsWithChildren as Record<string, unknown>
-        )
-      }
-      return {
-        t: tag,
-        p: propsWithChildren,
-      } as unknown as JSX.Element
-    }
-    const elementFactory = solidH(
-      tag as Component<Record<string, unknown>>,
-      props,
-      ...children
-    )
-    return typeof elementFactory === 'function'
-      ? (elementFactory as () => JSX.Element)()
-      : (elementFactory as JSX.Element)
-  }
-
   // JSX helper function - this is what @jsx pragma uses
   function h(
     tag: MarkdownToJSX.HTMLTags | string,
@@ -758,18 +677,7 @@ export function compiler(
       preserveFrontmatter: opts.preserveFrontmatter,
     }
 
-    // Inline trimEnd: trim trailing newlines and carriage returns
-    let processedInput = input
-    if (!inline) {
-      let e = processedInput.length
-      while (
-        e > 0 &&
-        (processedInput[e - 1] === '\n' || processedInput[e - 1] === '\r')
-      )
-        e--
-      processedInput = processedInput.slice(0, e)
-      processedInput = `${processedInput.replace(TRIM_STARTING_NEWLINES, '')}\n\n`
-    }
+    let processedInput = inline ? input : util.prepareBlockInput(input)
 
     let astNodes = parse.parseMarkdown(
       inline ? input : processedInput,
@@ -784,29 +692,13 @@ export function compiler(
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    if (typeof markdown !== 'string') {
-      throw new Error(`markdown-to-jsx: the first argument must be
-                             a string`)
-    }
-
-    if (Object.prototype.toString.call(opts.overrides) !== '[object Object]') {
-      throw new Error(`markdown-to-jsx: options.overrides (second argument property) must be
-                             undefined or an object literal with shape:
-                             {
-                                htmltagname: {
-                                    component: string|SolidComponent(optional),
-                                    props: object(optional)
-                                }
-                             }`)
-    }
+    util.validateCompilerArgs(markdown, opts.overrides, 'SolidComponent')
   }
 
   const refs: { [key: string]: { target: string; title: string | undefined } } =
     {}
 
-  const jsx = compile(markdown)
-
-  return jsx
+  return compile(markdown)
 }
 
 /**
@@ -818,12 +710,13 @@ export const MarkdownContext: Context<SolidOptions | undefined> = createContext<
 
 // Module-level h function for components that use JSX
 // This is used by the @jsx pragma for JSX in MarkdownProvider and Markdown components
-function h(
+function createSolidElement(
   tag: string | Component<Record<string, unknown>>,
   props: Record<string, unknown>,
-  ...children: (JSX.Element | string)[]
+  ...children: HChildren[]
 ): JSX.Element {
-  if (typeof document === 'undefined') {
+  if (!hasDOM) {
+    // Non-DOM environments (tests/SSR) get a structural representation or component output
     const childValue =
       children.length === 0
         ? undefined
@@ -850,6 +743,15 @@ function h(
   return typeof elementFactory === 'function'
     ? (elementFactory as () => JSX.Element)()
     : (elementFactory as JSX.Element)
+}
+
+// JSX pragma helper; shares createSolidElement with the compiler internals
+function h(
+  tag: string | Component<Record<string, unknown>>,
+  props: Record<string, unknown>,
+  ...children: HChildren[]
+): JSX.Element {
+  return createSolidElement(tag, props, ...children)
 }
 
 /**

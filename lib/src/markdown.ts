@@ -164,14 +164,13 @@ export function astToMarkdown(
 
   // Render nodes, tracking key indices without O(n^2) indexOf
   var keyOffset = 0
-  var contentParts = ''
+  var content = ''
   for (var ni = 0; ni < nonRefCollectionNodes.length; ni++) {
     var n = nonRefCollectionNodes[ni]
-    if (ni > 0) contentParts += '\n\n'
+    if (ni > 0) content += '\n\n'
     var keyIndex = n.type === RuleType.refCollection ? undefined : keyOffset++
-    contentParts += nestedStatefulRender(n, { key: keyIndex, refs })
+    content += nestedStatefulRender(n, { key: keyIndex, refs })
   }
-  var content = contentParts
 
   if (state.options.useReferenceLinks && state.references.size > 0) {
     const references = Array.from(state.references.entries())
@@ -261,9 +260,6 @@ function compileNode(
     case RuleType.htmlComment:
       return compileHTMLComment(node)
 
-    case RuleType.footnote:
-      return compileFootnote(node)
-
     case RuleType.footnoteReference:
       return compileFootnoteReference(node)
 
@@ -272,9 +268,6 @@ function compileNode(
 
     case RuleType.gfmTask:
       return compileGFMTask(node)
-
-    case RuleType.ref:
-      return compileReference(node)
 
     case RuleType.refCollection:
       return compileReferenceCollection(node)
@@ -366,7 +359,7 @@ function compileLink(
   const title = node.title
 
   if (state.options.useReferenceLinks) {
-    const refKey = generateReferenceKey(url, state)
+    const refKey = generateReferenceKey(state)
     if (!state.references.has(refKey)) {
       state.references.set(refKey, { url, title })
     }
@@ -385,7 +378,7 @@ function compileImage(
   const title = node.title
 
   if (state.options.useReferenceLinks) {
-    const refKey = generateReferenceKey(url, state)
+    const refKey = generateReferenceKey(state)
     if (!state.references.has(refKey)) {
       state.references.set(refKey, { url, title })
     }
@@ -504,17 +497,10 @@ function compileHTMLBlock(
 
   // For verbatim blocks, use rawText if available (CommonMark compliance)
   // Otherwise fall back to deprecated text field for backward compatibility
-  if (node._verbatim && (node._rawText || node.text)) {
-    const textContent = node._rawText || node.text
-    // For HTML blocks with raw text content
+  const textContent = (node._verbatim && node._rawText) || node.text
+  if (textContent) {
     // textContent already includes the closing tag
     return `<${tag}${attrs}>${textContent}`
-  }
-
-  if (node.text) {
-    // For HTML blocks with raw text content (backward compatibility)
-    // node.text already includes the closing tag
-    return `<${tag}${attrs}>${node.text}`
   }
 
   // For HTML blocks with children, reconstruct the HTML
@@ -544,10 +530,6 @@ function compileHTMLComment(node: MarkdownToJSX.HTMLCommentNode): string {
   return `<!--${node.text}-->`
 }
 
-function compileFootnote(_node: MarkdownToJSX.FootnoteNode): string {
-  return ''
-}
-
 function compileFootnoteReference(
   node: MarkdownToJSX.FootnoteReferenceNode
 ): string {
@@ -562,10 +544,6 @@ function compileGFMTask(node: MarkdownToJSX.GFMTaskNode): string {
   return node.completed ? '[x]' : '[ ]'
 }
 
-function compileReference(_node: MarkdownToJSX.ReferenceNode): string {
-  return ''
-}
-
 function compileReferenceCollection(
   node: MarkdownToJSX.ReferenceCollectionNode
 ): string {
@@ -576,7 +554,7 @@ function compileReferenceCollection(
     .join('\n')
 }
 
-function generateReferenceKey(url: string, state: CompilerState): string {
+function generateReferenceKey(state: CompilerState): string {
   return `ref${state.referenceIndex++}`
 }
 

@@ -255,7 +255,6 @@ function _renderNodeEntry(
     return ctx.renderRule(
       function () {
         if (
-          node.type === RuleType.ref ||
           node.type === RuleType.refCollection ||
           shouldSkipNode(node, ctx.preserveFrontmatter)
         )
@@ -271,7 +270,6 @@ function _renderNodeEntry(
   }
 
   if (
-    node.type === RuleType.ref ||
     node.type === RuleType.refCollection ||
     shouldSkipNode(node, ctx.preserveFrontmatter)
   )
@@ -357,10 +355,7 @@ function _renderNode(
     }
 
     case RuleType.htmlComment: {
-      var htmlCommentNode = node as MarkdownToJSX.HTMLCommentNode & {
-        raw?: boolean
-        _endsWithGT?: boolean
-      }
+      var htmlCommentNode = node as MarkdownToJSX.HTMLCommentNode
       if (htmlCommentNode.raw) {
         return htmlCommentNode.text
       }
@@ -371,11 +366,7 @@ function _renderNode(
     }
 
     case RuleType.htmlBlock: {
-      var htmlNode = node as MarkdownToJSX.HTMLNode & {
-        _rawAttrs?: string
-        _isClosingTag?: boolean
-        _emitOwnClose?: boolean
-      }
+      var htmlNode = node as MarkdownToJSX.HTMLNode
       var defaultTag = htmlNode.tag || 'div'
       var tag = ctx.hasOverrides ? util.getTag(defaultTag, ctx.overrides) : defaultTag
       var overrideProps = ctx.hasOverrides ? util.getOverrideProps(defaultTag, ctx.overrides) : _emptyObj
@@ -529,7 +520,7 @@ function _renderNode(
       }
       for (var hci = 0; hci < children.length; hci++) {
         var hcc = children.charCodeAt(hci)
-        if (hcc !== $.CHAR_SPACE && hcc !== $.CHAR_TAB && hcc !== $.CHAR_NEWLINE && hcc !== 13) {
+        if (hcc !== $.CHAR_SPACE && hcc !== $.CHAR_TAB && hcc !== $.CHAR_NEWLINE && hcc !== $.CHAR_CR) {
           return '<' + tag + attrsStr + '>' + children + '</' + tag + '>'
         }
       }
@@ -793,17 +784,7 @@ export function astToHTML(
         if (parsed[pi].type !== RuleType.refCollection)
           filtered.push(parsed[pi])
       }
-      var footnoteCtx: _Ctx = {
-        sanitize: sanitize,
-        slug: slug,
-        refs: {},
-        overrides: overrides,
-        hasOverrides: ctx.hasOverrides,
-        preserveFrontmatter: ctx.preserveFrontmatter,
-        tagfilter: ctx.tagfilter,
-        forceInline: true,
-        renderRule: ctx.renderRule,
-      }
+      var footnoteCtx: _Ctx = { ...ctx, refs: {}, forceInline: true }
       var footnoteContent = _renderChildren(filtered, footnoteCtx)
       footnoteFooter += '<div id="' + escapeHtmlAttr(slug(id, util.slugify)) + '">' + escapeHtml(id) + ': ' + footnoteContent + '</div>'
     }
@@ -843,17 +824,7 @@ export function astToHTML(
       var paragraphNode =
         nonRefCollectionNodes[0] as MarkdownToJSX.ParagraphNode
       if (paragraphNode.children) {
-        var inlineCtx: _Ctx = {
-          sanitize: sanitize,
-          slug: slug,
-          refs: {},
-          overrides: overrides,
-          hasOverrides: ctx.hasOverrides,
-          preserveFrontmatter: ctx.preserveFrontmatter,
-          tagfilter: ctx.tagfilter,
-          forceInline: true,
-          renderRule: ctx.renderRule,
-        }
+        var inlineCtx: _Ctx = { ...ctx, refs: {}, forceInline: true }
         contentToWrap = _renderChildren(paragraphNode.children, inlineCtx)
       }
     }

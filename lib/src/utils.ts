@@ -92,10 +92,6 @@ export const NAMED_CODES_TO_UNICODE: Record<string, string> = util
 export const HTML_CHAR_CODE_R: RegExp =
   /&([a-zA-Z0-9]+|#[0-9]{1,7}|#x[0-9a-fA-F]{1,6});/gi
 
-/**
- * Regex for determining if markdown content should be rendered as block-level
- * Matches: newlines, list items, headings, indented content, thematic breaks, blockquotes
- */
 // Mapping of lowercase HTML attributes to JSX prop names
 // Shared between React and Solid renderers (Vue uses HTML attributes directly)
 export const HTML_TO_JSX_MAP: Record<string, string> = {
@@ -150,9 +146,15 @@ export const HTML_TO_JSX_MAP: Record<string, string> = {
  * @param attrs - HTML attributes object
  * @returns JSX props object
  */
+// Shared empty result for attribute-less elements; callers spread it, so the
+// shared identity never leaks mutations
+var EMPTY_JSX_PROPS: Record<string, any> = {}
+
 export function htmlAttrsToJSXProps(
-  attrs: Record<string, any>
+  attrs: Record<string, any> | null | undefined
 ): Record<string, any> {
+  if (!attrs) return EMPTY_JSX_PROPS
+
   var jsxProps: Record<string, any> = {}
 
   for (var key in attrs) {
@@ -174,6 +176,10 @@ export function htmlAttrsToJSXProps(
   return jsxProps
 }
 
+/**
+ * Regex for determining if markdown content should be rendered as block-level
+ * Matches: newlines, list items, headings, indented content, thematic breaks, blockquotes
+ */
 export const SHOULD_RENDER_AS_BLOCK_R: RegExp =
   /(\n|^[-*]\s|^#|^ {2,}|^-{2,}|^>\s|^<(div|p|h[1-6]|ul|ol|li|blockquote|pre|table|thead|tbody|tr|td|th|dl|dt|dd|hr|address|article|aside|details|dialog|figure|figcaption|footer|form|header|main|menu|nav|section|summary|textarea|fieldset|legend|center|dir|hgroup|marquee|search|output|template)\b)/i
 
@@ -436,13 +442,6 @@ export var C_DIGIT = 16    // Digit (0-9)
 export var C_BLOCK = 32    // Can start a block (parser-specific)
 export var C_INLINE = 64   // Can start inline syntax (parser-specific)
 
-// Inline character type constants
-// const INLINE_CHAR_TYPE_NORMAL = 0
-const INLINE_CHAR_TYPE_SPECIAL = 1
-const INLINE_CHAR_TYPE_ESCAPE = 2
-const INLINE_CHAR_TYPE_DELIMITER = 3
-const INLINE_CHAR_TYPE_LINK = 4
-
 // Unified character class lookup table (ASCII 0-127)
 // Shared by parser (parse.ts) and utilities (utils.ts)
 export var CC: Uint8Array = (function () {
@@ -464,28 +463,6 @@ export var CC: Uint8Array = (function () {
   // Letters
   for (i = $.CHAR_A; i <= $.CHAR_Z; i++) t[i] = C_ALPHA
   for (i = $.CHAR_a; i <= $.CHAR_z; i++) t[i] = C_ALPHA
-  return t
-})()
-
-// Lookup table for inline character types (0-127): 0=normal, 1=special, 2=escape, 3=delimiter, 4=link
-export const inlineCharTypeTable: Uint8Array = (function () {
-  const t = new Uint8Array(128)
-  t[$.CHAR_BACKSLASH] = INLINE_CHAR_TYPE_ESCAPE
-  t[$.CHAR_BRACKET_OPEN] = INLINE_CHAR_TYPE_LINK
-  t[$.CHAR_ASTERISK] =
-    t[$.CHAR_UNDERSCORE] =
-    t[$.CHAR_TILDE] =
-    t[$.CHAR_EQ] =
-      INLINE_CHAR_TYPE_DELIMITER
-  t[$.CHAR_BACKTICK] =
-    t[$.CHAR_LT] =
-    t[$.CHAR_AT] =
-    t[$.CHAR_BRACKET_CLOSE] =
-    t[$.CHAR_NEWLINE] =
-    t[$.CHAR_SPACE] =
-    t[$.CHAR_EXCLAMATION] =
-      INLINE_CHAR_TYPE_SPECIAL
-  t[$.CHAR_f] = t[$.CHAR_H] = t[$.CHAR_W] = INLINE_CHAR_TYPE_SPECIAL
   return t
 })()
 
@@ -629,6 +606,245 @@ export function alertHeaderNode(alert: string): MarkdownToJSX.HTMLNode {
   } as MarkdownToJSX.HTMLNode
 }
 
+var TRIM_STARTING_NEWLINES = /^\n+/
+
+/**
+ * Normalize block-mode compiler input: trim trailing newlines and carriage
+ * returns, strip leading newlines, and append the terminating blank line the
+ * block parser expects.
+ */
+export function prepareBlockInput(input: string): string {
+  var e = input.length
+  while (e > 0 && (input[e - 1] === '\n' || input[e - 1] === '\r')) e--
+  return input.slice(0, e).replace(TRIM_STARTING_NEWLINES, '') + '\n\n'
+}
+
+/**
+ * Flatten the AST produced by re-parsing a verbatim HTML block's rawText for
+ * JSX-style output: drop closing-tag nodes, unwrap paragraphs (raw HTML
+ * content does not get `<p>` wrappers), drop whitespace-only text, and recurse
+ * into nested HTML blocks. Renderer-agnostic; shared by the React, native,
+ * Solid, and Vue compilers.
+ */
+export function processVerbatimNode(
+  node: MarkdownToJSX.ASTNode
+): MarkdownToJSX.ASTNode[] {
+  if (
+    (node.type === RuleType.htmlSelfClosing ||
+      node.type === RuleType.htmlBlock) &&
+    node._isClosingTag
+  )
+    return []
+  if (node.type === RuleType.paragraph) {
+    var children = (node as MarkdownToJSX.ParagraphNode).children
+    return children ? children.flatMap(processVerbatimNode) : []
+  }
+  if (node.type === RuleType.text) {
+    return (node as MarkdownToJSX.TextNode).text?.trim() ? [node] : []
+  }
+  if (
+    node.type === RuleType.htmlBlock &&
+    (node as MarkdownToJSX.HTMLNode).children
+  ) {
+    return [
+      {
+        ...node,
+        children: node.children?.flatMap(processVerbatimNode),
+      } as MarkdownToJSX.HTMLNode,
+    ]
+  }
+  return [node]
+}
+
+/**
+ * True when cleaned verbatim rawText is the element's complete outer block
+ * (opens with its own tag and ends with its own closing tag). The re-parsed AST
+ * already contains that wrapper element, so the renderer emits the parsed nodes
+ * directly rather than wrapping them again. Renderer-agnostic; shared by the
+ * native, Solid, and Vue compilers.
+ */
+export function isFullVerbatimBlock(cleanedText: string, tag: string): boolean {
+  return (
+    new RegExp(`^<${tag}(\\s|>)`, 'i').test(cleanedText) &&
+    cleanedText
+      .toLowerCase()
+      .trimEnd()
+      .endsWith('</' + tag.toLowerCase() + '>')
+  )
+}
+
+/**
+ * Clear `_verbatim` on re-parsed HTML block nodes to prevent infinite re-parse
+ * recursion, with one exception for issue #881: keep verbatim on a last-sibling
+ * node whose rawText bleeds real content past its own closing tag. There the
+ * bled tail is the only place that trailing content exists, so the renderer
+ * re-parses and splits it out as siblings. Each split strictly shrinks rawText,
+ * so the recursion is bounded. When siblings follow (e.g. nested same-type
+ * blocks like table rows) they already carry the bled content, so keeping
+ * verbatim would duplicate it; a bled tail of pure closing tags (e.g.
+ * "</dd></dl>") carries no content. Both fall to the default strip.
+ * Renderer-agnostic; shared by the React, native, Solid, and Vue compilers.
+ */
+export function stripVerbatim(nodes: MarkdownToJSX.ASTNode[]): void {
+  for (var ai = 0; ai < nodes.length; ai++) {
+    if (nodes[ai].type === RuleType.htmlBlock) {
+      var hn = nodes[ai] as MarkdownToJSX.HTMLNode
+      var keepVerbatim = false
+      if (hn._verbatim && hn._rawText && ai === nodes.length - 1) {
+        var ownClose = '</' + String(hn.tag).toLowerCase() + '>'
+        var closeIdx = hn._rawText.toLowerCase().indexOf(ownClose)
+        if (closeIdx !== -1) {
+          var bledTail = hn._rawText
+            .slice(closeIdx + ownClose.length)
+            .replace(/<\/[a-z][a-z0-9-]*\s*>/gi, '')
+          if (bledTail.trim()) keepVerbatim = true
+        }
+      }
+      if (!keepVerbatim) hn._verbatim = false
+    }
+    if (
+      'children' in nodes[ai] &&
+      (nodes[ai] as MarkdownToJSX.HTMLNode).children
+    ) {
+      stripVerbatim(
+        (nodes[ai] as MarkdownToJSX.HTMLNode).children as MarkdownToJSX.ASTNode[]
+      )
+    }
+  }
+}
+
+/**
+ * Split a re-parsed verbatim HTML block AST at the element's own closing tag
+ * (issue #881). Content before the closing tag becomes the element's children;
+ * content after it becomes siblings rendered alongside. Handles a closing tag
+ * that is a direct node and one nested inside a paragraph's children. Returns
+ * the original nodes as `beforeClose` with an empty `afterClose` when no own
+ * closing tag is present. Renderer-agnostic; the caller assembles the wrapper
+ * plus siblings with its own element primitive.
+ */
+export function findOwnCloseInAST(
+  nodes: MarkdownToJSX.ASTNode[],
+  tag: string
+): {
+  found: boolean
+  beforeClose: MarkdownToJSX.ASTNode[]
+  afterClose: MarkdownToJSX.ASTNode[]
+} {
+  for (var i = 0; i < nodes.length; i++) {
+    var n = nodes[i]
+    // Check in paragraph children
+    if (
+      n.type === RuleType.paragraph &&
+      (n as MarkdownToJSX.ParagraphNode).children
+    ) {
+      var pChildren = (n as MarkdownToJSX.ParagraphNode).children
+      for (var j = 0; j < pChildren.length; j++) {
+        var cn = pChildren[j]
+        if (
+          cn.type === RuleType.htmlSelfClosing &&
+          cn._isClosingTag &&
+          cn.tag.toLowerCase() === tag
+        ) {
+          // Before: pChildren[0..j-1] as paragraph + nodes[0..i-1]
+          // After: pChildren[j+1..] as paragraph + nodes[i+1..]
+          var before: MarkdownToJSX.ASTNode[] = nodes.slice(0, i)
+          if (j > 0) {
+            before.push({
+              type: RuleType.paragraph,
+              children: pChildren.slice(0, j),
+            } as MarkdownToJSX.ParagraphNode)
+          }
+          var after: MarkdownToJSX.ASTNode[] = []
+          if (j + 1 < pChildren.length) {
+            // Remaining paragraph children become nodes after close, minus any
+            // trailing closing tags for parent elements
+            var remaining = pChildren.slice(j + 1).filter(function (r) {
+              return !(
+                r.type === RuleType.htmlSelfClosing && r._isClosingTag
+              )
+            })
+            if (remaining.length > 0) after = remaining
+          }
+          after = after.concat(nodes.slice(i + 1))
+          return { found: true, beforeClose: before, afterClose: after }
+        }
+      }
+    }
+    // Check direct closing tag
+    if (
+      (n.type === RuleType.htmlSelfClosing ||
+        n.type === RuleType.htmlBlock) &&
+      n._isClosingTag &&
+      n.tag.toLowerCase() === tag
+    ) {
+      return {
+        found: true,
+        beforeClose: nodes.slice(0, i),
+        afterClose: nodes.slice(i + 1),
+      }
+    }
+  }
+  return { found: false, beforeClose: nodes, afterClose: [] }
+}
+
+/**
+ * Dev-mode argument validation shared by the JSX compilers. Callers keep the
+ * process.env.NODE_ENV guard at the call site so production bundles drop both
+ * the call and the message strings.
+ */
+export function validateCompilerArgs(
+  markdown: unknown,
+  overrides: unknown,
+  componentName: string
+): void {
+  if (typeof markdown !== 'string') {
+    throw new Error(`markdown-to-jsx: the first argument must be a string`)
+  }
+  if (Object.prototype.toString.call(overrides) !== '[object Object]') {
+    throw new Error(`markdown-to-jsx: options.overrides (second argument property) must be
+                             undefined or an object literal with shape:
+                             {
+                                htmltagname: {
+                                    component: string|${componentName}(optional),
+                                    props: object(optional)
+                                }
+                             }`)
+  }
+}
+
+/**
+ * Inner text of a type-1 verbatim block (pre/script/style/textarea): rawText
+ * with the node's own trailing closing tag stripped, tagfiltered when enabled.
+ */
+export function type1TextContent(
+  rawText: string,
+  tagLower: string,
+  tagfilter: boolean | undefined
+): string {
+  var text = rawText.replace(
+    new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
+    ''
+  )
+  return tagfilter ? applyTagFilterToText(text) : text
+}
+
+/**
+ * Serialize an HTML node's attributes for tagfilter display output (the
+ * escaped `<tag attr="value">` text emitted for filtered tags).
+ */
+export function formatFilteredTagAttrs(
+  attrs: Record<string, any> | null | undefined
+): string {
+  var attrStr = ''
+  for (var key in attrs) {
+    var value = attrs[key]
+    if (value === true) attrStr += ' ' + key
+    else if (value !== undefined && value !== null && value !== false)
+      attrStr += ' ' + key + '="' + String(value) + '"'
+  }
+  return attrStr
+}
+
 /**
  * Footnote keys are stored in the refs map with a leading `^` (CHAR_CARET).
  * Each renderer needs the same `{ identifier, footnote }` list for output.
@@ -650,6 +866,11 @@ export function extractFootnoteEntries(
  * Get nested property from object using dot notation path
  */
 export function get(source: any, path: string, fallback: any): any {
+  // Fast path: single-segment paths (the common case for override lookups)
+  // skip the split allocation
+  if (path.indexOf('.') === -1) {
+    return source?.[path] || fallback
+  }
   var result = source
   var segments = path.split('.')
   var i = 0
