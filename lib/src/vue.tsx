@@ -21,7 +21,6 @@ import { parser } from './parse'
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
-const TRIM_STARTING_NEWLINES = /^\n+/
 
 /**
  * Vue injection key for sharing compiler options across Markdown components
@@ -43,21 +42,6 @@ type VueASTRender = (
   ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
   state: MarkdownToJSX.State
 ) => VueChild[] | VueChild | null
-
-// Format HTML attributes for filtered tags
-function formatFilteredTagAttrs(
-  attrs: Record<string, unknown> | undefined
-): string {
-  if (!attrs) return ''
-  const parts: string[] = []
-  for (const key in attrs) {
-    const value = attrs[key]
-    if (value === true) parts.push(` ${key}`)
-    else if (value !== undefined && value !== null && value !== false)
-      parts.push(` ${key}="${String(value)}"`)
-  }
-  return parts.length ? parts.join('') : ''
-}
 
 // Helper to normalize children output to array format (only for null handling)
 // Inlined in hot paths for performance
@@ -134,24 +118,22 @@ const renderers: Record<
       const tagText =
         typeof node._rawText === 'string'
           ? node._rawText
-          : `<${node.tag}${formatFilteredTagAttrs(node.attrs)}>`
+          : `<${node.tag}${util.formatFilteredTagAttrs(node.attrs)}>`
       return h('span', { key: state.key }, tagText)
     }
 
     if (node._rawText && node._verbatim) {
       const tagLower = (node.tag as string).toLowerCase()
       const isType1Block = parse.isType1Block(tagLower)
-      const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(node._rawText)
 
       // Type 1 blocks (pre, script, style, textarea) always render verbatim
       if (isType1Block) {
-        let textContent = node._rawText.replace(
-          new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
-          ''
+        const textContent = util.type1TextContent(
+          node._rawText,
+          tagLower,
+          options.tagfilter
         )
-        if (options.tagfilter)
-          textContent = util.applyTagFilterToText(textContent)
-        if (containsHTMLTags) {
+        if (/<[a-z][^>]{0,100}>/i.test(node._rawText)) {
           return h(node.tag, {
             key: state.key,
             ...node.attrs,
@@ -162,47 +144,14 @@ const renderers: Record<
       }
 
       // Use already-parsed children if available instead of re-parsing rawText
-      const processNode = (
-        node: MarkdownToJSX.ASTNode
-      ): MarkdownToJSX.ASTNode[] => {
-        if (
-          (node.type === RuleType.htmlSelfClosing || node.type === RuleType.htmlBlock) &&
-          node._isClosingTag
-        )
-          return []
-        if (node.type === RuleType.paragraph) {
-          const children = (node as MarkdownToJSX.ParagraphNode).children
-          return children ? children.flatMap(processNode) : []
-        }
-        if (node.type === RuleType.text) {
-          return (node as MarkdownToJSX.TextNode).text?.trim() ? [node] : []
-        }
-        if (
-          node.type === RuleType.htmlBlock &&
-          (node as MarkdownToJSX.HTMLNode).children
-        ) {
-          return [
-            {
-              ...node,
-              children: node.children?.flatMap(processNode),
-            } as MarkdownToJSX.HTMLNode,
-          ]
-        }
-        return [node]
-      }
-
       const containsPreTags = /<\/?pre\b/i.test(node._rawText)
       if (containsPreTags) {
         // Strip the node's own closing tag from rawText (parser includes it)
-        var preRawText = node._rawText
-        var ownClosingTag = new RegExp(
-          '\\s*</' + tagLower + '>\\s*$',
-          'i'
+        const innerHtml = util.type1TextContent(
+          node._rawText,
+          tagLower,
+          options.tagfilter
         )
-        preRawText = preRawText.replace(ownClosingTag, '')
-        const innerHtml = options.tagfilter
-          ? util.applyTagFilterToText(preRawText)
-          : preRawText
         return h(node.tag, {
           key: state.key,
           ...node.attrs,
@@ -225,8 +174,9 @@ const renderers: Record<
         `^<${node.tag}(\\s[^>]*)?>(\\s*</${node.tag}>)?$`,
         'i'
       )
+      const props = { key: state.key, ...node.attrs }
       if (selfTagRegex.test(cleanedText)) {
-        return h(node.tag, { key: state.key, ...node.attrs })
+        return h(node.tag, props)
       }
 
       const astNodes = parse.parseMarkdown(
@@ -234,11 +184,29 @@ const renderers: Record<
         { inline: false, refs: refs, inHTML: false },
         parseOptions
       )
+      // Clear verbatim on re-parsed nodes so a nested element does not absorb a
+      // following text line into itself, then split at this element's own
+      // closing tag so any trailing content renders as siblings (issue #881).
+      util.stripVerbatim(astNodes)
+
+      // rawText already contains its own wrapper element, so emit the parsed
+      // nodes directly instead of nesting them in another copy of the tag.
+      if (util.isFullVerbatimBlock(cleanedText, node.tag as string)) {
+        return normalizeChildren(output(astNodes.flatMap(util.processVerbatimNode), state))
+      }
+
+      const split = util.findOwnCloseInAST(astNodes, tagLower)
+      if (split.found && split.afterClose.length > 0) {
+        return [
+          h(node.tag, props, ...normalizeChildren(output(split.beforeClose.flatMap(util.processVerbatimNode), state))),
+          ...normalizeChildren(output(split.afterClose.flatMap(util.processVerbatimNode), state)),
+        ]
+      }
 
       return h(
         node.tag,
-        { key: state.key, ...node.attrs },
-        ...normalizeChildren(output(astNodes.flatMap(processNode), state))
+        props,
+        ...normalizeChildren(output(astNodes.flatMap(util.processVerbatimNode), state))
       )
     }
 
@@ -260,7 +228,7 @@ const renderers: Record<
       const tagText =
         typeof node._rawText === 'string'
           ? node._rawText
-          : `<${node.tag}${formatFilteredTagAttrs(node.attrs)} />`
+          : `<${node.tag}${util.formatFilteredTagAttrs(node.attrs)} />`
       return h('span', { key: state.key }, tagText)
     }
     return h(node.tag, { key: state.key, ...node.attrs })
@@ -471,6 +439,14 @@ const createRenderer = (
   return renderer
 }
 
+// A value is renderable as a Vue component if it is a function or an object
+// with a render/setup definition
+const isVueComponent = (value: unknown): value is Component =>
+  typeof value === 'function' ||
+  (typeof value === 'object' &&
+    value !== null &&
+    ('render' in value || 'setup' in value))
+
 const getTag = (
   tag: string | Component,
   overrides: VueOverrides | undefined
@@ -480,21 +456,9 @@ const getTag = (
   const tagStr = tag as string
   const override = util.get(overrides, tagStr, undefined)
   if (!override) return tag
-  if (typeof override === 'function') return override
-  if (
-    typeof override === 'object' &&
-    override !== null &&
-    ('render' in override || 'setup' in override)
-  )
-    return override
+  if (isVueComponent(override)) return override
   const component = util.get(overrides, `${tagStr}.component`, tagStr)
-  if (typeof component === 'function') return component
-  if (
-    typeof component === 'object' &&
-    component !== null &&
-    ('render' in component || 'setup' in component)
-  )
-    return component
+  if (isVueComponent(component)) return component
   return component as string
 }
 
@@ -736,19 +700,7 @@ export function compiler(
   opts.overrides = opts.overrides || {}
 
   if (process.env.NODE_ENV !== 'production') {
-    if (typeof markdown !== 'string') {
-      throw new Error(`markdown-to-jsx: the first argument must be a string`)
-    }
-    if (Object.prototype.toString.call(opts.overrides) !== '[object Object]') {
-      throw new Error(`markdown-to-jsx: options.overrides (second argument property) must be
-                             undefined or an object literal with shape:
-                             {
-                                htmltagname: {
-                                    component: string|VueComponent(optional),
-                                    props: object(optional)
-                                }
-                             }`)
-    }
+    util.validateCompilerArgs(markdown, opts.overrides, 'VueComponent')
   }
 
   const slug = opts.slugify || util.slugify
@@ -772,18 +724,7 @@ export function compiler(
   const refs: { [key: string]: { target: string; title: string | undefined } } =
     {}
 
-  // Inline trimEnd: trim trailing newlines and carriage returns
-  let processedInput = markdown
-  if (!inline) {
-    let e = processedInput.length
-    while (
-      e > 0 &&
-      (processedInput[e - 1] === '\n' || processedInput[e - 1] === '\r')
-    )
-      e--
-    processedInput = processedInput.slice(0, e)
-    processedInput = `${processedInput.replace(TRIM_STARTING_NEWLINES, '')}\n\n`
-  }
+  let processedInput = inline ? markdown : util.prepareBlockInput(markdown)
 
   const astNodes = parse.parseMarkdown(
     inline ? markdown : processedInput,

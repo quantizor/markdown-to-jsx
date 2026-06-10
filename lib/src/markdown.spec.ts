@@ -1817,3 +1817,33 @@ More text`
     })
   })
 })
+
+describe('regression #881 - trailing text after a nested HTML element', () => {
+  it('text line after a nested block element is preserved', () => {
+    expect(
+      compiler('<details>\n<summary>a</summary>\nx\n</details>')
+    ).toMatchInlineSnapshot(`
+      "<details><summary>a</summary>
+      x
+      </details>"
+    `)
+  })
+
+  it('text line after a nested paragraph is preserved', () => {
+    expect(compiler('<div>\n<p>a</p>\nx\n</div>')).toMatchInlineSnapshot(`
+      "<div><p>a</p>
+      x
+      </div>"
+    `)
+  })
+
+  it('text after the element own closing tag is preserved', () => {
+    expect(
+      compiler('<div>\n<span>a</span>\n</div>\ntail')
+    ).toMatchInlineSnapshot(`
+      "<div><span>a</span>
+      </div>
+      tail"
+    `)
+  })
+})

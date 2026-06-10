@@ -12,7 +12,6 @@ export { parser } from './parse'
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
-const TRIM_STARTING_NEWLINES = /^\n+/
 
 /**
  * Symbol used by React to identify valid elements, auto-detected from the
@@ -68,11 +67,6 @@ export const MarkdownContext:
     ? React.createContext<MarkdownToJSX.Options | undefined>(undefined)
     : undefined
 
-// Import shared HTML to JSX conversion utilities
-import { htmlAttrsToJSXProps } from './utils'
-
-// Helper function for URL encoding backslashes and backticks per CommonMark spec
-
 function render(
   node: MarkdownToJSX.ASTNode,
   output: MarkdownToJSX.ASTRender,
@@ -120,7 +114,7 @@ function render(
       return (
         <pre key={state.key}>
           <code
-            {...htmlAttrsToJSXProps(node.attrs || {})}
+            {...util.htmlAttrsToJSXProps(node.attrs)}
             className={
               decodedLang ? `language-${decodedLang} lang-${decodedLang}` : ''
             }
@@ -136,7 +130,7 @@ function render(
     case RuleType.footnoteReference:
       return (
         <a key={state.key} href={sanitize(node.target, 'a', 'href') || undefined}>
-          <sup key={state.key}>{node.text}</sup>
+          <sup>{node.text}</sup>
         </a>
       )
 
@@ -163,16 +157,11 @@ function render(
       // Apply options.tagfilter: escape dangerous tags
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
         // Construct opening tag for display (React will escape the angle brackets)
-        var attrStr = ''
-        if (htmlNode.attrs) {
-          for (var k in htmlNode.attrs) {
-            var v = htmlNode.attrs[k]
-            if (v === true) attrStr += ' ' + k
-            else if (v !== undefined && v !== null && v !== false)
-              attrStr += ' ' + k + '="' + String(v) + '"'
-          }
-        }
-        return h('span', { key: state.key }, '<' + htmlNode.tag + attrStr + '>')
+        return h(
+          'span',
+          { key: state.key },
+          '<' + htmlNode.tag + util.formatFilteredTagAttrs(htmlNode.attrs) + '>'
+        )
       }
 
       if (htmlNode._rawText && htmlNode._verbatim) {
@@ -181,37 +170,30 @@ function render(
         const isType1Block = parse.isType1Block(tagLower)
         const hasChildren = htmlNode.children && htmlNode.children.length > 0
 
-        const containsHTMLTags = /<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)
-
         // Type 1 blocks (pre, script, style, textarea) always render verbatim
         if (isType1Block) {
-          let textContent = htmlNode._rawText.replace(
-            new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
-            ''
+          const textContent = util.type1TextContent(
+            htmlNode._rawText,
+            tagLower,
+            options.tagfilter
           )
-          if (options.tagfilter) {
-            textContent = util.applyTagFilterToText(textContent)
-          }
-          if (containsHTMLTags) {
+          if (/<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)) {
             return hJSX(node.tag, {
               key: state.key,
-              ...htmlAttrsToJSXProps(node.attrs || {}),
+              ...util.htmlAttrsToJSXProps(node.attrs),
               dangerouslySetInnerHTML: { __html: textContent },
             })
           }
-          return hJSX(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) }, textContent)
+          return hJSX(node.tag, { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) }, textContent)
         }
 
         // When the tag itself is filtered (e.g. <iframe>), prefer
         // children so each child element goes through its own tagfilter check
-        const startsWithOwnTagEarly = new RegExp(
-          `^<${htmlNode.tag}(\\s|>)`,
-          'i'
-        ).test(htmlNode._rawText)
-        if (hasChildren && !startsWithOwnTagEarly && options.tagfilter && util.containsTagfilterTag(htmlNode._rawText)) {
+        const ownTagStartR = new RegExp(`^<${htmlNode.tag}(\\s|>)`, 'i')
+        if (hasChildren && !ownTagStartR.test(htmlNode._rawText) && options.tagfilter && util.containsTagfilterTag(htmlNode._rawText)) {
           return hJSX(
             node.tag,
-            { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
+            { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) },
             output(htmlNode.children, state)
           )
         }
@@ -224,7 +206,7 @@ function render(
             : htmlNode._rawText
           return hJSX(node.tag, {
             key: state.key,
-            ...htmlAttrsToJSXProps(node.attrs || {}),
+            ...util.htmlAttrsToJSXProps(node.attrs),
             dangerouslySetInnerHTML: { __html: innerHtml },
           })
         }
@@ -251,39 +233,11 @@ function render(
           if (htmlNode.children && htmlNode.children.length > 0) {
             return hJSX(
               node.tag,
-              { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
+              { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) },
               output(htmlNode.children, state)
             )
           }
-          return hJSX(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) })
-        }
-
-        function processNode(
-          node: MarkdownToJSX.ASTNode
-        ): MarkdownToJSX.ASTNode[] {
-          if (
-            (node.type === RuleType.htmlSelfClosing || node.type === RuleType.htmlBlock) &&
-            node._isClosingTag
-          ) return []
-          if (node.type === RuleType.paragraph) {
-            const children = (node as MarkdownToJSX.ParagraphNode).children
-            return children ? children.flatMap(processNode) : []
-          }
-          if (node.type === RuleType.text) {
-            return (node as MarkdownToJSX.TextNode).text?.trim() ? [node] : []
-          }
-          if (
-            node.type === RuleType.htmlBlock &&
-            (node as MarkdownToJSX.HTMLNode).children
-          ) {
-            return [
-              {
-                ...node,
-                children: node.children?.flatMap(processNode),
-              } as MarkdownToJSX.HTMLNode,
-            ]
-          }
-          return [node]
+          return hJSX(node.tag, { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) })
         }
 
         const astNodes = parse.parseMarkdown(
@@ -291,29 +245,17 @@ function render(
           { inline: false, refs: refs, inHTML: false },
           parseOptions
         )
-        // Recursively strip verbatim from re-parsed nodes to prevent infinite
-        // re-parse recursion when rendering nested HTML blocks
-        function stripVerbatim(nodes: MarkdownToJSX.ASTNode[]) {
-          for (var ai = 0; ai < nodes.length; ai++) {
-            if (nodes[ai].type === RuleType.htmlBlock) {
-              ;(nodes[ai] as MarkdownToJSX.HTMLNode)._verbatim = false
-            }
-            if ('children' in nodes[ai] && (nodes[ai] as MarkdownToJSX.HTMLNode).children) {
-              stripVerbatim((nodes[ai] as MarkdownToJSX.HTMLNode).children as MarkdownToJSX.ASTNode[])
-            }
-          }
-        }
-        stripVerbatim(astNodes)
+        // Strip verbatim from re-parsed nodes to prevent infinite re-parse
+        // recursion, keeping it only where trailing content bled past a closing
+        // tag (issue #881). See util.stripVerbatim for the full rationale.
+        util.stripVerbatim(astNodes)
 
         // Check if rawText represents the FULL outer block (starts with opening tag
         // and ends with closing tag of the same element, with no content after)
         // In this case, render the parsed nodes directly without adding another wrapper
         const tagLowerCheck = (htmlNode.tag as string).toLowerCase()
         const closingTag = '</' + tagLowerCheck + '>'
-        const startsWithOwnTag = new RegExp(
-          `^<${htmlNode.tag}(\\s|>)`,
-          'i'
-        ).test(cleanedText)
+        const startsWithOwnTag = ownTagStartR.test(cleanedText)
         const endsWithClosingTag = cleanedText
           .toLowerCase()
           .trimEnd()
@@ -324,106 +266,49 @@ function render(
         if (isFullOuterBlock && hasChildren) {
           return hJSX(
             node.tag,
-            { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
+            { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) },
             output(htmlNode.children, state)
           )
         }
         if (isFullOuterBlock) {
-          return output(astNodes.flatMap(processNode), state)
+          return output(astNodes.flatMap(util.processVerbatimNode), state)
         }
 
-        // Check if re-parsed AST contains a closing tag for this element
-        // followed by sibling tags. If so, split: content before closing tag
-        // becomes children, content after becomes siblings rendered alongside.
-        // Must check raw AST (before processNode strips closing tags).
-        function findOwnCloseInAST(
-          nodes: MarkdownToJSX.ASTNode[],
-          tag: string
-        ): { found: boolean; beforeClose: MarkdownToJSX.ASTNode[]; afterClose: MarkdownToJSX.ASTNode[] } {
-          for (var i = 0; i < nodes.length; i++) {
-            var n = nodes[i]
-            // Check in paragraph children
-            if (n.type === RuleType.paragraph && (n as MarkdownToJSX.ParagraphNode).children) {
-              var pChildren = (n as MarkdownToJSX.ParagraphNode).children
-              for (var j = 0; j < pChildren.length; j++) {
-                var cn = pChildren[j]
-                if (
-                  cn.type === RuleType.htmlSelfClosing &&
-                  cn._isClosingTag &&
-                  cn.tag.toLowerCase() === tag
-                ) {
-                  // Found closing tag at pChildren[j]
-                  // Before: pChildren[0..j-1] as paragraph + nodes[0..i-1]
-                  // After: pChildren[j+1..] as paragraph + nodes[i+1..]
-                  var before: MarkdownToJSX.ASTNode[] = nodes.slice(0, i)
-                  if (j > 0) {
-                    before.push({ type: RuleType.paragraph, children: pChildren.slice(0, j) } as MarkdownToJSX.ParagraphNode)
-                  }
-                  var after: MarkdownToJSX.ASTNode[] = []
-                  if (j + 1 < pChildren.length) {
-                    // Remaining paragraph children become nodes after close
-                    var remaining = pChildren.slice(j + 1)
-                    // Filter out trailing closing tags for parent elements
-                    remaining = remaining.filter(function(r) {
-                      return !(r.type === RuleType.htmlSelfClosing && r._isClosingTag)
-                    })
-                    if (remaining.length > 0) {
-                      after = remaining
-                    }
-                  }
-                  after = after.concat(nodes.slice(i + 1))
-                  return { found: true, beforeClose: before, afterClose: after }
-                }
-              }
-            }
-            // Check direct closing tag
-            if (
-              (n.type === RuleType.htmlSelfClosing || n.type === RuleType.htmlBlock) &&
-              n._isClosingTag &&
-              n.tag.toLowerCase() === tag
-            ) {
-              return {
-                found: true,
-                beforeClose: nodes.slice(0, i),
-                afterClose: nodes.slice(i + 1)
-              }
-            }
-          }
-          return { found: false, beforeClose: nodes, afterClose: [] }
-        }
-
-        var splitResult = findOwnCloseInAST(astNodes, tagLowerCheck)
+        // Split the re-parsed AST at this element's own closing tag so trailing
+        // content becomes siblings (issue #881). Runs on the raw AST before
+        // util.processVerbatimNode strips closing tags.
+        var splitResult = util.findOwnCloseInAST(astNodes, tagLowerCheck)
         if (splitResult.found && splitResult.afterClose.length > 0) {
-          var beforeProcessed = splitResult.beforeClose.flatMap(processNode)
-          var afterProcessed = splitResult.afterClose.flatMap(processNode)
+          var beforeProcessed = splitResult.beforeClose.flatMap(util.processVerbatimNode)
+          var afterProcessed = splitResult.afterClose.flatMap(util.processVerbatimNode)
           return createRawElement(
             React.Fragment,
             {
               children: [
                 hJSX(
                   node.tag,
-                  { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
+                  { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) },
                   output(beforeProcessed, state)
                 ),
                 output(afterProcessed, state)
               ]
             },
-            null
+            state.key
           )
         }
 
         return hJSX(
           node.tag,
-          { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
-          output(astNodes.flatMap(processNode), state)
+          { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) },
+          output(astNodes.flatMap(util.processVerbatimNode), state)
         )
       }
       if (util.isVoidElement(node.tag)) {
-        return hJSX(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) })
+        return hJSX(node.tag, { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) })
       }
       return hJSX(
         node.tag,
-        { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) },
+        { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) },
         node.children ? output(node.children, state) : ''
       )
     }
@@ -433,19 +318,17 @@ function render(
 
       // Apply options.tagfilter: escape dangerous self-closing tags
       if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
-        var attrStr = ''
-        if (htmlNode.attrs) {
-          for (var k in htmlNode.attrs) {
-            var v = htmlNode.attrs[k]
-            if (v === true) attrStr += ' ' + k
-            else if (v !== undefined && v !== null && v !== false)
-              attrStr += ' ' + k + '="' + String(v) + '"'
-          }
-        }
-        return h('span', { key: state.key }, '<' + htmlNode.tag + attrStr + ' />')
+        return h(
+          'span',
+          { key: state.key },
+          '<' +
+            htmlNode.tag +
+            util.formatFilteredTagAttrs(htmlNode.attrs) +
+            ' />'
+        )
       }
 
-      return hJSX(node.tag, { key: state.key, ...htmlAttrsToJSXProps(node.attrs || {}) })
+      return hJSX(node.tag, { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) })
     }
 
     case RuleType.image: {
@@ -653,7 +536,7 @@ export function astToJSX(
   const slug = opts.slugify || util.slugify
   const sanitize = opts.sanitizer || util.sanitizer
   const customCreateElement = opts.createElement
-  const hasOverrides = opts.overrides && Object.keys(opts.overrides).length > 0
+  const hasOverrides = util.hasKeys(opts.overrides)
 
   // Recursive compile function for HTML content
   const compileHTML = (input: string) =>
@@ -841,18 +724,7 @@ export function compiler(
       tagfilter: opts.tagfilter !== false,
     }
 
-    // Inline trimEnd: trim trailing newlines and carriage returns
-    let processedInput = input
-    if (!inline) {
-      let e = processedInput.length
-      while (
-        e > 0 &&
-        (processedInput[e - 1] === '\n' || processedInput[e - 1] === '\r')
-      )
-        e--
-      processedInput = processedInput.slice(0, e)
-      processedInput = `${processedInput.replace(TRIM_STARTING_NEWLINES, '')}\n\n`
-    }
+    let processedInput = inline ? input : util.prepareBlockInput(input)
 
     // In streaming mode, strip trailing incomplete HTML tags to prevent infinite recursion
     if (opts.optimizeForStreaming) {
@@ -861,15 +733,10 @@ export function compiler(
       if (lastLt !== -1 && processedInput.indexOf('>', lastLt) === -1) {
         processedInput = processedInput.slice(0, lastLt)
       }
-      // Apply the same truncation to inline input
-      lastLt = input.lastIndexOf('<')
-      if (lastLt !== -1 && input.indexOf('>', lastLt) === -1) {
-        input = input.slice(0, lastLt)
-      }
     }
 
     let astNodes = parse.parseMarkdown(
-      inline ? input : processedInput,
+      processedInput,
       { inline: inline, refs: refs },
       parseOptions
     )
@@ -881,29 +748,13 @@ export function compiler(
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    if (typeof markdown !== 'string') {
-      throw new Error(`markdown-to-jsx: the first argument must be
-                             a string`)
-    }
-
-    if (Object.prototype.toString.call(opts.overrides) !== '[object Object]') {
-      throw new Error(`markdown-to-jsx: options.overrides (second argument property) must be
-                             undefined or an object literal with shape:
-                             {
-                                htmltagname: {
-                                    component: string|ReactComponent(optional),
-                                    props: object(optional)
-                                }
-                             }`)
-    }
+    util.validateCompilerArgs(markdown, opts.overrides, 'ReactComponent')
   }
 
   const refs: { [key: string]: { target: string; title: string | undefined } } =
     {}
 
-  const jsx = compile(markdown)
-
-  return jsx
+  return compile(markdown)
 }
 
 /**
@@ -924,6 +775,35 @@ export const MarkdownProvider: React.FC<{
     { value: options },
     children
   )
+}
+
+/**
+ * Return the previous object identity when the new one is shallow-equal.
+ * The JSX rest-props object is freshly allocated on every render; without
+ * stabilization it invalidates the compile memo below even when nothing
+ * changed, forcing a full re-parse per parent re-render.
+ */
+function useShallowStable<T extends Record<string, any>>(value: T): T {
+  const ref = React.useRef(value)
+  const prev = ref.current
+  if (prev !== value) {
+    var same = true
+    var count = 0
+    for (var key in value) {
+      count++
+      if (!Object.is(prev[key], value[key])) {
+        same = false
+        break
+      }
+    }
+    if (same) {
+      var prevCount = 0
+      for (var prevKey in prev) prevCount++
+      same = prevCount === count
+    }
+    if (!same) ref.current = value
+  }
+  return ref.current
 }
 
 /**
@@ -961,6 +841,7 @@ export const Markdown: React.FC<
 
   // Client path: existing hook-based implementation
   const contextOptions = React.useContext(MarkdownContext!)
+  const stableProps = useShallowStable(props)
   const mergedOptions = React.useMemo(
     () => ({
       ...contextOptions,
@@ -972,10 +853,10 @@ export const Markdown: React.FC<
       wrapperProps: {
         ...contextOptions?.wrapperProps,
         ...options?.wrapperProps,
-        ...props,
+        ...stableProps,
       } as React.JSX.IntrinsicAttributes,
     }),
-    [contextOptions, options, props]
+    [contextOptions, options, stableProps]
   )
 
   const content =

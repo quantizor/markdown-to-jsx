@@ -25,9 +25,6 @@ export type ParseOptions = Omit<MarkdownToJSX.Options, 'slugify'> & {
   disableBareUrls?: boolean
 }
 
-/** HTMLCommentNode with _endsWithGT flag for empty/special comments */
-type HTMLCommentNodeExt = MarkdownToJSX.HTMLCommentNode & { _endsWithGT: boolean }
-
 /** Union of AST nodes that have a children array */
 type ASTNodeWithChildren = Extract<MarkdownToJSX.ASTNode, { children: MarkdownToJSX.ASTNode[] }>
 
@@ -50,11 +47,13 @@ var BLOCK_SYNTAX_R = /^(\s{0,3}#[#\s]|\s{0,3}[-*+]\s|\s{0,3}\d+\.\s|\s{0,3}>\s|\
 var HTML_OPEN_TAG_R = /^<([a-z][^ >/\n\r]*) ?([^>]*?)>/im
 
 // Inline special character lookup — true for chars that need processing in parseInline
-// ` * _ ~ = [ ! < \ h w f \u001F (and alphanumeric for email near @)
+// ` * _ ~ = [ ! < \ & \n h w f (and alphanumeric for email near @)
+// Newline stops the fast-skip so the fused line-break branch can evaluate it.
+// & stops it so the entity-reference dispatch can decode in place.
 var INLINE_SPECIAL = new Uint8Array(128)
 ;(function() {
   // Characters that trigger inline scanners
-  var specials = [$.CHAR_BACKTICK, $.CHAR_ASTERISK, $.CHAR_UNDERSCORE, $.CHAR_TILDE, $.CHAR_EQ, $.CHAR_BRACKET_OPEN, $.CHAR_EXCLAMATION, $.CHAR_LT, $.CHAR_BACKSLASH, $.CHAR_UNIT_SEP, $.CHAR_H, $.CHAR_W, $.CHAR_f]
+  var specials = [$.CHAR_BACKTICK, $.CHAR_ASTERISK, $.CHAR_UNDERSCORE, $.CHAR_TILDE, $.CHAR_EQ, $.CHAR_BRACKET_OPEN, $.CHAR_EXCLAMATION, $.CHAR_LT, $.CHAR_BACKSLASH, $.CHAR_AMPERSAND, $.CHAR_NEWLINE, $.CHAR_H, $.CHAR_W, $.CHAR_f]
   for (var si = 0; si < specials.length; si++) INLINE_SPECIAL[specials[si]] = 1
 })()
 
@@ -118,7 +117,7 @@ function isDelimiterRow(s: string, start: number, end: number): boolean {
 }
 
 // Parse an HTML tag at position
-export function __parseHTMLTag(
+function __parseHTMLTag(
   source: string,
   pos: number
 ): {
@@ -178,7 +177,6 @@ export function __parseHTMLTag(
       return { tag, attrs, selfClosing: true, end: i + 2, rawAttrs, whitespaceBeforeAttrs, isClosing, hasSpaceBeforeSlash }
     }
 
-    // Parse attribute name per CommonMark: [a-zA-Z_:][a-zA-Z0-9_.:-]*
     // Parse attribute name per CommonMark: [a-zA-Z_:][a-zA-Z0-9_.:-]*
     var attrStart = i
     var fc = source.charCodeAt(i)
@@ -395,7 +393,7 @@ export function collectReferenceDefinitions(
 }
 
 // Parse a reference definition [label]: url "title" or footnote [^id]: content
-export function parseRefDef(
+function parseRefDef(
   s: string,
   p: number,
   refs: { [key: string]: { target: string; title: string | undefined } }
@@ -562,9 +560,6 @@ export function parseRefDef(
 // Parser overlays BLOCK/INLINE flags for syntax dispatch
 var CC = new Uint8Array(_CC)
 
-// Parser-specific: hard break marker is whitespace
-CC[$.CHAR_UNIT_SEP] = C_WS
-
 // Parser-specific: block/inline starter flags
 CC[$.CHAR_HASH] |= C_BLOCK                        // # (heading)
 CC[$.CHAR_GT] |= C_BLOCK                        // > (blockquote)
@@ -593,6 +588,26 @@ function hasUnescapedBracket(s: string): boolean {
 
 /** Normalize a reference label for case-insensitive matching */
 function normalizeLabel(label: string): string {
+  // Fast path: a label that is already normalized (printable ASCII, no
+  // uppercase, no whitespace runs or edge whitespace, nothing needing case
+  // folding) is its own normalization; skip both replace/toLowerCase allocations.
+  var n = label.length
+  var prevSpace = true // also rejects a leading space
+  var clean = n > 0
+  for (var fi = 0; fi < n; fi++) {
+    var fc = label.charCodeAt(fi)
+    if (fc === $.CHAR_SPACE) {
+      if (prevSpace) { clean = false; break }
+      prevSpace = true
+    } else if (fc < 33 || fc > 126 || (fc >= $.CHAR_A && fc <= $.CHAR_Z)) {
+      clean = false
+      break
+    } else {
+      prevSpace = false
+    }
+  }
+  if (clean && !prevSpace) return label
+
   var normalized = label.replace(/\s+/g, ' ').trim()
   // Handle Unicode case folding: ẞ (U+1E9E, capital sharp S) → ss
   if (normalized.indexOf('\u1E9E') !== -1) {
@@ -617,19 +632,25 @@ function unescapeString(s: string): string {
   return s.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '$1')
 }
 
-// Single-entry cache for the currently-dispatched line's end.
-// parseBlocks populates this before invoking a scanner; the scanner's
-// entry-point lineEnd(s, p) call gets a free hit. Keyed by (string, pos)
+// Single-line range cache for line-end lookups. Any position within the
+// cached line shares its end (p in [lineStart, end] maps to end; p === end
+// is the \n itself, whose indexOf result is end). Keyed by string reference
 // so recursive parseBlocks calls with different substrings don't alias.
+// parseBlocks seeds it before invoking a scanner; scanners walking within
+// the dispatched line (indent, interrupt checks, markers) all hit.
 var _leCacheS: string | null = null
 var _leCacheP = -1
 var _leCacheE = -1
 
 /** Find end of current line (position of \n or end of string) */
 function lineEnd(s: string, p: number): number {
-  if (p === _leCacheP && s === _leCacheS) return _leCacheE
+  if (p >= _leCacheP && p <= _leCacheE && s === _leCacheS) return _leCacheE
   var i = s.indexOf('\n', p)
-  return i < 0 ? s.length : i
+  var e = i < 0 ? s.length : i
+  _leCacheS = s
+  _leCacheP = p
+  _leCacheE = e
+  return e
 }
 
 /** Skip to start of next line */
@@ -675,10 +696,10 @@ function countChar(s: string, p: number, e: number, ch: number): number {
 }
 
 // Reusable indent result to avoid allocations
-export var _indentSpaces = 0, _indentChars = 0
+var _indentSpaces = 0, _indentChars = 0
 
 /** Calculate indentation (spaces, with tabs = 4 spaces). Results in _indentSpaces and _indentChars */
-export function indent(s: string, p: number, e: number): void {
+function indent(s: string, p: number, e: number): void {
   _indentSpaces = 0
   _indentChars = 0
   while (p + _indentChars < e) {
@@ -745,7 +766,7 @@ function scanHeading(s: string, p: number, state: MarkdownToJSX.State, opts: Par
   }
 
   const text = s.slice(i, contentEnd)
-  const children = parseInline(text, 0, text.length, state, opts)
+  const children = queueInline(text, false, state, opts)
 
   // Generate heading ID (slug)
   const slugify = opts?.slugify || util.slugify
@@ -857,26 +878,39 @@ function scanFenced(s: string, p: number, state: MarkdownToJSX.State): ScanResul
     }
   }
 
-  // Find closing fence
+  // Find closing fence by jumping between candidate fence runs with SIMD
+  // indexOf instead of walking every content line. A valid closer is a run of
+  // >= fenceLen fence chars at line start behind at most 3 literal spaces
+  // (a tab in the indent makes it >= 4 columns, never a closer) with a blank
+  // tail. indexOf always lands on the first index of a run, so the candidate
+  // position is the run start; failed candidates (mid-line, over-indented,
+  // non-blank tail) resume searching one char ahead.
   let contentStart = nextLine(s, e)
-  let contentEnd = contentStart
+  let contentEnd = s.length
   let closeEnd = s.length
+  var needle = String.fromCharCode(fence).repeat(fenceLen)
+  var searchPos = contentStart
 
-  while (contentEnd < s.length) {
-    const le = lineEnd(s, contentEnd)
-    indent(s, contentEnd, le)
-    if (_indentSpaces < 4) {
-      const fp = contentEnd + _indentChars
-      var fcount = countChar(s, fp, le, fence)
-      if (fcount >= fenceLen) {
-        const afterFence = fp + fcount
-        if (isBlank(s, afterFence, le)) {
-          closeEnd = nextLine(s, le)
-          break
-        }
+  while (searchPos < s.length) {
+    var cand = s.indexOf(needle, searchPos)
+    if (cand === -1) break
+    var lineStart = cand
+    var closeIndent = 0
+    while (lineStart > 0 && closeIndent < 4 && s.charCodeAt(lineStart - 1) === $.CHAR_SPACE) {
+      lineStart--
+      closeIndent++
+    }
+    if (closeIndent <= 3 && (lineStart === 0 || s.charCodeAt(lineStart - 1) === $.CHAR_NEWLINE)) {
+      var runEnd = cand + fenceLen
+      while (runEnd < s.length && s.charCodeAt(runEnd) === fence) runEnd++
+      var closeLe = lineEnd(s, runEnd)
+      if (isBlank(s, runEnd, closeLe)) {
+        contentEnd = lineStart
+        closeEnd = nextLine(s, closeLe)
+        break
       }
     }
-    contentEnd = nextLine(s, le)
+    searchPos = cand + 1
   }
 
   // Extract content, removing up to fenceIndent spaces from each line
@@ -981,7 +1015,6 @@ function scanIndented(s: string, p: number): ScanResult {
 
   // Trim trailing blank lines
   while (content.length > 0 && content.charCodeAt(content.length - 1) === $.CHAR_NEWLINE) content = content.slice(0, -1)
-  while (content.length > 0 && content.charCodeAt(content.length - 1) === $.CHAR_NEWLINE) content = content.slice(0, -1)
 
   if (!content) return null
 
@@ -1078,8 +1111,6 @@ function scanBlockquote(s: string, p: number, state: MarkdownToJSX.State, opts: 
         contentHasOpenBlock = !contentHasOpenBlock
       } else if (lineContent.startsWith('    ') || lineContent.startsWith('\t')) {
         contentHasOpenBlock = true
-      } else if (trimLine.length > 0 && !contentHasOpenBlock) {
-        contentHasOpenBlock = false
       }
       // After a blank quoted line (e.g. ">\n"), no lazy continuation allowed
       lastLineWasQuoted = trimLine.length > 0
@@ -1609,7 +1640,14 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: ParseO
       state.inList = savedInList2
       // Unwrap: if result is single paragraph, unwrap its children
       if (itemNodes.length === 1 && itemNodes[0].type === RuleType.paragraph) {
+        // Array reference: deferred inline parses fill it in place later
         itemNodes = (itemNodes[0] as MarkdownToJSX.ParagraphNode).children
+      } else if (state._pendingOps) {
+        // Paragraph children may still be empty (deferred inline parse), so
+        // the element copy must run after the drain: queue it as an op
+        var placeholder: MarkdownToJSX.ASTNode[] = []
+        state._pendingOps.push({ src: itemNodes, dest: placeholder, unwrap: true })
+        itemNodes = placeholder
       } else {
         // Unwrap paragraphs that are at top level (tight lists don't wrap in <p>)
         var unwrapped: MarkdownToJSX.ASTNode[] = []
@@ -1627,7 +1665,14 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: ParseO
 
     if (taskNode) {
       // Add space between checkbox and content
-      items.push([taskNode, { type: RuleType.text, text: ' ' } as MarkdownToJSX.TextNode, ...itemNodes])
+      var taskItem: MarkdownToJSX.ASTNode[] = [taskNode, { type: RuleType.text, text: ' ' } as MarkdownToJSX.TextNode]
+      if (state._pendingOps) {
+        // itemNodes may be a deferred children array; concat after the drain
+        state._pendingOps.push({ src: itemNodes, dest: taskItem, unwrap: false })
+      } else {
+        for (var tni = 0; tni < itemNodes.length; tni++) taskItem.push(itemNodes[tni])
+      }
+      items.push(taskItem)
     } else {
       items.push(itemNodes)
     }
@@ -1659,9 +1704,8 @@ const BLOCK_TAGS = new Set([
 function processHTMLAttributes(rawAttrs: Record<string, string>, tagName: string, opts: ParseOptions): Record<string, any> {
   const attrs: Record<string, any> = {}
 
-  for (const [rawName, value] of Object.entries(rawAttrs)) {
-    const name = rawName
-    const nameLower = rawName.toLowerCase()
+  for (const [name, value] of Object.entries(rawAttrs)) {
+    const nameLower = name.toLowerCase()
 
     if (nameLower === 'style' && typeof value === 'string') {
       // Parse inline styles - handle url() values properly
@@ -1928,7 +1972,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           text: rawText,
           _endsWithGT: false,
           raw: true,
-        } as MarkdownToJSX.HTMLCommentNode & { _endsWithGT: boolean; raw: boolean },
+        } as MarkdownToJSX.HTMLCommentNode,
         end: rawEnd
       }
     }
@@ -2254,7 +2298,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           var isPTag67 = tagNameLower67 === 'p'
           if (isPTag67) {
             state.inline = true
-            children67 = parseInline(trimmed67, 0, trimmed67.length, state, opts)
+            children67 = queueInline(trimmed67, false, state, opts)
           } else {
             // Detect block content using raw content (before trim) to preserve blank line detection
             var hasDoubleNewline67 = rawContent67.indexOf('\n\n') !== -1
@@ -2279,7 +2323,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
               children67 = parseBlocks(rawContent67, state, opts)
             } else {
               state.inline = true
-              children67 = parseInline(trimmed67, 0, trimmed67.length, state, opts)
+              children67 = queueInline(trimmed67, false, state, opts)
             }
           }
           // Restore state
@@ -2300,12 +2344,11 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
       // to allow React compiler to re-parse and split sibling elements (e.g., dt/dd)
       var type6InlineVerbatim67 = false
       if (htmlBlockType === 6 && closeIdx67 !== -1 && !state.inHTML && !hasMultiLineAttrs67) {
-        var contentBetween67 = rawContent67
         // Only force verbatim if content has HTML tags (sibling elements to split)
         // AND no block-level syntax (which needs children-based parsing)
-        var hasHTMLInContent67 = /<[a-zA-Z][^>]*>/.test(contentBetween67)
-        var hasBlockInContent67 = /\n\n/.test(contentBetween67) ||
-          /^(\s{0,3}#[#\s]|\s{0,3}[-*+]\s|\s{0,3}\d+\.\s|\s{0,3}>\s|\s{0,3}```)/m.test(contentBetween67)
+        var hasHTMLInContent67 = /<[a-zA-Z][^>]*>/.test(rawContent67)
+        var hasBlockInContent67 = rawContent67.indexOf('\n\n') !== -1 ||
+          BLOCK_SYNTAX_R.test(rawContent67)
         if (hasHTMLInContent67 && !hasBlockInContent67) {
           type6InlineVerbatim67 = true
         }
@@ -2369,7 +2412,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           text: rawText67v,
           _verbatim: true,
           _isClosingTag: false,
-        } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean; _emitOwnClose?: boolean }
+        } as MarkdownToJSX.HTMLNode
         if (emitOwnClose67) verbatimNode67._emitOwnClose = true
         return {
           node: verbatimNode67,
@@ -2451,7 +2494,6 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
     }
   }
 
-  var shouldSearchForClosingTag = true
   var closeEnd = findClosingTag(s, tagResult.end, tagName)
 
   var children: MarkdownToJSX.ASTNode[] = []
@@ -2471,7 +2513,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         children = parseBlocks(rawContent, state, opts)
       } else {
         state.inline = true
-        children = parseInline(trimmed, 0, trimmed.length, state, opts)
+        children = queueInline(trimmed, false, state, opts)
       }
       state.inline = s_inl; state.inHTML = s_htm; state._htmlDepth = s_hd
     }
@@ -2690,7 +2732,8 @@ function parseTableRow(s: string, state: MarkdownToJSX.State, opts: ParseOptions
   return cells.map(function(cell) {
     // Replace remaining \| with | (pipe escapes inside code spans are kept during splitting)
     var processed = cell.indexOf('\\|') !== -1 ? cell.replace(/\\\|/g, '|') : cell
-    return parseInline(processed, 0, processed.length, state, opts)
+    if (!processed) return []
+    return queueInline(processed, false, state, opts)
   })
 }
 
@@ -2939,7 +2982,17 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: P
           break
         }
         if (c === $.CHAR_HASH) { // # heading - must be valid ATX heading
-          if (scanHeading(s, nextStart, state, opts)) {
+          // Spec: interruption depends only on the ATX start condition
+          // (1-6 #s then space/tab/EOL). Running full scanHeading here would
+          // parse + slug the heading and discard it (and queue an orphaned
+          // deferred inline entry), then parseBlocks would parse it again.
+          var atxP = nextStart + _indentChars
+          var atxLevel = 0
+          while (atxP < nextLe && s.charCodeAt(atxP) === $.CHAR_HASH && atxLevel <= 6) { atxLevel++; atxP++ }
+          if (
+            atxLevel >= 1 && atxLevel <= 6 &&
+            (atxP >= nextLe || s.charCodeAt(atxP) === $.CHAR_SPACE || s.charCodeAt(atxP) === $.CHAR_TAB)
+          ) {
             end = nextStart
             break
           }
@@ -3074,7 +3127,7 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: P
   if (!text) return null
 
   // Inline parser handles hard line breaks directly (two+ spaces or \ before newline)
-  const children = parseInlineWithBreaks(text, 0, text.length, state, opts)
+  const children = queueInline(text, true, state, opts)
 
   if (setextLevel) {
     // Setext heading
@@ -3100,95 +3153,43 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: P
   }
 }
 
-/** Parse inline with hard line break support */
-function parseInlineWithBreaks(s: string, p: number, e: number, state: MarkdownToJSX.State, opts: ParseOptions): MarkdownToJSX.ASTNode[] {
-  // Fast path: if no newlines in range, skip break processing entirely
-  // Use indexOf bounded to [p, e) — faster than a charCode loop for this check
-  var firstNL = s.indexOf('\n', p)
-  if (firstNL < 0 || firstNL >= e) {
-    return parseInline(s, p, e, state, opts)
+/**
+ * Defer a block-level inline parse until the block pass completes.
+ *
+ * Reference definitions are registered by scanRefDefinition during the block
+ * pass, so deferring inline parsing until parseMarkdown's drain guarantees
+ * forward references ([foo] used before [foo]: /url is defined) resolve in
+ * every container: paragraphs, headings, list items, table cells, HTML blocks.
+ * The returned array is the node's children; the drain fills it in place so
+ * captured references (e.g. tight-list unwrap) stay live.
+ *
+ * State flags are captured at the callsite so the drain replays the parse
+ * with exactly the values eager parsing would have seen.
+ */
+function queueInline(text: string, breaks: boolean, state: MarkdownToJSX.State, opts: ParseOptions): MarkdownToJSX.ASTNode[] {
+  var q = state._pendingInline
+  if (!q) {
+    var savedBreaks = state._breaks
+    state._breaks = breaks
+    var direct = parseInline(text, 0, text.length, state, opts)
+    state._breaks = savedBreaks
+    return direct
   }
-
-  // Rope concat (faster in JSC than array-push + join for small/medium segments)
-  var out = ''
-  var segStart = p
-  var i = p
-
-  while (i < e) {
-    var ch = s.charCodeAt(i)
-
-    // Skip code spans
-    if (ch === $.CHAR_BACKTICK) {
-      var csEnd = skipCodeSpan(s, i, e)
-      if (csEnd > i) {
-        // Check if code span contains newlines that need replacing
-        var hasCSNewline = false
-        for (var ci = i; ci < csEnd; ci++) {
-          if (s.charCodeAt(ci) === $.CHAR_NEWLINE) { hasCSNewline = true; break }
-        }
-        if (hasCSNewline) {
-          out += s.slice(segStart, i)
-          out += s.slice(i, csEnd).replace(/\n/g, ' ')
-          segStart = csEnd
-        }
-        i = csEnd
-        continue
-      }
-    }
-
-    // Skip HTML tags
-    if (ch === $.CHAR_LT) {
-      var htmlEnd = skipInlineHTMLElement(s, i, e)
-      if (htmlEnd > i) {
-        i = htmlEnd
-        continue
-      }
-    }
-
-    // Check for newline
-    if (ch === $.CHAR_NEWLINE) {
-      var isHard = false
-      var trimBack = 0
-
-      if (i > p && s.charCodeAt(i - 1) === $.CHAR_BACKSLASH) {
-        isHard = true
-        trimBack = 1
-      } else {
-        var spCount = 0
-        var j = i - 1
-        while (j >= p && s.charCodeAt(j) === $.CHAR_SPACE) { spCount++; j-- }
-        if (spCount >= 2) {
-          isHard = true
-          trimBack = spCount
-        }
-      }
-
-      if (isHard) {
-        out += s.slice(segStart, i - trimBack)
-        out += '\u001F'
-      } else {
-        // Strip trailing spaces before soft break (CommonMark: insignificant whitespace)
-        // This normalizes data at parse time so compilers don't need to scan for " \n"
-        var softEnd = i
-        while (softEnd > segStart && s.charCodeAt(softEnd - 1) === $.CHAR_SPACE) softEnd--
-        out += s.slice(segStart, softEnd) + '\n'
-      }
-      // Skip leading whitespace on next line
-      i++
-      while (i < e && s.charCodeAt(i) === $.CHAR_SPACE) i++
-      segStart = i
-      continue
-    }
-
-    i++
-  }
-
-  // Flush remaining segment
-  if (segStart < e) {
-    out += s.slice(segStart, e)
-  }
-
-  return parseInline(out, 0, out.length, state, opts)
+  var dest: MarkdownToJSX.ASTNode[] = []
+  q.push({
+    dest: dest,
+    text: text,
+    breaks: breaks,
+    inline: state.inline,
+    inAnchor: state.inAnchor,
+    inHTML: state.inHTML,
+    htmlDepth: state._htmlDepth,
+    inList: state.inList,
+    inBlockQuote: state.inBlockQuote,
+    noSetext: state._noSetext,
+    depth: state._depth,
+  })
+  return dest
 }
 
 // ============================================================================
@@ -3212,8 +3213,9 @@ function scanCodeSpan(s: string, p: number, e: number): ScanResult {
     if (closeLen === openLen) {
       // Found matching close
       let content = s.slice(p + openLen, j)
-      // Normalize whitespace
-      content = content.replace(/\n/g, ' ')
+      // CommonMark: line endings inside a code span render as spaces.
+      // Guard the replace so the common newline-free span pays nothing.
+      if (content.indexOf('\n') !== -1) content = content.replace(/\n/g, ' ')
       // Strip one space from each end if both ends have space and there's non-space content
       if (content.length > 0 && content[0] === ' ' && content[content.length - 1] === ' ' &&
           content.trim().length > 0) {
@@ -3523,6 +3525,19 @@ function collectDelimiter(s: string, p: number, e: number): { len: number; canOp
   return { len: len, canOpen: canOpen, canClose: canClose }
 }
 
+/**
+ * Transient doubly-linked node used only inside processEmphasis. Wrapping the
+ * inline sequence in a list (rather than mutating the flat array) keeps node
+ * removal/insertion O(1) and removes the need to re-index the delimiter stack
+ * after every match, which is what made the old array-splice design O(n^2) on
+ * emphasis-heavy input.
+ */
+interface LNode {
+  node: MarkdownToJSX.ASTNode
+  prev: LNode | null
+  next: LNode | null
+}
+
 /** Process emphasis delimiters using CommonMark algorithm */
 function processEmphasis(
   nodes: MarkdownToJSX.ASTNode[],
@@ -3531,6 +3546,23 @@ function processEmphasis(
   opts: ParseOptions
 ): void {
   if (delims.length === 0) return
+
+  // Build a doubly-linked list over the inline sequence. delimLN maps each
+  // delimiter-stack position to the list node holding its delimiter text, so
+  // splicing content out of the list never invalidates a delimiter reference.
+  var listLen = nodes.length
+  var lnodes: LNode[] = new Array(listLen)
+  var head: LNode | null = null
+  var prevLN: LNode | null = null
+  for (var li = 0; li < listLen; li++) {
+    var ln: LNode = { node: nodes[li], prev: prevLN, next: null }
+    if (prevLN) prevLN.next = ln
+    else head = ln
+    lnodes[li] = ln
+    prevLN = ln
+  }
+  var delimLN: LNode[] = new Array(delims.length)
+  for (var lj = 0; lj < delims.length; lj++) delimLN[lj] = lnodes[delims[lj].idx]
 
   // openers_bottom indexed by: type(0=*,1=_) * 6 + (closerLen%3) * 2 + (canOpen?1:0)
   var openersBottom: number[] = []
@@ -3581,63 +3613,57 @@ function processEmphasis(
     closer.len -= useLen
 
     // Update text nodes for opener/closer
-    var openerNode = nodes[opener.idx] as MarkdownToJSX.TextNode
-    var closerNode = nodes[closer.idx] as MarkdownToJSX.TextNode
+    var openLN = delimLN[openerIdx]
+    var closeLN = delimLN[ci]
+    var openerNode = openLN.node as MarkdownToJSX.TextNode
+    var closerNode = closeLN.node as MarkdownToJSX.TextNode
     openerNode.text = openerNode.text.slice(0, openerNode.text.length - useLen)
     closerNode.text = closerNode.text.slice(useLen)
 
-    // Collect content nodes between opener and closer
-    var contentStart = opener.idx + 1
-    var contentEnd = closer.idx
-    var contentNodes = nodes.slice(contentStart, contentEnd)
+    // Collect content nodes between opener and closer. Each node is moved into
+    // exactly one emphasis child array over the whole run, so the total work
+    // across all (including nested) matches is O(n).
+    var contentNodes: MarkdownToJSX.ASTNode[] = []
+    var walk = openLN.next
+    while (walk && walk !== closeLN) {
+      contentNodes.push(walk.node)
+      walk = walk.next
+    }
 
-    // Create emphasis node - recursively process content for nested emphasis
     var emphNode: MarkdownToJSX.FormattedTextNode = {
       type: RuleType.textFormatted,
       tag: isStrong ? 'strong' : 'em',
       children: contentNodes,
     }
 
-    // Replace content nodes with emphasis node
-    nodes.splice(contentStart, contentEnd - contentStart, emphNode as MarkdownToJSX.FormattedTextNode)
-
-    // Fix up indices in delimiter stack
-    var removed = contentEnd - contentStart - 1
-    for (var di = 0; di < delims.length; di++) {
-      if (delims[di].idx > opener.idx) {
-        delims[di].idx -= removed
-      }
-    }
+    // Splice the emphasis node in place of the collected range (O(1)).
+    var emphLN: LNode = { node: emphNode, prev: openLN, next: closeLN }
+    openLN.next = emphLN
+    closeLN.prev = emphLN
 
     // Deactivate delimiters between opener and closer
     for (var di2 = openerIdx + 1; di2 < ci; di2++) {
       delims[di2].active = false
     }
 
-    // If opener is empty, deactivate
+    // If opener is empty, deactivate and unlink its (now empty) text node
     if (opener.len === 0) {
       opener.active = false
-      // Remove empty text node
       if (openerNode.text === '') {
-        nodes.splice(opener.idx, 1)
-        for (var di3 = 0; di3 < delims.length; di3++) {
-          if (delims[di3].idx > opener.idx) delims[di3].idx--
-          else if (delims[di3].idx === opener.idx) delims[di3].idx = -1
-        }
+        var op = openLN.prev
+        emphLN.prev = op
+        if (op) op.next = emphLN
+        else head = emphLN
       }
     }
 
-    // If closer is empty, deactivate
+    // If closer is empty, deactivate and unlink its text node
     if (closer.len === 0) {
       closer.active = false
-      // Remove empty text node
-      var closerNewIdx = closer.idx
       if (closerNode.text === '') {
-        nodes.splice(closerNewIdx, 1)
-        for (var di4 = 0; di4 < delims.length; di4++) {
-          if (delims[di4].idx > closerNewIdx) delims[di4].idx--
-          else if (delims[di4].idx === closerNewIdx) delims[di4].idx = -1
-        }
+        var cn = closeLN.next
+        emphLN.next = cn
+        if (cn) cn.prev = emphLN
       }
     } else {
       // Closer still has delimiters - don't advance, try matching again
@@ -3646,19 +3672,23 @@ function processEmphasis(
     ci++
   }
 
-  // Merge adjacent text nodes and remove empty ones
+  // Flatten the list back into the caller's array, merging adjacent text nodes
+  // and dropping empties in the same pass.
   var wi = 0
-  for (var ni = 0; ni < nodes.length; ni++) {
-    var n = nodes[ni]
+  var cur = head
+  while (cur) {
+    var n = cur.node
     if (n.type === RuleType.text) {
       var tn = n as MarkdownToJSX.TextNode
-      if (tn.text === '') continue
+      if (tn.text === '') { cur = cur.next; continue }
       if (wi > 0 && nodes[wi - 1].type === RuleType.text) {
         ;(nodes[wi - 1] as MarkdownToJSX.TextNode).text += tn.text
+        cur = cur.next
         continue
       }
     }
     nodes[wi++] = n
+    cur = cur.next
   }
   nodes.length = wi
 }
@@ -4187,16 +4217,57 @@ function extractText(nodes: MarkdownToJSX.ASTNode[]): string {
     else if (n.type === RuleType.codeInline) result += (n as MarkdownToJSX.CodeInlineNode).text
     else if ('children' in n && Array.isArray((n as ASTNodeWithChildren).children)) result += extractText((n as ASTNodeWithChildren).children)
     else if (n.type === RuleType.image) result += (n as MarkdownToJSX.ImageNode).alt || ''
-    else if (n.type === RuleType.link) result += extractText((n as MarkdownToJSX.LinkNode).children)
   }
   return result
 }
 
-/** Create a text node with entity decoding */
+/** Create a text node */
 function textNode(text: string): MarkdownToJSX.TextNode {
-  // Decode HTML entities if present
-  const decoded = text.includes('&') ? util.decodeEntityReferences(text) : text
-  return { type: RuleType.text, text: decoded } as MarkdownToJSX.TextNode
+  // Entity decoding happens in parseInline's & dispatch (scanEntityRef), so
+  // flushed segments can only contain literal ampersands; no rescan needed.
+  return { type: RuleType.text, text: text } as MarkdownToJSX.TextNode
+}
+
+/**
+ * Scan an HTML character reference at p (caller guarantees s[p] === '&').
+ * Mirrors HTML_CHAR_CODE_R exactly: &name; / &#1-7 digits; / &#x1-6 hex;.
+ * Returns the index just past the ';' or -1 if the shape doesn't match.
+ */
+function scanEntityRef(s: string, p: number, e: number): number {
+  var i = p + 1
+  if (i >= e) return -1
+  if (s.charCodeAt(i) === $.CHAR_HASH) {
+    i++
+    var isHex = i < e && (s.charCodeAt(i) === $.CHAR_x || s.charCodeAt(i) === $.CHAR_X)
+    if (isHex) i++
+    var digStart = i
+    var maxDigits = isHex ? 6 : 7
+    while (i < e && i - digStart <= maxDigits) {
+      var d = s.charCodeAt(i)
+      var isDig = (d >= $.CHAR_DIGIT_0 && d <= $.CHAR_DIGIT_9) ||
+        (isHex && ((d >= $.CHAR_A && d <= $.CHAR_F) || (d >= $.CHAR_a && d <= $.CHAR_f)))
+      if (!isDig) break
+      i++
+    }
+    if (i === digStart || i - digStart > maxDigits) return -1
+    return i < e && s.charCodeAt(i) === $.CHAR_SEMICOLON ? i + 1 : -1
+  }
+  // Named reference: [a-zA-Z0-9]+ then ';' (longest real entity name is 31 chars)
+  var nameStart = i
+  while (i < e && i - nameStart < 48) {
+    var n = s.charCodeAt(i)
+    if (
+      (n >= $.CHAR_A && n <= $.CHAR_Z) ||
+      (n >= $.CHAR_a && n <= $.CHAR_z) ||
+      (n >= $.CHAR_DIGIT_0 && n <= $.CHAR_DIGIT_9)
+    ) {
+      i++
+      continue
+    }
+    break
+  }
+  if (i === nameStart) return -1
+  return i < e && s.charCodeAt(i) === $.CHAR_SEMICOLON ? i + 1 : -1
 }
 
 /** Scan inline HTML element - CommonMark types 1-7 */
@@ -4213,14 +4284,14 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
     // Special case: <!--> (empty comment)
     if (commentStart < e && s.charCodeAt(commentStart) === $.CHAR_GT) {
       return {
-        node: { type: RuleType.htmlComment, text: '', _endsWithGT: true } as HTMLCommentNodeExt,
+        node: { type: RuleType.htmlComment, text: '', _endsWithGT: true } as MarkdownToJSX.HTMLCommentNode,
         end: commentStart + 1
       }
     }
     // Special case: <!---> (comment with single dash)
     if (commentStart + 1 < e && s.charCodeAt(commentStart) === $.CHAR_DASH && s.charCodeAt(commentStart + 1) === $.CHAR_GT) {
       return {
-        node: { type: RuleType.htmlComment, text: '-', _endsWithGT: true } as HTMLCommentNodeExt,
+        node: { type: RuleType.htmlComment, text: '-', _endsWithGT: true } as MarkdownToJSX.HTMLCommentNode,
         end: commentStart + 2
       }
     }
@@ -4232,7 +4303,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
           type: RuleType.htmlComment,
           text: s.slice(p + 4, endComment),
           _endsWithGT: false,
-        } as HTMLCommentNodeExt,
+        } as MarkdownToJSX.HTMLCommentNode,
         end: endComment + 3
       }
     }
@@ -4357,8 +4428,11 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
   } else {
     var trimmed = innerContent.trim()
     if (trimmed) {
-      var savedAnchorH = state.inAnchor, savedInlineH = state.inline
+      var savedAnchorH = state.inAnchor, savedInlineH = state.inline, savedBreaksH = state._breaks
       if (tagNameLower === 'a') state.inAnchor = true
+      // Inline HTML element children were never break-processed under the
+      // pre-pass (it skipped over HTML spans); preserve that by clearing the flag.
+      state._breaks = false
       var hasBlocks = trimmed.indexOf('\n\n') !== -1 || /^#{1,6}\s/.test(trimmed)
       if (hasBlocks) {
         state.inline = false
@@ -4366,7 +4440,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
       } else {
         children = parseInline(trimmed, 0, trimmed.length, state, opts)
       }
-      state.inAnchor = savedAnchorH; state.inline = savedInlineH
+      state.inAnchor = savedAnchorH; state.inline = savedInlineH; state._breaks = savedBreaksH
     }
   }
 
@@ -4586,8 +4660,9 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
           const tagName = tagMatch[1]
           // Only strip if there's no closing tag for this tag
           if (indexOfCI(content, '</' + tagName, 0) === -1) {
-            // Strip the unclosed tag but keep the inner content
-            content = content.replace(/<[A-Z][A-Za-z0-9]*(?:\s[^>]*)?>([^<]*)$/, '$1')
+            // Strip the unclosed tag but keep the inner content; the match
+            // bounds are already in hand, so splice instead of rescanning
+            content = content.slice(0, tagMatch.index) + tagMatch[2]
           }
         }
       }
@@ -4602,6 +4677,10 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
   const nodes: MarkdownToJSX.ASTNode[] = []
   var delimStack: DelimEntry[] = []
   let textStart = p
+  // Soft-break normalization buffer: when a soft break strips surrounding spaces
+  // the kept newline must merge with adjacent text into one node, so the carry is
+  // prepended at the next flush. Empty in the common path (one truthiness check).
+  var pending = ''
   // Pre-scan for @ position to avoid calling scanBareEmail on positions far before any @
   // Skip scan entirely when autolinks are disabled or when in anchor context
   var nextAtPos = (opts.disableAutoLink || opts.disableBareUrls || childState.inAnchor) ? -1 : s.indexOf('@', p)
@@ -4625,8 +4704,9 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
       if (dinfo) {
         if (dinfo.canOpen || dinfo.canClose) {
           // Flush text before delimiter
-          if (p > textStart) {
-            nodes.push(textNode(s.slice(textStart, p)))
+          if (pending || p > textStart) {
+            nodes.push(textNode(pending + s.slice(textStart, p)))
+            pending = ''
           }
           var delimText = s.slice(p, p + dinfo.len)
           var delimNode = textNode(delimText)
@@ -4667,6 +4747,21 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
       if (!result && !opts.disableParsingRawHTML && !opts.ignoreHTMLBlocks) {
         result = scanInlineHTML(s, p, e, childState, opts)
       }
+    } else if (c === $.CHAR_AMPERSAND) { // & - character reference
+      // Decode entities here, in the segment carry, so flushed text never
+      // needs an entity rescan (textNode allocates without inspecting).
+      var entEnd = scanEntityRef(s, p, e)
+      if (entEnd !== -1) {
+        var entRaw = s.slice(p, entEnd)
+        var entDecoded = util.decodeEntityReferences(entRaw)
+        if (entDecoded !== entRaw) {
+          pending = pending + s.slice(textStart, p) + entDecoded
+          p = entEnd
+          textStart = entEnd
+          continue
+        }
+      }
+      // Invalid or unknown reference: the & is literal text, fall through
     } else if ((c === $.CHAR_H || c === $.CHAR_W || c === $.CHAR_f) && !childState.inAnchor && !opts.disableAutoLink) {
       // h/w/f — potential http://, https://, www., or ftp://
       // Cheap pre-check: the second char must be `t` (http/ttp), `w` (www), or `t` (ftp)
@@ -4695,21 +4790,62 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
       }
     }
 
-    // Handle hard break marker from parseInlineWithBreaks
-    if (c === $.CHAR_UNIT_SEP) { // \u001F break marker
-      if (p > textStart) {
-        nodes.push(textNode(s.slice(textStart, p)))
+    // Hard/soft line breaks fused into the main scan for paragraph inline content.
+    // Only active when state._breaks is set (paragraphs); headings, table cells,
+    // and HTML element children clear it so their raw newlines pass through unchanged.
+    if (c === $.CHAR_NEWLINE && childState._breaks) {
+      var isHard = false
+      var trimBack = 0
+      if (p > textStart && s.charCodeAt(p - 1) === $.CHAR_BACKSLASH) {
+        isHard = true
+        trimBack = 1
+      } else {
+        var spCount = 0
+        var sj = p - 1
+        while (sj >= textStart && s.charCodeAt(sj) === $.CHAR_SPACE) { spCount++; sj-- }
+        if (spCount >= 2) {
+          isHard = true
+          trimBack = spCount
+        }
       }
-      nodes.push({ type: RuleType.breakLine } as MarkdownToJSX.BreakLineNode)
-      p++
-      textStart = p
-      continue
+
+      if (isHard) {
+        if (pending || p - trimBack > textStart) {
+          nodes.push(textNode(pending + s.slice(textStart, p - trimBack)))
+          pending = ''
+        }
+        nodes.push({ type: RuleType.breakLine } as MarkdownToJSX.BreakLineNode)
+        // Skip the newline and leading whitespace on the next line
+        p++
+        while (p < e && s.charCodeAt(p) === $.CHAR_SPACE) p++
+        textStart = p
+        continue
+      }
+
+      // Soft break: trailing spaces are insignificant whitespace; the newline is
+      // kept as text content and leading spaces of the next line are skipped.
+      // Fast path: no trailing spaces and no next-line leading spaces means the
+      // newline can flow through inside the current text segment at zero cost.
+      var hasTrailSp = p > textStart && s.charCodeAt(p - 1) === $.CHAR_SPACE
+      var hasLeadSp = p + 1 < e && s.charCodeAt(p + 1) === $.CHAR_SPACE
+      if (hasTrailSp || hasLeadSp) {
+        var softEnd = p
+        while (softEnd > textStart && s.charCodeAt(softEnd - 1) === $.CHAR_SPACE) softEnd--
+        // Carry the normalized text plus the kept newline; merged at the next flush.
+        pending += s.slice(textStart, softEnd) + '\n'
+        p++
+        while (p < e && s.charCodeAt(p) === $.CHAR_SPACE) p++
+        textStart = p
+        continue
+      }
+      // No surrounding spaces: let the newline stay in the text segment.
     }
 
     if (result) {
       // Flush text before this
-      if (p > textStart) {
-        nodes.push(textNode(s.slice(textStart, p)))
+      if (pending || p > textStart) {
+        nodes.push(textNode(pending + s.slice(textStart, p)))
+        pending = ''
       }
       nodes.push(result.node)
       p = result.end
@@ -4719,8 +4855,9 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
       if (c === $.CHAR_BACKSLASH && p + 1 < e) {
         const next = s.charCodeAt(p + 1)
         if (cc(next) & C_PUNCT) {
-          if (p > textStart) {
-            nodes.push(textNode(s.slice(textStart, p)))
+          if (pending || p > textStart) {
+            nodes.push(textNode(pending + s.slice(textStart, p)))
+            pending = ''
           }
           nodes.push(textNode(s[p + 1]))
           p += 2
@@ -4747,16 +4884,9 @@ function parseInline(s: string, p: number, e: number, state: MarkdownToJSX.State
   }
 
   // Flush remaining text
-  if (e > textStart) {
-    let remainingText = s.slice(textStart, e)
-
-    // NOTE: Pre-parse streaming mutation (line ~4438) already handles
-    // incomplete emphasis, links, and code spans before parsing begins.
-    // This post-flush block was redundant and has been removed.
-
-    if (remainingText) {
-      nodes.push(textNode(remainingText))
-    }
+  if (pending || e > textStart) {
+    nodes.push(textNode(pending + s.slice(textStart, e)))
+    pending = ''
   }
 
   // Phase 2: Process emphasis delimiters using CommonMark algorithm
@@ -4994,11 +5124,9 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
     }
     if (p >= e) break
 
-    // Check for lazy continuation marker (\u001E) — treat as paragraph text
-    if (s.charCodeAt(p) === $.CHAR_RECORD_SEP) {
-      // Strip marker and fall through to paragraph
-      // The paragraph scanner will handle \u001E-prefixed continuation lines
-    }
+    // Lazy continuation marker (\u001E) forces paragraph treatment; the
+    // paragraph scanner handles \u001E-prefixed continuation lines
+    var isLazyContinuation = s.charCodeAt(p) === $.CHAR_RECORD_SEP
 
     indent(s, p, le)
 
@@ -5010,9 +5138,9 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
     _leCacheS = s; _leCacheP = p; _leCacheE = le
 
     // Check for indented code block (4+ spaces) - skip when inside HTML blocks
-    if (s.charCodeAt(p) !== $.CHAR_RECORD_SEP && _indentSpaces >= 4 && !state.inHTML) {
+    if (!isLazyContinuation && _indentSpaces >= 4 && !state.inHTML) {
       result = scanIndented(s, p)
-    } else if (s.charCodeAt(p) !== $.CHAR_RECORD_SEP) {
+    } else if (!isLazyContinuation) {
       const i = p + _indentChars
       const c = s.charCodeAt(i)
 
@@ -5081,16 +5209,10 @@ export function parser(
   source: string,
   options?: MarkdownToJSX.Options
 ): MarkdownToJSX.ASTNode[] {
-  // Reset global depth counter at the start of each parse
-  _globalInlineDepth = 0
-
   // Strip BOM (U+FEFF) at document start per CommonMark spec
   if (source.charCodeAt(0) === 0xfeff) {
     source = source.slice(1)
   }
-
-  // Normalize input: replace null bytes with U+FFFD per CommonMark spec
-  source = util.normalizeInput(source)
 
   // Default state with refs object
   const state: MarkdownToJSX.State = {
@@ -5112,26 +5234,9 @@ export function parser(
     tagfilter: options?.tagfilter !== false,
   }
 
-  // First pass: collect all reference definitions so they're available during inline parsing
-  state._endsInsideFence = collectReferenceDefinitions(source, state.refs!, finalOptions)
-
-  // Parse markdown
-  const nodes = parseBlocks(source, state, finalOptions)
-
-  // Add refCollection node at the start if there are refs
-  if (util.hasKeys(state.refs)) {
-    return [
-      { type: RuleType.refCollection, refs: state.refs } as MarkdownToJSX.ReferenceCollectionNode,
-      ...nodes
-    ]
-  }
-
-  return nodes
+  return parseMarkdown(source, state, finalOptions)
 }
 
-// Export for testing
-export { parseBlocks, parseInline }
-export { scanHeading, scanThematic, scanBlockquote }
 export function parseCodeFenced(s: string, p: number, state: MarkdownToJSX.State): { endPos: number; end: number; node: MarkdownToJSX.ASTNode; type: number; text: string; lang: string | undefined; attrs: Record<string, string> | undefined } | null {
   var res = scanFenced(s, p, state)
   if (!res) return null
@@ -5198,11 +5303,68 @@ export function parseMarkdown(
   // Normalize input (CRLF → LF, null bytes → U+FFFD)
   input = util.normalizeInput(input)
 
-  // First pass: collect all reference definitions
   if (!state.refs) state.refs = {}
-  state._endsInsideFence = collectReferenceDefinitions(input, state.refs, opts)
+  // Inline parsing is deferred until after the block pass (queueInline), so
+  // reference definitions registered by scanRefDefinition are complete before
+  // any link lookup runs and no separate collection pre-pass is needed.
+  // Streaming mode still needs the pre-pass for fence detection, and inline
+  // mode never block-parses so the pre-pass is its only ref collector.
+  if (opts.optimizeForStreaming || state.inline) {
+    state._endsInsideFence = collectReferenceDefinitions(input, state.refs, opts)
+  }
+
+  var ownsQueue = !state._pendingInline
+  if (ownsQueue) {
+    state._pendingInline = []
+    state._pendingOps = []
+  }
 
   const nodes = parseBlocks(input, state, opts)
+
+  if (ownsQueue) {
+    // Stage 1: run deferred inline parses. Entries restore the exact state
+    // flags captured at their callsite. The queue can grow while draining
+    // (nested block parses inside inline HTML), so re-read length each pass.
+    var q = state._pendingInline!
+    var sv = {
+      inline: state.inline, inAnchor: state.inAnchor, inHTML: state.inHTML,
+      htmlDepth: state._htmlDepth, inList: state.inList,
+      inBlockQuote: state.inBlockQuote, noSetext: state._noSetext, depth: state._depth,
+    }
+    for (var qi = 0; qi < q.length; qi++) {
+      var ent = q[qi]
+      state.inline = ent.inline; state.inAnchor = ent.inAnchor
+      state.inHTML = ent.inHTML; state._htmlDepth = ent.htmlDepth
+      state.inList = ent.inList; state.inBlockQuote = ent.inBlockQuote
+      state._noSetext = ent.noSetext; state._depth = ent.depth
+      state._breaks = ent.breaks
+      var parsed = parseInline(ent.text, 0, ent.text.length, state, opts)
+      state._breaks = false
+      for (var pi = 0; pi < parsed.length; pi++) ent.dest.push(parsed[pi])
+    }
+    state.inline = sv.inline; state.inAnchor = sv.inAnchor
+    state.inHTML = sv.inHTML; state._htmlDepth = sv.htmlDepth
+    state.inList = sv.inList; state.inBlockQuote = sv.inBlockQuote
+    state._noSetext = sv.noSetext; state._depth = sv.depth
+
+    // Stage 2: list-item unwrap/concat ops that copy now-filled children
+    var ops = state._pendingOps!
+    for (var oi = 0; oi < ops.length; oi++) {
+      var op = ops[oi]
+      for (var si = 0; si < op.src.length; si++) {
+        var sn = op.src[si]
+        if (op.unwrap && sn.type === RuleType.paragraph) {
+          var pc2 = (sn as MarkdownToJSX.ParagraphNode).children
+          for (var ci2 = 0; ci2 < pc2.length; ci2++) op.dest.push(pc2[ci2])
+        } else {
+          op.dest.push(sn)
+        }
+      }
+    }
+
+    state._pendingInline = undefined
+    state._pendingOps = undefined
+  }
 
   // Add refCollection node at the start if there are refs
   if (util.hasKeys(state.refs)) {

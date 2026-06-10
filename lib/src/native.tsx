@@ -18,7 +18,6 @@ export { parser } from './parse'
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
-const TRIM_STARTING_NEWLINES = /^\n+/
 const LIST_ITEM_ROW_STYLE: ViewStyle = { flexDirection: 'row' }
 const GFM_TASK_ITEM_ROW_STYLE: ViewStyle = {
   flexDirection: 'row',
@@ -257,16 +256,14 @@ function render(
 
         // Type 1 blocks (pre, script, style, textarea) always render verbatim
         if (isType1Block) {
-          let textContent = htmlNode._rawText.replace(
-            new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
-            ''
+          const textContent = util.type1TextContent(
+            htmlNode._rawText,
+            tagLower,
+            options.tagfilter
           )
-          if (options.tagfilter) {
-            textContent = util.applyTagFilterToText(textContent)
-          }
           return h(
             htmlNode.tag,
-            { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) },
+            { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs) },
             textContent
           )
         }
@@ -278,65 +275,25 @@ function render(
           return h(Text, { key: state.key, style: styles.codeBlock }, innerHtml)
         }
 
-        // Use already-parsed children if available instead of re-parsing rawText
-        function processNode(
-          node: MarkdownToJSX.ASTNode
-        ): MarkdownToJSX.ASTNode[] {
-          if (
-            (node.type === RuleType.htmlSelfClosing || node.type === RuleType.htmlBlock) &&
-            node._isClosingTag
-          ) {
-            return []
-          }
-          if (node.type === RuleType.paragraph) {
-            return (
-              (node as MarkdownToJSX.ParagraphNode).children?.flatMap(
-                processNode
-              ) || []
-            )
-          }
-          if (node.type === RuleType.text) {
-            return (node as MarkdownToJSX.TextNode).text?.trim() ? [node] : []
-          }
-          if (
-            node.type === RuleType.htmlBlock &&
-            (node as MarkdownToJSX.HTMLNode).children
-          ) {
-            return [
-              {
-                ...node,
-                children: node.children?.flatMap(processNode),
-              } as MarkdownToJSX.HTMLNode,
-            ]
-          }
-          return [node]
-        }
-
-        if (htmlNode.children && htmlNode.children.length > 0) {
-          return h(
-            htmlNode.tag,
-            { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) },
-            output(htmlNode.children.flatMap(processNode), state)
-          )
-        }
-
-        // Fallback to re-parsing rawText if children not available (edge case)
+        // Re-parse rawText so a nested element does not absorb a following text
+        // line, then split at this element's own closing tag so any trailing
+        // content renders as siblings (issue #881).
         const cleanedText = htmlNode._rawText
           .replace(/>\s+</g, '><')
           .replace(/\n+/g, ' ')
           .trim()
+        const props = { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs) }
         const selfTagRegex = new RegExp(
           `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,
           'i'
         )
         if (selfTagRegex.test(cleanedText)) {
-          return h(htmlNode.tag, { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) })
+          return h(htmlNode.tag, props)
         }
 
         const parseOptions: parse.ParseOptions = {
           slugify: (input: string) => slug(input, util.slugify),
-          sanitizer: (value: string, tag: string, attribute: string) =>
-            sanitize(value, tag, attribute),
+          sanitizer: sanitize,
           tagfilter: true,
         }
         const astNodes = parse.parseMarkdown(
@@ -344,20 +301,37 @@ function render(
           { inline: false, refs: refs, inHTML: false },
           parseOptions
         )
+        util.stripVerbatim(astNodes)
+
+        // rawText already contains its own wrapper element, so emit the parsed
+        // nodes directly instead of nesting them in another copy of the tag.
+        if (util.isFullVerbatimBlock(cleanedText, htmlNode.tag as string)) {
+          return output(astNodes.flatMap(util.processVerbatimNode), state)
+        }
+
+        const split = util.findOwnCloseInAST(astNodes, tagLower)
+        if (split.found && split.afterClose.length > 0) {
+          return React.createElement(
+            React.Fragment,
+            { key: state.key },
+            h(htmlNode.tag, props, output(split.beforeClose.flatMap(util.processVerbatimNode), state)),
+            output(split.afterClose.flatMap(util.processVerbatimNode), state)
+          )
+        }
 
         return h(
           htmlNode.tag,
-          { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) },
-          output(astNodes.flatMap(processNode), state)
+          props,
+          output(astNodes.flatMap(util.processVerbatimNode), state)
         )
       }
 
       if (util.isVoidElement(htmlNode.tag)) {
-        return h(htmlNode.tag, { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) })
+        return h(htmlNode.tag, { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs) })
       }
       return h(
         htmlNode.tag,
-        { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) },
+        { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs) },
         htmlNode.children ? output(htmlNode.children, state) : ''
       )
     }
@@ -371,7 +345,7 @@ function render(
             : `<${htmlNode.tag} />`
         return h(Text, { key: state.key }, tagText)
       }
-      return h(htmlNode.tag, { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs || {}) })
+      return h(htmlNode.tag, { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs) })
     }
 
     case RuleType.image: {
@@ -693,7 +667,7 @@ export function astToNative(
   const slug = opts.slugify || util.slugify
   const sanitize = opts.sanitizer || util.sanitizer
   const createElement = opts.createElement || React.createElement
-  const hasOverrides = Object.keys(opts.overrides).length > 0
+  const hasOverrides = util.hasKeys(opts.overrides)
 
   function h(
     tag: React.ElementType,
@@ -737,8 +711,7 @@ export function astToNative(
 
   const parseOptions: parse.ParseOptions = {
     slugify: i => slug(i, util.slugify),
-    sanitizer: (value: string, tag: string, attribute: string) =>
-      sanitize(value, tag, attribute),
+    sanitizer: sanitize,
     tagfilter: opts.tagfilter !== false,
     disableAutoLink: opts.disableAutoLink,
     disableParsingRawHTML: opts.disableParsingRawHTML,
@@ -862,17 +835,7 @@ export function compiler(
       enforceAtxHeadings: opts.enforceAtxHeadings,
     }
 
-    let processedInput = input
-    if (!inline) {
-      let e = processedInput.length
-      while (
-        e > 0 &&
-        (processedInput[e - 1] === '\n' || processedInput[e - 1] === '\r')
-      )
-        e--
-      processedInput = processedInput.slice(0, e)
-      processedInput = `${processedInput.replace(TRIM_STARTING_NEWLINES, '')}\n\n`
-    }
+    let processedInput = inline ? input : util.prepareBlockInput(input)
 
     let astNodes = parse.parseMarkdown(
       inline ? input : processedInput,
@@ -887,29 +850,14 @@ export function compiler(
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    if (typeof markdown !== 'string') {
-      throw new Error(`markdown-to-jsx: the first argument must be a string`)
-    }
-
-    if (Object.prototype.toString.call(opts.overrides) !== '[object Object]') {
-      throw new Error(`markdown-to-jsx: options.overrides (second argument property) must be
-                             undefined or an object literal with shape:
-                             {
-                                htmltagname: {
-                                    component: string|ReactComponent(optional),
-                                    props: object(optional)
-                                }
-                             }`)
-    }
+    util.validateCompilerArgs(markdown, opts.overrides, 'ReactComponent')
   }
 
   const refs: {
     [key: string]: { target: string; title: string | undefined }
   } = {}
 
-  const jsx = compile(markdown)
-
-  return jsx
+  return compile(markdown)
 }
 
 /**
@@ -930,6 +878,35 @@ export const MarkdownProvider: React.FC<{
 }
 
 /**
+ * Return the previous object identity when the new one is shallow-equal.
+ * The JSX rest-props object is freshly allocated on every render; without
+ * stabilization it invalidates the compile memo below even when nothing
+ * changed, forcing a full re-parse per parent re-render.
+ */
+function useShallowStable<T extends Record<string, any>>(value: T): T {
+  const ref = React.useRef(value)
+  const prev = ref.current
+  if (prev !== value) {
+    var same = true
+    var count = 0
+    for (var key in value) {
+      count++
+      if (!Object.is(prev[key], value[key])) {
+        same = false
+        break
+      }
+    }
+    if (same) {
+      var prevCount = 0
+      for (var prevKey in prev) prevCount++
+      same = prevCount === count
+    }
+    if (!same) ref.current = value
+  }
+  return ref.current
+}
+
+/**
  * A React Native component for easy markdown rendering. Feed the markdown content as a direct child
  * and the rest is taken care of automatically. Supports memoization for optimal performance.
  *
@@ -944,6 +921,7 @@ export const Markdown: React.FC<
   }
 > = ({ children: rawChildren, options, ...props }) => {
   const contextOptions = React.useContext(MarkdownContext)
+  const stableProps = useShallowStable(props)
 
   const mergedOptions = React.useMemo(() => {
     var merged = Object.assign({}, contextOptions, options)
@@ -957,10 +935,10 @@ export const Markdown: React.FC<
       {},
       contextOptions?.wrapperProps,
       options?.wrapperProps,
-      props
+      stableProps
     ) as ViewProps | TextProps
     return merged
-  }, [contextOptions, options, props])
+  }, [contextOptions, options, stableProps])
 
   const content =
     rawChildren == null
