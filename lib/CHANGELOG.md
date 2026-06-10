@@ -1,5 +1,14 @@
 # markdown-to-jsx
 
+## 9.8.2
+
+### Patch Changes
+
+- 47408cd: Parsing is significantly faster, around 40% on large documents, with the biggest gains on link-heavy and code-heavy content. Also fixed an edge case where a reference definition split across blockquote lines could be matched by a link using the raw, unnormalized label.
+- 47408cd: Documents with many bold or italic spans now parse in a fraction of the time. Previously, parsing slowed down sharply as the number of emphasized spans grew, which could make very large or adversarial inputs hang.
+- 47408cd: The `<Markdown>` component no longer re-parses its content when a parent re-renders with unchanged props. Previously the rest-props object was reallocated on every render, which invalidated the internal compile cache and forced a full re-parse each time.
+- 47408cd: Text on its own line after a nested HTML element (such as content following `</summary>` inside `<details>`) now renders instead of being dropped or misplaced when no blank line separates them. This now behaves consistently across the React, React Native, Solid, and Vue outputs.
+
 ## 9.8.1
 
 ### Patch Changes
