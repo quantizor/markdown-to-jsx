@@ -15,6 +15,11 @@
     "react": "^19.2.0",
     "rimraf": "^6.1.0"
   },
+  "overrides": {
+    "rollup": "^4.61.1",
+    "vite": "^7.3.5",
+    "yaml": "^2.8.3"
+  },
   "scripts": {
     "build": "pushd lib; bun run build; popd && bun scripts/verify-declarations.ts",
     "build-site": "bun run --filter markdown-to-jsx build && pushd site; bun run build; popd",

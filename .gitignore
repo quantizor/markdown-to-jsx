@@ -6,6 +6,9 @@ coverage/
 CPU*.md
 *.log
 package-lock.json
+pnpm-lock.yaml
+yarn.lock
+*.tsbuildinfo
 
 # ephemeral files
 dist/
