@@ -216,6 +216,26 @@ describe('parseMarkdown', () => {
     ])
   })
 
+  it('parses many emphasis pairs in linear time', () => {
+    // Regression guard for the O(n^2) emphasis matcher. With the old
+    // array-splice design this input took tens of seconds and would blow the
+    // suite timeout; it now completes in milliseconds. The assertion is on
+    // structure so it stays deterministic.
+    const state = createInlineState()
+    const options = createDefaultOptions()
+    const n = 20000
+    const result = p.parseMarkdown('*a* '.repeat(n), state, options)
+    // n emphasis nodes, each followed by its trailing single-space text node
+    expect(result.length).toBe(2 * n)
+    expect(result[0]).toEqual({
+      type: RuleType.textFormatted,
+      tag: 'em',
+      children: [{ type: RuleType.text, text: 'a' }],
+    })
+    expect(result[1]).toEqual({ type: RuleType.text, text: ' ' })
+    expect(result[result.length - 1]).toEqual({ type: RuleType.text, text: ' ' })
+  })
+
   it('should handle links in inline mode', () => {
     const state = createInlineState()
     const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }

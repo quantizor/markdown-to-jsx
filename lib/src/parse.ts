@@ -3525,6 +3525,19 @@ function collectDelimiter(s: string, p: number, e: number): { len: number; canOp
   return { len: len, canOpen: canOpen, canClose: canClose }
 }
 
+/**
+ * Transient doubly-linked node used only inside processEmphasis. Wrapping the
+ * inline sequence in a list (rather than mutating the flat array) keeps node
+ * removal/insertion O(1) and removes the need to re-index the delimiter stack
+ * after every match, which is what made the old array-splice design O(n^2) on
+ * emphasis-heavy input.
+ */
+interface LNode {
+  node: MarkdownToJSX.ASTNode
+  prev: LNode | null
+  next: LNode | null
+}
+
 /** Process emphasis delimiters using CommonMark algorithm */
 function processEmphasis(
   nodes: MarkdownToJSX.ASTNode[],
@@ -3533,6 +3546,23 @@ function processEmphasis(
   opts: ParseOptions
 ): void {
   if (delims.length === 0) return
+
+  // Build a doubly-linked list over the inline sequence. delimLN maps each
+  // delimiter-stack position to the list node holding its delimiter text, so
+  // splicing content out of the list never invalidates a delimiter reference.
+  var listLen = nodes.length
+  var lnodes: LNode[] = new Array(listLen)
+  var head: LNode | null = null
+  var prevLN: LNode | null = null
+  for (var li = 0; li < listLen; li++) {
+    var ln: LNode = { node: nodes[li], prev: prevLN, next: null }
+    if (prevLN) prevLN.next = ln
+    else head = ln
+    lnodes[li] = ln
+    prevLN = ln
+  }
+  var delimLN: LNode[] = new Array(delims.length)
+  for (var lj = 0; lj < delims.length; lj++) delimLN[lj] = lnodes[delims[lj].idx]
 
   // openers_bottom indexed by: type(0=*,1=_) * 6 + (closerLen%3) * 2 + (canOpen?1:0)
   var openersBottom: number[] = []
@@ -3583,63 +3613,57 @@ function processEmphasis(
     closer.len -= useLen
 
     // Update text nodes for opener/closer
-    var openerNode = nodes[opener.idx] as MarkdownToJSX.TextNode
-    var closerNode = nodes[closer.idx] as MarkdownToJSX.TextNode
+    var openLN = delimLN[openerIdx]
+    var closeLN = delimLN[ci]
+    var openerNode = openLN.node as MarkdownToJSX.TextNode
+    var closerNode = closeLN.node as MarkdownToJSX.TextNode
     openerNode.text = openerNode.text.slice(0, openerNode.text.length - useLen)
     closerNode.text = closerNode.text.slice(useLen)
 
-    // Collect content nodes between opener and closer
-    var contentStart = opener.idx + 1
-    var contentEnd = closer.idx
-    var contentNodes = nodes.slice(contentStart, contentEnd)
+    // Collect content nodes between opener and closer. Each node is moved into
+    // exactly one emphasis child array over the whole run, so the total work
+    // across all (including nested) matches is O(n).
+    var contentNodes: MarkdownToJSX.ASTNode[] = []
+    var walk = openLN.next
+    while (walk && walk !== closeLN) {
+      contentNodes.push(walk.node)
+      walk = walk.next
+    }
 
-    // Create emphasis node - recursively process content for nested emphasis
     var emphNode: MarkdownToJSX.FormattedTextNode = {
       type: RuleType.textFormatted,
       tag: isStrong ? 'strong' : 'em',
       children: contentNodes,
     }
 
-    // Replace content nodes with emphasis node
-    nodes.splice(contentStart, contentEnd - contentStart, emphNode as MarkdownToJSX.FormattedTextNode)
-
-    // Fix up indices in delimiter stack
-    var removed = contentEnd - contentStart - 1
-    for (var di = 0; di < delims.length; di++) {
-      if (delims[di].idx > opener.idx) {
-        delims[di].idx -= removed
-      }
-    }
+    // Splice the emphasis node in place of the collected range (O(1)).
+    var emphLN: LNode = { node: emphNode, prev: openLN, next: closeLN }
+    openLN.next = emphLN
+    closeLN.prev = emphLN
 
     // Deactivate delimiters between opener and closer
     for (var di2 = openerIdx + 1; di2 < ci; di2++) {
       delims[di2].active = false
     }
 
-    // If opener is empty, deactivate
+    // If opener is empty, deactivate and unlink its (now empty) text node
     if (opener.len === 0) {
       opener.active = false
-      // Remove empty text node
       if (openerNode.text === '') {
-        nodes.splice(opener.idx, 1)
-        for (var di3 = 0; di3 < delims.length; di3++) {
-          if (delims[di3].idx > opener.idx) delims[di3].idx--
-          else if (delims[di3].idx === opener.idx) delims[di3].idx = -1
-        }
+        var op = openLN.prev
+        emphLN.prev = op
+        if (op) op.next = emphLN
+        else head = emphLN
       }
     }
 
-    // If closer is empty, deactivate
+    // If closer is empty, deactivate and unlink its text node
     if (closer.len === 0) {
       closer.active = false
-      // Remove empty text node
-      var closerNewIdx = closer.idx
       if (closerNode.text === '') {
-        nodes.splice(closerNewIdx, 1)
-        for (var di4 = 0; di4 < delims.length; di4++) {
-          if (delims[di4].idx > closerNewIdx) delims[di4].idx--
-          else if (delims[di4].idx === closerNewIdx) delims[di4].idx = -1
-        }
+        var cn = closeLN.next
+        emphLN.next = cn
+        if (cn) cn.prev = emphLN
       }
     } else {
       // Closer still has delimiters - don't advance, try matching again
@@ -3648,19 +3672,23 @@ function processEmphasis(
     ci++
   }
 
-  // Merge adjacent text nodes and remove empty ones
+  // Flatten the list back into the caller's array, merging adjacent text nodes
+  // and dropping empties in the same pass.
   var wi = 0
-  for (var ni = 0; ni < nodes.length; ni++) {
-    var n = nodes[ni]
+  var cur = head
+  while (cur) {
+    var n = cur.node
     if (n.type === RuleType.text) {
       var tn = n as MarkdownToJSX.TextNode
-      if (tn.text === '') continue
+      if (tn.text === '') { cur = cur.next; continue }
       if (wi > 0 && nodes[wi - 1].type === RuleType.text) {
         ;(nodes[wi - 1] as MarkdownToJSX.TextNode).text += tn.text
+        cur = cur.next
         continue
       }
     }
     nodes[wi++] = n
+    cur = cur.next
   }
   nodes.length = wi
 }
