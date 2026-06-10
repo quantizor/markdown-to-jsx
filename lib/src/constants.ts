@@ -48,7 +48,6 @@ export const CHAR_d = 100
 export const CHAR_x = 120
 export const CHAR_X = 88
 export const CHAR_RECORD_SEP = 0x1E // Internal: lazy continuation marker
-export const CHAR_UNIT_SEP = 0x1F // Internal: hard break marker
 // Character code ranges for common character classes
 export const CHAR_DIGIT_0 = 48
 export const CHAR_DIGIT_9 = 57

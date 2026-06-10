@@ -2499,9 +2499,9 @@ describe('multi-line HTML attributes', () => {
               "_isClosingTag": false,
               "_rawText": 
       "<input
-      type="checkbox"
-      disabled
-      checked
+        type="checkbox"
+        disabled
+        checked
       />"
       ,
               "attrs": {
@@ -4927,10 +4927,6 @@ describe('text normalization edge cases', () => {
         [
           {
             "refs": {
-              "foo > bar": {
-                "target": "/url",
-                "title": undefined,
-              },
               "foo bar": {
                 "target": "/url",
                 "title": undefined,
@@ -6699,5 +6695,72 @@ describe('text normalization edge cases', () => {
         ]
       `)
     })
+  })
+})
+
+describe('forward reference resolution', () => {
+  // Reference definitions may appear anywhere in the document, including after
+  // their first use inside nested containers. These guard the invariant that
+  // every inline parse context sees the complete refs collection.
+  function findLinks(nodes: MarkdownToJSX.ASTNode[]): { target: string; text: string }[] {
+    const out: { target: string; text: string }[] = []
+    const walk = (ns: MarkdownToJSX.ASTNode[]) => {
+      for (const n of ns as any[]) {
+        if (!n || typeof n !== 'object') continue
+        if (n.type === RuleType.link) {
+          out.push({ target: n.target, text: n.children?.[0]?.text })
+        }
+        if (Array.isArray(n.children)) walk(n.children)
+        if (Array.isArray(n.items)) for (const item of n.items) walk(item)
+        if (Array.isArray(n.header)) for (const cell of n.header) walk(cell)
+        if (Array.isArray(n.cells)) for (const row of n.cells) for (const cell of row) walk(cell)
+      }
+    }
+    walk(nodes)
+    return out
+  }
+
+  const expected = [{ target: '/url', text: 'foo' }]
+
+  it('resolves in a paragraph', () => {
+    expect(findLinks(p.parser('[foo]\n\n[foo]: /url'))).toEqual(expected)
+  })
+
+  it('resolves in a heading', () => {
+    expect(findLinks(p.parser('# [foo]\n\n[foo]: /url'))).toEqual(expected)
+  })
+
+  it('resolves in a blockquote', () => {
+    expect(findLinks(p.parser('> [foo]\n\n[foo]: /url'))).toEqual(expected)
+  })
+
+  it('resolves in a tight list item', () => {
+    expect(findLinks(p.parser('- [foo]\n\n[foo]: /url'))).toEqual(expected)
+  })
+
+  it('resolves in a loose list item', () => {
+    expect(findLinks(p.parser('- [foo]\n\n- bar\n\n[foo]: /url'))).toEqual(expected)
+  })
+
+  it('resolves in a multi-block tight list item', () => {
+    expect(findLinks(p.parser('- [foo]\n  > quote\n\n[foo]: /url'))).toEqual(expected)
+  })
+
+  it('resolves in a task list item', () => {
+    expect(findLinks(p.parser('- [x] [foo]\n\n[foo]: /url'))).toEqual(expected)
+  })
+
+  it('resolves in a table cell', () => {
+    expect(
+      findLinks(p.parser('| [foo] |\n| --- |\n| [foo] |\n\n[foo]: /url'))
+    ).toEqual([...expected, ...expected])
+  })
+
+  it('resolves in an HTML block', () => {
+    expect(findLinks(p.parser('<div>[foo]</div>\n\n[foo]: /url'))).toEqual(expected)
+  })
+
+  it('resolves in nested list inside blockquote', () => {
+    expect(findLinks(p.parser('> - [foo]\n\n[foo]: /url'))).toEqual(expected)
   })
 })

@@ -92,8 +92,26 @@ declare namespace MarkdownToJSX {
     _htmlDepth?: number
     /** internal: set by collectReferenceDefinitions when input ends inside an unclosed fence */
     _endsInsideFence?: boolean
+    /** internal: enable hard/soft line-break processing in parseInline (paragraph inline content) */
+    _breaks?: boolean
     /** internal: smallest bare-URL start position known to fail by reaching end-of-input (issue #874); scoped per parseInline call */
     _inlineUrlFailFrom?: number
+    /** internal: deferred inline parses, drained by the owning parseMarkdown after the block pass so all reference definitions are known */
+    _pendingInline?: {
+      dest: ASTNode[]
+      text: string
+      breaks: boolean
+      inline?: boolean
+      inAnchor?: boolean
+      inHTML?: boolean
+      htmlDepth?: number
+      inList?: boolean
+      inBlockQuote?: boolean
+      noSetext?: boolean
+      depth?: number
+    }[]
+    /** internal: deferred list-item unwrap/concat ops, run after _pendingInline drains */
+    _pendingOps?: { src: ASTNode[]; dest: ASTNode[]; unwrap: boolean }[]
   }
 
   /**
