@@ -1333,3 +1333,68 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
     ).toMatchInlineSnapshot(`"<View><Text>a</Text></View> tail"`)
   })
 })
+
+// A bare string as a direct child of a View crashes React Native with
+// "Text strings must be rendered within a <Text> component", so every
+// string in the tree must have a Text ancestor closer than any View
+// ancestor. Walk the tree tracking whichever of View/Text was seen last.
+function assertNoBareTextUnderView(
+  node: React.ReactNode,
+  nearestAncestorIsView = false
+): void {
+  if (node == null || typeof node === 'boolean') return
+  if (typeof node === 'string' || typeof node === 'number') {
+    if (nearestAncestorIsView) {
+      throw new Error(
+        `found bare text node "${node}" as a descendant of a View with no intervening Text`
+      )
+    }
+    return
+  }
+  if (Array.isArray(node)) {
+    node.forEach(child => assertNoBareTextUnderView(child, nearestAncestorIsView))
+    return
+  }
+  if (React.isValidElement(node)) {
+    const isView = isComponentType(node, View)
+    const isText = isComponentType(node, Text)
+    assertNoBareTextUnderView(
+      (node.props as any).children,
+      isView ? true : isText ? false : nearestAncestorIsView
+    )
+  }
+}
+
+describe('regression #884 - tight list items crash React Native with a bare text node', () => {
+  it('plain-text ordered list items are wrapped in Text', () => {
+    const result = compiler('1. First item\n2. Second item')
+    expect(() => assertNoBareTextUnderView(result)).not.toThrow()
+    expect(
+      serialize(result)
+    ).toMatchInlineSnapshot(
+      `"<View><View><Text>1. </Text><View><Text>First item</Text></View></View><View><Text>2. </Text><View><Text>Second item</Text></View></View></View>"`
+    )
+  })
+
+  it('plain-text unordered list items are wrapped in Text', () => {
+    const result = compiler('- First item\n- Second item')
+    expect(() => assertNoBareTextUnderView(result)).not.toThrow()
+  })
+
+  it('list items mixing plain text with bold/link content stay valid', () => {
+    const result = compiler(
+      '1. First item\n2. Second item with **bold text**\n3. Third item with a [link](https://example.com)'
+    )
+    expect(() => assertNoBareTextUnderView(result)).not.toThrow()
+  })
+
+  it('GFM task list item labels are wrapped in Text', () => {
+    const result = compiler('- [ ] todo item\n- [x] done item')
+    expect(() => assertNoBareTextUnderView(result)).not.toThrow()
+  })
+
+  it('nested list items are wrapped in Text', () => {
+    const result = compiler('- outer\n  - inner item')
+    expect(() => assertNoBareTextUnderView(result)).not.toThrow()
+  })
+})

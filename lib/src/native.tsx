@@ -35,6 +35,28 @@ const TEXT_FORMAT_STYLES: Record<string, TextStyle> = {
 const mergeStyle = <T,>(d: T | undefined, u: T | undefined): T | T[] | undefined =>
   u ? (d ? [d, u] : u) : d
 
+// Tight list items render their inline content straight from `output()`,
+// which returns bare strings for plain-text runs (no intervening paragraph
+// wrapper the way loose items get). React Native throws "Text strings must
+// be rendered within a <Text> component" if such a string ends up as a
+// direct child of a View, so wrap any top-level string children in Text
+// before handing them to the list item's View wrapper.
+const wrapLooseStringsInText = (content: React.ReactNode): React.ReactNode => {
+  if (typeof content === 'string') {
+    return content ? React.createElement(Text, { key: 'text' }, content) : null
+  }
+  if (Array.isArray(content)) {
+    return content.map((child, i) =>
+      typeof child === 'string'
+        ? child
+          ? React.createElement(Text, { key: `text-${i}` }, child)
+          : null
+        : child
+    )
+  }
+  return content
+}
+
 /**
  * React context for sharing compiler options across Markdown components in React Native
  */
@@ -514,7 +536,11 @@ function render(
             'li',
             { key: i, style: liStyle },
             h(Text, { style: bulletStyle }, bullet + ' '),
-            h(View, { style: innerItemStyle }, output(item, state))
+            h(
+              View,
+              { style: innerItemStyle },
+              wrapLooseStringsInText(output(item, state))
+            )
           )
         })
       )
