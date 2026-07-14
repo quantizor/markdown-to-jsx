@@ -918,6 +918,18 @@ export function encodeUrlTarget(target: string): string {
         continue
       }
     }
+    if (code >= 0xd800 && code <= 0xdfff) {
+      if (code <= 0xdbff && i + 1 < target.length) {
+        var nextCode = target.charCodeAt(i + 1)
+        if (nextCode >= 0xdc00 && nextCode <= 0xdfff) {
+          result += encodeURI(target[i] + target[i + 1])
+          i++
+          continue
+        }
+      }
+      result += target[i]
+      continue
+    }
     result += encodeURI(target[i])
   }
   return result
