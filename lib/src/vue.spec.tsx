@@ -959,6 +959,15 @@ describe('URL encoding edge cases', () => {
     expect(href as string).toContain('%')
   })
 
+  it('should encode non-BMP characters in internationalized URLs', () => {
+    const result = compiler(
+      '[Author post](https://例え.テスト/著者/𠮷田/投稿-🚀)'
+    )
+    expect(getProp(result, 'href')).toBe(
+      'https://%E4%BE%8B%E3%81%88.%E3%83%86%E3%82%B9%E3%83%88/%E8%91%97%E8%80%85/%F0%A0%AE%B7%E7%94%B0/%E6%8A%95%E7%A8%BF-%F0%9F%9A%80'
+    )
+  })
+
   it('should handle URLs with existing percent encoding', () => {
     const result = compiler('[Link](http://example.com/path%5Cfile)')
     const href = getProp(result, 'href')

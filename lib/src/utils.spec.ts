@@ -506,6 +506,29 @@ describe('sanitizer', () => {
   })
 })
 
+describe('encodeUrlTarget', () => {
+  it('should encode internationalized URLs containing non-BMP characters', () => {
+    expect(u.encodeUrlTarget('https://例え.テスト/著者/𠮷田/投稿-🚀')).toBe(
+      'https://%E4%BE%8B%E3%81%88.%E3%83%86%E3%82%B9%E3%83%88/%E8%91%97%E8%80%85/%F0%A0%AE%B7%E7%94%B0/%E6%8A%95%E7%A8%BF-%F0%9F%9A%80'
+    )
+    expect(u.encodeUrlTarget('https://example.com/@𝒜stroWriter')).toBe(
+      'https://example.com/@%F0%9D%92%9CstroWriter'
+    )
+    expect(u.encodeUrlTarget('https://example.com/ブログ/launch-🚀')).toBe(
+      'https://example.com/%E3%83%96%E3%83%AD%E3%82%B0/launch-%F0%9F%9A%80'
+    )
+  })
+
+  it('should preserve lone surrogates without throwing', () => {
+    expect(u.encodeUrlTarget('https://example.com/\uD800')).toBe(
+      'https://example.com/\uD800'
+    )
+    expect(u.encodeUrlTarget('https://example.com/\uDC00')).toBe(
+      'https://example.com/\uDC00'
+    )
+  })
+})
+
 describe('slugify', () => {
   it('should convert text to URL-safe slugs', () => {
     expect(u.slugify('Hello World')).toBe('hello-world')

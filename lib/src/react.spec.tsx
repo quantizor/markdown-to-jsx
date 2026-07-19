@@ -1016,6 +1016,14 @@ describe('links', () => {
     )
   })
 
+  it('should encode non-BMP characters in internationalized URLs', () => {
+    render(compiler('[Author post](https://例え.テスト/著者/𠮷田/投稿-🚀)'))
+
+    expect(root.innerHTML).toBe(
+      '<a href="https://%E4%BE%8B%E3%81%88.%E3%83%86%E3%82%B9%E3%83%88/%E8%91%97%E8%80%85/%F0%A0%AE%B7%E7%94%B0/%E6%8A%95%E7%A8%BF-%F0%9F%9A%80">Author post</a>'
+    )
+  })
+
   it('should encode mixed backslashes and backticks in URLs', () => {
     render(compiler('[link](http://example.com/path\\with`mixed`\\chars)'))
 

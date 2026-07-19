@@ -226,6 +226,16 @@ describe('links', () => {
     ).toContain('%')
   })
 
+  it('should encode non-BMP characters in URLs', () => {
+    expect(
+      JSON.stringify(
+        compiler('[Author post](https://例え.テスト/著者/𠮷田/投稿-🚀)')
+      )
+    ).toContain(
+      'https://%E4%BE%8B%E3%81%88.%E3%83%86%E3%82%B9%E3%83%88/%E8%91%97%E8%80%85/%F0%A0%AE%B7%E7%94%B0/%E6%8A%95%E7%A8%BF-%F0%9F%9A%80'
+    )
+  })
+
   it('should preserve existing percent-encoded sequences in URLs', () => {
     const str = JSON.stringify(
       compiler('[Link](https://example.com/path%20to%20file)')
