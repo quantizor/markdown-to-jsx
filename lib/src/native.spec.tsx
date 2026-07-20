@@ -1,8 +1,7 @@
-// @ts-nocheck
-// Now import test utilities and the module under test
 import { afterEach, expect, it, describe, mock, spyOn } from 'bun:test'
 import * as React from 'react'
-import { Text, View, Image } from 'react-native'
+import { Image, Pressable, Text, View } from 'react-native'
+import type { ImageProps, TextProps, ViewProps } from 'react-native'
 
 import Markdown, {
   compiler,
@@ -11,15 +10,62 @@ import Markdown, {
   RuleType,
   sanitizer,
   slugify,
+  type MarkdownToJSX,
   type NativeOptions,
   type NativeStyleKey,
 } from './native'
+
+/**
+ * Structural view of the props these tests read off rendered elements. The
+ * native renderer assembles elements with loosely-typed props, so the tests
+ * inspect them through this lens; a wrong claim here surfaces as a failing
+ * expectation at runtime, not as unsound access.
+ */
+interface TestProps {
+  children?: React.ReactNode
+  source?: { uri?: string }
+  style?:
+    | Record<string, unknown>
+    | Array<Record<string, unknown> | false | null | undefined>
+  [prop: string]: unknown
+}
+
+/** A rendered element whose props are viewed through TestProps. */
+type TestElement = React.ReactElement<TestProps>
+
+/** Narrow any rendered value to an element with structurally-readable props. */
+function isTestElement(value: unknown): value is TestElement {
+  return React.isValidElement(value)
+}
+
+/**
+ * Runtime shape of a forwardRef component. React's public types hide these
+ * internals, so the tests name the shape and prove it with a guard.
+ */
+interface ForwardRefComponent {
+  $$typeof: symbol
+  render: (...args: unknown[]) => unknown
+}
+
+function isForwardRefComponent(value: unknown): value is ForwardRefComponent {
+  if (
+    (typeof value !== 'object' && typeof value !== 'function') ||
+    value === null
+  ) {
+    return false
+  }
+  if (!('$$typeof' in value) || !('render' in value)) return false
+  return (
+    value.$$typeof === Symbol.for('react.forward_ref') &&
+    typeof value.render === 'function'
+  )
+}
 
 function extractTextContent(element: React.ReactNode): string {
   if (typeof element === 'string') return element
   if (typeof element === 'number') return String(element)
   if (element === null || element === undefined) return ''
-  if (!React.isValidElement(element)) return ''
+  if (!isTestElement(element)) return ''
   const props = element.props
   if (props && props.children !== undefined) {
     if (Array.isArray(props.children)) {
@@ -30,13 +76,13 @@ function extractTextContent(element: React.ReactNode): string {
   return ''
 }
 
-function getFirstElement(result: React.ReactNode): React.ReactElement {
-  if (React.isValidElement(result)) {
+function getFirstElement(result: React.ReactNode): TestElement {
+  if (isTestElement(result)) {
     return result
   }
   if (Array.isArray(result)) {
     for (const item of result) {
-      if (React.isValidElement(item)) {
+      if (isTestElement(item)) {
         return item
       }
     }
@@ -56,15 +102,10 @@ function isComponentType(
   if (element.type === component) return true
   // For forwardRef, also check the render function
   if (
-    typeof element.type === 'object' &&
-    element.type !== null &&
-    'render' in element.type
+    isForwardRefComponent(element.type) &&
+    isForwardRefComponent(component)
   ) {
-    const elementRender = element.type.render
-    const componentRender = component.render
-    if (elementRender && componentRender) {
-      return elementRender === componentRender
-    }
+    return element.type.render === component.render
   }
   return false
 }
@@ -72,16 +113,16 @@ function isComponentType(
 function findAllByType(
   element: React.ReactNode,
   component: React.ComponentType
-): React.ReactElement[] {
+): TestElement[] {
   if (Array.isArray(element)) {
-    const out: React.ReactElement[] = []
+    const out: TestElement[] = []
     for (const item of element) {
       out.push(...findAllByType(item, component))
     }
     return out
   }
-  if (!React.isValidElement(element)) return []
-  const results: React.ReactElement[] = []
+  if (!isTestElement(element)) return []
+  const results: TestElement[] = []
   if (isComponentType(element, component)) results.push(element)
   const props = element.props
   if (props.children) {
@@ -99,8 +140,8 @@ function findAllByType(
 function findChildByType(
   element: React.ReactNode,
   component: React.ComponentType<any>
-): React.ReactElement {
-  if (!React.isValidElement(element)) {
+): TestElement {
+  if (!isTestElement(element)) {
     throw new Error('Expected React element to search for child')
   }
   if (isComponentType(element, component)) return element
@@ -121,13 +162,13 @@ function findChildByType(
   throw new Error(`Child component of type ${component} not found`)
 }
 
-function findTextElement(element: React.ReactNode): React.ReactElement {
-  if (React.isValidElement(element) && isComponentType(element, Text)) {
+function findTextElement(element: React.ReactNode): TestElement {
+  if (isTestElement(element) && isComponentType(element, Text)) {
     return element
   }
   if (Array.isArray(element)) {
     for (const item of element) {
-      if (React.isValidElement(item) && isComponentType(item, Text)) {
+      if (isTestElement(item) && isComponentType(item, Text)) {
         return item
       }
     }
@@ -135,9 +176,9 @@ function findTextElement(element: React.ReactNode): React.ReactElement {
   return findChildByType(element, Text)
 }
 
-function findAllTextElements(element: React.ReactNode): React.ReactElement[] {
-  const results: React.ReactElement[] = []
-  if (React.isValidElement(element) && isComponentType(element, Text)) {
+function findAllTextElements(element: React.ReactNode): TestElement[] {
+  const results: TestElement[] = []
+  if (isTestElement(element) && isComponentType(element, Text)) {
     results.push(element)
   }
   if (Array.isArray(element)) {
@@ -145,15 +186,15 @@ function findAllTextElements(element: React.ReactNode): React.ReactElement[] {
       results.push(...findAllTextElements(item))
     }
   }
-  if (React.isValidElement(element)) {
+  if (isTestElement(element)) {
     results.push(...findAllByType(element, Text))
   }
   return results
 }
 
-function findLinkElement(element: React.ReactNode): React.ReactElement {
+function findLinkElement(element: React.ReactNode): TestElement {
   // Check if element itself has onPress (for custom components)
-  if (React.isValidElement(element)) {
+  if (isTestElement(element)) {
     const props = element.props
     if (props.onPress) return element
     // Search children
@@ -182,15 +223,28 @@ function findLinkElement(element: React.ReactNode): React.ReactElement {
   throw new Error('Link element with onPress not found')
 }
 
-function getComponentStyle(element: React.ReactElement): any {
-  const props = element.props
-  if (!props.style) {
+/**
+ * Flatten a React Native style prop (which may nest arrays) into a single object,
+ * later entries winning on conflict, mirroring how RN resolves a style array.
+ */
+function flattenStyle(
+  style: unknown,
+  acc: Record<string, unknown> = {}
+): Record<string, unknown> {
+  if (!style) return acc
+  if (Array.isArray(style)) {
+    for (const entry of style) flattenStyle(entry, acc)
+    return acc
+  }
+  return Object.assign(acc, style)
+}
+
+function getComponentStyle(element: TestElement): Record<string, unknown> {
+  const style = element.props.style
+  if (!style) {
     throw new Error('Component has no style prop')
   }
-  if (Array.isArray(props.style)) {
-    return Object.assign({}, ...props.style.filter(Boolean))
-  }
-  return props.style
+  return flattenStyle(style)
 }
 
 describe('native.tsx exports', () => {
@@ -381,7 +435,7 @@ describe('style overrides', () => {
 
 describe('component overrides', () => {
   it('should allow overriding link component', () => {
-    const CustomLink = props =>
+    const CustomLink = (props: TextProps) =>
       React.createElement(Text, { ...props, testID: 'custom-link' })
     const result = compiler('[Link](https://example.com)', {
       overrides: { a: CustomLink },
@@ -396,22 +450,21 @@ describe('component overrides', () => {
   })
 
   it('should allow overriding image component', () => {
-    const CustomImage = props =>
+    const CustomImage = (props: ImageProps) =>
       React.createElement(Image, { ...props, testID: 'custom-image' })
     const result = compiler('![Alt](image.jpg)', {
       forceBlock: true,
       overrides: { img: CustomImage },
     })
-    // Image is inside a paragraph, find it
-    const element = getFirstElement(result)
-    const children = element.props.children
-    const imageElement = Array.isArray(children) ? children[0] : children
-    expect(imageElement.type).toBe(CustomImage)
-    expect(imageElement.props.source.uri).toBe('image.jpg')
+    // An image cannot sit inside a Text, so the paragraph renders as a View with
+    // the image as its own child; the override still applies.
+    const imageElement = findFirst(result, CustomImage)
+    expect(imageElement?.type).toBe(CustomImage)
+    expect(imageElement?.props.source?.uri).toBe('image.jpg')
   })
 
   it('should allow overriding with component and props', () => {
-    const CustomText = props => React.createElement(Text, props)
+    const CustomText = (props: TextProps) => React.createElement(Text, props)
     const result = compiler('Hello', {
       forceBlock: true,
       overrides: {
@@ -428,13 +481,37 @@ describe('component overrides', () => {
 function findFirst(
   element: React.ReactNode,
   component: React.ComponentType
-): React.ReactElement | undefined {
+): TestElement | undefined {
   return findAllByType(element, component)[0]
+}
+
+/** findFirst that throws instead of returning undefined, for direct prop reads. */
+function mustFindFirst(
+  element: React.ReactNode,
+  component: React.ComponentType
+): TestElement {
+  const found = findFirst(element, component)
+  if (!found) throw new Error('Expected component in rendered tree')
+  return found
+}
+
+/** Return the index-th child of an element, asserting it is itself an element. */
+function childElementAt(element: TestElement, index: number): TestElement {
+  const children = element.props.children
+  const child = Array.isArray(children)
+    ? children[index]
+    : index === 0
+      ? children
+      : undefined
+  if (!isTestElement(child)) {
+    throw new Error('Expected an element child at index ' + index)
+  }
+  return child
 }
 
 describe('parsed-markdown overrides', () => {
   it('fires code override for inline backticks', () => {
-    const Code = props =>
+    const Code = (props: TextProps) =>
       React.createElement(Text, { ...props, testID: 'code' })
     const result = compiler('Text with `inline` code', {
       overrides: { code: Code },
@@ -443,39 +520,39 @@ describe('parsed-markdown overrides', () => {
   })
 
   it('fires pre override for fenced code blocks', () => {
-    const Pre = props => React.createElement(View, { ...props, testID: 'pre' })
+    const Pre = (props: ViewProps) => React.createElement(View, { ...props, testID: 'pre' })
     const result = compiler('```\nblock\n```', { overrides: { pre: Pre } })
     expect(extractTextContent(findFirst(result, Pre))).toContain('block')
   })
 
   it('fires code override on inner element of fenced code blocks', () => {
-    const Code = props =>
+    const Code = (props: TextProps) =>
       React.createElement(Text, { ...props, testID: 'fenced-code' })
     const result = compiler('```\nblock\n```', { overrides: { code: Code } })
     expect(extractTextContent(findFirst(result, Code))).toContain('block')
   })
 
   it('fires strong override for **bold**', () => {
-    const Strong = props =>
+    const Strong = (props: TextProps) =>
       React.createElement(Text, { ...props, testID: 'strong' })
     const result = compiler('**bold**', { overrides: { strong: Strong } })
     expect(extractTextContent(findFirst(result, Strong))).toBe('bold')
   })
 
   it('fires em override for *italic*', () => {
-    const Em = props => React.createElement(Text, { ...props, testID: 'em' })
+    const Em = (props: TextProps) => React.createElement(Text, { ...props, testID: 'em' })
     const result = compiler('*italic*', { overrides: { em: Em } })
     expect(extractTextContent(findFirst(result, Em))).toBe('italic')
   })
 
   it('fires del override for ~~strikethrough~~', () => {
-    const Del = props => React.createElement(Text, { ...props, testID: 'del' })
+    const Del = (props: TextProps) => React.createElement(Text, { ...props, testID: 'del' })
     const result = compiler('~~struck~~', { overrides: { del: Del } })
     expect(extractTextContent(findFirst(result, Del))).toBe('struck')
   })
 
   it('fires blockquote override for > quote', () => {
-    const BQ = props => React.createElement(View, { ...props, testID: 'bq' })
+    const BQ = (props: ViewProps) => React.createElement(View, { ...props, testID: 'bq' })
     const result = compiler('> quote', {
       forceBlock: true,
       overrides: { blockquote: BQ },
@@ -484,13 +561,13 @@ describe('parsed-markdown overrides', () => {
   })
 
   it('fires hr override for ---', () => {
-    const HR = props => React.createElement(View, { ...props, testID: 'hr' })
+    const HR = (props: ViewProps) => React.createElement(View, { ...props, testID: 'hr' })
     const result = compiler('---\n', { overrides: { hr: HR } })
     expect(findFirst(result, HR)).toBeDefined()
   })
 
   it('fires h1-h6 overrides for ATX headings', () => {
-    const make = (id: string) => props =>
+    const make = (id: string) => (props: TextProps) =>
       React.createElement(Text, { ...props, testID: id })
     const H1 = make('h1'),
       H2 = make('h2'),
@@ -511,7 +588,7 @@ describe('parsed-markdown overrides', () => {
   })
 
   it('fires ul override for unordered lists (outer)', () => {
-    const UL = props => React.createElement(View, { ...props, testID: 'ul' })
+    const UL = (props: ViewProps) => React.createElement(View, { ...props, testID: 'ul' })
     const result = compiler('- one\n- two', { overrides: { ul: UL } })
     const text = extractTextContent(findFirst(result, UL))
     expect(text).toContain('one')
@@ -519,7 +596,7 @@ describe('parsed-markdown overrides', () => {
   })
 
   it('fires ol override for ordered lists (outer)', () => {
-    const OL = props => React.createElement(View, { ...props, testID: 'ol' })
+    const OL = (props: ViewProps) => React.createElement(View, { ...props, testID: 'ol' })
     const result = compiler('1. one\n2. two', { overrides: { ol: OL } })
     const text = extractTextContent(findFirst(result, OL))
     expect(text).toContain('one')
@@ -527,7 +604,7 @@ describe('parsed-markdown overrides', () => {
   })
 
   it('fires li override for each list row', () => {
-    const LI = props => React.createElement(View, { ...props, testID: 'li' })
+    const LI = (props: ViewProps) => React.createElement(View, { ...props, testID: 'li' })
     const result = compiler('- one\n- two\n- three', {
       overrides: { li: LI },
     })
@@ -535,7 +612,7 @@ describe('parsed-markdown overrides', () => {
   })
 
   it('fires input override for GFM task checkboxes with checked prop', () => {
-    const Checkbox = props =>
+    const Checkbox = (props: ViewProps) =>
       React.createElement(View, { ...props, testID: 'checkbox' })
     const result = compiler('- [x] Done\n- [ ] Pending', {
       overrides: { input: Checkbox },
@@ -549,12 +626,12 @@ describe('parsed-markdown overrides', () => {
   })
 
   it('preserves user styles passed alongside an override', () => {
-    const Code = props => React.createElement(Text, props)
+    const Code = (props: TextProps) => React.createElement(Text, props)
     const result = compiler('Text with `code` inline', {
       overrides: { code: Code },
       styles: { codeInline: { color: 'crimson', fontFamily: 'IBM Plex Mono' } },
     })
-    const style = getComponentStyle(findFirst(result, Code)!)
+    const style = getComponentStyle(mustFindFirst(result, Code))
     expect(style.color).toBe('crimson')
     expect(style.fontFamily).toBe('IBM Plex Mono')
   })
@@ -569,12 +646,12 @@ describe('parsed-markdown overrides', () => {
   })
 
   it('merges override.props.style with renderer-supplied style', () => {
-    const Code = props => React.createElement(Text, props)
+    const Code = (props: TextProps) => React.createElement(Text, props)
     const result = compiler('Text with `code` inline', {
       overrides: { code: { component: Code, props: { style: { color: 'gold' } } } },
       styles: { codeInline: { fontFamily: 'IBM Plex Mono' } },
     })
-    const style = getComponentStyle(findFirst(result, Code)!)
+    const style = getComponentStyle(mustFindFirst(result, Code))
     expect(style.fontFamily).toBe('IBM Plex Mono')
     expect(style.color).toBe('gold')
   })
@@ -615,27 +692,33 @@ describe('parsed-markdown overrides', () => {
   it('does not pass DOM-only props to View when no input override is set', () => {
     const result = compiler('- [x] Task')
     const allViews = findAllByType(result, View)
-    const taskView = allViews.find(v => extractTextContent(v) === '[x]')
-    expect(taskView).toBeDefined()
-    expect(taskView!.props.type).toBeUndefined()
-    expect(taskView!.props.checked).toBeUndefined()
-    expect(taskView!.props.readOnly).toBeUndefined()
+    // The default checkbox draws a checkmark rather than the "[x]" text marker.
+    const taskView = allViews.find(v => extractTextContent(v) === '✓')
+    if (!taskView) throw new Error('Expected a task checkbox View')
+    expect(taskView.props.type).toBeUndefined()
+    expect(taskView.props.checked).toBeUndefined()
+    expect(taskView.props.readOnly).toBeUndefined()
   })
 
-  it('task list item wrapper opts into row+center layout by default', () => {
+  it('task list item wrapper opts into row layout by default', () => {
     const ul = getFirstElement(compiler('- [x] Task'))
-    const li = ul.props.children[0] as React.ReactElement
-    const innerItemView = li.props.children[1] as React.ReactElement
+    const li = childElementAt(ul, 0)
+    const innerItemView = childElementAt(li, 1)
     const style = getComponentStyle(innerItemView)
     expect(style.flexDirection).toBe('row')
-    expect(style.alignItems).toBe('center')
+    // Top-aligned so the checkbox lines up with the first line of the label.
+    expect(style.alignItems).toBe('flex-start')
   })
 
-  it('non-task list items do not inherit task row defaults', () => {
+  it('non-task list items flex their content but do not inherit task row defaults', () => {
     const ul = getFirstElement(compiler('- regular item'))
-    const li = ul.props.children[0] as React.ReactElement
-    const innerItemView = li.props.children[1] as React.ReactElement
-    expect(innerItemView.props.style).toBeUndefined()
+    const li = childElementAt(ul, 0)
+    const innerItemView = childElementAt(li, 1)
+    const style = getComponentStyle(innerItemView)
+    // Content flexes to fill the row width, but only tasks get row+center layout.
+    expect(style.flex).toBe(1)
+    expect(style.flexDirection).toBeUndefined()
+    expect(style.alignItems).toBeUndefined()
   })
 
   it('consumer styles.listItem overrides task row defaults via mergeStyle', () => {
@@ -644,13 +727,13 @@ describe('parsed-markdown overrides', () => {
         styles: { listItem: { flexDirection: 'column' } },
       })
     )
-    const li = ul.props.children[0] as React.ReactElement
-    const innerItemView = li.props.children[1] as React.ReactElement
+    const li = childElementAt(ul, 0)
+    const innerItemView = childElementAt(li, 1)
     const style = getComponentStyle(innerItemView)
     // mergeStyle puts user style last → user flexDirection wins.
     expect(style.flexDirection).toBe('column')
     // alignItems from the default is preserved (user didn't override it).
-    expect(style.alignItems).toBe('center')
+    expect(style.alignItems).toBe('flex-start')
   })
 })
 
@@ -702,7 +785,7 @@ describe('AST node rendering', () => {
     expect(isComponentType(imageElement, Image)).toBe(true)
     const props = imageElement.props
     expect(props.source).toBeDefined()
-    expect(props.source.uri).toBe('image.jpg')
+    expect(props.source?.uri).toBe('image.jpg')
   })
 
   it('should render code block as View containing Text', () => {
@@ -812,13 +895,14 @@ describe('AST node rendering', () => {
     expect(text).toContain('Cell')
   })
 
-  it('should render GFM task as View with checkbox marker child', () => {
+  it('should render GFM task as View with a drawn checkbox marker', () => {
     const result = compiler('- [x] Task')
     const element = getFirstElement(result)
     expect(isComponentType(element, View)).toBe(true)
     const text = extractTextContent(element)
     expect(text).toContain('Task')
-    expect(text).toMatch(/\[[x ]\]/)
+    // A completed task draws a checkmark rather than the "[x]" text marker.
+    expect(text).toContain('✓')
   })
 })
 
@@ -968,7 +1052,7 @@ describe('edge cases - image rendering', () => {
     const imageElement = findChildByType(result, Image)
     const props = imageElement.props
     expect(props.source).toBeDefined()
-    expect(props.source.uri).toBe('/xyz.png')
+    expect(props.source?.uri).toBe('/xyz.png')
   })
 
   it('should render image with accessibilityLabel from alt text', () => {
@@ -976,7 +1060,7 @@ describe('edge cases - image rendering', () => {
     const imageElement = findChildByType(result, Image)
     const props = imageElement.props
     expect(props.source).toBeDefined()
-    expect(props.source.uri).toBe('/image.png')
+    expect(props.source?.uri).toBe('/image.png')
     expect(props.accessibilityLabel).toBe('Alt text')
   })
 
@@ -987,7 +1071,7 @@ describe('edge cases - image rendering', () => {
     const imageElement = findChildByType(result, Image)
     const props = imageElement.props
     expect(props.source).toBeDefined()
-    expect(props.source.uri).toBe(base64Image)
+    expect(props.source?.uri).toBe(base64Image)
   })
 
   it('should apply custom image style', () => {
@@ -1054,13 +1138,115 @@ describe('edge cases - style application', () => {
   })
 })
 
+/** First Text element in the tree whose rendered text content equals `content`. */
+function findTextByContent(
+  node: React.ReactNode,
+  content: string
+): TestElement {
+  const match = findAllTextElements(node).find(
+    t => extractTextContent(t) === content
+  )
+  if (!match) {
+    throw new Error(`No Text with content "${content}"`)
+  }
+  return match
+}
+
+describe('styles.text universal base', () => {
+  it('applies styles.text under paragraph, list item, table cell, and heading text', () => {
+    const md = '# Heading\n\nParagraph text.\n\n- List item\n\n| Col |\n|-----|\n| Cell |\n'
+    const result = compiler(md, {
+      styles: { text: { color: 'red', fontSize: 18 } },
+    })
+    // The base color reaches every Text (none of these elements set a color).
+    for (const content of ['Heading', 'Paragraph text.', 'List item', 'Cell']) {
+      expect(getComponentStyle(findTextByContent(result, content)).color).toBe(
+        'red'
+      )
+    }
+    // The base fontSize shows through where the element sets none (list item,
+    // table cell); a heading or paragraph keeps its own size from the cascade.
+    expect(getComponentStyle(findTextByContent(result, 'List item')).fontSize).toBe(18)
+    expect(getComponentStyle(findTextByContent(result, 'Cell')).fontSize).toBe(18)
+  })
+
+  it('leaves output unchanged when styles.text is unset', () => {
+    const style = getComponentStyle(
+      getFirstElement(compiler('Paragraph text.', { forceBlock: true }))
+    )
+    expect(style.color).toBeUndefined()
+  })
+
+  it('lets an element style win over the text base on conflict', () => {
+    // styles.text sets a base color; the heading has no color of its own, so the
+    // base shows through, while its fontSize (from the default cascade) is kept.
+    const result = compiler('# Heading', {
+      forceBlock: true,
+      styles: { text: { color: 'red' } },
+    })
+    const style = getComponentStyle(findTextByContent(result, 'Heading'))
+    expect(style.color).toBe('red')
+    expect(style.fontSize).toBe(28)
+  })
+})
+
+describe('table facsimile', () => {
+  it('renders bold header text and flex:1 cells that align across rows', () => {
+    const result = compiler('| A | B |\n|---|---|\n| c | d |\n| e | f |\n')
+    const table = getFirstElement(result)
+
+    // Bold header runs.
+    expect(getComponentStyle(findTextByContent(result, 'A')).fontWeight).toBe(
+      'bold'
+    )
+    expect(getComponentStyle(findTextByContent(result, 'B')).fontWeight).toBe(
+      'bold'
+    )
+
+    // Header cells: equal flex, vertical divider on all but the last, separator
+    // under the header row.
+    const headerRow = childElementAt(childElementAt(table, 0), 0)
+    expect(getComponentStyle(headerRow).borderBottomWidth).toBe(1)
+    const headerA = childElementAt(headerRow, 0)
+    const headerB = childElementAt(headerRow, 1)
+    expect(getComponentStyle(headerA).flex).toBe(1)
+    expect(getComponentStyle(headerB).flex).toBe(1)
+    expect(getComponentStyle(headerA).borderRightWidth).toBe(1)
+    expect(headerB.props.style && flattenStyle(headerB.props.style).borderRightWidth).toBeUndefined()
+
+    // Body rows: separator under all but the last row; body cells carry flex:1.
+    const body = childElementAt(table, 1)
+    const row0 = childElementAt(body, 0)
+    const row1 = childElementAt(body, 1)
+    expect(getComponentStyle(row0).borderBottomWidth).toBe(1)
+    expect(row1.props.style && flattenStyle(row1.props.style).borderBottomWidth).toBeUndefined()
+    expect(getComponentStyle(childElementAt(row0, 0)).flex).toBe(1)
+    expect(getComponentStyle(childElementAt(row0, 1)).flex).toBe(1)
+  })
+
+  it('keeps the column alignment from the table node', () => {
+    const result = compiler('| L | C | R |\n|:--|:-:|--:|\n| a | b | c |\n')
+    const table = getFirstElement(result)
+    const headerRow = childElementAt(childElementAt(table, 0), 0)
+    expect(getComponentStyle(childElementAt(headerRow, 0)).alignItems).toBe(
+      'flex-start'
+    )
+    expect(getComponentStyle(childElementAt(headerRow, 1)).alignItems).toBe(
+      'center'
+    )
+    expect(getComponentStyle(childElementAt(headerRow, 2)).alignItems).toBe(
+      'flex-end'
+    )
+  })
+})
+
 describe('edge cases - wrapper rendering', () => {
   it('should handle wrapper null option', () => {
     const result = compiler('Hello\n\nworld!', { wrapper: null })
     expect(Array.isArray(result)).toBe(true)
-    expect(result.length).toBeGreaterThan(0)
-    const firstItem = result[0]
-    expect(React.isValidElement(firstItem)).toBe(true)
+    const items = Array.isArray(result) ? result : []
+    expect(items.length).toBeGreaterThan(0)
+    expect(React.isValidElement(items[0])).toBe(true)
   })
 
   it('should handle wrapper with React.Fragment', () => {
@@ -1076,7 +1262,7 @@ describe('edge cases - wrapper rendering', () => {
       wrapperProps: { testID: 'wrapper' },
     })
     expect(React.isValidElement(result)).toBe(true)
-    const props = result.props
+    const props = getFirstElement(result).props
     expect(props.testID).toBe('wrapper')
   })
 
@@ -1099,7 +1285,7 @@ describe('edge cases - component overrides', () => {
       overrides: { p: nullFn },
     })
     // When override returns null, the element type is the null-returning function
-    expect(result.type).toBe(nullFn)
+    expect(getFirstElement(result).type).toBe(nullFn)
   })
 
   it('should handle override that returns null for HTML element', () => {
@@ -1109,11 +1295,11 @@ describe('edge cases - component overrides', () => {
       tagfilter: false,
       overrides: { div: nullFn },
     })
-    expect(result.type).toBe(nullFn)
+    expect(getFirstElement(result).type).toBe(nullFn)
   })
 
   it('should handle override with component and props', () => {
-    const CustomText = props => React.createElement(Text, props)
+    const CustomText = (props: TextProps) => React.createElement(Text, props)
     const result = compiler('Hello', {
       forceBlock: true,
       overrides: {
@@ -1129,8 +1315,9 @@ describe('edge cases - component overrides', () => {
   })
 
   it('should handle nested overrides', () => {
-    const Accordion = ({ children }) => children
-    const AccordionItem = ({ children }) => children
+    const Accordion = ({ children }: { children?: React.ReactNode }) => children
+    const AccordionItem = ({ children }: { children?: React.ReactNode }) =>
+      children
     const result = compiler(
       '<Accordion><AccordionItem>test</AccordionItem></Accordion>',
       {
@@ -1145,11 +1332,10 @@ describe('edge cases - component overrides', () => {
     // Compact parser produces top-level htmlBlock (no paragraph wrapper)
     // so the first element IS the Accordion itself
     const element = getFirstElement(result)
-    expect(element?.type).toBe(Accordion)
+    expect(element.type).toBe(Accordion)
     // AccordionItem is the first child of Accordion
-    const accordionItemElement =
-      element.props?.children?.[0] || element.props?.children
-    expect(accordionItemElement?.type).toBe(AccordionItem)
+    const accordionItemElement = childElementAt(element, 0)
+    expect(accordionItemElement.type).toBe(AccordionItem)
     expect(extractTextContent(result)).toContain('test')
   })
 
@@ -1167,8 +1353,8 @@ describe('edge cases - component overrides', () => {
   })
 
   it('should handle override with forwardRef component', () => {
-    const CustomText = React.forwardRef((props, ref) =>
-      React.createElement('Text', { ...props, ref })
+    const CustomText = React.forwardRef<Text, TextProps>((props, ref) =>
+      React.createElement(Text, { ...props, ref })
     )
     const result = compiler('Hello', {
       overrides: {
@@ -1189,7 +1375,10 @@ describe('edge cases - HTML tag rendering', () => {
     })
     const element = getFirstElement(result)
     // The element should be a View (forwardRef)
-    expect(element.type.$$typeof).toBe(Symbol.for('react.forward_ref'))
+    const elementType: unknown = element.type
+    expect(
+      isForwardRefComponent(elementType) ? elementType.$$typeof : undefined
+    ).toBe(Symbol.for('react.forward_ref'))
     expect(extractTextContent(element)).toContain('Content')
   })
 
@@ -1226,6 +1415,72 @@ describe('footnotes', () => {
       expect(element).toBeDefined()
     }).not.toThrow()
   })
+
+  // The reference marker is the only pressable element in these single-footnote
+  // inputs, so collecting by onPress isolates it from body text and the footer.
+  function findMarker(node: React.ReactNode, out: TestElement[] = []): TestElement[] {
+    if (Array.isArray(node)) {
+      node.forEach(child => findMarker(child, out))
+      return out
+    }
+    if (!isTestElement(node)) return out
+    if (node.props?.onPress != null) out.push(node)
+    findMarker(node.props?.children as React.ReactNode, out)
+    return out
+  }
+
+  it('renders a numeric reference as a Unicode superscript', () => {
+    const marker = findMarker(compiler('a[^1]\n\n[^1]: note'))[0]
+    expect(extractTextContent(marker)).toBe('¹')
+  })
+
+  it('maps every digit of a multi-digit reference', () => {
+    const marker = findMarker(compiler('a[^12]\n\n[^12]: note'))[0]
+    expect(extractTextContent(marker)).toBe('¹²')
+  })
+
+  it('passes a non-numeric reference identifier through unchanged', () => {
+    const marker = findMarker(compiler('a[^note]\n\n[^note]: text'))[0]
+    expect(extractTextContent(marker)).toBe('note')
+  })
+
+  it('applies styles.footnote to the marker', () => {
+    const marker = findMarker(
+      compiler('a[^1]\n\n[^1]: note', { styles: { footnote: { color: 'red' } } })
+    )[0]
+    // The marker carries the styles.text base plus the footnote override; the
+    // override wins on conflict, so the flattened style includes the red color.
+    expect(getComponentStyle(marker)).toMatchObject({ color: 'red' })
+  })
+
+  // The footer collects footnote definitions. An all-inline note reads as one
+  // line and renders as a Text; a note holding a block (an image) stacks as a
+  // View, since a Text cannot nest a view (issue #884).
+  function findFootnoteFooterEntry(result: React.ReactNode): TestElement {
+    const outer = getFirstElement(result)
+    const kids = Array.isArray(outer.props.children)
+      ? outer.props.children
+      : [outer.props.children]
+    const footer = kids.find(k => isTestElement(k) && k.key === 'footer')
+    if (!isTestElement(footer)) throw new Error('No footnote footer View')
+    return childElementAt(footer, 0)
+  }
+
+  it('renders an inline note footer entry as a Text', () => {
+    const entry = findFootnoteFooterEntry(compiler('a[^1]\n\n[^1]: The note.'))
+    expect(isComponentType(entry, Text)).toBe(true)
+    expect(extractTextContent(entry)).toContain('The note.')
+  })
+
+  it('renders an image note footer entry as a View', () => {
+    const entry = findFootnoteFooterEntry(
+      compiler('a[^1]\n\n[^1]: ![i](https://x.com/i.png)')
+    )
+    expect(isComponentType(entry, View)).toBe(true)
+    expect(findFirst(entry, Image)?.props.source?.uri).toBe(
+      'https://x.com/i.png'
+    )
+  })
 })
 
 describe('options immutability', () => {
@@ -1235,7 +1490,9 @@ describe('options immutability', () => {
     // mutations could cause unexpected side effects
     const markdown = '# Hello world'
     const ast = parser(markdown)
-    const options = { slugify: (input: string) => input.toLowerCase() }
+    const options: NativeOptions = {
+      slugify: (input: string) => input.toLowerCase(),
+    }
     const originalOverrides = options.overrides
 
     // First call
@@ -1254,7 +1511,9 @@ describe('options immutability', () => {
   it('should not mutate options object when calling compiler multiple times', () => {
     // Test that compiler doesn't mutate the options object when called multiple times
     const markdown = '# Hello world'
-    const options = { slugify: (input: string) => input.toLowerCase() }
+    const options: NativeOptions = {
+      slugify: (input: string) => input.toLowerCase(),
+    }
     const originalOverrides = options.overrides
 
     // First call
@@ -1295,12 +1554,28 @@ describe('MarkdownProvider and MarkdownContext', () => {
 // Serialize a native element tree to a tag-and-text string so nesting and
 // sibling order (not just text presence) are asserted. RN primitives render as
 // Text/View; HTML tags with no RN mapping keep their tag name.
+/** displayName/name fallback when a component is none of the known primitives. */
+function componentDisplayName(t: unknown): string {
+  if ((typeof t !== 'object' && typeof t !== 'function') || t === null) {
+    return '?'
+  }
+  if (
+    'displayName' in t &&
+    typeof t.displayName === 'string' &&
+    t.displayName
+  ) {
+    return t.displayName
+  }
+  if ('name' in t && typeof t.name === 'string' && t.name) return t.name
+  return '?'
+}
+
 function serialize(el: React.ReactNode): string {
   if (el == null || typeof el === 'boolean') return ''
   if (typeof el === 'string' || typeof el === 'number') return String(el)
   if (Array.isArray(el)) return el.map(serialize).join('')
-  if (!React.isValidElement(el)) return ''
-  const t = el.type as any
+  if (!isTestElement(el)) return ''
+  const t: unknown = el.type
   const name =
     typeof t === 'string'
       ? t
@@ -1308,10 +1583,14 @@ function serialize(el: React.ReactNode): string {
         ? 'Text'
         : t === View
           ? 'View'
-          : t === React.Fragment
-            ? ''
-            : t?.displayName || t?.name || '?'
-  const inner = serialize((el.props as any).children)
+          : t === Image
+            ? 'Image'
+            : t === Pressable
+              ? 'Pressable'
+              : t === React.Fragment
+                ? ''
+                : componentDisplayName(t)
+  const inner = serialize(el.props.children)
   return name ? `<${name}>${inner}</${name}>` : inner
 }
 
@@ -1319,13 +1598,13 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
   it('text line after a nested block element is preserved', () => {
     expect(
       serialize(compiler('<details>\n<summary>a</summary>\nx\n</details>'))
-    ).toMatchInlineSnapshot(`"<Text><Text>a</Text> x </Text>"`)
+    ).toMatchInlineSnapshot(`"<View><View><Text>a</Text></View><Text> x </Text></View>"`)
   })
 
   it('text line after a nested paragraph is preserved', () => {
     expect(
       serialize(compiler('<div>\n<p>a</p>\nx\n</div>'))
-    ).toMatchInlineSnapshot(`"<View><Text>a</Text> x </View>"`)
+    ).toMatchInlineSnapshot(`"<View><Text><Text>a</Text><Text> x </Text></Text></View>"`)
   })
 
   it('markdown in the trailing text line is processed', () => {
@@ -1333,18 +1612,390 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
       serialize(
         compiler('<details>\n<summary>a</summary>\n**bold** text\n</details>')
       )
-    ).toMatchInlineSnapshot(`"<Text><Text>a</Text><Text>bold</Text> text </Text>"`)
+    ).toMatchInlineSnapshot(`"<View><View><Text>a</Text></View><Text><Text>bold</Text> text </Text></View>"`)
   })
 
   it('text line between nested paragraphs is preserved', () => {
     expect(
       serialize(compiler('<div>\n<p>a</p>\nx\n<p>b</p>\n</div>'))
-    ).toMatchInlineSnapshot(`"<View><Text>a</Text> x <Text>b</Text></View>"`)
+    ).toMatchInlineSnapshot(`"<View><Text><Text>a</Text><Text> x <Text>b</Text></Text></Text></View>"`)
   })
 
   it('text after the element own closing tag renders as a sibling', () => {
     expect(
       serialize(compiler('<div>\n<span>a</span>\n</div>\ntail'))
-    ).toMatchInlineSnapshot(`"<View><Text>a</Text></View> tail"`)
+    ).toMatchInlineSnapshot(`"<View><Text><Text>a</Text></Text></View><Text> tail</Text>"`)
+  })
+
+  // The element and its trailing siblings share one Fragment; both were keyed
+  // from 0, so React warned about duplicate keys. They must now be unique.
+  const mixedBlocks: [string, string][] = [
+    ['paragraphs around text', '<div>\n<p>a</p>\nx\n<p>b</p>\n</div>'],
+    ['paragraph then text', '<div>\n<p>a</p>\nx\n</div>'],
+    ['text after closing tag', '<div>\n<p>a</p>\nx\n<p>b</p>\n</div>\ntail'],
+  ]
+  mixedBlocks.forEach(([name, md]) => {
+    it(`assigns unique sibling keys: ${name}`, () => {
+      expect(duplicateSiblingKeys(compiler(md))).toEqual([])
+    })
+  })
+
+  it('assigns unique sibling keys to a component block after a heading', () => {
+    const MyComponent = (props: ViewProps) =>
+      React.createElement(View, { ...props, testID: 'my-component' })
+    const result = compiler('# H\n\n<MyComponent>hi</MyComponent>', {
+      forceBlock: true,
+      overrides: { MyComponent },
+      tagfilter: false,
+    })
+    expect(findFirst(result, MyComponent)?.type).toBe(MyComponent)
+    expect(duplicateSiblingKeys(result)).toEqual([])
+  })
+})
+
+/**
+ * Collect every element whose direct children include two siblings sharing a
+ * React key, which triggers React's duplicate-key warning. An empty result
+ * proves every sibling group has unique keys.
+ */
+function duplicateSiblingKeys(el: React.ReactNode, out: string[] = []): string[] {
+  if (!isTestElement(el)) {
+    if (Array.isArray(el)) el.forEach(child => duplicateSiblingKeys(child, out))
+    return out
+  }
+  const children = el.props.children
+  if (Array.isArray(children)) {
+    const counts = new Map<string, number>()
+    for (const child of children) {
+      if (isTestElement(child) && child.key != null) {
+        const key = String(child.key)
+        counts.set(key, (counts.get(key) ?? 0) + 1)
+      }
+    }
+    for (const [key, count] of counts) {
+      if (count > 1) out.push(key)
+    }
+  }
+  React.Children.toArray(children).forEach(child => duplicateSiblingKeys(child, out))
+  return out
+}
+
+/**
+ * Collect every bare string that sits directly inside a View (or Image), which
+ * React Native forbids at render time. An empty result proves the tree is safe.
+ */
+function bareStringsInView(
+  el: React.ReactNode,
+  inView = false,
+  out: string[] = []
+): string[] {
+  if (el == null || typeof el === 'boolean') return out
+  if (typeof el === 'string' || typeof el === 'number') {
+    if (inView && String(el).length) out.push(String(el))
+    return out
+  }
+  if (Array.isArray(el)) {
+    el.forEach(c => bareStringsInView(c, inView, out))
+    return out
+  }
+  if (!isTestElement(el)) return out
+  const t: unknown = el.type
+  bareStringsInView(el.props.children, t === View || t === Image, out)
+  return out
+}
+
+/**
+ * Collect every View/Image element placed directly inside a Text, which React
+ * Native forbids on Android ("Unexpected view type nested under text node").
+ */
+function viewsInText(
+  el: React.ReactNode,
+  inText = false,
+  out: string[] = []
+): string[] {
+  if (!isTestElement(el)) {
+    if (Array.isArray(el)) el.forEach(c => viewsInText(c, inText, out))
+    return out
+  }
+  const t: unknown = el.type
+  const isView = t === View || t === Image
+  if (isView && inText) out.push(t === Image ? 'Image' : 'View')
+  viewsInText(el.props.children, t === Text, out)
+  return out
+}
+
+describe('regression #884 - bare strings must never sit inside a native View', () => {
+  const noBareText: [string, string][] = [
+    ['ordered list', '1. First item\n2. Second **bold**\n'],
+    ['unordered list', '- First\n- Second *em*\n'],
+    ['task list', '- [ ] todo\n- [x] done\n'],
+    ['nested list', '- top\n  - nested\n'],
+    ['loose list', '- item\n\n  second para\n'],
+    ['table', '| a | b |\n|---|---|\n| c *i* | d |\n'],
+    ['html div', '<div>hello **world**</div>\n'],
+    ['html section', '<section>text</section>\n'],
+    ['html figure', '<figure>caption</figure>\n'],
+    ['html blockquote', '<blockquote>quote</blockquote>\n'],
+    ['raw ul', '<ul><li>a</li><li>b</li></ul>\n'],
+    ['raw table', '<table><tr><td>a</td></tr></table>\n'],
+    ['html pre', '<pre>code text</pre>\n'],
+    ['div with trailing text', '<div>\n<p>a</p>\nx\n</div>\n'],
+    ['footnote with formatting', 'a[^1]\n\n[^1]: **bold** note\n'],
+    ['definition list', '<dl><dt>term</dt><dd>def</dd></dl>\n'],
+    ['details/summary', '<details><summary>s</summary>body text</details>\n'],
+    ['table footer', '<table><tfoot><tr><td>x</td></tr></tfoot></table>\n'],
+    ['fieldset', '<fieldset><legend>L</legend>field</fieldset>\n'],
+  ]
+
+  noBareText.forEach(([name, md]) => {
+    it(`${name} renders no bare string inside a View`, () => {
+      expect(bareStringsInView(compiler(md))).toEqual([])
+    })
+  })
+
+  const noViewInText: [string, string][] = [
+    ['list with image', '- ![alt](https://x.com/i.png)\n'],
+    ['list text with image', '- see ![a](https://x.com/i.png) here\n'],
+    ['table cell image', '| a |\n|---|\n| ![x](https://x.com/i.png) |\n'],
+    ['standalone image', '![alt](https://x.com/i.png)\n'],
+    ['paragraph inline image', 'see ![a](https://x.com/i.png) here\n'],
+    ['heading image', '# ![a](https://x.com/i.png)\n'],
+    ['image link', '[![a](https://x.com/i.png)](https://x.com)\n'],
+    ['emphasis image', '**![a](https://x.com/i.png)**\n'],
+    ['blockquote image', '> ![a](https://x.com/i.png)\n'],
+    ['footnote image', 'a[^1]\n\n[^1]: ![i](https://x.com/i.png)\n'],
+  ]
+
+  noViewInText.forEach(([name, md]) => {
+    it(`${name} renders the image as a View child, not inside a Text`, () => {
+      expect(viewsInText(compiler(md))).toEqual([])
+    })
+  })
+
+  it('renders a block-container HTML tag as a View, not inline Text', () => {
+    // A definition list is a block container, so it maps to a View whose text
+    // children are wrapped in Text (VIEW_TAGS covers dl/dt/dd; a Text host would
+    // lay them out inline).
+    expect(serialize(compiler('<dl><dt>term</dt><dd>def</dd></dl>\n'))).toContain(
+      '<View>'
+    )
+    expect(bareStringsInView(compiler('<dl><dt>term</dt><dd>def</dd></dl>\n'))).toEqual(
+      []
+    )
+  })
+
+  it('degrades a paragraph with an image to a View, keeping text runs', () => {
+    expect(
+      serialize(compiler('see ![a](https://x.com/i.png) here\n'))
+    ).toMatchInlineSnapshot(`"<View><Text>see </Text><Image></Image><Text> here</Text></View>"`)
+  })
+
+  it('renders an image link as a pressable holding the image', () => {
+    const result = compiler('[![a](https://x.com/i.png)](https://x.com)\n')
+    const pressable = findFirst(result, Pressable)
+    expect(pressable?.props.onPress).toBeInstanceOf(Function)
+    expect(findFirst(result, Image)?.props.source?.uri).toBe(
+      'https://x.com/i.png'
+    )
+  })
+
+  it('groups list-item inline content into a single Text', () => {
+    expect(
+      serialize(compiler('1. First **bold** item\n'))
+    ).toMatchInlineSnapshot(`"<View><View><Text>1. </Text><View><Text>First <Text>bold</Text> item</Text></View></View></View>"`)
+  })
+
+  it('keeps leading text and a nested list as sibling children', () => {
+    expect(serialize(compiler('- top\n  - nested\n'))).toMatchInlineSnapshot(`"<View><View><Text>• </Text><View><Text>top</Text><View><View><Text>• </Text><View><Text>nested</Text></View></View></View></View></View></View>"`)
+  })
+
+  it('renders a task checkbox and its label as siblings, with no bullet', () => {
+    // The checkbox (empty View when unchecked) replaces the bullet and sits
+    // beside the label; a checked task draws a checkmark inside the box. The
+    // whitespace-only text node after the task marker is dropped so the checkbox
+    // margin is the only gap to the label (no leading space in the label Text).
+    expect(serialize(compiler('- [ ] todo\n'))).toMatchInlineSnapshot(`"<View><View><View><View></View><Text>todo</Text></View></View></View>"`)
+    expect(serialize(compiler('- [x] done\n'))).toMatchInlineSnapshot(`"<View><View><View><View><Text>✓</Text></View><Text>done</Text></View></View></View>"`)
+  })
+
+  it('wraps table cell content in a Text', () => {
+    expect(
+      serialize(compiler('| a |\n|---|\n| c *i* |\n'))
+    ).toMatchInlineSnapshot(`"<View><View><View><View><Text>a</Text></View></View></View><View><View><View><Text>c <Text>i</Text></Text></View></View></View></View>"`)
+  })
+})
+
+describe('streaming table suppression', () => {
+  // The native compiler runs input through prepareBlockInput (which appends a
+  // blank line) before parsing, a different path than the html compiler. This
+  // progressive check feeds each document one character at a time (the strictest
+  // superset of any token boundary an LLM could stream) and asserts no in-flight
+  // prefix leaks raw pipe syntax as text.
+  const docs: Record<string, string> = {
+    'single column': 'text\n\n| Only |\n| --- |\n| a |\n',
+    'table after paragraph':
+      'Here is a table:\n\n| Name | Age |\n| --- | --- |\n| Ann | 30 |\n\nDone.',
+    'table at start': '| A | B |\n| --- | --- |\n| 1 | 2 |\n',
+  }
+  for (const [name, doc] of Object.entries(docs)) {
+    it(`never flashes raw pipes while streaming: ${name}`, () => {
+      for (let n = 1; n <= doc.length; n++) {
+        const text = extractTextContent(compiler(doc.slice(0, n), { optimizeForStreaming: true }))
+        expect({ prefixLength: n, text }).toEqual({
+          prefixLength: n,
+          text: expect.not.stringContaining('|'),
+        })
+      }
+    })
+  }
+
+  it('renders the complete table once the final row arrives', () => {
+    const rendered = serialize(compiler('| A | B |\n| --- | --- |\n| 1 | 2 |', { optimizeForStreaming: true }))
+    expect(rendered).toContain('<Text>A</Text>')
+    expect(rendered).toContain('<Text>1</Text>')
+    expect(rendered).not.toContain('|')
+  })
+})
+
+describe('native styling escape hatches', () => {
+  const allElements = (
+    node: React.ReactNode,
+    acc: TestElement[] = []
+  ): TestElement[] => {
+    if (Array.isArray(node)) {
+      node.forEach(n => allElements(n, acc))
+    } else if (isTestElement(node)) {
+      acc.push(node)
+      allElements(node.props.children, acc)
+    }
+    return acc
+  }
+  // Flattened style of the first element whose style declares `prop`.
+  const firstStyleWith = (
+    tree: React.ReactNode,
+    prop: string
+  ): Record<string, unknown> => {
+    for (const el of allElements(tree)) {
+      if (el.props.style) {
+        const flat = flattenStyle(el.props.style)
+        if (prop in flat) return flat
+      }
+    }
+    throw new Error(`No element with style property "${prop}"`)
+  }
+
+  it('checkmark styles the completed glyph, keeping the default centering transform', () => {
+    const mark = findTextByContent(
+      compiler('- [x] done\n', { styles: { checkmark: { color: '#00ff00' } } }),
+      '✓'
+    )
+    const style = getComponentStyle(mark)
+    expect(style.color).toBe('#00ff00')
+    expect(style.transform).toEqual([{ translateY: -1 }])
+  })
+
+  it('gfmTaskChecked styles the checked box accent', () => {
+    const box = firstStyleWith(
+      compiler('- [x] done\n', {
+        styles: { gfmTaskChecked: { backgroundColor: '#00ff00' } },
+      }),
+      'width'
+    )
+    expect(box.width).toBe(16)
+    expect(box.backgroundColor).toBe('#00ff00')
+  })
+
+  it('tableHeaderText styles the bold header run', () => {
+    const headerText = findTextByContent(
+      compiler('| a | b |\n| --- | --- |\n| 1 | 2 |\n', {
+        styles: { tableHeaderText: { color: '#00ff00' } },
+      }),
+      'a'
+    )
+    const style = getComponentStyle(headerText)
+    expect(style.fontWeight).toBe('bold')
+    expect(style.color).toBe('#00ff00')
+  })
+
+  it('tableCellDivider styles the vertical grid divider', () => {
+    const divider = firstStyleWith(
+      compiler('| a | b |\n| --- | --- |\n| 1 | 2 |\n', {
+        styles: { tableCellDivider: { borderRightColor: '#00ff00' } },
+      }),
+      'borderRightWidth'
+    )
+    expect(divider.borderRightColor).toBe('#00ff00')
+  })
+
+  it('tableRowDivider styles the horizontal grid divider', () => {
+    const divider = firstStyleWith(
+      compiler('| a | b |\n| --- | --- |\n| 1 | 2 |\n', {
+        styles: { tableRowDivider: { borderBottomColor: '#00ff00' } },
+      }),
+      'borderBottomWidth'
+    )
+    expect(divider.borderBottomColor).toBe('#00ff00')
+  })
+
+  it('listItemBullet styles the unordered marker over its default size', () => {
+    const bullet = findTextByContent(
+      compiler('- item\n', { styles: { listItemBullet: { color: '#00ff00' } } }),
+      '• '
+    )
+    const style = getComponentStyle(bullet)
+    expect(style.fontSize).toBe(16)
+    expect(style.color).toBe('#00ff00')
+  })
+
+  it('listItemNumber styles the ordered marker over its default size', () => {
+    const number = findTextByContent(
+      compiler('1. item\n', { styles: { listItemNumber: { color: '#00ff00' } } }),
+      '1. '
+    )
+    const style = getComponentStyle(number)
+    expect(style.fontSize).toBe(16)
+    expect(style.color).toBe('#00ff00')
+  })
+
+  it('blockquote zeroes its last block child bottom margin so it ends flush', () => {
+    const tree = compiler('> quoted text\n')
+    const bq = allElements(tree).find(el => {
+      const s = el.props.style ? flattenStyle(el.props.style) : {}
+      return s.borderLeftWidth === 3
+    })
+    if (!bq) throw new Error('no blockquote element')
+    const kids = Array.isArray(bq.props.children)
+      ? bq.props.children
+      : [bq.props.children]
+    const last = kids.filter(isTestElement).pop()
+    if (!last) throw new Error('no block child in blockquote')
+    expect(getComponentStyle(last).marginBottom).toBe(0)
+  })
+})
+
+describe('native strips dangerous raw HTML attributes', () => {
+  const allElements = (
+    node: React.ReactNode,
+    acc: TestElement[] = []
+  ): TestElement[] => {
+    if (Array.isArray(node)) {
+      node.forEach(n => allElements(n, acc))
+    } else if (isTestElement(node)) {
+      acc.push(node)
+      allElements(node.props.children, acc)
+    }
+    return acc
+  }
+
+  it('never forwards an on* handler prop while keeping safe attributes and content', () => {
+    const tree = compiler('<div onclick="alert(1)" data-ok="1">hi</div>')
+    for (const el of allElements(tree)) {
+      for (const key of Object.keys(el.props)) {
+        expect(key.toLowerCase()).not.toBe('onclick')
+      }
+    }
+    const carrier = allElements(tree).find(el => 'data-ok' in el.props)
+    expect(carrier?.props['data-ok']).toBe('1')
+    expect(extractTextContent(carrier as TestElement)).toBe('hi')
   })
 })
