@@ -4,30 +4,42 @@ import * as React from 'react'
 
 const mockLinkingOpenURL = mock(() => Promise.resolve())
 
+/**
+ * Build a forwardRef host component that renders to a plain string tag, so
+ * tests can assert on the tag name while matching react-native's forwardRef
+ * component shape.
+ */
+function mockHostComponent(tag: string) {
+  return React.forwardRef<unknown, Record<string, unknown>>(
+    function render(props, ref) {
+      return React.createElement(tag, { ...props, ref })
+    }
+  )
+}
+
 // Set up the mock module
 mock.module('react-native', () => {
-  const Text = React.forwardRef((props: any, ref: any) => {
-    return React.createElement('Text', { ...props, ref })
-  }) as any
-
-  const View = React.forwardRef((props: any, ref: any) => {
-    return React.createElement('View', { ...props, ref })
-  }) as any
-
-  const Image = React.forwardRef((props: any, ref: any) => {
-    return React.createElement('Image', { ...props, ref })
-  }) as any
+  const Text = mockHostComponent('Text')
+  const View = mockHostComponent('View')
+  const Image = mockHostComponent('Image')
+  const Pressable = mockHostComponent('Pressable')
 
   return {
     Text,
     View,
     Image,
+    Pressable,
     Linking: {
       openURL: mockLinkingOpenURL,
       canOpenURL: async () => Promise.resolve(true),
     },
+    Platform: {
+      OS: 'ios',
+      select: <T,>(options: { android?: T; default?: T; ios?: T }): T | undefined =>
+        options.ios ?? options.default,
+    },
     StyleSheet: {
-      create: (styles: any) => styles,
+      create: <T,>(styles: T) => styles,
     },
   }
 })
