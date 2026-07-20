@@ -32,8 +32,11 @@ const RuleTypeConst = {
 } as const
 
 if (process.env.NODE_ENV === 'test') {
-  // In test mode, use strings for better debugging
-  Object.keys(RuleTypeConst).forEach(key => (RuleTypeConst[key] = key))
+  // In test mode, use strings for better debugging. The literal type above
+  // describes production; mutate through a mutable-typed alias of the same
+  // object so the swap typechecks without an assertion.
+  const ruleTypeDebugView: { [key: string]: number | string } = RuleTypeConst
+  Object.keys(ruleTypeDebugView).forEach(key => (ruleTypeDebugView[key] = key))
 }
 
 type RuleTypeValue = (typeof RuleTypeConst)[keyof typeof RuleTypeConst]
@@ -77,11 +80,13 @@ declare namespace MarkdownToJSX {
     inList?: boolean
     /** true if parsing in an inline context (subset of rules around formatting and links) */
     inline?: boolean
+    /** internal (react-native renderer): the enclosing subtree is already known inline-safe, so a nested inline container can skip re-deriving it */
+    inlineSafe?: boolean
 
     /** use this for the `key` prop */
     key?: string | number
-    /** reference definitions (footnotes are stored with '^' prefix) */
-    refs?: { [key: string]: { target: string; title: string } }
+    /** reference definitions (footnotes are stored with '^' prefix); footnotes carry no title */
+    refs?: { [key: string]: { target: string; title: string | undefined } }
     /** current recursion depth during rendering */
     renderDepth?: number
     /** internal: block parse recursion depth */
@@ -92,6 +97,8 @@ declare namespace MarkdownToJSX {
     _htmlDepth?: number
     /** internal: set by collectReferenceDefinitions when input ends inside an unclosed fence */
     _endsInsideFence?: boolean
+    /** internal: true when the current block content cannot hold the document's streaming edge, so streaming suppression can be skipped */
+    _notAtEdge?: boolean
     /** internal: enable hard/soft line-break processing in parseInline (paragraph inline content) */
     _breaks?: boolean
     /** internal: smallest bare-URL start position known to fail by reaching end-of-input (issue #874); scoped per parseInline call */
@@ -290,8 +297,8 @@ declare namespace MarkdownToJSX {
    */
   export interface ReferenceCollectionNode {
     type: typeof RuleType.refCollection
-    /** Map of reference labels to their definitions */
-    refs: { [key: string]: { target: string; title: string } }
+    /** Map of reference labels to their definitions; footnotes carry no title */
+    refs: { [key: string]: { target: string; title: string | undefined } }
   }
 
   /**

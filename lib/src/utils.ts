@@ -850,7 +850,7 @@ export function formatFilteredTagAttrs(
  * Each renderer needs the same `{ identifier, footnote }` list for output.
  */
 export function extractFootnoteEntries(
-  refs: { [key: string]: { target: string; title: string } } | undefined
+  refs: { [key: string]: { target: string; title: string | undefined } } | undefined
 ): { identifier: string; footnote: string }[] {
   var entries: { identifier: string; footnote: string }[] = []
   if (!refs) return entries
