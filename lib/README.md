@@ -40,6 +40,7 @@ Some special features of the library:
     - [options.ignoreHTMLBlocks](#optionsignorehtmlblocks)
     - [options.renderRule](#optionsrenderrule)
     - [options.sanitizer](#optionssanitizer)
+    - [Raw HTML sanitization](#raw-html-sanitization)
     - [options.slugify](#optionsslugify)
     - [options.wrapper](#optionswrapper)
       - [Other useful recipes](#other-useful-recipes)
@@ -303,17 +304,81 @@ function App() {
 - `styles?: NativeStyles` - Per-key style overrides keyed by element type. Each key is narrowed to the style accepted by its target component (`TextStyle` for inline content and headings, `ViewStyle` for containers, `ImageStyle` for images).
 - `wrapperProps?: ViewProps | TextProps` - Props for the wrapper component (defaults to `View` for block, `Text` for inline)
 
+**Default styles:**
+
+React Native output ships with a clean, minimal base stylesheet so markdown renders with a readable hierarchy out of the box: a heading size cascade, monospace code, spacing between blocks, a blockquote rule, and a table with a header row and aligned columns. Everything stays customizable. Each key in `styles` merges over the default for that element, so setting one property (say `heading1.color`) keeps the rest of the default. `styles.text` is a base applied under all rendered text, so you can set the font, color, and size for the whole document at once:
+
+```tsx
+<Markdown options={{ styles: { text: { color: '#333', fontSize: 17 } } }}>{content}</Markdown>
+```
+
+Override any element by its key. Every key is optional and merges over the default, so you change only the properties you name:
+
+```tsx
+<Markdown
+  options={{
+    styles: {
+      heading1: { color: '#b91c1c' }, // change one property, keep the rest of the default
+      blockquote: { borderLeftColor: '#b91c1c' },
+      codeInline: { backgroundColor: '#f4f4f5' },
+    },
+  }}
+>
+  {content}
+</Markdown>
+```
+
+The available keys, each typed to the style its target component accepts (`TextStyle`, `ViewStyle`, or `ImageStyle`):
+
+- Text: `text` (the base under all rendered text), `paragraph`, `heading1` through `heading6`, `link`, `footnote`, `codeInline`, `strong`, `em`, `del`, `mark`, `listItemBullet`, `listItemNumber`
+- Blocks: `blockquote`, `codeBlock`, `thematicBreak`, `image`
+- Lists: `listOrdered`, `listUnordered`, `listItem`
+- Tables: `table`, `tableHeader`, `tableHeaderCell`, `tableHeaderText` (the bold header run), `tableRow`, `tableCell`, `tableCellDivider` and `tableRowDivider` (the grid lines)
+- GFM task: `gfmTask` (the drawn checkbox), `gfmTaskChecked` (the checked-state accent fill), `checkmark` (the checkmark glyph)
+
+Raw HTML container tags (`div`, `section`, `article`, `ul`, `ol`, `li`, `th`, `td`, and similar) also take a style under their own tag name.
+
+To replace an element's rendering entirely rather than restyle it, use `overrides`. Here is a fully themed configuration combining styles and overrides, plus a `renderRule` that swaps fenced code for a syntax highlighter:
+
+```tsx
+const Callout = ({ children }) => (
+  <View style={{ borderLeftColor: '#3fb950', borderLeftWidth: 4, paddingLeft: 12 }}>{children}</View>
+)
+
+<Markdown
+  options={{
+    styles: {
+      text: { color: '#c9d1d9' }, // base color for all text
+      heading1: { color: '#f0f6fc', fontSize: 26 },
+      link: { color: '#58a6ff', textDecorationLine: 'none' },
+    },
+    overrides: { blockquote: { component: Callout } },
+    wrapperProps: { style: { backgroundColor: '#0d1117', padding: 12 } },
+    renderRule(next, node, _renderChildren, state) {
+      if (node.type === RuleType.codeBlock) {
+        return <MySyntaxHighlighter key={state.key} code={node.text} lang={node.lang} />
+      }
+      return next()
+    },
+  }}
+>
+  {content}
+</Markdown>
+```
+
+A fenced code block renders as `<pre><code>`, and neither element receives the fence's language, so language-aware code rendering (syntax highlighting, a KaTeX block for ```` ```latex ````) belongs in `renderRule`, where `node.lang` and `node.text` are available.
+
 **Overrides:**
 
-Overrides on native work the same as on web — `overrides` keys correspond to HTML tag names and fire for parsed markdown as well as raw HTML. For example, override `code` to swap inline backticks and the inner element of fenced code blocks, override `pre` to wrap fenced code, override `input` to render real checkbox visuals for GFM tasks, and override `ul`/`ol`/`li` to swap list containers and rows. Bullets and numbers remain library-controlled inside `li`.
+Overrides on native work the same as on web: `overrides` keys correspond to HTML tag names and fire for parsed markdown as well as raw HTML. For example, override `code` to swap inline backticks and the inner element of fenced code blocks, override `pre` to wrap fenced code, override `input` to render real checkbox visuals for GFM tasks, and override `ul`/`ol`/`li` to swap list containers and rows. Bullets and numbers remain library-controlled inside `li`.
 
-When both a renderer-supplied style (`styles.codeInline`, `styles.gfmTask`, etc.) and `overrides[tag].props.style` are set, they merge as a React Native style array — override-level styling wins on conflict.
+When both a renderer-supplied style (`styles.codeInline`, `styles.gfmTask`, etc.) and `overrides[tag].props.style` are set, they merge as a React Native style array, and override-level styling wins on conflict.
 
 **GFM task checkboxes:**
 
-Task checkboxes (`- [x]`, `- [ ]`) route through an `<input type="checkbox">` tag that maps to `View` by default. Use `styles.gfmTask` to style the container, or override `input` to replace the checkbox visual entirely (for a real `<Image>` checkbox, animated state, etc.). Your override receives `checked`, `type: 'checkbox'`, `readOnly`, the merged `style`, and a default `<Text>` child rendering `[x]` or `[ ]` so the marker stays visible without an override. The marker child is library-controlled and not separately styleable; consumers that fully customize the visual should ignore the child and render their own indicator from `props.checked`.
+Task checkboxes (`- [x]`, `- [ ]`) route through an `<input type="checkbox">` tag that maps to `View` by default and renders a drawn checkbox: an outlined box that fills with an accent color and a checkmark when the task is done. The checkbox stands in for the list bullet, which is suppressed for task items. Restyle the box with `styles.gfmTask`, or override `input` to replace the visual entirely (for a real `<Image>` checkbox, animated state, etc.). Your override receives `checked`, `type: 'checkbox'`, `readOnly`, the merged `style`, and a `<Text>` child rendering `[x]` or `[ ]` as a fallback marker; consumers that fully customize the visual should ignore the child and render their own indicator from `props.checked`.
 
-The list item wrapper around a task gets `flexDirection: 'row'` and `alignItems: 'center'` applied by default so the checkbox and label sit on the same row out of the box. Override these by passing your own `styles.listItem` — `mergeStyle` keeps the row defaults underneath, so any property you set wins on collision (e.g. supply `alignItems: 'flex-start'` for tasks with multi-line labels).
+The list item wrapper around a task gets `flexDirection: 'row'` and `alignItems: 'flex-start'` applied by default, so the checkbox lines up with the first line of the label; the checkbox's own top margin then centers it against that line, which keeps it correctly placed even when the label wraps to multiple lines. Override these by passing your own `styles.listItem`: `mergeStyle` keeps the row defaults underneath, so any property you set wins on collision (e.g. supply `alignItems: 'center'` to vertically center the checkbox against the whole label instead).
 
 **HTML Tag Mapping:**
 HTML tags are automatically mapped to React Native components:
@@ -323,7 +388,11 @@ HTML tags are automatically mapped to React Native components:
 - Inline elements (`<span>`, `<strong>`, `<em>`, `<a>`, headings, `<code>`, etc.) → `Text` component
 - Type 1 blocks (`<pre>`, `<script>`, `<style>`, `<textarea>`) → `View` component
 
+**Mixing text and blocks:** React Native cannot nest an image or view inside text, so an inline container (a paragraph, heading, emphasis, or link) that holds an image or block-level content renders as a `View` instead of a `Text`. Its text is grouped into a `Text` so it still flows on one line, the image renders as its own element, and an image inside a link stays tappable through a `Pressable`. Text-only content is unaffected and renders as before.
+
 **Note:** Links are underlined by default for better accessibility and discoverability. You can override this via the `styles.link` option.
+
+**Note:** Footnote reference markers (`[^1]`) render as a superscript, matching the `<sup>` the web renderers emit. React Native cannot raise or shrink inline text through styles (it ignores `verticalAlign` and transforms on inline text), so numeric markers use Unicode superscript glyphs (`¹²³`), which the font draws raised and sized relative to the surrounding text on their own. Non-numeric identifiers (`[^note]`) render as plain text. Style the marker via the `styles.footnote` option.
 
 #### SolidJS
 
@@ -708,6 +777,20 @@ compiler('[foo](javascript:alert("foo"))', {
 })
 ```
 
+#### Raw HTML sanitization
+
+Raw HTML in your markdown is sanitized automatically in every renderer (React, React Native, HTML, Markdown, Solid, and Vue), so untrusted input cannot smuggle a script into your output. This is always on and independent of `options.sanitizer`, which governs URL schemes alone.
+
+Removed before rendering:
+
+- Inline event handlers: `onclick`, `onerror`, `onload`, and any other `on*` attribute.
+- URL attributes carrying a `javascript:`, `vbscript:`, or non-image `data:` scheme, in `href`, `src`, `action`, `formaction`, `poster`, `cite`, `background`, `data`, `longdesc`, and `xlink:href`. Schemes hidden behind HTML entities such as `java&#9;script:` or a semicolon-less `&#106avascript:` are decoded and caught too.
+- The `iframe` `srcdoc` attribute.
+
+Kept: safe attributes with their original formatting, `data:image` URLs, and event handlers you pass as expressions to your own components (`<MyButton onClick={fn} />`) along with bare boolean props on them (`<MyButton onClick />`). One caveat: `data:image/svg+xml` is allowed but can execute script when opened as a top-level navigation, so treat SVG data URLs from untrusted sources with care.
+
+Dangerous tag names (`script`, `iframe`, `style`, and similar) are escaped separately by the [`tagfilter`](#all-options) option, which is on by default.
+
 #### options.slugify
 
 By default, a [lightweight deburring function](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate an HTML id from headings. You can override this by passing a function to `options.slugify`. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
@@ -860,7 +943,7 @@ When you use `options.renderRule`, any React-renderable JSX may be returned incl
 
 When rendering markdown content that arrives incrementally (e.g., from an AI/LLM API, WebSocket, or Server-Sent Events), you may notice raw markdown syntax briefly appearing before it renders properly. This happens because incomplete syntax like `**bold text` or `<CustomComponent>partial content` gets rendered as text before the closing delimiter arrives.
 
-The `optimizeForStreaming` option solves this by detecting incomplete markdown structures and returning `null` (React) or empty string (HTML) until the content is complete:
+The `optimizeForStreaming` option solves this by detecting incomplete markdown structures and holding them back until the content is complete (returning `null` on React and React Native, an empty string on HTML). It works across every renderer:
 
 ```tsx
 import Markdown from 'markdown-to-jsx/react'
@@ -899,7 +982,7 @@ function ChatMessage({ stream }) {
 - Unclosed bold/italic (`**text` or `*text` without closing)
 - Unclosed strikethrough (`~~text` without closing `~~`)
 - Unclosed links (`[text](url` without closing `)`)
-- Incomplete tables (header and separator row without any data rows)
+- Incomplete tables (a header or divider row before the first data row); once the table renders, it stays put as further rows stream in, so it never flashes raw pipes or flickers between rows
 
 **What renders normally (content visible as it streams):**
 
