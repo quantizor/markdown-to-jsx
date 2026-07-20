@@ -51,7 +51,7 @@ const normalizeChildren = (output: VueChild[] | VueChild | null): VueChild[] =>
 // Render functions for each node type
 const renderers: Record<
   number,
-  (node: any, ctx: RenderContext) => VueChild | null
+  (node: any, ctx: RenderContext) => VueChild[] | VueChild | null
 > = {
   [RuleType.blockQuote]: (node, { h, output, state, slug }) => {
     const props = {} as Record<string, unknown>
@@ -292,7 +292,7 @@ const renderers: Record<
       ...normalizeChildren(output(node.children, state))
     ),
 
-  [RuleType.orderedList]: (node, { h, output, state }) => {
+  [RuleType.orderedList]: (node: MarkdownToJSX.OrderedListNode, { h, output, state }) => {
     const items = node.items.map((item, i) =>
       h('li', { key: i }, ...normalizeChildren(output(item, state)))
     )
@@ -303,7 +303,7 @@ const renderers: Record<
     return h('ol', props, ...items)
   },
 
-  [RuleType.unorderedList]: (node, { h, output, state }) => {
+  [RuleType.unorderedList]: (node: MarkdownToJSX.UnorderedListNode, { h, output, state }) => {
     const items = node.items.map((item, i) =>
       h('li', { key: i }, ...normalizeChildren(output(item, state)))
     )
@@ -355,7 +355,7 @@ function render(
   slug: (input: string, defaultFn: (input: string) => string) => string,
   refs: { [key: string]: { target: string; title: string | undefined } },
   options: VueOptions
-): VueChild | null {
+): VueChild[] | VueChild | null {
   const renderer = renderers[node.type]
   return renderer
     ? renderer(node, { h, output, state, sanitize, slug, refs, options })
@@ -417,9 +417,11 @@ const createRenderer = (
       state.key = i
       const nodeOut = renderRule(ast[i], renderer, state),
         isString = typeof nodeOut === 'string'
-      if (isString && lastWasString) {
+      if (lastWasString && typeof nodeOut === 'string') {
         // Concatenate consecutive strings
-        result[result.length - 1] += nodeOut
+        const last = result[result.length - 1]
+        result[result.length - 1] =
+          (typeof last === 'string' ? last : '') + nodeOut
       } else if (nodeOut !== null) {
         if (Array.isArray(nodeOut)) {
           // Use loop instead of spread for better performance
@@ -493,11 +495,11 @@ export type VueOptions = Omit<
   wrapperProps?: Record<string, unknown>
   /** Custom rendering function for AST rules */
   renderRule?: (
-    next: () => VueChild | null,
+    next: () => VueChild[] | VueChild | null,
     node: MarkdownToJSX.ASTNode,
     renderChildren: (children: MarkdownToJSX.ASTNode[]) => VueChild[] | VNode,
     state: MarkdownToJSX.State
-  ) => VueChild | null
+  ) => VueChild[] | VueChild | null
   /** Override configurations for HTML tags */
   overrides?: VueOverrides
 }

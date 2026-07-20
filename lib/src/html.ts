@@ -322,6 +322,9 @@ function _renderNode(
       }
       var codeAttrStr = formatAttributes(codeAttrs)
       var codeText = node.text || ''
+      // Known deviation from CommonMark: the spec keeps a code block's trailing
+      // newline (the scanners store node.text without it). No rendered
+      // difference, since a final empty line generates no line box.
       return '<pre><code' + codeAttrStr + '>' + escapeHtml(codeText) + '</code></pre>'
     }
 
@@ -740,7 +743,7 @@ export function astToHTML(
     overrides: overrides,
     hasOverrides: hasKeys(overrides),
     preserveFrontmatter: !!options.preserveFrontmatter,
-    tagfilter: !!options.tagfilter,
+    tagfilter: options.tagfilter !== false,
     forceInline: !!options.forceInline,
     renderRule: options.renderRule,
   }
@@ -864,12 +867,14 @@ export function astToHTML(
  */
 export function compiler(markdown: string, options?: HTMLOptions): string {
   var inline = options?.forceInline || false
+  // Capture slugify once (const, so the closure sees it definitely defined)
+  const userSlugify = options?.slugify
   var parseOptions: parse.ParseOptions = {
     ...options,
     overrides: options?.overrides as MarkdownToJSX.Overrides,
-    sanitizer: options?.sanitizer,
-    slugify: options?.slugify
-      ? function (i: string) { return options.slugify!(i, util.slugify) }
+    sanitizer: options?.sanitizer || util.sanitizer,
+    slugify: userSlugify
+      ? function (i: string) { return userSlugify(i, util.slugify) }
       : util.slugify,
     tagfilter: options?.tagfilter !== false,
   }

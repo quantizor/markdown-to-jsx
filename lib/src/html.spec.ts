@@ -1216,7 +1216,9 @@ describe('html compiler', () => {
             children: [],
           },
         ],
-        {}
+        // tagfilter off to exercise the closing-tag reconstruction on raw script
+        // output; the default-on escaping is covered by its own security test.
+        { tagfilter: false }
       )
       expect(result).toMatchInlineSnapshot(
         `"<script>console.log("test");</script>"`
@@ -1252,11 +1254,119 @@ describe('html compiler', () => {
             children: [],
           },
         ],
-        {}
+        // tagfilter off to exercise closing-tag insertion on raw script output.
+        { tagfilter: false }
       )
       expect(result).toMatchInlineSnapshot(
         `"<script>console.log("test");</script>"`
       )
+    })
+  })
+
+  describe('tagfilter escapes dangerous tags by default', () => {
+    // Regression: the render-time tag filter defaulted OFF, so the html compiler
+    // emitted live <script>/<iframe>/<style> despite the documented default-on
+    // protection. Both the compiler() entry and astToHTML must escape by default.
+    it('escapes script/iframe/style with default options via compiler()', () => {
+      expect(compiler('<script>alert(1)</script>')).toBe('&lt;script>')
+      expect(compiler('<iframe src=x></iframe>')).toBe('&lt;iframe src=x>')
+      expect(compiler('<style>*{}</style>')).toBe('&lt;style>')
+    })
+
+    it('escapes dangerous tags by default via astToHTML()', () => {
+      expect(astToHTML(parser('<script>alert(1)</script>'))).toBe('&lt;script>')
+    })
+
+    it('passes dangerous tags through only when tagfilter is explicitly disabled', () => {
+      expect(compiler('<script>x</script>', { tagfilter: false })).toBe(
+        '<script>x</script>'
+      )
+    })
+  })
+
+  describe('strips dangerous attributes from raw HTML', () => {
+    // Event handlers and dangerous-scheme URLs in raw HTML must never reach
+    // output; the html string compiler emits attributes verbatim, so it is the
+    // strictest test of the parser-level attribute stripping.
+    it('strips on* event handlers regardless of quoting or case', () => {
+      expect(compiler('<img src=x onerror=alert(1)>')).toBe('<img src=x>')
+      expect(compiler('<div onclick="alert(1)">hi</div>')).toBe('<div >hi</div>')
+      expect(compiler('<p onmouseover=alert(1)>hi</p>')).toBe('<p >hi</p>')
+      expect(compiler('<div OnClick="alert(1)">x</div>')).toBe('<div >x</div>')
+      expect(compiler('<svg onload=alert(1)>y</svg>')).toBe('<p><svg>y</svg></p>')
+    })
+
+    it('strips dangerous-scheme URL attributes', () => {
+      expect(compiler('<a href="javascript:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
+      expect(compiler('<a href="JAVASCRIPT:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
+      expect(compiler('<a href="vbscript:msgbox(1)">x</a>')).toBe('<p><a>x</a></p>')
+      expect(compiler('<a href="  javascript:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
+      expect(compiler('<form action="javascript:alert(1)"><button>x</button></form>')).toBe(
+        '<form ><button>x</button></form>'
+      )
+      expect(compiler('<object data="javascript:alert(1)"></object>')).toBe(
+        '<p><object></object></p>'
+      )
+      expect(compiler('<a xlink:href="javascript:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
+      expect(compiler('<video poster="javascript:alert(1)"></video>')).toBe(
+        '<p><video></video></p>'
+      )
+      expect(compiler('<blockquote cite="javascript:alert(1)">q</blockquote>')).toBe(
+        '<blockquote >q</blockquote>'
+      )
+    })
+
+    it('strips schemes hidden behind HTML entities (tab/newline)', () => {
+      expect(compiler('<a href="java&#9;script:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
+      expect(compiler('<a href="java&#10;script:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
+    })
+
+    it('strips dangerous data: URLs but keeps data:image', () => {
+      expect(compiler('<img src="data:text/html,<script>alert(1)</script>">')).toBe('<img >')
+      expect(compiler('<img src="data:image/png;base64,iVBOR">')).toBe(
+        '<img src="data:image/png;base64,iVBOR">'
+      )
+    })
+
+    it('strips srcdoc entirely', () => {
+      // iframe is tagfiltered by default; srcdoc must be gone before that.
+      expect(compiler('<iframe srcdoc="<img src=x onerror=alert(1)>"></iframe>')).toBe(
+        '&lt;iframe >'
+      )
+    })
+
+    it('strips handlers on verbatim tags and nested tags', () => {
+      expect(compiler('<pre onclick="alert(1)">code</pre>')).toBe('<pre >code</pre>')
+      expect(compiler('<div><img onerror=alert(1)></div>')).toBe('<div><img ></div>')
+    })
+
+    it('strips handlers nested in a container that also holds block-level markdown', () => {
+      // A container whose inner content mixes a block-level markdown line with
+      // raw HTML takes the non-verbatim raw-source emit path; its inner tags
+      // must still be sanitized.
+      expect(
+        compiler('<div>\n# Heading\n<a href="javascript:alert(1)">y</a>\n</div>')
+      ).toBe('<div>\n# Heading\n<a >y</a>\n</div>')
+      expect(
+        compiler('<div>\n# Heading\n<a href="/ok" onclick="alert(1)">y</a>\n</div>')
+      ).toBe('<div>\n# Heading\n<a href="/ok">y</a>\n</div>')
+    })
+
+    it('strips numeric-character-reference schemes without a trailing semicolon', () => {
+      // Browsers resolve a semicolon-less numeric reference (&#106avascript:
+      // becomes javascript:), so the scheme check must decode it too.
+      expect(compiler('<a href="&#106avascript:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
+      expect(compiler('<a href="j&#x61vascript:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
+      // A safe numeric entity in a URL is preserved.
+      expect(compiler('<a href="/s?a=1&#38;b=2">ok</a>')).toBe(
+        '<p><a href="/s?a=1&#38;b=2">ok</a></p>'
+      )
+    })
+
+    it('preserves safe attributes with original formatting', () => {
+      expect(
+        compiler('<a href="https://example.com" title="t" class="c" data-x="1">ok</a>')
+      ).toBe('<p><a href="https://example.com" title="t" class="c" data-x="1">ok</a></p>')
     })
   })
 

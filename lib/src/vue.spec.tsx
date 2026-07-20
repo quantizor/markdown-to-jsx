@@ -136,19 +136,18 @@ function findByTag(
 
 it('should throw if not passed a string (first arg)', () => {
   expect(() => compiler('')).not.toThrow()
-  // @ts-ignore
   expect(() => compiler()).not.toThrow()
-  // @ts-ignore
+  // @ts-expect-error -- negative-behavior test: non-string input must throw
   expect(() => compiler(1)).toThrow()
-  // @ts-ignore
+  // @ts-expect-error -- negative-behavior test: non-string input must throw
   expect(() => compiler(() => {})).toThrow()
-  // @ts-ignore
+  // @ts-expect-error -- negative-behavior test: non-string input must throw
   expect(() => compiler({})).toThrow()
-  // @ts-ignore
+  // @ts-expect-error -- negative-behavior test: non-string input must throw
   expect(() => compiler([])).toThrow()
-  // @ts-ignore
+  // @ts-expect-error -- negative-behavior test: non-string input must throw
   expect(() => compiler(null)).toThrow()
-  // @ts-ignore
+  // @ts-expect-error -- negative-behavior test: non-string input must throw
   expect(() => compiler(true)).toThrow()
 })
 
@@ -1154,14 +1153,14 @@ describe('createElement override', () => {
 describe('error handling', () => {
   it('should throw error for invalid overrides type', () => {
     expect(() => {
-      // @ts-ignore
+      // @ts-expect-error -- negative-behavior test: invalid overrides option must throw
       compiler('# Hello', { overrides: 'invalid' })
     }).toThrow('options.overrides')
   })
 
   it('should throw error for invalid overrides array', () => {
     expect(() => {
-      // @ts-ignore
+      // @ts-expect-error -- negative-behavior test: invalid overrides option must throw
       compiler('# Hello', { overrides: [] })
     }).toThrow('options.overrides')
   })
@@ -1270,5 +1269,16 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
     expect(
       serialize(compiler('<div>\n<span>a</span>\n</div>\ntail'))
     ).toMatchInlineSnapshot(`"<div><div><span>a</span></div> tail</div>"`)
+  })
+
+  it('never injects dangerous raw HTML attributes', () => {
+    // Vue injects verbatim blocks via innerHTML with no framework backstop,
+    // so the parser-level stripping is the only defense.
+    const dump = (s: string) => JSON.stringify(compiler(s))
+    expect(dump('<div><img onerror=alert(1)></div>')).not.toContain('onerror')
+    expect(dump('<pre onclick=alert(1)>code</pre>')).not.toContain('onclick')
+    const urls = dump('<div onclick="alert(1)"><a href="javascript:x">y</a></div>')
+    expect(urls).not.toContain('onclick')
+    expect(urls).not.toContain('javascript:')
   })
 })
