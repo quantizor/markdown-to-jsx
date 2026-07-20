@@ -15,6 +15,7 @@
     },
     "preserveConstEnums": true,
     "skipLibCheck": true,
+    "strict": true,
     "target": "ESNext"
   },
   "files": ["src/index.tsx"],

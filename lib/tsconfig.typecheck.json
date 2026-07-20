@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "files": [
+    "src/index.tsx",
+    "src/index.cjs.tsx",
+    "src/react.tsx",
+    "src/native.tsx",
+    "src/html.ts",
+    "src/markdown.ts",
+    "src/solid.tsx",
+    "src/vue.tsx"
+  ]
+}
