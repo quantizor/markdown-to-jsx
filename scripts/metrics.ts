@@ -31,37 +31,10 @@ if (targetArg === 'parser') {
   compiler = reactModule.compiler
   targetName = 'react'
 } else if (targetArg === 'react-native') {
-  const { mock } = await import('bun:test')
-  const React = (await import('react')) as typeof import('react')
-
-  const mockLinkingOpenURL = mock(() => Promise.resolve())
-
-  mock.module('react-native', () => {
-    const Text = React.forwardRef((props: any, ref: any) => {
-      return React.createElement('Text', { ...props, ref })
-    }) as any
-
-    const View = React.forwardRef((props: any, ref: any) => {
-      return React.createElement('View', { ...props, ref })
-    }) as any
-
-    const Image = React.forwardRef((props: any, ref: any) => {
-      return React.createElement('Image', { ...props, ref })
-    }) as any
-
-    return {
-      Text,
-      View,
-      Image,
-      Linking: {
-        openURL: mockLinkingOpenURL,
-        canOpenURL: async () => Promise.resolve(true),
-      },
-      StyleSheet: {
-        create: (styles: any) => styles,
-      },
-    }
-  })
+  // Reuse the canonical react-native mock so this harness cannot drift from the
+  // components native.tsx actually imports. Registering it must precede the
+  // native.tsx import so the mocked module resolves first.
+  await import('../lib/src/__mocks__/react-native.ts')
 
   const nativeModule = await import('../lib/src/native.tsx')
   compiler = nativeModule.compiler
