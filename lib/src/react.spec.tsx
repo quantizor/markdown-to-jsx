@@ -24,19 +24,18 @@ afterEach(() => {
 
 it('should throw if not passed a string (first arg)', () => {
   expect(() => compiler('')).not.toThrow()
-  // @ts-ignore
   expect(() => compiler()).not.toThrow()
-  // @ts-ignore
+  // @ts-expect-error -- negative-behavior test: non-string input must throw
   expect(() => compiler(1)).toThrow()
-  // @ts-ignore
+  // @ts-expect-error -- negative-behavior test: non-string input must throw
   expect(() => compiler(() => {})).toThrow()
-  // @ts-ignore
+  // @ts-expect-error -- negative-behavior test: non-string input must throw
   expect(() => compiler({})).toThrow()
-  // @ts-ignore
+  // @ts-expect-error -- negative-behavior test: non-string input must throw
   expect(() => compiler([])).toThrow()
-  // @ts-ignore
+  // @ts-expect-error -- negative-behavior test: non-string input must throw
   expect(() => compiler(null)).toThrow()
-  // @ts-ignore
+  // @ts-expect-error -- negative-behavior test: non-string input must throw
   expect(() => compiler(true)).toThrow()
 })
 
@@ -2932,21 +2931,21 @@ describe('options.slugify', () => {
 
   it('should throw error if invalid', () => {
     expect(() => {
-      // @ts-ignore
+      // @ts-expect-error -- negative-behavior test: invalid slugify option must throw
       render(compiler('# 中文', { slugify: 'invalid' }))
     }).toThrow()
   })
 
   it('should throw error if options.overrides is not an object', () => {
     expect(() => {
-      // @ts-ignore
+      // @ts-expect-error -- negative-behavior test: invalid overrides option must throw
       render(compiler('# test', { overrides: 'invalid' }))
     }).toThrow(/options\.overrides/)
   })
 
   it('should throw error if options.overrides is an array', () => {
     expect(() => {
-      // @ts-ignore
+      // @ts-expect-error -- negative-behavior test: invalid overrides option must throw
       render(compiler('# test', { overrides: [] }))
     }).toThrow(/options\.overrides/)
   })
@@ -3387,7 +3386,7 @@ describe('Markdown component', () => {
 
   it('throws error for non-string input to compiler', () => {
     expect(() => {
-      // @ts-ignore
+      // @ts-expect-error -- negative-behavior test: non-string input must throw
       compiler(123)
     }).toThrow(/must be/)
   })
@@ -3970,5 +3969,32 @@ describe('optimizeForStreaming with custom JSX overrides', () => {
     expect(root.innerHTML).toBe(
       '<span><button></button><button></button><button></button></span>'
     )
+  })
+})
+
+describe('strips dangerous raw HTML attributes', () => {
+  it('removes on* handlers and dangerous URLs while keeping safe attributes', () => {
+    render(compiler('<div onclick="alert(1)">hi</div>'))
+    expect(root.innerHTML).toBe('<div>hi</div>')
+
+    render(compiler('<a href="javascript:alert(1)" title="ok">x</a>'))
+    expect(root.innerHTML).toBe('<a title="ok">x</a>')
+
+    render(compiler('<div><p onmouseover=alert(1) title="t">hi</p></div>'))
+    expect(root.innerHTML).toBe('<div><p title="t">hi</p></div>')
+  })
+
+  it('preserves brace-expression props on component overrides', () => {
+    function MyComponent({ data, onClick }: { data?: number[]; onClick?: unknown }) {
+      return (
+        <span>{`${typeof onClick}:${Array.isArray(data) ? data.join(',') : 'none'}`}</span>
+      )
+    }
+    render(
+      compiler('<MyComponent onClick={handler} data={[1,2,3]} />', {
+        overrides: { MyComponent },
+      })
+    )
+    expect(root.innerHTML).toBe('<span>string:1,2,3</span>')
   })
 })

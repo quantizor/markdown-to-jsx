@@ -12,15 +12,38 @@ export { parser } from './parse'
 export { RuleType, type MarkdownToJSX } from './types'
 export { sanitizer, slugify } from './utils'
 
+/**
+ * JSX namespace anchor for this file's classic-runtime custom factory pragma.
+ * TypeScript resolves the JSX namespace from the factory identifier (h.JSX)
+ * before falling back to the global JSX namespace, which @types/react v19
+ * no longer declares. This namespace-only declaration exists purely at the
+ * type level and types every intrinsic element in this file via React's own
+ * JSX definitions; it emits nothing and merges with no runtime value.
+ * Do not name the pragma directive itself in prose here: Bun's runtime
+ * transpiler scans every comment for JSX pragma tokens and a quoted mention
+ * corrupts the factory name.
+ */
+declare namespace h {
+  export import JSX = React.JSX
+}
 
 /**
  * Symbol used by React to identify valid elements, auto-detected from the
  * installed React version. React 18 uses react.element, React 19+ uses
  * react.transitional.element, future versions may use something else.
+ * React's public element type does not expose `$$typeof`, so the probe
+ * narrows structurally instead of asserting.
  */
 var REACT_ELEMENT_TYPE: symbol
 try {
-  REACT_ELEMENT_TYPE = React.createElement('div').$$typeof
+  var probeElement: unknown = React.createElement('div')
+  REACT_ELEMENT_TYPE =
+    probeElement !== null &&
+    typeof probeElement === 'object' &&
+    '$$typeof' in probeElement &&
+    typeof probeElement.$$typeof === 'symbol'
+      ? probeElement.$$typeof
+      : Symbol.for('react.transitional.element')
 } catch (e) {
   REACT_ELEMENT_TYPE = Symbol.for('react.transitional.element')
 }
@@ -56,6 +79,23 @@ function createRawElement(
 }
 
 /**
+ * Build a props object of { key, ...jsx-mapped attrs } without the object
+ * spread: the spread helper (cloneObject) runs even when attrs is undefined,
+ * and HTML nodes without attributes are the common case in real documents.
+ */
+function keyedJsxProps(
+  key: any,
+  attrs: Record<string, any> | null | undefined
+): Record<string, any> {
+  var props: Record<string, any> = { key: key }
+  if (attrs) {
+    var jsx = util.htmlAttrsToJSXProps(attrs)
+    for (var k in jsx) props[k] = jsx[k]
+  }
+  return props
+}
+
+/**
  * React context for sharing compiler options across Markdown components
  *
  * Note: This is undefined in React Server Component environments where createContext is not available.
@@ -74,7 +114,7 @@ function render(
   h: (tag: any, props: any, ...children: any[]) => any,
   sanitize: (value: string, tag: string, attribute: string) => string | null,
   slug: (input: string, defaultFn: (input: string) => string) => string,
-  refs: { [key: string]: { target: string; title: string } },
+  refs: { [key: string]: { target: string; title: string | undefined } },
   options: MarkdownToJSX.Options,
   hJSX: (tag: any, props: any, ...children: any[]) => any
 ): React.ReactNode {
@@ -111,17 +151,16 @@ function render(
       const decodedLang = node.lang
         ? util.decodeEntityReferences(node.lang)
         : ''
-      return (
-        <pre key={state.key}>
-          <code
-            {...util.htmlAttrsToJSXProps(node.attrs)}
-            className={
-              decodedLang ? `language-${decodedLang} lang-${decodedLang}` : ''
-            }
-          >
-            {node.text}
-          </code>
-        </pre>
+      var codeProps: Record<string, any> = node.attrs
+        ? util.htmlAttrsToJSXProps(node.attrs)
+        : {}
+      codeProps.className = decodedLang
+        ? 'language-' + decodedLang + ' lang-' + decodedLang
+        : ''
+      return h(
+        'pre',
+        { key: state.key },
+        h('code', codeProps, node.text)
       )
 
     case RuleType.codeInline:
@@ -168,7 +207,8 @@ function render(
         // For verbatim blocks, always use rawText for rendering (CommonMark compliance)
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
-        const hasChildren = htmlNode.children && htmlNode.children.length > 0
+        const htmlChildren = htmlNode.children
+        const hasChildren = htmlChildren != null && htmlChildren.length > 0
 
         // Type 1 blocks (pre, script, style, textarea) always render verbatim
         if (isType1Block) {
@@ -178,13 +218,11 @@ function render(
             options.tagfilter
           )
           if (/<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)) {
-            return hJSX(node.tag, {
-              key: state.key,
-              ...util.htmlAttrsToJSXProps(node.attrs),
-              dangerouslySetInnerHTML: { __html: textContent },
-            })
+            var t1Props = keyedJsxProps(state.key, node.attrs)
+            t1Props.dangerouslySetInnerHTML = { __html: textContent }
+            return hJSX(node.tag, t1Props)
           }
-          return hJSX(node.tag, { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) }, textContent)
+          return hJSX(node.tag, keyedJsxProps(state.key, node.attrs), textContent)
         }
 
         // When the tag itself is filtered (e.g. <iframe>), prefer
@@ -193,8 +231,8 @@ function render(
         if (hasChildren && !ownTagStartR.test(htmlNode._rawText) && options.tagfilter && util.containsTagfilterTag(htmlNode._rawText)) {
           return hJSX(
             node.tag,
-            { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) },
-            output(htmlNode.children, state)
+            keyedJsxProps(state.key, node.attrs),
+            output(htmlChildren, state)
           )
         }
 
@@ -204,11 +242,9 @@ function render(
           const innerHtml = options.tagfilter
             ? util.applyTagFilterToText(htmlNode._rawText)
             : htmlNode._rawText
-          return hJSX(node.tag, {
-            key: state.key,
-            ...util.htmlAttrsToJSXProps(node.attrs),
-            dangerouslySetInnerHTML: { __html: innerHtml },
-          })
+          var vProps = keyedJsxProps(state.key, node.attrs)
+          vProps.dangerouslySetInnerHTML = { __html: innerHtml }
+          return hJSX(node.tag, vProps)
         }
         // For other verbatim blocks, re-parse rawText for JSX compilation
         // (children are available for renderRule but default uses rawText)
@@ -233,11 +269,11 @@ function render(
           if (htmlNode.children && htmlNode.children.length > 0) {
             return hJSX(
               node.tag,
-              { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) },
+              keyedJsxProps(state.key, node.attrs),
               output(htmlNode.children, state)
             )
           }
-          return hJSX(node.tag, { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) })
+          return hJSX(node.tag, keyedJsxProps(state.key, node.attrs))
         }
 
         const astNodes = parse.parseMarkdown(
@@ -266,8 +302,8 @@ function render(
         if (isFullOuterBlock && hasChildren) {
           return hJSX(
             node.tag,
-            { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) },
-            output(htmlNode.children, state)
+            keyedJsxProps(state.key, node.attrs),
+            output(htmlChildren, state)
           )
         }
         if (isFullOuterBlock) {
@@ -287,7 +323,7 @@ function render(
               children: [
                 hJSX(
                   node.tag,
-                  { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) },
+                  keyedJsxProps(state.key, node.attrs),
                   output(beforeProcessed, state)
                 ),
                 output(afterProcessed, state)
@@ -299,16 +335,16 @@ function render(
 
         return hJSX(
           node.tag,
-          { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) },
+          keyedJsxProps(state.key, node.attrs),
           output(astNodes.flatMap(util.processVerbatimNode), state)
         )
       }
       if (util.isVoidElement(node.tag)) {
-        return hJSX(node.tag, { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) })
+        return hJSX(node.tag, keyedJsxProps(state.key, node.attrs))
       }
       return hJSX(
         node.tag,
-        { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) },
+        keyedJsxProps(state.key, node.attrs),
         node.children ? output(node.children, state) : ''
       )
     }
@@ -328,7 +364,7 @@ function render(
         )
       }
 
-      return hJSX(node.tag, { key: state.key, ...util.htmlAttrsToJSXProps(node.attrs) })
+      return hJSX(node.tag, keyedJsxProps(state.key, node.attrs))
     }
 
     case RuleType.image: {
@@ -449,7 +485,7 @@ function render(
 const createRenderer = (
   userRender: MarkdownToJSX.Options['renderRule'],
   h: (
-    tag: string,
+    tag: MarkdownToJSX.HTMLTags,
     props: Parameters<MarkdownToJSX.CreateElement>[1] & {
       className?: string
       id?: string
@@ -458,16 +494,18 @@ const createRenderer = (
   ) => any,
   sanitize: (value: string, tag: string, attribute: string) => string | null,
   slug: (input: string, defaultFn: (input: string) => string) => string,
-  refs: { [key: string]: { target: string; title: string } },
+  refs: { [key: string]: { target: string; title: string | undefined } },
   options: MarkdownToJSX.Options,
   hJSX: (tag: any, props: any, ...children: any[]) => any
 ) => {
   var handleStackOverflow = (ast: MarkdownToJSX.ASTNode[]) =>
     ast.map(function(node) { return 'text' in node ? node.text : '' })
   var renderer = (
-    ast: MarkdownToJSX.ASTNode[],
+    astInput: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
     state: MarkdownToJSX.State = {}
-  ) => {
+  ): React.ReactNode[] => {
+    // The public ASTRender contract accepts a single node as well as a list
+    var ast = Array.isArray(astInput) ? astInput : [astInput]
     var depth = (state.renderDepth || 0) + 1
     if (depth > 2500) return handleStackOverflow(ast)
     state.renderDepth = depth
@@ -487,9 +525,12 @@ const createRenderer = (
         nodeOut = render(ast[i], renderer, state, h, sanitize, slug, refs, options, hJSX)
       }
       var isString = typeof nodeOut === 'string'
-      if (isString && lastWasString) {
-        // Concatenate consecutive strings
-        result[result.length - 1] += nodeOut
+      if (lastWasString && typeof nodeOut === 'string') {
+        // Concatenate consecutive strings. lastWasString guarantees the last
+        // entry is a string; the typeof re-check narrows it for the compiler.
+        var lastEntry = result[result.length - 1]
+        result[result.length - 1] =
+          (typeof lastEntry === 'string' ? lastEntry : '') + nodeOut
       } else if (nodeOut !== null) {
         if (Array.isArray(nodeOut)) {
           // Use loop instead of spread for better performance
@@ -509,7 +550,10 @@ const createRenderer = (
   return renderer
 }
 
-const getTag = (tag, overrides) => {
+const getTag = (
+  tag: string,
+  overrides: MarkdownToJSX.Overrides | undefined
+) => {
   const override = util.get(overrides, tag, undefined)
   return !override
     ? tag
@@ -577,7 +621,7 @@ export function astToJSX(
       className?: string
       id?: string
     },
-    ...children
+    ...children: any[]
   ) {
     var finalProps: any = props || {}
 
@@ -622,10 +666,12 @@ export function astToJSX(
     return h(tag, props, ...children)
   }
 
+  // Capture once so the adapter closure below sees a definitely-defined function
+  const userSlugify = opts.slugify
   const parseOptions: parse.ParseOptions = {
     ...opts,
     // Fast path: when no user slugify, pass util.slugify directly (no closure)
-    slugify: opts.slugify ? (i => opts.slugify!(i, util.slugify)) : util.slugify,
+    slugify: userSlugify ? i => userSlugify(i, util.slugify) : util.slugify,
     sanitizer: sanitize,
     tagfilter: opts.tagfilter !== false,
   }
@@ -640,7 +686,7 @@ export function astToJSX(
   const arr = emitter(ast, {
     inline: opts.forceInline,
     refs: refs,
-  }) as React.ReactNode[]
+  })
 
   const footnoteEntries = util.extractFootnoteEntries(refs)
 
@@ -686,13 +732,11 @@ export function astToJSX(
     return null
   }
 
-  var wrapperProps = opts.wrapperProps ? { ...opts.wrapperProps } : {}
+  var wrapperProps: Record<string, unknown> = opts.wrapperProps
+    ? { ...opts.wrapperProps }
+    : {}
   wrapperProps.children = jsx
-  return createRawElement(
-    wrapper,
-    wrapperProps,
-    'outer'
-  ) as React.JSX.Element
+  return createRawElement(wrapper, wrapperProps, 'outer')
 }
 
 /**
@@ -716,10 +760,12 @@ export function compiler(
     const inline =
       opts.forceInline ||
       (!opts.forceBlock && !util.SHOULD_RENDER_AS_BLOCK_R.test(input))
+    // Capture once so the adapter closure below sees a definitely-defined function
+    const userSlugify = opts.slugify
     const parseOptions: parse.ParseOptions = {
       ...opts,
       // Fast path: when no user slugify, pass util.slugify directly (no closure)
-      slugify: opts.slugify ? (i => opts.slugify!(i, util.slugify)) : util.slugify,
+      slugify: userSlugify ? i => userSlugify(i, util.slugify) : util.slugify,
       sanitizer: sanitize,
       tagfilter: opts.tagfilter !== false,
     }
@@ -839,8 +885,13 @@ export const Markdown: React.FC<
     return compiler(content, mergedOptions) as React.ReactElement
   }
 
-  // Client path: existing hook-based implementation
-  const contextOptions = React.useContext(MarkdownContext!)
+  // Client path: existing hook-based implementation. hasHooks implies
+  // createContext was available, so MarkdownContext exists here; the guard
+  // expresses that without a non-null assertion. The condition is constant
+  // for the lifetime of the module, so hook order is stable.
+  const contextOptions = MarkdownContext
+    ? React.useContext(MarkdownContext)
+    : undefined
   const stableProps = useShallowStable(props)
   const mergedOptions = React.useMemo(
     () => ({

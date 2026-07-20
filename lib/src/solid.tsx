@@ -52,7 +52,7 @@ function render(
   h: (tag: HTag, props: HProps, ...children: HChildren[]) => JSX.Element,
   sanitize: (value: string, tag: string, attribute: string) => string | null,
   slug: (input: string, defaultFn: (input: string) => string) => string,
-  refs: { [key: string]: { target: string; title: string } },
+  refs: { [key: string]: { target: string; title: string | undefined } },
   options: SolidOptions
 ): JSX.Element | string | null {
   switch (node.type) {
@@ -342,7 +342,7 @@ const createRenderer = (
   ) => JSX.Element,
   sanitize: (value: string, tag: string, attribute: string) => string | null,
   slug: (input: string, defaultFn: (input: string) => string) => string,
-  refs: { [key: string]: { target: string; title: string } },
+  refs: { [key: string]: { target: string; title: string | undefined } },
   options: SolidOptions
 ) => {
   const renderRule = (
@@ -579,7 +579,7 @@ export function astToJSX(
     ) => JSX.Element,
     sanitize,
     slug,
-    refs as { [key: string]: { target: string; title: string } },
+    refs,
     opts
   )
 
