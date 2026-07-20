@@ -470,13 +470,13 @@ const vnode2 = astToJSX(ast)
 HTML स्ट्रिंग आउटपुट (सर्वर-साइड रेंडरिंग) के लिए, `/html` एंट्री पॉइंट से इम्पोर्ट करें:
 
 ```tsx
-import { compiler, html, parser } from 'markdown-to-jsx/html'
+import { compiler, astToHTML, parser } from 'markdown-to-jsx/html'
 
 const htmlString = compiler('# नमस्कार दुनिया')
 
-/** या parser + html का उपयोग करें */
+/** या parser + astToHTML का उपयोग करें */
 const ast = parser('# नमस्कार दुनिया')
-const htmlString2 = html(ast)
+const htmlString2 = astToHTML(ast)
 ```
 
 <h4 id="markdown">Markdown</h4>
@@ -843,7 +843,7 @@ compiler('One\n\nTwo\n\nThree', { wrapper: null })[
 
 <h3 id="syntax-highlighting">सिंटैक्स हाइलाइटिंग</h3>
 
-भाषा एनोटेशन के साथ [fenced code blocks](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) का उपयोग करते समय, वह भाषा `<code>` एलिमेंट में `class="lang-${language}"` के रूप में जोड़ी जाएगी। सर्वोत्तम परिणामों के लिए, आप `options.overrides` का उपयोग करके `highlight.js` का उपयोग करके इस तरह एक उपयुक्त सिंटैक्स हाइलाइटिंग एकीकरण प्रदान कर सकते हैं:
+भाषा एनोटेशन के साथ [fenced code blocks](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) का उपयोग करते समय, वह भाषा `<code>` एलिमेंट में `class="language-${language}"` के रूप में जोड़ी जाएगी। JSX रेंडरर (React, React Native, Solid, Vue) इसके साथ लीगेसी `lang-${language}` भी जोड़ते हैं। सर्वोत्तम परिणामों के लिए, आप `options.overrides` का उपयोग करके `highlight.js` का उपयोग करके इस तरह एक उपयुक्त सिंटैक्स हाइलाइटिंग एकीकरण प्रदान कर सकते हैं:
 
 ```html
 <!-- अपने पेज <head> में निम्नलिखित टैग जोड़ें ताकि hljs और स्टाइल्स स्वचालित रूप से लोड हों: -->

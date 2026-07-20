@@ -471,13 +471,13 @@ const vnode2 = astToJSX(ast)
 For HTML string output (server-side rendering), import from the `/html` entry point:
 
 ```tsx
-import { compiler, html, parser } from 'markdown-to-jsx/html'
+import { compiler, astToHTML, parser } from 'markdown-to-jsx/html'
 
 const htmlString = compiler('# Hello world')
 
-/** Or use parser + html */
+/** Or use parser + astToHTML */
 const ast = parser('# Hello world')
-const htmlString2 = html(ast)
+const htmlString2 = astToHTML(ast)
 ```
 
 #### Markdown
@@ -844,7 +844,7 @@ Props to apply to the wrapper element when `wrapper` is used.
 
 ### Syntax highlighting
 
-When using [fenced code blocks](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) with language annotation, that language will be added to the `<code>` element as `class="lang-${language}"`. For best results, you can use `options.overrides` to provide an appropriate syntax highlighting integration like this one using `highlight.js`:
+When using [fenced code blocks](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) with language annotation, that language will be added to the `<code>` element as `class="language-${language}"`. The JSX renderers (React, React Native, Solid, Vue) add a legacy `lang-${language}` alongside it. For best results, you can use `options.overrides` to provide an appropriate syntax highlighting integration like this one using `highlight.js`:
 
 ```html
 <!-- Add the following tags to your page <head> to automatically load hljs and styles: -->

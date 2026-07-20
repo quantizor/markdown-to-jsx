@@ -34,6 +34,7 @@
   "files": [
     "dist",
     "LICENSE",
+    "llms.txt",
     "README.md",
     "package.json",
     "src/entities.generated.ts"

@@ -21,3 +21,7 @@ Add a corpus case when it is fixed.
 - Raw HTML blocks are not emitted verbatim: inter-tag whitespace and interior newlines are lost because the parser turns HTML into structured element nodes for the JSX renderers (CommonMark ex 150, 191). Semantic content is correct. Restoring verbatim bytes would require carrying a parallel source range through the AST.
 - Code blocks omit the CommonMark trailing newline (`<pre><code>foo</code></pre>` vs the spec's `foo\n`). Established output shape, no rendered difference (a final empty line generates no line box).
 
+## Renderer drift
+
+- Fenced code block class names differ by renderer: the JSX renderers (react, native, solid, vue) emit `language-js lang-js` while the html string compiler emits `language-js` alone. `language-` is what hljs and prism key on and is the one to keep; `lang-` is legacy. Aligning them means either adding a duplicate class to html output or dropping `lang-` from the JSX renderers, and both change published output bytes, so it needs a maintainer call and a major or a clearly-flagged minor.
+

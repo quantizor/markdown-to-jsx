@@ -470,13 +470,13 @@ const vnode2 = astToJSX(ast)
 对于 HTML 字符串输出 (服务端渲染)，从 `/html` 入口点导入：
 
 ```tsx
-import { compiler, html, parser } from 'markdown-to-jsx/html'
+import { compiler, astToHTML, parser } from 'markdown-to-jsx/html'
 
 const htmlString = compiler('# 你好世界')
 
-/** 或者使用 parser + html */
+/** 或者使用 parser + astToHTML */
 const ast = parser('# 你好世界')
-const htmlString2 = html(ast)
+const htmlString2 = astToHTML(ast)
 ```
 
 #### Markdown
@@ -837,7 +837,7 @@ compiler('One\n\nTwo\n\nThree', { wrapper: null })[
 
 ### 语法高亮 (Syntax highlighting)
 
-使用带有语言注释的[围栏代码块 (Fenced code blocks)](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) 时，该语言将作为 `class="lang-${language}"` 添加到 `<code>` 元素中。为了获得最佳效果，您可以使用 `options.overrides` 提供适当的语法高亮集成，例如下面这个使用 `highlight.js` 的示例：
+使用带有语言注释的[围栏代码块 (Fenced code blocks)](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) 时，该语言将作为 `class="language-${language}"` 添加到 `<code>` 元素中。JSX 渲染器（React、React Native、Solid、Vue）会同时添加旧版的 `lang-${language}`。为了获得最佳效果，您可以使用 `options.overrides` 提供适当的语法高亮集成，例如下面这个使用 `highlight.js` 的示例：
 
 ```html
 <!-- 将以下标签添加到页面的 <head> 中以自动加载 hljs 和样式： -->

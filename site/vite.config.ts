@@ -12,11 +12,10 @@ function copyLlmsTxtPlugin(): Plugin {
   return {
     name: 'copy-llms-txt',
     closeBundle() {
-      var readmePath = join(rootDir, 'lib', 'README.md')
+      var sourcePath = join(rootDir, 'lib', 'llms.txt')
       var outputPath = join(rootDir, 'docs', 'llms.txt')
-      var readmeContent = readFileSync(readmePath, 'utf-8')
       mkdirSync(join(rootDir, 'docs'), { recursive: true })
-      writeFileSync(outputPath, readmeContent, 'utf-8')
+      writeFileSync(outputPath, readFileSync(sourcePath, 'utf-8'), 'utf-8')
     },
   }
 }
