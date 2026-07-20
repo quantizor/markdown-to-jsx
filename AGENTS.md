@@ -46,6 +46,7 @@ Minimize allocations in hot paths. Use segment tracking (start/end indices, slic
 Measure, don't guess. Never optimize without profiling. Bottlenecks occur in surprising places. But when you find the critical path, optimize it ruthlessly. Use the largest benchmark (`gfm-spec.md`, 211KB) to surface O(n*m) issues.
 - Use `bun profile` to identify hot lines. The `--cpu-prof-md` flag produces a markdown-formatted profile (`CPU.*.md`)
 - Use `bun metrics` (run 3x) to check parser performance when changing library code
+- When comparing a branch against `main` (not just checking stability), interleave samples: alternate single runs between the two variants rather than running all of one then all of the other. Run-to-run variance here is large enough that sequential blocks fake a directional signal from short-timescale system drift; interleaving cancels it. Re-baseline (`bun metrics --target <name> -u`) in the release flow so the stored baseline does not drift stale and misreport unrelated movement as regression.
 
 Tests are the source of truth; never work around them.
 - The main branch always has a 100% pass rate. Broken tests are due to changes in the current branch, not the suite itself
@@ -67,6 +68,8 @@ Commit messages serve their audience. Public: user-facing impact. Private: techn
 - Public code: focus on how the change benefits users. Ensure noteworthy changes and bugfixes have a changeset
 - Private/infra code: focus on how the change benefits the codebase
 - Changesets and PR descriptions are public-facing only. Describe the perceived change to users in plain terms. No internal mechanics, file paths, flag names, or parser/AST terminology
+
+Prose in commits, changesets, PR descriptions, comments, and docs follows one house style. American English (color, recognize, center). Plain language over jargon; define a rare term on first use. No em-dashes: use a colon, comma, period, or and/or/but instead. No attribution footers (no "Generated with", "Co-authored-by", or similar) on commits, PRs, files, or any output. Public-facing writing is first-person from the maintainer and warm toward contributors.
 
 Rules must be maximally concise and actionable. No decoration, no meta-commentary, no examples unless critical.
 - Optimize for token efficiency: no bold/emphasis, headers, or stylistic formatting in rules
@@ -90,10 +93,15 @@ Library code must be fully self-contained at runtime. Zero network dependencies,
 ## Coding Style
 
 - Prefer `$.CHAR_*` constants from `lib/src/constants.ts` over raw char code numbers for readability (e.g., `$.CHAR_SPACE` instead of `32`)
+- Types are law. Do not reach for escape hatches (`as any`, non-null `!`, `@ts-expect-error`, `@ts-nocheck`); if a type will not check, restructure the code to express it properly. A `@ts-expect-error` used to assert a negative-type behavior is a test and must be marked as such.
+- Block comments (`/** */`) on exported members, functions, types, and fields so they surface as hover docs; line comments are fine for in-body notes. Comments disambiguate the CURRENT code, never narrate edits or history.
+- Alphabetize fields in type/interface declarations and object literals by default; keep a non-alphabetical order only when it is load-bearing and say why in a comment. Applies to code you write and nearby code you edit, not a mandate to reorder untouched files.
+- Backward compatibility is required only for public API surfaces (exported functions, types, and options); internal code is free to change.
 
 ## Reference Documents
 
 - [compiler-wisdom.md](compiler-wisdom.md) -- Read before designing or optimizing parser/compiler code. Covers production compiler techniques (AST design, scanner optimization, string handling, parallelism) and practitioner wisdom from 20 engineering legends.
+- [BACKLOG.md](BACKLOG.md) -- Open work and known issues.
 
 ## Library Priorities
 
@@ -140,7 +148,7 @@ There are six output compilers: react, native, solid, vue, html, markdown. Any c
 - Technical documentation standards: Simplified Chinese (Mandarin, 普通话), Modern Standard Hindi (मानक हिन्दी with formal आप pronoun).
 - Code examples: Keep API names, package names, technical constants in English. Translate text content within code blocks (string literals, user-facing text, natural language comments, example markdown text) while preserving syntax and markup.
 - Do not add `@lang` JSDoc tags or inline translations to source code. Keep JSDoc English-only.
-- Updates to `README.md` or public API documentation must be mirrored in all `lib/src/i18n/{lang}/` files.
+- `lib/README.md` is the single source for library docs, and `docs/llms.txt` builds from it alone. Any edit to it must propagate in the same change to every `lib/src/i18n/{lang}/README.md`: copy `lib/README.md` verbatim into `en/README.md` (an exact mirror), and translate the changed sections into `hi` and `zh` per their `.cursor/rules/i18n-{lang}.mdc`. `validate-i18n` checks only file and UI-string completeness, not README content, so verify parity by hand: equal fenced-code-block counts across all four files (`grep -c '^\`\`\`'`), every translated table-of-contents anchor resolving to a heading in its own file, and every `lib/README.md` section present in each translation. Keep code identifiers, API names, and anchors as each file already does.
 - Changesets are English-only. Do not translate changeset bodies.
 - Run `bun run validate-i18n` before committing any i18n or documentation changes.
 - New languages should have a PATCH changeset.
