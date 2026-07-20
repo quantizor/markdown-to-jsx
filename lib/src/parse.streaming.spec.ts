@@ -54,14 +54,27 @@ describe('Streaming optimization - code blocks', () => {
 })
 
 describe('Streaming optimization - tables', () => {
-  it('should show incomplete table as plain text', () => {
+  it('should suppress a lone header line before its delimiter arrives', () => {
     const html = htmlCompiler('| Header |', {
       optimizeForStreaming: true,
     })
 
-    // Should render as paragraph/text, not table
+    // A leading-pipe line mid-stream is a probable incomplete table header;
+    // suppress it so raw pipes do not flash before the delimiter row arrives.
     expect(html).not.toContain('<table>')
-    expect(html).toContain('Header')
+    expect(html).not.toContain('|')
+    expect(html).not.toContain('Header')
+  })
+
+  it('should suppress a header line that arrives before its delimiter', () => {
+    const html = htmlCompiler('Intro text.\n\n| Name | Age |', {
+      optimizeForStreaming: true,
+    })
+
+    expect(html).toContain('Intro text.')
+    expect(html).not.toContain('<table>')
+    expect(html).not.toContain('|')
+    expect(html).not.toContain('Name')
   })
 
   it('should suppress table with header and separator but no data rows', () => {
@@ -94,6 +107,59 @@ describe('Streaming optimization - tables', () => {
     expect(html).not.toContain('<table>')
     expect(html).not.toContain('|')
     expect(html).not.toContain('---')
+  })
+
+  // Progressive check: feed each document one character at a time (the strictest
+  // superset of any token boundary an LLM could stream) and assert no in-flight
+  // prefix flashes raw table syntax outside a rendered <table>.
+  const progressiveDocs: Record<string, string> = {
+    'aligned delimiters': '| L | R |\n| :--- | ---: |\n| 1 | 2 |\n',
+    'single column': 'text\n\n| Only |\n| --- |\n| a |\n',
+    'table after paragraph':
+      'Here is a table:\n\n| Name | Age |\n| --- | --- |\n| Ann | 30 |\n| Bob | 25 |\n\nDone.',
+    'table at start': '| Name | Age |\n| --- | --- |\n| Ann | 30 |\n',
+    'three column': '| A | B | C |\n| --- | --- | --- |\n| 1 | 2 | 3 |\n',
+  }
+  for (const [name, doc] of Object.entries(progressiveDocs)) {
+    it(`never flashes raw table syntax while streaming: ${name}`, () => {
+      for (let n = 1; n <= doc.length; n++) {
+        const html = htmlCompiler(doc.slice(0, n), { optimizeForStreaming: true })
+        const outsideTable = html.replace(/<table[\s\S]*?<\/table>/g, '')
+        expect({ prefixLength: n, outsideTable }).toEqual({
+          prefixLength: n,
+          outsideTable: expect.not.stringContaining('|'),
+        })
+      }
+    })
+  }
+
+  it('never hides a table after it has appeared (no flicker between rows)', () => {
+    // A multi-row table: once the first body row makes the table renderable, no
+    // longer prefix may drop it, even at the moment a finished row is followed by
+    // the next row's opening pipe (`| 1 | 2 |\n|`).
+    const doc = '| A | B |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |\n'
+    let appeared = false
+    for (let n = 1; n <= doc.length; n++) {
+      const hasTable = htmlCompiler(doc.slice(0, n), {
+        optimizeForStreaming: true,
+      }).includes('<table>')
+      if (hasTable) appeared = true
+      expect({ prefixLength: n, hasTable: appeared ? hasTable : false }).toEqual({
+        prefixLength: n,
+        hasTable: appeared ? true : false,
+      })
+    }
+    expect(appeared).toBe(true)
+  })
+
+  it('renders the complete table once the final rows arrive', () => {
+    const html = htmlCompiler(
+      '| Name | Age |\n| --- | --- |\n| Ann | 30 |\n| Bob | 25 |',
+      { optimizeForStreaming: true }
+    )
+    expect(html).toContain('<table>')
+    expect(html).toContain('Ann')
+    expect(html).toContain('Bob')
   })
 })
 

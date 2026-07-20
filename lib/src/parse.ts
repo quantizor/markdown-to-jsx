@@ -17,7 +17,6 @@ import { CC as _CC, C_WS, C_NL, C_PUNCT, C_ALPHA, C_DIGIT, C_BLOCK, C_INLINE, UN
 // Type export
 export type ParseOptions = Omit<MarkdownToJSX.Options, 'slugify'> & {
   slugify: (input: string) => string
-  sanitizer: (tag: string, attr: string, value: string) => string | null
   tagfilter?: boolean
   forceBlock?: boolean
   inList?: boolean
@@ -116,6 +115,157 @@ function isDelimiterRow(s: string, start: number, end: number): boolean {
   return cellCount > 0
 }
 
+/**
+ * URL-bearing HTML attributes whose value can smuggle a dangerous scheme
+ * (javascript:, vbscript:, or non-image data:). Their values are checked with
+ * util.sanitizer after entity decoding; a null result means the attribute is
+ * dropped. srcdoc is handled separately (dropped outright as it is raw HTML).
+ */
+/** C0 control characters and DEL, stripped from a URL before the scheme check. */
+const CONTROL_CHARS_R = /[\u0000-\u001F\u007F]/g
+
+const URL_BEARING_ATTRS: { [name: string]: 1 } = {
+  action: 1,
+  background: 1,
+  cite: 1,
+  data: 1,
+  formaction: 1,
+  href: 1,
+  longdesc: 1,
+  poster: 1,
+  src: 1,
+  'xlink:href': 1,
+}
+
+/**
+ * Numeric character references, tolerating a missing trailing semicolon. A
+ * browser decodes `&#106avascript:` to `javascript:` (a semicolon-less numeric
+ * reference is a parse error but still resolved), so the scheme check must too.
+ */
+const NUMERIC_ENTITY_R = /&#(x[0-9a-f]+|[0-9]+);?/gi
+
+/**
+ * Resolve semicolon-optional numeric character references so an obfuscated URL
+ * scheme is caught. Used only to normalize a value before the scheme check,
+ * never to rewrite the emitted attribute.
+ */
+function decodeNumericEntities(value: string): string {
+  if (value.indexOf('&#') === -1) return value
+  return value.replace(NUMERIC_ENTITY_R, function (full, body) {
+    var code =
+      body.charCodeAt(0) === $.CHAR_x || body.charCodeAt(0) === $.CHAR_X
+        ? parseInt(body.slice(1), 16)
+        : parseInt(body, 10)
+    return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : full
+  })
+}
+
+/**
+ * Decide whether a raw HTML attribute must be stripped for safety. String-valued
+ * event handlers (on* attributes) and srcdoc are removed; a bare boolean on* on a
+ * component-like tag is a prop rather than a handler string, so it is kept.
+ * URL-bearing attributes are removed only when their value resolves to a
+ * dangerous scheme.
+ * The scheme check is intentionally independent of any caller-supplied
+ * sanitizer so the raw HTML path is secure by default.
+ *
+ * A JSX brace-expression value ({...}) is a component prop resolved by the
+ * library (see processHTMLAttributes), not a raw-HTML inline-handler string, so
+ * it is never the XSS vector and is always kept. Only string-literal values
+ * (quoted or unquoted) are the classic injection vector and are stripped.
+ */
+function isDangerousAttr(
+  name: string,
+  value: string,
+  isComponent: boolean
+): boolean {
+  // A JSX brace-expression value ({...}) on a component-like tag is a prop the
+  // renderer resolves, so it is kept. On a standard HTML tag it is not a prop,
+  // and an on*/dangerous-URL brace value would still emit an executable handler
+  // in string output, so it is screened like any other value.
+  if (isComponent && value.charCodeAt(0) === $.CHAR_BRACE_OPEN) return false
+  var c0 = name.charCodeAt(0)
+  var c1 = name.charCodeAt(1)
+  // on* event handlers (case-insensitive), e.g. onclick, onerror, onload
+  if (
+    (c0 === $.CHAR_o || c0 === $.CHAR_O) &&
+    (c1 === $.CHAR_n || c1 === $.CHAR_N)
+  ) {
+    // A bare boolean on* on a component-like tag (`<MyComponent onClick />`) is a
+    // prop set to true, not a string-valued inline handler, so keep it. A
+    // string-valued on*, and any on* on a standard HTML tag, is still stripped.
+    return !(isComponent && value === '')
+  }
+  var lower = name.toLowerCase()
+  if (lower === 'srcdoc') return true
+  if (URL_BEARING_ATTRS[lower] === 1) {
+    var decoded = decodeNumericEntities(util.decodeEntityReferences(value))
+    if (util.sanitizer(decoded) === null) return true
+    // Browsers ignore ASCII tab/newline/CR (and other C0 controls) when
+    // resolving a URL scheme, so java&#9;script: becomes javascript:. Strip
+    // those and recheck; the raw value is otherwise left untouched.
+    var normalized = decoded.replace(CONTROL_CHARS_R, '')
+    return normalized !== decoded && util.sanitizer(normalized) === null
+  }
+  return false
+}
+
+/**
+ * Reassemble a raw opening-tag string from a parsed tag whose dangerous
+ * attributes were stripped. Byte output matches the safe reconstruction, not
+ * the original source; only called when the tag actually had a dangerous
+ * attribute, so safe tags keep their verbatim bytes elsewhere.
+ */
+function reconstructOpenTag(tagResult: {
+  tag: string
+  rawAttrs: string
+  whitespaceBeforeAttrs: string
+  selfClosing: boolean
+  hasSpaceBeforeSlash: boolean
+  isClosing: boolean
+}): string {
+  return (
+    '<' +
+    (tagResult.isClosing ? '/' : '') +
+    tagResult.tag +
+    tagResult.whitespaceBeforeAttrs +
+    tagResult.rawAttrs +
+    (tagResult.selfClosing
+      ? tagResult.hasSpaceBeforeSlash
+        ? ' />'
+        : '/>'
+      : '>')
+  )
+}
+
+/**
+ * Rebuild a raw attribute string from safe attribute spans, dropping the
+ * source spans of dangerous attributes. Inter-attribute whitespace is
+ * normalized to a single space; whitespace inside a value is preserved.
+ */
+function buildSafeRawAttrs(
+  source: string,
+  from: number,
+  to: number,
+  dangerSpans: number[]
+): string {
+  var parts: string[] = []
+  var cursor = from
+  for (var k = 0; k < dangerSpans.length; k += 2) {
+    var spanStart = dangerSpans[k]
+    if (spanStart > cursor) {
+      var seg = source.slice(cursor, spanStart).trim()
+      if (seg) parts.push(seg)
+    }
+    cursor = dangerSpans[k + 1]
+  }
+  if (cursor < to) {
+    var tail = source.slice(cursor, to).trim()
+    if (tail) parts.push(tail)
+  }
+  return parts.join(' ')
+}
+
 // Parse an HTML tag at position
 function __parseHTMLTag(
   source: string,
@@ -129,6 +279,8 @@ function __parseHTMLTag(
   whitespaceBeforeAttrs: string
   isClosing: boolean
   hasSpaceBeforeSlash: boolean
+  /** True when one or more dangerous attributes were stripped from this tag. */
+  sanitized: boolean
 } | null {
   if (source.charCodeAt(pos) !== $.CHAR_LT) return null // <
 
@@ -149,6 +301,14 @@ function __parseHTMLTag(
   const tag = source.slice(nameStart, i)
   if (!tag) return null
 
+  // Component-like tags (a capitalized JSX component or a hyphenated custom
+  // element) take brace-expression attributes as renderer-resolved props;
+  // standard HTML tags do not, so brace on*/URL values on them stay screened.
+  const tagFirstChar = tag.charCodeAt(0)
+  const isComponentTag =
+    (tagFirstChar >= $.CHAR_A && tagFirstChar <= $.CHAR_Z) ||
+    tag.indexOf('-') !== -1
+
   const wsStart = i
   while (i < len && (source.charCodeAt(i) === $.CHAR_SPACE || source.charCodeAt(i) === $.CHAR_TAB || source.charCodeAt(i) === $.CHAR_NEWLINE)) i++
   const whitespaceBeforeAttrs = source.slice(wsStart, i)
@@ -160,21 +320,30 @@ function __parseHTMLTag(
   const attrStartPos = i
   const attrs: Record<string, string> = {}
   let hasSpaceBeforeSlash = false
+  /**
+   * Source spans [start, end, ...] of dangerous attributes, recorded lazily.
+   * Stays null on the common safe path so rawAttrs uses the fast raw slice.
+   */
+  var dangerSpans: number[] | null = null
 
   while (i < len) {
     const c = source.charCodeAt(i)
     if (c === $.CHAR_GT) { // >
-      const rawAttrs = source.slice(attrStartPos, i)
-      return { tag, attrs, selfClosing: false, end: i + 1, rawAttrs, whitespaceBeforeAttrs, isClosing, hasSpaceBeforeSlash }
+      const rawAttrs = dangerSpans
+        ? buildSafeRawAttrs(source, attrStartPos, i, dangerSpans)
+        : source.slice(attrStartPos, i)
+      return { tag, attrs, selfClosing: false, end: i + 1, rawAttrs, whitespaceBeforeAttrs, isClosing, hasSpaceBeforeSlash, sanitized: dangerSpans !== null }
     }
     if (c === $.CHAR_SPACE || c === $.CHAR_TAB || c === $.CHAR_NEWLINE) {
       i++
       continue
     }
     if (c === $.CHAR_SLASH && i + 1 < len && source.charCodeAt(i + 1) === $.CHAR_GT) { // />
-      const rawAttrs = source.slice(attrStartPos, i)
       hasSpaceBeforeSlash = i > attrStartPos && source.charCodeAt(i - 1) === $.CHAR_SPACE
-      return { tag, attrs, selfClosing: true, end: i + 2, rawAttrs, whitespaceBeforeAttrs, isClosing, hasSpaceBeforeSlash }
+      const rawAttrs = dangerSpans
+        ? buildSafeRawAttrs(source, attrStartPos, i, dangerSpans)
+        : source.slice(attrStartPos, i)
+      return { tag, attrs, selfClosing: true, end: i + 2, rawAttrs, whitespaceBeforeAttrs, isClosing, hasSpaceBeforeSlash, sanitized: dangerSpans !== null }
     }
 
     // Parse attribute name per CommonMark: [a-zA-Z_:][a-zA-Z0-9_.:-]*
@@ -192,68 +361,114 @@ function __parseHTMLTag(
       } else break
     }
     var attrName = source.slice(attrStart, i)
+    var attrNameEnd = i
 
     // Skip whitespace
     while (i < len && (source.charCodeAt(i) === $.CHAR_SPACE || source.charCodeAt(i) === $.CHAR_TAB)) i++
 
+    var attrValue: string
+    var attrEnd: number
     // Check for =
     if (source.charCodeAt(i) !== $.CHAR_EQ) {
-      attrs[attrName] = ''
-      continue
-    }
-    i++ // skip =
-
-    // Skip whitespace
-    while (i < len && (source.charCodeAt(i) === $.CHAR_SPACE || source.charCodeAt(i) === $.CHAR_TAB)) i++
-
-    // Parse value
-    var quote = source.charCodeAt(i)
-    if (quote === $.CHAR_DOUBLE_QUOTE || quote === $.CHAR_SINGLE_QUOTE) { // " or '
-      i++
-      var valueStart = i
-      // Newlines are allowed in quoted attribute values per CommonMark
-      while (i < len && source.charCodeAt(i) !== quote) i++
-      if (i >= len) return null // unclosed quote
-      attrs[attrName] = source.slice(valueStart, i)
-      i++ // skip closing quote
-      // After a quoted value, next must be whitespace, >, or />
-      if (i < len) {
-        var afterQuote = source.charCodeAt(i)
-        if (afterQuote !== $.CHAR_SPACE && afterQuote !== $.CHAR_TAB && afterQuote !== $.CHAR_NEWLINE &&
-            afterQuote !== $.CHAR_GT && afterQuote !== $.CHAR_SLASH) return null
-      }
-    } else if (quote === $.CHAR_BRACE_OPEN) { // {
-      var depth = 1
-      var valueStart = i
-      i++
-      while (i < len && depth > 0) {
-        var ac = source.charCodeAt(i)
-        if (ac === $.CHAR_BRACE_OPEN) depth++
-        else if (ac === $.CHAR_BRACE_CLOSE) depth--
-        i++
-      }
-      attrs[attrName] = source.slice(valueStart, i)
+      // Boolean attribute (no value); span ends at the name.
+      attrValue = ''
+      attrEnd = attrNameEnd
     } else {
-      // Unquoted value: can't contain " ' = < > ` or whitespace
-      var valueStart = i
-      while (i < len) {
-        var vc = source.charCodeAt(i)
-        if (vc === $.CHAR_SPACE || vc === $.CHAR_TAB || vc === $.CHAR_GT || vc === $.CHAR_NEWLINE ||
-            vc === $.CHAR_DOUBLE_QUOTE || vc === $.CHAR_SINGLE_QUOTE || vc === $.CHAR_EQ || vc === $.CHAR_LT || vc === $.CHAR_BACKTICK) break
+      i++ // skip =
+
+      // Skip whitespace
+      while (i < len && (source.charCodeAt(i) === $.CHAR_SPACE || source.charCodeAt(i) === $.CHAR_TAB)) i++
+
+      // Parse value
+      var quote = source.charCodeAt(i)
+      if (quote === $.CHAR_DOUBLE_QUOTE || quote === $.CHAR_SINGLE_QUOTE) { // " or '
         i++
+        var valueStart = i
+        // Newlines are allowed in quoted attribute values per CommonMark
+        while (i < len && source.charCodeAt(i) !== quote) i++
+        if (i >= len) return null // unclosed quote
+        attrValue = source.slice(valueStart, i)
+        i++ // skip closing quote
+        // After a quoted value, next must be whitespace, >, or />
+        if (i < len) {
+          var afterQuote = source.charCodeAt(i)
+          if (afterQuote !== $.CHAR_SPACE && afterQuote !== $.CHAR_TAB && afterQuote !== $.CHAR_NEWLINE &&
+              afterQuote !== $.CHAR_GT && afterQuote !== $.CHAR_SLASH) return null
+        }
+        attrEnd = i
+      } else if (quote === $.CHAR_BRACE_OPEN) { // {
+        var depth = 1
+        var valueStart = i
+        i++
+        while (i < len && depth > 0) {
+          var ac = source.charCodeAt(i)
+          if (ac === $.CHAR_BRACE_OPEN) depth++
+          else if (ac === $.CHAR_BRACE_CLOSE) depth--
+          i++
+        }
+        attrValue = source.slice(valueStart, i)
+        attrEnd = i
+      } else {
+        // Unquoted value: can't contain " ' = < > ` or whitespace
+        var valueStart = i
+        while (i < len) {
+          var vc = source.charCodeAt(i)
+          if (vc === $.CHAR_SPACE || vc === $.CHAR_TAB || vc === $.CHAR_GT || vc === $.CHAR_NEWLINE ||
+              vc === $.CHAR_DOUBLE_QUOTE || vc === $.CHAR_SINGLE_QUOTE || vc === $.CHAR_EQ || vc === $.CHAR_LT || vc === $.CHAR_BACKTICK) break
+          i++
+        }
+        if (i === valueStart) return null // empty unquoted value
+        attrValue = source.slice(valueStart, i)
+        attrEnd = i
       }
-      if (i === valueStart) return null // empty unquoted value
-      attrs[attrName] = source.slice(valueStart, i)
+    }
+
+    if (isDangerousAttr(attrName, attrValue, isComponentTag)) {
+      if (dangerSpans === null) dangerSpans = []
+      dangerSpans.push(attrStart, attrEnd)
+    } else {
+      attrs[attrName] = attrValue
     }
   }
 
   return null
 }
 
+/**
+ * Strip dangerous attributes from every tag in a raw HTML string, reusing
+ * __parseHTMLTag as the single tag scanner so nested tags are covered too.
+ * Returns the input unchanged (same reference) when nothing is stripped, so
+ * safe content stays byte-identical and allocation-free. Guards the raw-HTML
+ * output paths (html string compiler, solid/vue innerHTML) that emit _rawText
+ * verbatim and so bypass the sanitized attrs map.
+ */
+function stripDangerousHTML(html: string): string {
+  var lt = html.indexOf('<')
+  if (lt === -1) return html
+  var out = ''
+  var cursor = 0
+  var changed = false
+  while (lt !== -1) {
+    var tagResult = __parseHTMLTag(html, lt)
+    if (tagResult) {
+      if (tagResult.sanitized) {
+        out += html.slice(cursor, lt) + reconstructOpenTag(tagResult)
+        cursor = tagResult.end
+        changed = true
+      }
+      lt = html.indexOf('<', tagResult.end)
+    } else {
+      lt = html.indexOf('<', lt + 1)
+    }
+  }
+  if (!changed) return html
+  return out + html.slice(cursor)
+}
+
 // Collect reference definitions in first pass
 export function collectReferenceDefinitions(
   input: string,
-  refs: { [key: string]: { target: string; title: string } },
+  refs: { [key: string]: { target: string; title: string | undefined } },
   _options: ParseOptions
 ): boolean {
   // Fast-path exit: without '[' there cannot be any reference definitions.
@@ -819,6 +1034,11 @@ function scanThematic(s: string, p: number): ScanResult {
   }
 }
 
+/** Last close-fence needle, memoized across fenced blocks (see scanFenced). */
+var _fenceNeedleCh = 0
+var _fenceNeedleLen = 0
+var _fenceNeedleStr = ''
+
 /** Scan fenced code block */
 function scanFenced(s: string, p: number, state: MarkdownToJSX.State): ScanResult {
   const e = lineEnd(s, p)
@@ -888,7 +1108,17 @@ function scanFenced(s: string, p: number, state: MarkdownToJSX.State): ScanResul
   let contentStart = nextLine(s, e)
   let contentEnd = s.length
   let closeEnd = s.length
-  var needle = String.fromCharCode(fence).repeat(fenceLen)
+  // Reuse the previous close-fence needle when char+length repeat (a document
+  // tends to use one fence style throughout), avoiding a per-fence allocation.
+  var needle: string
+  if (fence === _fenceNeedleCh && fenceLen === _fenceNeedleLen) {
+    needle = _fenceNeedleStr
+  } else {
+    needle = String.fromCharCode(fence).repeat(fenceLen)
+    _fenceNeedleCh = fence
+    _fenceNeedleLen = fenceLen
+    _fenceNeedleStr = needle
+  }
   var searchPos = contentStart
 
   while (searchPos < s.length) {
@@ -948,6 +1178,27 @@ function scanFenced(s: string, p: number, state: MarkdownToJSX.State): ScanResul
   }
 }
 
+/**
+ * Dedent a whitespace-only line by up to 4 columns (tabs expand to 4-column
+ * stops) and return the remaining whitespace, which belongs to the code
+ * content of an indented code block. Returns '' when the line has fewer than
+ * 4 columns of whitespace.
+ */
+function dedentBlankLine(s: string, from: number, to: number): string {
+  var spaces = 0
+  var i = from
+  while (i < to && spaces < 4) {
+    if (s.charCodeAt(i) === $.CHAR_TAB) spaces += 4 - (spaces % 4)
+    else spaces++
+    i++
+  }
+  if (spaces < 4) return ''
+  var out = ''
+  // A tab that straddles the 4-column boundary contributes its overshoot
+  for (var k = 4; k < spaces; k++) out += ' '
+  return out + s.slice(i, to)
+}
+
 /** Scan indented code block */
 function scanIndented(s: string, p: number): ScanResult {
   const e = lineEnd(s, p)
@@ -962,22 +1213,23 @@ function scanIndented(s: string, p: number): ScanResult {
     indent(s, end, le)
 
     if (isBlank(s, end, le)) {
-      // Blank line(s) - include if code continues after them
-      var blankCount = 0
+      // Blank line(s) - include if code continues after them. A blank line's
+      // whitespace beyond the 4-column dedent is part of the code content
+      // (CommonMark 0.31.2 example 112), so keep the dedented remainder.
+      var pending = dedentBlankLine(s, end, le) + '\n'
       var scanPos = nextLine(s, le)
       while (scanPos < s.length) {
         var scanLe = lineEnd(s, scanPos)
         if (isBlank(s, scanPos, scanLe)) {
-          blankCount++
+          pending += dedentBlankLine(s, scanPos, scanLe) + '\n'
           scanPos = nextLine(s, scanLe)
           continue
         }
         indent(s, scanPos, scanLe)
         if (_indentSpaces >= 4) {
           // Code continues after blank(s): add the blank lines
-          for (var bi = 0; bi <= blankCount; bi++) content += '\n'
+          content += pending
           end = scanPos
-          break
         }
         break
       }
@@ -1151,7 +1403,12 @@ function scanBlockquote(s: string, p: number, state: MarkdownToJSX.State, opts: 
   var savedBQ = state.inBlockQuote, savedNoSetext = state._noSetext
   state.inBlockQuote = true
   if (hasLazyContinuation) state._noSetext = true
+  // The blockquote holds the streaming edge only if nothing follows it; a
+  // blockquote with content after it is closed and never needs suppression.
+  var savedEdgeBQ = state._notAtEdge
+  state._notAtEdge = savedEdgeBQ || !isBlank(s, end, s.length)
   const children = parseBlocks(content || '', state, opts)
+  state._notAtEdge = savedEdgeBQ
   state.inBlockQuote = savedBQ; state._noSetext = savedNoSetext
 
   const node: MarkdownToJSX.BlockQuoteNode = {
@@ -1188,6 +1445,9 @@ function checkListMarker(s: string, p: number, e: number): {
   var c = s.charCodeAt(i)
   var markerCol = _indentSpaces
   var markerEnd = i
+  // Only advanced past i in the ordered-list branch; the ordered ternaries
+  // below read it solely when c is a digit, where the scan has run.
+  var numEnd = i
 
   // Unordered: - * +
   if (c === $.CHAR_DASH || c === $.CHAR_ASTERISK || c === $.CHAR_PLUS) {
@@ -1198,7 +1458,6 @@ function checkListMarker(s: string, p: number, e: number): {
   }
   // Ordered: 1. or 1)
   else if (c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9) {
-    var numEnd = i
     while (numEnd < e && numEnd - i < 9) {
       var nc = s.charCodeAt(numEnd)
       if (nc < $.CHAR_DIGIT_0 || nc > $.CHAR_DIGIT_9) break
@@ -1226,8 +1485,8 @@ function checkListMarker(s: string, p: number, e: number): {
     // Empty item (marker at end of line)
     return {
       ordered: c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9,
-      marker: c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9 ? s[numEnd!] : s[i],
-      start: c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9 ? parseInt(s.slice(i, numEnd!), 10) : undefined,
+      marker: c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9 ? s[numEnd] : s[i],
+      start: c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9 ? parseInt(s.slice(i, numEnd), 10) : undefined,
       contentStart: afterMarker,
       contentCol: afterMarkerCol + 1,
       markerCol: markerCol,
@@ -1267,8 +1526,8 @@ function checkListMarker(s: string, p: number, e: number): {
 
   return {
     ordered: c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9,
-    marker: c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9 ? s[numEnd!] : s[i],
-    start: c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9 ? parseInt(s.slice(i, numEnd!), 10) : undefined,
+    marker: c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9 ? s[numEnd] : s[i],
+    start: c >= $.CHAR_DIGIT_0 && c <= $.CHAR_DIGIT_9 ? parseInt(s.slice(i, numEnd), 10) : undefined,
     contentStart: contentPos,
     contentCol: contentCol,
     markerCol: markerCol,
@@ -1381,7 +1640,17 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: ParseO
 
     // Blank line
     if (isBlank(s, end, le)) {
-      curRaw += '\n'
+      // Whitespace beyond the item's content column belongs to the item
+      // content (e.g. interior blank lines of an indented code block keep
+      // their dedented spaces, CommonMark 0.31.2 example 112)
+      var blankRest = stripIndent(s, end, le, curContentCol)
+      if (_stripRemaining > 0 || blankRest < le) {
+        var blankWs = ''
+        for (var bwi = 0; bwi < _stripRemaining; bwi++) blankWs += ' '
+        curRaw += blankWs + s.slice(blankRest, le) + '\n'
+      } else {
+        curRaw += '\n'
+      }
       end = nextLine(s, le)
       // After blank in empty item, check if list continues — charCode check avoids .trim()
       var curRawHasContent = false
@@ -1629,14 +1898,22 @@ function scanList(s: string, p: number, state: MarkdownToJSX.State, opts: ParseO
       // Empty list item
       itemNodes = []
     } else if (isLoose) {
-      // Loose: parse as blocks — content is already indent-stripped
+      // Loose: parse as blocks — content is already indent-stripped. Only the
+      // last item can hold the streaming edge; earlier items are closed.
       var savedInList = state.inList; state.inList = true
+      var savedEdgeLI = state._notAtEdge
+      state._notAtEdge = savedEdgeLI || ii !== itemData.length - 1
       itemNodes = parseBlocks(itemContent, state, opts)
+      state._notAtEdge = savedEdgeLI
       state.inList = savedInList
     } else {
-      // Tight: parse as blocks then unwrap paragraphs
+      // Tight: parse as blocks then unwrap paragraphs. Only the last item can
+      // hold the streaming edge; earlier items are closed.
       var savedInList2 = state.inList; state.inList = true
+      var savedEdgeLI2 = state._notAtEdge
+      state._notAtEdge = savedEdgeLI2 || ii !== itemData.length - 1
       itemNodes = parseBlocks(itemContent, state, opts)
+      state._notAtEdge = savedEdgeLI2
       state.inList = savedInList2
       // Unwrap: if result is single paragraph, unwrap its children
       if (itemNodes.length === 1 && itemNodes[0].type === RuleType.paragraph) {
@@ -2033,7 +2310,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         attrs: type1Attrs,
         _rawAttrs: type1RawAttrs,
         children: type1Children,
-        _rawText: type1RawText,
+        _rawText: stripDangerousHTML(type1RawText),
         text: type1TextContent,
         _verbatim: true,
         _isClosingTag: type1IsClosing,
@@ -2066,7 +2343,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
             tag: tagName67,
             attrs: {},
             children: [],
-            _rawText: afterTag67,
+            _rawText: stripDangerousHTML(afterTag67),
             text: afterTag67,
             _verbatim: true,
             _isClosingTag: true,
@@ -2099,6 +2376,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
       var blockContent67 = s.slice(start, rawEnd6)
       var closeIdx67 = -1
       var closeEndRel67 = -1
+      var blockWasExtended67 = false
       if (htmlDepth67 < 10) {
         var closeTag67 = '</' + tagNameLower67
         var searchStart67 = tagResult67.end - start
@@ -2157,7 +2435,6 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         // or when the content contains a Type 1 raw-content element (`<pre>`,
         // `<script>`, `<style>`, `<textarea>`) whose blank lines are structurally
         // inside raw content (CommonMark Example 148).
-        var blockWasExtended67 = false
         if (closeIdx67 === -1 && htmlBlockType === 6 && !tagResult67.isClosing) {
           var extCloseEnd = findClosingTag(s, tagResult67.end, tagNameLower67)
           if (extCloseEnd !== -1) {
@@ -2402,14 +2679,15 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           if (rawText67v.charCodeAt(0) === $.CHAR_NEWLINE) rawText67v = rawText67v.slice(1)
         }
 
+        var safeRawText67v = stripDangerousHTML(rawText67v)
         var verbatimNode67 = {
           type: RuleType.htmlBlock,
           tag: tagName67,
           attrs: processHTMLAttributes(tagResult67.attrs, tagName67, opts),
           _rawAttrs: tagResult67.whitespaceBeforeAttrs + tagResult67.rawAttrs,
           children: children67,
-          _rawText: rawText67v,
-          text: rawText67v,
+          _rawText: safeRawText67v,
+          text: safeRawText67v,
           _verbatim: true,
           _isClosingTag: false,
         } as MarkdownToJSX.HTMLNode
@@ -2422,7 +2700,10 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
 
       // Clean block with closing tag as last content - not verbatim
       // For block-extended nodes (content has blank lines), clear rawText so
-      // HTML compiler uses children path instead of rawText path
+      // HTML compiler uses children path instead of rawText path.
+      // Both raw-source fields feed a verbatim string emit (html reads
+      // _rawText, markdown reads text), so strip dangerous attributes once.
+      var safeRawContent67 = stripDangerousHTML(rawContent67)
       return {
         node: {
           type: RuleType.htmlBlock,
@@ -2430,8 +2711,8 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
           attrs: processHTMLAttributes(tagResult67.attrs, tagName67, opts),
           _rawAttrs: tagResult67.whitespaceBeforeAttrs + tagResult67.rawAttrs,
           children: children67,
-          _rawText: blockWasExtended67 ? '' : rawContent67,
-          text: rawContent67,
+          _rawText: blockWasExtended67 ? '' : safeRawContent67,
+          text: safeRawContent67,
           _verbatim: false,
           _isClosingTag: false,
         } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
@@ -2457,7 +2738,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         tag: type67TagF,
         attrs: {},
         children: [],
-        _rawText: type67RawTextF,
+        _rawText: stripDangerousHTML(type67RawTextF),
         text: type67RawTextF,
         _verbatim: true,
         _isClosingTag: type67IsClosingF,
@@ -2533,7 +2814,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
         attrs: processHTMLAttributes(tagResult.attrs, tagName, opts),
         _rawAttrs: tagResult.whitespaceBeforeAttrs + tagResult.rawAttrs,
         children,
-        _rawText: rawTextJSX,
+        _rawText: stripDangerousHTML(rawTextJSX),
         text: isJSX ? rawContent : rawTextJSX,
         _verbatim: true,
         _isClosingTag: false,
@@ -2563,7 +2844,7 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
       attrs: processHTMLAttributes(tagResult.attrs, tagName, opts),
       _rawAttrs: tagResult.whitespaceBeforeAttrs + tagResult.rawAttrs,
       children,
-      _rawText: rawTextFallback,
+      _rawText: stripDangerousHTML(rawTextFallback),
       text: contentFallback,
       _verbatim: true,
       _isClosingTag: false,
@@ -2924,7 +3205,9 @@ function parseFootnoteDefinition(s: string, p: number, state: MarkdownToJSX.Stat
     }
   }
 
-  if (!state.refs[label]) state.refs[label] = { target: content, title: undefined }
+  var footnoteRefs = state.refs
+  if (footnoteRefs && !footnoteRefs[label])
+    footnoteRefs[label] = { target: content, title: undefined }
   return { node: { type: RuleType.footnote } as MarkdownToJSX.ASTNode, end }
 }
 
@@ -3912,7 +4195,7 @@ function scanLink(s: string, p: number, e: number, state: MarkdownToJSX.State, o
   }
 
   // Look up reference
-  var refData = state.refs[label]
+  var refData = state.refs && state.refs[label]
   if (!refData) return null
 
   if (isImage) {
@@ -4392,7 +4675,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
         type: RuleType.htmlSelfClosing,
         tag: tagName,
         attrs: processHTMLAttributes(tagResult.attrs, tagName, opts),
-        _rawText: s.slice(p, tagResult.end),
+        _rawText: tagResult.sanitized ? reconstructOpenTag(tagResult) : s.slice(p, tagResult.end),
         _isClosingTag: false,
       } as MarkdownToJSX.HTMLSelfClosingNode,
       end: tagResult.end
@@ -4407,7 +4690,7 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
   if (closeEnd === -1) {
     // No closing tag found - pass through as raw HTML open tag (CommonMark spec)
     return {
-      node: { type: RuleType.htmlSelfClosing, tag: tagName, attrs: processHTMLAttributes(tagResult.attrs, tagName, opts), _rawText: s.slice(p, tagResult.end), _isClosingTag: false } as MarkdownToJSX.HTMLSelfClosingNode,
+      node: { type: RuleType.htmlSelfClosing, tag: tagName, attrs: processHTMLAttributes(tagResult.attrs, tagName, opts), _rawText: tagResult.sanitized ? reconstructOpenTag(tagResult) : s.slice(p, tagResult.end), _isClosingTag: false } as MarkdownToJSX.HTMLSelfClosingNode,
       end: tagResult.end
     }
   }
@@ -4452,7 +4735,10 @@ function scanInlineHTML(s: string, p: number, e: number, state: MarkdownToJSX.St
       _rawAttrs: tagResult.rawAttrs,
       children,
       _rawText: undefined,
-      text: innerContent,
+      // The deprecated text field carries the raw inner source, so strip
+      // dangerous attributes from it as every other raw-source path does;
+      // the markdown compiler emits this field verbatim.
+      text: stripDangerousHTML(innerContent),
       _verbatim: false,
       _isClosingTag: false,
     } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
@@ -4922,53 +5208,80 @@ function parseBlocks(s: string, state: MarkdownToJSX.State, opts: ParseOptions):
   // Only strip if the table is at the END of the input (might be incomplete during streaming)
   if (opts.optimizeForStreaming) {
     // Guard: skip all streaming pre-parse mutations if end of input is inside
-    // an unclosed fenced code block — mutations would corrupt code block content
-    if (!state._endsInsideFence) {
+    // an unclosed fenced code block — mutations would corrupt code block content.
+    // Also skip when this block cannot hold the document's streaming edge (a
+    // closed block nested above the live edge), so suppression scans only the
+    // trailing chain instead of re-scanning every historical block on re-parse.
+    if (!state._notAtEdge && !state._endsInsideFence) {
 
-    // Pattern: table at end with only header + separator (no data rows after)
-    // Scan backwards to find last two lines; check if they form header + separator
-    var sEnd = s.length
-    // skip trailing newline
-    if (sEnd > 0 && s.charCodeAt(sEnd - 1) === $.CHAR_NEWLINE) sEnd--
-    // find start of last line (separator candidate)
-    var sepStart = sEnd
-    while (sepStart > 0 && s.charCodeAt(sepStart - 1) !== $.CHAR_NEWLINE) sepStart--
-    if (sepStart > 0 && s.charCodeAt(sepStart) === $.CHAR_PIPE) {
-      // validate separator line contains only [ \t\-:|]
-      var isSep = true
-      for (var vi = sepStart; vi < sEnd; vi++) {
-        var vc = s.charCodeAt(vi)
-        if (vc !== $.CHAR_SPACE && vc !== $.CHAR_TAB && vc !== $.CHAR_DASH && vc !== $.CHAR_COLON && vc !== $.CHAR_PIPE) {
-          isSep = false
+    // Streaming table suppression. A GFM table needs a header line plus a
+    // `|---|` divider row, then body rows. While tokens are still arriving, hide
+    // whatever trailing table fragment cannot render cleanly yet, without
+    // disturbing the finished rows above it so the table never flickers. Block
+    // preprocessing (prepareBlockInput) appends a blank line, so the whole
+    // trailing newline run is skipped before locating the last line.
+    var tblEnd = s.length
+    while (tblEnd > 0 && s.charCodeAt(tblEnd - 1) === $.CHAR_NEWLINE) tblEnd--
+    var tblStart = tblEnd
+    while (tblStart > 0 && s.charCodeAt(tblStart - 1) !== $.CHAR_NEWLINE) tblStart--
+    if (tblEnd > tblStart && s.charCodeAt(tblStart) === $.CHAR_PIPE) {
+      // Does the trailing line carry cell content (anything past the pipes,
+      // spaces, dashes, and colons a header divider is made of)?
+      var trailingHasContent = false
+      for (var ci = tblStart + 1; ci < tblEnd; ci++) {
+        var cc = s.charCodeAt(ci)
+        if (cc !== $.CHAR_SPACE && cc !== $.CHAR_TAB && cc !== $.CHAR_PIPE && cc !== $.CHAR_COLON && cc !== $.CHAR_DASH) {
+          trailingHasContent = true
           break
         }
       }
-      if (isSep) {
-        // find start of header line
-        var hdrStart = sepStart - 1 // skip the \n before separator
-        while (hdrStart > 0 && s.charCodeAt(hdrStart - 1) !== $.CHAR_NEWLINE) hdrStart--
-        if (s.charCodeAt(hdrStart) === $.CHAR_PIPE) {
-          s = s.slice(0, hdrStart).trimEnd()
+      // Walk the whole contiguous pipe-block above the trailing line, tracking
+      // the block's top (fragmentStart), whether a divider row is present, and
+      // how many content rows sit between that divider and the trailing line. A
+      // table renders only as header + divider + at least one body row.
+      var dividerAbove = false, sawDivider = false, bodyRowsBetween = 0
+      var fragmentStart = tblStart
+      var upEnd = tblStart - 1 // the '\n' before the trailing line, or -1
+      while (upEnd > 0) {
+        var upStart = upEnd
+        while (upStart > 0 && s.charCodeAt(upStart - 1) !== $.CHAR_NEWLINE) upStart--
+        if (s.charCodeAt(upStart) !== $.CHAR_PIPE) break
+        fragmentStart = upStart
+        var upSep = true, upDash = false
+        for (var ui = upStart; ui < upEnd; ui++) {
+          var uc = s.charCodeAt(ui)
+          if (uc === $.CHAR_DASH) upDash = true
+          else if (uc !== $.CHAR_SPACE && uc !== $.CHAR_TAB && uc !== $.CHAR_COLON && uc !== $.CHAR_PIPE) {
+            upSep = false
+            break
+          }
         }
+        if (upSep && upDash) {
+          dividerAbove = true
+          sawDivider = true
+        } else if (!sawDivider) {
+          bodyRowsBetween++
+        }
+        upEnd = upStart - 1
       }
-    }
-
-    // Also handle single-line incomplete table (header and partial separator on same line)
-    // Uses charCode scan instead of nested-quantifier regex to avoid ReDoS
-    var trimmedS = s.trim()
-    var lastNL = trimmedS.lastIndexOf('\n')
-    var lastLine = lastNL === -1 ? trimmedS : trimmedS.slice(lastNL + 1)
-    if (lastLine.length > 0 && lastLine.charCodeAt(0) === $.CHAR_PIPE) {
-      // Check if last line has pipes and ends with delimiter-like content (dashes)
-      var hasPipe = false, hasDash = false
-      for (var si = 1; si < lastLine.length; si++) {
-        var sc = lastLine.charCodeAt(si)
-        if (sc === $.CHAR_PIPE) hasPipe = true
-        if (sc === $.CHAR_DASH) hasDash = true
+      if (!trailingHasContent) {
+        // The trailing line is an empty row shell (pipes and spaces only) or a
+        // divider. Drop just that shell when a renderable table remains above it
+        // (divider plus at least one body row), so finished rows stay put; drop
+        // the whole fragment otherwise, since header + divider alone would leak
+        // as raw pipes.
+        s =
+          dividerAbove && bodyRowsBetween > 0
+            ? s.slice(0, tblStart).trimEnd()
+            : s.slice(0, fragmentStart).trimEnd()
+      } else if (!dividerAbove) {
+        // The trailing line carries content but no divider has arrived, so it is
+        // an incomplete header (or a lone pipe-led line), not yet a table. Hide
+        // it until its divider and first row arrive.
+        s = s.slice(0, tblStart).trimEnd()
       }
-      if (hasPipe && hasDash) {
-        s = lastNL === -1 ? '' : s.slice(0, s.lastIndexOf(lastLine)).trimEnd()
-      }
+      // Otherwise the trailing line is a body row of a rendered table; keep it so
+      // its cells stream in.
     }
 
     // Strip incomplete HTML tags at end of input (unclosed block-level tags)
@@ -5224,11 +5537,13 @@ export function parser(
     refs: {},
   }
 
-  // Normalize options
+  // Normalize options. Capture slugify once so the closure sees a
+  // definitely-defined function.
+  const userSlugify = options?.slugify
   const finalOptions = {
     ...options,
-    slugify: options?.slugify
-      ? (input: string) => options.slugify!(input, util.slugify)
+    slugify: userSlugify
+      ? (input: string) => userSlugify(input, util.slugify)
       : util.slugify,
     sanitizer: options?.sanitizer || util.sanitizer,
     tagfilter: options?.tagfilter !== false,
@@ -5268,7 +5583,9 @@ export function calculateIndent(s: string, p: number, e: number, _state?: unknow
   return { indent: _indentSpaces, chars: _indentChars, spaceEquivalent: _indentSpaces, charCount: _indentChars }
 }
 export function parseDefinition(s: string, p: number, state: MarkdownToJSX.State, _opts: unknown, _isFootnote: boolean): { type: number; endPos: number; end: number } | null {
-  var end = parseRefDef(s, p, state.refs!)
+  var defRefs = state.refs
+  if (!defRefs) return null
+  var end = parseRefDef(s, p, defRefs)
   if (end === null) return null
   return { type: RuleType.ref, endPos: end, end: end }
 }
@@ -5313,19 +5630,23 @@ export function parseMarkdown(
     state._endsInsideFence = collectReferenceDefinitions(input, state.refs, opts)
   }
 
-  var ownsQueue = !state._pendingInline
-  if (ownsQueue) {
-    state._pendingInline = []
-    state._pendingOps = []
+  // When this call owns the queues, keep direct references to the arrays it
+  // installed: nested parses push into the same arrays via state, and the
+  // locals prove definedness without a non-null assertion.
+  var ownedInline: MarkdownToJSX.State['_pendingInline']
+  var ownedOps: MarkdownToJSX.State['_pendingOps']
+  if (!state._pendingInline) {
+    state._pendingInline = ownedInline = []
+    state._pendingOps = ownedOps = []
   }
 
   const nodes = parseBlocks(input, state, opts)
 
-  if (ownsQueue) {
+  if (ownedInline && ownedOps) {
     // Stage 1: run deferred inline parses. Entries restore the exact state
     // flags captured at their callsite. The queue can grow while draining
     // (nested block parses inside inline HTML), so re-read length each pass.
-    var q = state._pendingInline!
+    var q = ownedInline
     var sv = {
       inline: state.inline, inAnchor: state.inAnchor, inHTML: state.inHTML,
       htmlDepth: state._htmlDepth, inList: state.inList,
@@ -5348,7 +5669,7 @@ export function parseMarkdown(
     state._noSetext = sv.noSetext; state._depth = sv.depth
 
     // Stage 2: list-item unwrap/concat ops that copy now-filled children
-    var ops = state._pendingOps!
+    var ops = ownedOps
     for (var oi = 0; oi < ops.length; oi++) {
       var op = ops[oi]
       for (var si = 0; si < op.src.length; si++) {

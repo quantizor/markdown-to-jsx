@@ -3911,6 +3911,18 @@ describe('CRLF line endings', () => {
     it('should handle fenced code blocks with blank lines', () => {
       expectCRLFEquivalent('```\nline 1\n\nline 3\n```')
     })
+
+    it('should preserve interior blank-line content in indented code (CommonMark ex 112)', () => {
+      // A blank line carrying more than 4 columns of whitespace keeps its
+      // dedented remainder as code content, per CommonMark 0.31.2 example 112.
+      const result = p.parser(
+        '    chunk1\n      \n      chunk2\n'
+      ) as MarkdownToJSX.ASTNode[]
+      const code = result.find(
+        n => n.type === RuleType.codeBlock
+      ) as MarkdownToJSX.CodeBlockNode
+      expect(code.text).toBe('chunk1\n  \n  chunk2')
+    })
   })
 
   describe('blockquotes', () => {
@@ -4260,6 +4272,29 @@ Final paragraph.`
   })
 })
 
+describe('raw HTML on* attribute stripping', () => {
+  it('keeps a bare boolean on* on a component-like tag (a prop, not a handler)', () => {
+    const result = p.parser(
+      '<MyComponent onClick />'
+    ) as (MarkdownToJSX.HTMLSelfClosingNode & { endPos: number })[]
+    expect(result[0].attrs?.onClick).toBe(true)
+  })
+
+  it('strips a string-valued on* even on a component-like tag', () => {
+    const result = p.parser(
+      '<MyComponent onclick="alert(1)" />'
+    ) as (MarkdownToJSX.HTMLSelfClosingNode & { endPos: number })[]
+    expect(result[0].attrs?.onclick).toBeUndefined()
+  })
+
+  it('strips a bare boolean on* on a standard HTML tag', () => {
+    const result = p.parser(
+      '<img onload />'
+    ) as (MarkdownToJSX.HTMLSelfClosingNode & { endPos: number })[]
+    expect(result[0].attrs?.onload).toBeUndefined()
+  })
+})
+
 describe('Unserializable expression evaluation', () => {
   describe('with evalUnserializableExpressions: false (default)', () => {
     it('should keep function expressions as strings', () => {
@@ -4388,6 +4423,64 @@ describe('Unserializable expression evaluation', () => {
       expect(() => {
         ;(result[0].attrs?.onClick as Function)()
       }).toThrow()
+    })
+
+    it('drops string-valued event handlers from the attrs map', () => {
+      const result = p.parser(
+        '<img src=x onerror=alert(1) onload="steal()">'
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
+      expect(result[0].attrs).toEqual({ src: 'x' })
+    })
+
+    it('drops dangerous-scheme URL attributes from the attrs map', () => {
+      const result = p.parser(
+        '<img src="javascript:alert(1)" alt="a">'
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
+      expect(result[0].attrs).toEqual({ alt: 'a' })
+    })
+
+    it('drops schemes hidden in numeric character references without a trailing semicolon', () => {
+      // A browser resolves a semicolon-less numeric reference, so &#106avascript:
+      // becomes javascript:; the scheme check must decode it too. A safe numeric
+      // entity (&#38; = ampersand) in a URL stays untouched.
+      const dec = p.parser(
+        '<img src="&#106avascript:alert(1)" alt="a">'
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
+      expect(dec[0].attrs).toEqual({ alt: 'a' })
+      const hex = p.parser(
+        '<img src="j&#x61vascript:alert(1)" alt="a">'
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
+      expect(hex[0].attrs).toEqual({ alt: 'a' })
+      const safe = p.parser(
+        '<img src="/s?a=1&#38;b=2" alt="a">'
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
+      expect(safe[0].attrs).toEqual({ alt: 'a', src: '/s?a=1&#38;b=2' })
+    })
+
+    it('keeps brace-expression props on component-like tags but strips dangerous brace handlers on standard HTML elements', () => {
+      // Component (capitalized) and custom-element (hyphenated) tags take brace
+      // expressions as renderer-resolved props, so they are kept.
+      const jsx = p.parser(
+        '<MyComponent onClick={handler} onChange={fn} href={url} data={[1,2,3]} />'
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
+      expect(jsx[0].attrs).toEqual({
+        data: [1, 2, 3],
+        href: '{url}',
+        onChange: 'fn',
+        onClick: 'handler',
+      })
+      const custom = p.parser(
+        '<my-el onClick={handleClick}>x</my-el>'
+      ) as MarkdownToJSX.HTMLNode[]
+      expect(custom[0].attrs?.onClick).toBe('handleClick')
+      // A standard HTML element is not a component, so a brace-valued event
+      // handler would still emit an executable handler in string output and is
+      // stripped; a non-dangerous brace attribute is kept.
+      const div = p.parser(
+        '<div onClick={alert(1)} title={t}>x</div>'
+      ) as MarkdownToJSX.HTMLNode[]
+      expect(div[0].attrs?.onClick).toBeUndefined()
+      expect(div[0].attrs?.title).toBe('t')
     })
   })
 
