@@ -34,6 +34,7 @@
     "bench:html": "pushd benchmarks; bun run bench:html; popd",
     "analyze": "bun scripts/analyze-patterns.ts",
     "test": "bun run --filter markdown-to-jsx test",
+    "typecheck": "bun run --filter markdown-to-jsx typecheck",
     "changeset-publish": "bun run build && changeset publish",
     "validate-i18n": "bun run scripts/validate-i18n.ts"
   }

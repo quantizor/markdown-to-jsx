@@ -172,6 +172,7 @@
   "scripts": {
     "prepublish": "in-publish && npm run build && npm run release || not-in-publish",
     "build": "rimraf dist && bunup",
-    "test": "bun test"
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   }
 }

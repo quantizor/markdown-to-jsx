@@ -11,6 +11,7 @@
     "moduleResolution": "bundler",
     "noEmit": true,
     "preserveConstEnums": true,
+    "strict": true,
     "target": "ESNext"
   },
 }
