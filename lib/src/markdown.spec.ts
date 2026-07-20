@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
 
+import { astToHTML } from './html'
 import {
   astToMarkdown,
   compiler,
@@ -11,6 +12,89 @@ import {
 import { parser } from './parse'
 import type { MarkdownToJSX } from './types'
 import { RuleType } from './types'
+
+/**
+ * Collapse insignificant whitespace so semantically equivalent HTML compares
+ * equal: whitespace before a tag's closing angle bracket (including an
+ * XML-style " />") and whitespace-only inter-tag gaps that span a newline.
+ * Meaningful single spaces between inline elements are preserved. The tag scan
+ * is quote-aware so a literal `>` inside an attribute value (html.ts emits raw
+ * attributes verbatim) is left intact instead of masking a real difference.
+ */
+function normalizeHTML(html: string): string {
+  const isSpace = (c: number) => c === 32 || c === 9 || c === 10 || c === 13
+  let out = ''
+  let inTag = false
+  let quote = 0
+  let tagStart = 0
+  for (let i = 0; i < html.length; i++) {
+    const c = html.charCodeAt(i)
+    if (!inTag) {
+      out += html[i]
+      if (c === 60 /* < */) {
+        inTag = true
+        tagStart = out.length
+      }
+      continue
+    }
+    if (quote) {
+      out += html[i]
+      if (c === quote) quote = 0
+      continue
+    }
+    if (c === 34 /* " */ || c === 39 /* ' */) {
+      quote = c
+      out += html[i]
+      continue
+    }
+    if (c === 62 /* > */) {
+      // Trim trailing whitespace and an optional self-closing slash before the
+      // real tag closer, without reaching past the tag's own start.
+      let j = out.length
+      while (j > tagStart && isSpace(out.charCodeAt(j - 1))) j--
+      if (j > tagStart && out.charCodeAt(j - 1) === 47 /* / */) j--
+      while (j > tagStart && isSpace(out.charCodeAt(j - 1))) j--
+      out = out.slice(0, j) + '>'
+      inTag = false
+      continue
+    }
+    out += html[i]
+  }
+  return out.replace(/>\s*\n\s*</g, '><').trim()
+}
+
+/**
+ * Assert the astToMarkdown round-trip contract: the source markdown and its
+ * parse -> astToMarkdown -> re-parse counterpart must render to semantically
+ * equivalent HTML.
+ */
+function expectRoundTrip(source: string): void {
+  const original = astToHTML(parser(source))
+  const roundTripped = astToHTML(parser(astToMarkdown(parser(source))))
+  expect(normalizeHTML(roundTripped)).toBe(normalizeHTML(original))
+}
+
+describe('normalizeHTML round-trip helper', () => {
+  it('collapses tag-close whitespace and self-closing slashes', () => {
+    expect(normalizeHTML('<img />')).toBe('<img>')
+    expect(normalizeHTML('<img  >')).toBe('<img>')
+    expect(normalizeHTML('<br/>')).toBe('<br>')
+  })
+
+  it('collapses whitespace-only inter-tag gaps spanning a newline', () => {
+    expect(normalizeHTML('<div>\n  <span>a</span>\n</div>')).toBe(
+      '<div><span>a</span></div>'
+    )
+  })
+
+  it('leaves a literal > inside an attribute value intact', () => {
+    // The old whole-string collapse rewrote this `>` and could mask a real
+    // round-trip difference; the quote-aware scan preserves it.
+    expect(normalizeHTML('<abbr title="a > b">x</abbr>')).toBe(
+      '<abbr title="a > b">x</abbr>'
+    )
+  })
+})
 
 describe('markdown compiler', () => {
   describe('basic text and paragraphs', () => {
@@ -30,12 +114,15 @@ describe('markdown compiler', () => {
       expect(markdown(ast)).toBe('Hello world')
     })
 
-    it('should preserve special characters in text', () => {
+    it('should escape inline-special characters so literal text stays literal on re-parse', () => {
       const ast: MarkdownToJSX.TextNode = {
         type: RuleType.text,
         text: '*bold* _italic_ `code` [link](url)',
       }
-      expect(markdown(ast)).toBe('*bold* _italic_ `code` [link](url)')
+      // Every special character in a text node is literal (emphasis, code, and
+      // links are separate node types), so it is escaped to avoid re-activating
+      // as syntax when the output is parsed again.
+      expect(markdown(ast)).toBe('\\*bold\\* \\_italic\\_ \\`code\\` \\[link\\](url)')
     })
   })
 
@@ -127,12 +214,14 @@ describe('markdown compiler', () => {
       expect(markdown(ast)).toBe('`console.log("hello")`')
     })
 
-    it('should compile inline code with backticks using double backticks', () => {
+    it('should fence inline code past its longest interior backtick run and pad abutting backticks', () => {
       const ast: MarkdownToJSX.CodeInlineNode = {
         type: RuleType.codeInline,
         text: 'code with `backtick`',
       }
-      expect(markdown(ast)).toBe('``code with `backtick```')
+      // The delimiter is longer than the interior run, and the content ends
+      // with a backtick so a space pads it off the closing delimiter.
+      expect(markdown(ast)).toBe('`` code with `backtick` ``')
     })
 
     it('should compile code block', () => {
@@ -182,6 +271,15 @@ describe('markdown compiler', () => {
         children: [{ type: RuleType.text, text: 'strikethrough' }],
       }
       expect(markdown(ast)).toBe('~~strikethrough~~')
+    })
+
+    it('should compile mark (highlight)', () => {
+      const ast: MarkdownToJSX.FormattedTextNode = {
+        children: [{ type: RuleType.text, text: 'highlighted' }],
+        tag: 'mark',
+        type: RuleType.textFormatted,
+      }
+      expect(markdown(ast)).toBe('==highlighted==')
     })
 
     it('should compile nested formatted text', () => {
@@ -336,6 +434,26 @@ describe('markdown compiler', () => {
       }
       expect(markdown(ast)).toBe('- First line  \n  Second line')
     })
+
+    it('should separate a nested list from its parent item text on round-trip', () => {
+      // Regression: a block-level child (the nested list) must not concatenate
+      // onto the item's inline text, which would flatten it back into a string.
+      expect(astToMarkdown(parser('- a\n  - b\n'))).toBe('- a\n  - b')
+    })
+
+    it('should separate loose list item blocks with a blank line on round-trip', () => {
+      // Regression: two paragraph children of a loose item need a blank-line
+      // separator or they merge into one word ("foobar").
+      expect(astToMarkdown(parser('- foo\n\n  bar\n'))).toBe('- foo\n  \n  bar')
+      expect(astToMarkdown(parser('1. a\n\n   b\n'))).toBe('1. a\n    \n    b')
+    })
+
+    it('should separate a block-level child (blockquote, code, heading) inside a list item', () => {
+      expect(astToMarkdown(parser('- a\n\n  > q\n'))).toBe('- a\n  \n  > q')
+      expect(astToMarkdown(parser('- foo\n\n  ## h\n\n  bar\n'))).toBe(
+        '- foo\n  \n  ## h\n  \n  bar'
+      )
+    })
   })
 
   describe('blockquotes', () => {
@@ -386,6 +504,22 @@ describe('markdown compiler', () => {
       }
       expect(markdown(ast)).toBe('> > Nested quote')
     })
+
+    it('should re-emit the alert marker line for alert blockquotes', () => {
+      // Regression: the alert field was ignored, so `> [!NOTE]` blockquotes
+      // lost their type on round-trip.
+      const ast: MarkdownToJSX.BlockQuoteNode = {
+        alert: 'NOTE',
+        children: [
+          {
+            type: RuleType.paragraph,
+            children: [{ type: RuleType.text, text: 'Useful info' }],
+          },
+        ],
+        type: RuleType.blockQuote,
+      }
+      expect(markdown(ast)).toBe('> [!NOTE]\n> Useful info')
+    })
   })
 
   describe('tables', () => {
@@ -407,7 +541,7 @@ describe('markdown compiler', () => {
         ],
       }
       const expected =
-        'Header 1 | Header 2 | Header 3\n:---|:---:|---:\nCell 1 | Cell 2 | Cell 3'
+        '| Header 1 | Header 2 | Header 3 |\n| :--- | :---: | ---: |\n| Cell 1 | Cell 2 | Cell 3 |'
       expect(markdown(ast)).toBe(expected)
     })
 
@@ -426,7 +560,7 @@ describe('markdown compiler', () => {
           ],
         ],
       }
-      const expected = 'Header 1 | Header 2\n---|---\nCell 1 | Cell 2'
+      const expected = '| Header 1 | Header 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |'
       expect(markdown(ast)).toBe(expected)
     })
   })
@@ -486,6 +620,59 @@ describe('markdown compiler', () => {
       }
       expect(markdown(ast)).toBe('<script>console.log("hello");</script>')
     })
+
+    it('should emit a raw comment as-is rather than nesting its delimiters', () => {
+      // Regression: a raw comment's text already carries <!-- -->, so wrapping
+      // it again produced <!--<!-- c -->-->.
+      const ast: MarkdownToJSX.HTMLCommentNode = {
+        type: RuleType.htmlComment,
+        text: '<!-- c -->',
+        raw: true,
+      }
+      expect(markdown(ast)).toBe('<!-- c -->')
+    })
+
+    it('should emit a bare closing tag for an orphan closing-tag node', () => {
+      // Regression: the verbatim branch required truthy _rawText, so an
+      // orphan </details> fell through and re-emitted as <details></details>.
+      const ast: MarkdownToJSX.HTMLNode = {
+        _isClosingTag: true,
+        _rawText: '',
+        _verbatim: true,
+        attrs: {},
+        children: [],
+        tag: 'details',
+        type: RuleType.htmlBlock,
+      }
+      expect(markdown(ast)).toBe('</details>')
+    })
+
+    it('should keep trailing same-line content after an orphan closing tag', () => {
+      const ast: MarkdownToJSX.HTMLNode = {
+        _isClosingTag: true,
+        _rawText: ' trailing text',
+        _verbatim: true,
+        attrs: {},
+        children: [],
+        tag: 'details',
+        type: RuleType.htmlBlock,
+      }
+      expect(markdown(ast)).toBe('</details> trailing text')
+    })
+
+    it('should keep the closing tag when a non-void HTML block carries inner text', () => {
+      // Regression: node.text holds inner content only, so a missing closing tag
+      // let a following sibling be absorbed into this element on round-trip.
+      const ast: MarkdownToJSX.HTMLNode = {
+        type: RuleType.htmlBlock,
+        tag: 'div',
+        attrs: {},
+        children: [],
+        text: 'x',
+        _verbatim: false,
+      }
+      expect(markdown(ast)).toBe('<div>x</div>')
+    })
   })
 
   describe('GFM features', () => {
@@ -516,12 +703,13 @@ describe('markdown compiler', () => {
   })
 
   describe('frontmatter', () => {
+    // FrontmatterNode.text stores the full raw block including the ---
+    // delimiters (as produced by the parser), so the compiler emits it as-is.
     it('should compile frontmatter', () => {
       const ast: MarkdownToJSX.FrontmatterNode = {
         type: RuleType.frontmatter,
-        text: 'title: My Document\nauthor: John Doe',
+        text: '---\ntitle: My Document\nauthor: John Doe\n---',
       }
-      // Frontmatter should be preserved for round-trip compilation
       expect(markdown(ast)).toBe(
         '---\ntitle: My Document\nauthor: John Doe\n---'
       )
@@ -530,7 +718,7 @@ describe('markdown compiler', () => {
     it('should preserve frontmatter by default', () => {
       const ast: MarkdownToJSX.FrontmatterNode = {
         type: RuleType.frontmatter,
-        text: 'title: Test\ntags: [a, b]',
+        text: '---\ntitle: Test\ntags: [a, b]\n---',
       }
       expect(markdown(ast)).toBe('---\ntitle: Test\ntags: [a, b]\n---')
     })
@@ -538,7 +726,7 @@ describe('markdown compiler', () => {
     it('should preserve frontmatter when preserveFrontmatter is true', () => {
       const ast: MarkdownToJSX.FrontmatterNode = {
         type: RuleType.frontmatter,
-        text: 'title: Test\ntags: [a, b]',
+        text: '---\ntitle: Test\ntags: [a, b]\n---',
       }
       expect(markdown(ast, { preserveFrontmatter: true })).toBe(
         '---\ntitle: Test\ntags: [a, b]\n---'
@@ -548,7 +736,7 @@ describe('markdown compiler', () => {
     it('should exclude frontmatter when preserveFrontmatter is false', () => {
       const ast: MarkdownToJSX.FrontmatterNode = {
         type: RuleType.frontmatter,
-        text: 'title: Test\ntags: [a, b]',
+        text: '---\ntitle: Test\ntags: [a, b]\n---',
       }
       expect(markdown(ast, { preserveFrontmatter: false })).toBe('')
     })
@@ -963,6 +1151,137 @@ More text`
         'title: Comprehensive Markdown Syntax Fixture'
       )
       expect(roundTripMarkdown).toContain('# END OF COMPREHENSIVE FIXTURE FILE')
+    })
+
+    describe('HTML equivalence corpus', () => {
+      // Guards the round-trip contract construct by construct. One known-corrupt
+      // construct remains: an escaped ordered-list marker (`1\. text`) the parser
+      // splits across text nodes. See BACKLOG.md "astToMarkdown round-trip
+      // fidelity". Do not add a case for it until it is fixed, or the assertion
+      // would encode the bug.
+      it('round-trips headings and thematic breaks', () => {
+        expectRoundTrip('# Title')
+        expectRoundTrip('## Subtitle with *emphasis*')
+        expectRoundTrip('### Deep heading')
+        expectRoundTrip('---')
+      })
+
+      it('round-trips inline formatting including mark', () => {
+        expectRoundTrip(
+          'Paragraph with **strong**, *em*, ~~strike~~, ==mark==, and `code`.'
+        )
+        expectRoundTrip('Line one  \nLine two')
+      })
+
+      it('round-trips literal text that would otherwise re-activate as syntax', () => {
+        expectRoundTrip('a \\*not bold\\* b')
+        expectRoundTrip('literal \\`backtick\\` and \\[bracket\\]')
+        expectRoundTrip('\\# not a heading')
+        expectRoundTrip('\\- not a list')
+        expectRoundTrip('\\> not a quote')
+      })
+
+      it('round-trips links, images, and references', () => {
+        expectRoundTrip('[link](https://example.com "Title")')
+        expectRoundTrip('![alt text](image.png)')
+        expectRoundTrip('[ref link][1]\n\n[1]: https://example.com')
+      })
+
+      it('round-trips link and image titles containing quotes or backslashes', () => {
+        expectRoundTrip('[x](/u "a\\"b")')
+        expectRoundTrip('![alt](/u "t\\"q")')
+        expectRoundTrip('[t](/u "back\\\\slash")')
+      })
+
+      it('round-trips code blocks', () => {
+        expectRoundTrip('```js\nconst x = 1\n```')
+        expectRoundTrip('    indented code')
+      })
+
+      it('round-trips fenced code that contains a fence', () => {
+        expectRoundTrip('````\n```\ncode\n```\n````')
+      })
+
+      it('round-trips inline code containing backticks', () => {
+        expectRoundTrip('`` `x` ``')
+        expectRoundTrip('`a``b`')
+      })
+
+      it('round-trips blockquotes', () => {
+        expectRoundTrip('> simple quote')
+        expectRoundTrip('> first\n>\n> second')
+        expectRoundTrip('> outer\n> > inner')
+      })
+
+      it('round-trips alert blockquotes of every type', () => {
+        expectRoundTrip('> [!NOTE]\n> Useful info')
+        expectRoundTrip('> [!TIP]\n> Helpful hint')
+        expectRoundTrip('> [!IMPORTANT]\n> Key detail')
+        expectRoundTrip('> [!WARNING]\n> Watch out')
+        expectRoundTrip('> [!CAUTION]\n> Danger ahead')
+      })
+
+      it('round-trips tight lists and task lists', () => {
+        expectRoundTrip('- one\n- two\n- three')
+        expectRoundTrip('1. first\n2. second')
+        expectRoundTrip('- parent\n  - child')
+        expectRoundTrip('- [ ] todo\n- [x] done')
+      })
+
+      it('round-trips loose lists without collapsing them to tight', () => {
+        expectRoundTrip('- foo\n\n- bar')
+        expectRoundTrip('1. foo\n\n2. bar')
+        expectRoundTrip('- foo\n\n  second paragraph\n\n- bar')
+      })
+
+      it('round-trips tables', () => {
+        expectRoundTrip('Head A | Head B\n---|---\n1 | 2')
+        expectRoundTrip('A | B | C\n:---|:---:|---:\na | b | c')
+      })
+
+      it('round-trips single-column tables and cells containing pipes', () => {
+        expectRoundTrip('| a |\n| - |\n| b |')
+        expectRoundTrip('| a \\| b |\n| - |\n| c |')
+      })
+
+      it('round-trips raw HTML attributes without corrupting them', () => {
+        expectRoundTrip('<div style="color:red">x</div>')
+        expectRoundTrip('<div class="c" data-x="1">y</div>')
+        expectRoundTrip('<abbr title="HyperText">HTML</abbr>')
+      })
+
+      it('round-trips inline HTML with empty children without splitting the paragraph', () => {
+        expectRoundTrip('text <video></video> more')
+        expectRoundTrip('a <span></span> b')
+      })
+
+      it('round-trips footnotes', () => {
+        expectRoundTrip('Text with a footnote[^1]\n\n[^1]: The note')
+      })
+
+      it('round-trips frontmatter without doubling delimiters', () => {
+        expectRoundTrip('---\ntitle: Test\nauthor: X\n---\n\n# Hello')
+      })
+
+      it('round-trips HTML blocks, comments, and self-closing tags', () => {
+        expectRoundTrip('<div>\n\n*content*\n\n</div>')
+        expectRoundTrip('<div class="note">\n\ntext\n\n</div>')
+        expectRoundTrip('<details>\n<summary>More</summary>\n\nHidden\n\n</details>')
+        expectRoundTrip('<!-- a comment -->')
+        expectRoundTrip('line one<br />line two')
+        expectRoundTrip('<hr />')
+      })
+
+      it('round-trips orphan closing tags', () => {
+        expectRoundTrip('</details>')
+        expectRoundTrip('</details> trailing text')
+      })
+
+      it('round-trips a composite document', () => {
+        expectRoundTrip(
+          '# Doc\n\nIntro paragraph.\n\n> [!WARNING]\n> Careful.\n\n- a\n- b\n\n```\ncode\n```'
+        )
+      })
     })
   })
 
@@ -1845,5 +2164,32 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
       </div>
       tail"
     `)
+  })
+
+  describe('strips dangerous raw HTML attributes', () => {
+    it('removes on* handlers and dangerous URLs while keeping safe attributes', () => {
+      expect(compiler('<div onclick="alert(1)">hi</div>')).toBe('<div >hi</div>')
+      expect(compiler('<a href="javascript:alert(1)" title="ok">x</a>')).toBe(
+        '<a title="ok">x</a>'
+      )
+      expect(compiler('<div><img onerror=alert(1)></div>')).toBe('<div><img ></div>')
+    })
+
+    it('sanitizes raw HTML nested in a container that holds block-level markdown', () => {
+      // The markdown compiler emits the container's raw inner source verbatim,
+      // so its nested tags must be stripped at parse time.
+      expect(
+        compiler('<div>\n# Heading\n<a href="javascript:alert(1)">y</a>\n</div>')
+      ).toBe('<div>\n# Heading\n<a >y</a>\n</div>')
+    })
+
+    it('sanitizes inline raw HTML emitted through the deprecated text field', () => {
+      expect(compiler('text <span><a href="javascript:alert(1)">y</a></span> more')).toBe(
+        'text <span><a >y</a></span> more'
+      )
+      expect(compiler('<span><img src=x onerror=alert(1)></span>')).toBe(
+        '<span><img src=x></span>'
+      )
+    })
   })
 })
