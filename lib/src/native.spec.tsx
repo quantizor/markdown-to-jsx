@@ -1999,3 +1999,35 @@ describe('native strips dangerous raw HTML attributes', () => {
     expect(extractTextContent(carrier as TestElement)).toBe('hi')
   })
 })
+
+describe('unique heading IDs (#857)', () => {
+  it('renders duplicate headings without id props', () => {
+    // React Native has no heading id attribute surface; assert the full
+    // element tree for the same input so drift still fails the suite.
+    expect(
+      serialize(
+        compiler(`# Foo
+
+# Bar
+
+## Foo`)
+      )
+    ).toMatchInlineSnapshot(`"<View><Text>Foo</Text><Text>Bar</Text><Text>Foo</Text></View>"`)
+  })
+})
+
+describe('component-like HTML blank-line nesting (#870)', () => {
+  it('keeps blank-line component content in one native tree', () => {
+    expect(
+      serialize(
+        compiler(`<MyComponent>
+## My header
+
+Some paragraph
+</MyComponent>`)
+      )
+    ).toMatchInlineSnapshot(
+      `"<View><Text>My header</Text><Text>Some paragraph</Text></View>"`
+    )
+  })
+})

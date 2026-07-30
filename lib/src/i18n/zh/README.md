@@ -786,7 +786,7 @@ compiler('[foo](javascript:alert("foo"))', {
 
 #### options.slugify
 
-默认情况下，使用[轻量级字符规范化函数](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275)从标题生成 HTML ID。您可以通过向 `options.slugify` 传递一个函数来覆盖它。当您在标题中使用非字母数字字符 (例如中文或日文字符) 时，这很有用。例如：
+默认情况下，使用[轻量级字符规范化函数](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275)从标题生成 HTML ID。当多个标题生成相同的 ID 时，会自动追加数字后缀 (`foo`、`foo-1`、`foo-2`)，确保同一次解析内的每个 ID 都唯一。您可以通过向 `options.slugify` 传递一个函数来覆盖 slug 生成；唯一性处理仍会作用于您的函数返回值。当您在标题中使用非字母数字字符 (例如中文或日文字符) 时，这很有用。例如：
 
 <!-- prettier-ignore -->
 ```tsx
@@ -1028,7 +1028,7 @@ AST 由以下节点类型组成 (使用 `RuleType` 检查节点类型)：
   { type: RuleType.htmlBlock, tag: "div", attrs?: Record<string, any>, children?: ASTNode[] }
   ```
 
-  **注意 (v9.1+)：** 在开始/结束标签之间有空行的 JSX 组件现在可以正确嵌套子组件，而不是创建兄弟节点。
+  **注意：** PascalCase 的 JSX 组件以及带连字符的自定义元素，在开始/结束标签之间出现空行时会正确嵌套子节点，而不会让后续内容泄漏为兄弟节点。已知的 HTML 块级标签 (`div`、`figure` 以及 CommonMark 块级标签集合中的其余标签) 行为相同。未知的小写标签仍遵循 CommonMark Type 7，并在第一个空行处结束。
 
   **HTML 块解析 (v9.2+)：** HTML 块始终会被完整解析到 `children` 属性中。`renderRule` 回调可以访问所有 HTML 块中 `children` 里完整解析的 AST。
 

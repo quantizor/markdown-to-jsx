@@ -3998,3 +3998,39 @@ describe('strips dangerous raw HTML attributes', () => {
     expect(root.innerHTML).toBe('<span>string:1,2,3</span>')
   })
 })
+
+describe('unique heading IDs (#857)', () => {
+  it('suffixes duplicate heading ids in rendered output', () => {
+    render(
+      compiler(`# Foo
+
+# Bar
+
+## Foo`)
+    )
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><h1 id="foo">Foo</h1><h1 id="bar">Bar</h1><h2 id="foo-1">Foo</h2></div>"`
+    )
+  })
+})
+
+describe('component-like HTML blank-line nesting (#870)', () => {
+  it('keeps blank-line content inside a PascalCase component override', () => {
+    function MyComponent({ children }: { children?: React.ReactNode }) {
+      return <section data-component="MyComponent">{children}</section>
+    }
+    render(
+      compiler(
+        `<MyComponent>
+## My header
+
+Some paragraph
+</MyComponent>`,
+        { overrides: { MyComponent } }
+      )
+    )
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<section data-component="MyComponent"><h2 id="my-header">My header</h2><p>Some paragraph</p></section>"`
+    )
+  })
+})

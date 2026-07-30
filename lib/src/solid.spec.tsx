@@ -1965,3 +1965,51 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
     expect(urls).not.toContain('javascript:')
   })
 })
+
+describe('unique heading IDs (#857)', () => {
+  function collectIds(el: unknown): string[] {
+    const ids: string[] = []
+    const walk = (node: unknown) => {
+      if (node == null || typeof node === 'boolean') return
+      if (typeof node === 'string' || typeof node === 'number') return
+      if (Array.isArray(node)) {
+        for (const child of node) walk(child)
+        return
+      }
+      const props = (node as { p?: Record<string, unknown> }).p
+      if (!props) return
+      if (typeof props.id === 'string') ids.push(props.id)
+      walk(props.children)
+    }
+    walk(el)
+    return ids
+  }
+
+  it('suffixes duplicate heading ids in rendered output', () => {
+    expect(
+      collectIds(
+        compiler(`# Foo
+
+# Bar
+
+## Foo`)
+      )
+    ).toEqual(['foo', 'bar', 'foo-1'])
+  })
+})
+
+describe('component-like HTML blank-line nesting (#870)', () => {
+  it('keeps blank-line content inside a PascalCase component', () => {
+    expect(
+      serialize(
+        compiler(`<MyComponent>
+## My header
+
+Some paragraph
+</MyComponent>`)
+      )
+    ).toMatchInlineSnapshot(
+      `"<MyComponent><h2>My header</h2><p>Some paragraph</p></MyComponent>"`
+    )
+  })
+})
