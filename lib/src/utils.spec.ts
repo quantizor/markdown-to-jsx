@@ -1,8 +1,9 @@
-import fs from 'fs'
-import path from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { type MarkdownToJSX, RuleType } from './types'
-import * as u from './utils'
+import fs from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
+import { RuleType } from './types.ts'
+import * as u from './utils.ts'
 
 describe('parseFrontmatterBounds', () => {
   it('should return null for invalid or missing opening markers', () => {
@@ -19,9 +20,10 @@ describe('parseFrontmatterBounds', () => {
   })
 
   it('should parse valid frontmatter with key-value pairs', () => {
-    expect(
-      u.parseFrontmatterBounds('---\nkey: value\n---\n')
-    ).toEqual({ endPos: 19, hasValidYaml: true })
+    expect(u.parseFrontmatterBounds('---\nkey: value\n---\n')).toEqual({
+      endPos: 19,
+      hasValidYaml: true,
+    })
     expect(
       u.parseFrontmatterBounds('---\nkey1: value1\nkey2: value2\n---\n')
     ).toEqual({ endPos: 34, hasValidYaml: true })
@@ -33,9 +35,10 @@ describe('parseFrontmatterBounds', () => {
 
   it('should accept whitespace variations in opening marker and keys', () => {
     // trailing whitespace after opening ---
-    expect(
-      u.parseFrontmatterBounds('---   \nkey: value\n---\n')
-    ).toEqual({ endPos: 22, hasValidYaml: true })
+    expect(u.parseFrontmatterBounds('---   \nkey: value\n---\n')).toEqual({
+      endPos: 22,
+      hasValidYaml: true,
+    })
     // tab in opening, tab-indented key
     expect(
       u.parseFrontmatterBounds('---\t \n\tkey: value\n---\n')?.hasValidYaml
@@ -62,9 +65,10 @@ describe('parseFrontmatterBounds', () => {
   })
 
   it('should accept colon at EOL (multi-line YAML value)', () => {
-    expect(
-      u.parseFrontmatterBounds('---\ndescription:\n---\n')
-    ).toEqual({ endPos: 21, hasValidYaml: true })
+    expect(u.parseFrontmatterBounds('---\ndescription:\n---\n')).toEqual({
+      endPos: 21,
+      hasValidYaml: true,
+    })
   })
 
   it('should accept valid YAML with empty lines between keys', () => {
@@ -83,17 +87,18 @@ describe('parseFrontmatterBounds', () => {
   })
 
   it('should handle edge cases (empty, whitespace-only, nested markers, long keys)', () => {
-    expect(
-      u.parseFrontmatterBounds('---\n---\n')
-    ).toEqual({ endPos: 8, hasValidYaml: false })
-    expect(
-      u.parseFrontmatterBounds('---\n   \t   \n---\n')?.hasValidYaml
-    ).toBe(false)
+    expect(u.parseFrontmatterBounds('---\n---\n')).toEqual({
+      endPos: 8,
+      hasValidYaml: false,
+    })
+    expect(u.parseFrontmatterBounds('---\n   \t   \n---\n')?.hasValidYaml).toBe(
+      false
+    )
     expect(
       u.parseFrontmatterBounds('---\ncontent: ---\n---\n')?.hasValidYaml
     ).toBe(true)
     expect(
-      u.parseFrontmatterBounds(`---\n${'a'.repeat(10000)}: value\n---\n`)
+      u.parseFrontmatterBounds(`---\n${'a'.repeat(10_000)}: value\n---\n`)
         ?.hasValidYaml
     ).toBe(true)
   })
@@ -124,9 +129,9 @@ describe('parseFrontmatterBounds', () => {
 
   it('should reject malformed YAML keys', () => {
     // bare colon without key
-    expect(
-      u.parseFrontmatterBounds('---\n:invalid\n---\n')?.hasValidYaml
-    ).toBe(false)
+    expect(u.parseFrontmatterBounds('---\n:invalid\n---\n')?.hasValidYaml).toBe(
+      false
+    )
     // key:value with no space after colon
     expect(
       u.parseFrontmatterBounds('---\nkey:value\n---\n')?.hasValidYaml
@@ -258,7 +263,7 @@ describe('decodeEntityReferences', () => {
   })
 
   it('should handle very long entity names', () => {
-    const longEntity = '&' + 'a'.repeat(1000) + ';'
+    const longEntity = `&${'a'.repeat(1000)};`
     expect(u.decodeEntityReferences(longEntity)).toBe(longEntity)
   })
 
@@ -399,7 +404,7 @@ describe('sanitizer', () => {
   })
 
   it('should handle very long URLs', () => {
-    const longUrl = 'https://example.com/' + 'a'.repeat(10000)
+    const longUrl = `https://example.com/${'a'.repeat(10_000)}`
     expect(u.sanitizer(longUrl)).toBe(longUrl)
   })
 
@@ -489,7 +494,7 @@ describe('sanitizer', () => {
 
   it('should handle extremely long URLs', () => {
     // Long URLs are allowed - sanitizer only checks for dangerous protocols
-    const longUrl = 'https://example.com/' + 'a'.repeat(100000)
+    const longUrl = `https://example.com/${'a'.repeat(100_000)}`
     expect(u.sanitizer(longUrl)).toBe(longUrl)
   })
 
@@ -567,7 +572,7 @@ describe('slugify', () => {
   })
 
   it('should handle extremely long strings', () => {
-    const longString = 'a'.repeat(100000)
+    const longString = 'a'.repeat(100_000)
     expect(u.slugify(longString)).toBe(longString)
   })
 
@@ -576,7 +581,7 @@ describe('slugify', () => {
       String.fromCharCode(i)
     ).join('')
     const result = u.slugify(allChars)
-    expect(result).toMatch(/^[a-z0-9\-]*$/)
+    expect(result).toMatch(/^[a-z0-9-]*$/)
   })
 
   it('should handle strings with combining characters', () => {
@@ -622,7 +627,7 @@ describe('slugify', () => {
 
   it('should reject strings that could cause issues', () => {
     // Very long strings with only punctuation
-    const longPunct = '!'.repeat(10000)
+    const longPunct = '!'.repeat(10_000)
     expect(u.slugify(longPunct)).toBe('')
 
     // Strings that normalize to nothing
@@ -754,8 +759,8 @@ describe('character classification', () => {
     })
 
     it('should handle edge cases with high Unicode codepoints', () => {
-      expect(u.isUnicodePunctuation(0x10ffff)).toBe(false) // maximum valid Unicode
-      expect(u.isUnicodePunctuation(0x110000)).toBe(false) // beyond maximum
+      expect(u.isUnicodePunctuation(0x10_ff_ff)).toBe(false) // maximum valid Unicode
+      expect(u.isUnicodePunctuation(0x11_00_00)).toBe(false) // beyond maximum
     })
 
     it('should handle combining characters', () => {
@@ -866,7 +871,7 @@ describe('isVoidElement', () => {
   })
 
   it('should handle extremely long tag names', () => {
-    const longTag = 'a'.repeat(10000)
+    const longTag = 'a'.repeat(10_000)
     expect(u.isVoidElement(longTag)).toBe(false)
   })
 
@@ -920,8 +925,8 @@ describe('text processing', () => {
     })
 
     it('should handle extremely long strings', () => {
-      const longString = 'a'.repeat(100000) + '\n'
-      expect(u.findLineEnd(longString, 0)).toBe(100000)
+      const longString = `${'a'.repeat(100_000)}\n`
+      expect(u.findLineEnd(longString, 0)).toBe(100_000)
     })
 
     it('should handle strings with unusual newline combinations', () => {
@@ -986,8 +991,8 @@ describe('text processing', () => {
     })
 
     it('should handle extremely long whitespace sequences', () => {
-      const longWhitespace = ' '.repeat(100000) + 'text'
-      expect(u.skipWhitespace(longWhitespace, 0)).toBe(100000)
+      const longWhitespace = `${' '.repeat(100_000)}text`
+      expect(u.skipWhitespace(longWhitespace, 0)).toBe(100_000)
     })
 
     it('should handle mixed whitespace characters', () => {
@@ -1010,7 +1015,6 @@ describe('text processing', () => {
       expect(u.skipWhitespace('hello   world', 6)).toBe(8) // skip multiple spaces
     })
   })
-
 })
 
 describe('hasKeys', () => {
@@ -1055,15 +1059,15 @@ describe('hasKeys', () => {
   })
 
   it('should handle functions with properties', () => {
-    const fn = function () {}
+    const fn = () => {}
     fn.prop = 'value'
     expect(u.hasKeys(fn)).toBe(true)
   })
 
   it('should handle primitive wrappers', () => {
-    expect(u.hasKeys(new String('hello'))).toBe(true) // has length and other properties
-    expect(u.hasKeys(new Number(42))).toBe(false) // Number wrapper has no enumerable properties
-    expect(u.hasKeys(new Boolean(true))).toBe(false) // Boolean wrapper has no enumerable properties
+    expect(u.hasKeys(String('hello'))).toBe(true) // has length and other properties
+    expect(u.hasKeys(Number(42))).toBe(false) // Number wrapper has no enumerable properties
+    expect(u.hasKeys(Boolean(true))).toBe(false) // Boolean wrapper has no enumerable properties
   })
 
   it('should handle frozen/sealed objects', () => {
@@ -1140,7 +1144,11 @@ describe('getFilteredTagEmit', () => {
 
   it('merges adjacent strings when assembling sandwich children', () => {
     expect(
-      u.assembleFilteredTagChildren('<iframe>', ['hi ', { type: 'em' }, ''], '</iframe>')
+      u.assembleFilteredTagChildren(
+        '<iframe>',
+        ['hi ', { type: 'em' }, ''],
+        '</iframe>'
+      )
     ).toEqual(['<iframe>hi ', { type: 'em' }, '</iframe>'])
   })
 
@@ -1190,8 +1198,9 @@ describe('getFilteredTagEmit', () => {
 
 describe('htmlAttrsToJSXProps', () => {
   it('should map standard HTML attrs to JSX equivalents', () => {
-    expect(u.htmlAttrsToJSXProps({ class: 'foo', for: 'bar' }))
-      .toMatchInlineSnapshot(`
+    expect(
+      u.htmlAttrsToJSXProps({ class: 'foo', for: 'bar' })
+    ).toMatchInlineSnapshot(`
       {
         "className": "foo",
         "htmlFor": "bar",
@@ -1200,8 +1209,9 @@ describe('htmlAttrsToJSXProps', () => {
   })
 
   it('should preserve unmapped attributes as-is', () => {
-    expect(u.htmlAttrsToJSXProps({ id: 'x', 'data-test': 'y' }))
-      .toMatchInlineSnapshot(`
+    expect(
+      u.htmlAttrsToJSXProps({ id: 'x', 'data-test': 'y' })
+    ).toMatchInlineSnapshot(`
       {
         "data-test": "y",
         "id": "x",
@@ -1210,11 +1220,13 @@ describe('htmlAttrsToJSXProps', () => {
   })
 
   it('should convert XML namespace colon attrs to camelCase', () => {
-    expect(u.htmlAttrsToJSXProps({
-      'xlink:href': '#icon',
-      'xml:lang': 'en',
-      'xmlns:xlink': 'http://www.w3.org/1999/xlink',
-    })).toMatchInlineSnapshot(`
+    expect(
+      u.htmlAttrsToJSXProps({
+        'xlink:href': '#icon',
+        'xml:lang': 'en',
+        'xmlns:xlink': 'http://www.w3.org/1999/xlink',
+      })
+    ).toMatchInlineSnapshot(`
       {
         "xlinkHref": "#icon",
         "xmlLang": "en",
@@ -1224,8 +1236,9 @@ describe('htmlAttrsToJSXProps', () => {
   })
 
   it('should handle case-insensitive lookup for known attrs', () => {
-    expect(u.htmlAttrsToJSXProps({ CLASS: 'foo', For: 'bar', TABINDEX: '0' }))
-      .toMatchInlineSnapshot(`
+    expect(
+      u.htmlAttrsToJSXProps({ CLASS: 'foo', For: 'bar', TABINDEX: '0' })
+    ).toMatchInlineSnapshot(`
       {
         "className": "foo",
         "htmlFor": "bar",
@@ -1235,8 +1248,9 @@ describe('htmlAttrsToJSXProps', () => {
   })
 
   it('should map viewbox to viewBox', () => {
-    expect(u.htmlAttrsToJSXProps({ viewbox: '0 0 100 100' }))
-      .toMatchInlineSnapshot(`
+    expect(
+      u.htmlAttrsToJSXProps({ viewbox: '0 0 100 100' })
+    ).toMatchInlineSnapshot(`
       {
         "viewBox": "0 0 100 100",
       }
@@ -1244,8 +1258,9 @@ describe('htmlAttrsToJSXProps', () => {
   })
 
   it('should preserve already-camelCase viewBox', () => {
-    expect(u.htmlAttrsToJSXProps({ viewBox: '0 0 100 100' }))
-      .toMatchInlineSnapshot(`
+    expect(
+      u.htmlAttrsToJSXProps({ viewBox: '0 0 100 100' })
+    ).toMatchInlineSnapshot(`
       {
         "viewBox": "0 0 100 100",
       }
@@ -1254,7 +1269,7 @@ describe('htmlAttrsToJSXProps', () => {
 })
 
 describe('no runtime remote fetching', () => {
-  var NETWORK_APIS = [
+  var NetworkApis = [
     'fetch(',
     'globalThis.fetch',
     'self.fetch',
@@ -1269,7 +1284,7 @@ describe('no runtime remote fetching', () => {
     'new EventSource',
   ]
 
-  var srcDir = path.join(__dirname)
+  var srcDir = path.join(import.meta.dirname)
 
   function getSrcFiles(dir: string): string[] {
     var results: string[] = []
@@ -1298,8 +1313,8 @@ describe('no runtime remote fetching', () => {
     var violations: string[] = []
     for (var file of files) {
       var content = fs.readFileSync(file, 'utf8')
-      var relPath = path.relative(path.join(__dirname, '..'), file)
-      for (var api of NETWORK_APIS) {
+      var relPath = path.relative(path.join(import.meta.dirname, '..'), file)
+      for (var api of NetworkApis) {
         // skip comments — only match actual code usage
         var lines = content.split('\n')
         for (var i = 0; i < lines.length; i++) {
@@ -1308,8 +1323,9 @@ describe('no runtime remote fetching', () => {
             line.startsWith('//') ||
             line.startsWith('*') ||
             line.startsWith('/*')
-          )
+          ) {
             continue
+          }
           if (line.includes(api)) {
             violations.push(`${relPath}:${i + 1} contains "${api}"`)
           }

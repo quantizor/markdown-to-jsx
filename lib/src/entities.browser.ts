@@ -17,16 +17,15 @@ var decoder: HTMLTextAreaElement | undefined
  */
 export function decodeEntity(name: string): string | undefined {
   if (!decoder) {
-    if (typeof document !== 'undefined') {
-      decoder = document.createElement('textarea')
-    } else {
-      return undefined
+    if (typeof document === 'undefined') {
+      return
     }
+    decoder = document.createElement('textarea')
   }
-  var encoded = '&' + name + ';'
+  var encoded = `&${name};`
   decoder.innerHTML = encoded
   var decoded = decoder.value
-  return decoded !== encoded ? decoded : undefined
+  return decoded === encoded ? undefined : decoded
 }
 
 /**

@@ -2,7 +2,7 @@
 import { mock } from 'bun:test'
 import * as React from 'react'
 
-const mockLinkingOpenURL = mock(() => Promise.resolve())
+const mockLinkingOpenUrl = mock(() => Promise.resolve())
 
 /**
  * Build a forwardRef host component that renders to a plain string tag, so
@@ -30,18 +30,19 @@ mock.module('react-native', () => {
     Image,
     Pressable,
     Linking: {
-      openURL: mockLinkingOpenURL,
+      openURL: mockLinkingOpenUrl,
       canOpenURL: async () => Promise.resolve(true),
     },
     Platform: {
       OS: 'ios',
-      select: <T,>(options: { android?: T; default?: T; ios?: T }): T | undefined =>
-        options.ios ?? options.default,
+      select: <T>(options: {
+        android?: T
+        default?: T
+        ios?: T
+      }): T | undefined => options.ios ?? options.default,
     },
     StyleSheet: {
-      create: <T,>(styles: T) => styles,
+      create: <T>(styles: T) => styles,
     },
   }
 })
-
-export {}

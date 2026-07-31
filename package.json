@@ -10,11 +10,13 @@
     "site"
   ],
   "devDependencies": {
+    "@biomejs/biome": "2.5.2",
     "@changesets/cli": "^2.27.1",
     "@types/react": "^19.2.6",
     "in-publish": "^2.0.1",
-    "prettier": "^3.6.2",
+    "knip": "6.24.0",
     "react": "^19.2.8",
+    "react-dom": "19.2.8",
     "rimraf": "^6.1.0"
   },
   "overrides": {
@@ -28,6 +30,9 @@
     "dev": "bun run --filter @markdown-to-jsx/site dev",
     "entities": "bun scripts/generate-entities.ts",
     "fixture": "bun scripts/generate-fixture.ts",
+    "format": "biome check --write --unsafe .",
+    "knip": "knip",
+    "lint": "biome check .",
     "metrics": "bun --expose-gc scripts/metrics.ts",
     "profile": "bun --cpu-prof --expose-gc --cpu-prof-md scripts/profile.ts",
     "bench": "pushd benchmarks; bun run bench; popd",
@@ -43,6 +48,7 @@
     "test:native": "bun run --filter markdown-to-jsx build && bun run --filter @markdown-to-jsx/native test",
     "test:native:built": "bun run --filter @markdown-to-jsx/native test",
     "typecheck": "bun run --filter markdown-to-jsx --filter @markdown-to-jsx/browser --filter @markdown-to-jsx/native typecheck",
+    "verify": "bash scripts/verify",
     "changeset-publish": "bun run build && changeset publish",
     "validate-i18n": "bun run scripts/validate-i18n.ts"
   }

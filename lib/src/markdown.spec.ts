@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'bun:test'
-import * as fs from 'fs'
-import * as path from 'path'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 
-import { astToHTML } from './html'
+import { astToHTML } from './html.ts'
 import {
   astToMarkdown,
   compiler,
-  markdown,
   type MarkdownCompilerOptions,
-} from './markdown'
-import { parser } from './parse'
-import type { MarkdownToJSX } from './types'
-import { RuleType } from './types'
+  markdown,
+} from './markdown.ts'
+import { parser } from './parse.ts'
+import type { MarkdownToJSX } from './types.ts'
+import { RuleType } from './types.ts'
 
 /**
  * Collapse insignificant whitespace so semantically equivalent HTML compares
@@ -21,7 +21,7 @@ import { RuleType } from './types'
  * is quote-aware so a literal `>` inside an attribute value (html.ts emits raw
  * attributes verbatim) is left intact instead of masking a real difference.
  */
-function normalizeHTML(html: string): string {
+function normalizeHtml(html: string): string {
   const isSpace = (c: number) => c === 32 || c === 9 || c === 10 || c === 13
   let out = ''
   let inTag = false
@@ -39,7 +39,9 @@ function normalizeHTML(html: string): string {
     }
     if (quote) {
       out += html[i]
-      if (c === quote) quote = 0
+      if (c === quote) {
+        quote = 0
+      }
       continue
     }
     if (c === 34 /* " */ || c === 39 /* ' */) {
@@ -51,10 +53,16 @@ function normalizeHTML(html: string): string {
       // Trim trailing whitespace and an optional self-closing slash before the
       // real tag closer, without reaching past the tag's own start.
       let j = out.length
-      while (j > tagStart && isSpace(out.charCodeAt(j - 1))) j--
-      if (j > tagStart && out.charCodeAt(j - 1) === 47 /* / */) j--
-      while (j > tagStart && isSpace(out.charCodeAt(j - 1))) j--
-      out = out.slice(0, j) + '>'
+      while (j > tagStart && isSpace(out.charCodeAt(j - 1))) {
+        j--
+      }
+      if (j > tagStart && out.charCodeAt(j - 1) === 47 /* / */) {
+        j--
+      }
+      while (j > tagStart && isSpace(out.charCodeAt(j - 1))) {
+        j--
+      }
+      out = `${out.slice(0, j)}>`
       inTag = false
       continue
     }
@@ -71,18 +79,18 @@ function normalizeHTML(html: string): string {
 function expectRoundTrip(source: string): void {
   const original = astToHTML(parser(source))
   const roundTripped = astToHTML(parser(astToMarkdown(parser(source))))
-  expect(normalizeHTML(roundTripped)).toBe(normalizeHTML(original))
+  expect(normalizeHtml(roundTripped)).toBe(normalizeHtml(original))
 }
 
 describe('normalizeHTML round-trip helper', () => {
   it('collapses tag-close whitespace and self-closing slashes', () => {
-    expect(normalizeHTML('<img />')).toBe('<img>')
-    expect(normalizeHTML('<img  >')).toBe('<img>')
-    expect(normalizeHTML('<br/>')).toBe('<br>')
+    expect(normalizeHtml('<img />')).toBe('<img>')
+    expect(normalizeHtml('<img  >')).toBe('<img>')
+    expect(normalizeHtml('<br/>')).toBe('<br>')
   })
 
   it('collapses whitespace-only inter-tag gaps spanning a newline', () => {
-    expect(normalizeHTML('<div>\n  <span>a</span>\n</div>')).toBe(
+    expect(normalizeHtml('<div>\n  <span>a</span>\n</div>')).toBe(
       '<div><span>a</span></div>'
     )
   })
@@ -90,7 +98,7 @@ describe('normalizeHTML round-trip helper', () => {
   it('leaves a literal > inside an attribute value intact', () => {
     // The old whole-string collapse rewrote this `>` and could mask a real
     // round-trip difference; the quote-aware scan preserves it.
-    expect(normalizeHTML('<abbr title="a > b">x</abbr>')).toBe(
+    expect(normalizeHtml('<abbr title="a > b">x</abbr>')).toBe(
       '<abbr title="a > b">x</abbr>'
     )
   })
@@ -122,7 +130,9 @@ describe('markdown compiler', () => {
       // Every special character in a text node is literal (emphasis, code, and
       // links are separate node types), so it is escaped to avoid re-activating
       // as syntax when the output is parsed again.
-      expect(markdown(ast)).toBe('\\*bold\\* \\_italic\\_ \\`code\\` \\[link\\](url)')
+      expect(markdown(ast)).toBe(
+        '\\*bold\\* \\_italic\\_ \\`code\\` \\[link\\](url)'
+      )
     })
   })
 
@@ -560,7 +570,8 @@ describe('markdown compiler', () => {
           ],
         ],
       }
-      const expected = '| Header 1 | Header 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |'
+      const expected =
+        '| Header 1 | Header 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |'
       expect(markdown(ast)).toBe(expected)
     })
   })
@@ -1069,7 +1080,7 @@ More text`
 
   describe('round-trip compilation', () => {
     it('should round-trip the markdown specification document and produce equivalent AST', () => {
-      const specPath = path.join(__dirname, 'markdown-spec.md')
+      const specPath = path.join(import.meta.dirname, 'markdown-spec.md')
       const originalMarkdown = fs.readFileSync(specPath, 'utf8')
 
       // Parse to AST
@@ -1094,7 +1105,7 @@ More text`
     })
 
     it('should round-trip the GFM specification document and produce equivalent AST', () => {
-      const specPath = path.join(__dirname, 'gfm-spec.md')
+      const specPath = path.join(import.meta.dirname, 'gfm-spec.md')
       const originalMarkdown = fs.readFileSync(specPath, 'utf8')
 
       // Parse to AST
@@ -1124,7 +1135,10 @@ More text`
     })
 
     it('should round-trip the comprehensive stress test fixture and produce equivalent AST', () => {
-      const fixturePath = path.join(__dirname, 'stress-test.generated.md')
+      const fixturePath = path.join(
+        import.meta.dirname,
+        'stress-test.generated.md'
+      )
       const originalMarkdown = fs.readFileSync(fixturePath, 'utf8')
 
       // Parse to AST
@@ -1266,7 +1280,9 @@ More text`
       it('round-trips HTML blocks, comments, and self-closing tags', () => {
         expectRoundTrip('<div>\n\n*content*\n\n</div>')
         expectRoundTrip('<div class="note">\n\ntext\n\n</div>')
-        expectRoundTrip('<details>\n<summary>More</summary>\n\nHidden\n\n</details>')
+        expectRoundTrip(
+          '<details>\n<summary>More</summary>\n\nHidden\n\n</details>'
+        )
         expectRoundTrip('<!-- a comment -->')
         expectRoundTrip('line one<br />line two')
         expectRoundTrip('<hr />')
@@ -1358,7 +1374,7 @@ More text`
         {
           renderRule: (next, node, renderChildren) => {
             if (node.type === RuleType.paragraph) {
-              return '> ' + renderChildren(node.children || [])
+              return `> ${renderChildren(node.children || [])}`
             }
             return next()
           },
@@ -1386,7 +1402,7 @@ More text`
         {
           renderRule: (next, node, renderChildren, state) => {
             if (node.type === RuleType.heading) {
-              const key = state.key !== undefined ? String(state.key) : 'none'
+              const key = state.key === undefined ? 'none' : String(state.key)
               const hasRefs = state.refs ? 'yes' : 'no'
               return `# [key:${key}][refs:${hasRefs}] ${renderChildren(node.children || [])}`
             }
@@ -1499,7 +1515,7 @@ More text`
           renderRule: (next, node, renderChildren) => {
             if (node.type === RuleType.heading) {
               const headingNode = node as MarkdownToJSX.HeadingNode
-              return '# ' + renderChildren(headingNode.children || [])
+              return `# ${renderChildren(headingNode.children || [])}`
             }
             return next()
           },
@@ -1580,7 +1596,7 @@ More text`
         {
           renderRule: (next, node) => {
             if (node.type === RuleType.codeBlock) {
-              return '```custom\n' + (node.text || '') + '\n```'
+              return `\`\`\`custom\n${node.text || ''}\n\`\`\``
             }
             if (node.type === RuleType.breakThematic) {
               return '---'
@@ -1617,7 +1633,7 @@ More text`
         {
           renderRule: (next, node, renderChildren, state) => {
             if (node.type === RuleType.heading) {
-              const key = state.key !== undefined ? `[${state.key}]` : ''
+              const key = state.key === undefined ? '' : `[${state.key}]`
               const hasRefs =
                 state.refs && Object.keys(state.refs).length > 0
                   ? 'refs'
@@ -1819,8 +1835,8 @@ More text`
 
     it('handles renderRule with empty state', () => {
       const result = astToMarkdown([{ type: RuleType.text, text: 'Test' }], {
-        renderRule: (next, node, renderChildren, state) => {
-          const key = state.key !== undefined ? state.key : -1
+        renderRule: (next, _node, _renderChildren, state) => {
+          const key = state.key === undefined ? -1 : state.key
           const refsCount = state.refs ? Object.keys(state.refs).length : 0
           return `[${key}:${refsCount}]${next()}`
         },
@@ -2184,25 +2200,31 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
 
   describe('strips dangerous raw HTML attributes', () => {
     it('removes on* handlers and dangerous URLs while keeping safe attributes', () => {
-      expect(compiler('<div onclick="alert(1)">hi</div>')).toBe('<div >hi</div>')
+      expect(compiler('<div onclick="alert(1)">hi</div>')).toBe(
+        '<div >hi</div>'
+      )
       expect(compiler('<a href="javascript:alert(1)" title="ok">x</a>')).toBe(
         '<a title="ok">x</a>'
       )
-      expect(compiler('<div><img onerror=alert(1)></div>')).toBe('<div><img ></div>')
+      expect(compiler('<div><img onerror=alert(1)></div>')).toBe(
+        '<div><img ></div>'
+      )
     })
 
     it('sanitizes raw HTML nested in a container that holds block-level markdown', () => {
       // The markdown compiler emits the container's raw inner source verbatim,
       // so its nested tags must be stripped at parse time.
       expect(
-        compiler('<div>\n# Heading\n<a href="javascript:alert(1)">y</a>\n</div>')
+        compiler(
+          '<div>\n# Heading\n<a href="javascript:alert(1)">y</a>\n</div>'
+        )
       ).toBe('<div>\n# Heading\n<a >y</a>\n</div>')
     })
 
     it('sanitizes inline raw HTML emitted through the deprecated text field', () => {
-      expect(compiler('text <span><a href="javascript:alert(1)">y</a></span> more')).toBe(
-        'text <span><a >y</a></span> more'
-      )
+      expect(
+        compiler('text <span><a href="javascript:alert(1)">y</a></span> more')
+      ).toBe('text <span><a >y</a></span> more')
       expect(compiler('<span><img src=x onerror=alert(1)></span>')).toBe(
         '<span><img src=x></span>'
       )

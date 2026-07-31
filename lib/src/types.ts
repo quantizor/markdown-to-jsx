@@ -1,5 +1,7 @@
 // Re-export React for convenience since types reference it
-import * as React from 'react'
+
+import process from 'node:process'
+import type * as React from 'react'
 
 /**
  * Analogous to `node.type`. Please note that the values here may change at any time,
@@ -36,7 +38,9 @@ if (process.env.NODE_ENV === 'test') {
   // describes production; mutate through a mutable-typed alias of the same
   // object so the swap typechecks without an assertion.
   const ruleTypeDebugView: { [key: string]: number | string } = RuleTypeConst
-  Object.keys(ruleTypeDebugView).forEach(key => (ruleTypeDebugView[key] = key))
+  Object.keys(ruleTypeDebugView).forEach(key => {
+    ruleTypeDebugView[key] = key
+  })
 }
 
 type RuleTypeValue = (typeof RuleTypeConst)[keyof typeof RuleTypeConst]
@@ -69,7 +73,7 @@ declare namespace MarkdownToJSX {
   /**
    * Parser and renderer state
    */
-  export type State = {
+  export interface State {
     /** true if the current content is inside anchor link grammar */
     inAnchor?: boolean
     /** true if inside a blockquote */

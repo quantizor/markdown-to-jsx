@@ -1,12 +1,12 @@
-import { defineConfig, type BunupPlugin, type DefineConfigItem } from 'bunup'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { type BunupPlugin, type DefineConfigItem, defineConfig } from 'bunup'
 import { transformSync } from 'esbuild'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
 
 // Property names that must survive mangling. React reads `_store`, `_owner`,
 // `_debugStack`, `_debugTask` by literal name in dev/RSC builds and warns
 // when they are missing. `__html` is the dangerouslySetInnerHTML payload key.
 var RESERVED_PROPS = ['__html', '_store', '_owner', '_debugStack', '_debugTask']
-var RESERVED_PROPS_PATTERN = new RegExp('\\b(?:' + RESERVED_PROPS.join('|') + ')\\b')
+var RESERVED_PROPS_PATTERN = new RegExp(`\\b(?:${RESERVED_PROPS.join('|')})\\b`)
 
 function manglePropsPlugin(): BunupPlugin {
   return {
@@ -14,16 +14,41 @@ function manglePropsPlugin(): BunupPlugin {
     hooks: {
       onBuildDone({ files }) {
         for (var file of files) {
-          if (file.kind !== 'entry-point' && file.kind !== 'chunk') continue
-          if (!file.fullPath.endsWith('.js') && !file.fullPath.endsWith('.cjs')) continue
+          if (file.kind !== 'entry-point' && file.kind !== 'chunk') {
+            continue
+          }
+          if (
+            !(file.fullPath.endsWith('.js') || file.fullPath.endsWith('.cjs'))
+          ) {
+            continue
+          }
 
           var code = readFileSync(file.fullPath, 'utf-8')
+          // Biome may insert `import process from 'node:process'`, which turns
+          // process into a local binding so bunup's define cannot replace
+          // process.env.NODE_ENV. After minify the check is `X.env.NODE_ENV!==
+          // "production"` (esm) or `X.default.env.NODE_ENV!=="production"` (cjs).
+          // Force those predicates false before minifySyntax so DEV warn
+          // branches and their string constants drop from the bundle.
+          // Do not match import.meta.env (lookbehind rejects the dot before meta).
+          code = code
+            .replace(
+              /(?<![.\w$])[A-Za-z_$][\w$]*(?:\.default)?\.env\.NODE_ENV\s*!==\s*["']production["']/g,
+              '!1'
+            )
+            .replace(
+              /(?<![.\w$])[A-Za-z_$][\w$]*(?:\.default)?\.env\.NODE_ENV\s*===\s*["']production["']/g,
+              '!0'
+            )
           var result = transformSync(code, {
+            define: {
+              'process.env.NODE_ENV': '"production"',
+            },
             loader: 'js',
             mangleProps: /^_/,
-            reserveProps: RESERVED_PROPS_PATTERN,
-            minifyWhitespace: true,
             minifySyntax: true,
+            minifyWhitespace: true,
+            reserveProps: RESERVED_PROPS_PATTERN,
           })
           writeFileSync(file.fullPath, result.code)
         }
@@ -42,14 +67,27 @@ function verifyReservedPropsPlugin(): BunupPlugin {
       onBuildDone({ files }) {
         var failures: string[] = []
         for (var file of files) {
-          if (file.kind !== 'entry-point' && file.kind !== 'chunk') continue
-          if (!file.fullPath.endsWith('react.js') && !file.fullPath.endsWith('react.cjs')) continue
+          if (file.kind !== 'entry-point' && file.kind !== 'chunk') {
+            continue
+          }
+          if (
+            !(
+              file.fullPath.endsWith('react.js') ||
+              file.fullPath.endsWith('react.cjs')
+            )
+          ) {
+            continue
+          }
 
           var code = readFileSync(file.fullPath, 'utf-8')
           for (var prop of RESERVED_PROPS) {
-            if (prop === '__html') continue
-            if (!new RegExp('\\b' + prop + '\\b').test(code)) {
-              failures.push(file.fullPath + ' is missing reserved property ' + prop)
+            if (prop === '__html') {
+              continue
+            }
+            if (!new RegExp(`\\b${prop}\\b`).test(code)) {
+              failures.push(
+                `${file.fullPath} is missing reserved property ${prop}`
+              )
             }
           }
         }
@@ -71,22 +109,25 @@ function verifyDtsPlugin(): BunupPlugin {
       onBuildDone({ files }) {
         var missing: string[] = []
         for (var file of files) {
-          if (file.kind !== 'entry-point') continue
-          if (!file.fullPath.endsWith('.js') && !file.fullPath.endsWith('.cjs'))
+          if (file.kind !== 'entry-point') {
             continue
+          }
+          if (
+            !(file.fullPath.endsWith('.js') || file.fullPath.endsWith('.cjs'))
+          ) {
+            continue
+          }
 
-          var dtsPath = file.fullPath.replace(
-            /\.(js|cjs)$/,
-            function (_, ext) {
-              return ext === 'cjs' ? '.d.cts' : '.d.ts'
-            }
+          var dtsPath = file.fullPath.replace(/\.(js|cjs)$/, (_, ext) =>
+            ext === 'cjs' ? '.d.cts' : '.d.ts'
           )
-          if (!existsSync(dtsPath)) missing.push(dtsPath)
+          if (!existsSync(dtsPath)) {
+            missing.push(dtsPath)
+          }
         }
         if (missing.length > 0) {
           throw new Error(
-            'Type declarations missing after build:\n  ' +
-              missing.join('\n  ')
+            `Type declarations missing after build:\n  ${missing.join('\n  ')}`
           )
         }
       },
@@ -103,10 +144,14 @@ function verifyNoJsxAttrLeakPlugin(): BunupPlugin {
       onBuildDone({ files }) {
         var failures: string[] = []
         for (var file of files) {
-          if (file.kind !== 'entry-point' && file.kind !== 'chunk') continue
+          if (file.kind !== 'entry-point' && file.kind !== 'chunk') {
+            continue
+          }
           if (
-            !file.fullPath.endsWith('markdown.js') &&
-            !file.fullPath.endsWith('markdown.cjs')
+            !(
+              file.fullPath.endsWith('markdown.js') ||
+              file.fullPath.endsWith('markdown.cjs')
+            )
           ) {
             continue
           }

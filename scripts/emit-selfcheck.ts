@@ -9,12 +9,12 @@
  * Usage: bun scripts/emit-selfcheck.ts [--save]
  * (run from lib/ so react-dom resolves)
  */
-import fs from 'fs'
-import path from 'path'
+
+import fs from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { compiler } from '../lib/src/react.tsx'
-// react-dom lives in lib/node_modules; resolve it from there explicitly so the
-// script runs from the repo root regardless of cwd.
-import { renderToStaticMarkup } from '../lib/node_modules/react-dom/server.browser.js'
 
 const root = path.join(import.meta.dirname, '..', 'lib')
 const read = (p: string) => fs.readFileSync(path.join(root, p), 'utf8')
@@ -36,16 +36,32 @@ for (const c of CORPORA) {
 
 if (save) {
   fs.writeFileSync(goldenPath, JSON.stringify(out))
-  console.log('saved golden:', Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v.length])))
+  console.log(
+    'saved golden:',
+    Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v.length]))
+  )
 } else {
   const golden = JSON.parse(fs.readFileSync(goldenPath, 'utf8'))
   let ok = true
   for (const c of CORPORA) {
     if (golden[c.name] !== out[c.name]) {
       ok = false
-      console.log('MISMATCH', c.name, 'golden', golden[c.name].length, 'now', out[c.name].length)
+      console.log(
+        'MISMATCH',
+        c.name,
+        'golden',
+        golden[c.name].length,
+        'now',
+        out[c.name].length
+      )
     }
   }
-  console.log(ok ? 'OK byte-identical NODE_ENV=' + (process.env.NODE_ENV || '(unset)') : 'FAIL')
-  if (!ok) process.exit(1)
+  console.log(
+    ok
+      ? `OK byte-identical NODE_ENV=${process.env.NODE_ENV || '(unset)'}`
+      : 'FAIL'
+  )
+  if (!ok) {
+    process.exit(1)
+  }
 }

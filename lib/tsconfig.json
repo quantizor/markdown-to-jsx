@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "allowImportingTsExtensions": true,
+    "allowSyntheticDefaultImports": true,
     "declaration": true,
     // Disable because enabling this option can also force consuming libraries to enable it
     "esModuleInterop": false,

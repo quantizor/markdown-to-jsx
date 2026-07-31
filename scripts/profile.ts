@@ -1,6 +1,7 @@
-import fs from 'fs'
-import path from 'path'
-import { performance } from 'perf_hooks'
+import fs from 'node:fs'
+import path from 'node:path'
+import { performance } from 'node:perf_hooks'
+import process from 'node:process'
 import { parser } from '../lib/src/parse.ts'
 
 // ssh mode
@@ -8,14 +9,17 @@ console.log = () => {}
 
 async function main() {
   const fileArg = process.argv.indexOf('--file')
-  const filePath = fileArg !== -1 ? process.argv[fileArg + 1] : path.join(import.meta.dirname, '../lib/src/gfm-spec.md')
+  const filePath =
+    fileArg === -1
+      ? path.join(import.meta.dirname, '../lib/src/gfm-spec.md')
+      : process.argv[fileArg + 1]
   const markdown = fs.readFileSync(filePath, 'utf8')
 
   // Parse flags
   const isStreaming = process.argv.includes('--streaming')
   const targetIndex = process.argv.indexOf('--target')
   const targetArg =
-    targetIndex !== -1 ? process.argv[targetIndex + 1] : 'parser'
+    targetIndex === -1 ? 'parser' : process.argv[targetIndex + 1]
   const validTargets = [
     'parser',
     'react',
@@ -77,7 +81,7 @@ async function main() {
 
   console.info('Starting profile...')
   console.info('Target:', targetName + (isStreaming ? ' (streaming)' : ''))
-  console.info('Input size:', Math.round(markdown.length / 1024) + 'KB')
+  console.info('Input size:', `${Math.round(markdown.length / 1024)}KB`)
 
   const t0 = performance.now()
   const numberOfIterations = 1000
@@ -91,11 +95,11 @@ async function main() {
 
   console.info(
     `Completed ${numberOfIterations} iterations in`,
-    (t1 - t0).toFixed(2) + 'ms'
+    `${(t1 - t0).toFixed(2)}ms`
   )
   console.info(
     'Average per iteration:',
-    ((t1 - t0) / numberOfIterations).toFixed(2) + 'ms'
+    `${((t1 - t0) / numberOfIterations).toFixed(2)}ms`
   )
 
   // CPU profile will be written by Bun when this process exits

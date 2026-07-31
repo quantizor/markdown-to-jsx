@@ -762,7 +762,7 @@ function App() {
 
 यदि वांछित हो तो इसे `options.sanitizer` के माध्यम से एक कस्टम सैनिटाइज़र से ओवरराइड और प्रतिस्थापित किया जा सकता है:
 
-<!-- prettier-ignore -->
+<!-- biome-ignore format: keep example fences intact -->
 ```tsx
 // इस स्थिति में सैनिटाइज़र प्राप्त करेगा:
 // ('javascript:alert("foo")', 'a', 'href')
@@ -796,7 +796,7 @@ compiler('[foo](javascript:alert("foo"))', {
 
 डिफ़ॉल्ट रूप से, प्रत्येक हेडिंग की सादा टेक्स्ट सामग्री से HTML id जनरेट करने के लिए एक [हल्का deburring फ़ंक्शन](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) का उपयोग किया जाता है (फ़ॉर्मेटिंग मार्कर, लिंक गंतव्य और छवि alt टेक्स्ट छोड़ दिए जाते हैं; फ़ुटनोट मार्कर अपना प्रदर्शन टेक्स्ट योगदान करते हैं)। जब एक से अधिक हेडिंग एक ही id बनाती हैं, तो संख्यात्मक प्रत्यय स्वचालित रूप से जोड़ा जाता है (`foo`, `foo-1`, `foo-2`) ताकि उस parse के भीतर प्रत्येक id अद्वितीय रहे। आप `options.slugify` को एक फ़ंक्शन पास करके slug जनरेशन को ओवरराइड कर सकते हैं; फ़ंक्शन को वही सादा टेक्स्ट सामग्री मिलती है, और अद्वितीयता आपके फ़ंक्शन की वापसी पर भी लागू होती है। यह तब मददगार होता है जब आप हेडिंग में गैर-अल्फ़ान्यूमेरिक वर्णों (उदाहरण के लिए चीनी या जापानी वर्ण) का उपयोग कर रहे हों। उदाहरण के लिए:
 
-<!-- prettier-ignore -->
+<!-- biome-ignore format: keep example fences intact -->
 ```tsx
 <Markdown options={{ slugify: str => str }}># 中文</Markdown>
 compiler('# 中文', { slugify: str => str })
@@ -1189,7 +1189,7 @@ if (node.type === RuleType.heading) {
 
 **JSX prop parsing (v9.1+):** JSX props में Arrays और objects स्वचालित रूप से पार्स किए जाते हैं:
 
-<!-- prettier-ignore -->
+<!-- biome-ignore format: keep example fences intact -->
 ```tsx
 // Markdown में:
 <Table

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'bun:test'
-import * as p from './parse'
-import { RuleType, type MarkdownToJSX } from './types'
+import { describe, expect, it } from 'bun:test'
+import * as p from './parse.ts'
+import { type MarkdownToJSX, RuleType } from './types.ts'
 
 // Test fixtures factories
 function createBlockState(refs = {}) {
@@ -57,10 +57,7 @@ describe('parser', () => {
   })
 
   it('should handle null/undefined options', () => {
-    const result = p.parser(
-      'test',
-      undefined
-    ) as MarkdownToJSX.ParagraphNode[]
+    const result = p.parser('test', undefined) as MarkdownToJSX.ParagraphNode[]
     expect(result).toEqual([
       {
         type: RuleType.paragraph,
@@ -70,15 +67,13 @@ describe('parser', () => {
   })
 
   it('should handle extremely long input', () => {
-    const longText = 'a'.repeat(10000)
+    const longText = 'a'.repeat(10_000)
     const result = p.parser(longText)
     expect(result.length).toBeGreaterThan(0)
   })
 
   it('should handle input with null bytes', () => {
-    const result = p.parser(
-      'hello\x00world'
-    ) as MarkdownToJSX.ParagraphNode[]
+    const result = p.parser('hello\x00world') as MarkdownToJSX.ParagraphNode[]
     expect(result).toEqual([
       {
         type: RuleType.paragraph,
@@ -95,9 +90,7 @@ describe('parser', () => {
     expect(result).toEqual([
       {
         type: RuleType.paragraph,
-        children: [
-          { type: RuleType.text, text: 'line1\nline2\nline3\nline4' },
-        ],
+        children: [{ type: RuleType.text, text: 'line1\nline2\nline3\nline4' }],
       },
     ])
   })
@@ -223,7 +216,7 @@ describe('parseMarkdown', () => {
     // structure so it stays deterministic.
     const state = createInlineState()
     const options = createDefaultOptions()
-    const n = 20000
+    const n = 20_000
     const result = p.parseMarkdown('*a* '.repeat(n), state, options)
     // n emphasis nodes, each followed by its trailing single-space text node
     expect(result.length).toBe(2 * n)
@@ -233,7 +226,10 @@ describe('parseMarkdown', () => {
       children: [{ type: RuleType.text, text: 'a' }],
     })
     expect(result[1]).toEqual({ type: RuleType.text, text: ' ' })
-    expect(result[result.length - 1]).toEqual({ type: RuleType.text, text: ' ' })
+    expect(result.at(-1)).toEqual({
+      type: RuleType.text,
+      text: ' ',
+    })
   })
 
   it('should handle links in inline mode', () => {
@@ -276,9 +272,7 @@ describe('parseMarkdown', () => {
     const state = createInlineState()
     const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
     const result = p.parseMarkdown('[link(url)', state, options)
-    expect(result).toEqual([
-      { type: RuleType.text, text: '[link(url)' },
-    ])
+    expect(result).toEqual([{ type: RuleType.text, text: '[link(url)' }])
   })
 
   it('should handle links with nested brackets in text', () => {
@@ -293,9 +287,7 @@ describe('parseMarkdown', () => {
       {
         type: RuleType.link,
         target: 'url',
-        children: [
-          { type: RuleType.text, text: 'link [with] brackets' },
-        ],
+        children: [{ type: RuleType.text, text: 'link [with] brackets' }],
       },
     ])
   })
@@ -328,7 +320,7 @@ describe('parseMarkdown', () => {
       return { ms: performance.now() - start, result, input }
     }
     const small = timeParse(8000)
-    const large = timeParse(16000)
+    const large = timeParse(16_000)
     // 2x input should be <3x time for linear behavior. Pre-fix this ratio was
     // ~4x. Use 3x to absorb timing noise on small absolute durations.
     expect(large.ms).toBeLessThan(small.ms * 3 + 50)
@@ -477,14 +469,23 @@ describe('parseMarkdown', () => {
     // triggering the fast-skip path that previously caused the truncation.
     const input =
       'Please contact Support at 1-111-111-1111 or email technicalsupport@example.com for further assistance.'
-    const result = p.parseMarkdown(input, state, options) as MarkdownToJSX.ASTNode[]
+    const result = p.parseMarkdown(
+      input,
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
     expect(result).toEqual([
-      { type: RuleType.text, text: 'Please contact Support at 1-111-111-1111 or email ' },
+      {
+        type: RuleType.text,
+        text: 'Please contact Support at 1-111-111-1111 or email ',
+      },
       {
         type: RuleType.link,
         target: 'mailto:technicalsupport@example.com',
         title: undefined,
-        children: [{ type: RuleType.text, text: 'technicalsupport@example.com' }],
+        children: [
+          { type: RuleType.text, text: 'technicalsupport@example.com' },
+        ],
       } as MarkdownToJSX.ASTNode,
       { type: RuleType.text, text: ' for further assistance.' },
     ])
@@ -497,19 +498,29 @@ describe('parseMarkdown', () => {
     // "hnicalsupworker@example.com", leaving "technicalsup" as plain text.
     const inputW =
       'Please contact Support at 1-111-111-1111 or email technicalsupworker@example.com for further assistance.'
-    const resultW = p.parseMarkdown(inputW, createInlineState(), options) as MarkdownToJSX.ASTNode[]
+    const resultW = p.parseMarkdown(
+      inputW,
+      createInlineState(),
+      options
+    ) as MarkdownToJSX.ASTNode[]
     expect(resultW[1]).toEqual({
       type: RuleType.link,
       target: 'mailto:technicalsupworker@example.com',
       title: undefined,
-      children: [{ type: RuleType.text, text: 'technicalsupworker@example.com' }],
+      children: [
+        { type: RuleType.text, text: 'technicalsupworker@example.com' },
+      ],
     } as MarkdownToJSX.ASTNode)
     // 'f': @ at position 66 (prefix=50 + local-part=16), which is > 65, so the fast-skip path fires.
     // Without the fix the loop lands on the 'h' inside "technicalsupfool" and links only
     // "hnicalsupfool@example.com", leaving "technicalsup" as plain text.
     const inputF =
       'Please contact Support at 1-111-111-1111 or email technicalsupfool@example.com for further assistance.'
-    const resultF = p.parseMarkdown(inputF, createInlineState(), options) as MarkdownToJSX.ASTNode[]
+    const resultF = p.parseMarkdown(
+      inputF,
+      createInlineState(),
+      options
+    ) as MarkdownToJSX.ASTNode[]
     expect(resultF[1]).toEqual({
       type: RuleType.link,
       target: 'mailto:technicalsupfool@example.com',
@@ -531,12 +542,14 @@ describe('parseMarkdown', () => {
         type: RuleType.link,
         target: 'mailto:technicalsupport@example.com',
         title: undefined,
-        children: [{ type: RuleType.text, text: 'technicalsupport@example.com' }],
+        children: [
+          { type: RuleType.text, text: 'technicalsupport@example.com' },
+        ],
       } as MarkdownToJSX.ASTNode,
     ])
   })
 
-    it('rejects angle autolinks containing tabs', () => {
+  it('rejects angle autolinks containing tabs', () => {
     const state = createInlineState()
     const options: p.ParseOptions = {
       disableParsingRawHTML: true,
@@ -680,7 +693,7 @@ describe('collectReferenceDefinitions', () => {
   it('should normalize whitespace in labels', () => {
     const refs = createEmptyRefs()
     const options = createDefaultOptions()
-    const input = `[ test   label ]: http://example.com`
+    const input = '[ test   label ]: http://example.com'
     p.collectReferenceDefinitions(input, refs, options)
     expect(refs).toHaveProperty('test label')
   })
@@ -702,7 +715,7 @@ describe('collectReferenceDefinitions', () => {
   it('should handle references with special characters in URLs', () => {
     const refs = createEmptyRefs()
     const options = createDefaultOptions()
-    const input = `[test]: http://example.com/path(1)?query=value#fragment`
+    const input = '[test]: http://example.com/path(1)?query=value#fragment'
     p.collectReferenceDefinitions(input, refs, options)
     expect(refs.test.target).toBe(
       'http://example.com/path(1)?query=value#fragment'
@@ -722,7 +735,11 @@ describe('collectReferenceDefinitions', () => {
   it('should reject reference definitions indented 4+ spaces', () => {
     const refs = createEmptyRefs()
     const options = createDefaultOptions()
-    p.collectReferenceDefinitions('    [too-indented]: http://example.com', refs, options)
+    p.collectReferenceDefinitions(
+      '    [too-indented]: http://example.com',
+      refs,
+      options
+    )
     expect(refs).not.toHaveProperty('too-indented')
   })
 
@@ -736,9 +753,9 @@ describe('collectReferenceDefinitions', () => {
     expect(refs).toHaveProperty('中文')
     expect(refs).toHaveProperty('日本語')
     expect(refs).toHaveProperty('한글')
-    expect(refs['中文'].target).toBe('http://example.com/chinese')
-    expect(refs['日本語'].target).toBe('https://example.jp/japanese')
-    expect(refs['한글'].target).toBe('https://example.kr/korean')
+    expect(refs.中文.target).toBe('http://example.com/chinese')
+    expect(refs.日本語.target).toBe('https://example.jp/japanese')
+    expect(refs.한글.target).toBe('https://example.kr/korean')
   })
 
   it('should normalize Unicode reference labels case-insensitively', () => {
@@ -798,20 +815,24 @@ This is a link to [中文链接] in Chinese.`
   it('should handle reference definitions with unclosed brackets', () => {
     const refs = createEmptyRefs()
     const options = createDefaultOptions()
-    p.collectReferenceDefinitions('[unclosed: http://example.com', refs, options)
+    p.collectReferenceDefinitions(
+      '[unclosed: http://example.com',
+      refs,
+      options
+    )
     expect(refs).not.toHaveProperty('unclosed')
   })
 
   it('should handle reference definitions with nested brackets', () => {
     const refs = createEmptyRefs()
     const options = createDefaultOptions()
-    const input = `[nested [brackets]]: http://example.com`
+    const input = '[nested [brackets]]: http://example.com'
     p.collectReferenceDefinitions(input, refs, options)
     expect(refs).not.toHaveProperty('nested [brackets]')
   })
 
   it('should reject reference definitions inside fenced code blocks', () => {
-    const refs = createEmptyRefs()
+    const _refs = createEmptyRefs()
     const options = createDefaultOptions()
     // Test via parser() which properly skips code blocks
     const input =
@@ -1264,7 +1285,7 @@ describe('parseCodeFenced', () => {
       createBlockState(),
       options
     )
-    expect(result).toMatchInlineSnapshot(`null`)
+    expect(result).toMatchInlineSnapshot('null')
   })
 
   it('should handle fences with spaces after info string', () => {
@@ -1467,11 +1488,11 @@ describe('parseCodeFenced', () => {
     // The next parse should handle ```python
     const nextResult = p.parseCodeFenced(
       input,
-      result!.endPos,
+      result?.endPos,
       createBlockState(),
       options
     )
-    expect(nextResult).toMatchInlineSnapshot(`null`)
+    expect(nextResult).toMatchInlineSnapshot('null')
   })
 
   it('should treat fence with space before info string as content (CommonMark compliant)', () => {
@@ -2075,7 +2096,7 @@ describe('HTML tags interrupting lists', () => {
 
     const list = result[0] as MarkdownToJSX.UnorderedListNode
     // The last item should NOT contain the <small> tag
-    const lastItem = list.items[list.items.length - 1]
+    const lastItem = list.items.at(-1)
     const lastItemText = JSON.stringify(lastItem)
     expect(lastItemText).not.toContain('small')
     expect(lastItemText).not.toContain('Sample content')
@@ -2673,7 +2694,7 @@ describe('multi-line HTML attributes', () => {
     })
 
     it('should handle single trailing newline', () => {
-      expect(p.parser(baseInput + '\n')).toMatchInlineSnapshot(`
+      expect(p.parser(`${baseInput}\n`)).toMatchInlineSnapshot(`
         [
           {
             "_isClosingTag": false,
@@ -2750,7 +2771,7 @@ describe('multi-line HTML attributes', () => {
     })
 
     it('should handle double trailing newline', () => {
-      expect(p.parser(baseInput + '\n\n')).toMatchInlineSnapshot(`
+      expect(p.parser(`${baseInput}\n\n`)).toMatchInlineSnapshot(`
         [
           {
             "_isClosingTag": false,
@@ -2827,7 +2848,7 @@ describe('multi-line HTML attributes', () => {
     })
 
     it('should handle leading newline', () => {
-      expect(p.parser('\n' + baseInput)).toMatchInlineSnapshot(`
+      expect(p.parser(`\n${baseInput}`)).toMatchInlineSnapshot(`
         [
           {
             "_isClosingTag": false,
@@ -2902,7 +2923,7 @@ describe('multi-line HTML attributes', () => {
     })
 
     it('should handle leading and trailing newlines', () => {
-      expect(p.parser('\n' + baseInput + '\n')).toMatchInlineSnapshot(`
+      expect(p.parser(`\n${baseInput}\n`)).toMatchInlineSnapshot(`
         [
           {
             "_isClosingTag": false,
@@ -3852,7 +3873,7 @@ Prefixed spaces not equal to the nested list.
 })
 
 describe('CRLF line endings', () => {
-  function toCRLF(text: string): string {
+  function toCrlf(text: string): string {
     return text.replace(/\n/g, '\r\n')
   }
 
@@ -3862,8 +3883,8 @@ describe('CRLF line endings', () => {
     )
   }
 
-  function expectCRLFEquivalent(lfText: string, description?: string) {
-    const crlfText = toCRLF(lfText)
+  function expectCrlfEquivalent(lfText: string, _description?: string) {
+    const crlfText = toCrlf(lfText)
     const lfResult = p.parser(lfText)
     const crlfResult = p.parser(crlfText)
     expect(stripEndPos(crlfResult)).toEqual(stripEndPos(lfResult))
@@ -3871,65 +3892,65 @@ describe('CRLF line endings', () => {
 
   describe('paragraphs', () => {
     it('should handle single paragraph with multiple lines', () => {
-      expectCRLFEquivalent('line1\nline2\nline3')
+      expectCrlfEquivalent('line1\nline2\nline3')
     })
 
     it('should handle multiple paragraphs separated by blank lines', () => {
-      expectCRLFEquivalent('paragraph 1\n\nparagraph 2\n\nparagraph 3')
+      expectCrlfEquivalent('paragraph 1\n\nparagraph 2\n\nparagraph 3')
     })
   })
 
   describe('headings', () => {
     it('should handle ATX headings', () => {
-      expectCRLFEquivalent('# Heading 1\n\n## Heading 2\n\n### Heading 3')
+      expectCrlfEquivalent('# Heading 1\n\n## Heading 2\n\n### Heading 3')
     })
 
     it('should handle setext headings', () => {
-      expectCRLFEquivalent('Heading 1\n=========\n\nHeading 2\n---------')
+      expectCrlfEquivalent('Heading 1\n=========\n\nHeading 2\n---------')
     })
 
     it('should handle multi-line setext heading content', () => {
-      expectCRLFEquivalent('Multi\nline\nheading\n=======')
+      expectCrlfEquivalent('Multi\nline\nheading\n=======')
     })
   })
 
   describe('lists', () => {
     it('should handle unordered lists', () => {
-      expectCRLFEquivalent('- item 1\n- item 2\n- item 3')
+      expectCrlfEquivalent('- item 1\n- item 2\n- item 3')
     })
 
     it('should handle ordered lists', () => {
-      expectCRLFEquivalent('1. item 1\n2. item 2\n3. item 3')
+      expectCrlfEquivalent('1. item 1\n2. item 2\n3. item 3')
     })
 
     it('should handle nested lists', () => {
-      expectCRLFEquivalent('- item 1\n  - nested 1\n  - nested 2\n- item 2')
+      expectCrlfEquivalent('- item 1\n  - nested 1\n  - nested 2\n- item 2')
     })
 
     it('should handle lists with multi-line items', () => {
-      expectCRLFEquivalent('- item 1\n  continuation\n- item 2')
+      expectCrlfEquivalent('- item 1\n  continuation\n- item 2')
     })
 
     it('should handle GFM task lists', () => {
-      expectCRLFEquivalent('- [ ] unchecked\n- [x] checked\n- [ ] another')
+      expectCrlfEquivalent('- [ ] unchecked\n- [x] checked\n- [ ] another')
     })
   })
 
   describe('code blocks', () => {
     it('should handle fenced code blocks with backticks', () => {
-      expectCRLFEquivalent('```js\nconst x = 1;\nconst y = 2;\n```')
+      expectCrlfEquivalent('```js\nconst x = 1;\nconst y = 2;\n```')
     })
 
     it('should handle fenced code blocks with tildes', () => {
-      expectCRLFEquivalent('~~~python\ndef foo():\n    pass\n~~~')
+      expectCrlfEquivalent('~~~python\ndef foo():\n    pass\n~~~')
     })
 
     it('should handle indented code blocks', () => {
-      expectCRLFEquivalent('    code line 1\n    code line 2\n    code line 3')
+      expectCrlfEquivalent('    code line 1\n    code line 2\n    code line 3')
     })
 
     it('should handle fenced code blocks with blank lines', () => {
-      expectCRLFEquivalent('```\nline 1\n\nline 3\n```')
+      expectCrlfEquivalent('```\nline 1\n\nline 3\n```')
     })
 
     it('should preserve interior blank-line content in indented code (CommonMark ex 112)', () => {
@@ -3947,63 +3968,63 @@ describe('CRLF line endings', () => {
 
   describe('blockquotes', () => {
     it('should handle simple blockquotes', () => {
-      expectCRLFEquivalent('> quote line 1\n> quote line 2')
+      expectCrlfEquivalent('> quote line 1\n> quote line 2')
     })
 
     it('should handle nested blockquotes', () => {
-      expectCRLFEquivalent('> level 1\n>> level 2\n>>> level 3')
+      expectCrlfEquivalent('> level 1\n>> level 2\n>>> level 3')
     })
 
     it('should handle blockquotes with lazy continuation', () => {
-      expectCRLFEquivalent('> quote line 1\ncontinuation line')
+      expectCrlfEquivalent('> quote line 1\ncontinuation line')
     })
 
     it('should handle blockquotes with multiple paragraphs', () => {
-      expectCRLFEquivalent('> paragraph 1\n>\n> paragraph 2')
+      expectCrlfEquivalent('> paragraph 1\n>\n> paragraph 2')
     })
   })
 
   describe('thematic breaks', () => {
     it('should handle horizontal rules', () => {
-      expectCRLFEquivalent('paragraph\n\n---\n\nparagraph')
+      expectCrlfEquivalent('paragraph\n\n---\n\nparagraph')
     })
 
     it('should handle asterisk horizontal rules', () => {
-      expectCRLFEquivalent('text\n\n***\n\ntext')
+      expectCrlfEquivalent('text\n\n***\n\ntext')
     })
 
     it('should handle underscore horizontal rules', () => {
-      expectCRLFEquivalent('text\n\n___\n\ntext')
+      expectCrlfEquivalent('text\n\n___\n\ntext')
     })
   })
 
   describe('HTML blocks', () => {
     it('should handle HTML block elements', () => {
-      expectCRLFEquivalent('<div>\ncontent\n</div>')
+      expectCrlfEquivalent('<div>\ncontent\n</div>')
     })
 
     it('should handle HTML comments', () => {
-      expectCRLFEquivalent('<!-- comment\nspanning lines -->\n\nparagraph')
+      expectCrlfEquivalent('<!-- comment\nspanning lines -->\n\nparagraph')
     })
 
     it('should handle pre blocks', () => {
-      expectCRLFEquivalent('<pre>\npreformatted\ntext\n</pre>')
+      expectCrlfEquivalent('<pre>\npreformatted\ntext\n</pre>')
     })
   })
 
   describe('tables', () => {
     it('should handle simple tables', () => {
-      expectCRLFEquivalent('| A | B |\n|---|---|\n| 1 | 2 |')
+      expectCrlfEquivalent('| A | B |\n|---|---|\n| 1 | 2 |')
     })
 
     it('should handle tables with alignment', () => {
-      expectCRLFEquivalent(
+      expectCrlfEquivalent(
         '| Left | Center | Right |\n|:-----|:------:|------:|\n| L | C | R |'
       )
     })
 
     it('should handle tables with multiple rows', () => {
-      expectCRLFEquivalent(
+      expectCrlfEquivalent(
         '| H1 | H2 |\n|---|---|\n| a | b |\n| c | d |\n| e | f |'
       )
     })
@@ -4011,22 +4032,22 @@ describe('CRLF line endings', () => {
 
   describe('reference definitions', () => {
     it('should handle reference definitions', () => {
-      expectCRLFEquivalent('[link][ref]\n\n[ref]: http://example.com')
+      expectCrlfEquivalent('[link][ref]\n\n[ref]: http://example.com')
     })
 
     it('should handle reference definitions with titles', () => {
-      expectCRLFEquivalent('[link][ref]\n\n[ref]: http://example.com "title"')
+      expectCrlfEquivalent('[link][ref]\n\n[ref]: http://example.com "title"')
     })
 
     it('should handle multiple reference definitions', () => {
-      expectCRLFEquivalent(
+      expectCrlfEquivalent(
         '[a][1] and [b][2]\n\n[1]: http://a.com\n[2]: http://b.com'
       )
     })
 
     it('should reject title with blank line (CRLF blank line detection)', () => {
       const lfText = '[ref]: http://example.com "title\n\nmore"'
-      const crlfText = toCRLF(lfText)
+      const crlfText = toCrlf(lfText)
       const lfResult = p.parser(lfText)
       const crlfResult = p.parser(crlfText)
       expect(stripEndPos(crlfResult)).toEqual(stripEndPos(lfResult))
@@ -4035,7 +4056,7 @@ describe('CRLF line endings', () => {
 
     it('should reject parenthesized title with blank line', () => {
       const lfText = '[ref]: http://example.com (title\n\nmore)'
-      const crlfText = toCRLF(lfText)
+      const crlfText = toCrlf(lfText)
       const lfResult = p.parser(lfText)
       const crlfResult = p.parser(crlfText)
       expect(stripEndPos(crlfResult)).toEqual(stripEndPos(lfResult))
@@ -4045,20 +4066,20 @@ describe('CRLF line endings', () => {
 
   describe('footnotes', () => {
     it('should handle footnote definitions', () => {
-      expectCRLFEquivalent('Text[^1].\n\n[^1]: Footnote content')
+      expectCrlfEquivalent('Text[^1].\n\n[^1]: Footnote content')
     })
 
     it('should handle footnotes with continuation', () => {
-      expectCRLFEquivalent('Text[^1].\n\n[^1]: Footnote\n    continuation')
+      expectCrlfEquivalent('Text[^1].\n\n[^1]: Footnote\n    continuation')
     })
 
     it('should handle multiple footnotes', () => {
-      expectCRLFEquivalent('A[^1] B[^2]\n\n[^1]: First\n[^2]: Second')
+      expectCrlfEquivalent('A[^1] B[^2]\n\n[^1]: First\n[^2]: Second')
     })
 
     it('should not absorb paragraph after blank line (CRLF blank line detection)', () => {
       const lfText = '[^1]: Footnote content\n\nParagraph after.'
-      const crlfText = toCRLF(lfText)
+      const crlfText = toCrlf(lfText)
       const lfResult = p.parser(lfText)
       const crlfResult = p.parser(crlfText)
       expect(stripEndPos(crlfResult)).toEqual(stripEndPos(lfResult))
@@ -4068,7 +4089,7 @@ describe('CRLF line endings', () => {
 
   describe('frontmatter', () => {
     it('should handle YAML frontmatter', () => {
-      expectCRLFEquivalent('---\ntitle: Test\nauthor: Me\n---\n\nContent')
+      expectCrlfEquivalent('---\ntitle: Test\nauthor: Me\n---\n\nContent')
     })
 
     it('should skip frontmatter detection when disableFrontmatter is true', () => {
@@ -4259,7 +4280,7 @@ code
 ---
 
 Final paragraph.`
-      expectCRLFEquivalent(doc)
+      expectCrlfEquivalent(doc)
     })
 
     it('should handle the original issue case (issue #773)', () => {
@@ -4270,7 +4291,7 @@ Final paragraph.`
 - Item 3
 - Item 4`
 
-      const crlfText = toCRLF(text)
+      const crlfText = toCrlf(text)
       const result = p.parser(crlfText)
 
       expect(result.length).toBe(2)
@@ -4370,49 +4391,70 @@ describe('Unserializable expression evaluation', () => {
 
     it('should evaluate arrow functions', () => {
       const markdown = '<Button onClick={() => 42} />'
-      const result = p.parser(markdown, options) as MarkdownToJSX.HTMLSelfClosingNode[]
+      const result = p.parser(
+        markdown,
+        options
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.onClick).toBe('function')
       expect((result[0].attrs?.onClick as Function)()).toBe(42)
     })
 
     it('should evaluate arrow functions with parameters', () => {
       const markdown = '<Input onChange={(x) => x * 2} />'
-      const result = p.parser(markdown, options) as MarkdownToJSX.HTMLSelfClosingNode[]
+      const result = p.parser(
+        markdown,
+        options
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.onChange).toBe('function')
       expect((result[0].attrs?.onChange as Function)(5)).toBe(10)
     })
 
     it('should evaluate function declarations', () => {
       const markdown = '<Component handler={function(n) { return n + 1; }} />'
-      const result = p.parser(markdown, options) as MarkdownToJSX.HTMLSelfClosingNode[]
+      const result = p.parser(
+        markdown,
+        options
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.handler).toBe('function')
       expect((result[0].attrs?.handler as Function)(5)).toBe(6)
     })
 
     it('should keep invalid javascript as strings', () => {
       const markdown = '<Component invalid={this is not valid javascript} />'
-      const result = p.parser(markdown, options) as MarkdownToJSX.HTMLSelfClosingNode[]
+      const result = p.parser(
+        markdown,
+        options
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.invalid).toBe('string')
     })
 
     it('should parse arrays and objects via JSON', () => {
       const markdown =
         '<Component data={[1, 2, 3]} config={{"key": "value"}} />'
-      const result = p.parser(markdown, options) as MarkdownToJSX.HTMLSelfClosingNode[]
+      const result = p.parser(
+        markdown,
+        options
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(result[0].attrs?.data).toEqual([1, 2, 3])
       expect(result[0].attrs?.config).toEqual({ key: 'value' })
     })
 
     it('should convert boolean values', () => {
       const markdown = '<Input enabled={true} disabled={false} />'
-      const result = p.parser(markdown, options) as MarkdownToJSX.HTMLSelfClosingNode[]
+      const result = p.parser(
+        markdown,
+        options
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(result[0].attrs?.enabled).toBe(true)
       expect(result[0].attrs?.disabled).toBe(false)
     })
 
     it('should keep undefined variable references as strings', () => {
       const markdown = '<Component value={someUndefinedVar} />'
-      const result = p.parser(markdown, options) as MarkdownToJSX.HTMLSelfClosingNode[]
+      const result = p.parser(
+        markdown,
+        options
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.value).toBe('string')
       expect(result[0].attrs?.value).toBe('someUndefinedVar')
     })
@@ -4422,13 +4464,14 @@ describe('Unserializable expression evaluation', () => {
     it('should keep expressions as strings by default', () => {
       const maliciousMarkdown =
         '<Component onClick={() => fetch("/admin/delete")} />'
-      const safeResult = p.parser(maliciousMarkdown) as MarkdownToJSX.HTMLSelfClosingNode[]
+      const safeResult = p.parser(
+        maliciousMarkdown
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof safeResult[0].attrs?.onClick).toBe('string')
     })
 
     it('should eval expressions when evalUnserializableExpressions is true', () => {
-      const markdown =
-        '<Component onClick={() => 42} />'
+      const markdown = '<Component onClick={() => 42} />'
       const result = p.parser(markdown, {
         evalUnserializableExpressions: true,
       }) as MarkdownToJSX.HTMLSelfClosingNode[]
@@ -4667,7 +4710,9 @@ describe('Unserializable expression evaluation', () => {
     })
 
     it('should handle nested same-tag HTML blocks with blank lines (#829)', () => {
-      expect(p.parser('<div>\n<div>\ninner\n</div>\n\n</div>\n\nafter')).toMatchInlineSnapshot(`
+      expect(
+        p.parser('<div>\n<div>\ninner\n</div>\n\n</div>\n\nafter')
+      ).toMatchInlineSnapshot(`
         [
           {
             "_isClosingTag": false,
@@ -4742,7 +4787,9 @@ describe('text normalization edge cases', () => {
     })
 
     it('should replace multiple null bytes', () => {
-      const result = p.parser('a\x00b\x00c\x00d') as MarkdownToJSX.ParagraphNode[]
+      const result = p.parser(
+        'a\x00b\x00c\x00d'
+      ) as MarkdownToJSX.ParagraphNode[]
       expect(result).toEqual([
         {
           type: RuleType.paragraph,
@@ -4752,7 +4799,9 @@ describe('text normalization edge cases', () => {
     })
 
     it('should replace null bytes in code blocks', () => {
-      const result = p.parser('```\ncode\x00block\n```') as MarkdownToJSX.CodeBlockNode[]
+      const result = p.parser(
+        '```\ncode\x00block\n```'
+      ) as MarkdownToJSX.CodeBlockNode[]
       expect(result[0].type).toBe(RuleType.codeBlock)
       expect(result[0].text).toBe('code\uFFFDblock')
     })
@@ -4775,7 +4824,9 @@ describe('text normalization edge cases', () => {
 
   describe('BOM handling', () => {
     it('should strip BOM (U+FEFF) at document start', () => {
-      const result = p.parser('\uFEFFhello world') as MarkdownToJSX.ParagraphNode[]
+      const result = p.parser(
+        '\uFEFFhello world'
+      ) as MarkdownToJSX.ParagraphNode[]
       expect(result).toEqual([
         {
           type: RuleType.paragraph,
@@ -4800,7 +4851,9 @@ describe('text normalization edge cases', () => {
     })
 
     it('should preserve BOM in middle of document', () => {
-      const result = p.parser('hello\uFEFFworld') as MarkdownToJSX.ParagraphNode[]
+      const result = p.parser(
+        'hello\uFEFFworld'
+      ) as MarkdownToJSX.ParagraphNode[]
       expect(result).toEqual([
         {
           type: RuleType.paragraph,
@@ -5043,7 +5096,9 @@ describe('text normalization edge cases', () => {
 
     // Issue 4: Image with entity in alt text
     it('md4c#4: image alt text with entity', () => {
-      const result = p.parser("![alt text with *entity* &copy;](img.png 'title')")
+      const result = p.parser(
+        "![alt text with *entity* &copy;](img.png 'title')"
+      )
       expect(result).toMatchInlineSnapshot(`
         [
           {
@@ -5763,7 +5818,9 @@ describe('text normalization edge cases', () => {
 
     // Issue 100: Autolink email with long labels
     it('md4c#100: autolink email at max label length', () => {
-      const result = p.parser('<foo@123456789012345678901234567890123456789012345678901234567890123.123456789012345678901234567890123456789012345678901234567890123>')
+      const result = p.parser(
+        '<foo@123456789012345678901234567890123456789012345678901234567890123.123456789012345678901234567890123456789012345678901234567890123>'
+      )
       expect(result).toMatchInlineSnapshot(`
         [
           {
@@ -5787,7 +5844,9 @@ describe('text normalization edge cases', () => {
     })
 
     it('md4c#100: autolink email exceeding max label length', () => {
-      const result = p.parser('<foo@123456789012345678901234567890123456789012345678901234567890123x.123456789012345678901234567890123456789012345678901234567890123>')
+      const result = p.parser(
+        '<foo@123456789012345678901234567890123456789012345678901234567890123x.123456789012345678901234567890123456789012345678901234567890123>'
+      )
       expect(result).toMatchInlineSnapshot(`
         [
           {
@@ -5891,7 +5950,9 @@ describe('text normalization edge cases', () => {
 
     // Issue 124: Code fence preserving leading spaces
     it('md4c#124: code fence preserves many leading spaces', () => {
-      const result = p.parser('~~~\n                x\n~~~\n\n~~~\n                 x\n~~~')
+      const result = p.parser(
+        '~~~\n                x\n~~~\n\n~~~\n                 x\n~~~'
+      )
       expect(result).toMatchInlineSnapshot(`
         [
           {
@@ -5914,7 +5975,9 @@ describe('text normalization edge cases', () => {
 
     // Issue 131: Image inside link using reference definitions
     it('md4c#131: image inside link via reference defs', () => {
-      const result = p.parser('[![alt][img]][link]\n\n[img]: img_url\n[link]: link_url')
+      const result = p.parser(
+        '[![alt][img]][link]\n\n[img]: img_url\n[link]: link_url'
+      )
       expect(result).toMatchInlineSnapshot(`
         [
           {
@@ -6135,7 +6198,9 @@ describe('text normalization edge cases', () => {
 
     // Issue 207: Textarea HTML block
     it('md4c#207: textarea preserves inner markdown verbatim', () => {
-      const result = p.parser('<textarea>\n\n*foo*\n\n_bar_\n\n</textarea>\n\nbaz')
+      const result = p.parser(
+        '<textarea>\n\n*foo*\n\n_bar_\n\n</textarea>\n\nbaz'
+      )
       expect(result).toMatchInlineSnapshot(`
         [
           {
@@ -6175,7 +6240,9 @@ describe('text normalization edge cases', () => {
 
     // Issue 210: Nested images
     it('md4c#210: nested image in image alt text', () => {
-      const result = p.parser('![outer ![inner](img_inner "inner title")](img_outer "outer title")')
+      const result = p.parser(
+        '![outer ![inner](img_inner "inner title")](img_outer "outer title")'
+      )
       expect(result).toMatchInlineSnapshot(`
         [
           {
@@ -6845,18 +6912,38 @@ describe('forward reference resolution', () => {
   // Reference definitions may appear anywhere in the document, including after
   // their first use inside nested containers. These guard the invariant that
   // every inline parse context sees the complete refs collection.
-  function findLinks(nodes: MarkdownToJSX.ASTNode[]): { target: string; text: string }[] {
+  function findLinks(
+    nodes: MarkdownToJSX.ASTNode[]
+  ): { target: string; text: string }[] {
     const out: { target: string; text: string }[] = []
     const walk = (ns: MarkdownToJSX.ASTNode[]) => {
       for (const n of ns as any[]) {
-        if (!n || typeof n !== 'object') continue
+        if (!n || typeof n !== 'object') {
+          continue
+        }
         if (n.type === RuleType.link) {
           out.push({ target: n.target, text: n.children?.[0]?.text })
         }
-        if (Array.isArray(n.children)) walk(n.children)
-        if (Array.isArray(n.items)) for (const item of n.items) walk(item)
-        if (Array.isArray(n.header)) for (const cell of n.header) walk(cell)
-        if (Array.isArray(n.cells)) for (const row of n.cells) for (const cell of row) walk(cell)
+        if (Array.isArray(n.children)) {
+          walk(n.children)
+        }
+        if (Array.isArray(n.items)) {
+          for (const item of n.items) {
+            walk(item)
+          }
+        }
+        if (Array.isArray(n.header)) {
+          for (const cell of n.header) {
+            walk(cell)
+          }
+        }
+        if (Array.isArray(n.cells)) {
+          for (const row of n.cells) {
+            for (const cell of row) {
+              walk(cell)
+            }
+          }
+        }
       }
     }
     walk(nodes)
@@ -6882,11 +6969,15 @@ describe('forward reference resolution', () => {
   })
 
   it('resolves in a loose list item', () => {
-    expect(findLinks(p.parser('- [foo]\n\n- bar\n\n[foo]: /url'))).toEqual(expected)
+    expect(findLinks(p.parser('- [foo]\n\n- bar\n\n[foo]: /url'))).toEqual(
+      expected
+    )
   })
 
   it('resolves in a multi-block tight list item', () => {
-    expect(findLinks(p.parser('- [foo]\n  > quote\n\n[foo]: /url'))).toEqual(expected)
+    expect(findLinks(p.parser('- [foo]\n  > quote\n\n[foo]: /url'))).toEqual(
+      expected
+    )
   })
 
   it('resolves in a task list item', () => {
@@ -6900,7 +6991,9 @@ describe('forward reference resolution', () => {
   })
 
   it('resolves in an HTML block', () => {
-    expect(findLinks(p.parser('<div>[foo]</div>\n\n[foo]: /url'))).toEqual(expected)
+    expect(findLinks(p.parser('<div>[foo]</div>\n\n[foo]: /url'))).toEqual(
+      expected
+    )
   })
 
   it('resolves in nested list inside blockquote', () => {
@@ -6913,10 +7006,19 @@ describe('unique heading IDs (#857)', () => {
     const ids: string[] = []
     const walk = (ns: MarkdownToJSX.ASTNode[]) => {
       for (const n of ns) {
-        if (n.type === RuleType.heading) ids.push(n.id)
-        if ('children' in n && Array.isArray(n.children)) walk(n.children)
-        if ('items' in n && Array.isArray((n as MarkdownToJSX.OrderedListNode).items)) {
-          for (const item of (n as MarkdownToJSX.OrderedListNode).items) walk(item)
+        if (n.type === RuleType.heading) {
+          ids.push(n.id)
+        }
+        if ('children' in n && Array.isArray(n.children)) {
+          walk(n.children)
+        }
+        if (
+          'items' in n &&
+          Array.isArray((n as MarkdownToJSX.OrderedListNode).items)
+        ) {
+          for (const item of (n as MarkdownToJSX.OrderedListNode).items) {
+            walk(item)
+          }
         }
       }
     }
@@ -6983,11 +7085,14 @@ Foo
   it('dedupes collisions from a custom slugify', () => {
     expect(
       headingIds(
-        p.parser(`# Alpha
+        p.parser(
+          `# Alpha
 
-# Beta`, {
-          slugify: () => 'same',
-        })
+# Beta`,
+          {
+            slugify: () => 'same',
+          }
+        )
       )
     ).toEqual(['same', 'same-1'])
   })
@@ -6995,11 +7100,14 @@ Foo
   it('leaves empty slugify results empty without inventing a suffix', () => {
     expect(
       headingIds(
-        p.parser(`# One
+        p.parser(
+          `# One
 
-# Two`, {
-          slugify: () => '',
-        })
+# Two`,
+          {
+            slugify: () => '',
+          }
+        )
       )
     ).toEqual(['', ''])
   })
@@ -7054,10 +7162,11 @@ describe('destination entity decode before sanitize', () => {
         }
         if ('children' in n && Array.isArray(n.children)) {
           const found = walk(n.children)
-          if (found !== undefined) return found
+          if (found !== undefined) {
+            return found
+          }
         }
       }
-      return undefined
     }
     return walk(nodes)
   }
@@ -7075,9 +7184,7 @@ describe('destination entity decode before sanitize', () => {
   })
 
   it('nulls entity-obfuscated javascript: reference link destinations', () => {
-    expect(
-      linkTarget('[x][r]\n\n[r]: &#106;avascript:alert(1)')
-    ).toBe(null)
+    expect(linkTarget('[x][r]\n\n[r]: &#106;avascript:alert(1)')).toBe(null)
   })
 
   it('keeps valid empty destinations and safe URLs', () => {
@@ -7098,13 +7205,16 @@ describe('destination entity decode before sanitize', () => {
     expect(calls).toBe(1)
     const walk = (ns: MarkdownToJSX.ASTNode[]): string | null | undefined => {
       for (const n of ns) {
-        if (n.type === RuleType.link) return (n as MarkdownToJSX.LinkNode).target
+        if (n.type === RuleType.link) {
+          return (n as MarkdownToJSX.LinkNode).target
+        }
         if ('children' in n && Array.isArray(n.children)) {
           const found = walk(n.children)
-          if (found !== undefined) return found
+          if (found !== undefined) {
+            return found
+          }
         }
       }
-      return undefined
     }
     // Parse keeps the original decoded destination; emit applies transforms.
     expect(walk(rewritten)).toBe('https://e.com')
@@ -7193,8 +7303,8 @@ Some paragraph
       const html = result[0] as MarkdownToJSX.HTMLNode
       expect(html.tag).toBe(tag)
       expect(html.children).toHaveLength(2)
-      expect(html.children![0].type).toBe(RuleType.heading)
-      expect(html.children![1].type).toBe(RuleType.paragraph)
+      expect(html.children?.[0].type).toBe(RuleType.heading)
+      expect(html.children?.[1].type).toBe(RuleType.paragraph)
     }
   })
 
@@ -7208,8 +7318,8 @@ Some paragraph
     const html = result[0] as MarkdownToJSX.HTMLNode
     expect(html.tag).toBe('my-widget')
     expect(html.children).toHaveLength(2)
-    expect(html.children![0].type).toBe(RuleType.heading)
-    expect(html.children![1].type).toBe(RuleType.paragraph)
+    expect(html.children?.[0].type).toBe(RuleType.heading)
+    expect(html.children?.[1].type).toBe(RuleType.paragraph)
   })
 
   it('keeps lowercase unknown tags as Type 7 stopping at the blank line', () => {

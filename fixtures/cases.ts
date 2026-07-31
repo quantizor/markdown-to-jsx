@@ -22,12 +22,12 @@ export type DomExpect =
   | { count: number; sel: string }
   | { sel: string; text: string }
 
-export type HarnessOptions = {
+export interface HarnessOptions {
   optimizeForStreaming?: boolean
   tagfilter?: boolean
 }
 
-export type HarnessCase = {
+export interface HarnessCase {
   dom: DomExpect[]
   id: string
   md: string
@@ -180,7 +180,7 @@ export var CASES: HarnessCase[] = [
   },
   {
     id: 'list-fence',
-    md: '- item\n\n  ' + FENCE + '\n  code\n  ' + FENCE,
+    md: `- item\n\n  ${FENCE}\n  code\n  ${FENCE}`,
     dom: [
       { sel: 'li p', text: 'item' },
       { sel: 'li pre code', text: 'code' },
@@ -196,7 +196,7 @@ export var CASES: HarnessCase[] = [
   },
   {
     id: 'code-fence-lang',
-    md: FENCE + 'js\nconst x = 1\n' + FENCE,
+    md: `${FENCE}js\nconst x = 1\n${FENCE}`,
     dom: [
       { sel: 'pre', count: 1 },
       { sel: 'pre code', text: 'const x = 1' },
@@ -318,7 +318,7 @@ export var CASES: HarnessCase[] = [
   },
   {
     id: 'html-self-closing',
-    md: '<img src="' + PIXEL + '" alt="z" />',
+    md: `<img src="${PIXEL}" alt="z" />`,
     dom: [
       { sel: 'img[src^="data:"]', count: 1 },
       { sel: 'img', attr: ['alt', 'z'] },
@@ -438,7 +438,7 @@ export var CASES: HarnessCase[] = [
   },
   {
     id: 'link-image-nested',
-    md: '[![alt](' + PIXEL + ')](https://e.com)',
+    md: `[![alt](${PIXEL})](https://e.com)`,
     dom: [
       { sel: 'a', attr: ['href', 'https://e.com'] },
       { sel: 'a img', attr: ['alt', 'alt'] },
@@ -448,7 +448,7 @@ export var CASES: HarnessCase[] = [
     id: 'image-basic',
     // Every image source in this corpus is a data URI: the harness must be
     // hermetic, and any remote URL here becomes a real fetch in the browser.
-    md: '![alt](' + PIXEL + ' "ti")',
+    md: `![alt](${PIXEL} "ti")`,
     dom: [
       { sel: 'img[src^="data:"]', count: 1 },
       { sel: 'img', attr: ['alt', 'alt'] },
@@ -457,7 +457,7 @@ export var CASES: HarnessCase[] = [
   },
   {
     id: 'image-data-uri',
-    md: '![p](' + PIXEL + ')',
+    md: `![p](${PIXEL})`,
     dom: [
       { sel: 'img', attr: ['alt', 'p'] },
       { sel: 'img[src^="data:"]', count: 1 },
@@ -579,8 +579,7 @@ export var CASES: HarnessCase[] = [
   {
     id: 'code-in-link-in-table-cell',
     ref: '#644',
-    md:
-      '| Column 1 | Column 2 |\n|---------------------------------------|----------|\n| [`example` (text `highlighted`)](relative/link) | Value |',
+    md: '| Column 1 | Column 2 |\n|---------------------------------------|----------|\n| [`example` (text `highlighted`)](relative/link) | Value |',
     dom: [
       { sel: 'td a', attr: ['href', 'relative/link'] },
       { sel: 'td a code', count: 2 },
@@ -589,8 +588,7 @@ export var CASES: HarnessCase[] = [
   {
     id: 'markdown-list-in-html-table',
     ref: '#862',
-    md:
-      '<table>\n <tbody>\n <tr>\n <td>Foo 1</td>\n <td>Bar 1</td>\n </tr>\n <tr>\n <td>Foo 2</td>\n <td>A list:\n\n- one\n- two\n- three\n </td>\n </tr>\n </tbody>\n</table>',
+    md: '<table>\n <tbody>\n <tr>\n <td>Foo 1</td>\n <td>Bar 1</td>\n </tr>\n <tr>\n <td>Foo 2</td>\n <td>A list:\n\n- one\n- two\n- three\n </td>\n </tr>\n </tbody>\n</table>',
     dom: [
       { sel: 'table tr', count: 2 },
       { sel: 'td ul li', count: 3 },
@@ -680,7 +678,7 @@ export var CASES: HarnessCase[] = [
   {
     id: 'image-alt-escaped-chars',
     ref: '#688',
-    md: '![\\-\\<stuff](' + PIXEL + ')',
+    md: `![\\-\\<stuff](${PIXEL})`,
     dom: [{ sel: 'img', attr: ['alt', '-<stuff'] }],
   },
   {

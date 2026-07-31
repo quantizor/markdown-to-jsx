@@ -52,11 +52,9 @@ describe('markdown-to-jsx/native built package', () => {
   it('matches the headings-case tree snapshot', async () => {
     // prettierPath: null in package.json: Jest 29 cannot format inline
     // snapshots under Prettier 3, so formatting is disabled for this suite.
-    var heading = CASES.find(function (c) {
-      return c.id === 'heading-atx'
-    })
+    var heading = CASES.find(c => c.id === 'heading-atx')
     expect(heading).toBeDefined()
-    var screen = await render(<Markdown>{heading!.md}</Markdown>)
+    var screen = await render(<Markdown>{heading?.md}</Markdown>)
     expect(screen.toJSON()).toMatchInlineSnapshot(`
 <View>
   <Text

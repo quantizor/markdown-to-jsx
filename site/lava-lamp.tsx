@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 function generateMapFunction(numParticles: number): string {
   var parts: string[] = [
@@ -230,7 +230,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4f {
 }
 
 function hexToRgb(hex: string): [number, number, number] {
-  const bigint = parseInt(hex.slice(1), 16)
+  const bigint = Number.parseInt(hex.slice(1), 16)
   return [
     ((bigint >> 16) & 255) / 255,
     ((bigint >> 8) & 255) / 255,
@@ -238,12 +238,14 @@ function hexToRgb(hex: string): [number, number, number] {
   ]
 }
 
-function cn(...args: (string | undefined)[]): string {
-  var out = '',
-    i = 0
+function cn(..._args: (string | undefined)[]): string {
+  var out = ''
+  var i = 0
   for (; i < arguments.length; ++i) {
     var x = arguments[i]
-    if (x) (out && (out += ' '), (out += x))
+    if (x) {
+      out && (out += ' '), (out += x)
+    }
   }
   return out
 }
@@ -251,11 +253,13 @@ function cn(...args: (string | undefined)[]): string {
 function loadParticleData(numParticles: number): Float32Array | null {
   try {
     const saved = localStorage.getItem('lava-lamp-particles')
-    if (!saved) return null
+    if (!saved) {
+      return null
+    }
 
     const parsed = JSON.parse(saved)
     const now = Date.now()
-    const oneDay = 86400000
+    const oneDay = 86_400_000
     let dataArray: number[] | null = null
     let timestamp: number | null = null
 
@@ -278,8 +282,7 @@ function loadParticleData(numParticles: number): Float32Array | null {
 
     const expectedLength = numParticles * 12
     if (
-      !dataArray ||
-      !Array.isArray(dataArray) ||
+      !(dataArray && Array.isArray(dataArray)) ||
       dataArray.length !== expectedLength
     ) {
       return null
@@ -314,14 +317,14 @@ function loadParticleData(numParticles: number): Float32Array | null {
         Math.abs(vz) > 2 ||
         temp < -0.1 ||
         temp > 1.1 ||
-        !isFinite(x) ||
-        !isFinite(y) ||
-        !isFinite(z) ||
-        !isFinite(r) ||
-        !isFinite(vx) ||
-        !isFinite(vy) ||
-        !isFinite(vz) ||
-        !isFinite(temp)
+        !Number.isFinite(x) ||
+        !Number.isFinite(y) ||
+        !Number.isFinite(z) ||
+        !Number.isFinite(r) ||
+        !Number.isFinite(vx) ||
+        !Number.isFinite(vy) ||
+        !Number.isFinite(vz) ||
+        !Number.isFinite(temp)
       ) {
         valid = false
         break
@@ -341,7 +344,7 @@ function loadParticleData(numParticles: number): Float32Array | null {
 
     localStorage.removeItem('lava-lamp-particles')
     return null
-  } catch (e) {
+  } catch {
     return null
   }
 }
@@ -372,7 +375,7 @@ function saveParticleData(data: number[]): void {
       'lava-lamp-particles',
       JSON.stringify({
         timestamp: Date.now(),
-        data: data,
+        data,
       })
     )
   } catch (e) {
@@ -387,8 +390,8 @@ export function LavaLamp({ className }: { className?: string }) {
   const mouseRef = useRef({ x: 0, y: 0, down: false })
   const camAnglesRef = useRef({ theta: 0, phi: 0.2 })
   const camRadiusRef = useRef(4.5)
-  const isDestroyedRef = useRef(false)
-  const resourcesRef = useRef<{
+  const _isDestroyedRef = useRef(false)
+  const _resourcesRef = useRef<{
     device: GPUDevice | null
     context: GPUCanvasContext | null
     uniformBuffer: GPUBuffer | null
@@ -421,18 +424,24 @@ export function LavaLamp({ className }: { className?: string }) {
     mouseRef.current.x = e.clientX
     mouseRef.current.y = e.clientY
     const canvas = canvasRef.current
-    if (canvas) canvas.style.cursor = 'grabbing'
+    if (canvas) {
+      canvas.style.cursor = 'grabbing'
+    }
   }, [])
 
   const handleMouseUp = useCallback(() => {
     mouseRef.current.down = false
     const canvas = canvasRef.current
-    if (canvas) canvas.style.cursor = 'grab'
+    if (canvas) {
+      canvas.style.cursor = 'grab'
+    }
   }, [])
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
-      if (!mouseRef.current.down) return
+      if (!mouseRef.current.down) {
+        return
+      }
       updateCamera(
         e.clientX - mouseRef.current.x,
         e.clientY - mouseRef.current.y
@@ -455,7 +464,9 @@ export function LavaLamp({ className }: { className?: string }) {
 
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
-      if (!mouseRef.current.down) return
+      if (!mouseRef.current.down) {
+        return
+      }
       e.preventDefault()
       const t = e.touches[0]
       updateCamera(
@@ -470,7 +481,9 @@ export function LavaLamp({ className }: { className?: string }) {
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas) {
+      return
+    }
 
     if (!navigator.gpu) {
       console.warn('WebGPU not supported, lava lamp disabled')
@@ -489,7 +502,7 @@ export function LavaLamp({ className }: { className?: string }) {
     let handleScroll: (() => void) | null = null
     let scrollEndTimer: ReturnType<typeof setTimeout> | null = null
     let isDestroyed = false
-    let numParticles = 16
+    const numParticles = 16
     const uniformBufferSize = 160
 
     const init = async () => {
@@ -613,7 +626,9 @@ export function LavaLamp({ className }: { className?: string }) {
         const saveInterval = 1000
 
         const updateCanvasSize = () => {
-          if (isDestroyed) return
+          if (isDestroyed) {
+            return
+          }
           const width = window.visualViewport?.width || window.innerWidth
           const height = window.visualViewport?.height || window.innerHeight
           if (width > 0 && height > 0) {
@@ -631,8 +646,8 @@ export function LavaLamp({ className }: { className?: string }) {
             ) {
               canvas.width = renderWidth
               canvas.height = renderHeight
-              canvas.style.width = width + 'px'
-              canvas.style.height = height + 'px'
+              canvas.style.width = `${width}px`
+              canvas.style.height = `${height}px`
             }
           }
         }
@@ -652,7 +667,9 @@ export function LavaLamp({ className }: { className?: string }) {
         let isScrolling = false
         handleScroll = () => {
           isScrolling = true
-          if (scrollEndTimer !== null) clearTimeout(scrollEndTimer)
+          if (scrollEndTimer !== null) {
+            clearTimeout(scrollEndTimer)
+          }
           scrollEndTimer = setTimeout(() => {
             isScrolling = false
             scrollEndTimer = null
@@ -691,8 +708,8 @@ export function LavaLamp({ className }: { className?: string }) {
           if (canvas.width !== renderWidth || canvas.height !== renderHeight) {
             canvas.width = renderWidth
             canvas.height = renderHeight
-            canvas.style.width = width + 'px'
-            canvas.style.height = height + 'px'
+            canvas.style.width = `${width}px`
+            canvas.style.height = `${height}px`
           }
 
           camAnglesRef.current.theta += 0.0003
@@ -712,10 +729,7 @@ export function LavaLamp({ className }: { className?: string }) {
           uValues[18] = r * cosPhi * cosTheta
 
           if (
-            !uniformBuffer ||
-            !computePipeline ||
-            !renderPipeline ||
-            !bindGroup
+            !(uniformBuffer && computePipeline && renderPipeline && bindGroup)
           ) {
             if (!isDestroyed) {
               animationFrameRef.current = requestAnimationFrame(frame)
@@ -810,13 +824,15 @@ export function LavaLamp({ className }: { className?: string }) {
                         stagingBuffer.unmap()
                         isSaving = false
                         const saveToStorage = () => {
-                          if (isDestroyed) return
+                          if (isDestroyed) {
+                            return
+                          }
                           saveParticleData(saveData)
                         }
-                        if (typeof requestIdleCallback !== 'undefined') {
-                          requestIdleCallback(saveToStorage, { timeout: 5000 })
-                        } else {
+                        if (typeof requestIdleCallback === 'undefined') {
                           setTimeout(saveToStorage, 0)
+                        } else {
+                          requestIdleCallback(saveToStorage, { timeout: 5000 })
                         }
                       } else {
                         stagingBuffer.unmap()

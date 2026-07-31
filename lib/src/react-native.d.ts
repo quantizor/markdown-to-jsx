@@ -6,8 +6,8 @@ declare module 'react-native' {
   export const Image: React.ForwardRefExoticComponent<any>
 
   export namespace Linking {
-    function openURL(url: string): Promise<void>
-    function canOpenURL(url: string): Promise<boolean>
+    function openUrl(url: string): Promise<void>
+    function canOpenUrl(url: string): Promise<boolean>
   }
 
   export namespace StyleSheet {

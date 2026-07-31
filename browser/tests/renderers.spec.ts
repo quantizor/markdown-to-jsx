@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, type Locator, type Page, test } from '@playwright/test'
 import { CASES, type DomExpect, type HarnessCase } from '../../fixtures/cases'
 
 /**
@@ -14,9 +14,9 @@ import { CASES, type DomExpect, type HarnessCase } from '../../fixtures/cases'
  */
 var RENDERERS = ['react', 'solid', 'vue'] as const
 
-var BROWSER_CASES: HarnessCase[] = CASES.filter(function (c) {
-  return !c.skip || c.skip.indexOf('browser') === -1
-})
+var BROWSER_CASES: HarnessCase[] = CASES.filter(
+  c => !c.skip || c.skip.indexOf('browser') === -1
+)
 
 /**
  * React DEV warns about unknown custom tags (MyComponent, tag1) that the
@@ -33,30 +33,34 @@ function isBenignReactCustomTagWarning(text: string): boolean {
 
 function collectErrors(page: Page): string[] {
   var errors: string[] = []
-  page.on('pageerror', function (err) {
-    errors.push('pageerror: ' + err.message)
+  page.on('pageerror', err => {
+    errors.push(`pageerror: ${err.message}`)
   })
-  page.on('console', function (msg) {
-    if (msg.type() !== 'error') return
+  page.on('console', msg => {
+    if (msg.type() !== 'error') {
+      return
+    }
     var text = msg.text()
-    if (isBenignReactCustomTagWarning(text)) return
-    errors.push('console.error: ' + text)
+    if (isBenignReactCustomTagWarning(text)) {
+      return
+    }
+    errors.push(`console.error: ${text}`)
   })
   return errors
 }
 
 async function applyExpect(out: Locator, e: DomExpect) {
   var target = e.sel === '' ? out : out.locator(e.sel)
-  if ('absent' in e) await expect.soft(target).toHaveCount(0)
-  else if ('count' in e) await expect.soft(target).toHaveCount(e.count)
-  else if ('attr' in e)
+  if ('absent' in e) {
+    await expect.soft(target).toHaveCount(0)
+  } else if ('count' in e) {
+    await expect.soft(target).toHaveCount(e.count)
+  } else if ('attr' in e) {
     await expect.soft(target.first()).toHaveAttribute(e.attr[0], e.attr[1])
-  else {
+  } else {
     var first = target.first()
     // Chromium hides <script>/<style> body from toHaveText; textContent still holds it.
-    var tag = await first.evaluate(function (el) {
-      return el.tagName
-    })
+    var tag = await first.evaluate(el => el.tagName)
     if (tag === 'SCRIPT' || tag === 'STYLE') {
       await expect.soft(first).toHaveJSProperty('textContent', e.text)
     } else {
@@ -66,7 +70,9 @@ async function applyExpect(out: Locator, e: DomExpect) {
 }
 
 for (const renderer of RENDERERS) {
-  test(renderer + ' renders every case to contract', async ({ page }, testInfo) => {
+  test(`${renderer} renders every case to contract`, async ({
+    page,
+  }, testInfo) => {
     var errors = collectErrors(page)
     await page.goto('/')
 
@@ -77,15 +83,17 @@ for (const renderer of RENDERERS) {
       expectedMode
     )
 
-    var root = page.locator('#' + renderer + '-root')
+    var root = page.locator(`#${renderer}-root`)
 
     // Every case mounted its card before any assertion runs.
     await expect(root.locator('[data-out]')).toHaveCount(BROWSER_CASES.length)
 
     for (const c of BROWSER_CASES) {
       await test.step(c.id, async () => {
-        var out = root.locator('[data-case="' + c.id + '"] [data-out]')
-        for (const e of c.dom) await applyExpect(out, e)
+        var out = root.locator(`[data-case="${c.id}"] [data-out]`)
+        for (const e of c.dom) {
+          await applyExpect(out, e)
+        }
       })
     }
 

@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { renderToString } from 'react-dom/server'
-import md from './index.cjs'
+import md from './index.cjs.tsx'
 
 const { parser, compiler, RuleType, Markdown } = md
 

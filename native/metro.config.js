@@ -1,7 +1,7 @@
 const { getDefaultConfig } = require('expo/metro-config')
-const path = require('path')
+const path = require('node:path')
 
-const projectRoot = __dirname
+const projectRoot = import.meta.dirname
 const libSrc = path.join(projectRoot, '..', 'lib', 'src')
 const fixturesDir = path.join(projectRoot, '..', 'fixtures')
 const harnessNodeModules = path.join(projectRoot, 'node_modules')

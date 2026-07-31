@@ -6,8 +6,8 @@ declare module 'benchtable' {
   import Benchmark = require('benchmark')
 
   interface Table {
-    push(item: Record<string, string[]>): void
-    toString(): string
+    push: (item: Record<string, string[]>) => void
+    toString: () => string
   }
 
   interface BenchTableOptions extends Benchmark.Options {

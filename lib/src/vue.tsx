@@ -1,26 +1,28 @@
 /** @jsxRuntime classic */
 /** @jsx h */
 
+import process from 'node:process'
 import {
-  h,
-  type VNode,
   type Component,
-  provide,
-  inject,
   computed,
+  h,
   type InjectionKey,
+  inject,
+  provide,
+  type VNode,
 } from 'vue'
-import * as $ from './constants'
-import * as parse from './parse'
-import { MarkdownToJSX, RuleType, RequireAtLeastOne } from './types'
-import * as util from './utils'
+import * as parse from './parse.ts'
+import {
+  type MarkdownToJSX,
+  type RequireAtLeastOne,
+  RuleType,
+} from './types.ts'
+import * as util from './utils.ts'
 
-export { parser } from './parse'
-import { parser } from './parse'
+export { parser } from './parse.ts'
 
-export { RuleType, type MarkdownToJSX } from './types'
-export { sanitizer, slugify } from './utils'
-
+export { type MarkdownToJSX, RuleType } from './types.ts'
+export { sanitizer, slugify } from './utils.ts'
 
 /**
  * Vue injection key for sharing compiler options across Markdown components
@@ -38,7 +40,7 @@ type VueSanitizer = (
   attribute: string
 ) => string | null
 
-type VueASTRender = (
+type VueAstRender = (
   ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
   state: MarkdownToJSX.State
 ) => VueChild[] | VueChild | null
@@ -46,7 +48,7 @@ type VueASTRender = (
 // Helper to normalize children output to array format (only for null handling)
 // Inlined in hot paths for performance
 const normalizeChildren = (output: VueChild[] | VueChild | null): VueChild[] =>
-  Array.isArray(output) ? output : output !== null ? [output] : []
+  Array.isArray(output) ? output : output === null ? [] : [output]
 
 // Render functions for each node type
 const renderers: Record<
@@ -57,8 +59,7 @@ const renderers: Record<
     const props = {} as Record<string, unknown>
     let children = node.children
     if (node.alert) {
-      props.class =
-        'markdown-alert-' + slug(node.alert.toLowerCase(), util.slugify)
+      props.class = `markdown-alert-${slug(node.alert.toLowerCase(), util.slugify)}`
       children = [util.alertHeaderNode(node.alert), ...children]
     }
     return h(
@@ -192,7 +193,7 @@ const renderers: Record<
 
       const astNodes = parse.parseMarkdown(
         cleanedText,
-        { inline: false, refs: refs, inHTML: false },
+        { inline: false, refs, inHTML: false },
         parseOptions
       )
       // Clear verbatim on re-parsed nodes so a nested element does not absorb a
@@ -204,21 +205,33 @@ const renderers: Record<
       // outer block, so emit the parsed nodes directly instead of nesting
       // them in another copy of the tag.
       if (isRawOuter) {
-        return normalizeChildren(output(astNodes.flatMap(util.processVerbatimNode), state))
+        return normalizeChildren(
+          output(astNodes.flatMap(util.processVerbatimNode), state)
+        )
       }
 
       const split = util.findOwnCloseInAST(astNodes, tagLower)
       if (split.found && split.afterClose.length > 0) {
         return [
-          h(node.tag, props, ...normalizeChildren(output(split.beforeClose.flatMap(util.processVerbatimNode), state))),
-          ...normalizeChildren(output(split.afterClose.flatMap(util.processVerbatimNode), state)),
+          h(
+            node.tag,
+            props,
+            ...normalizeChildren(
+              output(split.beforeClose.flatMap(util.processVerbatimNode), state)
+            )
+          ),
+          ...normalizeChildren(
+            output(split.afterClose.flatMap(util.processVerbatimNode), state)
+          ),
         ]
       }
 
       return h(
         node.tag,
         props,
-        ...normalizeChildren(output(astNodes.flatMap(util.processVerbatimNode), state))
+        ...normalizeChildren(
+          output(astNodes.flatMap(util.processVerbatimNode), state)
+        )
       )
     }
 
@@ -250,7 +263,8 @@ const renderers: Record<
   },
 
   [RuleType.image]: (node, { h, state, sanitize }) => {
-    const src = node.target != null ? sanitize(node.target, 'img', 'src') : null
+    const src =
+      node.target === null ? null : sanitize(node.target, 'img', 'src')
     return h('img', {
       key: state.key,
       alt: node.alt?.length > 0 ? node.alt : undefined,
@@ -263,10 +277,19 @@ const renderers: Record<
     const props: Record<string, unknown> = { key: state.key }
     if (node.target != null) {
       // Re-sanitize at emit so direct astToJSX(dangerous) cannot skip the gate.
-      const href = util.sanitizeAndEncodeUrlTarget(node.target, sanitize, 'a', 'href')
-      if (href != null) props.href = href
+      const href = util.sanitizeAndEncodeUrlTarget(
+        node.target,
+        sanitize,
+        'a',
+        'href'
+      )
+      if (href != null) {
+        props.href = href
+      }
     }
-    if (node.title) props.title = node.title
+    if (node.title) {
+      props.title = node.title
+    }
     return h('a', props, ...normalizeChildren(output(node.children, state)))
   },
 
@@ -276,7 +299,7 @@ const renderers: Record<
         'th',
         {
           key: i,
-          style: node.align[i] == null ? {} : { textAlign: node.align[i] },
+          style: node.align[i] === null ? {} : { textAlign: node.align[i] },
         },
         ...normalizeChildren(output(content, state))
       )
@@ -291,7 +314,7 @@ const renderers: Record<
             'td',
             {
               key: c,
-              style: node.align[c] == null ? {} : { textAlign: node.align[c] },
+              style: node.align[c] === null ? {} : { textAlign: node.align[c] },
             },
             ...normalizeChildren(output(content, state))
           )
@@ -300,7 +323,9 @@ const renderers: Record<
     )
 
     var tableChildren = [h('thead', {}, h('tr', {}, ...headerCells))]
-    if (node.cells.length > 0) tableChildren.push(h('tbody', {}, ...rows))
+    if (node.cells.length > 0) {
+      tableChildren.push(h('tbody', {}, ...rows))
+    }
     return h('table', { key: state.key }, ...tableChildren)
   },
 
@@ -313,7 +338,10 @@ const renderers: Record<
       ...normalizeChildren(output(node.children, state))
     ),
 
-  [RuleType.orderedList]: (node: MarkdownToJSX.OrderedListNode, { h, output, state }) => {
+  [RuleType.orderedList]: (
+    node: MarkdownToJSX.OrderedListNode,
+    { h, output, state }
+  ) => {
     const items = node.items.map((item, i) =>
       h('li', { key: i }, ...normalizeChildren(output(item, state)))
     )
@@ -324,7 +352,10 @@ const renderers: Record<
     return h('ol', props, ...items)
   },
 
-  [RuleType.unorderedList]: (node: MarkdownToJSX.UnorderedListNode, { h, output, state }) => {
+  [RuleType.unorderedList]: (
+    node: MarkdownToJSX.UnorderedListNode,
+    { h, output, state }
+  ) => {
     const items = node.items.map((item, i) =>
       h('li', { key: i }, ...normalizeChildren(output(item, state)))
     )
@@ -341,7 +372,7 @@ const renderers: Record<
   [RuleType.ref]: () => null, // Reference definitions should not be rendered
 }
 
-type RenderContext = {
+interface RenderContext {
   h: (
     tag: string | Component,
     props?: Record<string, unknown> & {
@@ -351,7 +382,7 @@ type RenderContext = {
     },
     ...children: VueChild[]
   ) => VNode
-  output: VueASTRender
+  output: VueAstRender
   state: MarkdownToJSX.State
   sanitize: VueSanitizer
   slug: (input: string, defaultFn: (input: string) => string) => string
@@ -361,7 +392,7 @@ type RenderContext = {
 
 function render(
   node: MarkdownToJSX.ASTNode,
-  output: VueASTRender,
+  output: VueAstRender,
   state: MarkdownToJSX.State,
   h: (
     tag: string | Component,
@@ -428,22 +459,24 @@ const createRenderer = (
     state: MarkdownToJSX.State = {}
   ) => {
     const depth = (state.renderDepth || 0) + 1
-    if (depth > 2500) return handleStackOverflow(ast)
+    if (depth > 2500) {
+      return handleStackOverflow(ast)
+    }
     state.renderDepth = depth
 
-    const oldKey = state.key,
-      result: VueChild[] = []
+    const oldKey = state.key
+    const result: VueChild[] = []
     let lastWasString = false
     for (let i = 0; i < ast.length; i++) {
       state.key = i
-      const nodeOut = renderRule(ast[i], renderer, state),
-        isString = typeof nodeOut === 'string'
+      const nodeOut = renderRule(ast[i], renderer, state)
+      const isString = typeof nodeOut === 'string'
       if (lastWasString && typeof nodeOut === 'string') {
         // Concatenate consecutive strings
-        const last = result[result.length - 1]
+        const last = result.at(-1)
         result[result.length - 1] =
           (typeof last === 'string' ? last : '') + nodeOut
-      } else if (nodeOut !== null) {
+      } else if (nodeOut != null) {
         if (Array.isArray(nodeOut)) {
           // Use loop instead of spread for better performance
           for (let j = 0; j < nodeOut.length; j++) {
@@ -467,21 +500,31 @@ const createRenderer = (
 const isVueComponent = (value: unknown): value is Component =>
   typeof value === 'function' ||
   (typeof value === 'object' &&
-    value !== null &&
+    value != null &&
     ('render' in value || 'setup' in value))
 
 const getTag = (
   tag: string | Component,
   overrides: VueOverrides | undefined
 ): string | Component => {
-  if (typeof tag === 'function') return tag
-  if (!overrides) return tag
+  if (typeof tag === 'function') {
+    return tag
+  }
+  if (!overrides) {
+    return tag
+  }
   const tagStr = tag as string
   const override = util.get(overrides, tagStr, undefined)
-  if (!override) return tag
-  if (isVueComponent(override)) return override
+  if (!override) {
+    return tag
+  }
+  if (isVueComponent(override)) {
+    return override
+  }
   const component = util.get(overrides, `${tagStr}.component`, tagStr)
-  if (isVueComponent(component)) return component
+  if (isVueComponent(component)) {
+    return component
+  }
   return component as string
 }
 
@@ -499,7 +542,7 @@ export type VueOverride =
 /**
  * Map of HTML tags and custom components to their override configurations
  */
-export type VueOverrides = {
+export interface VueOverrides {
   [tag: string]: VueOverride
 }
 
@@ -543,7 +586,7 @@ export function astToJSX(
   const sanitize = opts.sanitizer || util.sanitizer
 
   // Recursive compile function for HTML content
-  const compileHTML = (input: string) =>
+  const compileHtml = (input: string) =>
     compiler(input, { ...opts, wrapper: null })
 
   // JSX helper function - this is what @jsx pragma uses
@@ -565,9 +608,7 @@ export function astToJSX(
           unknown
         >)
       : null
-    const vueProps = props
-      ? (props as Record<string, unknown>)
-      : null
+    const vueProps = props ? (props as Record<string, unknown>) : null
 
     // Convert HTML content in props (early exit for non-HTML)
     if (vueProps) {
@@ -581,11 +622,12 @@ export function astToJSX(
             parse.UPPERCASE_TAG_R.test(value) ||
             parse.parseHTMLTag(value, 0))
         ) {
-          const compiled = compileHTML(value.trim())
+          const compiled = compileHtml(value.trim())
           // For innerHTML, take first element if array (matches original parser behavior)
-          vueProps[key] = key === 'innerHTML' && Array.isArray(compiled) 
-            ? compiled[0] 
-            : compiled
+          vueProps[key] =
+            key === 'innerHTML' && Array.isArray(compiled)
+              ? compiled[0]
+              : compiled
         }
       }
     }
@@ -600,7 +642,7 @@ export function astToJSX(
 
     const isComponent = typeof finalTag !== 'string'
 
-    if (!hasOverrides && !mergedClass && !vueProps?.innerHTML) {
+    if (!(hasOverrides || mergedClass || vueProps?.innerHTML)) {
       if (isComponent && children.length > 0) {
         return h(finalTag, vueProps || {}, { default: () => children })
       }
@@ -613,7 +655,9 @@ export function astToJSX(
         finalProps[key] = overrideProps[key]
       }
     }
-    if (mergedClass) finalProps.class = mergedClass
+    if (mergedClass) {
+      finalProps.class = mergedClass
+    }
     if (vueProps?.innerHTML && overrideProps?.innerHTML === undefined) {
       finalProps.innerHTML = vueProps.innerHTML
     }
@@ -659,7 +703,7 @@ export function astToJSX(
 
   const footnoteEntries = util.extractFootnoteEntries(refs)
 
-  if (footnoteEntries.length) {
+  if (footnoteEntries.length > 0) {
     const footnoteNodes = footnoteEntries.map(def => {
       const identifierWithoutCaret = def.identifier.slice(1)
       const footnoteAstNodes = parse.parseMarkdown(
@@ -672,7 +716,7 @@ export function astToJSX(
       return hHelper(
         'div',
         { id: slug(identifierWithoutCaret, util.slugify) },
-        identifierWithoutCaret + ': ',
+        `${identifierWithoutCaret}: `,
         ...contentArray
       )
     })
@@ -692,7 +736,8 @@ export function astToJSX(
       { ...opts.wrapperProps } as Record<string, unknown>,
       ...arr
     )
-  } else if (arr.length === 1) {
+  }
+  if (arr.length === 1) {
     return arr[0] as VNode
   }
   return null
@@ -706,7 +751,7 @@ export function astToJSX(
  * @returns Vue VNode element(s)
  */
 export function compiler(
-  markdown: string = '',
+  markdown = '',
   options: VueOptions = {}
 ): VNode | VNode[] | null {
   const opts = { ...(options || {}) }
@@ -716,18 +761,18 @@ export function compiler(
     util.validateCompilerArgs(markdown, opts.overrides, 'VueComponent')
   }
 
-  const slug = opts.slugify || util.slugify
-  const sanitize = opts.sanitizer || util.sanitizer
+  const _slug = opts.slugify || util.slugify
+  const _sanitize = opts.sanitizer || util.sanitizer
 
   const inline =
     opts.forceInline ||
-    (!opts.forceBlock && !util.SHOULD_RENDER_AS_BLOCK_R.test(markdown))
+    !(opts.forceBlock || util.SHOULD_RENDER_AS_BLOCK_R.test(markdown))
   const parseOptions = parse.toParseOptions(opts, inline)
 
   const refs: { [key: string]: { target: string; title: string | undefined } } =
     {}
 
-  let processedInput = inline ? markdown : util.prepareBlockInput(markdown)
+  const processedInput = inline ? markdown : util.prepareBlockInput(markdown)
 
   const astNodes = parse.parseMarkdown(
     processedInput,
@@ -767,12 +812,11 @@ export const Markdown: Component<{
   const contextOptions = inject(MarkdownOptionsKey, undefined)
 
   const mergedOptions = computed(() => {
-    var merged = Object.assign({}, contextOptions, props.options)
-    merged.overrides = Object.assign(
-      {},
-      contextOptions?.overrides,
-      props.options?.overrides
-    )
+    var merged = { ...contextOptions, ...props.options }
+    merged.overrides = {
+      ...contextOptions?.overrides,
+      ...props.options?.overrides,
+    }
     return merged
   })
 

@@ -1,16 +1,16 @@
-@import 'tailwindcss';
-@plugin '@tailwindcss/typography';
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @font-face {
-  font-family: 'Super Liquida';
+  font-family: "Super Liquida";
   src:
-    url('/fonts/SuperLiquida.woff2') format('woff2'),
-    url('/fonts/SuperLiquida.woff') format('woff');
+    url("/fonts/SuperLiquida.woff2") format("woff2"),
+    url("/fonts/SuperLiquida.woff") format("woff");
 }
 @theme {
-  --font-sans: 'Noto Sans', Helvetica, sans-serif;
-  --font-mono: 'JetBrains Mono', Consolas, Monaco, monospace;
-  --font-display: 'Super Liquida', sans-serif;
+  --font-sans: "Noto Sans", Helvetica, sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, Monaco, monospace;
+  --font-display: "Super Liquida", sans-serif;
 
   --color-bg: #1a1c23;
   --color-fg: #fefefe;
@@ -30,7 +30,7 @@
   main {
     margin: 0;
     min-height: 100vh;
-    min-height: --webkit-fill-available;
+    min-height: -webkit-fill-available;
   }
 
   html {
@@ -85,7 +85,7 @@
   }
 
   a {
-    color: theme(colors.accent);
+    color: var(--color-accent);
     display: inline-block;
     transition: color 200ms ease;
     font-weight: 500;
@@ -98,11 +98,11 @@
 
   a:hover,
   a:focus {
-    color: theme(colors.accent);
+    color: var(--color-accent);
   }
 
   code {
-    color: theme(colors.accent);
+    color: var(--color-accent);
     border-radius: 4px;
     display: inline-block;
     font-family: var(--font-mono);
@@ -137,7 +137,7 @@
   }
 
   blockquote.markdown-alert-tip header::before {
-    content: '★';
+    content: "★";
     margin-right: 4px;
   }
 
@@ -146,7 +146,7 @@
   }
 
   blockquote.markdown-alert-note header::before {
-    content: 'ⓘ';
+    content: "ⓘ";
     margin-right: 4px;
   }
 
@@ -155,7 +155,7 @@
   }
 
   blockquote.markdown-alert-important header::before {
-    content: '❕';
+    content: "❕";
     margin-right: 4px;
   }
 
@@ -164,7 +164,7 @@
   }
 
   blockquote.markdown-alert-warning header::before {
-    content: '⚠️';
+    content: "⚠️";
     margin-right: 4px;
   }
 
@@ -173,7 +173,7 @@
   }
 
   blockquote.markdown-alert-caution header::before {
-    content: '🛑';
+    content: "🛑";
     margin-right: 4px;
   }
 
@@ -211,17 +211,17 @@
 
 .prose code {
   border: none;
-  color: theme(colors.accent);
+  color: var(--color-accent);
   font-size: 1em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .prose pre code {
   @apply backdrop-blur-sm;
-  border: 1px solid theme(colors.accent);
+  border: 1px solid var(--color-accent);
   border-radius: 12px;
-  color: theme(colors.accent);
-  background: rgba(0, 0, 0, 0.1) !important;
+  color: var(--color-accent);
+  background: rgba(0, 0, 0, 0.1);
   font-size: 0.85rem;
   padding: 0.75rem;
   text-shadow: none;
@@ -284,7 +284,7 @@
 .streaming-slider::-webkit-slider-runnable-track {
   background: linear-gradient(
     to right,
-    theme(colors.accent) var(--progress, 0%),
+    var(--color-accent) var(--progress, 0%),
     rgba(255, 255, 255, 0.1) var(--progress, 0%)
   );
   height: 6px;
@@ -297,7 +297,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: theme(colors.accent);
+  background: var(--color-accent);
   margin-top: -5px;
   cursor: grab;
   transition: transform 0.15s ease;
@@ -315,7 +315,7 @@
 .streaming-slider::-moz-range-track {
   background: linear-gradient(
     to right,
-    theme(colors.accent) var(--progress, 0%),
+    var(--color-accent) var(--progress, 0%),
     rgba(255, 255, 255, 0.1) var(--progress, 0%)
   );
   height: 6px;
@@ -326,7 +326,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: theme(colors.accent);
+  background: var(--color-accent);
   border: none;
   cursor: grab;
   transition: transform 0.15s ease;

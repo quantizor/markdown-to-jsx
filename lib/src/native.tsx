@@ -1,3 +1,4 @@
+import process from 'node:process'
 import * as React from 'react'
 import type {
   ImageStyle,
@@ -8,15 +9,15 @@ import type {
   ViewStyle,
 } from 'react-native'
 import { Image, Linking, Platform, Pressable, Text, View } from 'react-native'
-import * as $ from './constants'
-import * as parse from './parse'
-import { MarkdownToJSX, RuleType } from './types'
-import * as util from './utils'
+import * as $ from './constants.ts'
+import * as parse from './parse.ts'
+import { type MarkdownToJSX, RuleType } from './types.ts'
+import * as util from './utils.ts'
 
-export { parser } from './parse'
+export { parser } from './parse.ts'
 
-export { RuleType, type MarkdownToJSX } from './types'
-export { sanitizer, slugify } from './utils'
+export { type MarkdownToJSX, RuleType } from './types.ts'
+export { sanitizer, slugify } from './utils.ts'
 
 const LIST_ITEM_ROW_STYLE: ViewStyle = { flexDirection: 'row' }
 // The content sits in a row beside the bullet/number, so it must flex to fill the
@@ -76,7 +77,13 @@ const DEFAULT_STYLES: NativeStyles = {
   // translateY lifts the glyph off the box's optical center: the check reads a
   // touch low in the box otherwise. A transform shifts the rendered glyph without
   // disturbing the flex centering (unlike a margin, which the centering absorbs).
-  checkmark: { color: '#ffffff', fontSize: 12, fontWeight: '700', lineHeight: 14, transform: [{ translateY: -1 }] },
+  checkmark: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 14,
+    transform: [{ translateY: -1 }],
+  },
   codeBlock: {
     backgroundColor: '#f6f8fa',
     borderRadius: 8,
@@ -88,12 +95,42 @@ const DEFAULT_STYLES: NativeStyles = {
   // as a blocky inline rectangle in React Native, which the clean default avoids.
   codeInline: { fontFamily: MONOSPACE_FONT, fontSize: 15 },
   gfmTaskChecked: { backgroundColor: '#0969da', borderColor: '#0969da' },
-  heading1: { fontSize: 28, fontWeight: '600', lineHeight: 36, marginBottom: 12, marginTop: 8 },
-  heading2: { fontSize: 22, fontWeight: '600', lineHeight: 30, marginBottom: 10, marginTop: 8 },
-  heading3: { fontSize: 18, fontWeight: '600', lineHeight: 26, marginBottom: 8, marginTop: 8 },
-  heading4: { fontSize: 16, fontWeight: '600', lineHeight: 24, marginBottom: 8, marginTop: 8 },
+  heading1: {
+    fontSize: 28,
+    fontWeight: '600',
+    lineHeight: 36,
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  heading2: {
+    fontSize: 22,
+    fontWeight: '600',
+    lineHeight: 30,
+    marginBottom: 10,
+    marginTop: 8,
+  },
+  heading3: {
+    fontSize: 18,
+    fontWeight: '600',
+    lineHeight: 26,
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  heading4: {
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 24,
+    marginBottom: 8,
+    marginTop: 8,
+  },
   heading5: { fontSize: 15, fontWeight: '600', marginBottom: 6, marginTop: 8 },
-  heading6: { color: '#656d76', fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 8 },
+  heading6: {
+    color: '#656d76',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 6,
+    marginTop: 8,
+  },
   link: { color: '#0969da', textDecorationLine: 'underline' },
   listOrdered: { marginBottom: 16 },
   listUnordered: { marginBottom: 16 },
@@ -149,8 +186,10 @@ const TEXT_FORMAT_STYLES: Record<string, TextStyle> = {
 
 // Merge a default style with a user-supplied one. RN accepts a style array, so
 // we return [default, user] when both exist; otherwise return whichever is set.
-const mergeStyle = <T,>(d: T | undefined, u: T | undefined): T | T[] | undefined =>
-  u ? (d ? [d, u] : u) : d
+const mergeStyle = <T,>(
+  d: T | undefined,
+  u: T | undefined
+): T | T[] | undefined => (u ? (d ? [d, u] : u) : d)
 
 /**
  * Prepend the universal `styles.text` base under a Text element's own style so a
@@ -207,7 +246,7 @@ const ALIGN_RIGHT: ViewStyle = { alignItems: 'flex-end' }
 const alignItemsFor = (
   align: 'center' | 'left' | 'right' | undefined
 ): ViewStyle | null =>
-  align == null
+  align === null
     ? null
     : align === 'center'
       ? ALIGN_CENTER
@@ -221,7 +260,9 @@ const alignItemsFor = (
  * no default passes through. The result feeds every `styles.<key>` lookup.
  */
 const resolveStyles = (user?: NativeStyles): NativeStyles => {
-  if (!user) return DEFAULT_STYLES
+  if (!user) {
+    return DEFAULT_STYLES
+  }
   const resolved = { ...DEFAULT_STYLES } as Record<string, unknown>
   const defaults = DEFAULT_STYLES as Record<string, unknown>
   const overrides = user as Record<string, unknown>
@@ -284,13 +325,14 @@ interface StyledCache {
  * Lazily built singleton for the zero-config case, so a compile without user
  * styles (the common Markdown-component path) skips rebuilding the cache.
  */
-let DEFAULT_STYLED_CACHE: StyledCache | undefined
+let DefaultStyledCache: StyledCache | undefined
 
 const buildStyledCache = (user?: NativeStyles): StyledCache => {
   if (!user) {
-    return (
-      DEFAULT_STYLED_CACHE || (DEFAULT_STYLED_CACHE = createStyledCache(user))
-    )
+    if (!DefaultStyledCache) {
+      DefaultStyledCache = createStyledCache(user)
+    }
+    return DefaultStyledCache
   }
   return createStyledCache(user)
 }
@@ -319,7 +361,7 @@ const createStyledCache = (user?: NativeStyles): StyledCache => {
     paragraphInline: withTextBase(text, styles.paragraph),
     preText: withTextBase(text, styles.codeBlock),
     rowFlexDivider: [TABLE_ROW_FLEX, styles.tableRowDivider],
-    styles: styles,
+    styles,
     taskChecked: mergeStyle<StyleProp<ViewStyle>>(
       [CHECKBOX_STYLE, styles.gfmTaskChecked],
       styles.gfmTask
@@ -362,7 +404,9 @@ const isInlineSafe = (node: MarkdownToJSX.ASTNode): boolean => {
       // within text) keeps flowing in a Text, while a View-mapped tag (div,
       // blockquote) stays a block. Recurse so a Text-mapped tag wrapping an
       // image is treated as a block.
-      if (mapsToNativeView(node.tag)) return false
+      if (mapsToNativeView(node.tag)) {
+        return false
+      }
       return !node.children || node.children.every(isInlineSafe)
     default:
       // Everything else is block-level (paragraph, heading, list, table, code
@@ -418,9 +462,9 @@ const renderViewChildren = (
       ? styled.textOnly
       : withTextBase(styled.styles.text, runStyle)
   const flushRun = () => {
-    if (run.length) {
+    if (run.length > 0) {
       const text = singleTextChild(run, ctx)
-      if (text !== null) {
+      if (text != null) {
         children.push(h(Text, { key: key++, style: runTextStyle }, text))
         run = []
         return
@@ -445,7 +489,11 @@ const renderViewChildren = (
       // Wrap in a Fragment to carry the list key: output([node]) may return an
       // array, and the key belongs on a single sibling in the View's children.
       children.push(
-        React.createElement(React.Fragment, { key: key++ }, output([node], state))
+        React.createElement(
+          React.Fragment,
+          { key: key++ },
+          output([node], state)
+        )
       )
     }
   }
@@ -475,7 +523,8 @@ const renderInlineHost = (
   // The nesting constraint only binds native Text: a custom override component
   // can hold any child, so an overridden tag is emitted as-is rather than
   // degraded to a View (which would discard the override).
-  const overridden = !!overrides && !!util.get(overrides, tag, undefined)
+  const overridden =
+    Boolean(overrides) && Boolean(util.get(overrides, tag, undefined))
   // A subtree already known inline-safe (this container sits inside one) needs no
   // re-derivation; otherwise decide it here. Deciding once at the top and
   // threading the result down turns O(depth) redundant subtree walks into one.
@@ -486,9 +535,13 @@ const renderInlineHost = (
     // rather than re-deriving and re-allocating props per node. props is a
     // per-node literal owned by this render, so the mutation is contained; the
     // identity guard keeps a style key from appearing when nothing merges.
-    if (inlineStyle !== props.style) props.style = inlineStyle
+    if (inlineStyle !== props.style) {
+      props.style = inlineStyle
+    }
     const text = singleTextChild(childNodes, ctx)
-    if (text !== null) return h(tag, props, text)
+    if (text != null) {
+      return h(tag, props, text)
+    }
     // Mark the subtree inline-safe around the recursive render so nested inline
     // containers skip their own check, then restore, matching how the renderer
     // saves and restores state.key.
@@ -599,7 +652,6 @@ export type NativeOptions = Omit<MarkdownToJSX.Options, 'wrapperProps'> & {
   wrapperProps?: ViewProps | TextProps
 }
 
-
 /**
  * Everything a compile pass shares across every rendered node: the element
  * factory, resolved options, sanitizers, reference definitions, and the
@@ -693,7 +745,9 @@ function render(
     case RuleType.footnoteReference: {
       const footnoteNode = node as MarkdownToJSX.FootnoteReferenceNode
       const href = sanitize(footnoteNode.target, 'a', 'href')
-      if (!href) return null
+      if (!href) {
+        return null
+      }
       return h(
         Text,
         {
@@ -717,7 +771,7 @@ function render(
       // (type/checked/readOnly) plus a text marker child it can fall back to.
       // Without an override, attaching those props to the RN View fallback would
       // log unknown-prop warnings, so the default instead draws a checkbox.
-      const hasInputOverride = !!(overrides && overrides.input)
+      const hasInputOverride = Boolean(overrides?.input)
       if (hasInputOverride) {
         return h(
           'input',
@@ -763,10 +817,17 @@ function render(
 
     case RuleType.htmlBlock: {
       const htmlNode = node as MarkdownToJSX.HTMLNode
-      if (util.tagfilterEnabled(options) && util.shouldFilterTag(htmlNode.tag)) {
+      if (
+        util.tagfilterEnabled(options) &&
+        util.shouldFilterTag(htmlNode.tag)
+      ) {
         var filtered = util.getFilteredTagEmit(htmlNode)
         if (filtered.kind === 'literal') {
-          return h(Text, { key: state.key, style: styled.textOnly }, filtered.literal)
+          return h(
+            Text,
+            { key: state.key, style: styled.textOnly },
+            filtered.literal
+          )
         }
         return h(
           Text,
@@ -813,18 +874,17 @@ function render(
           const innerHtml = util.tagfilterEnabled(options)
             ? util.applyTagFilterToText(rawSource)
             : rawSource
-          return h(
-            Text,
-            { key: state.key, style: styled.preText },
-            innerHtml
-          )
+          return h(Text, { key: state.key, style: styled.preText }, innerHtml)
         }
 
         // Re-parse rawSource so a nested element does not absorb a following text
         // line, then split at this element's own closing tag so any trailing
         // content renders as siblings (issue #881).
         const cleanedText = util.normalizeJsxReparseText(rawSource)
-        const props = { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs) }
+        const props = {
+          key: state.key,
+          ...util.htmlAttrsToJSXProps(htmlNode.attrs),
+        }
         const selfTagRegex = new RegExp(
           `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,
           'i'
@@ -853,9 +913,16 @@ function render(
         // a single result to this node's index; carry multiple on a Fragment
         // so their 0-based keys stay scoped under one keyed sibling.
         if (isRawOuter) {
-          const rendered = output(astNodes.flatMap(util.processVerbatimNode), state)
+          const rendered = output(
+            astNodes.flatMap(util.processVerbatimNode),
+            state
+          )
           if (Array.isArray(rendered)) {
-            return React.createElement(React.Fragment, { key: state.key }, rendered)
+            return React.createElement(
+              React.Fragment,
+              { key: state.key },
+              rendered
+            )
           }
           return React.isValidElement(rendered)
             ? React.cloneElement(rendered, { key: state.key })
@@ -875,7 +942,7 @@ function render(
             ctx
           ).map((element, index) =>
             React.isValidElement(element)
-              ? React.cloneElement(element, { key: 'after-' + index })
+              ? React.cloneElement(element, { key: `after-${index}` })
               : element
           )
           return React.createElement(
@@ -904,7 +971,10 @@ function render(
       }
 
       if (util.isVoidElement(htmlNode.tag)) {
-        return h(htmlNode.tag, { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs) })
+        return h(htmlNode.tag, {
+          key: state.key,
+          ...util.htmlAttrsToJSXProps(htmlNode.attrs),
+        })
       }
       return htmlNode.children
         ? emitHtmlElement(
@@ -915,12 +985,18 @@ function render(
             state,
             ctx
           )
-        : h(htmlNode.tag, { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs) })
+        : h(htmlNode.tag, {
+            key: state.key,
+            ...util.htmlAttrsToJSXProps(htmlNode.attrs),
+          })
     }
 
     case RuleType.htmlSelfClosing: {
       const htmlNode = node as MarkdownToJSX.HTMLSelfClosingNode
-      if (util.tagfilterEnabled(options) && util.shouldFilterTag(htmlNode.tag)) {
+      if (
+        util.tagfilterEnabled(options) &&
+        util.shouldFilterTag(htmlNode.tag)
+      ) {
         var filteredSc = util.getFilteredTagEmit(htmlNode)
         return h(
           Text,
@@ -930,16 +1006,21 @@ function render(
             : filteredSc.open + (filteredSc.close || '')
         )
       }
-      return h(htmlNode.tag, { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs) })
+      return h(htmlNode.tag, {
+        key: state.key,
+        ...util.htmlAttrsToJSXProps(htmlNode.attrs),
+      })
     }
 
     case RuleType.image: {
       const imageNode = node as MarkdownToJSX.ImageNode
       const src =
-        imageNode.target != null
-          ? sanitize(imageNode.target, 'img', 'src')
-          : null
-      if (!src) return null
+        imageNode.target === null
+          ? null
+          : sanitize(imageNode.target, 'img', 'src')
+      if (!src) {
+        return null
+      }
       return h('img', {
         key: state.key,
         source: { uri: src },
@@ -965,7 +1046,12 @@ function render(
 
       if (linkNode.target != null) {
         // Re-sanitize at emit so direct astToNative(dangerous) cannot skip the gate.
-        const href = util.sanitizeAndEncodeUrlTarget(linkNode.target, sanitize, 'a', 'href')
+        const href = util.sanitizeAndEncodeUrlTarget(
+          linkNode.target,
+          sanitize,
+          'a',
+          'href'
+        )
         if (href != null) {
           props.onPress = () => {
             options.onLinkPress
@@ -981,7 +1067,9 @@ function render(
 
       if (safe) {
         const text = singleTextChild(linkNode.children, ctx)
-        if (text !== null) return h('a', props, text)
+        if (text != null) {
+          return h('a', props, text)
+        }
         const prev = state.inlineSafe
         state.inlineSafe = true
         const out = h('a', props, output(linkNode.children, state))
@@ -1092,7 +1180,7 @@ function render(
           styles[formattedNode.tag as NativeStyleKey] as TextStyle | undefined
         )
         formatted = styled.formatted[formattedNode.tag] = {
-          host: host,
+          host,
           inline: withTextBase(styles.text, host),
         }
       }
@@ -1160,9 +1248,7 @@ function render(
             { key: i, style: liStyle },
             // A task item's checkbox stands in for the bullet, so the bullet is
             // suppressed to avoid a redundant marker beside the checkbox.
-            itemIsTask
-              ? null
-              : h(Text, bulletProps, bullet + ' '),
+            itemIsTask ? null : h(Text, bulletProps, `${bullet} `),
             h(
               View,
               { style: innerItemStyle },
@@ -1202,11 +1288,13 @@ const createRenderer = (ctx: CompileContext) => {
   ) => {
     const nodes = Array.isArray(ast) ? ast : [ast]
     const depth = (state.renderDepth || 0) + 1
-    if (depth > 2500) return handleStackOverflow(nodes)
+    if (depth > 2500) {
+      return handleStackOverflow(nodes)
+    }
     state.renderDepth = depth
 
-    const oldKey = state.key,
-      result: React.ReactNode[] = []
+    const oldKey = state.key
+    const result: React.ReactNode[] = []
     let lastWasString = false
     for (let i = 0; i < nodes.length; i++) {
       state.key = i
@@ -1228,10 +1316,10 @@ const createRenderer = (ctx: CompileContext) => {
       }
       const isString = typeof nodeOut === 'string'
       if (lastWasString && typeof nodeOut === 'string') {
-        const last = result[result.length - 1]
+        const last = result.at(-1)
         result[result.length - 1] =
           (typeof last === 'string' ? last : '') + nodeOut
-      } else if (nodeOut !== null) {
+      } else if (nodeOut != null) {
         if (Array.isArray(nodeOut)) {
           for (let j = 0; j < nodeOut.length; j++) {
             result.push(nodeOut[j])
@@ -1258,12 +1346,16 @@ const getTag = (
   tag: string,
   overrides?: MarkdownToJSX.Overrides
 ): React.ComponentType<any> | string => {
-  if (!overrides || typeof tag !== 'string') return tag
+  if (!overrides || typeof tag !== 'string') {
+    return tag
+  }
   const override = util.get(overrides, tag, undefined)
-  if (!override) return tag
+  if (!override) {
+    return tag
+  }
   if (
     typeof override === 'function' ||
-    (typeof override === 'object' && override !== null && 'render' in override)
+    (typeof override === 'object' && override != null && 'render' in override)
   ) {
     return override as React.ElementType
   }
@@ -1348,7 +1440,7 @@ const NATIVE_COMPONENT_CACHE: Map<string, React.ElementType> = new Map()
  * through this on the h() hot path, hence the memo over the repeated
  * lowercase-and-lookup work.
  */
-const mapHTMLTagToNativeComponent = (tag: string): React.ElementType => {
+const mapHtmlTagToNativeComponent = (tag: string): React.ElementType => {
   var cached = NATIVE_COMPONENT_CACHE.get(tag)
   if (cached === undefined) {
     cached =
@@ -1446,7 +1538,7 @@ export function astToNative(
       return createElement(Component, finalProps, ...children)
     }
     return createElement(
-      mapHTMLTagToNativeComponent(Component),
+      mapHtmlTagToNativeComponent(Component),
       finalProps,
       ...children
     )
@@ -1460,25 +1552,25 @@ export function astToNative(
       : {}
 
   const ctx: CompileContext = {
-    h: h,
+    h,
     options: opts,
     overrides: hasOverrides ? opts.overrides : undefined,
-    refs: refs,
-    sanitize: sanitize,
-    slug: slug,
+    refs,
+    sanitize,
+    slug,
     styled: buildStyledCache(opts.styles),
   }
   const emitter = createRenderer(ctx)
 
   const emitted = emitter(ast, {
     inline: opts.forceInline,
-    refs: refs,
+    refs,
   })
   const arr: React.ReactNode[] = Array.isArray(emitted) ? emitted : [emitted]
 
   const footnoteEntries = util.extractFootnoteEntries(refs)
 
-  if (footnoteEntries.length) {
+  if (footnoteEntries.length > 0) {
     // The universal text base (styles.text) also reaches the footnote footer, so
     // its identifier prefix and block-fallback runs match the rest of the output.
     const footnoteTextBase = ctx.styled.styles.text
@@ -1493,7 +1585,7 @@ export function astToNative(
               : def.identifier
           const footnoteAstNodes = parse.parseMarkdown(
             def.footnote,
-            { inline: true, refs: refs },
+            { inline: true, refs },
             parseOptions
           )
           // parseMarkdown prepends a non-rendering refCollection node; drop it so
@@ -1509,8 +1601,8 @@ export function astToNative(
             return createElement(
               Text,
               { key: def.identifier, style: footnoteTextBase },
-              identifierWithoutCaret + ': ',
-              emitter(renderable, { inline: true, refs: refs })
+              `${identifierWithoutCaret}: `,
+              emitter(renderable, { inline: true, refs })
             )
           }
           return createElement(
@@ -1521,12 +1613,12 @@ export function astToNative(
             createElement(
               Text,
               { style: footnoteTextBase },
-              identifierWithoutCaret + ': '
+              `${identifierWithoutCaret}: `
             ),
             ...renderViewChildren(
               footnoteAstNodes,
               emitter,
-              { inline: true, refs: refs },
+              { inline: true, refs },
               undefined,
               ctx
             )
@@ -1581,26 +1673,26 @@ export function astToNative(
  * @returns React Native element(s)
  */
 export function compiler(
-  markdown: string = '',
+  markdown = '',
   options: NativeOptions = {}
 ): React.ReactNode {
   const opts = { ...(options || {}) }
   opts.overrides = opts.overrides || {}
 
-  const slug = opts.slugify || util.slugify
-  const sanitize = opts.sanitizer || util.sanitizer
+  const _slug = opts.slugify || util.slugify
+  const _sanitize = opts.sanitizer || util.sanitizer
 
   function compile(input: string): React.ReactNode {
     const inline =
       opts.forceInline ||
-      (!opts.forceBlock && !util.SHOULD_RENDER_AS_BLOCK_R.test(input))
+      !(opts.forceBlock || util.SHOULD_RENDER_AS_BLOCK_R.test(input))
     const parseOptions = parse.toParseOptions(opts, inline)
 
-    let processedInput = inline ? input : util.prepareBlockInput(input)
+    const processedInput = inline ? input : util.prepareBlockInput(input)
 
-    let astNodes = parse.parseMarkdown(
+    const astNodes = parse.parseMarkdown(
       processedInput,
-      { inline: inline, refs: refs },
+      { inline, refs },
       parseOptions
     )
 
@@ -1630,13 +1722,8 @@ export function compiler(
 export const MarkdownProvider: React.FC<{
   options?: NativeOptions
   children: React.ReactNode
-}> = ({ options, children }) => {
-  return React.createElement(
-    MarkdownContext.Provider,
-    { value: options },
-    children
-  )
-}
+}> = ({ options, children }) =>
+  React.createElement(MarkdownContext.Provider, { value: options }, children)
 
 /**
  * Return the previous object identity when the new one is shallow-equal.
@@ -1659,10 +1746,14 @@ function useShallowStable<T extends Record<string, any>>(value: T): T {
     }
     if (same) {
       var prevCount = 0
-      for (var prevKey in prev) prevCount++
+      for (var _prevKey in prev) {
+        prevCount++
+      }
       same = prevCount === count
     }
-    if (!same) ref.current = value
+    if (!same) {
+      ref.current = value
+    }
   }
   return ref.current
 }
@@ -1685,24 +1776,19 @@ export const Markdown: React.FC<
   const stableProps = useShallowStable(props)
 
   const mergedOptions = React.useMemo(() => {
-    var merged = Object.assign({}, contextOptions, options)
-    merged.styles = Object.assign({}, contextOptions?.styles, options?.styles)
-    merged.overrides = Object.assign(
-      {},
-      contextOptions?.overrides,
-      options?.overrides
-    )
-    merged.wrapperProps = Object.assign(
-      {},
-      contextOptions?.wrapperProps,
-      options?.wrapperProps,
-      stableProps
-    ) as ViewProps | TextProps
+    var merged = { ...contextOptions, ...options }
+    merged.styles = { ...contextOptions?.styles, ...options?.styles }
+    merged.overrides = { ...contextOptions?.overrides, ...options?.overrides }
+    merged.wrapperProps = {
+      ...contextOptions?.wrapperProps,
+      ...options?.wrapperProps,
+      ...stableProps,
+    } as ViewProps | TextProps
     return merged
   }, [contextOptions, options, stableProps])
 
   const content =
-    rawChildren == null
+    rawChildren === null
       ? ''
       : Array.isArray(rawChildren)
         ? rawChildren.join('')

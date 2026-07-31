@@ -756,7 +756,7 @@ function App() {
 
 如果需要，可以通过 `options.sanitizer` 覆盖并替换为自定义清理器：
 
-<!-- prettier-ignore -->
+<!-- biome-ignore format: keep example fences intact -->
 ```tsx
 // 在这种情况下，sanitizer 将接收：
 // ('javascript:alert("foo")', 'a', 'href')
@@ -790,7 +790,7 @@ compiler('[foo](javascript:alert("foo"))', {
 
 默认情况下，使用[轻量级字符规范化函数](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275)从每个标题的纯文本内容生成 HTML ID（格式标记、链接目标和图像 alt 文本不参与；脚注标记贡献其显示文本）。当多个标题生成相同的 ID 时，会自动追加数字后缀 (`foo`、`foo-1`、`foo-2`)，确保同一次解析内的每个 ID 都唯一。您可以通过向 `options.slugify` 传递一个函数来覆盖 slug 生成；该函数接收上述纯文本内容，唯一性处理仍会作用于您的函数返回值。当您在标题中使用非字母数字字符 (例如中文或日文字符) 时，这很有用。例如：
 
-<!-- prettier-ignore -->
+<!-- biome-ignore format: keep example fences intact -->
 ```tsx
 <Markdown options={{ slugify: str => str }}># 中文</Markdown>
 compiler('# 中文', { slugify: str => str })
@@ -1178,7 +1178,7 @@ if (node.type === RuleType.heading) {
 
 **JSX 属性解析 (v9.1+)**：JSX 属性中的数组和对象会被自动解析：
 
-<!-- prettier-ignore -->
+<!-- biome-ignore format: keep example fences intact -->
 ```tsx
 // 在 Markdown 中：
 <Table

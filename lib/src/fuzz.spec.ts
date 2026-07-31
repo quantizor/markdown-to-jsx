@@ -1,5 +1,5 @@
-import { compiler } from './index'
-import { performance } from 'perf_hooks'
+import { performance } from 'node:perf_hooks'
+import { compiler } from './index.tsx'
 
 // CI is slower than my MBP, so we give it more time
 const MAX_EXECUTION_TIME_MS = 1000
@@ -18,11 +18,11 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
       for (const depth of depths) {
         let html = ''
         for (let i = 0; i < depth; i++) {
-          html += `<div>`
+          html += '<div>'
         }
         html += 'content'
         for (let i = 0; i < depth; i++) {
-          html += `</div>`
+          html += '</div>'
         }
 
         const executionTime = timeExecution(() => {
@@ -254,7 +254,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
       for (const depth of depths) {
         let markdown = ''
         for (let i = 0; i < depth; i++) {
-          markdown += '  '.repeat(i) + '* item\n'
+          markdown += `${'  '.repeat(i)}* item\n`
         }
 
         const executionTime = timeExecution(() => {
@@ -296,8 +296,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
       for (const depth of depths) {
         let markdown = ''
         for (let i = 0; i < depth; i++) {
-          markdown +=
-            '[' + '*'.repeat(i + 1) + 'text' + '*'.repeat(i + 1) + '][ref]\n'
+          markdown += `[${'*'.repeat(i + 1)}text${'*'.repeat(i + 1)}][ref]\n`
         }
         markdown += '\n[ref]: http://example.com\n'
 
@@ -387,7 +386,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         const longPattern = pattern.repeat(50)
 
         const executionTime = timeExecution(() => {
-          compiler(longPattern + 'text' + longPattern)
+          compiler(`${longPattern}text${longPattern}`)
         })
 
         expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
@@ -442,10 +441,10 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
 
       for (const count of repetitions) {
         const patterns = [
-          '_'.repeat(count) + 'text' + '_'.repeat(count),
-          '-'.repeat(count) + 'text' + '-'.repeat(count),
-          '='.repeat(count) + 'text' + '='.repeat(count),
-          '~'.repeat(count) + 'text' + '~'.repeat(count),
+          `${'_'.repeat(count)}text${'_'.repeat(count)}`,
+          `${'-'.repeat(count)}text${'-'.repeat(count)}`,
+          `${'='.repeat(count)}text${'='.repeat(count)}`,
+          `${'~'.repeat(count)}text${'~'.repeat(count)}`,
         ]
 
         for (const pattern of patterns) {
@@ -535,12 +534,12 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
 
     it('should handle incomplete delimiter sequences', () => {
       const testCases = [
-        '*'.repeat(1000) + 'text',
-        'text' + '*'.repeat(1000),
-        '_'.repeat(1000) + 'text',
-        'text' + '_'.repeat(1000),
-        '**'.repeat(500) + 'text',
-        'text' + '**'.repeat(500),
+        `${'*'.repeat(1000)}text`,
+        `text${'*'.repeat(1000)}`,
+        `${'_'.repeat(1000)}text`,
+        `text${'_'.repeat(1000)}`,
+        `${'**'.repeat(500)}text`,
+        `text${'**'.repeat(500)}`,
       ]
 
       for (const markdown of testCases) {
@@ -575,10 +574,10 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
     })
 
     it('should handle very long delimiter sequences gracefully', () => {
-      const lengths = [1000, 5000, 10000]
+      const lengths = [1000, 5000, 10_000]
 
       for (const length of lengths) {
-        const markdown = '*'.repeat(length) + 'text' + '*'.repeat(length)
+        const markdown = `${'*'.repeat(length)}text${'*'.repeat(length)}`
 
         const executionTime = timeExecution(() => {
           compiler(markdown)
@@ -591,7 +590,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
 
     it('should have try/catch safety net for unexpected stack overflows', () => {
       // Create extremely deeply nested structure that could bypass depth check
-      const extremeNesting = '*'.repeat(10000) + 'text' + '*'.repeat(10000)
+      const extremeNesting = `${'*'.repeat(10_000)}text${'*'.repeat(10_000)}`
 
       // Should not throw - try/catch should catch and fallback to plain text
       const executionTime = timeExecution(() => {
@@ -610,10 +609,10 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
 
       for (const count of repetitions) {
         const patterns = [
-          '*'.repeat(count) + 'text' + '_'.repeat(count),
-          '**'.repeat(count) + 'text' + '__'.repeat(count),
-          '*_'.repeat(count) + 'text' + '_*'.repeat(count),
-          '**_'.repeat(count) + 'text' + '__*'.repeat(count),
+          `${'*'.repeat(count)}text${'_'.repeat(count)}`,
+          `${'**'.repeat(count)}text${'__'.repeat(count)}`,
+          `${'*_'.repeat(count)}text${'_*'.repeat(count)}`,
+          `${'**_'.repeat(count)}text${'__*'.repeat(count)}`,
         ]
 
         for (const pattern of patterns) {
@@ -685,7 +684,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           const executionTime = timeExecution(() => {
             try {
               compiler(input)
-            } catch (e) {
+            } catch {
               // Errors are acceptable, we just want to avoid hangs
             }
           })
@@ -701,17 +700,17 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         '['.repeat(100) + ']'.repeat(100),
         '('.repeat(100) + ')'.repeat(100),
         '<'.repeat(100) + '>'.repeat(100),
-        '`'.repeat(100) + 'code' + '`'.repeat(100),
-        '***' + '*'.repeat(100) + '***',
-        '___' + '_'.repeat(100) + '___',
-        '<div>' + '<span>'.repeat(50) + '</span>'.repeat(50) + '</div>',
+        `${'`'.repeat(100)}code${'`'.repeat(100)}`,
+        `***${'*'.repeat(100)}***`,
+        `___${'_'.repeat(100)}___`,
+        `<div>${'<span>'.repeat(50)}${'</span>'.repeat(50)}</div>`,
       ]
 
       for (const pattern of adversarialPatterns) {
         const executionTime = timeExecution(() => {
           try {
             compiler(pattern)
-          } catch (e) {
+          } catch {
             // Errors are acceptable
           }
         })
@@ -727,7 +726,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         '<div>unclosed',
         '<div><span>nested unclosed',
         '<div attr="value">no closing',
-        '<div>'.repeat(50) + 'content',
+        `${'<div>'.repeat(50)}content`,
         '<div>text'.repeat(100),
         '<div><div><div>',
         '<div/',
@@ -917,8 +916,8 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         '<div attr="many"quotes"here">',
         "<div attr='many'quotes'here'>",
         // Excessive quotes
-        '<div attr="' + '"'.repeat(100) + '">',
-        "<div attr='" + "'".repeat(100) + "'>",
+        `<div attr="${'"'.repeat(100)}">`,
+        `<div attr='${"'".repeat(100)}'>`,
         // Nested quotes
         `<div attr="'inner'"'>`,
         `<div attr='"inner"'">`,
@@ -1132,7 +1131,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         // Excessive escapes
         `<div attr="\\${'x'.repeat(500)}"></div>`,
         // Deeply nested interpolations
-        `<div attr={a{b{c{d}}}}></div>`,
+        '<div attr={a{b{c{d}}}}></div>',
         `<div attr="\\${'"'.repeat(100)}${"'$&#39;".repeat(50)}"></div>`,
         // Repeated attribute patterns
         `<div ${'attr="val" '.repeat(200)}></div>`,
@@ -1184,7 +1183,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
       for (const depth of depths) {
         let markdown = '['
         for (let i = 0; i < depth; i++) {
-          markdown += '[' + 'a'.repeat(10) + ']'
+          markdown += `[${'a'.repeat(10)}]`
         }
         markdown += ' text'
         for (let i = 0; i < depth; i++) {
@@ -1284,13 +1283,13 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
     it('should handle code block fence variations', () => {
       const testCases = [
         // Many fences
-        '```' + '`'.repeat(100) + '\ncode\n' + '```' + '`'.repeat(100),
+        `\`\`\`${'`'.repeat(100)}\ncode\n\`\`\`${'`'.repeat(100)}`,
         // Mixed fences
-        '~~~' + '~'.repeat(100) + '\ncode\n' + '~~~' + '~'.repeat(100),
+        `~~~${'~'.repeat(100)}\ncode\n~~~${'~'.repeat(100)}`,
         // Alternating fences
-        '```~~~```~~~'.repeat(50) + '\ncode\n' + '```~~~```~~~'.repeat(50),
+        `${'```~~~```~~~'.repeat(50)}\ncode\n${'```~~~```~~~'.repeat(50)}`,
         // Very long language identifier
-        '```' + 'a'.repeat(1000) + '\ncode\n```',
+        `\`\`\`${'a'.repeat(1000)}\ncode\n\`\`\``,
       ]
 
       for (const markdown of testCases) {
@@ -1350,10 +1349,10 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
       for (const depth of depths) {
         let markdown = ''
         for (let i = 0; i < depth; i++) {
-          markdown += '  '.repeat(i) + '* '
+          markdown += `${'  '.repeat(i)}* `
           // Each item has nested formatting
-          markdown += '*'.repeat(i + 1) + 'text' + '*'.repeat(i + 1) + ' '
-          markdown += '_'.repeat(i + 1) + 'text' + '_'.repeat(i + 1) + '\n'
+          markdown += `${'*'.repeat(i + 1)}text${'*'.repeat(i + 1)} `
+          markdown += `${'_'.repeat(i + 1)}text${'_'.repeat(i + 1)}\n`
         }
 
         const executionTime = timeExecution(() => {
@@ -1367,15 +1366,15 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
     it('should handle pathological whitespace patterns', () => {
       const testCases = [
         // Excessive spaces
-        ' '.repeat(1000) + 'text',
+        `${' '.repeat(1000)}text`,
         // Tabs everywhere
-        '\t'.repeat(1000) + 'text',
+        `${'\t'.repeat(1000)}text`,
         // Mixed whitespace
-        ' \t '.repeat(500) + 'text',
+        `${' \t '.repeat(500)}text`,
         // Newlines
-        '\n'.repeat(1000) + 'text',
+        `${'\n'.repeat(1000)}text`,
         // In code blocks
-        '```\n' + ' '.repeat(1000) + 'code\n```',
+        `\`\`\`\n${' '.repeat(1000)}code\n\`\`\``,
       ]
 
       for (const markdown of testCases) {
@@ -1392,8 +1391,8 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         // Many entities
         'a'.repeat(100) + '&'.repeat(100) + 'b'.repeat(100),
         '&amp;'.repeat(1000),
-        '&#x' + '0'.repeat(100) + ';',
-        '&#' + '9'.repeat(100) + ';',
+        `&#x${'0'.repeat(100)};`,
+        `&#${'9'.repeat(100)};`,
         // Mixed entities
         'text&nbsp;'.repeat(500),
         // In attributes

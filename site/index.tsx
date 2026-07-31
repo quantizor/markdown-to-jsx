@@ -1,14 +1,13 @@
 import TeX from '@matejmazur/react-katex'
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
-
-import Markdown, { MarkdownToJSX, RuleType } from '../lib/src/react'
-import { presets, type Preset } from './presets'
-import { LANGUAGES, SUPPORTED_LANGUAGES } from '../lib/src/i18n/languages'
-import { UI_STRINGS } from '../lib/src/i18n/ui-strings'
+import { LANGUAGES, SUPPORTED_LANGUAGES } from '../lib/src/i18n/languages.ts'
+import { UI_STRINGS } from '../lib/src/i18n/ui-strings.ts'
+import Markdown, { type MarkdownToJSX, RuleType } from '../lib/src/react.tsx'
+import { type Preset, presets } from './presets.ts'
 
 const LavaLamp = React.lazy(() =>
-  import('./lava-lamp').then(m => ({ default: m.LavaLamp }))
+  import('./lava-lamp.tsx').then(m => ({ default: m.LavaLamp }))
 )
 
 declare global {
@@ -22,13 +21,19 @@ declare global {
 }
 
 const detectLanguage = (): string => {
-  if (typeof window === 'undefined') return 'en'
+  if (typeof window === 'undefined') {
+    return 'en'
+  }
   const urlParams = new URLSearchParams(window.location.search)
   const langParam = urlParams.get('lang')
-  if (langParam && SUPPORTED_LANGUAGES.includes(langParam)) return langParam
+  if (langParam && SUPPORTED_LANGUAGES.includes(langParam)) {
+    return langParam
+  }
 
   const stored = localStorage.getItem('markdown-to-jsx-lang')
-  if (stored && SUPPORTED_LANGUAGES.includes(stored)) return stored
+  if (stored && SUPPORTED_LANGUAGES.includes(stored)) {
+    return stored
+  }
 
   const browserLang = (navigator.language || navigator.languages?.[0])?.split(
     '-'
@@ -171,7 +176,7 @@ function LanguageSwitcher({
   lang: string
   onChange: (lang: string) => void
 }) {
-  const displayNames = React.useMemo(() => {
+  const _displayNames = React.useMemo(() => {
     try {
       return new Intl.DisplayNames([lang], { type: 'language' })
     } catch {
@@ -249,7 +254,7 @@ function StreamingSlider({
         value={value}
         onChange={e => {
           onInteract()
-          onChange(parseInt(e.target.value, 10))
+          onChange(Number.parseInt(e.target.value, 10))
         }}
         className="streaming-slider flex-1"
         style={
@@ -280,7 +285,7 @@ function StreamingSlider({
   )
 }
 
-type StreamingState = {
+interface StreamingState {
   charCount: number | null
   isPlaying: boolean
   optimizeEnabled: boolean
@@ -361,15 +366,13 @@ function TryItLive() {
             props: { lang },
           },
         },
-        renderRule(defaultOutput, node, renderChildren, state) {
-          if (node.type === RuleType.codeBlock) {
-            if (node.lang === 'latex') {
-              return (
-                <TeX as="div" key={state.key} style={{ margin: '1.5em 0' }}>
-                  {String.raw`${node.text}`}
-                </TeX>
-              )
-            }
+        renderRule(defaultOutput, node, _renderChildren, state) {
+          if (node.type === RuleType.codeBlock && node.lang === 'latex') {
+            return (
+              <TeX as="div" key={state.key} style={{ margin: '1.5em 0' }}>
+                {String.raw`${node.text}`}
+              </TeX>
+            )
           }
 
           return defaultOutput()
@@ -409,8 +412,10 @@ function TryItLive() {
           `../lib/src/i18n/${lang}/default-template.md?raw`
         )
         setMarkdown(module.default)
-      } catch (error) {
-        const module = await import(`../lib/src/i18n/en/default-template.md?raw`)
+      } catch {
+        const module = await import(
+          '../lib/src/i18n/en/default-template.md?raw'
+        )
         setMarkdown(module.default)
       }
 
@@ -418,8 +423,8 @@ function TryItLive() {
         const module = await import(`../lib/src/i18n/${lang}/README.md?raw`)
         setReadmeContent(module.default)
         dispatchStreaming({ type: 'RESET' })
-      } catch (error) {
-        const module = await import(`../lib/src/i18n/en/README.md?raw`)
+      } catch {
+        const module = await import('../lib/src/i18n/en/README.md?raw')
         setReadmeContent(module.default)
         dispatchStreaming({ type: 'RESET' })
       }
@@ -536,9 +541,9 @@ function TryItLive() {
 
   const displayedReadmeContent = React.useMemo(
     () =>
-      streaming.charCount !== null
-        ? readmeContent.slice(0, streaming.charCount)
-        : readmeContent,
+      streaming.charCount === null
+        ? readmeContent
+        : readmeContent.slice(0, streaming.charCount),
     [streaming.charCount, readmeContent]
   )
 
@@ -566,7 +571,7 @@ function TryItLive() {
               {t('jumpToDocs')}
             </a>
             <a
-              className={`no-underline  py-1 px-3 backdrop-blur-xs rounded-xl text-sm bg-[#2b3137] hover:bg-accent transition-colors`}
+              className="no-underline  py-1 px-3 backdrop-blur-xs rounded-xl text-sm bg-[#2b3137] hover:bg-accent transition-colors"
               href="https://github.com/quantizor/markdown-to-jsx"
             >
               <img

@@ -763,7 +763,7 @@ By default a lightweight URL sanitizer function is provided to avoid common atta
 
 This can be overridden and replaced with a custom sanitizer if desired via `options.sanitizer`:
 
-<!-- prettier-ignore -->
+<!-- biome-ignore format: keep example fences intact -->
 ```tsx
 // sanitizer in this situation would receive:
 // ('javascript:alert("foo")', 'a', 'href')
@@ -797,7 +797,7 @@ Dangerous tag names (`script`, `iframe`, `style`, and similar) are escaped separ
 
 By default, a [lightweight deburring function](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate an HTML id from each heading's plain text content (formatting markers, link destinations, and image alt text are omitted; footnote markers contribute their display text). When more than one heading produces the same id, a numeric suffix is added automatically (`foo`, `foo-1`, `foo-2`) so each id stays unique within that parse. You can override slug generation by passing a function to `options.slugify`; the function receives that plain text content, and uniqueness is still applied to whatever it returns. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
 
-<!-- prettier-ignore -->
+<!-- biome-ignore format: keep example fences intact -->
 ```tsx
 <Markdown options={{ slugify: str => str }}># 中文</Markdown>
 compiler('# 中文', { slugify: str => str })
@@ -1185,7 +1185,7 @@ if (node.type === RuleType.heading) {
 
 **JSX prop parsing (v9.1+):** Arrays and objects in JSX props are automatically parsed:
 
-<!-- prettier-ignore -->
+<!-- biome-ignore format: keep example fences intact -->
 ```tsx
 // In markdown:
 <Table

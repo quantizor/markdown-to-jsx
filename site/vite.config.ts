@@ -1,12 +1,11 @@
-import { defineConfig, type Plugin } from 'vite'
-import react from '@vitejs/plugin-react'
-import { resolve } from 'path'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
-import packageJson from '../lib/package.json'
-import { readFileSync, writeFileSync, mkdirSync } from 'fs'
-import { join } from 'path'
+import react from '@vitejs/plugin-react'
+import { defineConfig, type Plugin } from 'vite'
+import packageJson from '../lib/package.json' with { type: 'json' }
 
-var rootDir = resolve(__dirname, '..')
+var rootDir = resolve(import.meta.dirname, '..')
 
 function copyLlmsTxtPlugin(): Plugin {
   return {
@@ -74,7 +73,7 @@ export default defineConfig({
     outDir: resolve(rootDir, 'docs'),
     emptyOutDir: false,
     rollupOptions: {
-      input: resolve(__dirname, 'index.html'),
+      input: resolve(import.meta.dirname, 'index.html'),
     },
     copyPublicDir: true,
   },

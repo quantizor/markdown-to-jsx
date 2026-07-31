@@ -12,13 +12,13 @@ import { CASES, MARKDOWN_OPTIONS } from './fixture'
  * Consumes the library from source (see metro.config.js), so edits under
  * lib/src hot-reload here. Requires Watchman for that loop to work.
  */
-type BoundaryProps = {
+interface BoundaryProps {
   children: ReactNode
   index: number
   name: string
 }
 
-type BoundaryState = {
+interface BoundaryState {
   message: string | null
 }
 
@@ -42,9 +42,7 @@ class CaseBoundary extends Component<BoundaryProps, BoundaryState> {
 
   render() {
     if (this.state.message !== null) {
-      return (
-        <Text style={styles.threw}>THREW: {this.props.name}</Text>
-      )
+      return <Text style={styles.threw}>THREW: {this.props.name}</Text>
     }
     return this.props.children
   }
@@ -52,22 +50,17 @@ class CaseBoundary extends Component<BoundaryProps, BoundaryState> {
 
 export default function App() {
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-    >
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.title}>markdown-to-jsx native harness</Text>
-      {CASES.map(function (fixtureCase, index) {
+      {CASES.map((fixtureCase, index) => {
         var label = fixtureCase.ref
-          ? fixtureCase.id + ' ' + fixtureCase.ref
+          ? `${fixtureCase.id} ${fixtureCase.ref}`
           : fixtureCase.id
         return (
           <View key={fixtureCase.id} style={styles.card}>
             <Text style={styles.label}>{label}</Text>
             <CaseBoundary index={index} name={fixtureCase.id}>
-              <Markdown options={MARKDOWN_OPTIONS}>
-                {fixtureCase.md}
-              </Markdown>
+              <Markdown options={MARKDOWN_OPTIONS}>{fixtureCase.md}</Markdown>
             </CaseBoundary>
           </View>
         )

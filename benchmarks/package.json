@@ -27,7 +27,6 @@
     "remark": "^15.0.1",
     "remark-directive": "^4.0.0",
     "remark-gfm": "^4.0.1",
-    "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
     "simple-markdown": "^0.7.3"
   }
