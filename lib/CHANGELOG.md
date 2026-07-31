@@ -1,5 +1,11 @@
 # markdown-to-jsx
 
+## 9.10.1
+
+### Patch Changes
+
+- 74be92f: Stop importing Node's `process` module in library source so production builds can replace environment checks correctly. Browser bundles no longer crash when reading those checks.
+
 ## 9.10.0
 
 ### Minor Changes
