@@ -624,9 +624,10 @@ function compileTable(
   node: MarkdownToJSX.TableNode,
   state: CompilerState
 ): string {
-  // Emit outer pipes and escape pipes inside cells. Without the outer pipes a
-  // single-column table re-parses as a setext heading, and an unescaped cell
-  // pipe splits the row.
+  // Emit outer pipes and escape cell meta-characters. Escape backslashes
+  // before pipes so a literal `\|` in cell text becomes `\\\|` and re-parses
+  // as backslash + pipe rather than an unescaped column split. Without the
+  // outer pipes a single-column table re-parses as a setext heading.
   var compileRow = (cells: MarkdownToJSX.ASTNode[][]): string => {
     var out = '|'
     for (var j = 0; j < cells.length; j++) {
@@ -634,7 +635,7 @@ function compileTable(
       for (var k = 0; k < cells[j].length; k++) {
         cell += state.renderChild(cells[j][k], _emptyState)
       }
-      out += ` ${cell.replace(/\|/g, '\\|')} |`
+      out += ` ${cell.replace(/\\/g, '\\\\').replace(/\|/g, '\\|')} |`
     }
     return out
   }

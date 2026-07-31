@@ -574,6 +574,28 @@ describe('markdown compiler', () => {
         '| Header 1 | Header 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |'
       expect(markdown(ast)).toBe(expected)
     })
+
+    it('escapes backslashes before pipes in table cells', () => {
+      // A cell whose text already contains `\` + `|` must not emit `\\|`, which
+      // re-parses as an escaped backslash plus an unescaped column split.
+      const ast: MarkdownToJSX.TableNode = {
+        type: RuleType.table,
+        align: [null],
+        header: [[{ type: RuleType.text, text: 'a \\| b' }]],
+        cells: [[[{ type: RuleType.text, text: 'c' }]]],
+      }
+      const emitted = markdown(ast)
+      expect(emitted).toBe('| a \\\\\\\\\\| b |\n| --- |\n| c |')
+      const reparsed = parser(emitted)[0] as MarkdownToJSX.TableNode
+      expect(reparsed.type).toBe(RuleType.table)
+      expect(reparsed.header.length).toBe(1)
+      var headerText = ''
+      for (var i = 0; i < reparsed.header[0].length; i++) {
+        var n = reparsed.header[0][i]
+        if (n.type === RuleType.text) headerText += n.text
+      }
+      expect(headerText).toBe('a \\| b')
+    })
   })
 
   describe('HTML', () => {
