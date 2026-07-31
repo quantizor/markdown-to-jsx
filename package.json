@@ -31,6 +31,7 @@
     "entities": "bun scripts/generate-entities.ts",
     "fixture": "bun scripts/generate-fixture.ts",
     "format": "biome check --write --unsafe .",
+    "hooks:install": "git config core.hooksPath .githooks",
     "knip": "knip",
     "lint": "biome check .",
     "metrics": "bun --expose-gc scripts/metrics.ts",

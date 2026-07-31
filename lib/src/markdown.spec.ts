@@ -592,7 +592,9 @@ describe('markdown compiler', () => {
       var headerText = ''
       for (var i = 0; i < reparsed.header[0].length; i++) {
         var n = reparsed.header[0][i]
-        if (n.type === RuleType.text) headerText += n.text
+        if (n.type === RuleType.text) {
+          headerText += n.text
+        }
       }
       expect(headerText).toBe('a \\| b')
     })
