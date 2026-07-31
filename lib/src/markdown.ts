@@ -33,7 +33,7 @@ export type MarkdownOverrides = {
  */
 export type MarkdownCompilerOptions = Omit<
   MarkdownToJSX.Options,
-  'createElement' | 'wrapper' | 'wrapperProps' | 'forceWrapper'
+  'createElement' | 'wrapper' | 'wrapperProps' | 'forceWrapper' | 'renderRule'
 > & {
   /**
    * Whether to use reference-style links instead of inline links

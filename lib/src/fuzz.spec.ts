@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'bun:test'
 import { performance } from 'node:perf_hooks'
 import { compiler } from './index.tsx'
 

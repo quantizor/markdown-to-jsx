@@ -244,7 +244,7 @@ const ALIGN_RIGHT: ViewStyle = { alignItems: 'flex-end' }
  * positions its cell content, or null when the column has no explicit alignment.
  */
 const alignItemsFor = (
-  align: 'center' | 'left' | 'right' | undefined
+  align: 'center' | 'left' | 'right' | null | undefined
 ): ViewStyle | null =>
   align === null
     ? null

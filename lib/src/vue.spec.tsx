@@ -111,27 +111,48 @@ function serialize(el: unknown): string {
 }
 
 // Type guard to check if result is a single VNode (not array or null)
-function isSingleVNode(vnode: VNode | VNode[] | null): vnode is VNode {
-  return vnode !== null && !Array.isArray(vnode)
-}
-
-// Helper to get VNode type
-function getVNodeType(vnode: VNode | VNode[] | null): string | undefined {
-  if (!isSingleVNode(vnode)) {
-    return
-  }
-  if (typeof vnode.type === 'string') {
-    return vnode.type
-  }
+function isSingleVNode(
+  vnode: VNode | VNode[] | null | undefined
+): vnode is VNode {
+  return vnode != null && !Array.isArray(vnode)
 }
 
 // Helper to get prop value from VNode
-function getProp(vnode: VNode | VNode[] | null, prop: string): unknown {
+function getProp(
+  vnode: VNode | VNode[] | null | undefined,
+  prop: string
+): unknown {
   if (!isSingleVNode(vnode)) {
     return
   }
   if (vnode.props && typeof vnode.props === 'object') {
     return (vnode.props as Record<string, unknown>)[prop]
+  }
+}
+
+function isVNode(value: unknown): value is VNode {
+  return typeof value === 'object' && value !== null && 'type' in value
+}
+
+/** Vue types `children` as string | VNodeArrayChildren | RawSlots; tests index normalized arrays. */
+function vnodeChildAt(vnode: VNode, index: number): VNode | undefined {
+  const kids = vnode.children
+  if (!Array.isArray(kids)) {
+    return
+  }
+  const child = kids[index]
+  return isVNode(child) ? child : undefined
+}
+
+// Helper to get VNode type
+function getVNodeType(
+  vnode: VNode | VNode[] | null | undefined
+): string | undefined {
+  if (!isSingleVNode(vnode)) {
+    return
+  }
+  if (typeof vnode.type === 'string') {
+    return vnode.type
   }
 }
 
@@ -147,11 +168,11 @@ function findByTag(
     for (let i = 0; i < vnode.children.length; i++) {
       const child = vnode.children[i]
       if (
-        typeof child === 'object' &&
+        isVNode(child) &&
         typeof child.type === 'string' &&
         child.type === tag
       ) {
-        return child as VNode
+        return child
       }
     }
   }
@@ -191,12 +212,12 @@ it('wraps multiple block element returns in a div to avoid invalid nesting error
   }
   expect(Array.isArray(result.children)).toBe(true)
   expect(result.children?.length).toBe(2)
-  const child0 = result.children?.[0]
-  const child1 = result.children?.[1]
-  if (typeof child0 === 'object' && child0 !== null) {
+  const child0 = isSingleVNode(result) ? vnodeChildAt(result, 0) : undefined
+  const child1 = isSingleVNode(result) ? vnodeChildAt(result, 1) : undefined
+  if (child0) {
     expect(getVNodeType(child0)).toBe('h1')
   }
-  if (typeof child1 === 'object' && child1 !== null) {
+  if (child1) {
     expect(getVNodeType(child1)).toBe('h2')
   }
 })
@@ -379,8 +400,8 @@ describe('lists', () => {
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
     expect(vnode.children?.length).toBe(2)
-    expect(getVNodeType(vnode.children?.[0] as VNode)).toBe('li')
-    expect(getVNodeType(vnode.children?.[1] as VNode)).toBe('li')
+    expect(getVNodeType(vnodeChildAt(vnode, 0))).toBe('li')
+    expect(getVNodeType(vnodeChildAt(vnode, 1))).toBe('li')
   })
 
   it('should render ordered lists', () => {
@@ -394,8 +415,8 @@ describe('lists', () => {
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
     expect(vnode.children?.length).toBe(2)
-    expect(getVNodeType(vnode.children?.[0] as VNode)).toBe('li')
-    expect(getVNodeType(vnode.children?.[1] as VNode)).toBe('li')
+    expect(getVNodeType(vnodeChildAt(vnode, 0))).toBe('li')
+    expect(getVNodeType(vnodeChildAt(vnode, 1))).toBe('li')
   })
 
   it('should handle ordered lists with start attribute', () => {
@@ -428,8 +449,9 @@ describe('code blocks', () => {
   it('should handle code blocks with language', () => {
     const result = compiler('```javascript\ncode\n```')
     expect(getVNodeType(result)).toBe('pre')
-    const codeElement = (isSingleVNode(result) ? result : null)
-      ?.children?.[0] as VNode
+    const codeElement = isSingleVNode(result)
+      ? vnodeChildAt(result, 0)
+      : undefined
     expect(getVNodeType(codeElement)).toBe('code')
     const codeClass = getProp(codeElement, 'class')
     expect(typeof codeClass).toBe('string')
@@ -536,8 +558,8 @@ describe('tables', () => {
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
     expect(vnode.children?.length).toBe(2)
-    expect(getVNodeType(vnode.children?.[0] as VNode)).toBe('thead')
-    expect(getVNodeType(vnode.children?.[1] as VNode)).toBe('tbody')
+    expect(getVNodeType(vnodeChildAt(vnode, 0))).toBe('thead')
+    expect(getVNodeType(vnodeChildAt(vnode, 1))).toBe('tbody')
   })
 
   it('#513 should not render empty tbody when table has no data rows', () => {
@@ -547,7 +569,7 @@ describe('tables', () => {
     }
     const vnode = result
     expect(vnode.children?.length).toBe(1)
-    expect(getVNodeType(vnode.children?.[0] as VNode)).toBe('thead')
+    expect(getVNodeType(vnodeChildAt(vnode, 0))).toBe('thead')
   })
 })
 
@@ -723,16 +745,14 @@ describe('GFM task lists', () => {
     }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
-    const li = vnode.children?.[0]
-    if (typeof li === 'object' && li !== null) {
+    const li = vnodeChildAt(vnode, 0)
+    if (li) {
       expect(getVNodeType(li)).toBe('li')
-      if (Array.isArray(li.children)) {
-        const checkbox = li.children[0]
-        if (typeof checkbox === 'object' && checkbox !== null) {
-          expect(getVNodeType(checkbox)).toBe('input')
-          expect(getProp(checkbox, 'type')).toBe('checkbox')
-          expect(getProp(checkbox, 'checked')).toBe(false)
-        }
+      const checkbox = vnodeChildAt(li, 0)
+      if (checkbox) {
+        expect(getVNodeType(checkbox)).toBe('input')
+        expect(getProp(checkbox, 'type')).toBe('checkbox')
+        expect(getProp(checkbox, 'checked')).toBe(false)
       }
     }
   })
@@ -747,9 +767,9 @@ describe('GFM task lists', () => {
     }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
-    const li = vnode.children?.[0] as VNode
+    const li = vnodeChildAt(vnode, 0)
     expect(getVNodeType(li)).toBe('li')
-    const checkbox = li.children?.[0] as VNode
+    const checkbox = li ? vnodeChildAt(li, 0) : undefined
     expect(getVNodeType(checkbox)).toBe('input')
     expect(getProp(checkbox, 'type')).toBe('checkbox')
     expect(getProp(checkbox, 'checked')).toBe(true)
@@ -761,8 +781,9 @@ describe('code blocks with attributes', () => {
     const result = compiler('```js data-line="1"\ncode\n```')
     expect(getVNodeType(result)).toBe('pre')
     // Attributes are on code element inside pre, not on pre itself
-    const codeElement = (isSingleVNode(result) ? result : null)
-      ?.children?.[0] as VNode
+    const codeElement = isSingleVNode(result)
+      ? vnodeChildAt(result, 0)
+      : undefined
     expect(getVNodeType(codeElement)).toBe('code')
     const dataLine = getProp(codeElement, 'data-line')
     expect(dataLine).toBe('1')
@@ -932,10 +953,10 @@ describe('nested lists', () => {
     }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
-    const firstLi = vnode.children?.[0] as VNode
+    const firstLi = vnodeChildAt(vnode, 0)
     expect(getVNodeType(firstLi)).toBe('li')
-    expect(Array.isArray(firstLi.children)).toBe(true)
-    const nestedUl = findByTag(firstLi, 'ul')
+    expect(firstLi && Array.isArray(firstLi.children)).toBe(true)
+    const nestedUl = firstLi ? findByTag(firstLi, 'ul') : undefined
     expect(nestedUl).toBeDefined()
   })
 
@@ -949,9 +970,9 @@ describe('nested lists', () => {
     }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
-    const firstLi = vnode.children?.[0] as VNode
+    const firstLi = vnodeChildAt(vnode, 0)
     expect(getVNodeType(firstLi)).toBe('li')
-    const nestedOl = findByTag(firstLi, 'ol')
+    const nestedOl = firstLi ? findByTag(firstLi, 'ol') : undefined
     expect(nestedOl).toBeDefined()
   })
 })
@@ -968,11 +989,11 @@ describe('tables with alignment', () => {
       throw new Error('Expected single VNode')
     }
     const vnode = result
-    const thead = vnode.children?.[0] as VNode
-    const tbody = vnode.children?.[1] as VNode
+    const thead = vnodeChildAt(vnode, 0)
+    const tbody = vnodeChildAt(vnode, 1)
     expect(getVNodeType(thead)).toBe('thead')
     expect(getVNodeType(tbody)).toBe('tbody')
-    expect(Array.isArray(tbody.children)).toBe(true)
+    expect(tbody && Array.isArray(tbody.children)).toBe(true)
   })
 })
 
@@ -1357,7 +1378,7 @@ describe('unique heading IDs (#857)', () => {
   function collectIds(vnode: VNode | VNode[] | null): string[] {
     const ids: string[] = []
     const walk = (node: VNode | VNode[] | null | undefined) => {
-      if (node === null) {
+      if (node == null) {
         return
       }
       if (Array.isArray(node)) {
@@ -1373,10 +1394,13 @@ describe('unique heading IDs (#857)', () => {
       const kids = node.children
       if (Array.isArray(kids)) {
         for (const child of kids) {
-          walk(child as VNode)
+          if (isVNode(child)) {
+            walk(child)
+          }
         }
       } else if (kids && typeof kids === 'object') {
-        walk(kids as VNode)
+        // RawSlots is not a VNode; cast through unknown for slot-object walks in tests.
+        walk(kids as unknown as VNode)
       }
     }
     walk(vnode)
@@ -1421,13 +1445,16 @@ describe('destination entity decode before sanitize', () => {
     const kids = vnode.children
     if (Array.isArray(kids)) {
       for (const child of kids) {
-        const found = firstAttr(child as VNode, prop)
-        if (found !== undefined) {
-          return found
+        if (isVNode(child)) {
+          const found = firstAttr(child, prop)
+          if (found !== undefined) {
+            return found
+          }
         }
       }
     } else if (kids && typeof kids === 'object') {
-      return firstAttr(kids as VNode, prop)
+      // RawSlots is not a VNode; cast through unknown for slot-object walks in tests.
+      return firstAttr(kids as unknown as VNode, prop)
     }
   }
 

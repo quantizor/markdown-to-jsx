@@ -328,7 +328,7 @@ declare namespace MarkdownToJSX {
     /**
      * alignment for each table column
      */
-    align: ('left' | 'right' | 'center')[]
+    align: Array<'left' | 'right' | 'center' | null>
     /** Table cells (3D array: rows -> cells -> nodes) */
     cells: MarkdownToJSX.ASTNode[][][]
     /** Table header row */

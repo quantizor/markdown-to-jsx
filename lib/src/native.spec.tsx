@@ -383,7 +383,11 @@ describe('link handling', () => {
     )
     const linkElement = findLinkElement(getFirstElement(result))
 
-    linkElement.props.onPress()
+    const onPress = linkElement.props.onPress
+    if (typeof onPress !== 'function') {
+      throw new Error('Expected link onPress handler')
+    }
+    onPress()
 
     expect(onLinkPress).toHaveBeenCalledWith(
       'https://%E4%BE%8B%E3%81%88.%E3%83%86%E3%82%B9%E3%83%88/%E8%91%97%E8%80%85/%F0%A0%AE%B7%E7%94%B0/%E6%8A%95%E7%A8%BF-%F0%9F%9A%80',

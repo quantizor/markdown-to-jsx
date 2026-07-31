@@ -1065,9 +1065,11 @@ describe('hasKeys', () => {
   })
 
   it('should handle primitive wrappers', () => {
-    expect(u.hasKeys(String('hello'))).toBe(true) // has length and other properties
-    expect(u.hasKeys(Number(42))).toBe(false) // Number wrapper has no enumerable properties
-    expect(u.hasKeys(Boolean(true))).toBe(false) // Boolean wrapper has no enumerable properties
+    const asRecord = (value: object): Record<string, unknown> =>
+      value as Record<string, unknown>
+    expect(u.hasKeys(asRecord(new Object(String('hello'))))).toBe(true) // has length and other properties
+    expect(u.hasKeys(asRecord(new Object(Number(42))))).toBe(false) // Number wrapper has no enumerable properties
+    expect(u.hasKeys(asRecord(new Object(Boolean(true))))).toBe(false) // Boolean wrapper has no enumerable properties
   })
 
   it('should handle frozen/sealed objects', () => {
@@ -1168,7 +1170,6 @@ describe('getFilteredTagEmit', () => {
       u.getFilteredTagEmit({
         type: RuleType.htmlSelfClosing,
         tag: 'script',
-        _rawAttrs: ' src="evil.js" ',
         _rawOpen: '<script src="evil.js" />',
       })
     ).toEqual({ kind: 'literal', literal: '<script src="evil.js" />' })

@@ -3,7 +3,13 @@
 import { afterEach, describe, expect, it, mock } from 'bun:test'
 import { createSignal, type JSX } from 'solid-js'
 
-import { astToJSX, compiler, parser, RuleType } from './solid.tsx'
+import {
+  astToJSX,
+  compiler,
+  parser,
+  RuleType,
+  type SolidOptions,
+} from './solid.tsx'
 import type { MarkdownToJSX } from './types.ts'
 
 afterEach(() => {
@@ -445,9 +451,9 @@ describe('Markdown component', () => {
 
     // Call astToJSX multiple times with different props but same AST
     // This simulates what happens when props change but content doesn't
-    const result1 = astToJSX(ast, { wrapperProps: { className: 'first' } })
-    const result2 = astToJSX(ast, { wrapperProps: { className: 'second' } })
-    const result3 = astToJSX(ast, { wrapperProps: { className: 'third' } })
+    const result1 = astToJSX(ast, { wrapperProps: { class: 'first' } })
+    const result2 = astToJSX(ast, { wrapperProps: { class: 'second' } })
+    const result3 = astToJSX(ast, { wrapperProps: { class: 'third' } })
 
     // Count occurrences of "NOTE" - should be exactly 1 per result
     const text1 = extractTextContent(result1)
@@ -1806,7 +1812,9 @@ describe('post-processing AST extractText', () => {
     // mutations could cause unexpected side effects
     const markdown = '# Hello world'
     const ast = parser(markdown)
-    const options = { slugify: (input: string) => input.toLowerCase() }
+    const options: SolidOptions = {
+      slugify: (input: string) => input.toLowerCase(),
+    }
     const originalOverrides = options.overrides
 
     // First call
@@ -1825,7 +1833,9 @@ describe('post-processing AST extractText', () => {
   it('should not mutate options object when calling compiler multiple times', () => {
     // Test that compiler doesn't mutate the options object when called multiple times
     const markdown = '# Hello world'
-    const options = { slugify: (input: string) => input.toLowerCase() }
+    const options: SolidOptions = {
+      slugify: (input: string) => input.toLowerCase(),
+    }
     const originalOverrides = options.overrides
 
     // First call

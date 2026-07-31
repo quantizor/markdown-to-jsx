@@ -1,3 +1,5 @@
+/// <reference path="./theredoc.d.ts" />
+
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import * as fs from 'node:fs'
 import * as React from 'react'
@@ -13,8 +15,9 @@ import Markdown, {
 
 const root = { innerHTML: '' }
 
-function render(jsx) {
-  root.innerHTML = renderToString(jsx)
+function render(jsx: React.ReactNode) {
+  // compiler() is typed as ReactNode; these tests always pass element-shaped output.
+  root.innerHTML = renderToString(jsx as React.ReactElement)
 }
 
 afterEach(() => {
@@ -1933,7 +1936,13 @@ comment -->`)
   })
 
   it('handles jsx attribute interpolation as a string', () => {
-    function DatePicker({ endTime, startTime }) {
+    function DatePicker({
+      endTime,
+      startTime,
+    }: {
+      endTime: React.ReactNode
+      startTime: React.ReactNode
+    }) {
       return (
         <div>
           {startTime} to {endTime}
@@ -1964,6 +1973,11 @@ comment -->`)
       component2,
       component3,
       component4,
+    }: {
+      component: React.ReactNode
+      component2: React.ReactNode
+      component3: React.ReactNode
+      component4: React.ReactNode
     }) {
       return (
         <div>
@@ -1972,7 +1986,13 @@ comment -->`)
       )
     }
 
-    function Inner({ children, ...props }) {
+    function Inner({
+      children,
+      ...props
+    }: {
+      children?: React.ReactNode
+      [key: string]: unknown
+    }) {
       return (
         <div {...props} className="inner">
           {children}
@@ -2943,7 +2963,7 @@ describe('options.renderRule', () => {
   })
 
   it('can be used to handle shortcodes', () => {
-    const shortcodeMap = {
+    const shortcodeMap: Record<string, string> = {
       'big-smile': '🙂',
     }
 
@@ -3202,7 +3222,9 @@ describe('overrides', () => {
   })
 
   it('should substitute the appropriate JSX tag if given a component and disableParsingRawHTML is true', () => {
-    const FakeParagraph = ({ children }) => <p className="foo">{children}</p>
+    const FakeParagraph = ({ children }: { children?: React.ReactNode }) => (
+      <p className="foo">{children}</p>
+    )
 
     render(
       compiler('Hello.\n\n', {
@@ -3215,7 +3237,9 @@ describe('overrides', () => {
   })
 
   it('should not substitute the appropriate JSX tag inline if given a component and disableParsingRawHTML is true', () => {
-    const FakeSpan = ({ children }) => <span className="foo">{children}</span>
+    const FakeSpan = ({ children }: { children?: React.ReactNode }) => (
+      <span className="foo">{children}</span>
+    )
 
     render(
       compiler('Hello.\n\n<FakeSpan>I am a fake span</FakeSpan>', {

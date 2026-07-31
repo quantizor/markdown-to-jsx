@@ -180,7 +180,7 @@ export type HTMLOverrides = {
  */
 export type HTMLOptions = Omit<
   MarkdownToJSX.Options,
-  'createElement' | 'wrapperProps' | 'overrides'
+  'createElement' | 'wrapperProps' | 'overrides' | 'renderRule'
 > & {
   /** Reference definitions for link resolution */
   refs?: { [key: string]: { target: string; title: string | undefined } }

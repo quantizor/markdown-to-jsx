@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'bun:test'
 import * as React from 'react'
 import { renderToString } from 'react-dom/server'
 import md from './index.cjs.tsx'

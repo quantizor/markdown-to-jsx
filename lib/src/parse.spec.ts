@@ -121,11 +121,15 @@ describe('parser', () => {
   })
 
   it('should preserve > and < inside quoted attribute values (#263)', () => {
-    const result = p.parser('<CustomSmall data="hello > world"/>')
+    const result = p.parser(
+      '<CustomSmall data="hello > world"/>'
+    ) as MarkdownToJSX.HTMLSelfClosingNode[]
     expect(result[0].tag).toBe('CustomSmall')
     expect(result[0].attrs).toEqual({ data: 'hello > world' })
 
-    const result2 = p.parser('<Comp x="1>2" y="3<4"/>')
+    const result2 = p.parser(
+      '<Comp x="1>2" y="3<4"/>'
+    ) as MarkdownToJSX.HTMLSelfClosingNode[]
     expect(result2[0].tag).toBe('Comp')
     expect(result2[0].attrs).toEqual({ x: '1>2', y: '3<4' })
   })
@@ -838,7 +842,10 @@ This is a link to [中文链接] in Chinese.`
     const input =
       '```\n[inside-code]: http://example.com\n```\n[outside]: https://example.org'
     const result = p.parser(input, options)
-    const refNode = result.find((n: any) => n.type === RuleType.refCollection)
+    const refNode = result.find(
+      (n): n is MarkdownToJSX.ReferenceCollectionNode =>
+        n.type === RuleType.refCollection
+    )
     expect(refNode?.refs).toHaveProperty('outside')
     expect(refNode?.refs).not.toHaveProperty('inside-code')
   })
@@ -1110,13 +1117,8 @@ describe('calculateIndent', () => {
 
 describe('parseCodeFenced', () => {
   it('should parse fenced code blocks', () => {
-    const options = createDefaultOptions()
-    const result = p.parseCodeFenced(
-      '```\ncode\n```',
-      0,
-      createBlockState(),
-      options
-    )
+    const _options = createDefaultOptions()
+    const result = p.parseCodeFenced('```\ncode\n```', 0, createBlockState())
     expect(result).toMatchInlineSnapshot(`
       {
         "attrs": undefined,
@@ -1137,13 +1139,8 @@ describe('parseCodeFenced', () => {
   })
 
   it('should parse fences with tildes', () => {
-    const options = createDefaultOptions()
-    const result = p.parseCodeFenced(
-      '~~~\ncode\n~~~',
-      0,
-      createBlockState(),
-      options
-    )
+    const _options = createDefaultOptions()
+    const result = p.parseCodeFenced('~~~\ncode\n~~~', 0, createBlockState())
     expect(result).toMatchInlineSnapshot(`
       {
         "attrs": undefined,
@@ -1164,12 +1161,11 @@ describe('parseCodeFenced', () => {
   })
 
   it('should handle code with info string', () => {
-    const options = createDefaultOptions()
+    const _options = createDefaultOptions()
     const result = p.parseCodeFenced(
       '```javascript\ncode\n```',
       0,
-      createBlockState(),
-      options
+      createBlockState()
     )
     expect(result).toMatchInlineSnapshot(`
       {
@@ -1191,13 +1187,8 @@ describe('parseCodeFenced', () => {
   })
 
   it('should handle longer fence markers', () => {
-    const options = createDefaultOptions()
-    const result = p.parseCodeFenced(
-      '````\ncode\n````',
-      0,
-      createBlockState(),
-      options
-    )
+    const _options = createDefaultOptions()
+    const result = p.parseCodeFenced('````\ncode\n````', 0, createBlockState())
     expect(result).toMatchInlineSnapshot(`
       {
         "attrs": undefined,
@@ -1218,12 +1209,11 @@ describe('parseCodeFenced', () => {
   })
 
   it('should handle mixed fence types (backticks with tildes)', () => {
-    const options = createDefaultOptions()
+    const _options = createDefaultOptions()
     const result = p.parseCodeFenced(
       '```javascript\ncode\n~~~',
       0,
-      createBlockState(),
-      options
+      createBlockState()
     )
     expect(result).toMatchInlineSnapshot(`
       {
@@ -1251,12 +1241,11 @@ describe('parseCodeFenced', () => {
   })
 
   it('should parse indented opening fence (up to 3 spaces)', () => {
-    const options = createDefaultOptions()
+    const _options = createDefaultOptions()
     const result = p.parseCodeFenced(
       '   ```\ncode\n   ```',
       0,
-      createBlockState(),
-      options
+      createBlockState()
     )
     expect(result).toMatchInlineSnapshot(`
       {
@@ -1278,23 +1267,21 @@ describe('parseCodeFenced', () => {
   })
 
   it('should return null for indented fences (4+ spaces)', () => {
-    const options = createDefaultOptions()
+    const _options = createDefaultOptions()
     const result = p.parseCodeFenced(
       '    ```\ncode\n```',
       0,
-      createBlockState(),
-      options
+      createBlockState()
     )
     expect(result).toMatchInlineSnapshot('null')
   })
 
   it('should handle fences with spaces after info string', () => {
-    const options = createDefaultOptions()
+    const _options = createDefaultOptions()
     const result = p.parseCodeFenced(
       '```javascript \ncode\n```',
       0,
-      createBlockState(),
-      options
+      createBlockState()
     )
     expect(result).toMatchInlineSnapshot(`
       {
@@ -1316,8 +1303,8 @@ describe('parseCodeFenced', () => {
   })
 
   it('should handle empty code blocks', () => {
-    const options = createDefaultOptions()
-    const result = p.parseCodeFenced('```\n```', 0, createBlockState(), options)
+    const _options = createDefaultOptions()
+    const result = p.parseCodeFenced('```\n```', 0, createBlockState())
     expect(result).toMatchInlineSnapshot(`
       {
         "attrs": undefined,
@@ -1338,12 +1325,11 @@ describe('parseCodeFenced', () => {
   })
 
   it('should handle code blocks with blank lines', () => {
-    const options = createDefaultOptions()
+    const _options = createDefaultOptions()
     const result = p.parseCodeFenced(
       '```\nline1\n\nline3\n```',
       0,
-      createBlockState(),
-      options
+      createBlockState()
     )
     expect(result).toMatchInlineSnapshot(`
       {
@@ -1373,12 +1359,11 @@ describe('parseCodeFenced', () => {
   })
 
   it('should handle unclosed fences', () => {
-    const options = createDefaultOptions()
+    const _options = createDefaultOptions()
     const result = p.parseCodeFenced(
       '```\ncode\n\nmore code\n\nand even more',
       0,
-      createBlockState(),
-      options
+      createBlockState()
     )
     expect(result).toMatchInlineSnapshot(`
       {
@@ -1412,13 +1397,8 @@ describe('parseCodeFenced', () => {
   })
 
   it('should handle fences with shorter closing markers', () => {
-    const options = createDefaultOptions()
-    const result = p.parseCodeFenced(
-      '````\ncode\n```',
-      0,
-      createBlockState(),
-      options
-    )
+    const _options = createDefaultOptions()
+    const result = p.parseCodeFenced('````\ncode\n```', 0, createBlockState())
     expect(result).toMatchInlineSnapshot(`
       {
         "attrs": undefined,
@@ -1445,22 +1425,17 @@ describe('parseCodeFenced', () => {
   })
 
   it('should return null for fences shorter than 3 characters', () => {
-    const options = createDefaultOptions()
-    const result = p.parseCodeFenced(
-      '``\ncode\n``',
-      0,
-      createBlockState(),
-      options
-    )
+    const _options = createDefaultOptions()
+    const result = p.parseCodeFenced('``\ncode\n``', 0, createBlockState())
     expect(result).toBeNull()
   })
 
   it('should treat fence with language as new opening, implicitly closing previous block', () => {
     // When a fenced code block encounters ```python (fence + language immediately after)
     // it should be treated as a new opening fence, closing the previous block
-    const options = createDefaultOptions()
+    const _options = createDefaultOptions()
     const input = '```markdown\n```python\ncode\n```'
-    const result = p.parseCodeFenced(input, 0, createBlockState(), options)
+    const result = p.parseCodeFenced(input, 0, createBlockState())
     expect(result).toMatchInlineSnapshot(`
       {
         "attrs": undefined,
@@ -1486,11 +1461,13 @@ describe('parseCodeFenced', () => {
     `)
 
     // The next parse should handle ```python
+    if (result == null) {
+      throw new Error('expected fenced parse result')
+    }
     const nextResult = p.parseCodeFenced(
       input,
-      result?.endPos,
-      createBlockState(),
-      options
+      result.endPos,
+      createBlockState()
     )
     expect(nextResult).toMatchInlineSnapshot('null')
   })
@@ -1498,9 +1475,9 @@ describe('parseCodeFenced', () => {
   it('should treat fence with space before info string as content (CommonMark compliant)', () => {
     // Per CommonMark: ``` aaa is NOT a valid closing fence but also should NOT be treated as new opening
     // because the info string has space before it
-    const options = createDefaultOptions()
+    const _options = createDefaultOptions()
     const input = '```\n``` aaa\n```'
-    const result = p.parseCodeFenced(input, 0, createBlockState(), options)
+    const result = p.parseCodeFenced(input, 0, createBlockState())
     expect(result).toMatchInlineSnapshot(`
       {
         "attrs": undefined,
@@ -1556,9 +1533,9 @@ def greet(name):
   })
 
   it('should handle tilde fence with language as new opening', () => {
-    const options = createDefaultOptions()
+    const _options = createDefaultOptions()
     const input = '~~~markdown\n~~~python\ncode\n~~~'
-    const result = p.parseCodeFenced(input, 0, createBlockState(), options)
+    const result = p.parseCodeFenced(input, 0, createBlockState())
     expect(result).toMatchInlineSnapshot(`
       {
         "attrs": undefined,
@@ -1586,9 +1563,9 @@ def greet(name):
 
   it('should not treat fence with backtick in info string as new opening', () => {
     // Per CommonMark: backtick fences cannot have backticks in info string
-    const options = createDefaultOptions()
+    const _options = createDefaultOptions()
     const input = '```\n```py`thon\n```'
-    const result = p.parseCodeFenced(input, 0, createBlockState(), options)
+    const result = p.parseCodeFenced(input, 0, createBlockState())
     // Should parse the entire content since ```py`thon is not a valid opening
     expect(result).toMatchInlineSnapshot(`
       {
@@ -2133,7 +2110,7 @@ describe('description list parsing', () => {
 
     const dl = result[0] as MarkdownToJSX.HTMLNode
     expect(dl.tag).toBe('dl')
-    expect(dl.attrs['data-variant']).toBe('horizontalTable')
+    expect(dl.attrs?.['data-variant']).toBe('horizontalTable')
 
     // Verify dt/dd children are present
     const children = dl.children!
@@ -4878,7 +4855,9 @@ describe('text normalization edge cases', () => {
       const result = p.parser(
         'family: \u{1F468}\u200D\u{1F469}\u200D\u{1F467}'
       ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
-      expect(result[0].children[0].text).toContain('\u200D')
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toContain(
+        '\u200D'
+      )
     })
 
     it('should handle zero-width non-joiner (U+200C)', () => {
@@ -4896,7 +4875,12 @@ describe('text normalization edge cases', () => {
         '**bold\u200Btext**'
       ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
       expect(result[0].children[0].type).toBe(RuleType.textFormatted)
-      expect(result[0].children[0].children[0].text).toBe('bold\u200Btext')
+      expect(
+        (
+          (result[0].children[0] as MarkdownToJSX.FormattedTextNode)
+            .children[0] as MarkdownToJSX.TextNode
+        ).text
+      ).toBe('bold\u200Btext')
     })
   })
 
@@ -4905,14 +4889,16 @@ describe('text normalization edge cases', () => {
       const result = p.parser(
         'wave: \u{1F44B}\u{1F3FB}'
       ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
-      expect(result[0].children[0].text).toContain('\u{1F44B}\u{1F3FB}')
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toContain(
+        '\u{1F44B}\u{1F3FB}'
+      )
     })
 
     it('should handle ZWJ emoji sequences (family)', () => {
       const result = p.parser(
         '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}'
       ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
-      expect(result[0].children[0].text).toBe(
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toBe(
         '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}'
       )
     })
@@ -4921,14 +4907,16 @@ describe('text normalization edge cases', () => {
       const result = p.parser(
         '\u{1F1FA}\u{1F1F8}'
       ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
-      expect(result[0].children[0].text).toBe('\u{1F1FA}\u{1F1F8}')
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toBe(
+        '\u{1F1FA}\u{1F1F8}'
+      )
     })
 
     it('should handle multiple emoji with various modifiers', () => {
       const result = p.parser(
         '\u{1F44B}\u{1F3FB} \u{1F468}\u200D\u{1F4BB} \u{1F1FA}\u{1F1F8}'
       ) as (MarkdownToJSX.ParagraphNode & { endPos: number })[]
-      expect(result[0].children[0].text).toBe(
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toBe(
         '\u{1F44B}\u{1F3FB} \u{1F468}\u200D\u{1F4BB} \u{1F1FA}\u{1F1F8}'
       )
     })
@@ -4936,67 +4924,101 @@ describe('text normalization edge cases', () => {
 
   describe('unicode whitespace', () => {
     it('should treat non-breaking space (U+00A0) as Unicode whitespace', () => {
-      const result = p.parser('hello\u00A0world')
-      expect(result[0].children[0].text).toBe('hello\u00A0world')
+      const result = p.parser(
+        'hello\u00A0world'
+      ) as MarkdownToJSX.ParagraphNode[]
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toBe(
+        'hello\u00A0world'
+      )
     })
 
     it('should distinguish ASCII whitespace from Unicode whitespace in emphasis', () => {
-      const result = p.parser('*hello world*')
+      const result = p.parser('*hello world*') as MarkdownToJSX.ParagraphNode[]
       expect(result[0].children[0].type).toBe(RuleType.textFormatted)
-      const result2 = p.parser('*hello\u00A0world*')
+      const result2 = p.parser(
+        '*hello\u00A0world*'
+      ) as MarkdownToJSX.ParagraphNode[]
       expect(result2[0].children[0].type).toBe(RuleType.textFormatted)
     })
 
     it('should handle em space (U+2003)', () => {
-      const result = p.parser('hello\u2003world')
-      expect(result[0].children[0].text).toBe('hello\u2003world')
+      const result = p.parser(
+        'hello\u2003world'
+      ) as MarkdownToJSX.ParagraphNode[]
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toBe(
+        'hello\u2003world'
+      )
     })
 
     it('should handle en space (U+2002)', () => {
-      const result = p.parser('hello\u2002world')
-      expect(result[0].children[0].text).toBe('hello\u2002world')
+      const result = p.parser(
+        'hello\u2002world'
+      ) as MarkdownToJSX.ParagraphNode[]
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toBe(
+        'hello\u2002world'
+      )
     })
 
     it('should handle thin space (U+2009)', () => {
-      const result = p.parser('hello\u2009world')
-      expect(result[0].children[0].text).toBe('hello\u2009world')
+      const result = p.parser(
+        'hello\u2009world'
+      ) as MarkdownToJSX.ParagraphNode[]
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toBe(
+        'hello\u2009world'
+      )
     })
   })
 
   describe('control characters', () => {
     it('should preserve bell character (U+0007)', () => {
-      const result = p.parser('hello\x07world')
-      expect(result[0].children[0].text).toBe('hello\x07world')
+      const result = p.parser('hello\x07world') as MarkdownToJSX.ParagraphNode[]
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toBe(
+        'hello\x07world'
+      )
     })
 
     it('should preserve backspace (U+0008)', () => {
-      const result = p.parser('hello\x08world')
-      expect(result[0].children[0].text).toBe('hello\x08world')
+      const result = p.parser('hello\x08world') as MarkdownToJSX.ParagraphNode[]
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toBe(
+        'hello\x08world'
+      )
     })
 
     it('should preserve escape (U+001B)', () => {
-      const result = p.parser('hello\x1Bworld')
-      expect(result[0].children[0].text).toBe('hello\x1Bworld')
+      const result = p.parser('hello\x1Bworld') as MarkdownToJSX.ParagraphNode[]
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toBe(
+        'hello\x1Bworld'
+      )
     })
 
     it('should preserve delete (U+007F)', () => {
-      const result = p.parser('hello\x7Fworld')
-      expect(result[0].children[0].text).toBe('hello\x7Fworld')
+      const result = p.parser('hello\x7Fworld') as MarkdownToJSX.ParagraphNode[]
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toBe(
+        'hello\x7Fworld'
+      )
     })
 
     it('should preserve vertical tab (U+000B)', () => {
-      const result = p.parser('hello\x0Bworld')
-      expect(result[0].children[0].text).toBe('hello\x0Bworld')
+      const result = p.parser('hello\x0Bworld') as MarkdownToJSX.ParagraphNode[]
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toBe(
+        'hello\x0Bworld'
+      )
     })
 
     it('should preserve form feed (U+000C)', () => {
-      const result = p.parser('hello\x0Cworld')
-      expect(result[0].children[0].text).toBe('hello\x0Cworld')
+      const result = p.parser('hello\x0Cworld') as MarkdownToJSX.ParagraphNode[]
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toBe(
+        'hello\x0Cworld'
+      )
     })
 
     it('should handle multiple control characters', () => {
-      const result = p.parser('a\x07b\x08c\x1Bd\x7Fe')
-      expect(result[0].children[0].text).toBe('a\x07b\x08c\x1Bd\x7Fe')
+      const result = p.parser(
+        'a\x07b\x08c\x1Bd\x7Fe'
+      ) as MarkdownToJSX.ParagraphNode[]
+      expect((result[0].children[0] as MarkdownToJSX.TextNode).text).toBe(
+        'a\x07b\x08c\x1Bd\x7Fe'
+      )
     })
   })
 
