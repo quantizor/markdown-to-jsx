@@ -1,5 +1,30 @@
 # markdown-to-jsx
 
+## 9.10.0
+
+### Minor Changes
+
+- 02bae9f: Heading ids are generated from each heading's plain text content instead of its raw markdown source. Link destinations, formatting markers, and image alt text no longer leak into the id (for example `## [text](https://e.com)` becomes `id="text"` rather than `id="texthttpsecom"`). Anchors on headings that contained links, images, or autolinks may change; plain-text headings are unaffected. Duplicate-id suffixes (`foo`, `foo-1`) still apply.
+- 02bae9f: Rejected image destinations now use `null` on the parsed AST the same way rejected links already do, so TypeScript consumers can treat `ImageNode.target` and `LinkNode.target` as `string | null`. Compilers still omit `src` for rejected images and the markdown compiler still re-emits them as `![alt]()`.
+- 4d08fd8: Headings that share the same text now get unique HTML ids automatically (`introduction`, `introduction-1`, `introduction-2`), matching the usual Markdown hosting behavior. A custom `slugify` still controls the base string; uniqueness is applied afterward, so you no longer need a stateful slugify closure that breaks under React Strict Mode.
+
+### Patch Changes
+
+- 02bae9f: Link and image destinations that hide a dangerous scheme behind HTML entities (for example `[x](&#106;avascript:alert(1))`) are now rejected the same way as a literal `javascript:` URL. Compilers drop the href for rejected links and omit the src for rejected images. The markdown compiler re-emits a rejected image as `![alt]()` rather than `![alt](null)`. Direct AST rendering also re-checks link targets before they become hrefs.
+- 02bae9f: Single-line `<script>`, `<style>`, `<pre>`, and `<textarea>` blocks keep their text content when `tagfilter` is off, including under `forceInline`. Previously the React output could emit an empty tag and drop the body.
+- 4d08fd8: Custom JSX components written in PascalCase, and hyphenated custom elements, keep their markdown children when a blank line appears between the opening and closing tags. Content after the blank no longer leaks out as a sibling of the component.
+- e9a253d: Ship an `llms.txt` cheatsheet with the package and at [markdown-to-jsx.quantizor.dev/llms.txt](https://markdown-to-jsx.quantizor.dev/llms.txt), so coding assistants can pick up the entry points, options, recipes, and AST shapes in a single short read instead of the full README.
+
+  The cheatsheet leads with the questions people actually ask: why a single newline is not a line break, how to wire up a syntax highlighter or KaTeX, opening links in a new tab, restricting which tags render, and the traps around indented template literals and case-sensitive override keys.
+
+  Two documentation corrections come along with it. The HTML entry point example named an export that does not exist; the helper there is `astToHTML`. And the class added to a fenced code block is `language-<lang>`, with the older `lang-<lang>` alongside it on the JSX renderers, rather than `lang-<lang>` alone as previously written.
+
+- 02bae9f: The markdown compiler now re-emits processing instructions (`<?xml ?>`), CDATA sections, declarations (`<!DOCTYPE html>`), and orphan closing tags exactly as written. Previously these were reconstructed as a generic self-closing element, which mangled a processing instruction like `<?xml version="1.0"?>` down to `<? />` and dropped CDATA and declaration content entirely.
+- 02bae9f: `optimizeForStreaming` now defers incomplete HTML the same way in every compiler, including Solid and Vue. Tag-like prefixes that have not finished arriving (`Hello <Citation`, `<!--…`) stay hidden until they complete, while ordinary less-than text (`5 < 3`) keeps rendering.
+- 02bae9f: Dangerous `url(javascript:…)` (and similar) payloads in raw HTML `style` attributes are now stripped from the HTML and Markdown string outputs, matching the React-family compilers.
+- 02bae9f: Table cells that contain a backslash before a pipe are escaped correctly when compiling back to Markdown, so the pipe no longer splits the row on re-parse.
+- 02bae9f: Dangerous HTML tags (`<script>`, `<iframe>`, `<style>`, and similar) are escaped by default across the React, HTML, Solid, Vue, and React Native outputs. Matching GFM, only each tag's leading `<` is neutralized; the body and closing tag stay visible as inert text instead of being dropped. Solid, Vue, and React Native previously rendered these tags live unless `tagfilter: true` was passed explicitly, and escaped output in every renderer stopped at the opener. Direct calls to `astToJSX` follow the same default.
+
 ## 9.9.0
 
 ### Minor Changes
@@ -62,6 +87,7 @@
 - 3df970f: Fix frontmatter detection silently consuming content when a thematic break (`---`) starts the document. The colon-anywhere heuristic is replaced with proper YAML key-value validation, and a new `disableFrontmatter` option is added to skip detection entirely.
 - c7e0d07: Fix `<hr>` and other void HTML elements silently dropping all subsequent content when not followed by a newline (#856)
 - c7e0d07: Fix HTML blocks with markdown content inside tables (#862) and restore CommonMark-correct behavior for HTML block content without blank lines (#860)
+
   - Markdown lists inside HTML table cells now render as proper nested lists instead of breaking the table structure
   - HTML block content on its own line without surrounding blank lines (e.g. `<div>\n*text*\n</div>`) is now preserved as literal text per CommonMark Example 189
   - HTML block content surrounded by blank lines (e.g. `<div>\n\n*text*\n\n</div>`) continues to parse markdown as before (CommonMark Example 188)
@@ -214,6 +240,7 @@
   HTML tags with attributes spanning multiple lines were not having their attributes correctly parsed into the AST. This caused custom elements with multi-line `data-*` attributes to have empty `attrs` objects, and the React compiler would then duplicate the opening tag when rendering.
 
   This fix ensures:
+
   - Attributes are correctly parsed for type 7 HTML blocks with newlines in the opening tag
   - The React compiler uses the parsed `children` array instead of re-parsing `rawText` when attributes are already parsed
 
@@ -226,6 +253,7 @@
   Type 6 HTML blocks (such as `<dl>`, `<dt>`, `<dd>`, `<table>`, `<tr>`, `<td>`) were incorrectly parsed when sibling elements appeared without blank lines between them—the first element would consume all subsequent siblings as its content instead of treating them as separate elements.
 
   This fix adds nesting-aware closing tag detection that properly handles:
+
   - Nested elements with the same tag name (e.g., `<div><div></div></div>`)
   - Sibling elements at the same level (e.g., `<dt></dt><dd></dd>`)
   - CommonMark compliance for HTML blocks that should extend to blank lines
@@ -277,6 +305,7 @@
 - 7605d88: Add React Server Components (RSC) support with automatic environment detection.
 
   The `Markdown` component now seamlessly works in both RSC and client-side React environments without requiring 'use client' directives. The component automatically detects hook availability and adapts its behavior accordingly:
+
   - In RSC environments: Uses direct compilation without hooks for optimal server performance
   - In client environments: Uses hooks and memoization for optimal client performance
   - `MarkdownProvider` and `MarkdownContext` gracefully become no-ops in RSC environments
@@ -318,21 +347,25 @@
 - c1be885: Added context providers and memoization to all major renderers for better developer experience and performance.
 
   **React:**
+
   - `MarkdownContext` - React context for default options
   - `MarkdownProvider` - Provider component to avoid prop-drilling
   - `useMemo` - 3-stage memoization (options, content, JSX)
 
   **React Native:**
+
   - `MarkdownContext` - React context for default options
   - `MarkdownProvider` - Provider component to avoid prop-drilling
   - `useMemo` - 3-stage memoization (options, content, JSX)
 
   **Vue:**
+
   - `MarkdownOptionsKey` - InjectionKey for provide/inject pattern
   - `MarkdownProvider` - Provider component using Vue's provide
   - `computed` - Reactive memoization for options, content, and JSX
 
   **Benefits:**
+
   1. **Avoid prop-drilling** - Set options once at the top level:
 
   ```tsx
@@ -350,16 +383,16 @@
   **Example:**
 
   ```tsx
-  import { MarkdownProvider } from 'markdown-to-jsx/react'
+  import { MarkdownProvider } from "markdown-to-jsx/react";
 
   function App() {
     return (
-      <MarkdownProvider options={{ wrapper: 'article', tagfilter: true }}>
+      <MarkdownProvider options={{ wrapper: "article", tagfilter: true }}>
         <Markdown># Page 1</Markdown>
         <Markdown># Page 2</Markdown>
         {/* Both inherit options from provider */}
       </MarkdownProvider>
-    )
+    );
   }
   ```
 
@@ -376,9 +409,9 @@
   const markdown = `
   <Button onPress={() => alert('clicked!')} />
   <ApiEndpoint url={process.env.API_URL} />
-  `
+  `;
 
-  parser(markdown, { evalUnserializableExpressions: true })
+  parser(markdown, { evalUnserializableExpressions: true });
 
   // Components receive:
   // - onPress: actual function () => alert('clicked!')
@@ -391,6 +424,7 @@
   See the README for detailed security considerations and safe alternatives.
 
 - ef8a002: JSX prop values are now intelligently parsed instead of always being strings:
+
   - **Arrays and objects** are parsed via `JSON.parse()`: `data={[1, 2, 3]}` → `attrs.data = [1, 2, 3]`
   - **Booleans** are parsed: `enabled={true}` → `attrs.enabled = true`
   - **Functions** are kept as strings for security: `onClick={() => ...}` → `attrs.onClick = "() => ..."`
@@ -399,6 +433,7 @@
   The original raw attribute string is preserved in the `rawAttrs` field.
 
   **Benefits:**
+
   - Type-safe access to structured data without manual parsing
   - Backwards compatible - check types before using
   - Secure by default - functions remain as strings
@@ -498,6 +533,7 @@
 ### Minor Changes
 
 - 88d4b1f: Add comprehensive React Native support with new `/native` export. Includes:
+
   - **React Native Component Mapping**: Enhanced HTML tag to React Native component mapping with semantic support for `img` → `Image`, block elements (`div`, `section`, `article`, `blockquote`, `ul`, `ol`, `li`, `table`, etc.) → `View`, and inline elements → `Text`
   - **Link Handling**: Native link support with `onLinkPress` and `onLinkLongPress` callbacks, defaulting to `Linking.openURL`
   - **Styling System**: Complete `NativeStyleKey` type system with styles for all markdown elements and HTML semantic tags
@@ -545,17 +581,20 @@
 ### Major Changes
 
 - 1ce83eb: Complete GFM+CommonMark specification compliance
+
   - **Full CommonMark compliance**: All 652 official test cases now pass
   - **Verified GFM extensions**: Tables, task lists, strikethrough, autolinks with spec compliance
   - **Tag filtering**: Default filtering of dangerous HTML tags (`<script>`, `<iframe>`, etc.) in both HTML string output and React JSX output
   - **URL sanitization**: Protection against `javascript:`, `vbscript:`, and malicious `data:` URLs
 
   Default filtering of dangerous HTML tags:
+
   - `<script>`, `<iframe>`, `<object>`, `<embed>`
   - `<title>`, `<textarea>`, `<style>`, `<xmp>`
   - `<plaintext>`, `<noembed>`, `<noframes>`
 
   ## ⚠️ Breaking Changes
+
   - **Tagfilter enabled by default**: Dangerous HTML tags are now escaped by default in both HTML and React output
   - **Inline formatting restrictions**: Inline formatting delimiters (emphasis, bold, strikethrough, mark) can no longer span across newlines, per CommonMark specification
 
@@ -566,7 +605,7 @@
   No changes necessary in most cases, but if you need to render potentially dangerous HTML tags, you can disable tag filtering:
 
   ```ts
-  compiler(markdown, { tagfilter: false })
+  compiler(markdown, { tagfilter: false });
   ```
 
   ### Inline Formatting Migration
@@ -592,12 +631,14 @@
   Renders as: `<p>_Hello World._</p>`
 
   **Impact:**
+
   - Single-line formatting still works: `*Hello World*` → `<em>Hello World</em>`
   - Multi-line formatting is now rejected: `*Hello\nWorld*` → literal asterisks
   - Affects all inline formatting: `*emphasis*`, `**bold**`, `~~strikethrough~~`, `==mark==`
 
   **Migration Options:**
   If you have markdown with multi-line inline formatting:
+
   1. Keep formatting on a single line: `*Hello World*`
   2. Use HTML tags: `<em>Hello\nWorld</em>`
   3. Accept that multi-line formatting renders as literal delimiters
@@ -635,6 +676,7 @@
 - 1ce83eb: Remove internal type definitions and rename `MarkdownToJSX.RuleOutput` to `MarkdownToJSX.ASTRender`
 
   This change removes internal type definitions from the `MarkdownToJSX` namespace:
+
   - Removed `NestedParser` type
   - Removed `Parser` type
   - Removed `Rule` type
@@ -644,6 +686,7 @@
   **Breaking changes:**
 
   If you are using the internal types directly:
+
   - Code referencing `MarkdownToJSX.NestedParser`, `MarkdownToJSX.Parser`, `MarkdownToJSX.Rule`, or `MarkdownToJSX.Rules` will need to be updated
   - The `renderRule` option in `MarkdownToJSX.Options` now uses `ASTRender` instead of `RuleOutput` for the `renderChildren` parameter type
   - `HTMLNode.children` type changed from `ReturnType<MarkdownToJSX.NestedParser>` to `ASTNode[]` (semantically equivalent, but requires updates if using the old type)
@@ -672,7 +715,7 @@
 
   ````md
   ```js
-  console.log('hello')
+  console.log("hello");
   ```
   ````
 
@@ -686,7 +729,7 @@
 
   ````md
   ```js
-  console.log('hello')
+  console.log("hello");
   ```
   ````
 
@@ -699,25 +742,30 @@
 - 1ce83eb: Separate JSX renderer from compiler and add new entry points
 
   ## New Features
+
   - **New `parser` function**: Low-level API that returns AST nodes. Exported from main entry point and all sub-entry points.
 
     ```tsx
-    import { parser } from 'markdown-to-jsx'
-    const source = '# Hello world'
-    const ast = parser(source)
+    import { parser } from "markdown-to-jsx";
+    const source = "# Hello world";
+    const ast = parser(source);
     ```
 
   - **New `/react` entry point**: React-specific entry point that exports compiler, Markdown component, parser, types, and utils.
 
     ```tsx
-    import Markdown, { astToJSX, compiler, parser } from 'markdown-to-jsx/react'
+    import Markdown, {
+      astToJSX,
+      compiler,
+      parser,
+    } from "markdown-to-jsx/react";
 
-    const source = '# Hello world'
-    const oneStepJSX = compiler(source)
-    const twoStepJSX = astToJSX(parser(source))
+    const source = "# Hello world";
+    const oneStepJSX = compiler(source);
+    const twoStepJSX = astToJSX(parser(source));
 
     function App() {
-      return <Markdown children={source} />
+      return <Markdown children={source} />;
       // or
       // return <Markdown>{source}</Markdown>
     }
@@ -726,18 +774,18 @@
   - **New `/html` entry point**: HTML string output entry point that exports html function, parser, types, and utils.
 
     ```tsx
-    import { astToHTML, compiler, parser } from 'markdown-to-jsx/html'
-    const source = '# Hello world'
-    const oneStepHTML = compiler(source)
-    const twoStepHTML = astToHTML(parser(source))
+    import { astToHTML, compiler, parser } from "markdown-to-jsx/html";
+    const source = "# Hello world";
+    const oneStepHTML = compiler(source);
+    const twoStepHTML = astToHTML(parser(source));
     ```
 
   - **New `/markdown` entry point**: Useful for situations where editing of the markdown is desired without resorting to gnarly regex-based parsing.
     ```tsx
-    import { astToMarkdown, compiler, parser } from 'markdown-to-jsx/markdown'
-    const source = '# Hello world'
-    const oneStepMarkdown = compiler(source)
-    const twoStepMarkdown = astToMarkdown(parser(source))
+    import { astToMarkdown, compiler, parser } from "markdown-to-jsx/markdown";
+    const source = "# Hello world";
+    const oneStepMarkdown = compiler(source);
+    const twoStepMarkdown = astToMarkdown(parser(source));
     ```
 
   ## Deprecations
@@ -745,6 +793,7 @@
   React code in the main entry point `markdown-to-jsx` is deprecated and will be removed in a future major release. In v10, the main entry point will only export the parser function, the types, and any exposed utility functions.
 
   ## Migration
+
   - For React-specific usage, switch imports to `markdown-to-jsx/react`
   - For HTML output, use `markdown-to-jsx/html` entry point
   - Use `parser()` for direct acces to AST
@@ -756,9 +805,11 @@
 - 450d2bb: Added `ast` option to compiler to expose the parsed AST directly. When `ast: true`, the compiler returns the AST structure (`ASTNode[]`) instead of rendered JSX.
 
   **Breaking Changes:**
+
   - The internal type `ParserResult` has been renamed to `ASTNode` for clarity. If you were accessing this type directly (e.g., via module augmentation or type manipulation), you'll need to update references from `MarkdownToJSX.ParserResult` to `MarkdownToJSX.ASTNode`.
 
   **First time the AST is accessible to users!** This enables:
+
   - AST manipulation and transformation before rendering
   - Custom rendering logic without parsing
   - Caching parsed AST for performance
@@ -767,16 +818,16 @@
   **Usage:**
 
   ```typescript
-  import { compiler } from 'markdown-to-jsx'
-  import type { MarkdownToJSX } from 'markdown-to-jsx'
+  import { compiler } from "markdown-to-jsx";
+  import type { MarkdownToJSX } from "markdown-to-jsx";
 
   // Get the AST structure
-  const ast: MarkdownToJSX.ASTNode[] = compiler('# Hello world', {
+  const ast: MarkdownToJSX.ASTNode[] = compiler("# Hello world", {
     ast: true,
-  })
+  });
 
   // Inspect/modify AST
-  console.log(ast) // Array of parsed nodes
+  console.log(ast); // Array of parsed nodes
 
   // Render AST to JSX using createRenderer (not implemented yet)
   ```
@@ -790,6 +841,7 @@
   **Breaking Changes:**
 
   The following `RuleType` enum values have been removed and consolidated into a single `RuleType.textFormatted`:
+
   - `RuleType.textBolded`
   - `RuleType.textEmphasized`
   - `RuleType.textMarked`
@@ -804,6 +856,7 @@
   Replaced the complex nested regex `HTML_BLOCK_ELEMENT_R` with an efficient iterative depth-counting algorithm that maintains O(n) complexity. The new implementation uses stateful regex matching with `lastIndex` to avoid exponential backtracking on nested HTML elements while preserving all existing functionality.
 
   **Performance improvements:**
+
   - Eliminates O(2^n) worst-case exponential backtracking
   - Linear O(n) time complexity regardless of nesting depth
 
@@ -814,6 +867,7 @@
   Previously, rendering markdown with extremely deeply nested content (e.g., thousands of nested bold markers like `****************...text...****************`) would cause a stack overflow crash. The renderer now gracefully handles such edge cases by falling back to plain text rendering instead of crashing.
 
   **Technical details:**
+
   - Added render depth tracking to prevent stack overflow
   - Graceful fallback at 2500 levels of nesting (way beyond normal usage)
   - Try/catch safety net as additional protection for unexpected errors
@@ -1046,15 +1100,15 @@
   // sanitizer in this situation would receive:
   // ('javascript:alert("foo")', 'a', 'href')
 
-  ;<Markdown options={{ sanitizer: (value, tag, attribute) => value }}>
+  <Markdown options={{ sanitizer: (value, tag, attribute) => value }}>
     {`[foo](javascript:alert("foo"))`}
-  </Markdown>
+  </Markdown>;
 
   // or
 
   compiler('[foo](javascript:alert("foo"))', {
     sanitizer: (value, tag, attribute) => value,
-  })
+  });
   ```
 
 ### Patch Changes
