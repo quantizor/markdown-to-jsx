@@ -48,7 +48,8 @@
     "dev:native": "bun run --filter @markdown-to-jsx/native start",
     "test:native": "bun run --filter markdown-to-jsx build && bun run --filter @markdown-to-jsx/native test",
     "test:native:built": "bun run --filter @markdown-to-jsx/native test",
-    "typecheck": "bun run --filter markdown-to-jsx --filter @markdown-to-jsx/browser --filter @markdown-to-jsx/native typecheck",
+    "typecheck": "bun run --filter markdown-to-jsx typecheck",
+    "typecheck:harness": "bun run --filter @markdown-to-jsx/browser --filter @markdown-to-jsx/native typecheck",
     "verify": "bash scripts/verify",
     "changeset-publish": "bun run build && changeset publish",
     "validate-i18n": "bun run scripts/validate-i18n.ts"

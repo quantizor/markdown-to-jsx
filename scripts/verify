@@ -155,7 +155,10 @@ phase "build" bun run build
 echo "==> wave 2: ok ($(($(now_ms) - wave2_t0))ms)"
 
 # --- Wave 3: parallel dist / golden checks ---
+# Harness typecheck belongs here: browser/native resolve markdown-to-jsx/*
+# through package exports into lib/dist, which wave 2 just produced.
 wave3_t0=$(now_ms)
+bg_job "typecheck:harness" bun run typecheck:harness
 bg_job "emit-selfcheck-dev" bun scripts/emit-selfcheck.ts
 bg_job "emit-selfcheck-prod" env NODE_ENV=production bun scripts/emit-selfcheck.ts
 bg_job "prod-strip-check" bun scripts/prod-strip-check.ts

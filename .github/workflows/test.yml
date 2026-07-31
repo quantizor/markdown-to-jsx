@@ -4,7 +4,10 @@ on:
   push:
     branches:
       - "main"
-  pull_request_target:
+  # pull_request (not pull_request_target): checkout defaults to the PR merge
+  # ref, so CI exercises the PR head. pull_request_target would run this
+  # workflow from base and check out base, which greenwashed #891.
+  pull_request:
 
 jobs:
   test:
