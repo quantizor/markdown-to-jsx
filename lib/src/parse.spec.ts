@@ -336,6 +336,95 @@ describe('parseMarkdown', () => {
     ])
   })
 
+  it('parses deeply nested link-text brackets in linear time (issue #893)', () => {
+    // Pre-fix, scanLink re-walked the balanced bracket run once per opener,
+    // giving O(N^2) total work (N=24000 ~1.2s, N=48000 ~5s). Compare
+    // doubling-size runs and assert sub-quadratic scaling, which is robust to
+    // absolute machine speed.
+    function timeParse(N: number) {
+      const input = '['.repeat(N) + ']'.repeat(N)
+      // One warmup to stabilize JIT.
+      p.parser(input)
+      const start = performance.now()
+      const result = p.parser(input)
+      return { ms: performance.now() - start, result, input }
+    }
+    const small = timeParse(8000)
+    const large = timeParse(16_000)
+    expect(large.ms).toBeLessThan(small.ms * 3 + 50)
+    expect(large.result).toEqual([
+      {
+        type: RuleType.paragraph,
+        children: [{ type: RuleType.text, text: large.input }],
+      },
+    ])
+  })
+
+  it('parses many unmatched link-text openers in linear time (issue #893)', () => {
+    // A single trailing ] defeats the "no ] in range" fast rejection, so every
+    // opener walked to end-of-input before failing.
+    function timeParse(N: number) {
+      const input = '['.repeat(N) + ']'
+      p.parser(input)
+      const start = performance.now()
+      const result = p.parser(input)
+      return { ms: performance.now() - start, result, input }
+    }
+    const small = timeParse(8000)
+    const large = timeParse(16_000)
+    expect(large.ms).toBeLessThan(small.ms * 3 + 50)
+    expect(large.result).toEqual([
+      {
+        type: RuleType.paragraph,
+        children: [{ type: RuleType.text, text: large.input }],
+      },
+    ])
+  })
+
+  it('keeps bracket matching exact when an outer opener is unmatched', () => {
+    // In `[[foo](/url)` the outer `[` never closes while the inner one does,
+    // so the two openers cannot share a single "nothing from here matches"
+    // answer.
+    function expected(leadingText: string) {
+      return [
+        {
+          type: RuleType.paragraph,
+          children: [
+            { type: RuleType.text, text: leadingText },
+            {
+              type: RuleType.link,
+              target: '/url',
+              title: undefined,
+              children: [{ type: RuleType.text, text: 'foo' }],
+            },
+          ],
+        },
+      ]
+    }
+    expect(p.parser('[[foo](/url)')).toEqual(expected('['))
+    // Same shape, with the outer scan long enough to be remembered.
+    const pad = 'z'.repeat(400)
+    expect(p.parser('[' + pad + '[foo](/url)')).toEqual(expected('[' + pad))
+  })
+
+  it('still parses long link text containing nested brackets', () => {
+    // Capping the scanned span instead would stop treating this as a link.
+    const text = 'x'.repeat(9000) + ' [inner] ' + 'y'.repeat(500)
+    expect(p.parser('[' + text + '](/url)')).toEqual([
+      {
+        type: RuleType.paragraph,
+        children: [
+          {
+            type: RuleType.link,
+            target: '/url',
+            title: undefined,
+            children: [{ type: RuleType.text, text }],
+          },
+        ],
+      },
+    ])
+  })
+
   it('does not let the failed-link cache reject a valid trailing link (issue #874 follow-up)', () => {
     // `[](([](a)` — outer link fails because the bare URL walks to end without
     // a balanced ')'. The cache must not block the inner `[](a)` from parsing.

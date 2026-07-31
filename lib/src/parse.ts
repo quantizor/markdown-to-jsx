@@ -5737,6 +5737,20 @@ function gateDestination(
   return sanitizerFn(decoded, tag, attribute) === null ? null : decoded
 }
 
+/**
+ * Reusable stack of `[` positions for scanLink's bracket matcher. The matcher
+ * only calls skipCodeSpan/scanAutolink/skipInlineHtmlElement, none of which
+ * re-enter scanLink, so one module-level buffer is safe and keeps the hot path
+ * allocation-free.
+ */
+const _linkBracketStack: number[] = []
+
+/**
+ * Characters a single bracket scan must cover before it starts memoizing.
+ * Scans shorter than this are cheaper than the table they would populate.
+ */
+const LINK_TEXT_MEMO_MIN_SPAN = 256
+
 /** Scan link [text](url) or ![alt](url) or [text][ref] or [text] */
 function scanLink(
   s: string,
@@ -5752,54 +5766,91 @@ function scanLink(
     return null // [
   }
 
-  // Fast rejection: if no ] in range, no valid link possible
-  var closeBracket = s.indexOf(']', start + 1)
-  if (closeBracket < 0 || closeBracket >= e) {
-    return null
+  // The scan below follows a trajectory that depends only on (s, position, e),
+  // so every `[` it walks over resolves to exactly the `]` that a scan started
+  // at that `[` would find. Remember those pairings instead of rescanning the
+  // remainder once per opener, which is quadratic on inputs like `[[[[...]]]]`
+  // or `[[[[...]` (issue #893). A "failed from here" watermark would not be
+  // exact here: in `[[foo](/url)` the outer `[` has no match while the inner
+  // one does, so the openers need individual answers. Scoped per parseInline
+  // call, and `e` is fixed for that call, so a "no match in range" entry
+  // cannot leak into a scan over a different range.
+  var memo = state._linkTextMatch
+  if (memo !== undefined && memo.length !== e) {
+    memo = state._linkTextMatch = undefined
   }
 
-  // Find closing ] - skip code spans, HTML tags, and autolinks
-  // Per CommonMark spec, we match brackets but don't nest them for link detection
-  var i = start + 1
-  var _bracketEnd = -1
-  var depth = 1
-  while (i < e && depth > 0) {
-    var c = s.charCodeAt(i)
-    if (c === $.CHAR_BACKSLASH && i + 1 < e) {
-      i += 2
-      continue
+  var i: number
+  var cached = memo !== undefined ? memo[start] : 0
+
+  if (cached !== 0) {
+    if (cached < 0) {
+      return null // known: no matching ] before e
     }
-    // Code spans take precedence over link brackets
-    if (c === $.CHAR_BACKTICK) {
-      var after = skipCodeSpan(s, i, e)
-      if (after > i) {
-        i = after
+    i = cached // a scan would have stopped just past the matching ]
+  } else {
+    // Fast rejection: if no ] in range, no valid link possible
+    var closeBracket = s.indexOf(']', start + 1)
+    if (closeBracket < 0 || closeBracket >= e) {
+      return null
+    }
+
+    // Find closing ] - skip code spans, HTML tags, and autolinks
+    // Per CommonMark spec, we match brackets but don't nest them for link detection
+    i = start + 1
+    var sp = 0
+    _linkBracketStack[sp++] = start
+    while (i < e && sp > 0) {
+      var c = s.charCodeAt(i)
+      if (c === $.CHAR_BACKSLASH && i + 1 < e) {
+        i += 2
         continue
       }
-    }
-    // HTML tags take precedence
-    if (c === $.CHAR_LT) {
-      // Check for autolink first
-      var autoResult = scanAutolink(s, i, e)
-      if (autoResult) {
-        i = autoResult.end
-        continue
+      // Code spans take precedence over link brackets
+      if (c === $.CHAR_BACKTICK) {
+        var after = skipCodeSpan(s, i, e)
+        if (after > i) {
+          i = after
+          continue
+        }
       }
-      var afterHtml = skipInlineHtmlElement(s, i, e)
-      if (afterHtml > i) {
-        i = afterHtml
-        continue
+      // HTML tags take precedence
+      if (c === $.CHAR_LT) {
+        // Check for autolink first
+        var autoResult = scanAutolink(s, i, e)
+        if (autoResult) {
+          i = autoResult.end
+          continue
+        }
+        var afterHtml = skipInlineHtmlElement(s, i, e)
+        if (afterHtml > i) {
+          i = afterHtml
+          continue
+        }
+      }
+      if (c === $.CHAR_BRACKET_OPEN) {
+        _linkBracketStack[sp++] = i
+      } else if (c === $.CHAR_BRACKET_CLOSE) {
+        var opener = _linkBracketStack[--sp]
+        if (memo !== undefined) {
+          memo[opener] = i + 1
+        }
+      }
+      i++
+      // Only pay for the table once a scan proves it is long enough to matter.
+      if (memo === undefined && i - start >= LINK_TEXT_MEMO_MIN_SPAN) {
+        memo = state._linkTextMatch = new Int32Array(e)
       }
     }
-    if (c === $.CHAR_BRACKET_OPEN) {
-      depth++
-    } else if (c === $.CHAR_BRACKET_CLOSE) {
-      depth--
+    if (sp > 0) {
+      // Reached e with openers still on the stack: none of them can close.
+      if (memo !== undefined) {
+        while (sp > 0) {
+          memo[_linkBracketStack[--sp]] = -1
+        }
+      }
+      return null
     }
-    i++
-  }
-  if (depth !== 0) {
-    return null
   }
 
   var textEnd = i - 1
@@ -7053,7 +7104,9 @@ function parseInline(
   // Scope scanLink's URL-scan failure cache to this call so positions can't
   // bleed across different source strings (issue #874).
   var savedUrlFailFrom = state._inlineUrlFailFrom
+  var savedLinkTextMatch = state._linkTextMatch
   state._inlineUrlFailFrom = undefined
+  state._linkTextMatch = undefined
 
   // Use state directly to avoid object spread allocation
   const childState = state
@@ -7575,6 +7628,7 @@ function parseInline(
   }
 
   state._inlineUrlFailFrom = savedUrlFailFrom
+  state._linkTextMatch = savedLinkTextMatch
   _globalInlineDepth--
   return nodes
 }

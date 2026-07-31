@@ -114,6 +114,8 @@ declare namespace MarkdownToJSX {
     _breaks?: boolean
     /** internal: smallest bare-URL start position known to fail by reaching end-of-input (issue #874); scoped per parseInline call */
     _inlineUrlFailFrom?: number
+    /** internal: memoized link-text bracket matches, indexed by `[` position: 0 = unknown, -1 = no match in range, otherwise the offset just past the matching `]`; scoped per parseInline call */
+    _linkTextMatch?: Int32Array
     /** internal: deferred inline parses, drained by the owning parseMarkdown after the block pass so all reference definitions are known */
     _pendingInline?: {
       dest: ASTNode[]
