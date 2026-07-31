@@ -79,8 +79,8 @@ export default defineConfig({
     copyPublicDir: true,
   },
   server: {
-    allowedHosts: ['dev.local'],
-    port: 3000,
+    allowedHosts: ['dev.local', 'markdown.localhost'],
+    port: 4040,
     open: false,
     fs: {
       allow: ['..'],

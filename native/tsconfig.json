@@ -1,0 +1,8 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true
+  },
+  "include": ["App.tsx", "fixture.ts", "index.ts", "__tests__"]
+}

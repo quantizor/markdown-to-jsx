@@ -5,6 +5,8 @@
   "workspaces": [
     "lib",
     "benchmarks",
+    "browser",
+    "native",
     "site"
   ],
   "devDependencies": {
@@ -12,7 +14,7 @@
     "@types/react": "^19.2.6",
     "in-publish": "^2.0.1",
     "prettier": "^3.6.2",
-    "react": "^19.2.0",
+    "react": "^19.2.8",
     "rimraf": "^6.1.0"
   },
   "overrides": {
@@ -34,7 +36,13 @@
     "bench:html": "pushd benchmarks; bun run bench:html; popd",
     "analyze": "bun scripts/analyze-patterns.ts",
     "test": "bun run --filter markdown-to-jsx test",
-    "typecheck": "bun run --filter markdown-to-jsx typecheck",
+    "dev:browser": "bun run --filter markdown-to-jsx build && bun run --filter @markdown-to-jsx/browser dev",
+    "test:browser": "bun run --filter markdown-to-jsx build && bun run --filter @markdown-to-jsx/browser build && bun run --filter @markdown-to-jsx/browser test",
+    "test:browser:built": "bun run --filter @markdown-to-jsx/browser test",
+    "dev:native": "bun run --filter @markdown-to-jsx/native start",
+    "test:native": "bun run --filter markdown-to-jsx build && bun run --filter @markdown-to-jsx/native test",
+    "test:native:built": "bun run --filter @markdown-to-jsx/native test",
+    "typecheck": "bun run --filter markdown-to-jsx --filter @markdown-to-jsx/browser --filter @markdown-to-jsx/native typecheck",
     "changeset-publish": "bun run build && changeset publish",
     "validate-i18n": "bun run scripts/validate-i18n.ts"
   }

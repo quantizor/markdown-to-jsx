@@ -13,3 +13,12 @@ yarn.lock
 # ephemeral files
 dist/
 .cursor/plans
+
+# Per-machine dev server registrations (devctl); each machine keeps its own.
+devservers.json
+
+# Harness artifacts (Playwright, Expo)
+test-results/
+playwright-report/
+blob-report/
+.expo/

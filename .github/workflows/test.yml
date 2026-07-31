@@ -28,3 +28,26 @@ jobs:
 
       - name: Build
         run: bun run build
+
+      - name: Build browser harness bundle
+        run: bun run --filter @markdown-to-jsx/browser build
+
+      - name: Install Chromium for Playwright
+        working-directory: browser
+        run: bunx playwright install --with-deps chromium
+
+      - name: Browser harness smoke tests
+        run: bun run test:browser:built
+
+      - name: Native harness smoke tests
+        run: bun run test:native:built
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: ignore
+          name: playwright-artifacts
+          path: |
+            browser/test-results/
+            browser/playwright-report/
