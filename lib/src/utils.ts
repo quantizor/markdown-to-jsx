@@ -1,6 +1,7 @@
-import { NAMED_CODES_TO_UNICODE as util, decodeEntity } from 'markdown-to-jsx/entities'
-import * as $ from './constants'
-import { RuleType, type MarkdownToJSX } from './types'
+import process from 'node:process'
+import { decodeEntity } from 'markdown-to-jsx/entities'
+import * as $ from './constants.ts'
+import { type MarkdownToJSX, RuleType } from './types.ts'
 
 /**
  * Parse frontmatter bounds and validate YAML
@@ -11,29 +12,44 @@ import { RuleType, type MarkdownToJSX } from './types'
 export function parseFrontmatterBounds(
   input: string
 ): { endPos: number; hasValidYaml: boolean } | null {
-  if (!startsWith(input, '---')) return null
+  if (!startsWith(input, '---')) {
+    return null
+  }
   let pos = 3
-  while (pos < input.length && (input[pos] === ' ' || input[pos] === '\t'))
+  while (pos < input.length && (input[pos] === ' ' || input[pos] === '\t')) {
     pos++
+  }
   // Handle both LF and CRLF line endings
-  if (pos < input.length && input[pos] === '\r') pos++
-  if (pos >= input.length || input[pos] !== '\n') return null
+  if (pos < input.length && input[pos] === '\r') {
+    pos++
+  }
+  if (pos >= input.length || input[pos] !== '\n') {
+    return null
+  }
   pos++
 
   let hasValidYaml = false
   while (pos < input.length) {
     const lineStart = pos
     // Find line end, handling CRLF
-    while (pos < input.length && input[pos] !== '\n' && input[pos] !== '\r')
+    while (pos < input.length && input[pos] !== '\n' && input[pos] !== '\r') {
       pos++
-    if (pos >= input.length) break
+    }
+    if (pos >= input.length) {
+      break
+    }
     const lineEnd = pos
     // Skip CR if present
-    if (input[pos] === '\r') pos++
+    if (input[pos] === '\r') {
+      pos++
+    }
     // Skip LF
-    if (pos < input.length && input[pos] === '\n') pos++
-    if (startsWith(input, '---', lineStart))
+    if (pos < input.length && input[pos] === '\n') {
+      pos++
+    }
+    if (startsWith(input, '---', lineStart)) {
       return { endPos: pos, hasValidYaml }
+    }
     // Validate YAML key-value pattern: [ws] key ":" (space|tab|EOL)
     if (!hasValidYaml) {
       let scanPos = skipWhitespace(input, lineStart, lineEnd)
@@ -67,7 +83,9 @@ export function parseFrontmatterBounds(
               hasValidYaml = true
             } else {
               c = input.charCodeAt(scanPos)
-              if (c === $.CHAR_SPACE || c === $.CHAR_TAB) hasValidYaml = true
+              if (c === $.CHAR_SPACE || c === $.CHAR_TAB) {
+                hasValidYaml = true
+              }
             }
           }
         }
@@ -76,14 +94,6 @@ export function parseFrontmatterBounds(
   }
   return null
 }
-
-/**
- * Named HTML entity codes to unicode character mapping
- * Pre-computed from generated entity set
- * Numeric references (&#123; and &#xAB;) are fully supported without any mapping.
- * Unknown named entities pass through as literal text (CommonMark-compliant).
- */
-export const NAMED_CODES_TO_UNICODE: Record<string, string> = util
 
 /**
  * Regex for matching HTML character references (&entity; or &#123; or &#xAB;)
@@ -153,7 +163,9 @@ var EMPTY_JSX_PROPS: Record<string, any> = {}
 export function htmlAttrsToJSXProps(
   attrs: Record<string, any> | null | undefined
 ): Record<string, any> {
-  if (!attrs) return EMPTY_JSX_PROPS
+  if (!attrs) {
+    return EMPTY_JSX_PROPS
+  }
 
   var jsxProps: Record<string, any> = {}
 
@@ -164,11 +176,15 @@ export function htmlAttrsToJSXProps(
       jsxProps[mappedKey] = attrs[key]
     } else {
       var colonIdx = key.indexOf(':')
-      if (colonIdx !== -1) {
-        // xml:lang -> xmlLang, xlink:href -> xlinkHref
-        jsxProps[key.slice(0, colonIdx) + key[colonIdx + 1].toUpperCase() + key.slice(colonIdx + 2)] = attrs[key]
-      } else {
+      if (colonIdx === -1) {
         jsxProps[key] = attrs[key]
+      } else {
+        // xml:lang -> xmlLang, xlink:href -> xlinkHref
+        jsxProps[
+          key.slice(0, colonIdx) +
+            key[colonIdx + 1].toUpperCase() +
+            key.slice(colonIdx + 2)
+        ] = attrs[key]
       }
     }
   }
@@ -190,29 +206,37 @@ export const SHOULD_RENDER_AS_BLOCK_R: RegExp =
  * @returns The decoded text
  */
 export function decodeEntityReferences(text: string): string {
-  if (text.indexOf('&') === -1) return text
+  if (text.indexOf('&') === -1) {
+    return text
+  }
 
   return text.replace(HTML_CHAR_CODE_R, (full, inner) => {
     // Named entity lookup via swappable decoder
     // In browser builds, this uses DOM; in Node, uses lookup table
     var entity = decodeEntity(inner)
-    if (entity) return entity
+    if (entity) {
+      return entity
+    }
 
     // Numeric entities (always computed, no lookup needed)
     if (inner[0] === '#') {
       var code =
         inner[1] === 'x' || inner[1] === 'X'
-          ? parseInt(inner.slice(2), 16)
-          : parseInt(inner.slice(1), 10)
+          ? Number.parseInt(inner.slice(2), 16)
+          : Number.parseInt(inner.slice(1), 10)
 
-      if (code === 0 || (code >= 0xd800 && code <= 0xdfff) || code > 0x10ffff) {
+      if (
+        code === 0 ||
+        (code >= 0xd8_00 && code <= 0xdf_ff) ||
+        code > 0x10_ff_ff
+      ) {
         return '\uFFFD'
       }
-      return code <= 0xffff
+      return code <= 0xff_ff
         ? String.fromCharCode(code)
         : String.fromCharCode(
-            0xd800 + ((code - 0x10000) >> 10),
-            0xdc00 + ((code - 0x10000) & 0x3ff)
+            0xd8_00 + ((code - 0x1_00_00) >> 10),
+            0xdc_00 + ((code - 0x1_00_00) & 0x3_ff)
           )
     }
 
@@ -241,7 +265,9 @@ export function sanitizer(input: string): string | null {
     return null
   }
 
-  if (input.indexOf('%') === -1) return input
+  if (input.indexOf('%') === -1) {
+    return input
+  }
 
   try {
     const decoded = decodeURIComponent(input).replace(/[^A-Za-z0-9/:]/g, '')
@@ -254,7 +280,7 @@ export function sanitizer(input: string): string | null {
       }
       return null
     }
-  } catch (e) {
+  } catch {
     if (process.env.NODE_ENV !== 'production') {
       console.warn(
         'Input could not be decoded due to malformed syntax or characters, it will not be rendered.',
@@ -269,20 +295,31 @@ export function sanitizer(input: string): string | null {
 
 // Character replacement lookup table for slugify (Unicode to ASCII)
 var slugifyReplaceTable: Record<number, string> = {}
-var codes: number[], i: number
+var codes: number[]
+var i: number
 codes = [192, 193, 194, 195, 196, 197, 224, 225, 226, 227, 228, 229, 230, 198]
-for (i = 0; i < codes.length; i++) slugifyReplaceTable[codes[i]] = 'a'
+for (i = 0; i < codes.length; i++) {
+  slugifyReplaceTable[codes[i]] = 'a'
+}
 slugifyReplaceTable[231] = slugifyReplaceTable[199] = 'c'
 slugifyReplaceTable[240] = slugifyReplaceTable[208] = 'd'
 codes = [200, 201, 202, 203, 233, 232, 234, 235]
-for (i = 0; i < codes.length; i++) slugifyReplaceTable[codes[i]] = 'e'
+for (i = 0; i < codes.length; i++) {
+  slugifyReplaceTable[codes[i]] = 'e'
+}
 codes = [207, 239, 206, 238, 205, 237, 204, 236]
-for (i = 0; i < codes.length; i++) slugifyReplaceTable[codes[i]] = 'i'
+for (i = 0; i < codes.length; i++) {
+  slugifyReplaceTable[codes[i]] = 'i'
+}
 slugifyReplaceTable[209] = slugifyReplaceTable[241] = 'n'
 codes = [248, 216, 339, 338, 213, 245, 212, 244, 211, 243, 210, 242]
-for (i = 0; i < codes.length; i++) slugifyReplaceTable[codes[i]] = 'o'
+for (i = 0; i < codes.length; i++) {
+  slugifyReplaceTable[codes[i]] = 'o'
+}
 codes = [220, 252, 219, 251, 218, 250, 217, 249]
-for (i = 0; i < codes.length; i++) slugifyReplaceTable[codes[i]] = 'u'
+for (i = 0; i < codes.length; i++) {
+  slugifyReplaceTable[codes[i]] = 'u'
+}
 slugifyReplaceTable[376] =
   slugifyReplaceTable[255] =
   slugifyReplaceTable[221] =
@@ -321,8 +358,13 @@ export function slugify(str: string): string {
   for (var i = 0; i < n; i++) {
     var code = str.charCodeAt(i)
     // lowercase ASCII letter / digit — fastest and most common path
-    if ((code >= $.CHAR_a && code <= $.CHAR_z) || (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9)) {
-      if (segStart < 0) segStart = i
+    if (
+      (code >= $.CHAR_a && code <= $.CHAR_z) ||
+      (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9)
+    ) {
+      if (segStart < 0) {
+        segStart = i
+      }
       continue
     }
     // uppercase ASCII letter — flush, emit lowered single char
@@ -349,9 +391,13 @@ export function slugify(str: string): string {
       segStart = -1
     }
     var replacement = slugifyReplaceTable[code]
-    if (replacement) out += replacement
+    if (replacement) {
+      out += replacement
+    }
   }
-  if (segStart >= 0) out += str.slice(segStart)
+  if (segStart >= 0) {
+    out += str.slice(segStart)
+  }
   return out
 }
 
@@ -422,7 +468,9 @@ export const VOID_ELEMENTS: Set<string> = new Set([
  */
 export function isVoidElement(tagName: string): boolean {
   let lowerTag = tagName.toLowerCase()
-  if (VOID_ELEMENTS.has(lowerTag)) return true
+  if (VOID_ELEMENTS.has(lowerTag)) {
+    return true
+  }
   // Handle SVG namespace prefixes like svg:circle
   const colonIndex = lowerTag.indexOf(':')
   if (colonIndex !== -1) {
@@ -434,19 +482,19 @@ export function isVoidElement(tagName: string): boolean {
 
 // Character classification flags (bitfield) - shared by parser and utils
 // These flags allow multiple classifications per character with bitwise AND/OR
-export var C_WS = 1        // Whitespace (space, tab, newline, cr, ff)
-export var C_NL = 2        // Newline (\n, \r)
-export var C_PUNCT = 4     // Punctuation
-export var C_ALPHA = 8     // Letter (a-z, A-Z)
-export var C_DIGIT = 16    // Digit (0-9)
-export var C_BLOCK = 32    // Can start a block (parser-specific)
-export var C_INLINE = 64   // Can start inline syntax (parser-specific)
+export var C_WS = 1 // Whitespace (space, tab, newline, cr, ff)
+export var C_NL = 2 // Newline (\n, \r)
+export var C_PUNCT = 4 // Punctuation
+export var C_ALPHA = 8 // Letter (a-z, A-Z)
+export var C_DIGIT = 16 // Digit (0-9)
+export var C_BLOCK = 32 // Can start a block (parser-specific)
+export var C_INLINE = 64 // Can start inline syntax (parser-specific)
 
 // Unified character class lookup table (ASCII 0-127)
 // Shared by parser (parse.ts) and utilities (utils.ts)
-export var CC: Uint8Array = (function () {
+export var CC: Uint8Array = (() => {
   var t = new Uint8Array(128)
-  var i
+  var i: number
   // Whitespace characters
   t[$.CHAR_TAB] = C_WS
   t[$.CHAR_NEWLINE] = C_WS | C_NL
@@ -454,30 +502,38 @@ export var CC: Uint8Array = (function () {
   t[$.CHAR_CR] = C_WS | C_NL
   t[$.CHAR_SPACE] = C_WS
   // Punctuation ranges (all ASCII punctuation for CommonMark escape handling)
-  for (i = $.CHAR_EXCLAMATION; i <= $.CHAR_SLASH; i++) t[i] = C_PUNCT
-  for (i = $.CHAR_COLON; i <= $.CHAR_AT; i++) t[i] = C_PUNCT
-  for (i = $.CHAR_BRACKET_OPEN; i <= $.CHAR_BACKTICK; i++) t[i] = C_PUNCT
-  for (i = $.CHAR_BRACE_OPEN; i <= $.CHAR_TILDE; i++) t[i] = C_PUNCT
+  for (i = $.CHAR_EXCLAMATION; i <= $.CHAR_SLASH; i++) {
+    t[i] = C_PUNCT
+  }
+  for (i = $.CHAR_COLON; i <= $.CHAR_AT; i++) {
+    t[i] = C_PUNCT
+  }
+  for (i = $.CHAR_BRACKET_OPEN; i <= $.CHAR_BACKTICK; i++) {
+    t[i] = C_PUNCT
+  }
+  for (i = $.CHAR_BRACE_OPEN; i <= $.CHAR_TILDE; i++) {
+    t[i] = C_PUNCT
+  }
   // Digits 0-9
-  for (i = $.CHAR_DIGIT_0; i <= $.CHAR_DIGIT_9; i++) t[i] = C_DIGIT
+  for (i = $.CHAR_DIGIT_0; i <= $.CHAR_DIGIT_9; i++) {
+    t[i] = C_DIGIT
+  }
   // Letters
-  for (i = $.CHAR_A; i <= $.CHAR_Z; i++) t[i] = C_ALPHA
-  for (i = $.CHAR_a; i <= $.CHAR_z; i++) t[i] = C_ALPHA
+  for (i = $.CHAR_A; i <= $.CHAR_Z; i++) {
+    t[i] = C_ALPHA
+  }
+  for (i = $.CHAR_a; i <= $.CHAR_z; i++) {
+    t[i] = C_ALPHA
+  }
   return t
 })()
 
 export function isASCIIPunctuation(code: number): boolean {
-  return (
-    code < $.CHAR_ASCII_BOUNDARY &&
-    (CC[code] & C_PUNCT) !== 0
-  )
+  return code < $.CHAR_ASCII_BOUNDARY && (CC[code] & C_PUNCT) !== 0
 }
 
 export function isASCIIWhitespace(code: number): boolean {
-  return (
-    code < $.CHAR_ASCII_BOUNDARY &&
-    (CC[code] & C_WS) !== 0
-  )
+  return code < $.CHAR_ASCII_BOUNDARY && (CC[code] & C_WS) !== 0
 }
 
 // Unicode property escapes for spec-compliant character classification
@@ -488,7 +544,9 @@ export var UNICODE_PUNCT_R: RegExp = /[\p{P}\p{S}]/u
 export var UNICODE_WHITESPACE_R: RegExp = /\p{Zs}/u
 
 export function isUnicodeWhitespace(c: string): boolean {
-  if (!c) return true
+  if (!c) {
+    return true
+  }
   const code = c.charCodeAt(0)
   return code < $.CHAR_ASCII_BOUNDARY
     ? (CC[code] & C_WS) !== 0
@@ -496,11 +554,12 @@ export function isUnicodeWhitespace(c: string): boolean {
 }
 
 export function isUnicodePunctuation(c: string | number): boolean {
-  if (typeof c === 'number')
-    return (
-      c < $.CHAR_ASCII_BOUNDARY && (CC[c] & C_PUNCT) !== 0
-    )
-  if (!c) return false
+  if (typeof c === 'number') {
+    return c < $.CHAR_ASCII_BOUNDARY && (CC[c] & C_PUNCT) !== 0
+  }
+  if (!c) {
+    return false
+  }
   const code = c.charCodeAt(0)
   return code < $.CHAR_ASCII_BOUNDARY
     ? (CC[code] & C_PUNCT) !== 0
@@ -514,7 +573,9 @@ export function isUnicodePunctuation(c: string | number): boolean {
  */
 export function findLineEnd(source: string, startPos: number): number {
   const newlinePos = source.indexOf('\n', startPos)
-  if (newlinePos === -1) return source.length
+  if (newlinePos === -1) {
+    return source.length
+  }
   if (newlinePos > 0 && source.charCodeAt(newlinePos - 1) === $.CHAR_CR) {
     return newlinePos - 1
   }
@@ -530,41 +591,57 @@ var crlfParts: string[] = []
  * Returns original string if no transformations needed (fast path)
  */
 export function normalizeInput(text: string): string {
-  var firstCR = text.indexOf('\r')
+  var firstCr = text.indexOf('\r')
   var firstNull = text.indexOf('\x00')
 
-  if (firstCR === -1 && firstNull === -1) return text
+  if (firstCr === -1 && firstNull === -1) {
+    return text
+  }
 
   var len = text.length
   crlfParts.length = 0
   var start = 0
   var i = 0
 
-  if (firstCR === -1) {
+  if (firstCr === -1) {
     i = firstNull
   } else if (firstNull === -1) {
-    i = firstCR
+    i = firstCr
   } else {
-    i = firstCR < firstNull ? firstCR : firstNull
+    i = firstCr < firstNull ? firstCr : firstNull
   }
 
   for (; i < len; i++) {
     var code = text.charCodeAt(i)
     if (code === $.CHAR_CR) {
-      if (start < i) crlfParts.push(text.slice(start, i))
+      if (start < i) {
+        crlfParts.push(text.slice(start, i))
+      }
       if (i + 1 < len && text.charCodeAt(i + 1) === $.CHAR_NEWLINE) {
         i++
       }
       crlfParts.push('\n')
       start = i + 1
     } else if (code === 0) {
-      if (start < i) crlfParts.push(text.slice(start, i))
+      if (start < i) {
+        crlfParts.push(text.slice(start, i))
+      }
       crlfParts.push('\uFFFD')
       start = i + 1
     }
   }
-  if (start < len) crlfParts.push(text.slice(start))
+  if (start < len) {
+    crlfParts.push(text.slice(start))
+  }
   return crlfParts.join('')
+}
+
+/**
+ * Collapse inter-tag whitespace and newlines before re-parsing raw HTML as
+ * JSX in the react/native/solid/vue compilers.
+ */
+export function normalizeJsxReparseText(text: string): string {
+  return text.replace(/>\s+</g, '><').replace(/\n+/g, ' ').trim()
 }
 
 /**
@@ -576,7 +653,9 @@ export function skipWhitespace(
   maxPos?: number
 ): number {
   const end = maxPos ?? source.length
-  while (pos < end && (source[pos] === ' ' || source[pos] === '\t')) pos++
+  while (pos < end && (source[pos] === ' ' || source[pos] === '\t')) {
+    pos++
+  }
   return pos
 }
 
@@ -585,8 +664,10 @@ export function skipWhitespace(
  * Optimized alternative to Object.keys(obj).length > 0
  */
 export function hasKeys(obj: Record<string, any> | null | undefined): boolean {
-  if (!obj) return false
-  for (var key in obj) {
+  if (!obj) {
+    return false
+  }
+  for (var _key in obj) {
     return true
   }
   return false
@@ -615,8 +696,10 @@ var TRIM_STARTING_NEWLINES = /^\n+/
  */
 export function prepareBlockInput(input: string): string {
   var e = input.length
-  while (e > 0 && (input[e - 1] === '\n' || input[e - 1] === '\r')) e--
-  return input.slice(0, e).replace(TRIM_STARTING_NEWLINES, '') + '\n\n'
+  while (e > 0 && (input[e - 1] === '\n' || input[e - 1] === '\r')) {
+    e--
+  }
+  return `${input.slice(0, e).replace(TRIM_STARTING_NEWLINES, '')}\n\n`
 }
 
 /**
@@ -633,8 +716,9 @@ export function processVerbatimNode(
     (node.type === RuleType.htmlSelfClosing ||
       node.type === RuleType.htmlBlock) &&
     node._isClosingTag
-  )
+  ) {
     return []
+  }
   if (node.type === RuleType.paragraph) {
     var children = (node as MarkdownToJSX.ParagraphNode).children
     return children ? children.flatMap(processVerbatimNode) : []
@@ -657,23 +741,6 @@ export function processVerbatimNode(
 }
 
 /**
- * True when cleaned verbatim rawText is the element's complete outer block
- * (opens with its own tag and ends with its own closing tag). The re-parsed AST
- * already contains that wrapper element, so the renderer emits the parsed nodes
- * directly rather than wrapping them again. Renderer-agnostic; shared by the
- * native, Solid, and Vue compilers.
- */
-export function isFullVerbatimBlock(cleanedText: string, tag: string): boolean {
-  return (
-    new RegExp(`^<${tag}(\\s|>)`, 'i').test(cleanedText) &&
-    cleanedText
-      .toLowerCase()
-      .trimEnd()
-      .endsWith('</' + tag.toLowerCase() + '>')
-  )
-}
-
-/**
  * Clear `_verbatim` on re-parsed HTML block nodes to prevent infinite re-parse
  * recursion, with one exception for issue #881: keep verbatim on a last-sibling
  * node whose rawText bleeds real content past its own closing tag. There the
@@ -690,24 +757,35 @@ export function stripVerbatim(nodes: MarkdownToJSX.ASTNode[]): void {
     if (nodes[ai].type === RuleType.htmlBlock) {
       var hn = nodes[ai] as MarkdownToJSX.HTMLNode
       var keepVerbatim = false
-      if (hn._verbatim && hn._rawText && ai === nodes.length - 1) {
-        var ownClose = '</' + String(hn.tag).toLowerCase() + '>'
-        var closeIdx = hn._rawText.toLowerCase().indexOf(ownClose)
+      if (hn._verbatim && ai === nodes.length - 1) {
+        var rawSource =
+          hn._rawOuter === undefined
+            ? hn._isClosingTag
+              ? hn._rawBody || ''
+              : (hn._rawBody || '') + (hn._rawClose || '')
+            : hn._rawOuter
+        var ownClose = `</${String(hn.tag).toLowerCase()}>`
+        var closeIdx = rawSource.toLowerCase().indexOf(ownClose)
         if (closeIdx !== -1) {
-          var bledTail = hn._rawText
+          var bledTail = rawSource
             .slice(closeIdx + ownClose.length)
             .replace(/<\/[a-z][a-z0-9-]*\s*>/gi, '')
-          if (bledTail.trim()) keepVerbatim = true
+          if (bledTail.trim()) {
+            keepVerbatim = true
+          }
         }
       }
-      if (!keepVerbatim) hn._verbatim = false
+      if (!keepVerbatim) {
+        hn._verbatim = false
+      }
     }
     if (
       'children' in nodes[ai] &&
       (nodes[ai] as MarkdownToJSX.HTMLNode).children
     ) {
       stripVerbatim(
-        (nodes[ai] as MarkdownToJSX.HTMLNode).children as MarkdownToJSX.ASTNode[]
+        (nodes[ai] as MarkdownToJSX.HTMLNode)
+          .children as MarkdownToJSX.ASTNode[]
       )
     }
   }
@@ -758,12 +836,14 @@ export function findOwnCloseInAST(
           if (j + 1 < pChildren.length) {
             // Remaining paragraph children become nodes after close, minus any
             // trailing closing tags for parent elements
-            var remaining = pChildren.slice(j + 1).filter(function (r) {
-              return !(
-                r.type === RuleType.htmlSelfClosing && r._isClosingTag
+            var remaining = pChildren
+              .slice(j + 1)
+              .filter(
+                r => !(r.type === RuleType.htmlSelfClosing && r._isClosingTag)
               )
-            })
-            if (remaining.length > 0) after = remaining
+            if (remaining.length > 0) {
+              after = remaining
+            }
           }
           after = after.concat(nodes.slice(i + 1))
           return { found: true, beforeClose: before, afterClose: after }
@@ -772,8 +852,7 @@ export function findOwnCloseInAST(
     }
     // Check direct closing tag
     if (
-      (n.type === RuleType.htmlSelfClosing ||
-        n.type === RuleType.htmlBlock) &&
+      (n.type === RuleType.htmlSelfClosing || n.type === RuleType.htmlBlock) &&
       n._isClosingTag &&
       n.tag.toLowerCase() === tag
     ) {
@@ -798,7 +877,7 @@ export function validateCompilerArgs(
   componentName: string
 ): void {
   if (typeof markdown !== 'string') {
-    throw new Error(`markdown-to-jsx: the first argument must be a string`)
+    throw new Error('markdown-to-jsx: the first argument must be a string')
   }
   if (Object.prototype.toString.call(overrides) !== '[object Object]') {
     throw new Error(`markdown-to-jsx: options.overrides (second argument property) must be
@@ -813,22 +892,6 @@ export function validateCompilerArgs(
 }
 
 /**
- * Inner text of a type-1 verbatim block (pre/script/style/textarea): rawText
- * with the node's own trailing closing tag stripped, tagfiltered when enabled.
- */
-export function type1TextContent(
-  rawText: string,
-  tagLower: string,
-  tagfilter: boolean | undefined
-): string {
-  var text = rawText.replace(
-    new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
-    ''
-  )
-  return tagfilter ? applyTagFilterToText(text) : text
-}
-
-/**
  * Serialize an HTML node's attributes for tagfilter display output (the
  * escaped `<tag attr="value">` text emitted for filtered tags).
  */
@@ -838,11 +901,193 @@ export function formatFilteredTagAttrs(
   var attrStr = ''
   for (var key in attrs) {
     var value = attrs[key]
-    if (value === true) attrStr += ' ' + key
-    else if (value !== undefined && value !== null && value !== false)
-      attrStr += ' ' + key + '="' + String(value) + '"'
+    if (value === true) {
+      attrStr += ` ${key}`
+    } else if (value !== undefined && value != null && value !== false) {
+      attrStr += ` ${key}="${String(value)}"`
+    }
   }
   return attrStr
+}
+
+/**
+ * How a tagfiltered HTML node should be emitted. GFM replaces only each
+ * matching tag's leading `<`; the body and closer stay. Type 1 / verbatim
+ * nodes return a single `literal` (opener + body + closer). Structured nodes
+ * with children return `sandwich` so allowed nested tags still render.
+ */
+export type FilteredTagEmit =
+  | { kind: 'literal'; literal: string }
+  | { kind: 'sandwich'; close: string; open: string }
+
+/**
+ * Build a filtered open tag, preserving author whitespace in `_rawAttrs` when present.
+ * @param end - Tag terminator (`>` or ` />`)
+ */
+function filteredOpenTag(
+  tag: string,
+  rawAttrs: string | undefined,
+  attrs: Record<string, any> | null | undefined,
+  end: string
+): string {
+  var attrStr: string
+  if (rawAttrs === undefined) {
+    attrStr = formatFilteredTagAttrs(attrs)
+  } else {
+    attrStr =
+      rawAttrs.length > 0 && rawAttrs.charCodeAt(0) > $.CHAR_SPACE
+        ? ` ${rawAttrs}`
+        : rawAttrs
+  }
+  return `<${tag}${attrStr}${end}`
+}
+
+/**
+ * Derive inert source parts for a tagfiltered htmlBlock / htmlSelfClosing node.
+ */
+export function getFilteredTagEmit(
+  node: MarkdownToJSX.HTMLNode | MarkdownToJSX.HTMLSelfClosingNode
+): FilteredTagEmit {
+  var tag = node.tag
+  var selfClosing = node.type === RuleType.htmlSelfClosing
+  var htmlNode = node as MarkdownToJSX.HTMLNode
+  var rawAttrs = htmlNode._rawAttrs
+  var close = `</${tag}>`
+
+  if (!selfClosing && htmlNode._isClosingTag) {
+    // Orphan closer: _rawClose is the closer literal, _rawBody any trailing
+    // content kept alongside it.
+    return {
+      kind: 'literal',
+      literal: (htmlNode._rawClose || close) + (htmlNode._rawBody || ''),
+    }
+  }
+
+  if (selfClosing) {
+    var scNode = node as MarkdownToJSX.HTMLSelfClosingNode
+    if (scNode._isClosingTag) {
+      return { kind: 'literal', literal: scNode._rawClose || close }
+    }
+    if (scNode._rawOpen) {
+      return { kind: 'literal', literal: scNode._rawOpen }
+    }
+    return {
+      kind: 'literal',
+      literal: filteredOpenTag(tag, rawAttrs, node.attrs, ' />'),
+    }
+  }
+
+  var open = filteredOpenTag(tag, rawAttrs, node.attrs, '>')
+  var kids = htmlNode.children
+  var hasKids = kids != null && kids.length > 0
+
+  // Verbatim source that already carries its own opener (JSX/component
+  // re-parse full-block form).
+  if (htmlNode._verbatim && htmlNode._rawOuter !== undefined) {
+    if (hasKids) {
+      return { kind: 'sandwich', open, close }
+    }
+    return { kind: 'literal', literal: htmlNode._rawOuter }
+  }
+
+  // Type 1 and other childless verbatim: body + own closer.
+  if (htmlNode._verbatim && !hasKids) {
+    return {
+      kind: 'literal',
+      literal: open + (htmlNode._rawBody || '') + (htmlNode._rawClose || close),
+    }
+  }
+
+  // Structured (or verbatim-with-children): sandwich inert open/close around
+  // normally rendered children so allowed nested tags stay live. Plain text
+  // children collapse into one literal so JSX sinks avoid adjacent text nodes.
+  if (kids != null && kids.length > 0) {
+    var plain = ''
+    for (var i = 0; i < kids.length; i++) {
+      var kid = kids[i]
+      if (kid.type !== RuleType.text) {
+        return { kind: 'sandwich', open, close }
+      }
+      plain += (kid as MarkdownToJSX.TextNode).text
+    }
+    return { kind: 'literal', literal: open + plain + close }
+  }
+
+  // Empty structured node: emit open + optional body text + close. The body
+  // may already carry a nested same-name closing tag as literal text (e.g. an
+  // identical tag appearing verbatim inside the content).
+  var body = htmlNode._rawBody || ''
+  if (body && body.indexOf(close) !== -1) {
+    return { kind: 'literal', literal: open + body }
+  }
+  return { kind: 'literal', literal: open + body + close }
+}
+
+/**
+ * Build span/Text children for a filtered open/close sandwich, merging
+ * adjacent strings so React SSR does not inject text-boundary comments.
+ */
+export function assembleFilteredTagChildren<T>(
+  open: string,
+  children: T | T[] | null | undefined,
+  close: string
+): Array<string | T> {
+  var parts: Array<string | T> = []
+  var openText = open
+  var closeText = close
+  if (openText) {
+    parts.push(openText)
+  }
+  if (Array.isArray(children)) {
+    for (var i = 0; i < children.length; i++) {
+      parts.push(children[i])
+    }
+  } else if (children != null) {
+    parts.push(children)
+  }
+  if (closeText) {
+    parts.push(closeText)
+  }
+  var merged: Array<string | T> = []
+  for (var j = 0; j < parts.length; j++) {
+    var p = parts[j]
+    if (
+      typeof p === 'string' &&
+      merged.length > 0 &&
+      typeof merged.at(-1) === 'string'
+    ) {
+      merged[merged.length - 1] = (merged.at(-1) as string) + p
+    } else {
+      merged.push(p)
+    }
+  }
+  return merged
+}
+
+/**
+ * Whether GFM tagfilter is active. Omitted/`undefined` means on (documented default).
+ */
+export function tagfilterEnabled(
+  options: { tagfilter?: boolean } | null | undefined
+): boolean {
+  return options == null || options.tagfilter !== false
+}
+
+/**
+ * Sanitize a URL attribute then percent-encode the surviving value for emit.
+ * Returns null when the sanitizer rejects the target.
+ */
+export function sanitizeAndEncodeUrlTarget(
+  target: string,
+  sanitizer: (value: string, tag: string, attribute: string) => string | null,
+  tag: string,
+  attribute: string
+): string | null {
+  var sanitized = sanitizer(target, tag, attribute)
+  if (sanitized === null) {
+    return null
+  }
+  return encodeUrlTarget(sanitized)
 }
 
 /**
@@ -850,10 +1095,14 @@ export function formatFilteredTagAttrs(
  * Each renderer needs the same `{ identifier, footnote }` list for output.
  */
 export function extractFootnoteEntries(
-  refs: { [key: string]: { target: string; title: string | undefined } } | undefined
+  refs:
+    | { [key: string]: { target: string; title: string | undefined } }
+    | undefined
 ): { identifier: string; footnote: string }[] {
   var entries: { identifier: string; footnote: string }[] = []
-  if (!refs) return entries
+  if (!refs) {
+    return entries
+  }
   for (var key in refs) {
     if (key.charCodeAt(0) === 94 /* ^ */) {
       entries.push({ identifier: key, footnote: refs[key].target })
@@ -876,7 +1125,9 @@ export function get(source: any, path: string, fallback: any): any {
   var i = 0
   while (i < segments.length) {
     result = result?.[segments[i]]
-    if (result === undefined) break
+    if (result === undefined) {
+      break
+    }
     i++
   }
   return result || fallback
@@ -893,15 +1144,26 @@ export function encodeUrlTarget(target: string): string {
   var needsEncoding = false
   for (var i = 0; i < target.length; i++) {
     var code = target.charCodeAt(i)
-    if (code <= $.CHAR_SPACE || code === $.CHAR_DOUBLE_QUOTE || code === $.CHAR_PERCENT ||
-        code === $.CHAR_LT || code === $.CHAR_GT || code === $.CHAR_BRACKET_OPEN ||
-        code === $.CHAR_BACKSLASH || code === $.CHAR_BRACKET_CLOSE || code === $.CHAR_CARET ||
-        code === $.CHAR_BACKTICK || code >= 123) {
+    if (
+      code <= $.CHAR_SPACE ||
+      code === $.CHAR_DOUBLE_QUOTE ||
+      code === $.CHAR_PERCENT ||
+      code === $.CHAR_LT ||
+      code === $.CHAR_GT ||
+      code === $.CHAR_BRACKET_OPEN ||
+      code === $.CHAR_BACKSLASH ||
+      code === $.CHAR_BRACKET_CLOSE ||
+      code === $.CHAR_CARET ||
+      code === $.CHAR_BACKTICK ||
+      code >= 123
+    ) {
       needsEncoding = true
       break
     }
   }
-  if (!needsEncoding) return target
+  if (!needsEncoding) {
+    return target
+  }
 
   var result = ''
   for (var i = 0; i < target.length; i++) {
@@ -910,18 +1172,22 @@ export function encodeUrlTarget(target: string): string {
       var c1 = target.charCodeAt(i + 1)
       var c2 = target.charCodeAt(i + 2)
       if (
-        ((c1 >= $.CHAR_DIGIT_0 && c1 <= $.CHAR_DIGIT_9) || (c1 >= $.CHAR_A && c1 <= $.CHAR_F) || (c1 >= $.CHAR_a && c1 <= $.CHAR_f)) &&
-        ((c2 >= $.CHAR_DIGIT_0 && c2 <= $.CHAR_DIGIT_9) || (c2 >= $.CHAR_A && c2 <= $.CHAR_F) || (c2 >= $.CHAR_a && c2 <= $.CHAR_f))
+        ((c1 >= $.CHAR_DIGIT_0 && c1 <= $.CHAR_DIGIT_9) ||
+          (c1 >= $.CHAR_A && c1 <= $.CHAR_F) ||
+          (c1 >= $.CHAR_a && c1 <= $.CHAR_f)) &&
+        ((c2 >= $.CHAR_DIGIT_0 && c2 <= $.CHAR_DIGIT_9) ||
+          (c2 >= $.CHAR_A && c2 <= $.CHAR_F) ||
+          (c2 >= $.CHAR_a && c2 <= $.CHAR_f))
       ) {
         result += target[i] + target[i + 1] + target[i + 2]
         i += 2
         continue
       }
     }
-    if (code >= 0xd800 && code <= 0xdfff) {
-      if (code <= 0xdbff && i + 1 < target.length) {
+    if (code >= 0xd8_00 && code <= 0xdf_ff) {
+      if (code <= 0xdb_ff && i + 1 < target.length) {
         var nextCode = target.charCodeAt(i + 1)
-        if (nextCode >= 0xdc00 && nextCode <= 0xdfff) {
+        if (nextCode >= 0xdc_00 && nextCode <= 0xdf_ff) {
           result += encodeURI(target[i] + target[i + 1])
           i++
           continue
@@ -946,11 +1212,16 @@ export function cx(...args: (string | undefined | null | false)[]): string {
 export function getTag<
   T extends string | { component?: string; props?: Record<string, any> },
 >(tag: string, overrides?: Record<string, T>): string {
-  if (!overrides) return tag
+  if (!overrides) {
+    return tag
+  }
   const override = get(overrides, tag, undefined)
-  if (typeof override === 'string') return override
-  if (typeof override === 'object' && override.component)
+  if (typeof override === 'string') {
+    return override
+  }
+  if (typeof override === 'object' && override.component) {
     return override.component
+  }
   return tag
 }
 
@@ -963,18 +1234,29 @@ export function getOverrideProps<
   tag: string,
   overrides?: Record<string, T>
 ): Record<string, string | number | boolean> {
-  if (!overrides) return {}
+  if (!overrides) {
+    return {}
+  }
   const override = get(overrides, tag, undefined)
   return typeof override === 'object' && override.props ? override.props : {}
 }
 
 /** GFM tagfilter extension — security-sensitive tags whose `<` gets escaped */
 var TAGFILTER_TAGS = new Set([
-  'title', 'textarea', 'style', 'xmp', 'iframe', 'noembed', 'noframes', 'script', 'plaintext'
+  'title',
+  'textarea',
+  'style',
+  'xmp',
+  'iframe',
+  'noembed',
+  'noframes',
+  'script',
+  'plaintext',
 ])
 
 /** Matches tagfilter tags in raw HTML text (opening/closing) */
-var TAGFILTER_R = /<(\/?)(title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext)(\s|>|\/)/gi
+var TAGFILTER_R =
+  /<(\/?)(title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext)(\s|>|\/)/gi
 
 /**
  * Check if tag should be filtered per GFM tagfilter extension
@@ -996,9 +1278,6 @@ export function applyTagFilterToText(text: string): string {
   TAGFILTER_R.lastIndex = 0
   return text.replace(
     TAGFILTER_R,
-    function (match, slash, tagName, after) {
-      return '&lt;' + slash + tagName + after
-    }
+    (_match, slash, tagName, after) => `&lt;${slash}${tagName}${after}`
   )
 }
-

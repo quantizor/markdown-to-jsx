@@ -1,20 +1,23 @@
-import * as fs from 'fs'
-import { afterEach, expect, it, describe, mock, spyOn } from 'bun:test'
+/// <reference path="./theredoc.d.ts" />
+
+import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import * as fs from 'node:fs'
 import * as React from 'react'
 import { renderToString } from 'react-dom/server'
 import theredoc from 'theredoc'
 import Markdown, {
-  compiler,
   astToJSX,
+  compiler,
   parser,
   RuleType,
   sanitizer,
-} from './react'
+} from './react.tsx'
 
 const root = { innerHTML: '' }
 
-function render(jsx) {
-  root.innerHTML = renderToString(jsx)
+function render(jsx: React.ReactNode) {
+  // compiler() is typed as ReactNode; these tests always pass element-shaped output.
+  root.innerHTML = renderToString(jsx as React.ReactElement)
 }
 
 afterEach(() => {
@@ -49,7 +52,9 @@ it('raw elements have _store for React dev-mode validation (issue #821)', () => 
   // React's dev-mode reconciler sets element._store.validated to track whether
   // elements were created via JSX vs createElement. Without _store this throws
   // "Cannot set properties of undefined (setting 'validated')".
-  expect(() => render(compiler('# Title\n\nParagraph\n\n- item 1\n- item 2'))).not.toThrow()
+  expect(() =>
+    render(compiler('# Title\n\nParagraph\n\n- item 1\n- item 2'))
+  ).not.toThrow()
   expect(root.innerHTML).toContain('Title')
   expect(root.innerHTML).toContain('Paragraph')
 })
@@ -200,7 +205,7 @@ describe('inline textual elements', () => {
 
     render(
       compiler(
-        `_This should not misinterpret the under\\_score that forms part of a word._`
+        '_This should not misinterpret the under\\_score that forms part of a word._'
       )
     )
 
@@ -490,7 +495,7 @@ describe('images', () => {
   it('should handle an image inside a link', () => {
     render(
       compiler(
-        `[![youtubeImg](https://www.gstatic.com/youtube/img/promos/growth/ytp_lp2_logo_phone_landscape_300x44.png)](https://www.youtube.com/)`
+        '[![youtubeImg](https://www.gstatic.com/youtube/img/promos/growth/ytp_lp2_logo_phone_landscape_300x44.png)](https://www.youtube.com/)'
       )
     )
 
@@ -502,7 +507,7 @@ describe('images', () => {
 
 describe('links', () => {
   it('should handle a link reference', () => {
-    render(compiler(`[foo][1]\n\n[1]: /xyz.png`))
+    render(compiler('[foo][1]\n\n[1]: /xyz.png'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<p><a href="/xyz.png">foo</a></p>"`
@@ -518,7 +523,7 @@ describe('links', () => {
   })
 
   it('should handle a link reference with angle brackets', () => {
-    render(compiler(`[foo][1]\n\n[1]: </xyz.png>`))
+    render(compiler('[foo][1]\n\n[1]: </xyz.png>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<p><a href="/xyz.png">foo</a></p>"`
@@ -914,7 +919,8 @@ describe('links', () => {
 
     render(compiler('<img src="<src=\\"javascript:alert(`xss`)">'))
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<span>&lt;img src=&quot;&lt;src=&quot;javascript:alert(<code>xss</code>)&quot;&gt;</span>"`)
+      `"<span>&lt;img src=&quot;&lt;src=&quot;javascript:alert(<code>xss</code>)&quot;&gt;</span>"`
+    )
   })
 
   it('should sanitize style attribute containing known XSS payloads', () => {
@@ -1134,7 +1140,8 @@ describe('lists', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<ul><li><a href="#buttermilk">buttermilk</a></li><li><a href="#installation">installation</a></li><li><a href="#usage">usage</a><ul><li><a href="#configuration">configuration</a></li><li><a href="#components">components</a><ul><li><a href="#router"><code>&lt;Router&gt;</code></a></li><li><a href="#routingstate"><code>&lt;RoutingState&gt;</code></a></li><li><a href="#link"><code>&lt;Link&gt;</code></a></li></ul></li><li><a href="#utilities">utilities</a><ul><li><a href="#routeurl-string-addnewhistoryentry-boolean--true"><code>route(url: String, addNewHistoryEntry: Boolean = true)</code></a></li></ul></li><li><a href="#holistic-example">holistic example</a></li></ul></li><li><a href="#goals">goals</a></li></ul>"`)
+      `"<ul><li><a href="#buttermilk">buttermilk</a></li><li><a href="#installation">installation</a></li><li><a href="#usage">usage</a><ul><li><a href="#configuration">configuration</a></li><li><a href="#components">components</a><ul><li><a href="#router"><code>&lt;Router&gt;</code></a></li><li><a href="#routingstate"><code>&lt;RoutingState&gt;</code></a></li><li><a href="#link"><code>&lt;Link&gt;</code></a></li></ul></li><li><a href="#utilities">utilities</a><ul><li><a href="#routeurl-string-addnewhistoryentry-boolean--true"><code>route(url: String, addNewHistoryEntry: Boolean = true)</code></a></li></ul></li><li><a href="#holistic-example">holistic example</a></li></ul></li><li><a href="#goals">goals</a></li></ul>"`
+    )
   })
 
   it('handles horizontal rules after lists', () => {
@@ -1416,7 +1423,7 @@ describe('GFM tables', () => {
   })
 
   it('#568 handle inline syntax around table separators', () => {
-    render(compiler(`|_foo|bar_|\n|-|-|\n|1|2|`))
+    render(compiler('|_foo|bar_|\n|-|-|\n|1|2|'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<table><thead><tr><th>_foo</th><th>bar_</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>"`
@@ -1424,7 +1431,7 @@ describe('GFM tables', () => {
   })
 
   it('#568 handle inline code syntax around table separators', () => {
-    render(compiler(`|\`foo|bar\`|baz|\n|-|-|\n|1|2|`))
+    render(compiler('|`foo|bar`|baz|\n|-|-|\n|1|2|'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<table><thead><tr><th><code>foo|bar</code></th><th>baz</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>"`
@@ -1454,7 +1461,8 @@ describe('GFM tables', () => {
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<table><thead><tr><th>9563</th><th>Some</th><th>Some text</th></tr></thead></table>"`)
+      `"<table><thead><tr><th>9563</th><th>Some</th><th>Some text</th></tr></thead></table>"`
+    )
   })
 
   it('#641 handles only a single newline prior to the start of the table', () => {
@@ -1479,8 +1487,7 @@ describe('GFM tables', () => {
         1  |2
       `) as React.ReactElement
 
-    const children = (root.props as { children: React.ReactElement[] })
-      .children
+    const children = (root.props as { children: React.ReactElement[] }).children
 
     expect(
       children.find(
@@ -1585,13 +1592,13 @@ describe('arbitrary HTML', () => {
   it('regression #881 - text line after a nested paragraph is preserved', () => {
     render(compiler('<div>\n<p>a</p>\nx\n</div>'))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<div><p>a</p> x </div>"`
-    )
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<div><p>a</p> x </div>"`)
   })
 
   it('regression #881 - markdown in the trailing text line is processed', () => {
-    render(compiler('<details>\n<summary>a</summary>\n**bold** text\n</details>'))
+    render(
+      compiler('<details>\n<summary>a</summary>\n**bold** text\n</details>')
+    )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<details><summary>a</summary><strong>bold</strong> text </details>"`
@@ -1701,14 +1708,20 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<ul id="ProjectSubmenu"><li><a href="/projects/markdown/" title="Markdown Project Page">Main</a></li><li><a href="/projects/markdown/basics" title="Markdown Basics">Basics</a></li><li><a class="selected" title="Markdown Syntax Documentation">Syntax</a></li><li><a href="/projects/markdown/license" title="Pricing and License Information">License</a></li><li><a href="/projects/markdown/dingus" title="Online Markdown Web Form">Dingus</a></li></ul>"`)
+      `"<ul id="ProjectSubmenu"><li><a href="/projects/markdown/" title="Markdown Project Page">Main</a></li><li><a href="/projects/markdown/basics" title="Markdown Basics">Basics</a></li><li><a class="selected" title="Markdown Syntax Documentation">Syntax</a></li><li><a href="/projects/markdown/license" title="Pricing and License Information">License</a></li><li><a href="/projects/markdown/dingus" title="Online Markdown Web Form">Dingus</a></li></ul>"`
+    )
   })
 
   it('handles svg', () => {
-    render(compiler(fs.readFileSync(__dirname + '/../../public/icon.svg', 'utf8')))
+    render(
+      compiler(
+        fs.readFileSync(`${import.meta.dirname}/../../public/icon.svg`, 'utf8')
+      )
+    )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<svg width="500" height="500" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M342.717 257.555H346.232C359.025 257.555 367.424 267.516 371.428 287.438C372.99 324.547 374.553 343.102 376.115 343.102C378.947 348.57 382.854 351.305 387.834 351.305C398.088 351.305 406.877 344.469 414.201 330.797C414.982 326.988 415.373 324.84 415.373 324.352C415.373 320.152 410.686 310.387 401.311 295.055C399.748 290.66 398.967 286.559 398.967 282.75C398.967 272.105 406.584 265.66 421.818 263.414C437.639 263.414 448.186 273.18 453.459 292.711V303.258C453.459 322.301 439.787 343.395 412.443 366.539C400.529 374.742 390.373 380.602 381.975 384.117L381.389 388.219C381.389 397.105 393.303 407.848 417.131 420.445C432.365 431.09 439.982 441.441 439.982 451.5C439.982 462.73 433.146 469.176 419.475 470.836H416.545C403.654 470.836 387.248 460.68 367.326 440.367L360.881 436.852C357.561 436.852 352.092 444.469 344.475 459.703C335.588 471.031 326.604 476.695 317.521 476.695H316.35C304.338 476.695 297.307 469.469 295.256 455.016V452.672C295.256 437.535 305.998 418.98 327.482 397.008C339.592 383.824 345.646 372.105 345.646 361.852V360.68C345.646 350.035 338.42 336.559 323.967 320.25C316.154 310.094 312.248 301.5 312.248 294.469V288.609C312.248 276.305 320.061 266.344 335.686 258.727C338.42 257.945 340.764 257.555 342.717 257.555Z" fill="#FF5A00"></path><path d="M257.756 268.102C274.553 268.102 287.248 276.695 295.842 293.883C298.576 300.23 299.943 306.285 299.943 312.047C299.943 329.332 291.74 341.246 275.334 347.789C273.088 348.57 270.549 348.961 267.717 348.961C255.51 348.961 247.111 341.93 242.521 327.867C241.057 315.758 239.689 309.703 238.42 309.703H237.834C234.709 311.559 233.146 315.074 233.146 320.25C233.146 331.188 243.498 348.961 264.201 373.57C274.748 389.391 280.021 405.016 280.021 420.445V421.031C280.021 448.668 267.131 466.637 241.35 474.938C237.639 475.719 234.709 476.109 232.561 476.109H227.287C206.389 476.109 188.42 464.391 173.381 440.953C167.912 428.551 165.178 418.199 165.178 409.898V402.867C165.178 387.438 172.209 375.523 186.271 367.125C191.35 365.172 195.842 364.195 199.748 364.195C214.201 364.195 225.334 372.008 233.146 387.633C233.928 391.246 234.318 394.176 234.318 396.422C234.318 406.578 226.701 415.562 211.467 423.375C209.123 424.938 207.756 426.695 207.365 428.648C207.365 433.141 214.006 436.266 227.287 438.023C245.256 435.973 254.24 428.16 254.24 414.586C254.24 401.988 245.256 383.434 227.287 358.922C217.131 343.004 212.053 328.941 212.053 316.734V315.562C212.053 293.688 223.771 278.258 247.209 269.273C252.971 268.492 256.486 268.102 257.756 268.102Z" fill="#FF5A00"></path><path d="M155.803 268.688H156.389C167.131 268.688 175.725 275.133 182.17 288.023C184.123 292.027 185.1 296.324 185.1 300.914V303.258C185.1 316.734 178.459 326.109 165.178 331.383L158.732 332.555C155.314 332.164 152.385 331.969 149.943 331.969H146.428C145.158 331.969 144.182 333.922 143.498 337.828C148.576 365.953 151.115 382.75 151.115 388.219V396.422C151.115 427.965 138.42 450.816 113.029 464.977C106.291 468.102 99.6504 469.664 93.1074 469.664H87.248C71.8184 469.664 59.709 461.266 50.9199 444.469C48.9668 439 47.9902 434.312 47.9902 430.406V424.547C47.9902 409.02 56.1934 395.738 72.5996 384.703C77.873 382.359 82.1699 381.188 85.4902 381.188H91.3496C97.502 381.188 102.58 384.508 106.584 391.148C107.756 393.004 108.342 395.543 108.342 398.766C108.342 403.355 104.045 412.145 95.4512 425.133C94.6699 427.672 94.2793 429.43 94.2793 430.406V430.992C94.6699 434.117 96.0371 435.68 98.3809 435.68C106.877 435.68 114.299 425.719 120.646 405.797C122.209 397.203 122.99 390.172 122.99 384.703V375.914C122.014 351.598 116.154 336.754 105.412 331.383C101.604 329.918 92.4238 327.965 77.873 325.523C65.7637 319.957 59.709 312.145 59.709 302.086C59.709 292.125 67.3262 285.289 82.5605 281.578C113.908 278.844 135.393 275.133 147.014 270.445C149.846 269.273 152.775 268.688 155.803 268.688Z" fill="#FF5A00"></path><path d="M410.832 31.6172H416.105C426.652 31.6172 436.418 36.3047 445.402 45.6797C453.605 55.6406 457.707 66.5781 457.707 78.4922C457.707 96.4609 446.574 119.117 424.309 146.461C415.324 158.18 410.832 166.969 410.832 172.828V173.414C410.832 174.293 411.809 174.879 413.762 175.172C418.742 175.172 431.633 168.336 452.434 154.664C459.562 150.758 465.617 148.805 470.598 148.805C480.266 148.805 487.102 154.859 491.105 166.969C491.887 169.898 492.277 172.633 492.277 175.172V179.859C492.277 199.781 482.121 215.211 461.809 226.148C455.461 228.492 449.016 229.664 442.473 229.664H441.887C439.152 229.664 427.434 228.492 406.73 226.148L382.707 229.664C373.723 229.664 368.645 223.414 367.473 210.914V209.742C367.473 194.02 381.145 168.434 408.488 132.984C421.77 114.82 428.41 98.4141 428.41 83.7656C428.41 78.5898 427.629 74.293 426.066 70.875C418.449 70.875 412.395 78.6875 407.902 94.3125C399.797 107.984 390.422 114.82 379.777 114.82H376.848C366.301 114.82 358.684 108.18 353.996 94.8984C353.605 90.0156 353.41 87.4766 353.41 87.2812C353.41 67.75 365.91 50.7578 390.91 36.3047C399.406 33.1797 406.047 31.6172 410.832 31.6172Z" fill="#FF5A00"></path><path d="M266.984 32.2031H270.5C295.402 32.2031 315.715 45.0938 331.438 70.875C339.25 86.6953 343.156 104.859 343.156 125.367C343.156 162.867 331.633 191.383 308.586 210.914C295.988 218.727 286.223 222.633 279.289 222.633C258.879 225.758 238.762 230.445 218.938 236.695C216.887 236.695 215.129 236.891 213.664 237.281C201.945 236.207 196.086 230.543 196.086 220.289V219.117C196.086 205.836 206.438 188.258 227.141 166.383C238.078 151.246 243.547 135.816 243.547 120.094C243.547 109.742 241.008 101.539 235.93 95.4844C231.145 98.2188 226.262 99.5859 221.281 99.5859H219.523C207.414 98.3164 201.359 92.2617 201.359 81.4219V80.8359C201.359 64.8203 213.664 50.7578 238.273 38.6484C247.844 34.3516 257.414 32.2031 266.984 32.2031ZM264.055 88.4531C266.398 105.445 267.57 115.992 267.57 120.094V121.266C267.57 128.688 264.836 143.922 259.367 166.969V173.414C260.93 184.742 266.203 190.406 275.188 190.406C302.141 175.758 315.617 155.055 315.617 128.297V123.609C315.617 100.465 307.609 83.082 291.594 71.4609C288.176 69.5078 284.66 68.5312 281.047 68.5312C271.379 68.5312 265.715 75.1719 264.055 88.4531Z" fill="#FF5A00"></path><path d="M149.211 24H149.797C165.91 24 177.629 38.4531 184.953 67.3594C186.516 76.2461 187.297 84.4492 187.297 91.9688C187.297 99.293 184.758 126.051 179.68 172.242V175.172C180.07 193.531 180.266 207.008 180.266 215.602C180.266 224.977 178.312 229.664 174.406 229.664C171.867 229.664 169.523 224.977 167.375 215.602L166.203 215.016C161.223 219.703 156.926 222.047 153.312 222.047C146.672 222.047 142.18 214.43 139.836 199.195C139.445 195.191 139.25 192.066 139.25 189.82C139.25 179.762 143.352 154.176 151.555 113.062C152.336 104.566 152.727 98.1211 152.727 93.7266C152.727 80.0547 150.188 70.875 145.109 66.1875C144.426 65.7969 143.645 65.6016 142.766 65.6016H142.18C138.762 65.6016 135.637 73.6094 132.805 89.625C131.73 97.0469 130.559 121.461 129.289 162.867C127.531 175.367 124.016 181.617 118.742 181.617C111.125 181.617 104.68 157.984 99.4062 110.719C93.0586 83.7656 85.0508 70.2891 75.3828 70.2891C69.6211 70.2891 66.3008 77.3203 65.4219 91.3828V91.9688C65.4219 104.273 70.3047 126.344 80.0703 158.18C82.0234 167.652 83 175.27 83 181.031C83 204.371 72.4531 219.996 51.3594 227.906C48.4297 228.688 45.6953 229.078 43.1562 229.078H41.3984C23.5273 229.078 12.3945 216.383 8 190.992C11.9062 180.934 17.9609 173.707 26.1641 169.312C42.5703 162.379 50.7734 154.371 50.7734 145.289V140.016C50.7734 137.77 47.8438 118.629 41.9844 82.5938V71.4609C41.9844 47.5352 49.4062 33.2773 64.25 28.6875C64.7383 28.2969 66.1055 28.1016 68.3516 28.1016H69.5234C80.0703 28.1016 92.1797 37.6719 105.852 56.8125C108.098 58.8633 110.441 60.6211 112.883 62.0859C115.715 61.6953 120.598 53.8828 127.531 38.6484C133.879 28.8828 141.105 24 149.211 24Z" fill="#FF5A00"></path></svg>"`)
+      `"<svg width="500" height="500" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M342.717 257.555H346.232C359.025 257.555 367.424 267.516 371.428 287.438C372.99 324.547 374.553 343.102 376.115 343.102C378.947 348.57 382.854 351.305 387.834 351.305C398.088 351.305 406.877 344.469 414.201 330.797C414.982 326.988 415.373 324.84 415.373 324.352C415.373 320.152 410.686 310.387 401.311 295.055C399.748 290.66 398.967 286.559 398.967 282.75C398.967 272.105 406.584 265.66 421.818 263.414C437.639 263.414 448.186 273.18 453.459 292.711V303.258C453.459 322.301 439.787 343.395 412.443 366.539C400.529 374.742 390.373 380.602 381.975 384.117L381.389 388.219C381.389 397.105 393.303 407.848 417.131 420.445C432.365 431.09 439.982 441.441 439.982 451.5C439.982 462.73 433.146 469.176 419.475 470.836H416.545C403.654 470.836 387.248 460.68 367.326 440.367L360.881 436.852C357.561 436.852 352.092 444.469 344.475 459.703C335.588 471.031 326.604 476.695 317.521 476.695H316.35C304.338 476.695 297.307 469.469 295.256 455.016V452.672C295.256 437.535 305.998 418.98 327.482 397.008C339.592 383.824 345.646 372.105 345.646 361.852V360.68C345.646 350.035 338.42 336.559 323.967 320.25C316.154 310.094 312.248 301.5 312.248 294.469V288.609C312.248 276.305 320.061 266.344 335.686 258.727C338.42 257.945 340.764 257.555 342.717 257.555Z" fill="#FF5A00"></path><path d="M257.756 268.102C274.553 268.102 287.248 276.695 295.842 293.883C298.576 300.23 299.943 306.285 299.943 312.047C299.943 329.332 291.74 341.246 275.334 347.789C273.088 348.57 270.549 348.961 267.717 348.961C255.51 348.961 247.111 341.93 242.521 327.867C241.057 315.758 239.689 309.703 238.42 309.703H237.834C234.709 311.559 233.146 315.074 233.146 320.25C233.146 331.188 243.498 348.961 264.201 373.57C274.748 389.391 280.021 405.016 280.021 420.445V421.031C280.021 448.668 267.131 466.637 241.35 474.938C237.639 475.719 234.709 476.109 232.561 476.109H227.287C206.389 476.109 188.42 464.391 173.381 440.953C167.912 428.551 165.178 418.199 165.178 409.898V402.867C165.178 387.438 172.209 375.523 186.271 367.125C191.35 365.172 195.842 364.195 199.748 364.195C214.201 364.195 225.334 372.008 233.146 387.633C233.928 391.246 234.318 394.176 234.318 396.422C234.318 406.578 226.701 415.562 211.467 423.375C209.123 424.938 207.756 426.695 207.365 428.648C207.365 433.141 214.006 436.266 227.287 438.023C245.256 435.973 254.24 428.16 254.24 414.586C254.24 401.988 245.256 383.434 227.287 358.922C217.131 343.004 212.053 328.941 212.053 316.734V315.562C212.053 293.688 223.771 278.258 247.209 269.273C252.971 268.492 256.486 268.102 257.756 268.102Z" fill="#FF5A00"></path><path d="M155.803 268.688H156.389C167.131 268.688 175.725 275.133 182.17 288.023C184.123 292.027 185.1 296.324 185.1 300.914V303.258C185.1 316.734 178.459 326.109 165.178 331.383L158.732 332.555C155.314 332.164 152.385 331.969 149.943 331.969H146.428C145.158 331.969 144.182 333.922 143.498 337.828C148.576 365.953 151.115 382.75 151.115 388.219V396.422C151.115 427.965 138.42 450.816 113.029 464.977C106.291 468.102 99.6504 469.664 93.1074 469.664H87.248C71.8184 469.664 59.709 461.266 50.9199 444.469C48.9668 439 47.9902 434.312 47.9902 430.406V424.547C47.9902 409.02 56.1934 395.738 72.5996 384.703C77.873 382.359 82.1699 381.188 85.4902 381.188H91.3496C97.502 381.188 102.58 384.508 106.584 391.148C107.756 393.004 108.342 395.543 108.342 398.766C108.342 403.355 104.045 412.145 95.4512 425.133C94.6699 427.672 94.2793 429.43 94.2793 430.406V430.992C94.6699 434.117 96.0371 435.68 98.3809 435.68C106.877 435.68 114.299 425.719 120.646 405.797C122.209 397.203 122.99 390.172 122.99 384.703V375.914C122.014 351.598 116.154 336.754 105.412 331.383C101.604 329.918 92.4238 327.965 77.873 325.523C65.7637 319.957 59.709 312.145 59.709 302.086C59.709 292.125 67.3262 285.289 82.5605 281.578C113.908 278.844 135.393 275.133 147.014 270.445C149.846 269.273 152.775 268.688 155.803 268.688Z" fill="#FF5A00"></path><path d="M410.832 31.6172H416.105C426.652 31.6172 436.418 36.3047 445.402 45.6797C453.605 55.6406 457.707 66.5781 457.707 78.4922C457.707 96.4609 446.574 119.117 424.309 146.461C415.324 158.18 410.832 166.969 410.832 172.828V173.414C410.832 174.293 411.809 174.879 413.762 175.172C418.742 175.172 431.633 168.336 452.434 154.664C459.562 150.758 465.617 148.805 470.598 148.805C480.266 148.805 487.102 154.859 491.105 166.969C491.887 169.898 492.277 172.633 492.277 175.172V179.859C492.277 199.781 482.121 215.211 461.809 226.148C455.461 228.492 449.016 229.664 442.473 229.664H441.887C439.152 229.664 427.434 228.492 406.73 226.148L382.707 229.664C373.723 229.664 368.645 223.414 367.473 210.914V209.742C367.473 194.02 381.145 168.434 408.488 132.984C421.77 114.82 428.41 98.4141 428.41 83.7656C428.41 78.5898 427.629 74.293 426.066 70.875C418.449 70.875 412.395 78.6875 407.902 94.3125C399.797 107.984 390.422 114.82 379.777 114.82H376.848C366.301 114.82 358.684 108.18 353.996 94.8984C353.605 90.0156 353.41 87.4766 353.41 87.2812C353.41 67.75 365.91 50.7578 390.91 36.3047C399.406 33.1797 406.047 31.6172 410.832 31.6172Z" fill="#FF5A00"></path><path d="M266.984 32.2031H270.5C295.402 32.2031 315.715 45.0938 331.438 70.875C339.25 86.6953 343.156 104.859 343.156 125.367C343.156 162.867 331.633 191.383 308.586 210.914C295.988 218.727 286.223 222.633 279.289 222.633C258.879 225.758 238.762 230.445 218.938 236.695C216.887 236.695 215.129 236.891 213.664 237.281C201.945 236.207 196.086 230.543 196.086 220.289V219.117C196.086 205.836 206.438 188.258 227.141 166.383C238.078 151.246 243.547 135.816 243.547 120.094C243.547 109.742 241.008 101.539 235.93 95.4844C231.145 98.2188 226.262 99.5859 221.281 99.5859H219.523C207.414 98.3164 201.359 92.2617 201.359 81.4219V80.8359C201.359 64.8203 213.664 50.7578 238.273 38.6484C247.844 34.3516 257.414 32.2031 266.984 32.2031ZM264.055 88.4531C266.398 105.445 267.57 115.992 267.57 120.094V121.266C267.57 128.688 264.836 143.922 259.367 166.969V173.414C260.93 184.742 266.203 190.406 275.188 190.406C302.141 175.758 315.617 155.055 315.617 128.297V123.609C315.617 100.465 307.609 83.082 291.594 71.4609C288.176 69.5078 284.66 68.5312 281.047 68.5312C271.379 68.5312 265.715 75.1719 264.055 88.4531Z" fill="#FF5A00"></path><path d="M149.211 24H149.797C165.91 24 177.629 38.4531 184.953 67.3594C186.516 76.2461 187.297 84.4492 187.297 91.9688C187.297 99.293 184.758 126.051 179.68 172.242V175.172C180.07 193.531 180.266 207.008 180.266 215.602C180.266 224.977 178.312 229.664 174.406 229.664C171.867 229.664 169.523 224.977 167.375 215.602L166.203 215.016C161.223 219.703 156.926 222.047 153.312 222.047C146.672 222.047 142.18 214.43 139.836 199.195C139.445 195.191 139.25 192.066 139.25 189.82C139.25 179.762 143.352 154.176 151.555 113.062C152.336 104.566 152.727 98.1211 152.727 93.7266C152.727 80.0547 150.188 70.875 145.109 66.1875C144.426 65.7969 143.645 65.6016 142.766 65.6016H142.18C138.762 65.6016 135.637 73.6094 132.805 89.625C131.73 97.0469 130.559 121.461 129.289 162.867C127.531 175.367 124.016 181.617 118.742 181.617C111.125 181.617 104.68 157.984 99.4062 110.719C93.0586 83.7656 85.0508 70.2891 75.3828 70.2891C69.6211 70.2891 66.3008 77.3203 65.4219 91.3828V91.9688C65.4219 104.273 70.3047 126.344 80.0703 158.18C82.0234 167.652 83 175.27 83 181.031C83 204.371 72.4531 219.996 51.3594 227.906C48.4297 228.688 45.6953 229.078 43.1562 229.078H41.3984C23.5273 229.078 12.3945 216.383 8 190.992C11.9062 180.934 17.9609 173.707 26.1641 169.312C42.5703 162.379 50.7734 154.371 50.7734 145.289V140.016C50.7734 137.77 47.8438 118.629 41.9844 82.5938V71.4609C41.9844 47.5352 49.4062 33.2773 64.25 28.6875C64.7383 28.2969 66.1055 28.1016 68.3516 28.1016H69.5234C80.0703 28.1016 92.1797 37.6719 105.852 56.8125C108.098 58.8633 110.441 60.6211 112.883 62.0859C115.715 61.6953 120.598 53.8828 127.531 38.6484C133.879 28.8828 141.105 24 149.211 24Z" fill="#FF5A00"></path></svg>"`
+    )
   })
 
   it('handles nested HTML blocks of the same type (regression)', () => {
@@ -1741,7 +1754,8 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<table><tbody><tr><td>Time</td><td>Payment Criteria</td><td>Payment</td></tr><tr><td>Office Visit</td><td><ul><li>Complete full visit and enroll             <ul><li>Enrolling is fun!</li></ul></li></ul></td><td>$20</td></tr></tbody></table>"`)
+      `"<table><tbody><tr><td>Time</td><td>Payment Criteria</td><td>Payment</td></tr><tr><td>Office Visit</td><td><ul><li>Complete full visit and enroll             <ul><li>Enrolling is fun!</li></ul></li></ul></td><td>$20</td></tr></tbody></table>"`
+    )
   })
 
   it('regression test for #136', () => {
@@ -1794,17 +1808,23 @@ comment -->`)
 
   it('regression test for #856 - hr without newline drops subsequent content', () => {
     render(compiler('<p></p><hr><p></p>'))
-    expect(root.innerHTML).toMatchInlineSnapshot(`"<div><p></p><hr/><p></p></div>"`)
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p></p><hr/><p></p></div>"`
+    )
   })
 
   it('regression test for #856 - hr without newline drops text content after', () => {
     render(compiler('<p>before</p><hr><p>after</p>'))
-    expect(root.innerHTML).toMatchInlineSnapshot(`"<div><p>before</p><hr/><p>after</p></div>"`)
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>before</p><hr/><p>after</p></div>"`
+    )
   })
 
   it('regression test for #856 - self-closing hr without newline drops subsequent content', () => {
     render(compiler('<p>before</p><hr /><p>after</p>'))
-    expect(root.innerHTML).toMatchInlineSnapshot(`"<div><p>before</p><hr/><p>after</p></div>"`)
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>before</p><hr/><p>after</p></div>"`
+    )
   })
 
   it('regression test for #862 - markdown list inside HTML table cell', () => {
@@ -1889,7 +1909,8 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<table><tbody><tr><td>a</td><td>b</td><td>c</td></tr><tr><td>left</td><td><p>Start of table</p><ul><li>List 1</li><li><ul><li>Nested List 1</li></ul></li><li><ul><li>list 2</li></ul></li></ul></td><td>right</td></tr></tbody></table>"`)
+      `"<table><tbody><tr><td>a</td><td>b</td><td>c</td></tr><tr><td>left</td><td><p>Start of table</p><ul><li>List 1</li><li><ul><li>Nested List 1</li></ul></li><li><ul><li>list 2</li></ul></li></ul></td><td>right</td></tr></tbody></table>"`
+    )
   })
 
   it('#140 self-closing HTML with indentation', () => {
@@ -1915,7 +1936,13 @@ comment -->`)
   })
 
   it('handles jsx attribute interpolation as a string', () => {
-    function DatePicker({ endTime, startTime }) {
+    function DatePicker({
+      endTime,
+      startTime,
+    }: {
+      endTime: React.ReactNode
+      startTime: React.ReactNode
+    }) {
       return (
         <div>
           {startTime} to {endTime}
@@ -1946,6 +1973,11 @@ comment -->`)
       component2,
       component3,
       component4,
+    }: {
+      component: React.ReactNode
+      component2: React.ReactNode
+      component3: React.ReactNode
+      component4: React.ReactNode
     }) {
       return (
         <div>
@@ -1954,7 +1986,13 @@ comment -->`)
       )
     }
 
-    function Inner({ children, ...props }) {
+    function Inner({
+      children,
+      ...props
+    }: {
+      children?: React.ReactNode
+      [key: string]: unknown
+    }) {
       return (
         <div {...props} className="inner">
           {children}
@@ -1977,7 +2015,8 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<div><div class="inner">bah</div> and <div class="inner">blah</div> and <div disabled="" class="inner"></div> and <div class="inner"></div></div>"`)
+      `"<div><div class="inner">bah</div> and <div class="inner">blah</div> and <div disabled="" class="inner"></div> and <div class="inner"></div></div>"`
+    )
   })
 
   it('handles malformed HTML', () => {
@@ -1994,7 +2033,8 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<g><g><path fill="#ffffff"></path></g><path fill="#ffffff"></path></g>"`)
+      `"<g><g><path fill="#ffffff"></path></g><path fill="#ffffff"></path></g>"`
+    )
   })
 
   it('allows whitespace between attribute and value', () => {
@@ -2009,7 +2049,8 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<div class="foo" style="background:red" id="baz">Bar</div>"`)
+      `"<div class="foo" style="background:red" id="baz">Bar</div>"`
+    )
   })
 
   it('handles a raw hashtag inside HTML', () => {
@@ -2062,10 +2103,13 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<script>  new Date();</script>"`)
+      `"<script>  new Date();</script>"`
+    )
   })
 
   it('does not parse the inside of <script> blocks with weird capitalization', () => {
+    // React DEV warns about non-lowercase HTML tags; the casing is the point of the test.
+    spyOn(console, 'error').mockImplementation(() => {})
     render(
       compiler(['<SCRIPT>', '  new Date();', '</SCRIPT>'].join('\n'), {
         tagfilter: false,
@@ -2073,7 +2117,33 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<SCRIPT>  new Date();</SCRIPT>"`)
+      `"<SCRIPT>  new Date();</SCRIPT>"`
+    )
+  })
+
+  describe('tagfilter escapes dangerous tags by default', () => {
+    // Regression: render paths read options.tagfilter directly while only the
+    // parse-time options were defaulted, so solid/vue/native (and direct
+    // astToJSX calls here) emitted live dangerous tags despite the documented
+    // default-on protection. Both compiler() and astToJSX must escape.
+    it('escapes script with default options via compiler()', () => {
+      render(compiler('<script>alert(1)</script>'))
+      expect(root.innerHTML).toBe(
+        '<span>&lt;script&gt;alert(1)&lt;/script&gt;</span>'
+      )
+    })
+
+    it('escapes dangerous tags by default via astToJSX()', () => {
+      render(astToJSX(parser('<script>alert(1)</script>')))
+      expect(root.innerHTML).toBe(
+        '<span>&lt;script&gt;alert(1)&lt;/script&gt;</span>'
+      )
+    })
+
+    it('passes dangerous tags through only when tagfilter is explicitly disabled', () => {
+      render(compiler('<script>\nx\n</script>', { tagfilter: false }))
+      expect(root.innerHTML).toBe('<script>x</script>')
+    })
   })
 
   it('handles nested tags of the same type with attributes', () => {
@@ -2109,7 +2179,8 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<link rel="preload" as="image" href="//placehold.it/300x200"/><figure><img src="//placehold.it/300x200"/><figcaption>This is a placeholder image</figcaption></figure>"`)
+      `"<link rel="preload" as="image" href="//placehold.it/300x200"/><figure><img src="//placehold.it/300x200"/><figcaption>This is a placeholder image</figcaption></figure>"`
+    )
   })
 
   it('#185 handles block syntax MD + HTML inside HTML', () => {
@@ -2126,7 +2197,8 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<details><summary>Solution</summary><pre><code class="language-jsx lang-jsx">import styled from &#x27;styled-components&#x27;;</code></pre></details>"`)
+      `"<details><summary>Solution</summary><pre><code class="language-jsx lang-jsx">import styled from &#x27;styled-components&#x27;;</code></pre></details>"`
+    )
   })
 
   it('#207 handles tables inside HTML', () => {
@@ -2144,7 +2216,8 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<details><summary>Click here</summary><table><thead><tr><th>Heading 1</th><th>Heading 2</th></tr></thead><tbody><tr><td>Foo</td><td>Bar</td></tr></tbody></table></details>"`)
+      `"<details><summary>Click here</summary><table><thead><tr><th>Heading 1</th><th>Heading 2</th></tr></thead><tbody><tr><td>Foo</td><td>Bar</td></tr></tbody></table></details>"`
+    )
   })
 
   it('#185 misc regression test', () => {
@@ -2169,7 +2242,8 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<details><summary>View collapsed content</summary><h1 id="title-h1">Title h1</h1><h2 id="title-h2">Title h2</h2><p>Text content</p><ul><li>list 1</li><li>list 2</li><li>list 3</li></ul></details>"`)
+      `"<details><summary>View collapsed content</summary><h1 id="title-h1">Title h1</h1><h2 id="title-h2">Title h2</h2><p>Text content</p><ul><li>list 1</li><li>list 2</li><li>list 3</li></ul></details>"`
+    )
   })
 
   it('multiline left-trims by the same amount as the first line', () => {
@@ -2204,7 +2278,8 @@ comment -->`)
     )
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<div><ul><li>hi</li><li>hello<ul><li>how are you?</li></ul></li></ul></div>"`)
+      `"<div><ul><li>hi</li><li>hello<ul><li>how are you?</li></ul></li></ul></div>"`
+    )
   })
 
   it('#214 nested paragraphs work inside html', () => {
@@ -2218,7 +2293,9 @@ comment -->`)
       `)
     )
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`"<div><p>Hello</p><p>World</p></div>"`)
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>Hello</p><p>World</p></div>"`
+    )
   })
 
   it('does not consume trailing whitespace if there is no newline', () => {
@@ -2413,7 +2490,8 @@ Item detail
 </custom-element>`)
       )
       expect(root.innerHTML).toMatchInlineSnapshot(
-        `"<custom-element data-a="1" data-b="2" data-c="3">content</custom-element>"`)
+        `"<custom-element data-a="1" data-b="2" data-c="3">content</custom-element>"`
+      )
     })
 
     it('should handle JSX-style components with multi-line attributes', () => {
@@ -2426,7 +2504,8 @@ Item detail
 </my-component>`)
       )
       expect(root.innerHTML).toMatchInlineSnapshot(
-        `"<my-component class="wrapper" onClick="handleClick">inner content</my-component>"`)
+        `"<my-component class="wrapper" onClick="handleClick">inner content</my-component>"`
+      )
     })
 
     it('should handle the full original issue example', () => {
@@ -2449,7 +2528,7 @@ Item detail
   })
 
   it('#686 should not add unnecessary paragraphs', () => {
-    render(compiler(`<tag1><tag2>text1</tag2>text2</tag1>`))
+    render(compiler('<tag1><tag2>text1</tag2>text2</tag1>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<tag1><tag2>text1</tag2>text2</tag1>"`
@@ -2518,7 +2597,8 @@ describe('line breaks', () => {
     render(compiler(['- > a  ', '  > b'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<ul><li><blockquote><p>a<br/>b</p></blockquote></li></ul>"`)
+      `"<ul><li><blockquote><p>a<br/>b</p></blockquote></li></ul>"`
+    )
   })
 })
 
@@ -2562,7 +2642,8 @@ Yeah boi
     render(compiler('```\n\\%\n```'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<pre><code class="">\\%</code></pre>"`)
+      `"<pre><code class="">\\%</code></pre>"`
+    )
   })
 })
 
@@ -2571,7 +2652,8 @@ describe('indented code blocks', () => {
     render(compiler('    foo\n\n'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<pre><code class="">foo</code></pre>"`)
+      `"<pre><code class="">foo</code></pre>"`
+    )
   })
 })
 
@@ -2782,8 +2864,9 @@ describe('options.wrapper', () => {
   })
 
   it('renders an array when `null`', () => {
-    expect(compiler('Hello\n\nworld!', { wrapper: null }))
-      .toMatchInlineSnapshot(`
+    expect(
+      compiler('Hello\n\nworld!', { wrapper: null })
+    ).toMatchInlineSnapshot(`
       [
         {
           "$$typeof": Symbol(react.transitional.element),
@@ -2838,7 +2921,7 @@ describe('options.createElement', () => {
   it('should render a <custom> element if render function overrides the element type', () => {
     render(
       compiler('Hello', {
-        createElement(tag, props, children) {
+        createElement(_tag, props, children) {
           return React.createElement('custom', props, children)
         },
       })
@@ -2864,7 +2947,7 @@ describe('options.renderRule', () => {
   it('should allow arbitrary modification of content', () => {
     render(
       compiler('Hello.\n\n```latex\n$$f(X,n) = X_n + X_{n-1}$$\n```\n', {
-        renderRule(next, node, renderChildren, state) {
+        renderRule(next, node, _renderChildren, state) {
           if (node.type === RuleType.codeBlock && node.lang === 'latex') {
             return <div key={state.key}>I'm latex.</div>
           }
@@ -2880,14 +2963,14 @@ describe('options.renderRule', () => {
   })
 
   it('can be used to handle shortcodes', () => {
-    const shortcodeMap = {
+    const shortcodeMap: Record<string, string> = {
       'big-smile': '🙂',
     }
 
     const detector = /(:[^:]+:)/g
 
-    const replaceEmoji = (text: string): React.ReactNode => {
-      return text.split(detector).map((part, index) => {
+    const replaceEmoji = (text: string): React.ReactNode =>
+      text.split(detector).map((part, index) => {
         if (part.startsWith(':') && part.endsWith(':')) {
           const shortcode = part.slice(1, -1)
 
@@ -2896,7 +2979,6 @@ describe('options.renderRule', () => {
 
         return part
       })
-    }
 
     render(
       compiler('Hey there! :big-smile:', {
@@ -3140,7 +3222,9 @@ describe('overrides', () => {
   })
 
   it('should substitute the appropriate JSX tag if given a component and disableParsingRawHTML is true', () => {
-    const FakeParagraph = ({ children }) => <p className="foo">{children}</p>
+    const FakeParagraph = ({ children }: { children?: React.ReactNode }) => (
+      <p className="foo">{children}</p>
+    )
 
     render(
       compiler('Hello.\n\n', {
@@ -3153,7 +3237,9 @@ describe('overrides', () => {
   })
 
   it('should not substitute the appropriate JSX tag inline if given a component and disableParsingRawHTML is true', () => {
-    const FakeSpan = ({ children }) => <span className="foo">{children}</span>
+    const FakeSpan = ({ children }: { children?: React.ReactNode }) => (
+      <span className="foo">{children}</span>
+    )
 
     render(
       compiler('Hello.\n\n<FakeSpan>I am a fake span</FakeSpan>', {
@@ -3184,7 +3270,8 @@ describe('overrides', () => {
     render(compiler('<div><div><div></div></div></div>'))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<div><div><div></div></div></div>"`)
+      `"<div><div><div></div></div></div>"`
+    )
   })
 
   it('should pass complex data prop to custom CodeBlock component', () => {
@@ -3294,11 +3381,12 @@ it('#678 handles various combinations of inline markup and html', () => {
   )
 
   expect(root.innerHTML).toMatchInlineSnapshot(
-    `"<div><p><strong>bold</strong> <em>italic</em></p><p><em>italic</em> <strong>bold</strong></p><p><em>italic</em> <u>underline</u></p><p><u>underline</u> <em>italic</em></p><p><del>strikethrough</del> *<em>bold</em></p><p><em>italic</em> <del>strikethrough</del></p><p><strong>bold</strong> <del>strikethrough</del></p></div>"`)
+    `"<div><p><strong>bold</strong> <em>italic</em></p><p><em>italic</em> <strong>bold</strong></p><p><em>italic</em> <u>underline</u></p><p><u>underline</u> <em>italic</em></p><p><del>strikethrough</del> *<em>bold</em></p><p><em>italic</em> <del>strikethrough</del></p><p><strong>bold</strong> <del>strikethrough</del></p></div>"`
+  )
 })
 
 it('handles a holistic example', () => {
-  const md = fs.readFileSync(__dirname + '/markdown-spec.md', 'utf8')
+  const md = fs.readFileSync(`${import.meta.dirname}/markdown-spec.md`, 'utf8')
   render(compiler(md))
 
   expect(root.innerHTML).toMatchSnapshot()
@@ -3381,7 +3469,8 @@ describe('Markdown component', () => {
 </math>`}</Markdown>
       )
     ).toMatchInlineSnapshot(
-      `"<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow><msqrt><mrow>a</mrow></msqrt></mrow><mrow><mn>2</mn></mrow></mfrac></mrow><annotation encoding="application/x-tex">\\frac{\\sqrt{a}}{2}</annotation></semantics></math>"`)
+      `"<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow><msqrt><mrow>a</mrow></msqrt></mrow><mrow><mn>2</mn></mrow></mfrac></mrow><annotation encoding="application/x-tex">\\frac{\\sqrt{a}}{2}</annotation></semantics></math>"`
+    )
   })
 
   it('throws error for non-string input to compiler', () => {
@@ -3396,13 +3485,15 @@ describe('tagfilter option', () => {
   describe('HTML block with tagfilter enabled', () => {
     it('should escape script tags when tagfilter is enabled', () => {
       render(compiler('<script>alert("xss")</script>', { tagfilter: true }))
-      expect(root.innerHTML).toBe('<span>&lt;script&gt;</span>')
+      expect(root.innerHTML).toBe(
+        '<span>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</span>'
+      )
     })
 
     it('should escape iframe tags when tagfilter is enabled', () => {
       render(compiler('<iframe src="evil.com"></iframe>', { tagfilter: true }))
       expect(root.innerHTML).toBe(
-        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;</span>'
+        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;&lt;/iframe&gt;</span>'
       )
     })
 
@@ -3421,7 +3512,9 @@ describe('tagfilter option', () => {
 
       filteredTags.forEach(tag => {
         render(compiler(`<${tag}>content</${tag}>`, { tagfilter: true }))
-        expect(root.innerHTML).toBe(`<span>&lt;${tag}&gt;</span>`)
+        expect(root.innerHTML).toBe(
+          `<span>&lt;${tag}&gt;content&lt;/${tag}&gt;</span>`
+        )
       })
     })
 
@@ -3432,7 +3525,9 @@ describe('tagfilter option', () => {
 
     it('should handle case-insensitive tag matching', () => {
       render(compiler('<SCRIPT>alert("xss")</SCRIPT>', { tagfilter: true }))
-      expect(root.innerHTML).toBe('<span>&lt;SCRIPT&gt;</span>')
+      expect(root.innerHTML).toBe(
+        '<span>&lt;SCRIPT&gt;alert(&quot;xss&quot;)&lt;/SCRIPT&gt;</span>'
+      )
     })
 
     it('should escape filtered tags with attributes', () => {
@@ -3442,15 +3537,24 @@ describe('tagfilter option', () => {
         })
       )
       expect(root.innerHTML).toBe(
-        '<span>&lt;script src=&quot;evil.js&quot; type=&quot;text/javascript&quot;&gt;</span>'
+        '<span>&lt;script src=&quot;evil.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;</span>'
+      )
+    })
+
+    it('keeps allowed nested tags live inside a filtered parent', () => {
+      render(compiler('<iframe>hi <em>x</em></iframe>', { tagfilter: true }))
+      expect(root.innerHTML).toBe(
+        '<span>&lt;iframe&gt;hi <em>x</em>&lt;/iframe&gt;</span>'
       )
     })
   })
 
   describe('HTML block with tagfilter disabled', () => {
     it('should not escape script tags when tagfilter is false', () => {
+      // Single-line Type 1 must keep its text content (inline and block shapes
+      // share the verbatim node contract).
       render(compiler('<script>alert("xss")</script>', { tagfilter: false }))
-      expect(root.innerHTML).toBe('<script></script>')
+      expect(root.innerHTML).toBe('<script>alert("xss")</script>')
     })
 
     it('should not escape iframe tags when tagfilter is false', () => {
@@ -3462,13 +3566,15 @@ describe('tagfilter option', () => {
   describe('HTML block with default tagfilter', () => {
     it('should escape script tags by default (tagfilter default is true)', () => {
       render(compiler('<script>alert("xss")</script>'))
-      expect(root.innerHTML).toBe('<span>&lt;script&gt;</span>')
+      expect(root.innerHTML).toBe(
+        '<span>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</span>'
+      )
     })
 
     it('should escape iframe tags by default (tagfilter default is true)', () => {
       render(compiler('<iframe src="evil.com"></iframe>'))
       expect(root.innerHTML).toBe(
-        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;</span>'
+        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;&lt;/iframe&gt;</span>'
       )
     })
   })
@@ -3504,7 +3610,9 @@ describe('tagfilter option', () => {
           { tagfilter: true }
         )
       )
-      expect(root.innerHTML).toContain('<span>&lt;script&gt;</span>')
+      expect(root.innerHTML).toContain(
+        '<span>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</span>'
+      )
       expect(root.innerHTML).not.toContain('<script>')
     })
 
@@ -3515,9 +3623,11 @@ describe('tagfilter option', () => {
           { tagfilter: true }
         )
       )
-      expect(root.innerHTML).toContain('<span>&lt;script&gt;</span>')
       expect(root.innerHTML).toContain(
-        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;</span>'
+        '<span>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</span>'
+      )
+      expect(root.innerHTML).toContain(
+        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;&lt;/iframe&gt;</span>'
       )
       expect(root.innerHTML).not.toContain('<script>')
       expect(root.innerHTML).not.toContain('<iframe>')
@@ -3655,7 +3765,7 @@ describe('options immutability', () => {
 
 describe('MarkdownProvider and MarkdownContext', () => {
   it('should provide context options to nested Markdown components', () => {
-    const { MarkdownProvider } = require('./react')
+    const { MarkdownProvider } = require('./react.tsx')
     const contextOptions = {
       overrides: {
         h1: { props: { className: 'from-context' } },
@@ -3674,7 +3784,7 @@ describe('MarkdownProvider and MarkdownContext', () => {
   })
 
   it('should merge component options with context options', () => {
-    const { MarkdownProvider } = require('./react')
+    const { MarkdownProvider } = require('./react.tsx')
     const contextOptions = {
       overrides: {
         h1: { props: { className: 'from-context' } },
@@ -3708,7 +3818,7 @@ describe('MarkdownProvider and MarkdownContext', () => {
   })
 
   it('should allow component options to override context options', () => {
-    const { MarkdownProvider } = require('./react')
+    const { MarkdownProvider } = require('./react.tsx')
     const contextOptions = {
       wrapper: 'section',
     }
@@ -3780,10 +3890,11 @@ describe('Markdown component memoization', () => {
   })
 })
 
-
 describe('optimizeForStreaming option', () => {
   it('should strip incomplete HTML tags but keep content', () => {
-    render(compiler('Hello world <div>incomplete', { optimizeForStreaming: true }))
+    render(
+      compiler('Hello world <div>incomplete', { optimizeForStreaming: true })
+    )
     expect(root.innerHTML).toContain('Hello world')
     expect(root.innerHTML).not.toContain('<div>')
   })
@@ -3795,13 +3906,17 @@ describe('optimizeForStreaming option', () => {
   })
 
   it('should strip incomplete HTML comments but keep content', () => {
-    render(compiler('Hello <!-- incomplete comment', { optimizeForStreaming: true }))
+    render(
+      compiler('Hello <!-- incomplete comment', { optimizeForStreaming: true })
+    )
     expect(root.innerHTML).toContain('Hello')
     expect(root.innerHTML).not.toContain('<!--')
   })
 
   it('should strip incomplete inline code backticks but keep content', () => {
-    render(compiler('Hello world `incomplete code', { optimizeForStreaming: true }))
+    render(
+      compiler('Hello world `incomplete code', { optimizeForStreaming: true })
+    )
     expect(root.innerHTML).toContain('Hello world')
     // Content might be truncated depending on implementation
   })
@@ -3822,14 +3937,22 @@ describe('optimizeForStreaming option', () => {
   })
 
   it('should strip incomplete strikethrough markers but keep text content', () => {
-    render(compiler('Hello world ~~strikethrough text', { optimizeForStreaming: true }))
+    render(
+      compiler('Hello world ~~strikethrough text', {
+        optimizeForStreaming: true,
+      })
+    )
     expect(root.innerHTML).toContain('Hello world')
     expect(root.innerHTML).toContain('strikethrough text')
     expect(root.innerHTML).not.toContain('~~')
   })
 
   it('should strip incomplete link brackets but keep text content', () => {
-    render(compiler('Hello [link text](http://example.com', { optimizeForStreaming: true }))
+    render(
+      compiler('Hello [link text](http://example.com', {
+        optimizeForStreaming: true,
+      })
+    )
     expect(root.innerHTML).toContain('Hello')
     expect(root.innerHTML).toContain('link text')
     expect(root.innerHTML).not.toContain('[')
@@ -3846,7 +3969,11 @@ describe('optimizeForStreaming option', () => {
   })
 
   it('should render complete inline syntax when enabled', () => {
-    render(compiler('some `code` and **bold** and *italic*', { optimizeForStreaming: true }))
+    render(
+      compiler('some `code` and **bold** and *italic*', {
+        optimizeForStreaming: true,
+      })
+    )
     expect(root.innerHTML).toContain('code')
     expect(root.innerHTML).toContain('bold')
     expect(root.innerHTML).toContain('italic')
@@ -3887,7 +4014,28 @@ describe('optimizeForStreaming option', () => {
   })
 })
 
+describe('optimizeForStreaming preserves literal less-than', () => {
+  it('keeps comparison prose and multi-paragraph literal less-than', () => {
+    render(compiler('5 < 3 is false', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toBe('5 &lt; 3 is false')
+    render(compiler('x < y\n\nsecond para', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toBe('<div><p>x &lt; y</p><p>second para</p></div>')
+  })
 
+  it('defers incomplete tag prefixes without truncating prior text', () => {
+    render(compiler('Hello <Citation', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toBe('Hello ')
+    render(compiler('<div>incomplete', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toBe('<p>incomplete</p>')
+  })
+
+  it('keeps a completed tag plus a later literal less-than', () => {
+    render(
+      compiler('Hello <div>a</div> and 1 < 2', { optimizeForStreaming: true })
+    )
+    expect(root.innerHTML).toBe('<span>Hello <div>a</div> and 1 &lt; 2</span>')
+  })
+})
 
 describe('optimizeForStreaming with custom JSX overrides', () => {
   it('strips a trailing incomplete custom tag in inline content', () => {
@@ -3985,7 +4133,13 @@ describe('strips dangerous raw HTML attributes', () => {
   })
 
   it('preserves brace-expression props on component overrides', () => {
-    function MyComponent({ data, onClick }: { data?: number[]; onClick?: unknown }) {
+    function MyComponent({
+      data,
+      onClick,
+    }: {
+      data?: number[]
+      onClick?: unknown
+    }) {
       return (
         <span>{`${typeof onClick}:${Array.isArray(data) ? data.join(',') : 'none'}`}</span>
       )
@@ -4011,6 +4165,55 @@ describe('unique heading IDs (#857)', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<div><h1 id="foo">Foo</h1><h1 id="bar">Bar</h1><h2 id="foo-1">Foo</h2></div>"`
     )
+  })
+
+  it('slugs headings from inline text content, not raw source', () => {
+    render(compiler('## [text](https://e.com)'))
+    expect(root.innerHTML).toBe(
+      '<h2 id="text"><a href="https://e.com">text</a></h2>'
+    )
+  })
+})
+
+describe('destination entity decode before sanitize', () => {
+  it('drops entity-obfuscated javascript: href and src', () => {
+    render(compiler('[x](&#106;avascript:alert(1))'))
+    expect(root.innerHTML).toBe('<a>x</a>')
+    render(compiler('![x](&#106;avascript:alert(1))'))
+    expect(root.innerHTML).toBe('<img alt="x"/>')
+  })
+
+  it('re-sanitizes direct astToJSX link targets before href encoding', () => {
+    render(
+      astToJSX([
+        {
+          type: RuleType.link,
+          target: 'javascript:alert(1)',
+          children: [{ type: RuleType.text, text: 'x' }],
+        },
+      ])
+    )
+    expect(root.innerHTML).toBe('<a>x</a>')
+  })
+
+  it('applies a non-idempotent sanitizer rewrite at emit', () => {
+    render(
+      compiler('[x](https://e.com)', {
+        sanitizer: () => 'https://rewritten.example',
+      })
+    )
+    expect(root.innerHTML).toBe('<a href="https://rewritten.example">x</a>')
+  })
+})
+
+describe('inline Type 1 content with tagfilter off', () => {
+  it('preserves single-line script content including forceInline', () => {
+    render(compiler('<script>x</script>', { tagfilter: false }))
+    expect(root.innerHTML).toBe('<script>x</script>')
+    render(
+      compiler('<script>x</script>', { tagfilter: false, forceInline: true })
+    )
+    expect(root.innerHTML).toBe('<script>x</script>')
   })
 })
 

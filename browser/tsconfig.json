@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    // Disabled repo-wide: enabling it would force the choice on consumers
+    "esModuleInterop": false,
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ESNext",
+    "types": ["node", "vite/client"]
+  },
+  "include": ["src", "tests", "playwright.config.ts", "vite.config.ts"]
+}

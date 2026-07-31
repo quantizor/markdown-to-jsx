@@ -13,5 +13,5 @@
     "preserveConstEnums": true,
     "strict": true,
     "target": "ESNext"
-  },
+  }
 }

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Refuse the commit unless the shared quality gate is green under CI rules
+# (Biome must leave a clean tree; same path CI runs).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+export CI=1
+exec bun run verify

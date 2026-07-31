@@ -1,29 +1,40 @@
-import * as $ from './constants'
-import * as parse from './parse'
-import { MarkdownToJSX, RuleType } from './types'
-import * as util from './utils'
+import * as $ from './constants.ts'
+import * as parse from './parse.ts'
+import { type MarkdownToJSX, RuleType } from './types.ts'
+import * as util from './utils.ts'
+
 var hasKeys = util.hasKeys
 
 // Re-export parser, types, and utils for the /html entry point
-export { parser } from './parse'
-export { RuleType, type MarkdownToJSX } from './types'
-export { sanitizer, slugify } from './utils'
+export { parser } from './parse.ts'
+export { type MarkdownToJSX, RuleType } from './types.ts'
+export { sanitizer, slugify } from './utils.ts'
 
 /**
  * Escape HTML entities for text content
  * Fast path: return early if no escaping needed
  */
 function escapeHtml(text: string): string {
-  if (!text) return text
+  if (!text) {
+    return text
+  }
   // Use SIMD-accelerated indexOf to find earliest escapable char
   var i = text.indexOf('&')
   var lt = text.indexOf('<')
-  if (lt !== -1 && (i === -1 || lt < i)) i = lt
+  if (lt !== -1 && (i === -1 || lt < i)) {
+    i = lt
+  }
   var gt = text.indexOf('>')
-  if (gt !== -1 && (i === -1 || gt < i)) i = gt
+  if (gt !== -1 && (i === -1 || gt < i)) {
+    i = gt
+  }
   var qt = text.indexOf('"')
-  if (qt !== -1 && (i === -1 || qt < i)) i = qt
-  if (i === -1) return text
+  if (qt !== -1 && (i === -1 || qt < i)) {
+    i = qt
+  }
+  if (i === -1) {
+    return text
+  }
   // Build result from first escapable char with charCode replacement loop
   var result = text.slice(0, i)
   var last = i
@@ -32,26 +43,36 @@ function escapeHtml(text: string): string {
     var code = text.charCodeAt(i)
     if (code <= 62) {
       if (code === $.CHAR_AMPERSAND) {
-        if (i > last) result += text.slice(last, i)
+        if (i > last) {
+          result += text.slice(last, i)
+        }
         result += '&amp;'
         last = i + 1
       } else if (code === $.CHAR_LT) {
-        if (i > last) result += text.slice(last, i)
+        if (i > last) {
+          result += text.slice(last, i)
+        }
         result += '&lt;'
         last = i + 1
       } else if (code === $.CHAR_GT) {
-        if (i > last) result += text.slice(last, i)
+        if (i > last) {
+          result += text.slice(last, i)
+        }
         result += '&gt;'
         last = i + 1
       } else if (code === $.CHAR_DOUBLE_QUOTE) {
-        if (i > last) result += text.slice(last, i)
+        if (i > last) {
+          result += text.slice(last, i)
+        }
         result += '&quot;'
         last = i + 1
       }
     }
     i++
   }
-  if (last < len) result += text.slice(last)
+  if (last < len) {
+    result += text.slice(last)
+  }
   return result
 }
 
@@ -77,7 +98,9 @@ function escapeHtmlAttr(value: string): string {
     }
     i++
   }
-  if (!needsEscape) return value
+  if (!needsEscape) {
+    return value
+  }
 
   return value
     .replace(/</g, '&lt;')
@@ -90,37 +113,44 @@ function formatAttributes(attrs: Record<string, any>): string {
   var result = ''
   for (var key in attrs) {
     var value = attrs[key]
-    if (value === undefined || value === null) continue
+    if (value === undefined || value === null) {
+      continue
+    }
     result += ' '
     if (value === true) {
       result += key
     } else if (value === '') {
-      result += key + '=""'
-    } else if (key === 'style' && typeof value === 'object' && value !== null) {
+      result += `${key}=""`
+    } else if (key === 'style' && typeof value === 'object' && value != null) {
       var styleStr = ''
       var styleFirst = true
       for (var styleKey in value) {
         var styleValue = value[styleKey]
         if (styleValue != null) {
-          if (styleFirst) styleFirst = false
-          else styleStr += '; '
+          if (styleFirst) {
+            styleFirst = false
+          } else {
+            styleStr += '; '
+          }
           var cssKey = ''
           for (var i = 0; i < styleKey.length; i++) {
             var code = styleKey.charCodeAt(i)
             if (code >= $.CHAR_A && code <= $.CHAR_Z) {
-              cssKey += '-' + String.fromCharCode(code + $.CHAR_CASE_OFFSET)
+              cssKey += `-${String.fromCharCode(code + $.CHAR_CASE_OFFSET)}`
             } else {
               cssKey += styleKey[i]
             }
           }
-          styleStr += cssKey + ': ' + styleValue
+          styleStr += `${cssKey}: ${styleValue}`
         }
       }
-      if (styleStr) result += 'style="' + escapeHtmlAttr(styleStr) + '"'
+      if (styleStr) {
+        result += `style="${escapeHtmlAttr(styleStr)}"`
+      }
     } else if (typeof value === 'string') {
-      result += key + '="' + escapeHtmlAttr(value) + '"'
+      result += `${key}="${escapeHtmlAttr(value)}"`
     } else if (typeof value === 'number') {
-      result += key + '="' + value + '"'
+      result += `${key}="${value}"`
     }
   }
   return result
@@ -150,7 +180,7 @@ export type HTMLOverrides = {
  */
 export type HTMLOptions = Omit<
   MarkdownToJSX.Options,
-  'createElement' | 'wrapperProps' | 'overrides'
+  'createElement' | 'wrapperProps' | 'overrides' | 'renderRule'
 > & {
   /** Reference definitions for link resolution */
   refs?: { [key: string]: { target: string; title: string | undefined } }
@@ -199,9 +229,13 @@ function _mergeAttrs(
   base: Record<string, any> | undefined,
   overrideProps: Record<string, any>
 ): Record<string, any> {
-  if (!hasKeys(overrideProps)) return base || _emptyObj
+  if (!hasKeys(overrideProps)) {
+    return base || _emptyObj
+  }
   var merged = base ? { ...base } : {}
-  for (var key in overrideProps) merged[key] = overrideProps[key]
+  for (var key in overrideProps) {
+    merged[key] = overrideProps[key]
+  }
   return merged
 }
 
@@ -212,19 +246,39 @@ function _renderTag(
   attrs?: Record<string, any>
 ): string {
   if (!ctx.hasOverrides) {
-    if (!attrs || !hasKeys(attrs)) {
-      return '<' + defaultTag + '>' + children + '</' + defaultTag + '>'
+    if (!(attrs && hasKeys(attrs))) {
+      return `<${defaultTag}>${children}</${defaultTag}>`
     }
-    return '<' + defaultTag + formatAttributes(attrs) + '>' + children + '</' + defaultTag + '>'
+    return (
+      '<' +
+      defaultTag +
+      formatAttributes(attrs) +
+      '>' +
+      children +
+      '</' +
+      defaultTag +
+      '>'
+    )
   }
   var tag = util.getTag(defaultTag, ctx.overrides)
   var overrideProps = util.getOverrideProps(defaultTag, ctx.overrides)
-  if (!attrs || !hasKeys(attrs)) {
-    return '<' + tag + formatAttributes(overrideProps) + '>' + children + '</' + tag + '>'
+  if (!(attrs && hasKeys(attrs))) {
+    return (
+      '<' +
+      tag +
+      formatAttributes(overrideProps) +
+      '>' +
+      children +
+      '</' +
+      tag +
+      '>'
+    )
   }
   var finalAttrs = { ...overrideProps }
-  for (var aKey in attrs) finalAttrs[aKey] = attrs[aKey]
-  return '<' + tag + formatAttributes(finalAttrs) + '>' + children + '</' + tag + '>'
+  for (var aKey in attrs) {
+    finalAttrs[aKey] = attrs[aKey]
+  }
+  return `<${tag}${formatAttributes(finalAttrs)}>${children}</${tag}>`
 }
 
 function _renderChildren(nodes: MarkdownToJSX.ASTNode[], ctx: _Ctx): string {
@@ -237,7 +291,9 @@ function _renderChildren(nodes: MarkdownToJSX.ASTNode[], ctx: _Ctx): string {
     for (var i = 0; i < nodes.length; i++) {
       var node = nodes[i]
       if (node.type === RuleType.text) {
-        if (node.text) result += escapeHtml(node.text)
+        if (node.text) {
+          result += escapeHtml(node.text)
+        }
       } else {
         result += _renderNode(node, ctx)
       }
@@ -253,18 +309,17 @@ function _renderNodeEntry(
 ): string {
   if (ctx.renderRule) {
     return ctx.renderRule(
-      function () {
+      () => {
         if (
           node.type === RuleType.refCollection ||
           shouldSkipNode(node, ctx.preserveFrontmatter)
-        )
+        ) {
           return ''
+        }
         return _renderNode(node, ctx)
       },
       node,
-      function (children: MarkdownToJSX.ASTNode[]) {
-        return _renderChildren(children, ctx)
-      },
+      (children: MarkdownToJSX.ASTNode[]) => _renderChildren(children, ctx),
       state
     )
   }
@@ -272,26 +327,23 @@ function _renderNodeEntry(
   if (
     node.type === RuleType.refCollection ||
     shouldSkipNode(node, ctx.preserveFrontmatter)
-  )
+  ) {
     return ''
+  }
 
   return _renderNode(node, ctx)
 }
 
-function _renderNode(
-  node: MarkdownToJSX.ASTNode,
-  ctx: _Ctx
-): string {
+function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
   switch (node.type) {
     case RuleType.blockQuote: {
-      var children = node.children
-        ? _renderChildren(node.children, ctx)
-        : ''
+      var children = node.children ? _renderChildren(node.children, ctx) : ''
       if (node.alert) {
-        children = '<header>' + escapeHtml(node.alert) + '</header>' + children
+        children = `<header>${escapeHtml(node.alert)}</header>${children}`
         return _renderTag('blockquote', children, ctx, {
           class:
-            'markdown-alert-' + ctx.slug(node.alert.toLowerCase(), util.slugify),
+            'markdown-alert-' +
+            ctx.slug(node.alert.toLowerCase(), util.slugify),
         })
       }
       return _renderTag('blockquote', children, ctx)
@@ -305,7 +357,7 @@ function _renderNode(
     }
 
     case RuleType.frontmatter: {
-      return '<pre>' + escapeHtml(node.text) + '</pre>'
+      return `<pre>${escapeHtml(node.text)}</pre>`
     }
 
     case RuleType.codeBlock: {
@@ -316,26 +368,32 @@ function _renderNode(
         var existingClass =
           (codeAttrs.class as string) || (codeAttrs.className as string) || ''
         codeAttrs.class = existingClass
-          ? existingClass + ' language-' + decodedLang
-          : 'language-' + decodedLang
-        delete codeAttrs.className
+          ? `${existingClass} language-${decodedLang}`
+          : `language-${decodedLang}`
+        codeAttrs.className = undefined
       }
       var codeAttrStr = formatAttributes(codeAttrs)
       var codeText = node.text || ''
       // Known deviation from CommonMark: the spec keeps a code block's trailing
       // newline (the scanners store node.text without it). No rendered
       // difference, since a final empty line generates no line box.
-      return '<pre><code' + codeAttrStr + '>' + escapeHtml(codeText) + '</code></pre>'
+      return (
+        '<pre><code' +
+        codeAttrStr +
+        '>' +
+        escapeHtml(codeText) +
+        '</code></pre>'
+      )
     }
 
     case RuleType.codeInline: {
-      return '<code>' + escapeHtml(node.text || '') + '</code>'
+      return `<code>${escapeHtml(node.text || '')}</code>`
     }
 
     case RuleType.footnoteReference: {
       var href = ctx.sanitize(node.target || '', 'a', 'href') || ''
       var text = escapeHtml(node.text || '')
-      return '<a href="' + escapeHtml(href) + '"><sup>' + text + '</sup></a>'
+      return `<a href="${escapeHtml(href)}"><sup>${text}</sup></a>`
     }
 
     case RuleType.gfmTask: {
@@ -350,7 +408,7 @@ function _renderNode(
       var level = node.level || 1
       var headingAttrs = node.id?.trim() ? { id: node.id } : undefined
       return _renderTag(
-        'h' + level,
+        `h${level}`,
         node.children ? _renderChildren(node.children, ctx) : '',
         ctx,
         headingAttrs
@@ -363,222 +421,230 @@ function _renderNode(
         return htmlCommentNode.text
       }
       if (htmlCommentNode._endsWithGT) {
-        return '<!--' + node.text + '>'
+        return `<!--${node.text}>`
       }
-      return '<!--' + node.text + '-->'
+      return `<!--${node.text}-->`
     }
 
     case RuleType.htmlBlock: {
       var htmlNode = node as MarkdownToJSX.HTMLNode
       var defaultTag = htmlNode.tag || 'div'
-      var tag = ctx.hasOverrides ? util.getTag(defaultTag, ctx.overrides) : defaultTag
-      var overrideProps = ctx.hasOverrides ? util.getOverrideProps(defaultTag, ctx.overrides) : _emptyObj
+      var tag = ctx.hasOverrides
+        ? util.getTag(defaultTag, ctx.overrides)
+        : defaultTag
+      var overrideProps = ctx.hasOverrides
+        ? util.getOverrideProps(defaultTag, ctx.overrides)
+        : _emptyObj
       var attrsStr: string
-      if (htmlNode._rawAttrs !== undefined) {
+      if (htmlNode._rawAttrs === undefined) {
+        attrsStr = formatAttributes(_mergeAttrs(htmlNode.attrs, overrideProps))
+      } else {
         var rawAttrsValue = htmlNode._rawAttrs
-        var needsLeadingSpace = rawAttrsValue.length > 0 &&
-          rawAttrsValue.charCodeAt(0) > $.CHAR_SPACE
+        var needsLeadingSpace =
+          rawAttrsValue.length > 0 && rawAttrsValue.charCodeAt(0) > $.CHAR_SPACE
         attrsStr =
           (needsLeadingSpace ? ' ' : '') +
           rawAttrsValue +
           (hasKeys(overrideProps)
-            ? ' ' + formatAttributes(overrideProps).trim()
+            ? ` ${formatAttributes(overrideProps).trim()}`
             : '')
-      } else {
-        attrsStr = formatAttributes(_mergeAttrs(htmlNode.attrs, overrideProps))
       }
       if (ctx.tagfilter && util.shouldFilterTag(tag)) {
-        return htmlNode._isClosingTag
-          ? '&lt;/' + tag + '>'
-          : '&lt;' + tag + attrsStr + '>'
-      }
-      if (htmlNode._rawText) {
-        if (htmlNode._verbatim) {
-          var textContent = ctx.tagfilter
-            ? util.applyTagFilterToText(htmlNode._rawText)
-            : htmlNode._rawText
-          if (htmlNode._isClosingTag) return '</' + tag + '>' + textContent
-          var tagLower = tag.toLowerCase()
-          var isType1Block = parse.isType1Block(tagLower)
-          if (isType1Block) {
-            var textLen = htmlNode._rawText.length
-            var textStart = 0
-            while (
-              textStart < textLen &&
-              htmlNode._rawText.charCodeAt(textStart) === $.CHAR_SPACE
-            )
-              textStart++
-            if (
-              textStart < textLen &&
-              htmlNode._rawText.charCodeAt(textStart) === $.CHAR_LT
-            ) {
-              var openingTagEnd = htmlNode._rawText.indexOf('>', textStart)
-              if (openingTagEnd !== -1) {
-                var rawOpeningTag = htmlNode._rawText.slice(
-                  textStart,
-                  openingTagEnd + 1
-                )
-                if (
-                  rawOpeningTag.charCodeAt(1) >= $.CHAR_a &&
-                  rawOpeningTag.charCodeAt(1) <= $.CHAR_z
-                ) {
-                  var tagStart = 1
-                  var tagEnd = tagStart
-                  while (
-                    tagEnd < rawOpeningTag.length &&
-                    rawOpeningTag.charCodeAt(tagEnd) >= $.CHAR_a &&
-                    rawOpeningTag.charCodeAt(tagEnd) <= $.CHAR_z
-                  )
-                    tagEnd++
-                  var foundTag = rawOpeningTag
-                    .slice(tagStart, tagEnd)
-                    .toLowerCase()
-                  if (foundTag === tagLower) {
-                    var innerText = htmlNode._rawText.slice(openingTagEnd + 1)
-                    return (
-                      rawOpeningTag +
-                      (ctx.tagfilter
-                        ? util.applyTagFilterToText(innerText)
-                        : innerText)
-                    )
-                  }
-                }
-              }
-            }
-            var closingTag = '</' + tagLower + '>'
-            var hasClosingTag = htmlNode._rawText.indexOf(closingTag) !== -1
-            return hasClosingTag
-              ? '<' + tag + attrsStr + '>' + textContent
-              : '<' + tag + attrsStr + '>' + textContent + '</' + tag + '>'
-          }
-          var trimmed = htmlNode._rawText.trim()
-          if (trimmed.length > 0 && trimmed.charCodeAt(0) === $.CHAR_LT) {
-            var secondCharCode = trimmed.charCodeAt(1)
-            if (
-              (secondCharCode >= $.CHAR_a && secondCharCode <= $.CHAR_z) ||
-              (secondCharCode >= $.CHAR_A && secondCharCode <= $.CHAR_Z)
-            ) {
-              var tagStart = 1
-              var tagEnd = tagStart
-              while (tagEnd < trimmed.length) {
-                var code = trimmed.charCodeAt(tagEnd)
-                if (
-                  (code >= $.CHAR_a && code <= $.CHAR_z) ||
-                  (code >= $.CHAR_A && code <= $.CHAR_Z) ||
-                  (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
-                  code === $.CHAR_DASH
-                ) {
-                  tagEnd++
-                } else {
-                  break
-                }
-              }
-              var foundTag = trimmed.slice(tagStart, tagEnd).toLowerCase()
-              if (foundTag === tagLower) {
-                return textContent
-              }
-            }
-          }
-          // Parser sets _emitOwnClose when rawText represents a closed HTML
-          // block nested inside another HTML block. rawText may carry trailing
-          // same-line siblings (kept for the React re-parse split), so slice
-          // at the own close tag and always emit our own </tag> (#862).
-          if (htmlNode._emitOwnClose) {
-            var ownCloseIdx67 = textContent.indexOf('</' + tagLower + '>')
-            var body67 = ownCloseIdx67 !== -1 ? textContent.slice(0, ownCloseIdx67) : textContent
-            return '<' + tag + attrsStr + '>' + body67 + '</' + tag + '>'
-          }
-          var trimmedStart = 0
-          while (
-            trimmedStart < textContent.length &&
-            textContent.charCodeAt(trimmedStart) === $.CHAR_SPACE
-          )
-            trimmedStart++
-          return '<' + tag + attrsStr + '>' + (trimmedStart > 0 ? textContent.slice(trimmedStart) : trimmed ? textContent : '')
+        var filtered = util.getFilteredTagEmit(htmlNode)
+        if (filtered.kind === 'literal') {
+          return util.applyTagFilterToText(filtered.literal)
         }
-        var textContent = ctx.tagfilter
-          ? util.applyTagFilterToText(htmlNode._rawText)
-          : htmlNode._rawText
-        return '<' + tag + attrsStr + '>' + textContent + '</' + tag + '>'
+        return (
+          util.applyTagFilterToText(filtered.open) +
+          (htmlNode.children ? _renderChildren(htmlNode.children, ctx) : '') +
+          util.applyTagFilterToText(filtered.close)
+        )
       }
-      // For multi-line attributes (rawAttrs contains newlines), preserve rawText formatting
-      if (htmlNode._rawAttrs && htmlNode._rawAttrs.indexOf('\n') !== -1 && htmlNode._rawText) {
-        var rawTextContent = ctx.tagfilter
-          ? util.applyTagFilterToText(htmlNode._rawText)
-          : htmlNode._rawText
-        return '<' + tag + attrsStr + '>' + rawTextContent + '</' + tag + '>'
+      var rawOuter = htmlNode._rawOuter
+      if (htmlNode._isClosingTag && htmlNode._rawBody) {
+        var closerTrailing = ctx.tagfilter
+          ? util.applyTagFilterToText(htmlNode._rawBody)
+          : htmlNode._rawBody
+        return `</${tag}>${closerTrailing}`
+      }
+      if (htmlNode._verbatim && rawOuter !== undefined) {
+        // Parser-verified full outer span (own opening tag through own
+        // closing tag, or through end of input when none exists); emit
+        // as-is, no synthesized wrapper needed.
+        return ctx.tagfilter ? util.applyTagFilterToText(rawOuter) : rawOuter
+      }
+      if (htmlNode._verbatim && !htmlNode._isClosingTag) {
+        var tagLower = tag.toLowerCase()
+        var isType1Block = parse.isType1Block(tagLower)
+        if (isType1Block) {
+          // The parser always supplies _rawClose (or _rawOuter, handled
+          // above) for real Type 1 output; a missing close here only
+          // happens on a hand-built AST, so synthesize the tag's own
+          // closer rather than leaving the element unclosed.
+          var type1BodyAndClose =
+            (htmlNode._rawBody || '') + (htmlNode._rawClose || `</${tag}>`)
+          var type1Content = ctx.tagfilter
+            ? util.applyTagFilterToText(type1BodyAndClose)
+            : type1BodyAndClose
+          return `<${tag}${attrsStr}>${type1Content}`
+        }
+        var bodyAndClose =
+          (htmlNode._rawBody || '') + (htmlNode._rawClose || '')
+        var textContent = ctx.tagfilter
+          ? util.applyTagFilterToText(bodyAndClose)
+          : bodyAndClose
+        // Parser sets _emitOwnClose when rawBody represents a closed HTML
+        // block nested inside another HTML block. rawBody may carry trailing
+        // same-line siblings (kept for the React re-parse split), so slice
+        // at the own close tag and always emit our own </tag> (#862).
+        if (htmlNode._emitOwnClose) {
+          var ownCloseIdx67 = textContent.indexOf(`</${tagLower}>`)
+          var body67 =
+            ownCloseIdx67 === -1
+              ? textContent
+              : textContent.slice(0, ownCloseIdx67)
+          return `<${tag}${attrsStr}>${body67}</${tag}>`
+        }
+        var trimmedStart = 0
+        while (
+          trimmedStart < textContent.length &&
+          textContent.charCodeAt(trimmedStart) === $.CHAR_SPACE
+        ) {
+          trimmedStart++
+        }
+        return (
+          '<' +
+          tag +
+          attrsStr +
+          '>' +
+          (trimmedStart > 0
+            ? textContent.slice(trimmedStart)
+            : (htmlNode._rawBody || '').trim()
+              ? textContent
+              : '')
+        )
+      }
+      if (htmlNode._rawBody) {
+        var nonVerbatimContent = ctx.tagfilter
+          ? util.applyTagFilterToText(htmlNode._rawBody)
+          : htmlNode._rawBody
+        return `<${tag}${attrsStr}>${nonVerbatimContent}</${tag}>`
       }
       if (util.isVoidElement(tag)) {
-        return '<' + tag + attrsStr + '>'
+        return `<${tag}${attrsStr}>`
       }
       var children = htmlNode.children
         ? _renderChildren(htmlNode.children, ctx)
         : ''
-      if (htmlNode._isClosingTag) return '</' + tag + '>' + children
+      if (htmlNode._isClosingTag) {
+        return `</${tag}>${children}`
+      }
       // Structurally-closed elements always emit </tag>, even when empty.
       // _verbatim is raw source pass-through (e.g. unclosed <div>); only then
       // do we suppress the close, and only when children is whitespace-only.
       if (!htmlNode._verbatim) {
-        return '<' + tag + attrsStr + '>' + children + '</' + tag + '>'
+        return `<${tag}${attrsStr}>${children}</${tag}>`
       }
       for (var hci = 0; hci < children.length; hci++) {
         var hcc = children.charCodeAt(hci)
-        if (hcc !== $.CHAR_SPACE && hcc !== $.CHAR_TAB && hcc !== $.CHAR_NEWLINE && hcc !== $.CHAR_CR) {
-          return '<' + tag + attrsStr + '>' + children + '</' + tag + '>'
+        if (
+          hcc !== $.CHAR_SPACE &&
+          hcc !== $.CHAR_TAB &&
+          hcc !== $.CHAR_NEWLINE &&
+          hcc !== $.CHAR_CR
+        ) {
+          return `<${tag}${attrsStr}>${children}</${tag}>`
         }
       }
-      return '<' + tag + attrsStr + '>' + children
+      return `<${tag}${attrsStr}>${children}`
     }
 
     case RuleType.htmlSelfClosing: {
-      var scNode = node as MarkdownToJSX.HTMLSelfClosingNode & {
-        _rawText?: string
-        _isClosingTag?: boolean
-      }
+      var scNode = node as MarkdownToJSX.HTMLSelfClosingNode
       var scDefaultTag = scNode.tag || 'div'
-      var scTag = ctx.hasOverrides ? util.getTag(scDefaultTag, ctx.overrides) : scDefaultTag
-      if (scNode._rawText) {
-        return ctx.tagfilter && util.shouldFilterTag(scTag)
-          ? scNode._rawText.replace(/^</, '&lt;')
-          : scNode._rawText
+      var scTag = ctx.hasOverrides
+        ? util.getTag(scDefaultTag, ctx.overrides)
+        : scDefaultTag
+      if (ctx.tagfilter && util.shouldFilterTag(scTag)) {
+        var filteredSc = util.getFilteredTagEmit(scNode)
+        return util.applyTagFilterToText(
+          filteredSc.kind === 'literal'
+            ? filteredSc.literal
+            : filteredSc.open + (filteredSc.close || '')
+        )
       }
-      if (scNode._isClosingTag) return '</' + scTag + '>'
-      var scOverrideProps = ctx.hasOverrides ? util.getOverrideProps(scDefaultTag, ctx.overrides) : _emptyObj
+      if (scNode._isClosingTag) {
+        return scNode._rawClose || `</${scTag}>`
+      }
+      if (scNode._rawOpen) {
+        return scNode._rawOpen
+      }
+      var scOverrideProps = ctx.hasOverrides
+        ? util.getOverrideProps(scDefaultTag, ctx.overrides)
+        : _emptyObj
       var scMergedAttrs = _mergeAttrs(scNode.attrs, scOverrideProps)
       var scAttrsStr = formatAttributes(scMergedAttrs)
-      if (ctx.tagfilter && util.shouldFilterTag(scTag)) {
-        return '&lt;' + scTag + scAttrsStr + ' />'
-      }
-      return '<' + scTag + scAttrsStr + ' />'
+      return `<${scTag}${scAttrsStr} />`
     }
 
     case RuleType.image: {
       var imgTag = ctx.hasOverrides ? util.getTag('img', ctx.overrides) : 'img'
-      var imgOverrideProps = ctx.hasOverrides ? util.getOverrideProps('img', ctx.overrides) : _emptyObj
+      var imgOverrideProps = ctx.hasOverrides
+        ? util.getOverrideProps('img', ctx.overrides)
+        : _emptyObj
       var src = ctx.sanitize(node.target || '', 'img', 'src') || ''
       var imgAttrs: Record<string, any> = {
         ...imgOverrideProps,
         alt: node.alt || '',
       }
-      if (node.title) imgAttrs.title = node.title
-      return '<' + imgTag + ' src="' + escapeHtml(src) + '"' + formatAttributes(imgAttrs) + ' />'
+      if (node.title) {
+        imgAttrs.title = node.title
+      }
+      return (
+        '<' +
+        imgTag +
+        ' src="' +
+        escapeHtml(src) +
+        '"' +
+        formatAttributes(imgAttrs) +
+        ' />'
+      )
     }
 
     case RuleType.link: {
       var linkTag = ctx.hasOverrides ? util.getTag('a', ctx.overrides) : 'a'
-      var linkOverrideProps = ctx.hasOverrides ? util.getOverrideProps('a', ctx.overrides) : _emptyObj
-      var linkAttrs: Record<string, any> = hasKeys(linkOverrideProps) ? { ...linkOverrideProps } : {}
+      var linkOverrideProps = ctx.hasOverrides
+        ? util.getOverrideProps('a', ctx.overrides)
+        : _emptyObj
+      var linkAttrs: Record<string, any> = hasKeys(linkOverrideProps)
+        ? { ...linkOverrideProps }
+        : {}
       if (node.target != null) {
-        var encodedTarget = util.encodeUrlTarget(util.decodeEntityReferences(node.target))
-        var sanitized = ctx.sanitize(encodedTarget, 'a', 'href')
-        if (sanitized !== null) {
-          linkAttrs.href = sanitized === encodedTarget
-            ? sanitized
-            : util.encodeUrlTarget(sanitized)
+        // Sanitize before encode (same order as the JSX compilers) so a
+        // dangerous direct-AST target never reaches href=.
+        var linkHref = util.sanitizeAndEncodeUrlTarget(
+          util.decodeEntityReferences(node.target),
+          ctx.sanitize,
+          'a',
+          'href'
+        )
+        if (linkHref != null) {
+          linkAttrs.href = linkHref
         }
       }
-      if (node.title) linkAttrs.title = util.decodeEntityReferences(node.title)
-      return '<' + linkTag + formatAttributes(linkAttrs) + '>' + (node.children ? _renderChildren(node.children, ctx) : '') + '</' + linkTag + '>'
+      if (node.title) {
+        linkAttrs.title = util.decodeEntityReferences(node.title)
+      }
+      return (
+        '<' +
+        linkTag +
+        formatAttributes(linkAttrs) +
+        '>' +
+        (node.children ? _renderChildren(node.children, ctx) : '') +
+        '</' +
+        linkTag +
+        '>'
+      )
     }
 
     case RuleType.table: {
@@ -590,7 +656,7 @@ function _renderNode(
         var align = alignments[hi]
         header +=
           '<th' +
-          (align ? ' align="' + align + '"' : '') +
+          (align ? ` align="${align}"` : '') +
           '>' +
           _renderChildren(headerCells[hi], ctx) +
           '</th>'
@@ -604,7 +670,7 @@ function _renderNode(
           var align = alignments[ci]
           rows +=
             '<td' +
-            (align ? ' align="' + align + '"' : '') +
+            (align ? ` align="${align}"` : '') +
             '>' +
             _renderChildren(row[ci], ctx) +
             '</td>'
@@ -613,10 +679,29 @@ function _renderNode(
       }
       if (ctx.hasOverrides) {
         var tblTag = util.getTag('table', ctx.overrides)
-        var tblAttrStr = formatAttributes(util.getOverrideProps('table', ctx.overrides))
-        return '<' + tblTag + tblAttrStr + '><thead><tr>' + header + '</tr></thead>' + (rows ? '<tbody>' + rows + '</tbody>' : '') + '</' + tblTag + '>'
+        var tblAttrStr = formatAttributes(
+          util.getOverrideProps('table', ctx.overrides)
+        )
+        return (
+          '<' +
+          tblTag +
+          tblAttrStr +
+          '><thead><tr>' +
+          header +
+          '</tr></thead>' +
+          (rows ? `<tbody>${rows}</tbody>` : '') +
+          '</' +
+          tblTag +
+          '>'
+        )
       }
-      return '<table><thead><tr>' + header + '</tr></thead>' + (rows ? '<tbody>' + rows + '</tbody>' : '') + '</table>'
+      return (
+        '<table><thead><tr>' +
+        header +
+        '</tr></thead>' +
+        (rows ? `<tbody>${rows}</tbody>` : '') +
+        '</table>'
+      )
     }
 
     case RuleType.text:
@@ -635,7 +720,7 @@ function _renderNode(
       var items = ''
       var listItems = node.items || []
       for (var li = 0; li < listItems.length; li++) {
-        items += '<li>' + _renderChildren(listItems[li], ctx) + '</li>'
+        items += `<li>${_renderChildren(listItems[li], ctx)}</li>`
       }
       var listTag = node.type === RuleType.orderedList ? 'ol' : 'ul'
       var listAttrs =
@@ -651,49 +736,55 @@ function _renderNode(
       if (ctx.forceInline) {
         return node.children ? _renderChildren(node.children, ctx) : ''
       }
-      var children = node.children
-        ? _renderChildren(node.children, ctx)
-        : ''
+      var children = node.children ? _renderChildren(node.children, ctx) : ''
       // Per CommonMark: collapse trailing spaces before newlines (soft line breaks)
       // Fast-path: skip collapsing if no newline in rendered output (most paragraphs)
       var idx = 0
       if (children.indexOf('\n') !== -1) {
-      // Use indexOf to jump between occurrences (SIMD) instead of scanning every char
-      // Track tag boundaries to avoid collapsing inside HTML attribute values
-      var result = ''
-      var segStart = 0
-      var searchFrom = 0
-      var inTag = false
-      var quoteCount = 0
-      while ((idx = children.indexOf(' \n', searchFrom)) !== -1) {
-        // Update tag tracking only in the gap since last search
-        for (var j = searchFrom; j < idx; j++) {
-          var code = children.charCodeAt(j)
-          if (code === $.CHAR_LT) { inTag = true; quoteCount = 0 }
-          else if (code === $.CHAR_GT) { inTag = false; quoteCount = 0 }
-          else if (inTag && code === $.CHAR_DOUBLE_QUOTE) { quoteCount++ }
+        // Use indexOf to jump between occurrences (SIMD) instead of scanning every char
+        // Track tag boundaries to avoid collapsing inside HTML attribute values
+        var result = ''
+        var segStart = 0
+        var searchFrom = 0
+        var inTag = false
+        var quoteCount = 0
+        while ((idx = children.indexOf(' \n', searchFrom)) !== -1) {
+          // Update tag tracking only in the gap since last search
+          for (var j = searchFrom; j < idx; j++) {
+            var code = children.charCodeAt(j)
+            if (code === $.CHAR_LT) {
+              inTag = true
+              quoteCount = 0
+            } else if (code === $.CHAR_GT) {
+              inTag = false
+              quoteCount = 0
+            } else if (inTag && code === $.CHAR_DOUBLE_QUOTE) {
+              quoteCount++
+            }
+          }
+          if (inTag && quoteCount % 2 === 1) {
+            // Inside quoted attribute — preserve
+            searchFrom = idx + 2
+          } else {
+            result += `${children.slice(segStart, idx)}\n`
+            segStart = idx + 2
+            searchFrom = segStart
+          }
         }
-        if (inTag && quoteCount % 2 === 1) {
-          // Inside quoted attribute — preserve
-          searchFrom = idx + 2
-        } else {
-          result += children.slice(segStart, idx) + '\n'
-          segStart = idx + 2
-          searchFrom = segStart
+        if (segStart > 0) {
+          if (segStart < children.length) {
+            result += children.slice(segStart)
+          }
+          children = result
         }
-      }
-      if (segStart > 0) {
-        if (segStart < children.length) result += children.slice(segStart)
-        children = result
-      }
       } // end if (indexOf('\n'))
 
       if (!ctx.hasOverrides) {
-        return '<p>' + children + '</p>'
+        return `<p>${children}</p>`
       }
       var attrsStr = formatAttributes(util.getOverrideProps('p', ctx.overrides))
       var tag = util.getTag('p', ctx.overrides)
-      return '<' + tag + attrsStr + '>' + children + '</' + tag + '>'
+      return `<${tag}${attrsStr}>${children}</${tag}>`
     }
 
     default:
@@ -718,7 +809,7 @@ export function astToHTML(
   var overrides = options.overrides || {}
 
   // Extract refs from reference collection node and filter non-renderable nodes
-  var refsFromAST: {
+  var refsFromAst: {
     [key: string]: { target: string; title: string | undefined }
   } = {}
   var nonRefCollectionNodes: MarkdownToJSX.ASTNode[] = []
@@ -726,25 +817,29 @@ export function astToHTML(
   for (var i = 0; i < nodes.length; i++) {
     var node = nodes[i]
     if (node.type === RuleType.refCollection && !foundRefCollection) {
-      refsFromAST = (node as MarkdownToJSX.ReferenceCollectionNode).refs || {}
+      refsFromAst = (node as MarkdownToJSX.ReferenceCollectionNode).refs || {}
       foundRefCollection = true
       continue
     }
-    if (shouldSkipNode(node, !!options.preserveFrontmatter)) continue
+    if (shouldSkipNode(node, Boolean(options.preserveFrontmatter))) {
+      continue
+    }
     nonRefCollectionNodes.push(node)
   }
-  for (var key in refsFromAST) refs[key] = refsFromAST[key]
+  for (var key in refsFromAst) {
+    refs[key] = refsFromAst[key]
+  }
 
   // Create render context once — shared across all recursive renders
   var ctx: _Ctx = {
-    sanitize: sanitize,
-    slug: slug,
-    refs: refs,
-    overrides: overrides,
+    sanitize,
+    slug,
+    refs,
+    overrides,
     hasOverrides: hasKeys(overrides),
-    preserveFrontmatter: !!options.preserveFrontmatter,
-    tagfilter: options.tagfilter !== false,
-    forceInline: !!options.forceInline,
+    preserveFrontmatter: Boolean(options.preserveFrontmatter),
+    tagfilter: util.tagfilterEnabled(options),
+    forceInline: Boolean(options.forceInline),
     renderRule: options.renderRule,
   }
 
@@ -752,10 +847,14 @@ export function astToHTML(
   if (Array.isArray(nodes)) {
     if (ctx.renderRule) {
       for (var ci = 0; ci < nonRefCollectionNodes.length; ci++) {
-        content += _renderNodeEntry(nonRefCollectionNodes[ci], {
-          key: ci,
-          refs: refs,
-        }, ctx)
+        content += _renderNodeEntry(
+          nonRefCollectionNodes[ci],
+          {
+            key: ci,
+            refs,
+          },
+          ctx
+        )
       }
     } else {
       for (var ci = 0; ci < nonRefCollectionNodes.length; ci++) {
@@ -763,36 +862,43 @@ export function astToHTML(
       }
     }
   } else {
-    content = _renderNodeEntry(nodes, { refs: refs }, ctx)
+    content = _renderNodeEntry(nodes, { refs }, ctx)
   }
 
   // Extract and render footnotes
   var footnoteFooter = ''
   for (var key in refs) {
     if (key.charCodeAt(0) === $.CHAR_CARET) {
-      if (!footnoteFooter) footnoteFooter = '<footer>'
+      if (!footnoteFooter) {
+        footnoteFooter = '<footer>'
+      }
       var id = key.slice(1)
       var parsed = parse.parseMarkdown(
         refs[key].target,
         { inline: true, refs },
-        {
-          overrides: overrides as MarkdownToJSX.Overrides,
-          sanitizer: sanitize,
-          slugify: function (i: string) { return slug(i, util.slugify) },
-          tagfilter: options.tagfilter !== false,
-        }
+        parse.toParseOptions(options)
       )
       var filtered: MarkdownToJSX.ASTNode[] = []
       for (var pi = 0; pi < parsed.length; pi++) {
-        if (parsed[pi].type !== RuleType.refCollection)
+        if (parsed[pi].type !== RuleType.refCollection) {
           filtered.push(parsed[pi])
+        }
       }
       var footnoteCtx: _Ctx = { ...ctx, refs: {}, forceInline: true }
       var footnoteContent = _renderChildren(filtered, footnoteCtx)
-      footnoteFooter += '<div id="' + escapeHtmlAttr(slug(id, util.slugify)) + '">' + escapeHtml(id) + ': ' + footnoteContent + '</div>'
+      footnoteFooter +=
+        '<div id="' +
+        escapeHtmlAttr(slug(id, util.slugify)) +
+        '">' +
+        escapeHtml(id) +
+        ': ' +
+        footnoteContent +
+        '</div>'
     }
   }
-  if (footnoteFooter) footnoteFooter += '</footer>'
+  if (footnoteFooter) {
+    footnoteFooter += '</footer>'
+  }
 
   // Handle wrapper options
   if (options.wrapper === null) {
@@ -816,20 +922,18 @@ export function astToHTML(
   // Extract paragraph content when forceInline or forceWrapper with explicit wrapper
   var contentToWrap = content
   if (
-    options.forceInline ||
-    (options.forceWrapper && wrapperWasExplicit && !options.wrapperWasAutoSet)
+    (options.forceInline ||
+      (options.forceWrapper &&
+        wrapperWasExplicit &&
+        !options.wrapperWasAutoSet)) &&
+    !hasMultipleChildren &&
+    nonRefCollectionNodes.length === 1 &&
+    nonRefCollectionNodes[0].type === RuleType.paragraph
   ) {
-    if (
-      !hasMultipleChildren &&
-      nonRefCollectionNodes.length === 1 &&
-      nonRefCollectionNodes[0].type === RuleType.paragraph
-    ) {
-      var paragraphNode =
-        nonRefCollectionNodes[0] as MarkdownToJSX.ParagraphNode
-      if (paragraphNode.children) {
-        var inlineCtx: _Ctx = { ...ctx, refs: {}, forceInline: true }
-        contentToWrap = _renderChildren(paragraphNode.children, inlineCtx)
-      }
+    var paragraphNode = nonRefCollectionNodes[0] as MarkdownToJSX.ParagraphNode
+    if (paragraphNode.children) {
+      var inlineCtx: _Ctx = { ...ctx, refs: {}, forceInline: true }
+      contentToWrap = _renderChildren(paragraphNode.children, inlineCtx)
     }
   }
 
@@ -848,13 +952,25 @@ export function astToHTML(
       var wpValue = options.wrapperProps[wpKey]
       if (wpValue != null) {
         var sanitized = sanitize(String(wpValue), wrapperTag, wpKey)
-        if (sanitized !== null) sanitizedProps[wpKey] = sanitized
+        if (sanitized != null) {
+          sanitizedProps[wpKey] = sanitized
+        }
       }
     }
     wrapperAttrs = formatAttributes(sanitizedProps)
   }
 
-  return '<' + wrapperTag + wrapperAttrs + '>' + contentToWrap + footnoteFooter + '</' + wrapperTag + '>'
+  return (
+    '<' +
+    wrapperTag +
+    wrapperAttrs +
+    '>' +
+    contentToWrap +
+    footnoteFooter +
+    '</' +
+    wrapperTag +
+    '>'
+  )
 }
 
 /**
@@ -866,19 +982,8 @@ export function astToHTML(
  * @returns HTML string
  */
 export function compiler(markdown: string, options?: HTMLOptions): string {
-  var inline = options?.forceInline || false
-  // Capture slugify once (const, so the closure sees it definitely defined)
-  const userSlugify = options?.slugify
-  var parseOptions: parse.ParseOptions = {
-    ...options,
-    overrides: options?.overrides as MarkdownToJSX.Overrides,
-    sanitizer: options?.sanitizer || util.sanitizer,
-    slugify: userSlugify
-      ? function (i: string) { return userSlugify(i, util.slugify) }
-      : util.slugify,
-    tagfilter: options?.tagfilter !== false,
-  }
-  var ast = parse.parser(markdown, { ...parseOptions, forceInline: inline })
+  var inline = options?.forceInline
+  var ast = parse.parser(markdown, { ...options, forceInline: inline })
   var htmlOptions: HTMLOptions = {
     ...options,
     forceInline: inline,

@@ -1,15 +1,21 @@
+// @ts-expect-error - react/jsx-runtime types may be incomplete
+
+import * as fs from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
+import type Benchmark from 'benchmark'
 import BenchTable from 'benchtable'
 import cliProgress from 'cli-progress'
-import * as fs from 'fs'
 import MarkdownIt from 'markdown-it'
+import { compiler as htmlCompiler } from 'markdown-to-jsx/html'
+import { compiler, parser } from 'markdown-to-jsx/react'
+import { compiler as latestHtmlCompiler } from 'markdown-to-jsx-latest/html'
 import {
   compiler as latestCompiler,
   parser as latestParser,
 } from 'markdown-to-jsx-latest/react'
-import {
-  compiler as latestHtmlCompiler,
-} from 'markdown-to-jsx-latest/html'
-import path from 'path'
+import { marked } from 'marked'
+import * as prod from 'react/jsx-runtime'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
 import rehypeReact from 'rehype-react'
@@ -18,12 +24,6 @@ import remarkDirective from 'remark-directive'
 import remarkGfm from 'remark-gfm'
 import remarkRehype from 'remark-rehype'
 import SimpleMarkdown from 'simple-markdown'
-// @ts-ignore - react/jsx-runtime types may be incomplete
-import Benchmark from 'benchmark'
-import { marked } from 'marked'
-import * as prod from 'react/jsx-runtime'
-import { compiler, parser } from 'markdown-to-jsx/react'
-import { compiler as htmlCompiler } from 'markdown-to-jsx/html'
 
 const { version: latestVersion } = JSON.parse(
   fs.readFileSync(
@@ -45,7 +45,7 @@ const largeFixture = fs.readFileSync(
 )
 
 // Set up rehype processor with all plugins to match markdown-to-jsx features
-// @ts-ignore - rehype-react types may be incomplete
+// @ts-expect-error - rehype-react types may be incomplete
 const production = { Fragment: prod.Fragment, jsx: prod.jsx, jsxs: prod.jsxs }
 
 const rehypeProcessor = remark()
@@ -66,14 +66,14 @@ const bar = new cliProgress.SingleBar(
   },
   cliProgress.Presets.shades_classic
 )
-let totalCycles
+let totalCycles: number
 
 const isAll = process.argv.includes('--all')
 const isJsx = process.argv.includes('--jsx')
 const shouldUpdateSnapshot = process.argv.includes('-u')
 const isHtml = process.argv.includes('--html')
 
-type Test = {
+interface Test {
   name: string
   fn: (input: any) => any
 }
@@ -155,7 +155,7 @@ const htmlTests = [
 ].filter(Boolean) as Test[]
 
 async function setupBenchmark() {
-  let evals = suite
+  const evals = suite
 
   for (const test of parseTests) {
     evals.addFunction(test.name, test.fn, {})
@@ -193,8 +193,8 @@ async function setupBenchmark() {
       }
     })
     .on('abort error complete', () => bar.stop())
-    .on('complete', function () {
-      console.log('Fastest is ' + suite.filter('fastest').map('name'))
+    .on('complete', () => {
+      console.log(`Fastest is ${suite.filter('fastest').map('name')}`)
       console.log(suite.table.toString())
 
       // Filter to only store markdown-to-jsx (next) results for baseline comparison
@@ -237,17 +237,19 @@ async function setupBenchmark() {
                 // Only compare markdown-to-jsx (next) results
                 if (functionName.includes('markdown-to-jsx (next)')) {
                   var group = functionName.replace(/.*\[(\w+)\].*/, '$1')
-                  if (prevGroup && group !== prevGroup) console.log()
+                  if (prevGroup && group !== prevGroup) {
+                    console.log()
+                  }
                   prevGroup = group
                   benchmarks.forEach(benchmark => {
-                    if (benchmark && benchmark.name && benchmark.hz) {
+                    if (benchmark?.name && benchmark.hz) {
                       // Find corresponding benchmark in baseline
                       const baselineBenchmarks = baseline.results[functionName]
                       const baselineBenchmark = baselineBenchmarks?.find(
                         (b: any) => b.name === benchmark.name
                       )
 
-                      if (baselineBenchmark && baselineBenchmark.hz) {
+                      if (baselineBenchmark?.hz) {
                         const currentHz = benchmark.hz
                         const baselineHz = baselineBenchmark.hz
                         const ratio = currentHz / baselineHz
@@ -289,7 +291,7 @@ async function setupBenchmark() {
               }
             )
           }
-        } catch (e) {
+        } catch {
           console.log('Could not load baseline for comparison')
         }
       }

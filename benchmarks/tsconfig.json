@@ -1,7 +1,7 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "skipLibCheck": true,
+    "skipLibCheck": true
   },
   "include": ["index.ts"],
   "exclude": ["node_modules", "dist"]

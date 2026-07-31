@@ -8,8 +8,9 @@
  * silent DTS generation failures.
  */
 
-import { existsSync } from 'fs'
-import { resolve } from 'path'
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
+import process from 'node:process'
 
 var pkgPath = resolve(import.meta.dir, '..', 'lib', 'package.json')
 var pkg = require(pkgPath)
@@ -17,25 +18,31 @@ var libDir = resolve(import.meta.dir, '..', 'lib')
 var missing: string[] = []
 
 function walk(obj: unknown): void {
-  if (typeof obj !== 'object' || obj === null) return
+  if (typeof obj !== 'object' || obj === null) {
+    return
+  }
   for (var [key, val] of Object.entries(obj)) {
     if (key === 'types' && typeof val === 'string') {
       var abs = resolve(libDir, val)
-      if (!existsSync(abs)) missing.push(val)
+      if (!existsSync(abs)) {
+        missing.push(val)
+      }
     } else {
       walk(val)
     }
   }
 }
 
-if (pkg.exports) walk(pkg.exports)
+if (pkg.exports) {
+  walk(pkg.exports)
+}
 if (pkg.types && !existsSync(resolve(libDir, pkg.types))) {
   missing.push(pkg.types)
 }
 
 if (missing.length > 0) {
   console.error(
-    'Type declarations missing after build:\n  ' + missing.join('\n  ')
+    `Type declarations missing after build:\n  ${missing.join('\n  ')}`
   )
   process.exit(1)
 }

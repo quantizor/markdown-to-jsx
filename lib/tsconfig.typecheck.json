@@ -1,9 +1,12 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "incremental": false
+    "incremental": false,
+    "types": ["bun"]
   },
-  "files": [
+  "exclude": [],
+  "files": [],
+  "include": [
     "src/index.tsx",
     "src/index.cjs.tsx",
     "src/react.tsx",
@@ -11,6 +14,8 @@
     "src/html.ts",
     "src/markdown.ts",
     "src/solid.tsx",
-    "src/vue.tsx"
+    "src/vue.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx"
   ]
 }

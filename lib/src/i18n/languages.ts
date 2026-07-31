@@ -1,4 +1,4 @@
-export type Language = {
+export interface Language {
   code: string
   name: string
   nativeName: string
@@ -11,5 +11,4 @@ export const LANGUAGES: Record<string, Language> = {
   hi: { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', direction: 'ltr' },
 }
 
-export const DEFAULT_LANGUAGE = 'en'
 export const SUPPORTED_LANGUAGES = Object.keys(LANGUAGES)

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreExportsUsedInFile": true,
+  // Named + default Markdown exports (and markdown alias) are the public dual API.
+  "exclude": ["duplicates"],
+  "ignore": ["docs/**"],
+  "ignoreBinaries": ["pushd", "popd"],
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.{ts,tsx,js,mjs}"],
+      // Root hoists React for workspace typing; entry points live in lib/site/browser.
+      "ignoreDependencies": ["@types/react", "react"]
+    },
+    "lib": {
+      "entry": [
+        "bunup.config.ts",
+        "src/index.tsx",
+        "src/index.cjs.tsx",
+        "src/react.tsx",
+        "src/html.ts",
+        "src/markdown.ts",
+        "src/native.tsx",
+        "src/solid.tsx",
+        "src/vue.tsx",
+        "src/entities.generated.ts",
+        "src/**/*.{spec,test}.{ts,tsx}",
+        "src/__mocks__/**"
+      ],
+      "ignore": ["dist/**", "src/**/*.generated.*"]
+    },
+    "browser": {
+      "entry": [
+        "src/index.ts",
+        "tests/**/*.{ts,tsx}",
+        "vite.config.ts",
+        "playwright.config.ts"
+      ]
+    },
+    "native": {
+      "entry": [
+        "index.ts",
+        "App.tsx",
+        "fixture.ts",
+        "__tests__/**/*.{ts,tsx}",
+        "metro.config.js",
+        "babel.config.js"
+      ],
+      // Declared in native/app.json for Expo OTA; not imported from TS.
+      "ignoreDependencies": ["expo-updates"]
+    },
+    "site": {
+      "entry": ["*.{ts,tsx}", "index.css", "vite.config.ts"],
+      "ignoreDependencies": [
+        // Site imports lib source for HMR; package dep keeps the workspace edge.
+        "markdown-to-jsx",
+        // CSS @import / @plugin; knip does not see stylesheet references.
+        "@tailwindcss/typography",
+        "tailwindcss"
+      ]
+    },
+    "benchmarks": {
+      "entry": ["*.{ts,tsx,js,mjs}"]
+    }
+  }
+}

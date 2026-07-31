@@ -1,4 +1,4 @@
-export type Preset = {
+export interface Preset {
   id: string
   nameKey: string
   descriptionKey: string
@@ -26,7 +26,9 @@ export const presets: Preset[] = [
     descriptionKey: 'presetMarkdownDesc',
     load: async (lang: string) => {
       try {
-        const module = await import(`../lib/src/i18n/${lang}/markdown-spec.md?raw`)
+        const module = await import(
+          `../lib/src/i18n/${lang}/markdown-spec.md?raw`
+        )
         return module.default
       } catch {
         const fallback = await import('../lib/src/i18n/en/markdown-spec.md?raw')

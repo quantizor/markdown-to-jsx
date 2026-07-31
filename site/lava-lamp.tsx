@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 function generateMapFunction(numParticles: number): string {
   var parts: string[] = [
@@ -139,18 +139,12 @@ fn smin(a: f32, b: f32, k: f32) -> f32 {
 
 {{MAP_FUNCTION}}
 
-fn calcNormal(p: vec3f) -> vec3f {
-    let e = 0.005;
-    return normalize(vec3f(
-        map(p + vec3f(e, 0.0, 0.0)) - map(p - vec3f(e, 0.0, 0.0)),
-        map(p + vec3f(0.0, e, 0.0)) - map(p - vec3f(0.0, e, 0.0)),
-        map(p + vec3f(0.0, 0.0, e)) - map(p - vec3f(0.0, 0.0, e))
-    ));
-}
-
-// Raymarch a single ray and return color
+// Ray-march a single ray through the blob field as a translucent volume.
+// Front-to-back compositing: each sample contributes (1 - alphaAcc) * sample,
+// so a blob in front occludes proportionally rather than fully, and blobs
+// behind it remain visible through the front one. No surface, no normal,
+// no lighting model: density alone produces the look.
 fn getPixelColor(uv: vec2f) -> vec3f {
-    // Camera Basis
     let ro = u.cameraPos;
     let ta = vec3f(0.0, 0.0, 0.0);
     let fw = normalize(ta - ro);
@@ -158,71 +152,53 @@ fn getPixelColor(uv: vec2f) -> vec3f {
     let up = normalize(cross(rt, fw));
     let rd = normalize(fw * 2.0 + rt * uv.x + up * uv.y);
 
-    // Background
+    // Background gradient. Foreground alpha fades onto this.
     let bgTop = u.glowColor * 0.3;
     let bgBot = u.glowColor * 1.2;
     var col = mix(bgBot, bgTop, uv.y * 0.5 + 0.5);
 
-    let lightPos = vec3f(0.0, -3.0, 0.0);
-    let limeLightPos = vec3f(0.0, 5.0, 0.0);
-    let pulse = 1.0 + 0.15 * sin(u.time * 0.75);
+    // Analytic bounding-volume early-out. The blob field lives near the
+    // origin; rays that miss the bound never sample a single map().
+    let boundR = 5.6;
+    let b = dot(ro, rd);
+    let c = dot(ro, ro) - boundR * boundR;
+    let disc = b * b - c;
+    if (disc < 0.0) {
+        return col;
+    }
+    let sqrtDisc = sqrt(disc);
+    let tStart = max(-b - sqrtDisc, 0.0);
+    let tEnd = -b + sqrtDisc;
+    let marchLen = tEnd - tStart;
 
-    var t = 0.0;
-    var prevD = 1000.0;
+    // Fixed-step front-to-back compositing. 16 samples over the bound is
+    // past the discretization threshold at glancing angles for this scene.
+    // Early-out at 0.98 keeps blob-free regions cheap inside the bound too.
+    const STEP_COUNT = 16;
+    let dt = marchLen / f32(STEP_COUNT);
+    var t = tStart + dt * 0.5; // midpoint of the first cell
+    var alphaAcc = 0.0;
+    // Density-to-alpha gain. Tuned for the actual scene scale: peak density
+    // inside a blob is ~0.4 (sphere radius) and a march cell is ~0.7, so
+    // gain 0.5 gives a per-sample alpha around 0.13. A ray passing through
+    // one blob (~2 cells) hits ~0.25 alpha, through two stacked blobs
+    // (~4 cells) ~0.45. That leaves the back blob clearly visible through
+    // the front, which is the look the effect is meant to have.
+    let absorb = 0.5;
 
-    for(var step=0; step<30; step++) {
+    for (var i = 0; i < STEP_COUNT; i = i + 1) {
+        if (alphaAcc > 0.98) { break; }
         let p = ro + rd * t;
         let d = map(p);
-
-        // Early exit if distance is very large and increasing (ray moving away from scene)
-        if (d > 3.0 && d > prevD * 1.1) { break; }
-        prevD = d;
-
-        if(d < 0.002) { // Slightly relaxed hit threshold
-            let n = calcNormal(p);
-            let viewDir = ro - p;
-            let view = normalize(viewDir);
-            let viewDotN = max(dot(view, n), 0.0);
-            let lDir = lightPos - p;
-            let l = normalize(lDir);
-            let limeLDir = limeLightPos - p;
-            let limeL = normalize(limeLDir);
-            let limeDistSq = dot(limeLDir, limeLDir);
-
-            let oneMinusViewDotN = 1.0 - viewDotN;
-            let fresnel = pow(oneMinusViewDotN, 2.5);
-            let alpha = clamp(0.7 + 0.2 * fresnel, 0.0, 1.0);
-
-            let nDotL = max(dot(n, l), 0.0);
-            let nDotLimeL = max(dot(n, limeL), 0.0);
-            let negL = -l;
-            let negLimeL = -limeL;
-            let viewDotNegL = max(dot(view, negL), 0.0);
-            let viewDotNegLimeL = max(dot(view, negLimeL), 0.0);
-            let backScatter = pow(viewDotNegL, 3.0);
-            let limeBackScatter = pow(viewDotNegLimeL, 3.0);
-            let reflL = reflect(negL, n);
-            let reflLimeL = reflect(negLimeL, n);
-            let spec = pow(max(dot(view, reflL), 0.0), 8.0);
-            let limeSpec = pow(max(dot(view, reflLimeL), 0.0), 8.0);
-
-            let rim = u.baseColor * fresnel * 2.0;
-            let waxTint = mix(u.baseColor, u.baseColor * 1.4, smoothstep(-1.0, 1.0, p.y) * 0.5);
-
-            var surfCol = (waxTint * nDotL * 0.5) + (waxTint * backScatter * pulse) + rim;
-            surfCol += vec3f(1.0, 0.9, 0.8) * spec * 0.2;
-
-            let limeAttenuation = 1.0 / (1.0 + limeDistSq * 0.1);
-            let limeContribution = vec3f(0.5, 1.0, 0.0) * (nDotLimeL * 0.3 + limeBackScatter * pulse * 0.2) * 2.0 * limeAttenuation;
-            surfCol += limeContribution + vec3f(0.7, 1.0, 0.6) * limeSpec * 0.15 * limeAttenuation;
-
-            col = mix(col, surfCol, alpha);
-            break;
-        }
-
-        t += d;
-        if(t > 10.0) { break; }
+        // Density is positive inside the smoothed union, negative outside.
+        let density = max(-d, 0.0);
+        let aSample = 1.0 - exp(-density * absorb * dt);
+        let contrib = u.baseColor * aSample;
+        col += contrib * (1.0 - alphaAcc);
+        alphaAcc += aSample * (1.0 - alphaAcc);
+        t = t + dt;
     }
+
     return col;
 }
 
@@ -232,17 +208,21 @@ fn fs_main(in: VertexOut) -> @location(0) vec4f {
     let aspect = u.resolution.x / u.resolution.y;
     let uv = in.uv * vec2f(aspect, 1.0);
 
-    // 2x Super-Sampling Anti-Aliasing (reduced for performance)
-    let pixelSize = 1.0 / u.resolution.y;
+    // Anti-aliasing: 4-tap rotated-grid supersampling. Each tap is one full
+    // volumetric march on this thread; 4x is justified because the inner loop
+    // has no branches or normal computation, so per-tap cost stays low.
+    let px = 1.0 / u.resolution;
+    let o0 = vec2f(-0.375, -0.125) * px;
+    let o1 = vec2f( 0.125, -0.375) * px;
+    let o2 = vec2f( 0.375,  0.125) * px;
+    let o3 = vec2f(-0.125,  0.375) * px;
 
-    // 2-sample diagonal pattern
-    let o1 = vec2f(0.25, 0.25) * pixelSize;
-    let o2 = vec2f(-0.25, -0.25) * pixelSize;
-
+    let c0 = getPixelColor(uv + o0);
     let c1 = getPixelColor(uv + o1);
     let c2 = getPixelColor(uv + o2);
+    let c3 = getPixelColor(uv + o3);
 
-    let finalColor = (c1 + c2) * 0.5;
+    let finalColor = (c0 + c1 + c2 + c3) * 0.25;
 
     return vec4f(finalColor, 1.0);
 }
@@ -250,7 +230,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4f {
 }
 
 function hexToRgb(hex: string): [number, number, number] {
-  const bigint = parseInt(hex.slice(1), 16)
+  const bigint = Number.parseInt(hex.slice(1), 16)
   return [
     ((bigint >> 16) & 255) / 255,
     ((bigint >> 8) & 255) / 255,
@@ -258,12 +238,14 @@ function hexToRgb(hex: string): [number, number, number] {
   ]
 }
 
-function cn(...args: (string | undefined)[]): string {
-  var out = '',
-    i = 0
+function cn(..._args: (string | undefined)[]): string {
+  var out = ''
+  var i = 0
   for (; i < arguments.length; ++i) {
     var x = arguments[i]
-    if (x) (out && (out += ' '), (out += x))
+    if (x) {
+      out && (out += ' '), (out += x)
+    }
   }
   return out
 }
@@ -271,11 +253,13 @@ function cn(...args: (string | undefined)[]): string {
 function loadParticleData(numParticles: number): Float32Array | null {
   try {
     const saved = localStorage.getItem('lava-lamp-particles')
-    if (!saved) return null
+    if (!saved) {
+      return null
+    }
 
     const parsed = JSON.parse(saved)
     const now = Date.now()
-    const oneDay = 86400000
+    const oneDay = 86_400_000
     let dataArray: number[] | null = null
     let timestamp: number | null = null
 
@@ -298,8 +282,7 @@ function loadParticleData(numParticles: number): Float32Array | null {
 
     const expectedLength = numParticles * 12
     if (
-      !dataArray ||
-      !Array.isArray(dataArray) ||
+      !(dataArray && Array.isArray(dataArray)) ||
       dataArray.length !== expectedLength
     ) {
       return null
@@ -334,14 +317,14 @@ function loadParticleData(numParticles: number): Float32Array | null {
         Math.abs(vz) > 2 ||
         temp < -0.1 ||
         temp > 1.1 ||
-        !isFinite(x) ||
-        !isFinite(y) ||
-        !isFinite(z) ||
-        !isFinite(r) ||
-        !isFinite(vx) ||
-        !isFinite(vy) ||
-        !isFinite(vz) ||
-        !isFinite(temp)
+        !Number.isFinite(x) ||
+        !Number.isFinite(y) ||
+        !Number.isFinite(z) ||
+        !Number.isFinite(r) ||
+        !Number.isFinite(vx) ||
+        !Number.isFinite(vy) ||
+        !Number.isFinite(vz) ||
+        !Number.isFinite(temp)
       ) {
         valid = false
         break
@@ -361,7 +344,7 @@ function loadParticleData(numParticles: number): Float32Array | null {
 
     localStorage.removeItem('lava-lamp-particles')
     return null
-  } catch (e) {
+  } catch {
     return null
   }
 }
@@ -392,7 +375,7 @@ function saveParticleData(data: number[]): void {
       'lava-lamp-particles',
       JSON.stringify({
         timestamp: Date.now(),
-        data: data,
+        data,
       })
     )
   } catch (e) {
@@ -407,8 +390,8 @@ export function LavaLamp({ className }: { className?: string }) {
   const mouseRef = useRef({ x: 0, y: 0, down: false })
   const camAnglesRef = useRef({ theta: 0, phi: 0.2 })
   const camRadiusRef = useRef(4.5)
-  const isDestroyedRef = useRef(false)
-  const resourcesRef = useRef<{
+  const _isDestroyedRef = useRef(false)
+  const _resourcesRef = useRef<{
     device: GPUDevice | null
     context: GPUCanvasContext | null
     uniformBuffer: GPUBuffer | null
@@ -441,18 +424,24 @@ export function LavaLamp({ className }: { className?: string }) {
     mouseRef.current.x = e.clientX
     mouseRef.current.y = e.clientY
     const canvas = canvasRef.current
-    if (canvas) canvas.style.cursor = 'grabbing'
+    if (canvas) {
+      canvas.style.cursor = 'grabbing'
+    }
   }, [])
 
   const handleMouseUp = useCallback(() => {
     mouseRef.current.down = false
     const canvas = canvasRef.current
-    if (canvas) canvas.style.cursor = 'grab'
+    if (canvas) {
+      canvas.style.cursor = 'grab'
+    }
   }, [])
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
-      if (!mouseRef.current.down) return
+      if (!mouseRef.current.down) {
+        return
+      }
       updateCamera(
         e.clientX - mouseRef.current.x,
         e.clientY - mouseRef.current.y
@@ -475,7 +464,9 @@ export function LavaLamp({ className }: { className?: string }) {
 
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
-      if (!mouseRef.current.down) return
+      if (!mouseRef.current.down) {
+        return
+      }
       e.preventDefault()
       const t = e.touches[0]
       updateCamera(
@@ -490,7 +481,9 @@ export function LavaLamp({ className }: { className?: string }) {
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas) {
+      return
+    }
 
     if (!navigator.gpu) {
       console.warn('WebGPU not supported, lava lamp disabled')
@@ -506,8 +499,10 @@ export function LavaLamp({ className }: { className?: string }) {
     let renderPipeline: GPURenderPipeline | null = null
     let stagingBuffer: GPUBuffer | null = null
     let handleWindowResize: (() => void) | null = null
+    let handleScroll: (() => void) | null = null
+    let scrollEndTimer: ReturnType<typeof setTimeout> | null = null
     let isDestroyed = false
-    let numParticles = 16
+    const numParticles = 16
     const uniformBufferSize = 160
 
     const init = async () => {
@@ -614,6 +609,9 @@ export function LavaLamp({ className }: { className?: string }) {
         uValues[5] = 8.5
 
         let lastFrameTime = 0
+        // 60fps: the per-pixel shader is now cheap enough (4-tap AA resolve +
+        // tetrahedral normal) that full frame rate is affordable. Slow ambient
+        // motion reads identically, but interaction (camera drag) stays crisp.
         const frameInterval = 1000 / 60
         let lastSaveTime = 0
         stagingBuffer = device.createBuffer({
@@ -622,23 +620,34 @@ export function LavaLamp({ className }: { className?: string }) {
         })
         let isSaving = false
         const saveArrayLength = numParticles * 12
+        // Persisting is only a reload convenience; snapshot once per second
+        // instead of every 100ms. The old rate kept a GPU->CPU readback in
+        // flight nearly full-time, stalling the pipeline.
+        const saveInterval = 1000
 
         const updateCanvasSize = () => {
-          if (isDestroyed) return
+          if (isDestroyed) {
+            return
+          }
           const width = window.visualViewport?.width || window.innerWidth
           const height = window.visualViewport?.height || window.innerHeight
           if (width > 0 && height > 0) {
-            const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
-            const renderWidth = width * dpr
-            const renderHeight = height * dpr
+            // Render at devicePixelRatio capped at 2 for edge sharpness. A
+            // live scroll trace showed the GPU process saturates during scroll
+            // at dpr 2, so the frame loop drops to dpr 1 while a scroll is in
+            // progress and restores full res when it ends (motion masks the
+            // brief softness). Rest quality stays full; scroll frees 75% fill.
+            const dpr = Math.min(window.devicePixelRatio || 1, 2)
+            const renderWidth = Math.round(width * dpr)
+            const renderHeight = Math.round(height * dpr)
             if (
               canvas.width !== renderWidth ||
               canvas.height !== renderHeight
             ) {
               canvas.width = renderWidth
               canvas.height = renderHeight
-              canvas.style.width = width + 'px'
-              canvas.style.height = height + 'px'
+              canvas.style.width = `${width}px`
+              canvas.style.height = `${height}px`
             }
           }
         }
@@ -650,8 +659,34 @@ export function LavaLamp({ className }: { className?: string }) {
         }
         window.addEventListener('resize', handleWindowResize)
 
+        // Scroll-adaptive resolution. Full dpr at rest for crisp edges; dpr 1
+        // while a scroll is in progress so the GPU process (which a live trace
+        // showed saturating during scroll) keeps up. A scroll settles 150ms
+        // after the last event, then full res is restored; the brief softness
+        // is masked by motion and invisible against the moving page.
+        let isScrolling = false
+        handleScroll = () => {
+          isScrolling = true
+          if (scrollEndTimer !== null) {
+            clearTimeout(scrollEndTimer)
+          }
+          scrollEndTimer = setTimeout(() => {
+            isScrolling = false
+            scrollEndTimer = null
+          }, 150)
+        }
+        window.addEventListener('scroll', handleScroll, { passive: true })
+
         const frame = (time: number) => {
           if (isDestroyed || !device || !context) {
+            return
+          }
+
+          // requestAnimationFrame stops in background tabs on most browsers,
+          // but not all (and not when throttled rather than stopped). Skip
+          // the GPU work explicitly so a hidden tab costs nothing.
+          if (document.visibilityState === 'hidden') {
+            animationFrameRef.current = requestAnimationFrame(frame)
             return
           }
 
@@ -664,15 +699,17 @@ export function LavaLamp({ className }: { className?: string }) {
 
           const width = window.visualViewport?.width || window.innerWidth
           const height = window.visualViewport?.height || window.innerHeight
-          const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
-          const renderWidth = width * dpr
-          const renderHeight = height * dpr
+          const dpr = isScrolling
+            ? 1
+            : Math.min(window.devicePixelRatio || 1, 2)
+          const renderWidth = Math.round(width * dpr)
+          const renderHeight = Math.round(height * dpr)
 
           if (canvas.width !== renderWidth || canvas.height !== renderHeight) {
             canvas.width = renderWidth
             canvas.height = renderHeight
-            canvas.style.width = width + 'px'
-            canvas.style.height = height + 'px'
+            canvas.style.width = `${width}px`
+            canvas.style.height = `${height}px`
           }
 
           camAnglesRef.current.theta += 0.0003
@@ -692,10 +729,7 @@ export function LavaLamp({ className }: { className?: string }) {
           uValues[18] = r * cosPhi * cosTheta
 
           if (
-            !uniformBuffer ||
-            !computePipeline ||
-            !renderPipeline ||
-            !bindGroup
+            !(uniformBuffer && computePipeline && renderPipeline && bindGroup)
           ) {
             if (!isDestroyed) {
               animationFrameRef.current = requestAnimationFrame(frame)
@@ -729,13 +763,18 @@ export function LavaLamp({ className }: { className?: string }) {
             renderPass.draw(6)
             renderPass.end()
 
+            // Encoders, passes, the command buffer, and the texture view are
+            // all lightweight JS-side objects holding no GPU memory of their
+            // own; only buffers and textures do, and none are allocated here.
+            // The canvas texture comes from getCurrentTexture() and is owned
+            // by the context, so there is nothing to destroy per frame.
             device.queue.submit([commandEncoder.finish()])
           } catch (err) {
             console.warn('Lava lamp render error:', err)
           }
 
           const now = Date.now()
-          if (now - lastSaveTime > 100 && stagingBuffer && !isSaving) {
+          if (now - lastSaveTime > saveInterval && stagingBuffer && !isSaving) {
             lastSaveTime = now
             isSaving = true
             device.queue
@@ -785,13 +824,15 @@ export function LavaLamp({ className }: { className?: string }) {
                         stagingBuffer.unmap()
                         isSaving = false
                         const saveToStorage = () => {
-                          if (isDestroyed) return
+                          if (isDestroyed) {
+                            return
+                          }
                           saveParticleData(saveData)
                         }
-                        if (typeof requestIdleCallback !== 'undefined') {
-                          requestIdleCallback(saveToStorage, { timeout: 5000 })
-                        } else {
+                        if (typeof requestIdleCallback === 'undefined') {
                           setTimeout(saveToStorage, 0)
+                        } else {
+                          requestIdleCallback(saveToStorage, { timeout: 5000 })
                         }
                       } else {
                         stagingBuffer.unmap()

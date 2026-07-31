@@ -16,7 +16,9 @@ URL sanitization
 
 Blocked schemes are `javascript:`, `vbscript:`, and `data:` other than `data:image`. The single regex is `/(javascript|vbscript|data(?!:image)):/i`.
 
-Matching the literal scheme is not sufficient, and this is the mistake nearly every hand-rolled sanitizer makes. `java%73cript:alert(1)` and `%6a%61%76%61%73%63%72%69%70%74:...` both pass a literal test, and the browser executes them anyway because it decodes the attribute before acting on it. The working algorithm:
+Markdown link and image destinations (inline and reference) are HTML-entity-decoded once at parse time before the sanitizer runs, matching CommonMark destination rules. That turns `&#106;avascript:` and `jav&#x61;script:` into a literal `javascript:` scheme the sanitizer rejects. Raw HTML URL attributes use the same entity-aware path in `isDangerousAttr`.
+
+Matching the literal scheme is not sufficient, and this is the mistake nearly every hand-rolled sanitizer makes. `java%73cript:alert(1)` and `%6a%61%76%61%73%63%72%69%70%74:...` both pass a literal test, and the browser executes them anyway because it decodes the attribute before acting on it. The working algorithm after entity decode:
 
 1. Run the scheme regex on the raw input. Reject on a match.
 2. If the input contains no `%` it cannot be percent-encoded, so return it unchanged. This is the fast path and it keeps the decode cost off the common case.
@@ -38,7 +40,7 @@ Independent of the URL sanitizer, raw HTML attributes are screened as the parser
 - URL-bearing attributes (`href`, `src`, `action`, `formaction`, `poster`, `cite`, `background`, `data`, `longdesc`, `xlink:href`) are removed when the value resolves to a dangerous scheme, using the same decode-aware check above so entity-obfuscated schemes are caught.
 - A JSX brace expression on a component-like tag is a prop the renderer resolves, not a raw-HTML handler string, so it is kept. On a standard HTML tag it is screened like any other value.
 
-Dangerous tag names (`script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`) are escaped separately by the `tagfilter` option, which defaults to on.
+Dangerous tag names (`script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`) are escaped separately by the `tagfilter` option, which defaults to on. Matching GFM, only each matching tag's leading `<` is replaced (`&lt;script>…&lt;/script>` in the HTML sink); the body and closer stay. JSX sinks emit the same inert source as text nodes (React also escapes `>` in text). Structured children of filtered parents still render normally so allowed nested tags stay live.
 
 Evaluation is opt-in and stays opt-in
 

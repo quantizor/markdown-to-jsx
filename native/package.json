@@ -1,0 +1,43 @@
+{
+  "name": "@markdown-to-jsx/native",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "ios": "expo start --ios",
+    "start": "expo start",
+    "test": "jest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@babel/runtime": "^8.0.0",
+    "expo": "57.0.8",
+    "markdown-to-jsx": "workspace:*",
+    "react": "19.2.8",
+    "react-native": "0.86.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "@react-native/jest-preset": "0.86.0",
+    "@testing-library/react-native": "14.0.1",
+    "@types/react": "^19.2.6",
+    "babel-preset-expo": "~57.0.4",
+    "jest": "^29.7.0",
+    "jest-expo": "57.0.2",
+    "react-server-dom-webpack": "~19.2.4",
+    "test-renderer": "^1.2.0",
+    "typescript": "^5.9.3"
+  },
+  "jest": {
+    "preset": "jest-expo/ios",
+    "prettierPath": null,
+    "testMatch": [
+      "<rootDir>/__tests__/*-test.[jt]s?(x)"
+    ],
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(\\.pnpm|\\.bun|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|standard-navigation|markdown-to-jsx))",
+      "/node_modules/(?:\\.bun/[^/]+/node_modules/)?react-native-reanimated/plugin/",
+      "/node_modules/(?:\\.bun/[^/]+/node_modules/)?@react-native/babel-preset/"
+    ]
+  }
+}

@@ -1,16 +1,17 @@
 /** @jsxRuntime classic */
 /** @jsx h */
 
+import process from 'node:process'
 import * as React from 'react'
-import * as $ from './constants'
-import * as parse from './parse'
-import { MarkdownToJSX, RuleType } from './types'
-import * as util from './utils'
+import * as $ from './constants.ts'
+import * as parse from './parse.ts'
+import { type MarkdownToJSX, RuleType } from './types.ts'
+import * as util from './utils.ts'
 
-export { parser } from './parse'
+export { parser } from './parse.ts'
 
-export { RuleType, type MarkdownToJSX } from './types'
-export { sanitizer, slugify } from './utils'
+export { type MarkdownToJSX, RuleType } from './types.ts'
+export { sanitizer, slugify } from './utils.ts'
 
 /**
  * JSX namespace anchor for this file's classic-runtime custom factory pragma.
@@ -38,13 +39,13 @@ var REACT_ELEMENT_TYPE: symbol
 try {
   var probeElement: unknown = React.createElement('div')
   REACT_ELEMENT_TYPE =
-    probeElement !== null &&
+    probeElement != null &&
     typeof probeElement === 'object' &&
     '$$typeof' in probeElement &&
     typeof probeElement.$$typeof === 'symbol'
       ? probeElement.$$typeof
       : Symbol.for('react.transitional.element')
-} catch (e) {
+} catch {
   REACT_ELEMENT_TYPE = Symbol.for('react.transitional.element')
 }
 
@@ -54,11 +55,7 @@ try {
  * and dev-mode freezing that React.createElement performs.
  * Inspired by Bun's JSReactElement approach.
  */
-function createRawElement(
-  type: any,
-  props: any,
-  key: any
-): any {
+function createRawElement(type: any, props: any, key: any): any {
   // These internal properties must be included unconditionally because the
   // library build replaces process.env.NODE_ENV, which strips dev-only branches.
   // _store: React's dev reconciler writes _store.validated; without _store it throws.
@@ -67,10 +64,10 @@ function createRawElement(
   // null (not undefined) satisfies the !== undefined check.
   return {
     $$typeof: REACT_ELEMENT_TYPE,
-    type: type,
-    key: key != null ? '' + key : null,
+    type,
+    key: key == null ? null : String(key),
     ref: null,
-    props: props,
+    props,
     _owner: null,
     _store: {},
     _debugStack: null,
@@ -87,10 +84,12 @@ function keyedJsxProps(
   key: any,
   attrs: Record<string, any> | null | undefined
 ): Record<string, any> {
-  var props: Record<string, any> = { key: key }
+  var props: Record<string, any> = { key }
   if (attrs) {
     var jsx = util.htmlAttrsToJSXProps(attrs)
-    for (var k in jsx) props[k] = jsx[k]
+    for (var k in jsx) {
+      props[k] = jsx[k]
+    }
   }
   return props
 }
@@ -103,9 +102,9 @@ function keyedJsxProps(
 export const MarkdownContext:
   | React.Context<MarkdownToJSX.Options | undefined>
   | undefined =
-  typeof React.createContext !== 'undefined'
-    ? React.createContext<MarkdownToJSX.Options | undefined>(undefined)
-    : undefined
+  typeof React.createContext === 'undefined'
+    ? undefined
+    : React.createContext<MarkdownToJSX.Options | undefined>(undefined)
 
 function render(
   node: MarkdownToJSX.ASTNode,
@@ -116,7 +115,7 @@ function render(
   slug: (input: string, defaultFn: (input: string) => string) => string,
   refs: { [key: string]: { target: string; title: string | undefined } },
   options: MarkdownToJSX.Options,
-  hJSX: (tag: any, props: any, ...children: any[]) => any
+  hJsx: (tag: any, props: any, ...children: any[]) => any
 ): React.ReactNode {
   switch (node.type) {
     case RuleType.blockQuote: {
@@ -125,8 +124,7 @@ function render(
       } as Record<string, unknown>
 
       if (node.alert) {
-        props.className =
-          'markdown-alert-' + slug(node.alert.toLowerCase(), util.slugify)
+        props.className = `markdown-alert-${slug(node.alert.toLowerCase(), util.slugify)}`
 
         node.children.unshift(util.alertHeaderNode(node.alert))
       }
@@ -146,7 +144,7 @@ function render(
       }
       return null
 
-    case RuleType.codeBlock:
+    case RuleType.codeBlock: {
       // Decode entity references in language name (per CommonMark spec)
       const decodedLang = node.lang
         ? util.decodeEntityReferences(node.lang)
@@ -155,20 +153,20 @@ function render(
         ? util.htmlAttrsToJSXProps(node.attrs)
         : {}
       codeProps.className = decodedLang
-        ? 'language-' + decodedLang + ' lang-' + decodedLang
+        ? `language-${decodedLang} lang-${decodedLang}`
         : ''
-      return h(
-        'pre',
-        { key: state.key },
-        h('code', codeProps, node.text)
-      )
+      return h('pre', { key: state.key }, h('code', codeProps, node.text))
+    }
 
     case RuleType.codeInline:
       return <code key={state.key}>{node.text}</code>
 
     case RuleType.footnoteReference:
       return (
-        <a key={state.key} href={sanitize(node.target, 'a', 'href') || undefined}>
+        <a
+          key={state.key}
+          href={sanitize(node.target, 'a', 'href') || undefined}
+        >
           <sup>{node.text}</sup>
         </a>
       )
@@ -178,7 +176,7 @@ function render(
         <input
           checked={node.completed}
           key={state.key}
-          readOnly
+          readOnly={true}
           type="checkbox"
         />
       )
@@ -193,43 +191,72 @@ function render(
     case RuleType.htmlBlock: {
       const htmlNode = node as MarkdownToJSX.HTMLNode
 
-      // Apply options.tagfilter: escape dangerous tags
-      if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
-        // Construct opening tag for display (React will escape the angle brackets)
+      // Apply options.tagfilter: escape dangerous tags (GFM: leading '<' only;
+      // React text nodes also escape '>', which is the JSX sink's normal form).
+      if (
+        util.tagfilterEnabled(options) &&
+        util.shouldFilterTag(htmlNode.tag)
+      ) {
+        var filtered = util.getFilteredTagEmit(htmlNode)
+        if (filtered.kind === 'literal') {
+          return h('span', { key: state.key }, filtered.literal)
+        }
         return h(
           'span',
           { key: state.key },
-          '<' + htmlNode.tag + util.formatFilteredTagAttrs(htmlNode.attrs) + '>'
+          ...util.assembleFilteredTagChildren(
+            filtered.open,
+            htmlNode.children ? output(htmlNode.children, state) : null,
+            filtered.close
+          )
         )
       }
 
-      if (htmlNode._rawText && htmlNode._verbatim) {
-        // For verbatim blocks, always use rawText for rendering (CommonMark compliance)
+      const rawOuter = htmlNode._rawOuter
+      const isRawOuter = rawOuter !== undefined
+      const rawSource = isRawOuter
+        ? rawOuter
+        : htmlNode._isClosingTag
+          ? htmlNode._rawBody || ''
+          : (htmlNode._rawBody || '') + (htmlNode._rawClose || '')
+      if (rawSource && htmlNode._verbatim) {
+        // For verbatim blocks, always use rawSource for rendering (CommonMark compliance)
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
         const htmlChildren = htmlNode.children
         const hasChildren = htmlChildren != null && htmlChildren.length > 0
 
-        // Type 1 blocks (pre, script, style, textarea) always render verbatim
+        // Type 1 blocks (pre, script, style, textarea) always render verbatim.
+        // The element wrapper below supplies its own closing tag, so the body
+        // excludes _rawClose; the full outer span is used as-is only when no
+        // closing tag was found (rare, matches the tag-filter sniff below).
         if (isType1Block) {
-          const textContent = util.type1TextContent(
-            htmlNode._rawText,
-            tagLower,
-            options.tagfilter
-          )
-          if (/<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)) {
+          const type1Body = isRawOuter ? rawOuter : htmlNode._rawBody || ''
+          const textContent = util.tagfilterEnabled(options)
+            ? util.applyTagFilterToText(type1Body)
+            : type1Body
+          if (/<[a-z][^>]{0,100}>/i.test(rawSource)) {
             var t1Props = keyedJsxProps(state.key, node.attrs)
             t1Props.dangerouslySetInnerHTML = { __html: textContent }
-            return hJSX(node.tag, t1Props)
+            return hJsx(node.tag, t1Props)
           }
-          return hJSX(node.tag, keyedJsxProps(state.key, node.attrs), textContent)
+          return hJsx(
+            node.tag,
+            keyedJsxProps(state.key, node.attrs),
+            textContent
+          )
         }
 
         // When the tag itself is filtered (e.g. <iframe>), prefer
         // children so each child element goes through its own tagfilter check
         const ownTagStartR = new RegExp(`^<${htmlNode.tag}(\\s|>)`, 'i')
-        if (hasChildren && !ownTagStartR.test(htmlNode._rawText) && options.tagfilter && util.containsTagfilterTag(htmlNode._rawText)) {
-          return hJSX(
+        if (
+          hasChildren &&
+          !ownTagStartR.test(rawSource) &&
+          util.tagfilterEnabled(options) &&
+          util.containsTagfilterTag(rawSource)
+        ) {
+          return hJsx(
             node.tag,
             keyedJsxProps(state.key, node.attrs),
             output(htmlChildren, state)
@@ -237,27 +264,23 @@ function render(
         }
 
         // Non-Type-1 verbatim blocks containing Type 1 tags use innerHTML
-        const containsVerbatimTags = parse.containsType1Tag(htmlNode._rawText)
+        const containsVerbatimTags = parse.containsType1Tag(rawSource)
         if (containsVerbatimTags) {
-          const innerHtml = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode._rawText)
-            : htmlNode._rawText
+          const innerHtml = util.tagfilterEnabled(options)
+            ? util.applyTagFilterToText(rawSource)
+            : rawSource
           var vProps = keyedJsxProps(state.key, node.attrs)
           vProps.dangerouslySetInnerHTML = { __html: innerHtml }
-          return hJSX(node.tag, vProps)
+          return hJsx(node.tag, vProps)
         }
-        // For other verbatim blocks, re-parse rawText for JSX compilation
-        // (children are available for renderRule but default uses rawText)
-        const parseOptions: parse.ParseOptions = {
-          slugify: (input: string) => slug(input, util.slugify),
+        // For other verbatim blocks, re-parse rawSource for JSX compilation
+        // (children are available for renderRule but default uses rawSource)
+        const parseOptions = parse.toParseOptions({
+          slugify: options.slugify,
           sanitizer: sanitize,
           tagfilter: true,
-        }
-        const cleanedText = htmlNode._rawText
-          .replace(/>\s+</g, '><')
-          .replace(/\n+/g, ' ')
-          .trim()
-
+        })
+        const cleanedText = util.normalizeJsxReparseText(rawSource)
         // Avoid infinite recursion: if cleanedText is just the same HTML tag we're processing,
         // render as an empty element
         const selfTagRegex = new RegExp(
@@ -267,18 +290,18 @@ function render(
         if (selfTagRegex.test(cleanedText)) {
           // If parser already produced children, use them instead of discarding
           if (htmlNode.children && htmlNode.children.length > 0) {
-            return hJSX(
+            return hJsx(
               node.tag,
               keyedJsxProps(state.key, node.attrs),
               output(htmlNode.children, state)
             )
           }
-          return hJSX(node.tag, keyedJsxProps(state.key, node.attrs))
+          return hJsx(node.tag, keyedJsxProps(state.key, node.attrs))
         }
 
         const astNodes = parse.parseMarkdown(
           cleanedText,
-          { inline: false, refs: refs, inHTML: false },
+          { inline: false, refs, inHTML: false },
           parseOptions
         )
         // Strip verbatim from re-parsed nodes to prevent infinite re-parse
@@ -286,21 +309,16 @@ function render(
         // tag (issue #881). See util.stripVerbatim for the full rationale.
         util.stripVerbatim(astNodes)
 
-        // Check if rawText represents the FULL outer block (starts with opening tag
-        // and ends with closing tag of the same element, with no content after)
-        // In this case, render the parsed nodes directly without adding another wrapper
+        // _rawOuter means the parser already determined this span is the FULL
+        // outer block (own opening tag through own closing tag, or through end
+        // of input when no closer exists); render the parsed nodes directly
+        // without adding another wrapper.
         const tagLowerCheck = (htmlNode.tag as string).toLowerCase()
-        const closingTag = '</' + tagLowerCheck + '>'
-        const startsWithOwnTag = ownTagStartR.test(cleanedText)
-        const endsWithClosingTag = cleanedText
-          .toLowerCase()
-          .trimEnd()
-          .endsWith(closingTag)
-        const isFullOuterBlock = startsWithOwnTag && endsWithClosingTag
+        const isFullOuterBlock = isRawOuter
 
-        // When rawText wraps the full outer block, prefer children if available
+        // When rawSource wraps the full outer block, prefer children if available
         if (isFullOuterBlock && hasChildren) {
-          return hJSX(
+          return hJsx(
             node.tag,
             keyedJsxProps(state.key, node.attrs),
             output(htmlChildren, state)
@@ -315,34 +333,38 @@ function render(
         // util.processVerbatimNode strips closing tags.
         var splitResult = util.findOwnCloseInAST(astNodes, tagLowerCheck)
         if (splitResult.found && splitResult.afterClose.length > 0) {
-          var beforeProcessed = splitResult.beforeClose.flatMap(util.processVerbatimNode)
-          var afterProcessed = splitResult.afterClose.flatMap(util.processVerbatimNode)
+          var beforeProcessed = splitResult.beforeClose.flatMap(
+            util.processVerbatimNode
+          )
+          var afterProcessed = splitResult.afterClose.flatMap(
+            util.processVerbatimNode
+          )
           return createRawElement(
             React.Fragment,
             {
               children: [
-                hJSX(
+                hJsx(
                   node.tag,
                   keyedJsxProps(state.key, node.attrs),
                   output(beforeProcessed, state)
                 ),
-                output(afterProcessed, state)
-              ]
+                output(afterProcessed, state),
+              ],
             },
             state.key
           )
         }
 
-        return hJSX(
+        return hJsx(
           node.tag,
           keyedJsxProps(state.key, node.attrs),
           output(astNodes.flatMap(util.processVerbatimNode), state)
         )
       }
       if (util.isVoidElement(node.tag)) {
-        return hJSX(node.tag, keyedJsxProps(state.key, node.attrs))
+        return hJsx(node.tag, keyedJsxProps(state.key, node.attrs))
       }
-      return hJSX(
+      return hJsx(
         node.tag,
         keyedJsxProps(state.key, node.attrs),
         node.children ? output(node.children, state) : ''
@@ -353,22 +375,26 @@ function render(
       const htmlNode = node as MarkdownToJSX.HTMLSelfClosingNode
 
       // Apply options.tagfilter: escape dangerous self-closing tags
-      if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
+      if (
+        util.tagfilterEnabled(options) &&
+        util.shouldFilterTag(htmlNode.tag)
+      ) {
+        var filteredSc = util.getFilteredTagEmit(htmlNode)
         return h(
           'span',
           { key: state.key },
-          '<' +
-            htmlNode.tag +
-            util.formatFilteredTagAttrs(htmlNode.attrs) +
-            ' />'
+          filteredSc.kind === 'literal'
+            ? filteredSc.literal
+            : filteredSc.open + (filteredSc.close || '')
         )
       }
 
-      return hJSX(node.tag, keyedJsxProps(state.key, node.attrs))
+      return hJsx(node.tag, keyedJsxProps(state.key, node.attrs))
     }
 
     case RuleType.image: {
-      const src = node.target != null ? sanitize(node.target, 'img', 'src') : null
+      const src =
+        node.target === null ? null : sanitize(node.target, 'img', 'src')
       return (
         <img
           key={state.key}
@@ -382,9 +408,16 @@ function render(
     case RuleType.link: {
       const props: Record<string, unknown> = { key: state.key }
       if (node.target != null) {
-        // Entity references are already decoded during parsing (per CommonMark spec)
-        // URL-encode backslashes and backticks (per CommonMark spec)
-        props.href = util.encodeUrlTarget(node.target)
+        // Re-sanitize at emit so direct astToJSX(dangerous) cannot skip the gate.
+        const href = util.sanitizeAndEncodeUrlTarget(
+          node.target,
+          sanitize,
+          'a',
+          'href'
+        )
+        if (href != null) {
+          props.href = href
+        }
       }
       if (node.title) {
         // Entity references are already decoded during parsing (per CommonMark spec)
@@ -404,7 +437,7 @@ function render(
                   <th
                     key={i}
                     style={
-                      table.align[i] == null
+                      table.align[i] === null
                         ? {}
                         : { textAlign: table.align[i] }
                     }
@@ -426,7 +459,7 @@ function render(
                         <td
                           key={c}
                           style={
-                            table.align[c] == null
+                            table.align[c] === null
                               ? {}
                               : { textAlign: table.align[c] }
                           }
@@ -496,10 +529,10 @@ const createRenderer = (
   slug: (input: string, defaultFn: (input: string) => string) => string,
   refs: { [key: string]: { target: string; title: string | undefined } },
   options: MarkdownToJSX.Options,
-  hJSX: (tag: any, props: any, ...children: any[]) => any
+  hJsx: (tag: any, props: any, ...children: any[]) => any
 ) => {
   var handleStackOverflow = (ast: MarkdownToJSX.ASTNode[]) =>
-    ast.map(function(node) { return 'text' in node ? node.text : '' })
+    ast.map(node => ('text' in node ? node.text : ''))
   var renderer = (
     astInput: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
     state: MarkdownToJSX.State = {}
@@ -507,31 +540,52 @@ const createRenderer = (
     // The public ASTRender contract accepts a single node as well as a list
     var ast = Array.isArray(astInput) ? astInput : [astInput]
     var depth = (state.renderDepth || 0) + 1
-    if (depth > 2500) return handleStackOverflow(ast)
+    if (depth > 2500) {
+      return handleStackOverflow(ast)
+    }
     state.renderDepth = depth
 
-    var oldKey = state.key,
-      result: React.ReactNode[] = []
+    var oldKey = state.key
+    var result: React.ReactNode[] = []
     var lastWasString = false
     for (var i = 0; i < ast.length; i++) {
       state.key = i
       var nodeOut: React.ReactNode
       if (userRender) {
         var defaultRender = render.bind(
-          null, ast[i], renderer, state, h, sanitize, slug, refs, options, hJSX
+          null,
+          ast[i],
+          renderer,
+          state,
+          h,
+          sanitize,
+          slug,
+          refs,
+          options,
+          hJsx
         )
         nodeOut = userRender(defaultRender, ast[i], renderer, state)
       } else {
-        nodeOut = render(ast[i], renderer, state, h, sanitize, slug, refs, options, hJSX)
+        nodeOut = render(
+          ast[i],
+          renderer,
+          state,
+          h,
+          sanitize,
+          slug,
+          refs,
+          options,
+          hJsx
+        )
       }
       var isString = typeof nodeOut === 'string'
       if (lastWasString && typeof nodeOut === 'string') {
         // Concatenate consecutive strings. lastWasString guarantees the last
         // entry is a string; the typeof re-check narrows it for the compiler.
-        var lastEntry = result[result.length - 1]
+        var lastEntry = result.at(-1)
         result[result.length - 1] =
           (typeof lastEntry === 'string' ? lastEntry : '') + nodeOut
-      } else if (nodeOut !== null) {
+      } else if (nodeOut != null) {
         if (Array.isArray(nodeOut)) {
           // Use loop instead of spread for better performance
           for (var j = 0; j < nodeOut.length; j++) {
@@ -555,12 +609,12 @@ const getTag = (
   overrides: MarkdownToJSX.Overrides | undefined
 ) => {
   const override = util.get(overrides, tag, undefined)
-  return !override
-    ? tag
-    : typeof override === 'function' ||
-        (typeof override === 'object' && 'render' in override)
+  return override
+    ? typeof override === 'function' ||
+      (typeof override === 'object' && 'render' in override)
       ? override
       : util.get(overrides, `${tag}.component`, tag)
+    : tag
 }
 
 /**
@@ -583,14 +637,14 @@ export function astToJSX(
   const hasOverrides = util.hasKeys(opts.overrides)
 
   // Recursive compile function for HTML content
-  const compileHTML = (input: string) =>
+  const compileHtml = (input: string) =>
     compiler(input, { ...opts, wrapper: null })
 
   // Compile any JSX-like string values in props. Only called from the HTML
   // block/self-closing render cases via hJSX — the vast majority of h()
   // calls (paragraphs, headings, lists, inline emphasis, etc.) never contain
   // embedded JSX strings so running this per-element is a profiled hot path.
-  function _compilePropsJSX(props: Record<string, any>): void {
+  function _compilePropsJsx(props: Record<string, any>): void {
     for (var pkey in props) {
       var pval = props[pkey]
       if (
@@ -601,10 +655,11 @@ export function astToJSX(
           parse.UPPERCASE_TAG_R.test(pval) ||
           parse.parseHTMLTag(pval, 0))
       ) {
-        var compiled = compileHTML(pval.trim())
-        props[pkey] = pkey === 'innerHTML' && Array.isArray(compiled)
-          ? compiled[0]
-          : compiled
+        var compiled = compileHtml(pval.trim())
+        props[pkey] =
+          pkey === 'innerHTML' && Array.isArray(compiled)
+            ? compiled[0]
+            : compiled
       }
     }
   }
@@ -628,7 +683,7 @@ export function astToJSX(
     var resolvedTag: any = tag
 
     if (hasOverrides) {
-      var overrideProps = util.get(opts.overrides, tag + '.props', {})
+      var overrideProps = util.get(opts.overrides, `${tag}.props`, {})
       resolvedTag = getTag(tag, opts.overrides)
       finalProps = {
         ...finalProps,
@@ -652,45 +707,43 @@ export function astToJSX(
       return createRawElement(resolvedTag, finalProps, elKey)
     }
 
-    return customCreateElement(
-      resolvedTag,
-      finalProps,
-      ...children
-    )
+    return customCreateElement(resolvedTag, finalProps, ...children)
   }
 
   // Variant that runs the embedded-JSX compile loop on props before
   // delegating to h. Used only by HTML block / self-closing render cases.
-  function hJSX(tag: any, props: any, ...children: any[]): any {
-    if (props) _compilePropsJSX(props)
+  function hJsx(tag: any, props: any, ...children: any[]): any {
+    if (props) {
+      _compilePropsJsx(props)
+    }
     return h(tag, props, ...children)
   }
 
-  // Capture once so the adapter closure below sees a definitely-defined function
-  const userSlugify = opts.slugify
-  const parseOptions: parse.ParseOptions = {
-    ...opts,
-    // Fast path: when no user slugify, pass util.slugify directly (no closure)
-    slugify: userSlugify ? i => userSlugify(i, util.slugify) : util.slugify,
-    sanitizer: sanitize,
-    tagfilter: opts.tagfilter !== false,
-  }
+  const parseOptions = parse.toParseOptions(opts, opts.forceInline)
 
   const refs =
     ast[0] && ast[0].type === RuleType.refCollection
       ? (ast[0] as MarkdownToJSX.ReferenceCollectionNode).refs
       : {}
 
-  const emitter = createRenderer(opts.renderRule, h, sanitize, slug, refs, opts, hJSX)
+  const emitter = createRenderer(
+    opts.renderRule,
+    h,
+    sanitize,
+    slug,
+    refs,
+    opts,
+    hJsx
+  )
 
   const arr = emitter(ast, {
     inline: opts.forceInline,
-    refs: refs,
+    refs,
   })
 
   const footnoteEntries = util.extractFootnoteEntries(refs)
 
-  if (footnoteEntries.length) {
+  if (footnoteEntries.length > 0) {
     arr.push(
       <footer key="footer">
         {footnoteEntries.map(function createFootnote(def) {
@@ -700,7 +753,7 @@ export function astToJSX(
               : def.identifier
           const footnoteAstNodes = parse.parseMarkdown(
             def.footnote,
-            { inline: true, refs: refs },
+            { inline: true, refs },
             parseOptions
           )
           return h(
@@ -709,8 +762,8 @@ export function astToJSX(
               id: slug(identifierWithoutCaret, util.slugify),
               key: def.identifier,
             },
-            identifierWithoutCaret + ': ',
-            emitter(footnoteAstNodes, { inline: true, refs: refs })
+            `${identifierWithoutCaret}: `,
+            emitter(footnoteAstNodes, { inline: true, refs })
           )
         })}
       </footer>
@@ -747,48 +800,31 @@ export function astToJSX(
  * @returns React JSX element(s)
  */
 export function compiler(
-  markdown: string = '',
+  markdown = '',
   options: MarkdownToJSX.Options = {}
 ): React.ReactNode {
   const opts = { ...(options || {}) }
   opts.overrides = opts.overrides || {}
 
-  const slug = opts.slugify || util.slugify
-  const sanitize = opts.sanitizer || util.sanitizer
+  const _slug = opts.slugify || util.slugify
+  const _sanitize = opts.sanitizer || util.sanitizer
 
   function compile(input: string): React.ReactNode {
     const inline =
       opts.forceInline ||
-      (!opts.forceBlock && !util.SHOULD_RENDER_AS_BLOCK_R.test(input))
-    // Capture once so the adapter closure below sees a definitely-defined function
-    const userSlugify = opts.slugify
-    const parseOptions: parse.ParseOptions = {
-      ...opts,
-      // Fast path: when no user slugify, pass util.slugify directly (no closure)
-      slugify: userSlugify ? i => userSlugify(i, util.slugify) : util.slugify,
-      sanitizer: sanitize,
-      tagfilter: opts.tagfilter !== false,
-    }
+      !(opts.forceBlock || util.SHOULD_RENDER_AS_BLOCK_R.test(input))
+    const parseOptions = parse.toParseOptions(opts, inline)
 
-    let processedInput = inline ? input : util.prepareBlockInput(input)
+    const processedInput = inline ? input : util.prepareBlockInput(input)
 
-    // In streaming mode, strip trailing incomplete HTML tags to prevent infinite recursion
-    if (opts.optimizeForStreaming) {
-      // Find last '<' that doesn't have a matching '>'
-      var lastLt = processedInput.lastIndexOf('<')
-      if (lastLt !== -1 && processedInput.indexOf('>', lastLt) === -1) {
-        processedInput = processedInput.slice(0, lastLt)
-      }
-    }
-
-    let astNodes = parse.parseMarkdown(
+    const astNodes = parse.parseMarkdown(
       processedInput,
-      { inline: inline, refs: refs },
+      { inline, refs },
       parseOptions
     )
 
     return astToJSX(astNodes, {
-      ...parseOptions,
+      ...opts,
       forceInline: inline,
     })
   }
@@ -844,10 +880,14 @@ function useShallowStable<T extends Record<string, any>>(value: T): T {
     }
     if (same) {
       var prevCount = 0
-      for (var prevKey in prev) prevCount++
+      for (var _prevKey in prev) {
+        prevCount++
+      }
       same = prevCount === count
     }
-    if (!same) ref.current = value
+    if (!same) {
+      ref.current = value
+    }
   }
   return ref.current
 }

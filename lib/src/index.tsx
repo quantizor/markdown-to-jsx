@@ -6,17 +6,20 @@
  */
 
 // Re-export parser
-export { parser } from './parse'
+export { parser } from './parse.ts'
 
 // Re-export types
-export { RuleType, type MarkdownToJSX } from './types'
+export { type MarkdownToJSX, RuleType } from './types.ts'
 
 // Re-export utilities
-export { sanitizer, slugify } from './utils'
+export { sanitizer, slugify } from './utils.ts'
 
 // Import then re-export from react.tsx to work around Bun bundler bug
 // where `export { x } from './peer-entry'` emits dangling symbol references
-import _default, { Markdown as _Markdown, compiler as _compiler } from './react'
+import _default, {
+  compiler as _compiler,
+  Markdown as _Markdown,
+} from './react.tsx'
 
 /** @deprecated Use the `markdown-to-jsx/react` import instead */
 var Markdown: typeof _Markdown = _Markdown
@@ -25,4 +28,4 @@ var Markdown: typeof _Markdown = _Markdown
 var compiler: typeof _compiler = _compiler
 
 export default _default
-export { Markdown, compiler }
+export { compiler, Markdown }

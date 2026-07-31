@@ -2,8 +2,12 @@
 minimumReleaseAge = 259200                      # 3d
 minimumReleaseAgeExcludes = ["markdown-to-jsx"]
 
-[run]
-bun = true
-
 [test]
-preload = ["./lib/src/__mocks__/react-native.ts"]
+preload = [
+  "./lib/src/__mocks__/react-native.ts",
+  "./lib/src/__mocks__/console-leak.ts",
+]
+# The browser and native workspaces carry their own runners (Playwright, jest).
+# Prune them from bun test discovery by config so a stray *.spec.ts there can
+# never be collected by the root suite.
+pathIgnorePatterns = ["native/**", "browser/**"]

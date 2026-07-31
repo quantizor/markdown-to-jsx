@@ -1,16 +1,16 @@
 /** @jsxImportSource solid-js */
 
 import { afterEach, describe, expect, it, mock } from 'bun:test'
-import { createSignal, type Accessor, type Component, type JSX } from 'solid-js'
+import { createSignal, type JSX } from 'solid-js'
 
-import Markdown, {
+import {
   astToJSX,
   compiler,
-  MarkdownProvider,
   parser,
   RuleType,
-} from './solid'
-import type { MarkdownToJSX } from './types'
+  type SolidOptions,
+} from './solid.tsx'
+import type { MarkdownToJSX } from './types.ts'
 
 afterEach(() => {
   mock.clearAllMocks()
@@ -20,9 +20,15 @@ afterEach(() => {
 function extractTextContent(
   element: JSX.Element | JSX.Element[] | string | null | undefined
 ): string {
-  if (!element) return ''
-  if (typeof element === 'string') return element
-  if (typeof element === 'number') return String(element)
+  if (!element) {
+    return ''
+  }
+  if (typeof element === 'string') {
+    return element
+  }
+  if (typeof element === 'number') {
+    return String(element)
+  }
   if (Array.isArray(element)) {
     let text = ''
     for (let i = 0; i < element.length; i++) {
@@ -35,7 +41,9 @@ function extractTextContent(
     if ('p' in element && element.p && typeof element.p === 'object') {
       const props = element.p as Record<string, unknown>
       const tag = (element as { t?: string }).t
-      if (tag === 'img' && typeof props.alt === 'string') return props.alt
+      if (tag === 'img' && typeof props.alt === 'string') {
+        return props.alt
+      }
       // Check innerHTML for text content
       if (props.innerHTML !== undefined) {
         return extractTextContent(
@@ -74,17 +82,25 @@ function extractTextContent(
 // Serialize a Solid structural element tree to an HTML-like string so nesting
 // and sibling order (not just text presence) are asserted.
 function serialize(el: unknown): string {
-  if (el == null || typeof el === 'boolean') return ''
-  if (typeof el === 'string' || typeof el === 'number') return String(el)
-  if (Array.isArray(el)) return el.map(serialize).join('')
+  if (el === null || typeof el === 'boolean') {
+    return ''
+  }
+  if (typeof el === 'string' || typeof el === 'number') {
+    return String(el)
+  }
+  if (Array.isArray(el)) {
+    return el.map(serialize).join('')
+  }
   const node = el as { t?: string; p?: Record<string, unknown> }
   const tag = node.t
   const props = node.p || {}
-  if (!tag) return serialize(props.children ?? props.innerHTML ?? '')
+  if (!tag) {
+    return serialize(props.children ?? props.innerHTML ?? '')
+  }
   const inner =
-    props.innerHTML !== undefined
-      ? String(props.innerHTML)
-      : serialize(props.children ?? '')
+    props.innerHTML === undefined
+      ? serialize(props.children ?? '')
+      : String(props.innerHTML)
   return `<${tag}>${inner}</${tag}>`
 }
 
@@ -435,9 +451,9 @@ describe('Markdown component', () => {
 
     // Call astToJSX multiple times with different props but same AST
     // This simulates what happens when props change but content doesn't
-    const result1 = astToJSX(ast, { wrapperProps: { className: 'first' } })
-    const result2 = astToJSX(ast, { wrapperProps: { className: 'second' } })
-    const result3 = astToJSX(ast, { wrapperProps: { className: 'third' } })
+    const result1 = astToJSX(ast, { wrapperProps: { class: 'first' } })
+    const result2 = astToJSX(ast, { wrapperProps: { class: 'second' } })
+    const result3 = astToJSX(ast, { wrapperProps: { class: 'third' } })
 
     // Count occurrences of "NOTE" - should be exactly 1 per result
     const text1 = extractTextContent(result1)
@@ -543,7 +559,7 @@ describe('options', () => {
   // which cover the getTag function branches indirectly
 
   it('should handle override with component string', () => {
-    const result = compiler('# Hello', {
+    const _result = compiler('# Hello', {
       overrides: {
         h1: { component: 'h2' },
       },
@@ -555,12 +571,11 @@ describe('options', () => {
   })
 
   it('should handle override with function component', () => {
-    const CustomHeading = (props: Record<string, unknown>) => {
-      return {
+    const CustomHeading = (props: Record<string, unknown>) =>
+      ({
         t: 'h2',
         p: { ...props, 'data-custom': 'true' },
-      } as unknown as JSX.Element
-    }
+      }) as unknown as JSX.Element
     expect(
       JSON.stringify(
         compiler('# Hello', {
@@ -573,9 +588,8 @@ describe('options', () => {
   })
 
   it('should handle override with component path as function', () => {
-    const CustomHeading = (props: Record<string, unknown>) => {
-      return { t: 'h2', p: props } as unknown as JSX.Element
-    }
+    const CustomHeading = (props: Record<string, unknown>) =>
+      ({ t: 'h2', p: props }) as unknown as JSX.Element
     expect(
       JSON.stringify(
         compiler('# Hello', {
@@ -666,18 +680,32 @@ describe('wrapper options', () => {
 })
 
 describe('tagfilter option', () => {
+  // Regression: the render-time tag filter defaulted OFF in solid (raw options
+  // flowed to the renderer; only parse options were coerced), so default output
+  // mounted live dangerous tags despite the documented default-on protection.
+  // Both compiler() and astToJSX must escape.
   it('should escape script tags by default', () => {
-    const result = compiler('<script>alert("xss")</script>')
-    const text = extractTextContent(result)
-    // Tagfilter should escape script tags, so they appear as text
+    expect(serialize(compiler('<script>alert(1)</script>'))).toBe(
+      '<span><script>alert(1)</script></span>'
+    )
   })
 
   it('should escape iframe tags by default', () => {
-    const result = compiler('<iframe src="evil.com"></iframe>')
+    expect(serialize(compiler('<iframe src="evil.com"></iframe>'))).toBe(
+      '<span><iframe src="evil.com"></iframe></span>'
+    )
+  })
+
+  it('should escape dangerous tags by default via astToJSX()', () => {
+    expect(serialize(astToJSX(parser('<script>alert(1)</script>')))).toBe(
+      '<span><script>alert(1)</script></span>'
+    )
   })
 
   it('should not escape when tagfilter is false', () => {
-    const result = compiler('<script>test</script>', { tagfilter: false })
+    expect(
+      serialize(compiler('<script>\ntest\n</script>', { tagfilter: false }))
+    ).toBe('<script>test</script>')
   })
 
   it('should escape all filtered tags', () => {
@@ -693,13 +721,23 @@ describe('tagfilter option', () => {
       'plaintext',
     ]
     filteredTags.forEach(tag => {
-      const result = compiler(`<${tag}>content</${tag}>`, { tagfilter: true })
+      expect(
+        extractTextContent(
+          compiler(`<${tag}>content</${tag}>`, { tagfilter: true })
+        )
+      ).toBe(`<${tag}>content</${tag}>`)
     })
+  })
+
+  it('keeps allowed nested tags live inside a filtered parent', () => {
+    expect(
+      serialize(compiler('<iframe>hi <em>x</em></iframe>', { tagfilter: true }))
+    ).toBe('<span><iframe>hi <em>x</em></iframe></span>')
   })
 
   it('should handle HTML block with rawText when tagfilter is enabled', () => {
     // This tests the rawText branch in HTML block tagfilter
-    const result = compiler('<script>alert("xss")</script>', {
+    const _result = compiler('<script>alert("xss")</script>', {
       tagfilter: true,
     })
   })
@@ -711,44 +749,48 @@ describe('tagfilter option', () => {
         tagfilter: true,
       }
     )
-    const str = JSON.stringify(result)
+    const _str = JSON.stringify(result)
     // Should contain the escaped tag with attributes
   })
 
   it('should handle boolean attributes in filtered HTML blocks', () => {
-    const result = compiler('<script defer>alert("xss")</script>', {
+    const _result = compiler('<script defer>alert("xss")</script>', {
       tagfilter: true,
     })
   })
 
   it('should skip undefined/null/false attributes in filtered HTML blocks', () => {
     // Test that undefined, null, false attributes are skipped
-    const result = compiler('<script>test</script>', { tagfilter: true })
+    const _result = compiler('<script>test</script>', { tagfilter: true })
   })
 
   it('should handle self-closing filtered tags with rawText', () => {
-    const result = compiler('<script src="evil.js" />', { tagfilter: true })
+    const _result = compiler('<script src="evil.js" />', { tagfilter: true })
   })
 
   it('should handle self-closing filtered tags without rawText', () => {
-    const result = compiler('<iframe src="evil.com" />', { tagfilter: true })
+    const _result = compiler('<iframe src="evil.com" />', { tagfilter: true })
   })
 
   it('should handle self-closing tags when tagfilter is disabled', () => {
-    const result = compiler('<br />', { tagfilter: false })
+    const _result = compiler('<br />', { tagfilter: false })
   })
 
   it('should handle HTML self-closing without tagfilter', () => {
-    const result = compiler('<br />', { tagfilter: false })
+    const _result = compiler('<br />', { tagfilter: false })
   })
 
   it('should handle HTML self-closing with attributes when tagfilter enabled', () => {
-    const result = compiler('<script src="evil.js" />', { tagfilter: true })
+    const _result = compiler('<script src="evil.js" />', { tagfilter: true })
   })
 
   it('should handle Type 1 blocks without HTML tags', () => {
-    // This tests the isType1Block && !containsHTMLTags path (lines 263-272)
-    const result = compiler('<style>body { color: red; }</style>')
+    // This tests the isType1Block && !containsHTMLTags path, which requires
+    // the tag filter off: default-on escapes <style> before the verbatim
+    // branch can render it.
+    const result = compiler('<style>body { color: red; }</style>', {
+      tagfilter: false,
+    })
     const text = extractTextContent(result)
     expect(text).toContain('body')
     expect(text).toContain('color: red')
@@ -782,7 +824,7 @@ describe('tagfilter option', () => {
   it('should prevent infinite recursion with selfTagRegex', () => {
     // This tests the selfTagRegex path (lines 300-302)
     // Create a scenario where cleanedText matches the self tag
-    const result = compiler('<div></div>')
+    const _result = compiler('<div></div>')
   })
 
   it('should handle HTML blocks with verbatim and parsed content', () => {
@@ -796,7 +838,7 @@ describe('tagfilter option', () => {
   it('should handle processNode with htmlSelfClosing isClosingTag', () => {
     // This tests the htmlSelfClosing with isClosingTag path (lines 312-321)
     // This is tricky to trigger directly, but we can test through HTML parsing
-    const result = compiler('<div>Text</div>')
+    const _result = compiler('<div>Text</div>')
   })
 
   it('should handle processNode with paragraph children', () => {
@@ -913,7 +955,7 @@ describe('edge cases', () => {
   })
 
   it('should handle very long content', () => {
-    const longContent = '# Title\n\n' + 'Paragraph. '.repeat(1000)
+    const longContent = `# Title\n\n${'Paragraph. '.repeat(1000)}`
     const result = compiler(longContent)
     expect(extractTextContent(result)).toContain('Title')
     expect(extractTextContent(result)).toContain('Paragraph.')
@@ -926,7 +968,7 @@ describe('edge cases', () => {
   })
 
   it('should handle deeply nested structures', () => {
-    const deepContent = Array(20).fill('> ').join('') + 'Deep quote'
+    const deepContent = `${new Array(20).fill('> ').join('')}Deep quote`
     const result = compiler(deepContent)
     const text = extractTextContent(result)
     expect(text).toContain('Deep quote')
@@ -953,7 +995,7 @@ describe('edge cases', () => {
 
   it('should handle tables with empty cells', () => {
     const markdown = '| A | B |\n|---|---|\n|   |   |'
-    const result = compiler(markdown)
+    const _result = compiler(markdown)
   })
 
   it('should handle lists with empty items', () => {
@@ -1028,7 +1070,7 @@ describe('edge cases', () => {
 
   it('should handle disableParsingRawHTML option', () => {
     const result = compiler('<div>test</div>', { disableParsingRawHTML: true })
-    const text = extractTextContent(result)
+    const _text = extractTextContent(result)
     // HTML should be treated as text, so it should appear in output
   })
 })
@@ -1038,19 +1080,19 @@ describe('renderRule option', () => {
     const customRenderRule = (
       next: () => JSX.Element | string | null,
       node: any,
-      renderChildren: (children: any[]) => JSX.Element | JSX.Element[],
-      state: any
+      _renderChildren: (children: any[]) => JSX.Element | JSX.Element[],
+      _state: any
     ) => {
       if (node.type === 'heading') {
         return { t: 'h2', p: { id: 'custom' } } as unknown as JSX.Element
       }
       return next()
     }
-    const result = compiler('# Hello', { renderRule: customRenderRule })
+    const _result = compiler('# Hello', { renderRule: customRenderRule })
   })
 
   it('should use default render when renderRule is not provided', () => {
-    const result = compiler('# Hello', {})
+    const _result = compiler('# Hello', {})
   })
 })
 
@@ -1059,9 +1101,9 @@ describe('renderer depth overflow', () => {
     // This tests the handleStackOverflow path (line 552-559)
     // Create a deep nesting scenario by using astToJSX directly with high depth
     const ast = parser('Text')
-    const result = astToJSX(ast, {})
+    const _result = astToJSX(ast, {})
     // Manually test with high depth state
-    const deepState = { renderDepth: 2501 }
+    const _deepState = { renderDepth: 2501 }
     // We can't directly test this without exposing internal state,
     // but we can verify the function exists and works normally
   })
@@ -1091,7 +1133,7 @@ describe('string concatenation in renderer', () => {
       }
       return next()
     }
-    const result = compiler('Hello world', { renderRule: customRenderRule })
+    const _result = compiler('Hello world', { renderRule: customRenderRule })
   })
 })
 
@@ -1126,7 +1168,7 @@ describe('h function compileHTML and innerHTML', () => {
 
   it('should handle className merging with undefined values', () => {
     // Test className merging when one is undefined
-    const result = compiler('# Hello', {
+    const _result = compiler('# Hello', {
       overrides: {
         h1: { props: {} },
       },
@@ -1169,10 +1211,9 @@ describe('createSolidElement and h function', () => {
 
   it('should handle function component with children', () => {
     // This tests createSolidElement function component path (lines 678-685)
-    const CustomComponent = (props: Record<string, unknown>) => {
-      return { t: 'div', p: props } as unknown as JSX.Element
-    }
-    const result = compiler('Hello', {
+    const CustomComponent = (props: Record<string, unknown>) =>
+      ({ t: 'div', p: props }) as unknown as JSX.Element
+    const _result = compiler('Hello', {
       overrides: {
         p: CustomComponent,
       },
@@ -1182,10 +1223,9 @@ describe('createSolidElement and h function', () => {
   it('should handle function component without children', () => {
     // Test function component without children (line 687)
     // Empty string returns null, so we test with actual content
-    const CustomComponent = (props: Record<string, unknown>) => {
-      return { t: 'div', p: props } as unknown as JSX.Element
-    }
-    const result = compiler('Text', {
+    const CustomComponent = (props: Record<string, unknown>) =>
+      ({ t: 'div', p: props }) as unknown as JSX.Element
+    const _result = compiler('Text', {
       overrides: {
         p: CustomComponent,
       },
@@ -1195,16 +1235,15 @@ describe('createSolidElement and h function', () => {
   it('should handle module-level h function with string tag', () => {
     // This tests the module-level h function (lines 1047-1071)
     // Tested through MarkdownProvider and Markdown component
-    const result = compiler('# Test')
+    const _result = compiler('# Test')
   })
 
   it('should handle module-level h function with function component', () => {
     // Test module-level h with function component (lines 1059-1068)
     // This is tested through component overrides
-    const CustomComponent = (props: Record<string, unknown>) => {
-      return { t: 'div', p: props } as unknown as JSX.Element
-    }
-    const result = compiler('Hello', {
+    const CustomComponent = (props: Record<string, unknown>) =>
+      ({ t: 'div', p: props }) as unknown as JSX.Element
+    const _result = compiler('Hello', {
       overrides: {
         p: CustomComponent,
       },
@@ -1239,7 +1278,7 @@ describe('wrapper edge cases', () => {
   it('should handle forceWrapper with single element', () => {
     // This tests the forceWrapper path (line 942)
     const ast = parser('# Hello')
-    const result = astToJSX(ast, { forceWrapper: true })
+    const _result = astToJSX(ast, { forceWrapper: true })
   })
 
   it('should handle forceInline wrapper', () => {
@@ -1260,7 +1299,7 @@ describe('wrapper edge cases', () => {
 describe('Markdown component', () => {
   it('should handle function children (Accessor)', () => {
     // This tests the function children path (lines 1103-1104)
-    const [content, setContent] = createSignal('Hello')
+    const [content, _setContent] = createSignal('Hello')
     // We can't directly test the component, but we can test the compiler
     const result = compiler(content())
     const text = extractTextContent(result)
@@ -1386,17 +1425,17 @@ describe('HTML block cleanedText and selfTagRegex', () => {
 
   it('should prevent infinite recursion with selfTagRegex', () => {
     // This tests lines 302-308 - selfTagRegex matching
-    const result = compiler('<div></div>')
+    const _result = compiler('<div></div>')
   })
 
   it('should prevent infinite recursion with selfTagRegex with attributes', () => {
     // Test selfTagRegex with attributes
-    const result = compiler('<div class="test"></div>')
+    const _result = compiler('<div class="test"></div>')
   })
 
   it('should return empty element when selfTagRegex matches', () => {
     // This tests line 307 - selfTagRegex matching returns empty element
-    const result = compiler('<div></div>')
+    const _result = compiler('<div></div>')
   })
 })
 
@@ -1412,7 +1451,7 @@ describe('processNode htmlBlock children', () => {
 describe('processNode function branches', () => {
   it('should handle processNode with htmlSelfClosing isClosingTag', () => {
     // This tests lines 310-345 - processNode branches
-    const result = compiler('<div>Text</div>')
+    const _result = compiler('<div>Text</div>')
   })
 
   it('should handle processNode with paragraph children', () => {
@@ -1424,7 +1463,7 @@ describe('processNode function branches', () => {
 
   it('should handle processNode with paragraph without children', () => {
     // Test paragraph without children branch
-    const result = compiler('<div><p></p></div>')
+    const _result = compiler('<div><p></p></div>')
   })
 
   it('should handle processNode with text nodes', () => {
@@ -1436,7 +1475,7 @@ describe('processNode function branches', () => {
 
   it('should handle processNode with empty text nodes', () => {
     // Test text with empty/whitespace (should filter out)
-    const result = compiler('<div>   </div>')
+    const _result = compiler('<div>   </div>')
   })
 
   it('should handle processNode with htmlBlock children', () => {
@@ -1482,19 +1521,19 @@ describe('processedChildren handling', () => {
 describe('HTML block children null handling', () => {
   it('should handle HTML block with null children', () => {
     // This tests line 362 - htmlBlock children null
-    const result = compiler('<div></div>')
+    const _result = compiler('<div></div>')
   })
 })
 
 describe('HTML self-closing tagfilter', () => {
   it('should handle self-closing tagfilter with rawText', () => {
     // This tests line 374 - htmlSelfClosing tagfilter with rawText
-    const result = compiler('<script src="evil.js" />', { tagfilter: true })
+    const _result = compiler('<script src="evil.js" />', { tagfilter: true })
   })
 
   it('should format attributes for filtered self-closing tags', () => {
     // This tests lines 376-389 - htmlSelfClosing tagfilter attribute formatting
-    const result = compiler('<iframe src="evil.com" />', { tagfilter: true })
+    const _result = compiler('<iframe src="evil.com" />', { tagfilter: true })
   })
 })
 
@@ -1563,7 +1602,7 @@ describe('renderRule userRender path', () => {
       }
       return next()
     }
-    const result = compiler('# Hello', { renderRule: customRenderRule })
+    const _result = compiler('# Hello', { renderRule: customRenderRule })
   })
 })
 
@@ -1582,7 +1621,7 @@ describe('array output handling in renderer', () => {
       }
       return next()
     }
-    const result = compiler('Hello world', { renderRule: customRenderRule })
+    const _result = compiler('Hello world', { renderRule: customRenderRule })
   })
 })
 
@@ -1620,7 +1659,7 @@ describe('innerHTML handling', () => {
 
   it('should handle innerHTML with undefined className', () => {
     // Test innerHTML when className is undefined
-    const result = compiler('<div><pre>code</pre></div>', {
+    const _result = compiler('<div><pre>code</pre></div>', {
       overrides: {
         div: { props: {} },
       },
@@ -1635,10 +1674,12 @@ describe('innerHTML handling', () => {
       },
     })
     // Helper to extract innerHTML from JSX structure
-    function getInnerHTML(
+    function getInnerHtml(
       element: JSX.Element | JSX.Element[] | null | undefined
     ): string | undefined {
-      if (!element || Array.isArray(element)) return undefined
+      if (!element || Array.isArray(element)) {
+        return
+      }
       if (
         typeof element === 'object' &&
         'p' in element &&
@@ -1648,12 +1689,11 @@ describe('innerHTML handling', () => {
         const props = element.p as Record<string, unknown>
         return typeof props.innerHTML === 'string' ? props.innerHTML : undefined
       }
-      return undefined
     }
-    const innerHTML = getInnerHTML(result as JSX.Element)
+    const innerHtml = getInnerHtml(result as JSX.Element)
     // User-provided innerHTML should be used, not the original content
-    expect(innerHTML).toBe('<span>override</span>')
-    expect(innerHTML).not.toContain('original')
+    expect(innerHtml).toBe('<span>override</span>')
+    expect(innerHtml).not.toContain('original')
   })
 })
 
@@ -1719,19 +1759,19 @@ describe('post-processing AST extractText', () => {
   it('should handle extractText with removedClosingTags that contain closing tag', () => {
     // Test the filter condition where rawText contains the closing tag
     const markdown = '<div>content</div>\n\nParagraph with </div></span></p>'
-    const result = compiler(markdown)
+    const _result = compiler(markdown)
   })
 
   it('should handle extractText with removedClosingTags without rawText', () => {
     // Test map path where tag doesn't have rawText (line 868 - fallback to empty string)
     const markdown = '<pre>code</pre>\n\nParagraph with </pre></td></tr>'
-    const result = compiler(markdown)
+    const _result = compiler(markdown)
   })
 
   it('should handle extractText with removedClosingTags that are not htmlSelfClosing', () => {
     // Test map path where tag is not htmlSelfClosing (line 868 - fallback to empty string)
     const markdown = '<pre>code</pre>\n\nParagraph'
-    const result = compiler(markdown)
+    const _result = compiler(markdown)
   })
 
   it('should not mutate AST when Markdown component re-renders with different props', () => {
@@ -1759,7 +1799,7 @@ describe('post-processing AST extractText', () => {
     const htmlBlock = ast.find(
       n => n.type === RuleType.htmlBlock
     ) as MarkdownToJSX.HTMLNode
-    if (htmlBlock && htmlBlock.text) {
+    if (htmlBlock?.text) {
       // The text should not contain the paragraph text multiple times
       const paragraphMatches = (htmlBlock.text.match(/Paragraph/g) || []).length
       expect(paragraphMatches).toBeLessThanOrEqual(1)
@@ -1772,7 +1812,9 @@ describe('post-processing AST extractText', () => {
     // mutations could cause unexpected side effects
     const markdown = '# Hello world'
     const ast = parser(markdown)
-    const options = { slugify: (input: string) => input.toLowerCase() }
+    const options: SolidOptions = {
+      slugify: (input: string) => input.toLowerCase(),
+    }
     const originalOverrides = options.overrides
 
     // First call
@@ -1791,7 +1833,9 @@ describe('post-processing AST extractText', () => {
   it('should not mutate options object when calling compiler multiple times', () => {
     // Test that compiler doesn't mutate the options object when called multiple times
     const markdown = '# Hello world'
-    const options = { slugify: (input: string) => input.toLowerCase() }
+    const options: SolidOptions = {
+      slugify: (input: string) => input.toLowerCase(),
+    }
     const originalOverrides = options.overrides
 
     // First call
@@ -1821,7 +1865,7 @@ describe('footnote identifier handling', () => {
   it('should handle footnote identifier that starts with caret', () => {
     // Test footnote identifier that starts with caret (different path)
     const markdown = 'Text[^1]\n\n[^1]: Footnote'
-    const result = compiler(markdown)
+    const _result = compiler(markdown)
   })
 })
 
@@ -1863,29 +1907,28 @@ describe('Markdown component', () => {
 
   it('should handle Markdown component with wrapperProps', () => {
     // This tests lines 1145-1152 - wrapperProps handling
-    const result = compiler('# Test', {
+    const _result = compiler('# Test', {
       wrapperProps: { class: 'custom' },
     })
   })
 
   it('should handle Markdown component with filtered props', () => {
     // This tests lines 1148-1150 - filtering props
-    const result = compiler('# Test')
+    const _result = compiler('# Test')
   })
 })
 
 describe('module-level h function', () => {
   it('should handle module-level h with string tag and children', () => {
     // This tests lines 1074-1096 - module-level h function
-    const result = compiler('# Test')
+    const _result = compiler('# Test')
   })
 
   it('should handle module-level h with function component and children', () => {
     // Test module-level h with function component
-    const CustomComponent = (props: Record<string, unknown>) => {
-      return { t: 'div', p: props } as unknown as JSX.Element
-    }
-    const result = compiler('Hello', {
+    const CustomComponent = (props: Record<string, unknown>) =>
+      ({ t: 'div', p: props }) as unknown as JSX.Element
+    const _result = compiler('Hello', {
       overrides: {
         p: CustomComponent,
       },
@@ -1895,10 +1938,9 @@ describe('module-level h function', () => {
   it('should handle module-level h with function component without children', () => {
     // Test module-level h with function component without children
     // Empty string returns null, so we test with actual content
-    const CustomComponent = (props: Record<string, unknown>) => {
-      return { t: 'div', p: props } as unknown as JSX.Element
-    }
-    const result = compiler('Text', {
+    const CustomComponent = (props: Record<string, unknown>) =>
+      ({ t: 'div', p: props }) as unknown as JSX.Element
+    const _result = compiler('Text', {
       overrides: {
         p: CustomComponent,
       },
@@ -1907,14 +1949,14 @@ describe('module-level h function', () => {
 
   it('should handle module-level h with non-string non-function tag', () => {
     // Test the return tag as JSX.Element path (line 1097)
-    const result = compiler('# Test')
+    const _result = compiler('# Test')
   })
 })
 
 describe('MarkdownProvider', () => {
   it('should handle MarkdownProvider with options', () => {
     // This tests lines 1104-1109 - MarkdownProvider
-    const result = compiler('# Test')
+    const _result = compiler('# Test')
   })
 })
 
@@ -1960,7 +2002,9 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
     const dump = (s: string) => JSON.stringify(compiler(s))
     expect(dump('<div><img onerror=alert(1)></div>')).not.toContain('onerror')
     expect(dump('<pre onclick=alert(1)>code</pre>')).not.toContain('onclick')
-    const urls = dump('<div onclick="alert(1)"><a href="javascript:x">y</a></div>')
+    const urls = dump(
+      '<div onclick="alert(1)"><a href="javascript:x">y</a></div>'
+    )
     expect(urls).not.toContain('onclick')
     expect(urls).not.toContain('javascript:')
   })
@@ -1970,15 +2014,25 @@ describe('unique heading IDs (#857)', () => {
   function collectIds(el: unknown): string[] {
     const ids: string[] = []
     const walk = (node: unknown) => {
-      if (node == null || typeof node === 'boolean') return
-      if (typeof node === 'string' || typeof node === 'number') return
+      if (node === null || typeof node === 'boolean') {
+        return
+      }
+      if (typeof node === 'string' || typeof node === 'number') {
+        return
+      }
       if (Array.isArray(node)) {
-        for (const child of node) walk(child)
+        for (const child of node) {
+          walk(child)
+        }
         return
       }
       const props = (node as { p?: Record<string, unknown> }).p
-      if (!props) return
-      if (typeof props.id === 'string') ids.push(props.id)
+      if (!props) {
+        return
+      }
+      if (typeof props.id === 'string') {
+        ids.push(props.id)
+      }
       walk(props.children)
     }
     walk(el)
@@ -1996,6 +2050,69 @@ describe('unique heading IDs (#857)', () => {
       )
     ).toEqual(['foo', 'bar', 'foo-1'])
   })
+
+  it('slugs headings from inline text content, not raw source', () => {
+    expect(collectIds(compiler('## [text](https://e.com)'))).toEqual(['text'])
+  })
+})
+
+describe('destination entity decode before sanitize', () => {
+  function firstHref(el: unknown): unknown {
+    if (el === null || typeof el !== 'object') {
+      return
+    }
+    if (Array.isArray(el)) {
+      for (const child of el) {
+        const found = firstHref(child)
+        if (found !== undefined) {
+          return found
+        }
+      }
+      return
+    }
+    const props = (el as { p?: Record<string, unknown> }).p
+    if (props && 'href' in props) {
+      return props.href
+    }
+    if (props && 'src' in props) {
+      return props.src
+    }
+    return firstHref(props?.children)
+  }
+
+  it('drops entity-obfuscated javascript: href and src', () => {
+    expect(firstHref(compiler('[x](&#106;avascript:alert(1))'))).toBeUndefined()
+    expect(
+      firstHref(compiler('![x](&#106;avascript:alert(1))'))
+    ).toBeUndefined()
+  })
+
+  it('re-sanitizes direct astToJSX link targets before href encoding', () => {
+    expect(
+      firstHref(
+        astToJSX([
+          {
+            type: RuleType.link,
+            target: 'javascript:alert(1)',
+            children: [{ type: RuleType.text, text: 'x' }],
+          },
+        ])
+      )
+    ).toBeUndefined()
+  })
+})
+
+describe('inline Type 1 content with tagfilter off', () => {
+  it('preserves single-line script content including forceInline', () => {
+    expect(
+      serialize(compiler('<script>x</script>', { tagfilter: false }))
+    ).toBe('<script>x</script>')
+    expect(
+      serialize(
+        compiler('<script>x</script>', { tagfilter: false, forceInline: true })
+      )
+    ).toBe('<script>x</script>')
+  })
 })
 
 describe('component-like HTML blank-line nesting (#870)', () => {
@@ -2011,5 +2128,22 @@ Some paragraph
     ).toMatchInlineSnapshot(
       `"<MyComponent><h2>My header</h2><p>Some paragraph</p></MyComponent>"`
     )
+  })
+})
+
+describe('optimizeForStreaming preserves literal less-than', () => {
+  it('keeps comparison prose and defers incomplete tag prefixes', () => {
+    // Single-line input auto-inlines, so serialize sees a bare text node.
+    expect(
+      serialize(compiler('5 < 3 is false', { optimizeForStreaming: true }))
+    ).toBe('5 < 3 is false')
+    expect(
+      serialize(compiler('Hello <Citation', { optimizeForStreaming: true }))
+    ).toBe('Hello ')
+    expect(
+      serialize(
+        compiler('x < y\n\nsecond para', { optimizeForStreaming: true })
+      )
+    ).toBe('<div><p>x < y</p><p>second para</p></div>')
   })
 })

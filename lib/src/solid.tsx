@@ -2,30 +2,34 @@
 /** @jsx h */
 
 import {
-  Component,
-  JSX,
-  Accessor,
-  createMemo,
-  createContext,
-  useContext,
+  type Accessor,
+  type Component,
   type Context,
+  createContext,
+  createMemo,
+  type JSX,
+  useContext,
 } from 'solid-js'
 import solidH from 'solid-js/h'
-import * as $ from './constants'
-import * as parse from './parse'
-import { MarkdownToJSX, RuleType, RequireAtLeastOne } from './types'
-import * as util from './utils'
+import * as parse from './parse.ts'
+import {
+  type MarkdownToJSX,
+  type RequireAtLeastOne,
+  RuleType,
+} from './types.ts'
+import * as util from './utils.ts'
 
-export { parser } from './parse'
-import { parser } from './parse'
+export { parser } from './parse.ts'
 
-export { RuleType, type MarkdownToJSX } from './types'
-export { sanitizer, slugify } from './utils'
+import process from 'node:process'
+import { parser } from './parse.ts'
 
+export { type MarkdownToJSX, RuleType } from './types.ts'
+export { sanitizer, slugify } from './utils.ts'
 
-const hasDOM = typeof document !== 'undefined'
+const hasDom = typeof document !== 'undefined'
 
-type SolidASTRender = (
+type SolidAstRender = (
   ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
   state: Omit<MarkdownToJSX.State, 'key'>
 ) => JSX.Element | JSX.Element[]
@@ -43,11 +47,11 @@ const isComponent = (
   value: unknown
 ): value is Component<Record<string, unknown>> =>
   typeof value === 'function' ||
-  (typeof value === 'object' && value !== null && 'render' in value)
+  (typeof value === 'object' && value != null && 'render' in value)
 
 function render(
   node: MarkdownToJSX.ASTNode,
-  output: SolidASTRender,
+  output: SolidAstRender,
   state: Omit<MarkdownToJSX.State, 'key'>,
   h: (tag: HTag, props: HProps, ...children: HChildren[]) => JSX.Element,
   sanitize: (value: string, tag: string, attribute: string) => string | null,
@@ -60,8 +64,7 @@ function render(
       const props = {} as Record<string, unknown>
       let children = node.children
       if (node.alert) {
-        props.class =
-          'markdown-alert-' + slug(node.alert.toLowerCase(), util.slugify)
+        props.class = `markdown-alert-${slug(node.alert.toLowerCase(), util.slugify)}`
         children = [util.alertHeaderNode(node.alert), ...children]
       }
       return h('blockquote', props, ...toArray(output(children, state)))
@@ -85,9 +88,7 @@ function render(
         : ''
       const codeProps = {
         ...(node.attrs || {}),
-        class: decodedLang
-          ? `language-${decodedLang} lang-${decodedLang}`
-          : '',
+        class: decodedLang ? `language-${decodedLang} lang-${decodedLang}` : '',
       } as Record<string, unknown>
       return h('pre', {}, h('code', codeProps, node.text))
     }
@@ -120,26 +121,46 @@ function render(
       const htmlNode = node as MarkdownToJSX.HTMLNode
 
       // Apply options.tagfilter: escape dangerous tags
-      if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
-        const tagText =
-          typeof htmlNode._rawText === 'string'
-            ? htmlNode._rawText
-            : `<${htmlNode.tag}${util.formatFilteredTagAttrs(htmlNode.attrs)}>`
-        return h('span', {}, tagText)
+      if (
+        util.tagfilterEnabled(options) &&
+        util.shouldFilterTag(htmlNode.tag)
+      ) {
+        var filtered = util.getFilteredTagEmit(htmlNode)
+        if (filtered.kind === 'literal') {
+          return h('span', {}, filtered.literal)
+        }
+        return h(
+          'span',
+          {},
+          ...util.assembleFilteredTagChildren(
+            filtered.open,
+            htmlNode.children ? output(htmlNode.children, state) : null,
+            filtered.close
+          )
+        )
       }
 
-      if (htmlNode._rawText && htmlNode._verbatim) {
+      const rawOuter = htmlNode._rawOuter
+      const isRawOuter = rawOuter !== undefined
+      const rawSource = isRawOuter
+        ? rawOuter
+        : htmlNode._isClosingTag
+          ? htmlNode._rawBody || ''
+          : (htmlNode._rawBody || '') + (htmlNode._rawClose || '')
+      if (rawSource && htmlNode._verbatim) {
         // Type 1 blocks (script, style, pre, textarea) always render verbatim
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
 
         if (isType1Block) {
-          const textContent = util.type1TextContent(
-            htmlNode._rawText,
-            tagLower,
-            options.tagfilter
-          )
-          if (/<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)) {
+          // The element wrapper below supplies its own closing tag, so the
+          // body excludes _rawClose; the full outer span is used as-is only
+          // when no closing tag was found (rare, matches the sniff below).
+          const type1Body = isRawOuter ? rawOuter : htmlNode._rawBody || ''
+          const textContent = util.tagfilterEnabled(options)
+            ? util.applyTagFilterToText(type1Body)
+            : type1Body
+          if (/<[a-z][^>]{0,100}>/i.test(rawSource)) {
             return h(node.tag, {
               ...node.attrs,
               innerHTML: textContent,
@@ -148,28 +169,25 @@ function render(
           return h(node.tag, { ...node.attrs }, textContent)
         }
 
-        const containsPreTags = /<\/?pre\b/i.test(htmlNode._rawText)
+        const containsPreTags = /<\/?pre\b/i.test(rawSource)
         if (containsPreTags) {
-          const innerHtml = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode._rawText)
-            : htmlNode._rawText
+          const innerHtml = util.tagfilterEnabled(options)
+            ? util.applyTagFilterToText(rawSource)
+            : rawSource
           return h(node.tag, {
             ...node.attrs,
             innerHTML: innerHtml,
           })
         }
-        // Re-parse rawText so a nested element does not absorb a following text
+        // Re-parse rawSource so a nested element does not absorb a following text
         // line, then split at this element's own closing tag so any trailing
         // content renders as siblings (issue #881).
-        const parseOptions: parse.ParseOptions = {
-          slugify: (input: string) => slug(input, util.slugify),
+        const parseOptions = parse.toParseOptions({
+          slugify: options.slugify,
           sanitizer: sanitize,
           tagfilter: true,
-        }
-        const cleanedText = htmlNode._rawText
-          .replace(/>\s+</g, '><')
-          .replace(/\n+/g, ' ')
-          .trim()
+        })
+        const cleanedText = util.normalizeJsxReparseText(rawSource)
 
         const selfTagRegex = new RegExp(
           `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,
@@ -181,26 +199,41 @@ function render(
 
         const astNodes = parse.parseMarkdown(
           cleanedText,
-          { inline: false, refs: refs, inHTML: false },
+          { inline: false, refs, inHTML: false },
           parseOptions
         )
         util.stripVerbatim(astNodes)
 
-        // rawText already contains its own wrapper element, so emit the parsed
-        // nodes directly instead of nesting them in another copy of the tag.
-        if (util.isFullVerbatimBlock(cleanedText, htmlNode.tag as string)) {
+        // _rawOuter means the parser already determined this span is the FULL
+        // outer block, so emit the parsed nodes directly instead of nesting
+        // them in another copy of the tag.
+        if (isRawOuter) {
           return output(astNodes.flatMap(util.processVerbatimNode), state)
         }
 
         const split = util.findOwnCloseInAST(astNodes, tagLower)
         if (split.found && split.afterClose.length > 0) {
           return [
-            h(node.tag, { ...node.attrs }, ...toArray(output(split.beforeClose.flatMap(util.processVerbatimNode), state))),
-            ...toArray(output(split.afterClose.flatMap(util.processVerbatimNode), state)),
+            h(
+              node.tag,
+              { ...node.attrs },
+              ...toArray(
+                output(
+                  split.beforeClose.flatMap(util.processVerbatimNode),
+                  state
+                )
+              )
+            ),
+            ...toArray(
+              output(split.afterClose.flatMap(util.processVerbatimNode), state)
+            ),
           ]
         }
 
-        const processedChildren = output(astNodes.flatMap(util.processVerbatimNode), state)
+        const processedChildren = output(
+          astNodes.flatMap(util.processVerbatimNode),
+          state
+        )
         return h(node.tag, { ...node.attrs }, ...toArray(processedChildren))
       }
       if (util.isVoidElement(node.tag)) {
@@ -217,29 +250,50 @@ function render(
       const htmlNode = node as MarkdownToJSX.HTMLSelfClosingNode
 
       // Apply options.tagfilter: escape dangerous self-closing tags
-      if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
-        const tagText =
-          typeof htmlNode._rawText === 'string'
-            ? htmlNode._rawText
-            : `<${htmlNode.tag}${util.formatFilteredTagAttrs(htmlNode.attrs)} />`
-        return h('span', {}, tagText)
+      if (
+        util.tagfilterEnabled(options) &&
+        util.shouldFilterTag(htmlNode.tag)
+      ) {
+        var filteredSc = util.getFilteredTagEmit(htmlNode)
+        return h(
+          'span',
+          {},
+          filteredSc.kind === 'literal'
+            ? filteredSc.literal
+            : filteredSc.open + (filteredSc.close || '')
+        )
       }
 
       return h(htmlNode.tag, { ...htmlNode.attrs })
     }
 
     case RuleType.image: {
+      const src =
+        node.target === null ? null : sanitize(node.target, 'img', 'src')
       return h('img', {
         alt: node.alt && node.alt.length > 0 ? node.alt : undefined,
         title: node.title || undefined,
-        src: sanitize(node.target, 'img', 'src'),
+        src: src || undefined,
       } as Record<string, unknown>)
     }
 
     case RuleType.link: {
       const props: Record<string, unknown> = {}
-      if (node.target != null) props.href = util.encodeUrlTarget(node.target)
-      if (node.title) props.title = node.title
+      if (node.target != null) {
+        // Re-sanitize at emit so direct astToJSX(dangerous) cannot skip the gate.
+        const href = util.sanitizeAndEncodeUrlTarget(
+          node.target,
+          sanitize,
+          'a',
+          'href'
+        )
+        if (href != null) {
+          props.href = href
+        }
+      }
+      if (node.title) {
+        props.title = node.title
+      }
       return h('a', props, ...toArray(output(node.children, state)))
     }
 
@@ -259,7 +313,9 @@ function render(
                 'th',
                 {
                   style:
-                    table.align[i] == null ? {} : { textAlign: table.align[i] },
+                    table.align[i] === null
+                      ? {}
+                      : { textAlign: table.align[i] },
                 },
                 ...toArray(output(content, state))
               )
@@ -270,7 +326,7 @@ function render(
           ? h(
               'tbody',
               {},
-              ...table.cells.map(function generateTableRow(row, i) {
+              ...table.cells.map(function generateTableRow(row, _i) {
                 return h(
                   'tr',
                   {},
@@ -279,7 +335,7 @@ function render(
                       'td',
                       {
                         style:
-                          table.align[c] == null
+                          table.align[c] === null
                             ? {}
                             : { textAlign: table.align[c] },
                       },
@@ -312,7 +368,7 @@ function render(
         {
           start: node.type === RuleType.orderedList ? node.start : undefined,
         },
-        ...node.items.map(function generateListItem(item, i) {
+        ...node.items.map(function generateListItem(item, _i) {
           return h('li', {}, ...toArray(output(item, state)))
         })
       )
@@ -374,20 +430,22 @@ const createRenderer = (
     state: Omit<MarkdownToJSX.State, 'key'> = {}
   ) => {
     const depth = (state.renderDepth || 0) + 1
-    if (depth > 2500) return handleStackOverflow(ast)
+    if (depth > 2500) {
+      return handleStackOverflow(ast)
+    }
 
     const result: (JSX.Element | string)[] = []
     let lastWasString = false
     for (let i = 0; i < ast.length; i++) {
       const nodeOut = renderRule(ast[i], renderer, {
-          ...state,
-          renderDepth: depth,
-        }),
-        isString = typeof nodeOut === 'string'
+        ...state,
+        renderDepth: depth,
+      })
+      const isString = typeof nodeOut === 'string'
       if (isString && lastWasString) {
         // Concatenate consecutive strings
         result[result.length - 1] += nodeOut
-      } else if (nodeOut !== null) {
+      } else if (nodeOut != null) {
         if (Array.isArray(nodeOut)) {
           // Use loop instead of spread for better performance
           for (let j = 0; j < nodeOut.length; j++) {
@@ -409,8 +467,12 @@ const getTag = (
   overrides: SolidOverrides | undefined
 ): string | Component<Record<string, unknown>> => {
   const override = util.get(overrides, tag, undefined)
-  if (!override) return tag
-  if (isComponent(override)) return override
+  if (!override) {
+    return tag
+  }
+  if (isComponent(override)) {
+    return override
+  }
   const component = util.get(overrides, `${tag}.component`, tag)
   return isComponent(component) ? component : (component as string)
 }
@@ -481,7 +543,7 @@ export function astToJSX(
   const sanitize = opts.sanitizer || util.sanitizer
 
   // Recursive compile function for HTML content
-  const compileHTML = (input: string) =>
+  const compileHtml = (input: string) =>
     compiler(input, { ...opts, wrapper: null })
 
   // JSX helper function - this is what @jsx pragma uses
@@ -513,11 +575,12 @@ export function astToJSX(
           parse.UPPERCASE_TAG_R.test(value) ||
           parse.parseHTMLTag(value, 0))
       ) {
-        const compiled = compileHTML(value.trim())
+        const compiled = compileHtml(value.trim())
         // For innerHTML, take first element if array (matches original parser behavior)
-        jsxProps[key] = key === 'innerHTML' && Array.isArray(compiled)
-          ? compiled[0]
-          : compiled
+        jsxProps[key] =
+          key === 'innerHTML' && Array.isArray(compiled)
+            ? compiled[0]
+            : compiled
       }
     }
 
@@ -533,12 +596,14 @@ export function astToJSX(
       ...jsxProps,
       ...overrideProps,
     }
-    if (mergedClassName) finalProps.class = mergedClassName
+    if (mergedClassName) {
+      finalProps.class = mergedClassName
+    }
     // Handle innerHTML for SolidJS (move from jsxProps to finalProps)
     // Only set innerHTML from jsxProps if user didn't provide it in overrides
     if (jsxProps.innerHTML && overrideProps.innerHTML === undefined) {
       finalProps.innerHTML = jsxProps.innerHTML
-      delete jsxProps.innerHTML
+      jsxProps.innerHTML = undefined
     }
 
     return createSolidElement(finalTag, finalProps, ...children)
@@ -550,17 +615,7 @@ export function astToJSX(
     ((tag: HTag, props: HProps, ...children: HChildren[]): JSX.Element =>
       createSolidElement(tag, props || {}, ...children))
 
-  const parseOptions: parse.ParseOptions = {
-    slugify: i => slug(i, util.slugify),
-    sanitizer: sanitize,
-    tagfilter: opts.tagfilter !== false,
-    disableAutoLink: opts.disableAutoLink,
-    disableParsingRawHTML: opts.disableParsingRawHTML,
-    enforceAtxHeadings: opts.enforceAtxHeadings,
-    forceBlock: opts.forceBlock,
-    forceInline: opts.forceInline,
-    preserveFrontmatter: opts.preserveFrontmatter,
-  }
+  const parseOptions = parse.toParseOptions(opts, opts.forceInline)
 
   const refs =
     ast[0] && ast[0].type === RuleType.refCollection
@@ -585,12 +640,12 @@ export function astToJSX(
 
   const arr = emitter(ast, {
     inline: opts.forceInline,
-    refs: refs,
+    refs,
   }) as (JSX.Element | string)[]
 
   const footnoteEntries = util.extractFootnoteEntries(refs)
 
-  if (footnoteEntries.length) {
+  if (footnoteEntries.length > 0) {
     arr.push(
       h(
         'footer',
@@ -600,19 +655,19 @@ export function astToJSX(
           const identifierWithoutCaret = def.identifier.slice(1)
           const footnoteAstNodes = parse.parseMarkdown(
             def.footnote,
-            { inline: true, refs: refs },
+            { inline: true, refs },
             parseOptions
           )
           const footnoteContent = emitter(footnoteAstNodes, {
             inline: true,
-            refs: refs,
+            refs,
           })
           return h(
             'div',
             {
               id: slug(identifierWithoutCaret, util.slugify),
             },
-            identifierWithoutCaret + ': ',
+            `${identifierWithoutCaret}: `,
             ...toArray(footnoteContent)
           )
         })
@@ -652,36 +707,26 @@ export function astToJSX(
  * @returns SolidJS JSX element(s)
  */
 export function compiler(
-  markdown: string = '',
+  markdown = '',
   options: SolidOptions = {}
 ): JSX.Element | JSX.Element[] | null {
   const opts = { ...(options || {}) }
   opts.overrides = opts.overrides || {}
 
-  const slug = opts.slugify || util.slugify
-  const sanitize = opts.sanitizer || util.sanitizer
+  const _slug = opts.slugify || util.slugify
+  const _sanitize = opts.sanitizer || util.sanitizer
 
   function compile(input: string): JSX.Element | JSX.Element[] | null {
     const inline =
       opts.forceInline ||
-      (!opts.forceBlock && !util.SHOULD_RENDER_AS_BLOCK_R.test(input))
-    const parseOptions: parse.ParseOptions = {
-      slugify: i => slug(i, util.slugify),
-      sanitizer: sanitize,
-      tagfilter: opts.tagfilter !== false,
-      disableAutoLink: opts.disableAutoLink,
-      disableParsingRawHTML: opts.disableParsingRawHTML,
-      enforceAtxHeadings: opts.enforceAtxHeadings,
-      forceBlock: opts.forceBlock,
-      forceInline: inline,
-      preserveFrontmatter: opts.preserveFrontmatter,
-    }
+      !(opts.forceBlock || util.SHOULD_RENDER_AS_BLOCK_R.test(input))
+    const parseOptions = parse.toParseOptions(opts, inline)
 
-    let processedInput = inline ? input : util.prepareBlockInput(input)
+    const processedInput = inline ? input : util.prepareBlockInput(input)
 
-    let astNodes = parse.parseMarkdown(
-      inline ? input : processedInput,
-      { inline: inline, refs: refs },
+    const astNodes = parse.parseMarkdown(
+      processedInput,
+      { inline, refs },
       parseOptions
     )
 
@@ -715,7 +760,7 @@ function createSolidElement(
   props: Record<string, unknown>,
   ...children: HChildren[]
 ): JSX.Element {
-  if (!hasDOM) {
+  if (!hasDom) {
     // Non-DOM environments (tests/SSR) get a structural representation or component output
     const childValue =
       children.length === 0

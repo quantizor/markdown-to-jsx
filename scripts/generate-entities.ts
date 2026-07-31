@@ -6,16 +6,17 @@
  * for CommonMark compliance
  */
 
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import fs from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // Entities required for CommonMark spec compliance
 // These match the entities used in CommonMark spec examples
-const REQUIRED_ENTITIES = [
+const _REQUIRED_ENTITIES = [
   // Basic ASCII entities (required for HTML escaping)
   'amp',
   'apos',
@@ -74,13 +75,13 @@ function decodeCodepoints(codepoints: number[]): string {
   let result = ''
   for (let i = 0; i < codepoints.length; i++) {
     const cp = codepoints[i]
-    if (cp <= 0xffff) {
+    if (cp <= 0xff_ff) {
       result += String.fromCharCode(cp)
     } else {
-      const adjusted = cp - 0x10000
+      const adjusted = cp - 0x1_00_00
       result += String.fromCharCode(
-        0xd800 + (adjusted >> 10),
-        0xdc00 + (adjusted & 0x3ff)
+        0xd8_00 + (adjusted >> 10),
+        0xdc_00 + (adjusted & 0x3_ff)
       )
     }
   }
@@ -103,8 +104,6 @@ function generateEntityConstants(
     // If we've seen this lowercase name before, check if Unicode matches
     if (unicodeByLowercase[lowerName]) {
       if (unicodeByLowercase[lowerName] === unicode) {
-        // Same Unicode - this is a duplicate, skip it
-        continue
       } else {
         // Different Unicode - keep both (case matters for this entity)
         entityMap[name] = unicode
@@ -162,7 +161,9 @@ function generateEntityConstants(
   const entries = Object.entries(entityMap)
     .sort((a, b) => {
       const unicodeCompare = a[1].localeCompare(b[1])
-      if (unicodeCompare !== 0) return unicodeCompare
+      if (unicodeCompare !== 0) {
+        return unicodeCompare
+      }
       return a[0].localeCompare(b[0])
     })
     .map(([name, unicode]) => {
@@ -232,6 +233,6 @@ function main() {
   }
 }
 
-if (import.meta.url === 'file://' + process.argv[1]) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   main()
 }

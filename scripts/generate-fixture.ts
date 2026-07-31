@@ -13,7 +13,7 @@
  * of all markdown syntax elements for comprehensive parser testing.
  */
 
-import fs from 'fs'
+import fs from 'node:fs'
 
 // Define types for content sizes
 interface ContentSizes {
@@ -46,13 +46,13 @@ function generateForSizes(templateFn: TemplateFunction): string {
     string,
   ][]) {
     result += `### ${sizeName.charAt(0).toUpperCase() + sizeName.slice(1)} Content\n\n`
-    result += templateFn(content) + '\n\n'
+    result += `${templateFn(content)}\n\n`
   }
   return result
 }
 
 // Main output generation
-let output: string = `---
+const output = `---
 title: Comprehensive Markdown Syntax Fixture
 description: A comprehensive test fixture for markdown-to-jsx parser with all syntax elements and various input sizes
 version: 1.0.0
@@ -465,7 +465,7 @@ ${generateForSizes(
 ## Autolinks
 
 ${generateForSizes(
-  (content: string) => `<https://example.com>
+  (_content: string) => `<https://example.com>
 
 <user@example.com>
 
@@ -665,13 +665,13 @@ Another paragraph with multiple footnotes[^2][^3].
 ## Backslash Escapes
 
 ${generateForSizes(
-  (content: string) => `\*Not bold\*
+  (content: string) => `*Not bold*
 
-\_Not italic\_
+_Not italic_
 
 \`Not code\`
 
-\[Not a link\](${content})
+[Not a link](${content})
 
 \\\\Backslash`
 )}

@@ -1,8 +1,8 @@
 /** @jsxImportSource vue */
 
-import { afterEach, describe, expect, it, mock } from 'bun:test'
-import { h, type VNode, type Component } from 'vue'
-import theredoc from 'theredoc'
+import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import { h, type VNode } from 'vue'
+import type { MarkdownToJSX } from './types.ts'
 import Markdown, {
   astToJSX,
   compiler,
@@ -10,8 +10,7 @@ import Markdown, {
   RuleType,
   sanitizer,
   type VueOptions,
-} from './vue'
-import type { MarkdownToJSX } from './types'
+} from './vue.tsx'
 
 afterEach(() => {
   mock.clearAllMocks()
@@ -21,9 +20,15 @@ afterEach(() => {
 function extractTextContent(
   element: VNode | VNode[] | string | null | undefined
 ): string {
-  if (!element) return ''
-  if (typeof element === 'string') return element
-  if (typeof element === 'number') return String(element)
+  if (!element) {
+    return ''
+  }
+  if (typeof element === 'string') {
+    return element
+  }
+  if (typeof element === 'number') {
+    return String(element)
+  }
   if (Array.isArray(element)) {
     let text = ''
     for (let i = 0; i < element.length; i++) {
@@ -50,15 +55,22 @@ function extractTextContent(
       return extractTextContent(props.innerHTML as VNode | VNode[] | string)
     }
     const children =
-      props?.children !== undefined
-        ? props.children
-        : 'children' in vnode
+      props?.children === undefined
+        ? 'children' in vnode
           ? vnode.children
           : undefined
+        : props.children
     if (children !== undefined) {
       // Handle slot functions (e.g., { default: () => [...] })
-      if (typeof children === 'object' && children !== null && !Array.isArray(children) && typeof (children as Record<string, unknown>).default === 'function') {
-        return extractTextContent((children as Record<string, () => VNode[]>).default() as VNode[])
+      if (
+        typeof children === 'object' &&
+        children !== null &&
+        !Array.isArray(children) &&
+        typeof (children as Record<string, unknown>).default === 'function'
+      ) {
+        return extractTextContent(
+          (children as Record<string, () => VNode[]>).default() as VNode[]
+        )
       }
       return extractTextContent(children as VNode | VNode[] | string)
     }
@@ -69,9 +81,15 @@ function extractTextContent(
 // Serialize a Vue VNode tree to an HTML-like string so nesting and sibling
 // order (not just text presence) are asserted.
 function serialize(el: unknown): string {
-  if (el == null || typeof el === 'boolean') return ''
-  if (typeof el === 'string' || typeof el === 'number') return String(el)
-  if (Array.isArray(el)) return el.map(serialize).join('')
+  if (el === null || typeof el === 'boolean') {
+    return ''
+  }
+  if (typeof el === 'string' || typeof el === 'number') {
+    return String(el)
+  }
+  if (Array.isArray(el)) {
+    return el.map(serialize).join('')
+  }
   const vnode = el as VNode
   const props = (vnode.props as Record<string, unknown>) || {}
   let kids: unknown = vnode.children
@@ -83,7 +101,9 @@ function serialize(el: unknown): string {
   ) {
     kids = (kids as { default: () => unknown }).default()
   }
-  if (props.innerHTML !== undefined) kids = props.innerHTML
+  if (props.innerHTML !== undefined) {
+    kids = props.innerHTML
+  }
   const inner = typeof kids === 'string' ? kids : serialize(kids)
   return typeof vnode.type === 'string'
     ? `<${vnode.type}>${inner}</${vnode.type}>`
@@ -91,26 +111,49 @@ function serialize(el: unknown): string {
 }
 
 // Type guard to check if result is a single VNode (not array or null)
-function isSingleVNode(vnode: VNode | VNode[] | null): vnode is VNode {
-  return vnode !== null && !Array.isArray(vnode)
-}
-
-// Helper to get VNode type
-function getVNodeType(vnode: VNode | VNode[] | null): string | undefined {
-  if (!isSingleVNode(vnode)) return undefined
-  if (typeof vnode.type === 'string') {
-    return vnode.type
-  }
-  return undefined
+function isSingleVNode(
+  vnode: VNode | VNode[] | null | undefined
+): vnode is VNode {
+  return vnode != null && !Array.isArray(vnode)
 }
 
 // Helper to get prop value from VNode
-function getProp(vnode: VNode | VNode[] | null, prop: string): unknown {
-  if (!isSingleVNode(vnode)) return undefined
+function getProp(
+  vnode: VNode | VNode[] | null | undefined,
+  prop: string
+): unknown {
+  if (!isSingleVNode(vnode)) {
+    return
+  }
   if (vnode.props && typeof vnode.props === 'object') {
     return (vnode.props as Record<string, unknown>)[prop]
   }
-  return undefined
+}
+
+function isVNode(value: unknown): value is VNode {
+  return typeof value === 'object' && value !== null && 'type' in value
+}
+
+/** Vue types `children` as string | VNodeArrayChildren | RawSlots; tests index normalized arrays. */
+function vnodeChildAt(vnode: VNode, index: number): VNode | undefined {
+  const kids = vnode.children
+  if (!Array.isArray(kids)) {
+    return
+  }
+  const child = kids[index]
+  return isVNode(child) ? child : undefined
+}
+
+// Helper to get VNode type
+function getVNodeType(
+  vnode: VNode | VNode[] | null | undefined
+): string | undefined {
+  if (!isSingleVNode(vnode)) {
+    return
+  }
+  if (typeof vnode.type === 'string') {
+    return vnode.type
+  }
 }
 
 // Helper to find a child VNode by tag name
@@ -118,20 +161,21 @@ function findByTag(
   vnode: VNode | VNode[] | null,
   tag: string
 ): VNode | undefined {
-  if (!isSingleVNode(vnode)) return undefined
+  if (!isSingleVNode(vnode)) {
+    return
+  }
   if (Array.isArray(vnode.children)) {
     for (let i = 0; i < vnode.children.length; i++) {
       const child = vnode.children[i]
       if (
-        typeof child === 'object' &&
+        isVNode(child) &&
         typeof child.type === 'string' &&
         child.type === tag
       ) {
-        return child as VNode
+        return child
       }
     }
   }
-  return undefined
 }
 
 it('should throw if not passed a string (first arg)', () => {
@@ -163,15 +207,17 @@ it('wraps multiple block element returns in a div to avoid invalid nesting error
   expect(getVNodeType(result)).toBe('div')
   const text = extractTextContent(result)
   expect(text).toBe('BoopBlep')
-  if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+  if (!isSingleVNode(result)) {
+    throw new Error('Expected single VNode')
+  }
   expect(Array.isArray(result.children)).toBe(true)
   expect(result.children?.length).toBe(2)
-  const child0 = result.children?.[0]
-  const child1 = result.children?.[1]
-  if (typeof child0 === 'object' && child0 !== null) {
+  const child0 = isSingleVNode(result) ? vnodeChildAt(result, 0) : undefined
+  const child1 = isSingleVNode(result) ? vnodeChildAt(result, 1) : undefined
+  if (child0) {
     expect(getVNodeType(child0)).toBe('h1')
   }
-  if (typeof child1 === 'object' && child1 !== null) {
+  if (child1) {
     expect(getVNodeType(child1)).toBe('h2')
   }
 })
@@ -279,7 +325,9 @@ describe('links', () => {
     const text = extractTextContent(result)
     expect(text).toBe('Link')
     // The link is nested inside the paragraph
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
   })
@@ -346,12 +394,14 @@ describe('lists', () => {
     expect(getVNodeType(result)).toBe('ul')
     const text = extractTextContent(result)
     expect(text).toBe('Item 1Item 2')
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
     expect(vnode.children?.length).toBe(2)
-    expect(getVNodeType(vnode.children?.[0] as VNode)).toBe('li')
-    expect(getVNodeType(vnode.children?.[1] as VNode)).toBe('li')
+    expect(getVNodeType(vnodeChildAt(vnode, 0))).toBe('li')
+    expect(getVNodeType(vnodeChildAt(vnode, 1))).toBe('li')
   })
 
   it('should render ordered lists', () => {
@@ -359,19 +409,23 @@ describe('lists', () => {
     expect(getVNodeType(result)).toBe('ol')
     const text = extractTextContent(result)
     expect(text).toBe('Item 1Item 2')
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
     expect(vnode.children?.length).toBe(2)
-    expect(getVNodeType(vnode.children?.[0] as VNode)).toBe('li')
-    expect(getVNodeType(vnode.children?.[1] as VNode)).toBe('li')
+    expect(getVNodeType(vnodeChildAt(vnode, 0))).toBe('li')
+    expect(getVNodeType(vnodeChildAt(vnode, 1))).toBe('li')
   })
 
   it('should handle ordered lists with start attribute', () => {
     const result = compiler('3. Item 3\n4. Item 4')
     expect(getVNodeType(result)).toBe('ol')
     expect(getProp(result, 'start')).toBe(3)
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
     expect(vnode.children?.length).toBe(2)
@@ -395,8 +449,9 @@ describe('code blocks', () => {
   it('should handle code blocks with language', () => {
     const result = compiler('```javascript\ncode\n```')
     expect(getVNodeType(result)).toBe('pre')
-    const codeElement = (isSingleVNode(result) ? result : null)
-      ?.children?.[0] as VNode
+    const codeElement = isSingleVNode(result)
+      ? vnodeChildAt(result, 0)
+      : undefined
     expect(getVNodeType(codeElement)).toBe('code')
     const codeClass = getProp(codeElement, 'class')
     expect(typeof codeClass).toBe('string')
@@ -425,39 +480,43 @@ describe('Vue-specific features', () => {
       },
     })
     // Component overrides result in function component type
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     expect(typeof result.type).toBe('function')
     expect(result.type).toBe(CustomHeading)
     expect(extractTextContent(result)).toBe('Hello')
   })
 
   it('should handle Options API component overrides with render function', () => {
-    const OptionsAPIComponent = {
+    const OptionsApiComponent = {
       render() {
         return h('h1', { class: 'options-api' }, 'Options API Heading')
       },
     }
     const result = compiler('# Hello', {
       overrides: {
-        h1: OptionsAPIComponent,
+        h1: OptionsApiComponent,
       },
     })
     // Object-based component should be recognized and passed to h()
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     expect(typeof result.type).toBe('object')
-    expect(result.type).toBe(OptionsAPIComponent)
+    expect(result.type).toBe(OptionsApiComponent)
     // Verify the component has a render function (Options API)
-    expect('render' in OptionsAPIComponent).toBe(true)
-    expect(typeof OptionsAPIComponent['render']).toBe('function')
+    expect('render' in OptionsApiComponent).toBe(true)
+    expect(typeof OptionsApiComponent.render).toBe('function')
     // Verify the component's render function produces the expected output
-    const renderedOutput = OptionsAPIComponent['render']()
+    const renderedOutput = OptionsApiComponent.render()
     expect(getVNodeType(renderedOutput as VNode)).toBe('h1')
     expect(getProp(renderedOutput as VNode, 'class')).toBe('options-api')
     expect(extractTextContent(renderedOutput)).toBe('Options API Heading')
   })
 
   it('should handle Composition API component overrides with setup function', () => {
-    const CompositionAPIComponent = {
+    const CompositionApiComponent = {
       setup() {
         return () =>
           h('h1', { class: 'composition-api' }, 'Composition API Heading')
@@ -465,18 +524,20 @@ describe('Vue-specific features', () => {
     }
     const result = compiler('# Hello', {
       overrides: {
-        h1: CompositionAPIComponent,
+        h1: CompositionApiComponent,
       },
     })
     // Object-based component should be recognized and passed to h()
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     expect(typeof result.type).toBe('object')
-    expect(result.type).toBe(CompositionAPIComponent)
+    expect(result.type).toBe(CompositionApiComponent)
     // Verify the component has a setup function (Composition API)
-    expect('setup' in CompositionAPIComponent).toBe(true)
-    expect(typeof CompositionAPIComponent['setup']).toBe('function')
+    expect('setup' in CompositionApiComponent).toBe(true)
+    expect(typeof CompositionApiComponent.setup).toBe('function')
     // Verify the component's setup function produces the expected output
-    const renderFn = CompositionAPIComponent['setup']()
+    const renderFn = CompositionApiComponent.setup()
     expect(typeof renderFn).toBe('function')
     const renderedOutput = renderFn()
     expect(getVNodeType(renderedOutput as VNode)).toBe('h1')
@@ -491,20 +552,24 @@ describe('tables', () => {
     expect(getVNodeType(result)).toBe('table')
     const text = extractTextContent(result)
     expect(text).toBe('HeaderCell')
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
     expect(vnode.children?.length).toBe(2)
-    expect(getVNodeType(vnode.children?.[0] as VNode)).toBe('thead')
-    expect(getVNodeType(vnode.children?.[1] as VNode)).toBe('tbody')
+    expect(getVNodeType(vnodeChildAt(vnode, 0))).toBe('thead')
+    expect(getVNodeType(vnodeChildAt(vnode, 1))).toBe('tbody')
   })
 
   it('#513 should not render empty tbody when table has no data rows', () => {
     const result = compiler('| A | B |\n|---|---|')
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     const vnode = result
     expect(vnode.children?.length).toBe(1)
-    expect(getVNodeType(vnode.children?.[0] as VNode)).toBe('thead')
+    expect(getVNodeType(vnodeChildAt(vnode, 0))).toBe('thead')
   })
 })
 
@@ -524,7 +589,9 @@ describe('footnotes', () => {
     const text = extractTextContent(result)
     expect(text).toContain('Text')
     expect(text).toContain('Footnote')
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
     const footer = findByTag(vnode, 'footer')
@@ -548,7 +615,7 @@ describe('parser and astToJSX', () => {
   })
 })
 
-type MarkdownProps = {
+interface MarkdownProps {
   children?: string | null
   options?: VueOptions
   [key: string]: unknown
@@ -558,7 +625,14 @@ type MarkdownProps = {
 type MarkdownComponent = (props: MarkdownProps) => VNode | VNode[] | null
 
 describe('Markdown component', () => {
+  // Calling the functional component outside a Vue setup() triggers inject() DEV
+  // warnings; silence them so console-leak does not fail these unit checks.
+  afterEach(() => {
+    mock.restore()
+  })
+
   it('should render markdown via component', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
     // Markdown is a functional component, call it directly
     const result = (Markdown as MarkdownComponent)({ children: '# Hello' })
     expect(getVNodeType(result)).toBe('h1')
@@ -566,12 +640,14 @@ describe('Markdown component', () => {
   })
 
   it('should handle null children', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
     // Markdown component converts null to empty string
     const result = (Markdown as MarkdownComponent)({ children: null })
     expect(result).toBeNull()
   })
 
   it('should merge additional props into wrapperProps', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
     // Markdown component merges restProps into wrapperProps
     const result = (Markdown as MarkdownComponent)({
       children: '# Hello\n\n## World',
@@ -584,6 +660,7 @@ describe('Markdown component', () => {
   })
 
   it('should pass options through to compiler', () => {
+    spyOn(console, 'warn').mockImplementation(() => {})
     const result = (Markdown as MarkdownComponent)({
       children: '# Hello',
       options: {
@@ -623,7 +700,9 @@ describe('blockquotes with alerts', () => {
     expect(classProp as string).toContain('markdown-alert-note')
     const text = extractTextContent(result)
     expect(text).toBe('NOTESomething important')
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
   })
@@ -638,7 +717,9 @@ describe('frontmatter', () => {
     const text = extractTextContent(result)
     expect(text).toContain('title: Test')
     expect(text).toContain('Content')
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     const vnode = result
     const preElement = findByTag(vnode, 'pre')
     expect(preElement).toBeDefined()
@@ -659,19 +740,19 @@ describe('GFM task lists', () => {
     expect(getVNodeType(result)).toBe('ul')
     const text = extractTextContent(result)
     expect(text).toBe(' Task 1')
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
-    const li = vnode.children?.[0]
-    if (typeof li === 'object' && li !== null) {
+    const li = vnodeChildAt(vnode, 0)
+    if (li) {
       expect(getVNodeType(li)).toBe('li')
-      if (Array.isArray(li.children)) {
-        const checkbox = li.children[0]
-        if (typeof checkbox === 'object' && checkbox !== null) {
-          expect(getVNodeType(checkbox)).toBe('input')
-          expect(getProp(checkbox, 'type')).toBe('checkbox')
-          expect(getProp(checkbox, 'checked')).toBe(false)
-        }
+      const checkbox = vnodeChildAt(li, 0)
+      if (checkbox) {
+        expect(getVNodeType(checkbox)).toBe('input')
+        expect(getProp(checkbox, 'type')).toBe('checkbox')
+        expect(getProp(checkbox, 'checked')).toBe(false)
       }
     }
   })
@@ -681,12 +762,14 @@ describe('GFM task lists', () => {
     expect(getVNodeType(result)).toBe('ul')
     const text = extractTextContent(result)
     expect(text).toBe(' Task 1')
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
-    const li = vnode.children?.[0] as VNode
+    const li = vnodeChildAt(vnode, 0)
     expect(getVNodeType(li)).toBe('li')
-    const checkbox = li.children?.[0] as VNode
+    const checkbox = li ? vnodeChildAt(li, 0) : undefined
     expect(getVNodeType(checkbox)).toBe('input')
     expect(getProp(checkbox, 'type')).toBe('checkbox')
     expect(getProp(checkbox, 'checked')).toBe(true)
@@ -698,8 +781,9 @@ describe('code blocks with attributes', () => {
     const result = compiler('```js data-line="1"\ncode\n```')
     expect(getVNodeType(result)).toBe('pre')
     // Attributes are on code element inside pre, not on pre itself
-    const codeElement = (isSingleVNode(result) ? result : null)
-      ?.children?.[0] as VNode
+    const codeElement = isSingleVNode(result)
+      ? vnodeChildAt(result, 0)
+      : undefined
     expect(getVNodeType(codeElement)).toBe('code')
     const dataLine = getProp(codeElement, 'data-line')
     expect(dataLine).toBe('1')
@@ -713,8 +797,7 @@ describe('HTML blocks', () => {
       tagfilter: true,
     })
     expect(getVNodeType(result)).toBe('span')
-    const text = extractTextContent(result)
-    expect(text).toContain('<script>')
+    expect(extractTextContent(result)).toBe('<script>alert("xss")</script>')
   })
 
   it('should process markdown within HTML blocks', () => {
@@ -756,11 +839,11 @@ describe('HTML blocks', () => {
   it('should handle HTML blocks with pre tags using innerHTML', () => {
     const result = compiler('<div><pre>code\nhere</pre>text</div>')
     expect(getVNodeType(result)).toBe('div')
-    const innerHTML = getProp(result, 'innerHTML')
-    expect(typeof innerHTML === 'object' && innerHTML !== null).toBe(true)
-    const innerHTMLVNode = innerHTML as VNode
-    expect(getVNodeType(innerHTMLVNode)).toBe('pre')
-    const text = extractTextContent(innerHTMLVNode)
+    const innerHtml = getProp(result, 'innerHTML')
+    expect(typeof innerHtml === 'object' && innerHtml !== null).toBe(true)
+    const innerHtmlvNode = innerHtml as VNode
+    expect(getVNodeType(innerHtmlvNode)).toBe('pre')
+    const text = extractTextContent(innerHtmlvNode)
     expect(text).toContain('code')
     expect(text).toContain('here')
   })
@@ -865,13 +948,15 @@ describe('nested lists', () => {
     expect(getVNodeType(result)).toBe('ul')
     const text = extractTextContent(result)
     expect(text).toBe('Item 1Nested 1Nested 2')
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
-    const firstLi = vnode.children?.[0] as VNode
+    const firstLi = vnodeChildAt(vnode, 0)
     expect(getVNodeType(firstLi)).toBe('li')
-    expect(Array.isArray(firstLi.children)).toBe(true)
-    const nestedUl = findByTag(firstLi, 'ul')
+    expect(firstLi && Array.isArray(firstLi.children)).toBe(true)
+    const nestedUl = firstLi ? findByTag(firstLi, 'ul') : undefined
     expect(nestedUl).toBeDefined()
   })
 
@@ -880,12 +965,14 @@ describe('nested lists', () => {
     expect(getVNodeType(result)).toBe('ol')
     const text = extractTextContent(result)
     expect(text).toBe('Item 1Nested 1Nested 2')
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
-    const firstLi = vnode.children?.[0] as VNode
+    const firstLi = vnodeChildAt(vnode, 0)
     expect(getVNodeType(firstLi)).toBe('li')
-    const nestedOl = findByTag(firstLi, 'ol')
+    const nestedOl = firstLi ? findByTag(firstLi, 'ol') : undefined
     expect(nestedOl).toBeDefined()
   })
 })
@@ -898,13 +985,15 @@ describe('tables with alignment', () => {
     expect(getVNodeType(result)).toBe('table')
     const text = extractTextContent(result)
     expect(text).toBe('LeftCenterRightLCR')
-    if (!isSingleVNode(result)) throw new Error('Expected single VNode')
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
     const vnode = result
-    const thead = vnode.children?.[0] as VNode
-    const tbody = vnode.children?.[1] as VNode
+    const thead = vnodeChildAt(vnode, 0)
+    const tbody = vnodeChildAt(vnode, 1)
     expect(getVNodeType(thead)).toBe('thead')
     expect(getVNodeType(tbody)).toBe('tbody')
-    expect(Array.isArray(tbody.children)).toBe(true)
+    expect(tbody && Array.isArray(tbody.children)).toBe(true)
   })
 })
 
@@ -1113,8 +1202,8 @@ describe('hHelper edge cases', () => {
         },
       },
     })
-    const innerHTML = getProp(result, 'innerHTML')
-    expect(innerHTML).toBe('override')
+    const innerHtml = getProp(result, 'innerHTML')
+    expect(innerHtml).toBe('override')
   })
 })
 
@@ -1128,7 +1217,7 @@ describe('renderRule edge cases', () => {
 
   it('should handle renderRule with custom renderChildren', () => {
     const result = compiler('# Hello', {
-      renderRule: (next, node, renderChildren) => {
+      renderRule: (next, node, _renderChildren) => {
         if (node.type === RuleType.heading) {
           return h('h1', {}, 'Custom')
         }
@@ -1169,7 +1258,7 @@ describe('error handling', () => {
 describe('renderer edge cases', () => {
   it('should handle array output from renderRule', () => {
     const result = compiler('# Hello', {
-      renderRule: (next, node, renderChildren, state) => {
+      renderRule: (next, node, _renderChildren, state) => {
         if (node.type === RuleType.heading) {
           // Return single VNode instead of array - arrays are handled internally
           return h('h1', { key: state.key }, 'First')
@@ -1198,7 +1287,7 @@ describe('renderer edge cases', () => {
 
   it('should handle multiple nodes from renderRule', () => {
     const result = compiler('# Hello\n\n## World', {
-      renderRule: (next, node, renderChildren, state) => {
+      renderRule: (next, node, _renderChildren, state) => {
         if (
           node.type === RuleType.heading &&
           (node as MarkdownToJSX.HeadingNode).level === 1
@@ -1216,12 +1305,12 @@ describe('renderer edge cases', () => {
 
 describe('MarkdownProvider (provide/inject)', () => {
   it('should export MarkdownProvider', () => {
-    const { MarkdownProvider } = require('./vue')
+    const { MarkdownProvider } = require('./vue.tsx')
     expect(typeof MarkdownProvider).toBe('function')
   })
 
   it('should export MarkdownOptionsKey', () => {
-    const { MarkdownOptionsKey } = require('./vue')
+    const { MarkdownOptionsKey } = require('./vue.tsx')
     expect(MarkdownOptionsKey).toBeDefined()
     expect(typeof MarkdownOptionsKey).toBe('symbol')
   })
@@ -1229,7 +1318,7 @@ describe('MarkdownProvider (provide/inject)', () => {
   it('should support provide/inject pattern (integration test)', () => {
     // Note: Full provide/inject testing requires Vue runtime
     // This test verifies the exports exist and have correct types
-    const { MarkdownProvider, MarkdownOptionsKey } = require('./vue')
+    const { MarkdownProvider, MarkdownOptionsKey } = require('./vue.tsx')
     expect(MarkdownProvider).toBeDefined()
     expect(MarkdownOptionsKey).toBeDefined()
   })
@@ -1277,7 +1366,9 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
     const dump = (s: string) => JSON.stringify(compiler(s))
     expect(dump('<div><img onerror=alert(1)></div>')).not.toContain('onerror')
     expect(dump('<pre onclick=alert(1)>code</pre>')).not.toContain('onclick')
-    const urls = dump('<div onclick="alert(1)"><a href="javascript:x">y</a></div>')
+    const urls = dump(
+      '<div onclick="alert(1)"><a href="javascript:x">y</a></div>'
+    )
     expect(urls).not.toContain('onclick')
     expect(urls).not.toContain('javascript:')
   })
@@ -1287,18 +1378,29 @@ describe('unique heading IDs (#857)', () => {
   function collectIds(vnode: VNode | VNode[] | null): string[] {
     const ids: string[] = []
     const walk = (node: VNode | VNode[] | null | undefined) => {
-      if (node == null) return
+      if (node == null) {
+        return
+      }
       if (Array.isArray(node)) {
-        for (const child of node) walk(child)
+        for (const child of node) {
+          walk(child)
+        }
         return
       }
       const id = getProp(node, 'id')
-      if (typeof id === 'string') ids.push(id)
+      if (typeof id === 'string') {
+        ids.push(id)
+      }
       const kids = node.children
       if (Array.isArray(kids)) {
-        for (const child of kids) walk(child as VNode)
+        for (const child of kids) {
+          if (isVNode(child)) {
+            walk(child)
+          }
+        }
       } else if (kids && typeof kids === 'object') {
-        walk(kids as VNode)
+        // RawSlots is not a VNode; cast through unknown for slot-object walks in tests.
+        walk(kids as unknown as VNode)
       }
     }
     walk(vnode)
@@ -1316,6 +1418,82 @@ describe('unique heading IDs (#857)', () => {
       )
     ).toEqual(['foo', 'bar', 'foo-1'])
   })
+
+  it('slugs headings from inline text content, not raw source', () => {
+    expect(collectIds(compiler('## [text](https://e.com)'))).toEqual(['text'])
+  })
+})
+
+describe('destination entity decode before sanitize', () => {
+  function firstAttr(vnode: VNode | VNode[] | null, prop: string): unknown {
+    if (vnode === null) {
+      return
+    }
+    if (Array.isArray(vnode)) {
+      for (const child of vnode) {
+        const found = firstAttr(child, prop)
+        if (found !== undefined) {
+          return found
+        }
+      }
+      return
+    }
+    const value = getProp(vnode, prop)
+    if (value !== undefined) {
+      return value
+    }
+    const kids = vnode.children
+    if (Array.isArray(kids)) {
+      for (const child of kids) {
+        if (isVNode(child)) {
+          const found = firstAttr(child, prop)
+          if (found !== undefined) {
+            return found
+          }
+        }
+      }
+    } else if (kids && typeof kids === 'object') {
+      // RawSlots is not a VNode; cast through unknown for slot-object walks in tests.
+      return firstAttr(kids as unknown as VNode, prop)
+    }
+  }
+
+  it('drops entity-obfuscated javascript: href and src', () => {
+    expect(firstAttr(compiler('[x](&#106;avascript:alert(1))'), 'href')).toBe(
+      undefined
+    )
+    expect(firstAttr(compiler('![x](&#106;avascript:alert(1))'), 'src')).toBe(
+      undefined
+    )
+  })
+
+  it('re-sanitizes direct astToJSX link targets before href encoding', () => {
+    expect(
+      firstAttr(
+        astToJSX([
+          {
+            type: RuleType.link,
+            target: 'javascript:alert(1)',
+            children: [{ type: RuleType.text, text: 'x' }],
+          },
+        ]),
+        'href'
+      )
+    ).toBeUndefined()
+  })
+})
+
+describe('inline Type 1 content with tagfilter off', () => {
+  it('preserves single-line script content including forceInline', () => {
+    expect(
+      serialize(compiler('<script>x</script>', { tagfilter: false }))
+    ).toBe('<script>x</script>')
+    expect(
+      serialize(
+        compiler('<script>x</script>', { tagfilter: false, forceInline: true })
+      )
+    ).toBe('<script>x</script>')
+  })
 })
 
 describe('component-like HTML blank-line nesting (#870)', () => {
@@ -1331,5 +1509,58 @@ Some paragraph
     ).toMatchInlineSnapshot(
       `"<MyComponent><h2>My header</h2><p>Some paragraph</p></MyComponent>"`
     )
+  })
+})
+
+describe('tagfilter escapes dangerous tags by default', () => {
+  // Regression: the render-time tag filter defaulted OFF in vue (raw options
+  // flowed to the renderer; only parse options were coerced), so default output
+  // mounted live dangerous tags despite the documented default-on protection.
+  // Both compiler() and astToJSX must escape.
+  it('escapes script with default options via compiler()', () => {
+    expect(serialize(compiler('<script>alert(1)</script>'))).toBe(
+      '<span><script>alert(1)</script></span>'
+    )
+  })
+
+  it('escapes iframe with default options via compiler()', () => {
+    expect(serialize(compiler('<iframe src="evil.com"></iframe>'))).toBe(
+      '<span><iframe src="evil.com"></iframe></span>'
+    )
+  })
+
+  it('escapes dangerous tags by default via astToJSX()', () => {
+    expect(serialize(astToJSX(parser('<script>alert(1)</script>')))).toBe(
+      '<span><script>alert(1)</script></span>'
+    )
+  })
+
+  it('keeps allowed nested tags live inside a filtered parent', () => {
+    expect(
+      serialize(compiler('<iframe>hi <em>x</em></iframe>', { tagfilter: true }))
+    ).toBe('<span><iframe>hi <em>x</em></iframe></span>')
+  })
+
+  it('passes dangerous tags through only when tagfilter is explicitly disabled', () => {
+    expect(
+      serialize(compiler('<script>\nx\n</script>', { tagfilter: false }))
+    ).toBe('<script>x</script>')
+  })
+})
+
+describe('optimizeForStreaming preserves literal less-than', () => {
+  it('keeps comparison prose and defers incomplete tag prefixes', () => {
+    // Single-line input auto-inlines, so serialize sees a bare text node.
+    expect(
+      serialize(compiler('5 < 3 is false', { optimizeForStreaming: true }))
+    ).toBe('5 < 3 is false')
+    expect(
+      serialize(compiler('Hello <Citation', { optimizeForStreaming: true }))
+    ).toBe('Hello ')
+    expect(
+      serialize(
+        compiler('x < y\n\nsecond para', { optimizeForStreaming: true })
+      )
+    ).toBe('<div><p>x < y</p><p>second para</p></div>')
   })
 })

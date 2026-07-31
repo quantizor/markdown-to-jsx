@@ -45,36 +45,3 @@ export const UI_STRINGS: Record<string, Record<string, string>> = {
     demoAlert: 'देखिए, मैं एक वास्तविक कंपोनेंट हूं!',
   },
 }
-
-export const ALERT_TRANSLATIONS: Record<string, Record<string, string>> = {
-  en: {
-    NOTE: 'NOTE',
-    TIP: 'TIP',
-    IMPORTANT: 'IMPORTANT',
-    WARNING: 'WARNING',
-    CAUTION: 'CAUTION',
-  },
-  zh: {
-    NOTE: '注意',
-    TIP: '提示',
-    IMPORTANT: '重要',
-    WARNING: '警告',
-    CAUTION: '小心',
-  },
-  hi: {
-    NOTE: 'नोट',
-    TIP: 'सुझाव',
-    IMPORTANT: 'महत्वपूर्ण',
-    WARNING: 'चेतावनी',
-    CAUTION: 'सावधानी',
-  },
-}
-
-export function translateAlertType(
-  alertType: string,
-  language: string = 'en'
-): string {
-  const normalized = alertType.toUpperCase()
-  const translations = ALERT_TRANSLATIONS[language] || ALERT_TRANSLATIONS.en
-  return translations[normalized] || alertType
-}

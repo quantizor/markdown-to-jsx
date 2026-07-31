@@ -1,0 +1,257 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!docs",
+      "!**/dist",
+      "!**/*.generated.*",
+      "!**/gfm-spec.md",
+      "!**/markdown-spec.md",
+      "!**/default-template.md",
+      "!bun.lock",
+      "!**/coverage",
+      // Demo static assets; a11y of SVG marks is not a library contract.
+      "!public"
+    ]
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "javascript": {
+    "globals": ["Bun", "process"],
+    "formatter": {
+      "arrowParentheses": "asNeeded",
+      "bracketSameLine": false,
+      "bracketSpacing": true,
+      "quoteStyle": "single",
+      "semicolons": "asNeeded",
+      "trailingCommas": "es5"
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "domains": {
+      // Unused framework domains forced off so workspace deps cannot auto-enable them.
+      "drizzle": "none",
+      "next": "none",
+      "playwright": "none",
+      "project": "all",
+      "qwik": "none",
+      "react": "none",
+      "reactNative": "none",
+      "solid": "none",
+      "svelte": "none",
+      "tailwind": "none",
+      "test": "none",
+      "turborepo": "none",
+      "types": "all",
+      "vue": "none"
+    },
+    "rules": {
+      "preset": "all",
+      "correctness": {
+        // Nested function declarations are the ES5 / hot-path style across parse.ts.
+        "noInnerDeclarations": "off",
+        // Bun scripts and test preload import node: and bun: builtins by design.
+        "noNodejsModules": "off",
+        "noUndeclaredDependencies": "off",
+        // bun:test / react-native mocks / ambient benchtable decls are resolved at runtime.
+        "noUnresolvedImports": "off",
+        // Extensionless relative imports: tsc for browser/native lacks
+        // allowImportingTsExtensions; Bun resolves both forms.
+        "useImportExtensions": "off"
+      },
+      "performance": {
+        // React props must drop `key` via delete so it is absent from props
+        // snapshots and React does not see key: undefined.
+        "noDelete": "off"
+      },
+      "security": {
+        // Fixture markdown and tests embed example payload strings that trip heuristics.
+        "noGlobalEval": "off",
+        "noSecrets": "off"
+      },
+      "style": {
+        // index.cjs.tsx and CommonJS dual-package surface.
+        "noCommonJs": "off",
+        // Vite / Playwright / Expo configs are default-export by convention.
+        "noDefaultExport": "off",
+        // DEV guards key off bare process.env.NODE_ENV (global, not an import)
+        // so bunup's define can replace the identifier and DCE the branch.
+        "noProcessEnv": "off",
+        // CHAR_* constants and AST field names are load-bearing identifiers.
+        "useNamingConvention": "off"
+      },
+      "suspicious": {
+        // Scanner loops assign in while/for conditions intentionally.
+        "noAssignInExpressions": "off",
+        // Library emits allowlisted DEV sanitizer warnings; tests spy on console.
+        "noConsole": "off",
+        // Markdown/HTML scanners need control chars in character-class regexes.
+        "noControlCharactersInRegex": "off",
+        // `!= null` / `== null` are the intentional null|undefined narrowers.
+        // Unsafe autofix rewrites them to !== and breaks control flow.
+        "noEqualsToNull": "off",
+        // Spec suites use any for React element walks and snapshot helpers.
+        "noExplicitAny": "off",
+        // Parser locals redeclare across mutually exclusive branches by design.
+        "noRedeclare": "off",
+        // Nested parse helpers reuse short names (i, node, state) on purpose.
+        "noShadow": "off",
+        // Prefer ES5 var on hot paths (AGENTS.md).
+        "noVar": "off",
+        // map/forEach callbacks often omit returns in test helpers.
+        "useIterableCallbackReturn": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "lib/src/react.tsx",
+        "lib/src/react.spec.tsx",
+        "lib/src/index.tsx",
+        "lib/src/index.cjs.tsx",
+        "browser/src/**"
+      ],
+      "linter": {
+        "domains": {
+          "react": "all"
+        }
+      }
+    },
+    {
+      "includes": [
+        "lib/src/native.tsx",
+        "lib/src/native.spec.tsx",
+        "native/**/*.ts",
+        "native/**/*.tsx"
+      ],
+      "linter": {
+        "domains": {
+          "react": "all",
+          "reactNative": "all"
+        }
+      }
+    },
+    {
+      "includes": ["lib/src/solid.tsx", "lib/src/solid.spec.tsx"],
+      "linter": {
+        "domains": {
+          "solid": "all"
+        }
+      }
+    },
+    {
+      "includes": ["lib/src/vue.tsx", "lib/src/vue.spec.tsx"],
+      "linter": {
+        "domains": {
+          "vue": "all"
+        }
+      }
+    },
+    {
+      "includes": [
+        "**/*.spec.ts",
+        "**/*.spec.tsx",
+        "**/*.test.ts",
+        "**/*.test.tsx"
+      ],
+      "linter": {
+        "domains": {
+          "test": "all"
+        },
+        "rules": {
+          "a11y": {
+            // Specs assert markup shape, not document a11y contracts.
+            "noSvgWithoutTitle": "off",
+            "useButtonType": "off",
+            "useHtmlLang": "off",
+            "useValidAnchor": "off"
+          },
+          "correctness": {
+            "noChildrenProp": "off",
+            "useImageSize": "off"
+          },
+          "suspicious": {
+            "noArrayIndexKey": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["browser/tests/**"],
+      "linter": {
+        "domains": {
+          "test": "all",
+          "playwright": "all"
+        }
+      }
+    },
+    {
+      "includes": ["lib/src/react.tsx", "lib/src/native.tsx"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            // AST children have no stable identity; index keys match sibling order.
+            "noArrayIndexKey": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["site/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            // site/ is a visual demo, not an a11y surface under test.
+            "noSvgWithoutTitle": "off",
+            "useButtonType": "off",
+            "useHtmlLang": "off",
+            "useValidAnchor": "off"
+          },
+          "correctness": {
+            // GTM snippet declares dataLayer at runtime.
+            "noUndeclaredVariables": "off"
+          },
+          "suspicious": {
+            // Progressive min-height: 100vh then -webkit-fill-available.
+            "noDuplicateProperties": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["lib/src/react.tsx", "lib/src/html.ts"],
+      "linter": {
+        "rules": {
+          "security": {
+            // Compilers emit trusted sanitized markup through this sink by design.
+            "noDangerouslySetInnerHtml": "off"
+          }
+        }
+      }
+    }
+  ]
+}

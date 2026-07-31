@@ -1,10 +1,10 @@
-import { RuleType, type MarkdownToJSX } from './types'
-import { isVoidElement, getTag, getOverrideProps } from './utils'
-import { parser } from './parse'
-import * as $ from './constants'
+import * as $ from './constants.ts'
+import { parser } from './parse.ts'
+import { type MarkdownToJSX, RuleType } from './types.ts'
+import { getOverrideProps, getTag, isVoidElement } from './utils.ts'
 
-export { parser } from './parse'
-export { RuleType, type MarkdownToJSX } from './types'
+export { parser } from './parse.ts'
+export { type MarkdownToJSX, RuleType } from './types.ts'
 
 var _emptyState: MarkdownToJSX.State = {}
 
@@ -33,7 +33,7 @@ export type MarkdownOverrides = {
  */
 export type MarkdownCompilerOptions = Omit<
   MarkdownToJSX.Options,
-  'createElement' | 'wrapper' | 'wrapperProps' | 'forceWrapper'
+  'createElement' | 'wrapper' | 'wrapperProps' | 'forceWrapper' | 'renderRule'
 > & {
   /**
    * Whether to use reference-style links instead of inline links
@@ -123,8 +123,9 @@ export function astToMarkdown(
       node.type === RuleType.footnote ||
       (node.type === RuleType.frontmatter &&
         options?.preserveFrontmatter === false)
-    )
+    ) {
       return ''
+    }
     return compileNode(node, state)
   }
 
@@ -167,7 +168,9 @@ export function astToMarkdown(
   var content = ''
   for (var ni = 0; ni < nonRefCollectionNodes.length; ni++) {
     var n = nonRefCollectionNodes[ni]
-    if (ni > 0) content += '\n\n'
+    if (ni > 0) {
+      content += '\n\n'
+    }
     var keyIndex = n.type === RuleType.refCollection ? undefined : keyOffset++
     content += nestedStatefulRender(n, { key: keyIndex, refs })
   }
@@ -175,10 +178,12 @@ export function astToMarkdown(
   if (state.options.useReferenceLinks && state.references.size > 0) {
     const references = Array.from(state.references.entries())
       .map(([key, { url, title }]) =>
-        title ? `[${key}]: ${url} "${escapeLinkTitle(title)}"` : `[${key}]: ${url}`
+        title
+          ? `[${key}]: ${url} "${escapeLinkTitle(title)}"`
+          : `[${key}]: ${url}`
       )
       .join('\n')
-    return content + '\n\n' + references
+    return `${content}\n\n${references}`
   }
 
   return content
@@ -252,13 +257,13 @@ function compileNode(
       return compileTable(node, state)
 
     case RuleType.htmlBlock:
-      return compileHTMLBlock(node, state)
+      return compileHtmlBlock(node, state)
 
     case RuleType.htmlSelfClosing:
-      return compileHTMLSelfClosing(node, state)
+      return compileHtmlSelfClosing(node, state)
 
     case RuleType.htmlComment:
-      return compileHTMLComment(node)
+      return compileHtmlComment(node)
 
     case RuleType.footnoteReference:
       return compileFootnoteReference(node)
@@ -267,7 +272,7 @@ function compileNode(
       return compileFrontmatter(node)
 
     case RuleType.gfmTask:
-      return compileGFMTask(node)
+      return compileGfmTask(node)
 
     case RuleType.refCollection:
       return compileReferenceCollection(node)
@@ -309,13 +314,19 @@ const ESCAPE_TRIGGER_R = /[\\`*_[\]~]|(?:^|\n)[ \t]*(?:[#>=|+-]|\d{1,9}[.)])/
 
 function compileText(node: MarkdownToJSX.TextNode): string {
   var text = node.text
-  if (!ESCAPE_TRIGGER_R.test(text)) return text
+  if (!ESCAPE_TRIGGER_R.test(text)) {
+    return text
+  }
   return text.replace(
     ESCAPE_ALL_R,
-    function (match, lineStart, indent, blockChar, digits, marker) {
-      if (lineStart === undefined) return '\\' + match
-      if (blockChar !== undefined) return lineStart + indent + '\\' + blockChar
-      return lineStart + indent + digits + '\\' + marker
+    (match, lineStart, indent, blockChar, digits, marker) => {
+      if (lineStart === undefined) {
+        return `\\${match}`
+      }
+      if (blockChar !== undefined) {
+        return `${lineStart + indent}\\${blockChar}`
+      }
+      return `${lineStart + indent + digits}\\${marker}`
     }
   )
 }
@@ -325,7 +336,9 @@ function compileParagraph(
   state: CompilerState
 ): string {
   var out = ''
-  for (var i = 0; i < node.children.length; i++) out += state.renderChild(node.children[i], _emptyState)
+  for (var i = 0; i < node.children.length; i++) {
+    out += state.renderChild(node.children[i], _emptyState)
+  }
   return out
 }
 
@@ -334,7 +347,9 @@ function compileHeading(
   state: CompilerState
 ): string {
   var content = ''
-  for (var hi = 0; hi < node.children.length; hi++) content += state.renderChild(node.children[hi], _emptyState)
+  for (var hi = 0; hi < node.children.length; hi++) {
+    content += state.renderChild(node.children[hi], _emptyState)
+  }
 
   if (
     state.options.useSetextHeaders &&
@@ -343,7 +358,7 @@ function compileHeading(
     return `${content}\n${(node.level === 1 ? '=' : '-').repeat(content.length)}`
   }
 
-  return `${'#'.repeat(node.level)}${state.options.enforceAtxHeadings !== false ? ' ' : ''}${content}`
+  return `${'#'.repeat(node.level)}${state.options.enforceAtxHeadings === false ? '' : ' '}${content}`
 }
 
 function compileBreakThematic(_node: MarkdownToJSX.BreakThematicNode): string {
@@ -362,7 +377,9 @@ function compileCodeBlock(node: MarkdownToJSX.CodeBlockNode): string {
   for (var i = 0; i < node.text.length; i++) {
     if (node.text.charCodeAt(i) === $.CHAR_BACKTICK) {
       run++
-      if (run > longest) longest = run
+      if (run > longest) {
+        longest = run
+      }
     } else {
       run = 0
     }
@@ -380,7 +397,9 @@ function compileCodeInline(node: MarkdownToJSX.CodeInlineNode): string {
   for (var i = 0; i < text.length; i++) {
     if (text.charCodeAt(i) === $.CHAR_BACKTICK) {
       run++
-      if (run > longest) longest = run
+      if (run > longest) {
+        longest = run
+      }
     } else {
       run = 0
     }
@@ -402,7 +421,9 @@ function compileTextFormatted(
   state: CompilerState
 ): string {
   var content = ''
-  for (var fi = 0; fi < node.children.length; fi++) content += state.renderChild(node.children[fi], _emptyState)
+  for (var fi = 0; fi < node.children.length; fi++) {
+    content += state.renderChild(node.children[fi], _emptyState)
+  }
   switch (node.tag) {
     case 'em':
     case 'i':
@@ -435,7 +456,9 @@ function compileLink(
   state: CompilerState
 ): string {
   var text = ''
-  for (var li = 0; li < node.children.length; li++) text += state.renderChild(node.children[li], _emptyState)
+  for (var li = 0; li < node.children.length; li++) {
+    text += state.renderChild(node.children[li], _emptyState)
+  }
   const url = node.target || ''
   const title = node.title
 
@@ -457,8 +480,10 @@ function compileImage(
   state: CompilerState
 ): string {
   const alt = node.alt || ''
-  const url = node.target
-  const title = node.title
+  // Rejected destinations are null; keep the round-trip as ![alt]() so a
+  // leftover title cannot become a live destination on re-parse.
+  const url = node.target || ''
+  const title = url ? node.title : undefined
 
   if (state.options.useReferenceLinks) {
     const refKey = generateReferenceKey(state)
@@ -505,8 +530,11 @@ function compileListItemChildren(
     if (i > 0) {
       var prevBlock = isBlockListChild(item[i - 1].type)
       var curBlock = isBlockListChild(item[i].type)
-      if (prevBlock && curBlock) content += '\n\n'
-      else if (prevBlock || curBlock) content += '\n'
+      if (prevBlock && curBlock) {
+        content += '\n\n'
+      } else if (prevBlock || curBlock) {
+        content += '\n'
+      }
     }
     content += state.renderChild(item[i], _emptyState)
   }
@@ -519,9 +547,13 @@ function compileListItemChildren(
  * items with a blank line so it re-parses loose and keeps its `<p>` wrappers.
  */
 function isLooseList(items: MarkdownToJSX.ASTNode[][]): boolean {
-  for (var i = 0; i < items.length; i++)
-    for (var j = 0; j < items[i].length; j++)
-      if (items[i][j].type === RuleType.paragraph) return true
+  for (var i = 0; i < items.length; i++) {
+    for (var j = 0; j < items[i].length; j++) {
+      if (items[i][j].type === RuleType.paragraph) {
+        return true
+      }
+    }
+  }
   return false
 }
 
@@ -534,8 +566,10 @@ function compileOrderedList(
   var out = ''
   for (var oi = 0; oi < node.items.length; oi++) {
     var itemContent = compileListItemChildren(node.items[oi], state)
-    if (oi > 0) out += separator
-    out += (start + oi) + '. ' + itemContent.replace(/\n/g, '\n    ')
+    if (oi > 0) {
+      out += separator
+    }
+    out += `${start + oi}. ${itemContent.replace(/\n/g, '\n    ')}`
   }
   return out
 }
@@ -548,8 +582,10 @@ function compileUnorderedList(
   var out = ''
   for (var ui = 0; ui < node.items.length; ui++) {
     var uContent = compileListItemChildren(node.items[ui], state)
-    if (ui > 0) out += separator
-    out += '- ' + uContent.replace(/\n/g, '\n  ')
+    if (ui > 0) {
+      out += separator
+    }
+    out += `- ${uContent.replace(/\n/g, '\n  ')}`
   }
   return out
 }
@@ -561,19 +597,23 @@ function compileBlockQuote(
   // Single-pass: render children, then prefix lines with > while scanning for \n
   var rendered = ''
   for (var qi = 0; qi < node.children.length; qi++) {
-    if (qi > 0) rendered += '\n\n'
+    if (qi > 0) {
+      rendered += '\n\n'
+    }
     rendered += state.renderChild(node.children[qi], _emptyState)
   }
   // Prefix each line with >; an alert blockquote re-emits its marker line
   // first so the round-trip re-parses to the same alert (mirrors the html
   // compiler, which renders the alert as a header + class).
-  var out = node.alert ? '> [!' + node.alert + ']' : ''
+  var out = node.alert ? `> [!${node.alert}]` : ''
   var segStart = 0
   for (var ri = 0; ri <= rendered.length; ri++) {
     if (ri === rendered.length || rendered.charCodeAt(ri) === $.CHAR_NEWLINE) {
       var line = rendered.slice(segStart, ri)
-      if (out) out += '\n'
-      out += line.trim() ? '> ' + line : '>'
+      if (out) {
+        out += '\n'
+      }
+      out += line.trim() ? `> ${line}` : '>'
       segStart = ri + 1
     }
   }
@@ -584,15 +624,18 @@ function compileTable(
   node: MarkdownToJSX.TableNode,
   state: CompilerState
 ): string {
-  // Emit outer pipes and escape pipes inside cells. Without the outer pipes a
-  // single-column table re-parses as a setext heading, and an unescaped cell
-  // pipe splits the row.
-  var compileRow = function (cells: MarkdownToJSX.ASTNode[][]): string {
+  // Emit outer pipes and escape cell meta-characters. Escape backslashes
+  // before pipes so a literal `\|` in cell text becomes `\\\|` and re-parses
+  // as backslash + pipe rather than an unescaped column split. Without the
+  // outer pipes a single-column table re-parses as a setext heading.
+  var compileRow = (cells: MarkdownToJSX.ASTNode[][]): string => {
     var out = '|'
     for (var j = 0; j < cells.length; j++) {
       var cell = ''
-      for (var k = 0; k < cells[j].length; k++) cell += state.renderChild(cells[j][k], _emptyState)
-      out += ' ' + cell.replace(/\|/g, '\\|') + ' |'
+      for (var k = 0; k < cells[j].length; k++) {
+        cell += state.renderChild(cells[j][k], _emptyState)
+      }
+      out += ` ${cell.replace(/\\/g, '\\\\').replace(/\|/g, '\\|')} |`
     }
     return out
   }
@@ -604,21 +647,29 @@ function compileTable(
   for (var ci = 0; ci < columns; ci++) {
     var align = node.align[ci]
     finalSeparator +=
-      align === 'left' ? ' :--- |' : align === 'right' ? ' ---: |' : align === 'center' ? ' :---: |' : ' --- |'
+      align === 'left'
+        ? ' :--- |'
+        : align === 'right'
+          ? ' ---: |'
+          : align === 'center'
+            ? ' :---: |'
+            : ' --- |'
   }
 
   var dataRows = ''
   for (var di = 0; di < node.cells.length; di++) {
-    if (di > 0) dataRows += '\n'
+    if (di > 0) {
+      dataRows += '\n'
+    }
     dataRows += compileRow(node.cells[di])
   }
 
   return dataRows
-    ? headerRow + '\n' + finalSeparator + '\n' + dataRows
-    : headerRow + '\n' + finalSeparator
+    ? `${headerRow}\n${finalSeparator}\n${dataRows}`
+    : `${headerRow}\n${finalSeparator}`
 }
 
-function compileHTMLBlock(
+function compileHtmlBlock(
   node: MarkdownToJSX.HTMLNode,
   state: CompilerState
 ): string {
@@ -630,31 +681,37 @@ function compileHTMLBlock(
   // `[object Object]` and collapsing expression attributes. Override props are
   // appended after the raw attributes so they win.
   let attrs: string
-  if (node._rawAttrs !== undefined) {
+  if (node._rawAttrs === undefined) {
+    attrs = compileAttributes({ ...(node.attrs || {}), ...overrideProps })
+  } else {
     const raw = node._rawAttrs
     const needsLeadingSpace = raw.length > 0 && raw.charCodeAt(0) > $.CHAR_SPACE
     attrs =
       (needsLeadingSpace ? ' ' : '') +
       raw +
-      (Object.keys(overrideProps).length
-        ? ' ' + compileAttributes(overrideProps).trim()
+      (Object.keys(overrideProps).length > 0
+        ? ` ${compileAttributes(overrideProps).trim()}`
         : '')
-  } else {
-    attrs = compileAttributes({ ...(node.attrs || {}), ...overrideProps })
   }
 
   // Check if this is a void element (self-closing)
   const isVoid = isVoidElement(tag)
 
-  // An orphan closing tag re-emits as the bare closing tag; _rawText carries
+  // An orphan closing tag re-emits as the bare closing tag; _rawBody carries
   // any trailing same-line content (mirrors the html compiler).
   if (node._isClosingTag) {
-    return `</${tag}>${node._rawText || ''}`
+    return `</${tag}>${node._rawBody || ''}`
   }
 
   // Verbatim raw source already carries its own closing tag, so emit it as-is.
-  if (node._verbatim && node._rawText) {
-    return `<${tag}${attrs}>${node._rawText}`
+  // _rawOuter is the full span (own opener through closer, or through end of
+  // input) and is emitted without an added wrapper; otherwise the body and
+  // closer are appended after the reconstructed opening tag.
+  if (node._verbatim && node._rawOuter !== undefined) {
+    return node._rawOuter
+  }
+  if (node._verbatim && (node._rawBody || node._rawClose)) {
+    return `<${tag}${attrs}>${node._rawBody || ''}${node._rawClose || ''}`
   }
   // The deprecated text field holds inner content only, so a non-void element
   // needs its closing tag appended or the round-trip drops it (a following
@@ -667,7 +724,7 @@ function compileHTMLBlock(
   // content: the newline wrapping used for block formatting would otherwise
   // split the surrounding paragraph when the element sits inline.
   const content =
-    node.children && node.children.length
+    node.children && node.children.length > 0
       ? `\n${node.children.map(child => state.renderChild(child, _emptyState)).join('\n')}\n`
       : ''
   const closingTag = isVoid ? '' : `</${tag}>`
@@ -677,10 +734,19 @@ function compileHTMLBlock(
 /**
  * Compile self-closing HTML tag
  */
-function compileHTMLSelfClosing(
+function compileHtmlSelfClosing(
   node: MarkdownToJSX.HTMLSelfClosingNode,
   state: CompilerState
 ): string {
+  // An orphan closing tag and a self-contained leaf (processing instruction,
+  // CDATA section, declaration) carry no attrs/overrides to reconstruct from;
+  // their true source is the only faithful round-trip.
+  if (node._isClosingTag) {
+    return node._rawClose || `</${node.tag}>`
+  }
+  if (node._rawOpen) {
+    return node._rawOpen
+  }
   const defaultTag = node.tag || 'div'
   const tag = getTag(defaultTag, state.overrides)
   const overrideProps = getOverrideProps(defaultTag, state.overrides)
@@ -689,12 +755,16 @@ function compileHTMLSelfClosing(
   return `<${tag}${attrs} />`
 }
 
-function compileHTMLComment(node: MarkdownToJSX.HTMLCommentNode): string {
+function compileHtmlComment(node: MarkdownToJSX.HTMLCommentNode): string {
   // Mirror the html compiler: a raw comment already carries its own delimiters
   // (wrapping again would nest them), and an unterminated `<!--... >` comment
   // keeps its single-`>` close.
-  if (node.raw) return node.text
-  if (node._endsWithGT) return `<!--${node.text}>`
+  if (node.raw) {
+    return node.text
+  }
+  if (node._endsWithGT) {
+    return `<!--${node.text}>`
+  }
   return `<!--${node.text}-->`
 }
 
@@ -711,7 +781,7 @@ function compileFrontmatter(node: MarkdownToJSX.FrontmatterNode): string {
   return node.text
 }
 
-function compileGFMTask(node: MarkdownToJSX.GFMTaskNode): string {
+function compileGfmTask(node: MarkdownToJSX.GFMTaskNode): string {
   return node.completed ? '[x]' : '[ ]'
 }
 
@@ -720,7 +790,9 @@ function compileReferenceCollection(
 ): string {
   return Object.entries(node.refs)
     .map(([key, { target, title }]) =>
-      title ? `[${key}]: ${target} "${escapeLinkTitle(title)}"` : `[${key}]: ${target}`
+      title
+        ? `[${key}]: ${target} "${escapeLinkTitle(title)}"`
+        : `[${key}]: ${target}`
     )
     .join('\n')
 }

@@ -27,8 +27,9 @@
  *   10. Repeated validation patterns (bounds checks, null checks)
  */
 
-import fs from 'fs'
-import path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
 
 interface PatternMatch {
   file: string
@@ -111,8 +112,8 @@ function findDuplicatePatterns(
   const codeBlocks = new Map<string, PatternMatch[]>()
 
   // Limit scanning to avoid slowdown
-  const MAX_SCAN = 2000
-  const step = lines.length > MAX_SCAN ? Math.floor(lines.length / MAX_SCAN) : 1
+  const MaxScan = 2000
+  const step = lines.length > MaxScan ? Math.floor(lines.length / MaxScan) : 1
 
   for (let i = 0; i < lines.length - 2; i += step) {
     const block = lines
@@ -130,7 +131,7 @@ function findDuplicatePatterns(
       if (!codeBlocks.has(block)) {
         codeBlocks.set(block, [])
       }
-      codeBlocks.get(block)!.push({
+      codeBlocks.get(block)?.push({
         file: filePath,
         line: i + 1,
         code: block,
@@ -176,10 +177,10 @@ function isTypeDefinition(line: string): boolean {
 function isAlreadyHelper(source: string, patternName: string): boolean {
   // Check if there's already a helper function for this pattern
   const helperPatterns: Record<string, RegExp> = {
-    'skipToNextLine pattern': /(?:function|var|const)\s+skipToNextLine\s*[=\(]/,
+    'skipToNextLine pattern': /(?:function|var|const)\s+skipToNextLine\s*[=(]/,
     'whitespace check':
-      /(?:function|var|const)\s+(?:isWS|isSpaceOrTab|isASCIIWhitespace|isUnicodeWhitespace)\s*[=\(]/,
-    'charCodeAt comparison': /(?:function|var|const)\s+charCode\s*[=\(]/,
+      /(?:function|var|const)\s+(?:isWS|isSpaceOrTab|isASCIIWhitespace|isUnicodeWhitespace)\s*[=(]/,
+    'charCodeAt comparison': /(?:function|var|const)\s+charCode\s*[=(]/,
   }
   const regex = helperPatterns[patternName]
   return regex ? regex.test(source) : false
@@ -195,7 +196,9 @@ function findHelperOpportunities(
 
   for (const pattern of COMMON_PATTERNS) {
     // Skip if already a helper exists
-    if (isAlreadyHelper(source, pattern.name)) continue
+    if (isAlreadyHelper(source, pattern.name)) {
+      continue
+    }
 
     const matches: PatternMatch[] = []
     let match: RegExpExecArray | null
@@ -244,7 +247,7 @@ function analyzeFunctionUsage(
   filePath: string
 ): FunctionUsage[] {
   const functions: FunctionUsage[] = []
-  const lines = source.split('\n')
+  const _lines = source.split('\n')
 
   // Find function definitions
   const functionDefRegex =
@@ -300,8 +303,8 @@ function findSimilarBlocks(
   }> = []
 
   // Extract code blocks (5-10 lines, more limited to avoid O(n²) explosion)
-  const MAX_BLOCKS = 500 // Limit to prevent slowdown
-  for (let i = 0; i < lines.length - 4 && blocks.length < MAX_BLOCKS; i += 3) {
+  const MaxBlocks = 500 // Limit to prevent slowdown
+  for (let i = 0; i < lines.length - 4 && blocks.length < MaxBlocks; i += 3) {
     // Skip every 3 lines
     for (let len = 5; len <= 10 && i + len <= lines.length; len += 2) {
       // Skip odd lengths
@@ -318,15 +321,17 @@ function findSimilarBlocks(
   const checked = new Set<string>()
 
   // Compare blocks for similarity (limited comparisons)
-  const MAX_COMPARISONS = 1000
+  const MaxComparisons = 1000
   let comparisons = 0
 
-  for (let i = 0; i < blocks.length && comparisons < MAX_COMPARISONS; i++) {
-    if (checked.has(blocks[i].hash)) continue
+  for (let i = 0; i < blocks.length && comparisons < MaxComparisons; i++) {
+    if (checked.has(blocks[i].hash)) {
+      continue
+    }
 
     for (
       let j = i + 1;
-      j < blocks.length && comparisons < MAX_COMPARISONS;
+      j < blocks.length && comparisons < MaxComparisons;
       j++
     ) {
       comparisons++
@@ -341,7 +346,7 @@ function findSimilarBlocks(
           similar.push({
             file: filePath,
             line: blocks[i].start + 1,
-            code: blocks[i].code.substring(0, 200) + '...',
+            code: `${blocks[i].code.substring(0, 200)}...`,
           })
           checked.add(blocks[i].hash)
           break // Only report first occurrence
@@ -359,7 +364,7 @@ function simpleHash(str: string): string {
   const sample = str.replace(/\s+/g, ' ').substring(0, 100) // Sample first 100 chars
   for (let i = 0; i < sample.length; i++) {
     hash = (hash << 5) - hash + sample.charCodeAt(i)
-    hash = hash & hash // Convert to 32bit integer
+    hash &= hash // Convert to 32bit integer
   }
   return hash.toString(36)
 }
@@ -370,12 +375,16 @@ function calculateSimilarity(str1: string, str2: string): number {
   const norm1 = str1.replace(/\s+/g, ' ').trim()
   const norm2 = str2.replace(/\s+/g, ' ').trim()
 
-  if (norm1 === norm2) return 1.0
+  if (norm1 === norm2) {
+    return 1.0
+  }
 
   // Quick length check
   const lenDiff = Math.abs(norm1.length - norm2.length)
   const maxLen = Math.max(norm1.length, norm2.length)
-  if (lenDiff / maxLen > 0.3) return 0 // Too different in length
+  if (lenDiff / maxLen > 0.3) {
+    return 0 // Too different in length
+  }
 
   // Use character frequency as a fast similarity metric
   const chars1 = getCharFreq(norm1.substring(0, 200)) // Sample first 200 chars
@@ -436,9 +445,15 @@ function findRepeatedConditionalPatterns(
 
       for (let j = i; j < lines.length && j < i + 20; j++) {
         const blockLine = lines[j]
-        if (ifPattern.test(blockLine)) depth++
-        if (elsePattern.test(blockLine)) hasElse = true
-        if (blockLine.includes('}')) depth--
+        if (ifPattern.test(blockLine)) {
+          depth++
+        }
+        if (elsePattern.test(blockLine)) {
+          hasElse = true
+        }
+        if (blockLine.includes('}')) {
+          depth--
+        }
         if (depth === 0 && j > i) {
           blockEnd = j
           break
@@ -455,12 +470,14 @@ function findRepeatedConditionalPatterns(
           .replace(/[a-zA-Z_$][a-zA-Z0-9_$]*/g, 'VAR')
 
         // Require pattern to be substantial (not just generic if/else)
-        if (normalized.length < 30) continue
+        if (normalized.length < 30) {
+          continue
+        }
 
         if (!conditionals.has(normalized)) {
           conditionals.set(normalized, [])
         }
-        conditionals.get(normalized)!.push({
+        conditionals.get(normalized)?.push({
           file: filePath,
           line: i + 1,
           code: block.substring(0, 150),
@@ -525,7 +542,7 @@ function findRepeatedStringOperations(
       if (!found.has(normalized)) {
         found.set(normalized, [])
       }
-      found.get(normalized)!.push({
+      found.get(normalized)?.push({
         file: filePath,
         line: lineNum,
         code: line.trim(),
@@ -593,7 +610,7 @@ function findRepeatedVariablePatterns(
         if (!assignments.has(normalized)) {
           assignments.set(normalized, [])
         }
-        assignments.get(normalized)!.push({
+        assignments.get(normalized)?.push({
           file: filePath,
           line: i + 1,
           code: line.trim(),
@@ -602,7 +619,7 @@ function findRepeatedVariablePatterns(
     }
   }
 
-  for (const [pattern, occurrences] of assignments.entries()) {
+  for (const [_pattern, occurrences] of assignments.entries()) {
     // Require at least 3 occurrences
     if (occurrences.length >= 3) {
       patterns.push({
@@ -664,12 +681,14 @@ function findRepeatedFunctionCallSequences(
       const seq = `${match1[1]}() -> ${match2[1]}()`
 
       // Skip generic sequences
-      if (genericSequences.has(seq)) continue
+      if (genericSequences.has(seq)) {
+        continue
+      }
 
       if (!sequences.has(seq)) {
         sequences.set(seq, [])
       }
-      sequences.get(seq)!.push({
+      sequences.get(seq)?.push({
         file: filePath,
         line: i + 1,
         code: `${trimmed1.substring(0, 50)}; ${trimmed2.substring(0, 50)}`,
@@ -735,12 +754,14 @@ function findRepeatedErrorHandling(
           .replace(/[a-zA-Z_$][a-zA-Z0-9_$]*/g, 'VAR')
 
         // Require substantial context (not just generic return null)
-        if (normalized.length < 30) continue
+        if (normalized.length < 30) {
+          continue
+        }
 
         if (!found.has(normalized)) {
           found.set(normalized, [])
         }
-        found.get(normalized)!.push({
+        found.get(normalized)?.push({
           file: filePath,
           line: i + 1,
           code: context.substring(0, 100),
@@ -803,12 +824,14 @@ function findRepeatedLoopPatterns(
         .substring(0, 200)
 
       // Require substantial loop body (not just generic loops)
-      if (normalized.length < 40) continue
+      if (normalized.length < 40) {
+        continue
+      }
 
       if (!loops.has(normalized)) {
         loops.set(normalized, [])
       }
-      loops.get(normalized)!.push({
+      loops.get(normalized)?.push({
         file: filePath,
         line: i + 1,
         code: body.substring(0, 150),
@@ -816,7 +839,7 @@ function findRepeatedLoopPatterns(
     }
   }
 
-  for (const [pattern, occurrences] of loops.entries()) {
+  for (const [_pattern, occurrences] of loops.entries()) {
     // Require at least 2 occurrences
     if (occurrences.length >= 2) {
       patterns.push({
@@ -872,12 +895,14 @@ function findRepeatedObjectAccessPatterns(
       const pattern = prop + (nested ? `.${nested}` : '')
 
       // Skip generic patterns
-      if (genericPatterns.has(prop) && !nested) continue
+      if (genericPatterns.has(prop) && !nested) {
+        continue
+      }
 
       if (!accesses.has(pattern)) {
         accesses.set(pattern, [])
       }
-      accesses.get(pattern)!.push({
+      accesses.get(pattern)?.push({
         file: filePath,
         line: i + 1,
         code: line.trim().substring(0, 80),
@@ -941,7 +966,7 @@ function findRepeatedTypeChecks(
       if (!found.has(normalized)) {
         found.set(normalized, [])
       }
-      found.get(normalized)!.push({
+      found.get(normalized)?.push({
         file: filePath,
         line: lineNum,
         code: line.trim(),
@@ -1006,12 +1031,14 @@ function findRepeatedCalculations(
         .replace(/[a-zA-Z_$][a-zA-Z0-9_$]*/g, 'VAR')
 
       // Require substantial patterns (not just simple arithmetic)
-      if (normalized.length < 10) continue
+      if (normalized.length < 10) {
+        continue
+      }
 
       if (!found.has(normalized)) {
         found.set(normalized, [])
       }
-      found.get(normalized)!.push({
+      found.get(normalized)?.push({
         file: filePath,
         line: lineNum,
         code: line.trim(),
@@ -1079,12 +1106,14 @@ function findRepeatedValidationPatterns(
         .replace(/[a-zA-Z_$][a-zA-Z0-9_$]*/g, 'VAR')
 
       // Require substantial patterns (not just generic if checks)
-      if (normalized.length < 15) continue
+      if (normalized.length < 15) {
+        continue
+      }
 
       if (!found.has(normalized)) {
         found.set(normalized, [])
       }
-      found.get(normalized)!.push({
+      found.get(normalized)?.push({
         file: filePath,
         line: lineNum,
         code: line.trim(),
@@ -1157,12 +1186,14 @@ function findRepeatedEarlyReturns(
         .replace(/[a-zA-Z_$][a-zA-Z0-9_$]*/g, 'VAR')
         .substring(0, 150)
 
-      if (normalized.length < 30) continue
+      if (normalized.length < 30) {
+        continue
+      }
 
       if (!found.has(normalized)) {
         found.set(normalized, [])
       }
-      found.get(normalized)!.push({
+      found.get(normalized)?.push({
         file: filePath,
         line: lineNum,
         code: line.trim(),
@@ -1198,7 +1229,7 @@ function findRepeatedRegexPatterns(
   const regexPatterns = new Map<string, PatternMatch[]>()
 
   // Find regex literals
-  const regexLiteralPattern = /[\/~]([^\/~]+)[\/~][gimuy]*/g
+  const regexLiteralPattern = /[/~]([^/~]+)[/~][gimuy]*/g
   const found = new Map<string, PatternMatch[]>()
 
   let match: RegExpExecArray | null
@@ -1216,12 +1247,14 @@ function findRepeatedRegexPatterns(
     }
 
     // Skip very short regexes (likely false positives)
-    if (regexStr.length < 5) continue
+    if (regexStr.length < 5) {
+      continue
+    }
 
     if (!found.has(regexStr)) {
       found.set(regexStr, [])
     }
-    found.get(regexStr)!.push({
+    found.get(regexStr)?.push({
       file: filePath,
       line: lineNum,
       code: line.trim().substring(0, 80),
@@ -1284,12 +1317,14 @@ function findRepeatedSwitchPatterns(
 
       // Require substantial switch body with multiple cases
       const caseCount = (body.match(casePattern) || []).length
-      if (normalized.length < 50 || caseCount < 3) continue
+      if (normalized.length < 50 || caseCount < 3) {
+        continue
+      }
 
       if (!switches.has(normalized)) {
         switches.set(normalized, [])
       }
-      switches.get(normalized)!.push({
+      switches.get(normalized)?.push({
         file: filePath,
         line: i + 1,
         code: body.substring(0, 200),
@@ -1297,7 +1332,7 @@ function findRepeatedSwitchPatterns(
     }
   }
 
-  for (const [pattern, occurrences] of switches.entries()) {
+  for (const [_pattern, occurrences] of switches.entries()) {
     if (occurrences.length >= 2) {
       patterns.push({
         type: 'repeated-switch',
@@ -1352,7 +1387,7 @@ function findRepeatedArrayMethods(
       if (!found.has(normalized)) {
         found.set(normalized, [])
       }
-      found.get(normalized)!.push({
+      found.get(normalized)?.push({
         file: filePath,
         line: lineNum,
         code: line.trim(),
@@ -1410,7 +1445,7 @@ function findRepeatedPropertyChains(
       if (!chains.has(propChain)) {
         chains.set(propChain, [])
       }
-      chains.get(propChain)!.push({
+      chains.get(propChain)?.push({
         file: filePath,
         line: i + 1,
         code: line.trim().substring(0, 80),
@@ -1556,7 +1591,7 @@ function printResults(
       if (!byType.has(h.type)) {
         byType.set(h.type, [])
       }
-      byType.get(h.type)!.push(h)
+      byType.get(h.type)?.push(h)
     }
 
     for (const [type, patterns] of byType.entries()) {

@@ -1,5 +1,7 @@
 // Re-export React for convenience since types reference it
-import * as React from 'react'
+
+import process from 'node:process'
+import type * as React from 'react'
 
 /**
  * Analogous to `node.type`. Please note that the values here may change at any time,
@@ -36,7 +38,9 @@ if (process.env.NODE_ENV === 'test') {
   // describes production; mutate through a mutable-typed alias of the same
   // object so the swap typechecks without an assertion.
   const ruleTypeDebugView: { [key: string]: number | string } = RuleTypeConst
-  Object.keys(ruleTypeDebugView).forEach(key => (ruleTypeDebugView[key] = key))
+  Object.keys(ruleTypeDebugView).forEach(key => {
+    ruleTypeDebugView[key] = key
+  })
 }
 
 type RuleTypeValue = (typeof RuleTypeConst)[keyof typeof RuleTypeConst]
@@ -69,7 +73,7 @@ declare namespace MarkdownToJSX {
   /**
    * Parser and renderer state
    */
-  export type State = {
+  export interface State {
     /** true if the current content is inside anchor link grammar */
     inAnchor?: boolean
     /** true if inside a blockquote */
@@ -98,13 +102,13 @@ declare namespace MarkdownToJSX {
     /** internal: set by collectReferenceDefinitions when input ends inside an unclosed fence */
     _endsInsideFence?: boolean
     /**
-     * internal: last accepted numeric suffix per heading id base (pairs with
-     * `_headingIds`). `0` means the unsuffixed base was taken; positive `n`
-     * means `base-n` was the last id assigned for that base.
+     * internal: heading ids assigned in this parse. Key presence means the id
+     * is taken. The value is the last numeric suffix tried when that string
+     * was used as a slugify base (`0` means the unsuffixed id was taken, and
+     * no further suffix has been generated from it yet). Dense collisions stay
+     * amortized O(1) without a second map.
      */
-    _headingIdCounts?: { [id: string]: number }
-    /** internal: parse-local set of heading IDs already emitted; used to append -1, -2, … on collision */
-    _headingIds?: { [id: string]: true }
+    _headingIds?: { [id: string]: number }
     /** internal: true when the current block content cannot hold the document's streaming edge, so streaming suppression can be skipped */
     _notAtEdge?: boolean
     /** internal: enable hard/soft line-break processing in parseInline (paragraph inline content) */
@@ -245,8 +249,11 @@ declare namespace MarkdownToJSX {
     type: typeof RuleType.image
     /** Alt text */
     alt?: string
-    /** Image URL */
-    target: string
+    /**
+     * Image URL. `null` when the destination was rejected by the URL
+     * sanitizer (compilers omit `src` / re-emit `![alt]()`).
+     */
+    target: string | null
     /** Title attribute */
     title?: string
   }
@@ -258,7 +265,11 @@ declare namespace MarkdownToJSX {
     type: typeof RuleType.link
     /** Child nodes (link text) */
     children: MarkdownToJSX.ASTNode[]
-    /** Link URL (null for reference links without definition) */
+    /**
+     * Link URL. `null` when the destination was rejected by the URL
+     * sanitizer (compilers omit `href` / re-emit `[text]()`). Missing
+     * reference definitions do not produce a link node at all.
+     */
     target: string | null
     /** Title attribute */
     title?: string
@@ -317,7 +328,7 @@ declare namespace MarkdownToJSX {
     /**
      * alignment for each table column
      */
-    align: ('left' | 'right' | 'center')[]
+    align: Array<'left' | 'right' | 'center' | null>
     /** Table cells (3D array: rows -> cells -> nodes) */
     cells: MarkdownToJSX.ASTNode[][][]
     /** Table header row */
@@ -364,11 +375,22 @@ declare namespace MarkdownToJSX {
     _verbatim?: boolean
     /** @internal Original raw attribute string */
     _rawAttrs?: string
-    /** @internal Original raw HTML content (for verbatim blocks) */
-    _rawText?: string | undefined
-    /** @internal rawText is a closed block; the HTML compiler emits the closing tag itself */
+    /** @internal Opening tag source when known (void/self-closing includes terminator) */
+    _rawOpen?: string
+    /** @internal Inner content only; never includes this node's own opener or closer */
+    _rawBody?: string
+    /** @internal Closing tag source when known (`</tag>` or orphan closer literal) */
+    _rawClose?: string
+    /** @internal Full span including own opener through closer; JSX/component re-parse only */
+    _rawOuter?: string
+    /**
+     * @internal `_rawBody` embeds this node's own closing tag (plus any
+     * trailing same-line siblings) as literal text; the HTML compiler slices
+     * at that closing tag and always emits its own `</tag>` rather than
+     * relying on the embedded one.
+     */
     _emitOwnClose?: boolean
-    /** @deprecated Use `_rawText` instead. This property will be removed in a future major version. */
+    /** @deprecated This property will be removed in a future major version. */
     text?: string | undefined
     /** HTML tag name */
     tag: string
@@ -385,8 +407,14 @@ declare namespace MarkdownToJSX {
     _isClosingTag?: boolean
     /** HTML tag name */
     tag: string
-    /** @internal Original raw HTML content */
-    _rawText?: string
+    /** @internal Opening tag source when known (void/self-closing includes terminator) */
+    _rawOpen?: string
+    /** @internal Inner content only; never includes this node's own opener or closer */
+    _rawBody?: string
+    /** @internal Closing tag source when known (`</tag>` or orphan closer literal) */
+    _rawClose?: string
+    /** @internal Full span including own opener through closer; JSX/component re-parse only */
+    _rawOuter?: string
   }
 
   /**

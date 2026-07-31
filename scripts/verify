@@ -1,0 +1,167 @@
+#!/usr/bin/env bash
+# Local and CI quality gate. Wave 0 (Biome) mutates the tree; wave 1 fans out
+# read-only checks; wave 2 builds dist; wave 3 fans out dist/golden checks.
+# Browser and native harnesses stay separate CI steps after verify.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+repo_root=$(pwd)
+
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "?")
+head=$(git rev-parse --short HEAD 2>/dev/null || echo "?")
+if [[ -f "${repo_root}/.git" ]]; then kind="worktree"; else kind="primary checkout"; fi
+echo "==> verifying ${repo_root} (${kind}, ${branch} @ ${head})"
+
+phase() {
+  local name=$1
+  shift
+  echo "==> ${name}"
+  "$@"
+}
+
+now_ms() {
+  # Portable millisecond clock (macOS date has no %N).
+  python3 -c 'import time; print(int(time.time()*1000))'
+}
+
+# Run a named job in the background; log wall time to a sidecar file.
+# Usage: bg_job NAME COMMAND...
+declare -a BG_NAMES=()
+declare -a BG_PIDS=()
+declare -a BG_LOGS=()
+
+bg_job() {
+  local name=$1
+  shift
+  local log
+  log=$(mktemp -t "verify-${name}.XXXXXX")
+  (
+    local t0 t1 status
+    t0=$(now_ms)
+    set +e
+    "$@" >"${log}.out" 2>&1
+    status=$?
+    set -e
+    t1=$(now_ms)
+    {
+      echo "status=${status}"
+      echo "elapsed_ms=$((t1 - t0))"
+      echo "---- output ----"
+      cat "${log}.out"
+    } >"${log}"
+    rm -f "${log}.out"
+    exit "${status}"
+  ) &
+  BG_NAMES+=("${name}")
+  BG_PIDS+=("$!")
+  BG_LOGS+=("${log}")
+}
+
+wait_wave() {
+  local wave=$1
+  local fail=0
+  local i name pid log status elapsed
+  echo "==> wave ${wave}: waiting (${#BG_PIDS[@]} jobs)"
+  for i in "${!BG_PIDS[@]}"; do
+    name="${BG_NAMES[$i]}"
+    pid="${BG_PIDS[$i]}"
+    log="${BG_LOGS[$i]}"
+    set +e
+    wait "${pid}"
+    set -e
+    status=0
+    elapsed=0
+    if [[ -f "${log}" ]]; then
+      status=$(sed -n 's/^status=//p' "${log}" | head -1)
+      elapsed=$(sed -n 's/^elapsed_ms=//p' "${log}" | head -1)
+      echo "---- ${name} (${elapsed}ms, exit ${status}) ----"
+      sed -n '/^---- output ----$/,$p' "${log}" | tail -n +2
+      rm -f "${log}"
+    else
+      status=1
+      echo "---- ${name} (missing log) ----"
+    fi
+    if [[ "${status}" != "0" ]]; then
+      fail=1
+    fi
+  done
+  BG_NAMES=()
+  BG_PIDS=()
+  BG_LOGS=()
+  if [[ "${fail}" -ne 0 ]]; then
+    echo "==> wave ${wave}: FAILED"
+    exit 1
+  fi
+  echo "==> wave ${wave}: ok"
+}
+
+# --- Wave 0: Biome (serial; only mutator of the source tree) ---
+wave0_t0=$(now_ms)
+phase "biome" bunx biome check --write --unsafe .
+
+echo "==> biome audit (post-autofix)"
+if git diff --quiet; then
+  echo "    clean: biome left no file changes"
+else
+  git --no-pager diff --stat
+  if [[ -n "${CI:-}" ]]; then
+    echo "Biome rewrote tracked files; run 'bun run format' locally and commit the result."
+    exit 1
+  fi
+  echo "    (local) review the diff above; continuing verify"
+fi
+echo "==> wave 0: ok ($(($(now_ms) - wave0_t0))ms)"
+
+# --- Wave 1: parallel source checks (no dist required) ---
+# Metrics run after the other wave-1 jobs so CPU contention does not inflate
+# the 3-run median past the 15% ceiling.
+wave1_t0=$(now_ms)
+bg_job "knip" bunx knip
+bg_job "typecheck" bun run typecheck
+bg_job "validate-i18n" bun run validate-i18n
+bg_job "test+coverage" bash -c '
+  set -euo pipefail
+  cov=$(mktemp -t verify-cov.XXXXXX)
+  # Keep suite under 5s; coverage floor is checked after.
+  timeout 5 bun test --coverage >"${cov}" 2>&1 || {
+    status=$?
+    cat "${cov}"
+    rm -f "${cov}"
+    exit "${status}"
+  }
+  cat "${cov}"
+  bun scripts/check-coverage.ts "${cov}"
+  rm -f "${cov}"
+'
+bg_job "redos-smoke" bun scripts/redos-smoke.ts
+wait_wave 1a
+echo "==> wave 1a wall: $(($(now_ms) - wave1_t0))ms"
+
+wave1b_t0=$(now_ms)
+bg_job "metrics-gate" bash -c '
+  set -euo pipefail
+  fail=0
+  for target in parser react react-native html solid vue markdown; do
+    bun scripts/metrics-gate.ts --target "${target}" || fail=1
+  done
+  exit "${fail}"
+'
+wait_wave 1b
+echo "==> wave 1b wall: $(($(now_ms) - wave1b_t0))ms"
+echo "==> wave 1 wall: $(($(now_ms) - wave1_t0))ms"
+
+# --- Wave 2: build (serial; supplies lib/dist for wave 3) ---
+wave2_t0=$(now_ms)
+phase "build" bun run build
+echo "==> wave 2: ok ($(($(now_ms) - wave2_t0))ms)"
+
+# --- Wave 3: parallel dist / golden checks ---
+wave3_t0=$(now_ms)
+bg_job "emit-selfcheck-dev" bun scripts/emit-selfcheck.ts
+bg_job "emit-selfcheck-prod" env NODE_ENV=production bun scripts/emit-selfcheck.ts
+bg_job "prod-strip-check" bun scripts/prod-strip-check.ts
+bg_job "hermetic-dist" bun scripts/hermetic-dist.ts
+bg_job "llms-snippets" bun scripts/llms-snippets.ts
+wait_wave 3
+echo "==> wave 3 wall: $(($(now_ms) - wave3_t0))ms"
+
+echo "==> verify ok (${branch} @ ${head})"

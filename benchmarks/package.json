@@ -20,14 +20,13 @@
     "markdown-it": "^14.0.0",
     "markdown-to-jsx-latest": "npm:markdown-to-jsx@9.7.5",
     "marked": "^17.0.0",
-    "react": "^19.2.0",
+    "react": "^19.2.8",
     "react-markdown": "^10.1.0",
     "rehype-raw": "^7.0.0",
     "rehype-react": "^8.0.0",
     "remark": "^15.0.1",
     "remark-directive": "^4.0.0",
     "remark-gfm": "^4.0.1",
-    "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
     "simple-markdown": "^0.7.3"
   }

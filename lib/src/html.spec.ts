@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
-import { compiler, astToHTML, RuleType } from './html'
-import { parser } from './parse'
-import type { MarkdownToJSX } from './types'
+import { astToHTML, compiler, RuleType } from './html.ts'
+import { parser } from './parse.ts'
 
 describe('html compiler', () => {
   describe('footnotes', () => {
@@ -205,7 +204,7 @@ describe('html compiler', () => {
       // Verify footer appears exactly once
       const footerMatches = result.match(/<footer>.*?<\/footer>/g)
       expect(footerMatches).toBeTruthy()
-      expect(footerMatches!.length).toBe(1)
+      expect(footerMatches?.length).toBe(1)
 
       // Check that footnote content is present
       expect(result).toContain('Content with')
@@ -494,7 +493,7 @@ describe('html compiler', () => {
         {
           renderRule: (next, node, renderChildren, state) => {
             if (node.type === RuleType.heading) {
-              return `<h${node.level} data-key="${state.key}" data-has-refs="${!!state.refs}">${renderChildren(node.children || [])}</h${node.level}>`
+              return `<h${node.level} data-key="${state.key}" data-has-refs="${Boolean(state.refs)}">${renderChildren(node.children || [])}</h${node.level}>`
             }
             return next()
           },
@@ -792,7 +791,9 @@ describe('html compiler', () => {
         ],
         {}
       )
-      expect(result).toMatchInlineSnapshot(`"<table><thead><tr><th align="left">Header 1</th><th align="right">Header 2</th></tr></thead></table>"`)
+      expect(result).toMatchInlineSnapshot(
+        `"<table><thead><tr><th align="left">Header 1</th><th align="right">Header 2</th></tr></thead></table>"`
+      )
     })
 
     it('works with HTML blocks', () => {
@@ -859,18 +860,24 @@ describe('html compiler', () => {
 
     it('regression test for #856 - hr without newline drops text content after', () => {
       const result = compiler('<p>before</p><hr><p>after</p>')
-      expect(result).toMatchInlineSnapshot(`"<div><p>before</p><hr><p>after</p></div>"`)
+      expect(result).toMatchInlineSnapshot(
+        `"<div><p>before</p><hr><p>after</p></div>"`
+      )
     })
 
     it('regression test for #856 - self-closing hr without newline drops subsequent content', () => {
       const result = compiler('<p>before</p><hr /><p>after</p>')
-      expect(result).toMatchInlineSnapshot(`"<div><p>before</p><hr ><p>after</p></div>"`)
+      expect(result).toMatchInlineSnapshot(
+        `"<div><p>before</p><hr ><p>after</p></div>"`
+      )
     })
 
     it('empty non-void element preserves closing tag', () => {
       expect(compiler('<p></p>')).toMatchInlineSnapshot(`"<p></p>"`)
       expect(compiler('<div></div>')).toMatchInlineSnapshot(`"<div></div>"`)
-      expect(compiler('<span></span>')).toMatchInlineSnapshot(`"<p><span></span></p>"`)
+      expect(compiler('<span></span>')).toMatchInlineSnapshot(
+        `"<p><span></span></p>"`
+      )
     })
 
     it('unclosed non-void element does not synthesize a closing tag', () => {
@@ -1212,7 +1219,8 @@ describe('html compiler', () => {
             tag: 'script',
             attrs: {},
             _verbatim: true,
-            _rawText: 'console.log("test");</script>',
+            _rawBody: 'console.log("test");',
+            _rawClose: '</script>',
             children: [],
           },
         ],
@@ -1233,7 +1241,8 @@ describe('html compiler', () => {
             tag: 'pre',
             attrs: {},
             _verbatim: true,
-            _rawText: '<code>test</code></pre>',
+            _rawBody: '<code>test</code>',
+            _rawClose: '</pre>',
             children: [],
           },
         ],
@@ -1250,7 +1259,7 @@ describe('html compiler', () => {
             tag: 'script',
             attrs: {},
             _verbatim: true,
-            _rawText: 'console.log("test");', // No closing tag
+            _rawBody: 'console.log("test");', // No closing tag
             children: [],
           },
         ],
@@ -1268,13 +1277,19 @@ describe('html compiler', () => {
     // emitted live <script>/<iframe>/<style> despite the documented default-on
     // protection. Both the compiler() entry and astToHTML must escape by default.
     it('escapes script/iframe/style with default options via compiler()', () => {
-      expect(compiler('<script>alert(1)</script>')).toBe('&lt;script>')
-      expect(compiler('<iframe src=x></iframe>')).toBe('&lt;iframe src=x>')
-      expect(compiler('<style>*{}</style>')).toBe('&lt;style>')
+      expect(compiler('<script>alert(1)</script>')).toBe(
+        '&lt;script>alert(1)&lt;/script>'
+      )
+      expect(compiler('<iframe src=x></iframe>')).toBe(
+        '&lt;iframe src=x>&lt;/iframe>'
+      )
+      expect(compiler('<style>*{}</style>')).toBe('&lt;style>*{}&lt;/style>')
     })
 
     it('escapes dangerous tags by default via astToHTML()', () => {
-      expect(astToHTML(parser('<script>alert(1)</script>'))).toBe('&lt;script>')
+      expect(astToHTML(parser('<script>alert(1)</script>'))).toBe(
+        '&lt;script>alert(1)&lt;/script>'
+      )
     })
 
     it('passes dangerous tags through only when tagfilter is explicitly disabled', () => {
@@ -1290,39 +1305,59 @@ describe('html compiler', () => {
     // strictest test of the parser-level attribute stripping.
     it('strips on* event handlers regardless of quoting or case', () => {
       expect(compiler('<img src=x onerror=alert(1)>')).toBe('<img src=x>')
-      expect(compiler('<div onclick="alert(1)">hi</div>')).toBe('<div >hi</div>')
+      expect(compiler('<div onclick="alert(1)">hi</div>')).toBe(
+        '<div >hi</div>'
+      )
       expect(compiler('<p onmouseover=alert(1)>hi</p>')).toBe('<p >hi</p>')
       expect(compiler('<div OnClick="alert(1)">x</div>')).toBe('<div >x</div>')
-      expect(compiler('<svg onload=alert(1)>y</svg>')).toBe('<p><svg>y</svg></p>')
+      expect(compiler('<svg onload=alert(1)>y</svg>')).toBe(
+        '<p><svg>y</svg></p>'
+      )
     })
 
     it('strips dangerous-scheme URL attributes', () => {
-      expect(compiler('<a href="javascript:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
-      expect(compiler('<a href="JAVASCRIPT:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
-      expect(compiler('<a href="vbscript:msgbox(1)">x</a>')).toBe('<p><a>x</a></p>')
-      expect(compiler('<a href="  javascript:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
-      expect(compiler('<form action="javascript:alert(1)"><button>x</button></form>')).toBe(
-        '<form ><button>x</button></form>'
+      expect(compiler('<a href="javascript:alert(1)">x</a>')).toBe(
+        '<p><a>x</a></p>'
       )
+      expect(compiler('<a href="JAVASCRIPT:alert(1)">x</a>')).toBe(
+        '<p><a>x</a></p>'
+      )
+      expect(compiler('<a href="vbscript:msgbox(1)">x</a>')).toBe(
+        '<p><a>x</a></p>'
+      )
+      expect(compiler('<a href="  javascript:alert(1)">x</a>')).toBe(
+        '<p><a>x</a></p>'
+      )
+      expect(
+        compiler('<form action="javascript:alert(1)"><button>x</button></form>')
+      ).toBe('<form ><button>x</button></form>')
       expect(compiler('<object data="javascript:alert(1)"></object>')).toBe(
         '<p><object></object></p>'
       )
-      expect(compiler('<a xlink:href="javascript:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
+      expect(compiler('<a xlink:href="javascript:alert(1)">x</a>')).toBe(
+        '<p><a>x</a></p>'
+      )
       expect(compiler('<video poster="javascript:alert(1)"></video>')).toBe(
         '<p><video></video></p>'
       )
-      expect(compiler('<blockquote cite="javascript:alert(1)">q</blockquote>')).toBe(
-        '<blockquote >q</blockquote>'
-      )
+      expect(
+        compiler('<blockquote cite="javascript:alert(1)">q</blockquote>')
+      ).toBe('<blockquote >q</blockquote>')
     })
 
     it('strips schemes hidden behind HTML entities (tab/newline)', () => {
-      expect(compiler('<a href="java&#9;script:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
-      expect(compiler('<a href="java&#10;script:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
+      expect(compiler('<a href="java&#9;script:alert(1)">x</a>')).toBe(
+        '<p><a>x</a></p>'
+      )
+      expect(compiler('<a href="java&#10;script:alert(1)">x</a>')).toBe(
+        '<p><a>x</a></p>'
+      )
     })
 
     it('strips dangerous data: URLs but keeps data:image', () => {
-      expect(compiler('<img src="data:text/html,<script>alert(1)</script>">')).toBe('<img >')
+      expect(
+        compiler('<img src="data:text/html,<script>alert(1)</script>">')
+      ).toBe('<img >')
       expect(compiler('<img src="data:image/png;base64,iVBOR">')).toBe(
         '<img src="data:image/png;base64,iVBOR">'
       )
@@ -1330,14 +1365,18 @@ describe('html compiler', () => {
 
     it('strips srcdoc entirely', () => {
       // iframe is tagfiltered by default; srcdoc must be gone before that.
-      expect(compiler('<iframe srcdoc="<img src=x onerror=alert(1)>"></iframe>')).toBe(
-        '&lt;iframe >'
-      )
+      expect(
+        compiler('<iframe srcdoc="<img src=x onerror=alert(1)>"></iframe>')
+      ).toBe('&lt;iframe >&lt;/iframe>')
     })
 
     it('strips handlers on verbatim tags and nested tags', () => {
-      expect(compiler('<pre onclick="alert(1)">code</pre>')).toBe('<pre >code</pre>')
-      expect(compiler('<div><img onerror=alert(1)></div>')).toBe('<div><img ></div>')
+      expect(compiler('<pre onclick="alert(1)">code</pre>')).toBe(
+        '<pre >code</pre>'
+      )
+      expect(compiler('<div><img onerror=alert(1)></div>')).toBe(
+        '<div><img ></div>'
+      )
     })
 
     it('strips handlers nested in a container that also holds block-level markdown', () => {
@@ -1345,18 +1384,26 @@ describe('html compiler', () => {
       // raw HTML takes the non-verbatim raw-source emit path; its inner tags
       // must still be sanitized.
       expect(
-        compiler('<div>\n# Heading\n<a href="javascript:alert(1)">y</a>\n</div>')
+        compiler(
+          '<div>\n# Heading\n<a href="javascript:alert(1)">y</a>\n</div>'
+        )
       ).toBe('<div>\n# Heading\n<a >y</a>\n</div>')
       expect(
-        compiler('<div>\n# Heading\n<a href="/ok" onclick="alert(1)">y</a>\n</div>')
+        compiler(
+          '<div>\n# Heading\n<a href="/ok" onclick="alert(1)">y</a>\n</div>'
+        )
       ).toBe('<div>\n# Heading\n<a href="/ok">y</a>\n</div>')
     })
 
     it('strips numeric-character-reference schemes without a trailing semicolon', () => {
       // Browsers resolve a semicolon-less numeric reference (&#106avascript:
       // becomes javascript:), so the scheme check must decode it too.
-      expect(compiler('<a href="&#106avascript:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
-      expect(compiler('<a href="j&#x61vascript:alert(1)">x</a>')).toBe('<p><a>x</a></p>')
+      expect(compiler('<a href="&#106avascript:alert(1)">x</a>')).toBe(
+        '<p><a>x</a></p>'
+      )
+      expect(compiler('<a href="j&#x61vascript:alert(1)">x</a>')).toBe(
+        '<p><a>x</a></p>'
+      )
       // A safe numeric entity in a URL is preserved.
       expect(compiler('<a href="/s?a=1&#38;b=2">ok</a>')).toBe(
         '<p><a href="/s?a=1&#38;b=2">ok</a></p>'
@@ -1365,15 +1412,21 @@ describe('html compiler', () => {
 
     it('preserves safe attributes with original formatting', () => {
       expect(
-        compiler('<a href="https://example.com" title="t" class="c" data-x="1">ok</a>')
-      ).toBe('<p><a href="https://example.com" title="t" class="c" data-x="1">ok</a></p>')
+        compiler(
+          '<a href="https://example.com" title="t" class="c" data-x="1">ok</a>'
+        )
+      ).toBe(
+        '<p><a href="https://example.com" title="t" class="c" data-x="1">ok</a></p>'
+      )
     })
   })
 
   describe('raw HTML <table> with markdown in cells (#862)', () => {
     it('preserves row structure when second row cell contains a block-level list', () => {
       expect(
-        compiler('<table><tr><td>a</td></tr><tr><td>\n\n- x\n\n</td></tr></table>')
+        compiler(
+          '<table><tr><td>a</td></tr><tr><td>\n\n- x\n\n</td></tr></table>'
+        )
       ).toMatchInlineSnapshot(
         `"<table><tr><td>a</td></tr><tr><td><ul><li>x</li></ul></td></tr></table>"`
       )
@@ -1381,7 +1434,9 @@ describe('html compiler', () => {
 
     it('preserves all rows when first row contains a block-level list', () => {
       expect(
-        compiler('<table><tr><td>\n\n- x\n\n</td></tr><tr><td>plain</td></tr></table>')
+        compiler(
+          '<table><tr><td>\n\n- x\n\n</td></tr><tr><td>plain</td></tr></table>'
+        )
       ).toMatchInlineSnapshot(
         `"<table><tr><td><ul><li>x</li></ul></td></tr><tr><td>plain</td></tr></table>"`
       )
@@ -1389,7 +1444,9 @@ describe('html compiler', () => {
 
     it('preserves all three rows when middle row contains a list', () => {
       expect(
-        compiler('<table><tr><td>r1</td></tr><tr><td>\n\n- x\n\n</td></tr><tr><td>r3</td></tr></table>')
+        compiler(
+          '<table><tr><td>r1</td></tr><tr><td>\n\n- x\n\n</td></tr><tr><td>r3</td></tr></table>'
+        )
       ).toMatchInlineSnapshot(
         `"<table><tr><td>r1</td></tr><tr><td><ul><li>x</li></ul></td></tr><tr><td>r3</td></tr></table>"`
       )
@@ -1427,7 +1484,9 @@ describe('html compiler', () => {
 
     it('handles ordered list in cell', () => {
       expect(
-        compiler('<table><tr><td>r1</td></tr><tr><td>\n\n1. x\n2. y\n\n</td></tr></table>')
+        compiler(
+          '<table><tr><td>r1</td></tr><tr><td>\n\n1. x\n2. y\n\n</td></tr></table>'
+        )
       ).toMatchInlineSnapshot(
         `"<table><tr><td>r1</td></tr><tr><td><ol><li>x</li><li>y</li></ol></td></tr></table>"`
       )
@@ -1435,7 +1494,9 @@ describe('html compiler', () => {
 
     it('handles blockquote in cell', () => {
       expect(
-        compiler('<table><tr><td>r1</td></tr><tr><td>\n\n> q\n\n</td></tr></table>')
+        compiler(
+          '<table><tr><td>r1</td></tr><tr><td>\n\n> q\n\n</td></tr></table>'
+        )
       ).toMatchInlineSnapshot(
         `"<table><tr><td>r1</td></tr><tr><td><blockquote><p>q</p></blockquote></td></tr></table>"`
       )
@@ -1443,7 +1504,9 @@ describe('html compiler', () => {
 
     it('handles fenced code block in cell', () => {
       expect(
-        compiler('<table><tr><td>r1</td></tr><tr><td>\n\n```\ncode\n```\n\n</td></tr></table>')
+        compiler(
+          '<table><tr><td>r1</td></tr><tr><td>\n\n```\ncode\n```\n\n</td></tr></table>'
+        )
       ).toMatchInlineSnapshot(
         `"<table><tr><td>r1</td></tr><tr><td><pre><code>code</code></pre></td></tr></table>"`
       )
@@ -1451,7 +1514,9 @@ describe('html compiler', () => {
 
     it('handles heading in cell', () => {
       expect(
-        compiler('<table><tr><td>r1</td></tr><tr><td>\n\n# h\n\n</td></tr></table>')
+        compiler(
+          '<table><tr><td>r1</td></tr><tr><td>\n\n# h\n\n</td></tr></table>'
+        )
       ).toMatchInlineSnapshot(
         `"<table><tr><td>r1</td></tr><tr><td><h1 id="h">h</h1></td></tr></table>"`
       )
@@ -1459,7 +1524,9 @@ describe('html compiler', () => {
 
     it('handles list in <th> cell', () => {
       expect(
-        compiler('<table><thead><tr><th>\n\n- x\n\n</th></tr></thead><tbody><tr><td>r1</td></tr></tbody></table>')
+        compiler(
+          '<table><thead><tr><th>\n\n- x\n\n</th></tr></thead><tbody><tr><td>r1</td></tr></tbody></table>'
+        )
       ).toMatchInlineSnapshot(
         `"<table><thead><tr><th><ul><li>x</li></ul></th></tr></thead><tbody><tr><td>r1</td></tr></tbody></table>"`
       )
@@ -1467,7 +1534,9 @@ describe('html compiler', () => {
 
     it('leaves inline markdown in cell as raw when no blank line (GFM raw HTML block)', () => {
       expect(
-        compiler('<table><tbody><tr><td>**bold**</td><td>r1</td></tr></tbody></table>')
+        compiler(
+          '<table><tbody><tr><td>**bold**</td><td>r1</td></tr></tbody></table>'
+        )
       ).toMatchInlineSnapshot(
         `"<table><tbody><tr><td>**bold**</td><td>r1</td></tr></tbody></table>"`
       )
@@ -1483,28 +1552,30 @@ describe('html compiler', () => {
             tag: 'div',
             attrs: {},
             _verbatim: true,
-            _rawText: 'Content with <script>alert("xss")</script>',
+            _rawBody: 'Content with <script>alert("xss")</script>',
             children: [],
           },
         ],
         { tagfilter: true }
       )
+      // Direct AST: _rawBody has no own closer, so the non-filtered parent
+      // opener is reconstructed without a trailing </div>.
       expect(result).toMatchInlineSnapshot(
         `"<div>Content with &lt;script>alert("xss")&lt;/script>"`
       )
     })
   })
 
-  describe('HTML self-closing with tagfilter and rawText', () => {
-    it('should escape rawText when tagfilter is enabled for dangerous tags', () => {
+  describe('HTML self-closing with tagfilter and rawOpen', () => {
+    it('should escape rawOpen when tagfilter is enabled for dangerous tags', () => {
       const result = astToHTML(
         [
           {
             type: RuleType.htmlSelfClosing,
             tag: 'script',
             attrs: {},
-            _rawText: '<script src="evil.js">',
-          } as MarkdownToJSX.HTMLSelfClosingNode & { _rawText?: string },
+            _rawOpen: '<script src="evil.js">',
+          },
         ],
         { tagfilter: true }
       )
@@ -1645,7 +1716,7 @@ describe('html compiler', () => {
       })
 
       it('should handle trailing newline', () => {
-        expect(compiler(baseInput + '\n')).toMatchInlineSnapshot(`
+        expect(compiler(`${baseInput}\n`)).toMatchInlineSnapshot(`
           "<dl-custom
             data-variant='horizontalTable'
           >
@@ -1656,8 +1727,9 @@ describe('html compiler', () => {
       })
 
       it('should handle CRLF line endings', () => {
-        expect(compiler(baseInput.replace(/\n/g, '\r\n')))
-          .toMatchInlineSnapshot(`
+        expect(
+          compiler(baseInput.replace(/\n/g, '\r\n'))
+        ).toMatchInlineSnapshot(`
           "<dl-custom
             data-variant='horizontalTable'
           >
@@ -1667,7 +1739,7 @@ describe('html compiler', () => {
       })
 
       it('should handle leading and trailing newlines', () => {
-        expect(compiler('\n' + baseInput + '\n\n')).toMatchInlineSnapshot(`
+        expect(compiler(`\n${baseInput}\n\n`)).toMatchInlineSnapshot(`
           "<dl-custom
             data-variant='horizontalTable'
           >
@@ -1842,6 +1914,18 @@ describe('optimizeForStreaming option', () => {
     const result = compiler('<div>incomplete')
     expect(result).toContain('incomplete')
   })
+
+  it('preserves literal less-than prose while deferring incomplete tags', () => {
+    expect(compiler('5 < 3 is false', { optimizeForStreaming: true })).toBe(
+      '<p>5 &lt; 3 is false</p>'
+    )
+    expect(compiler('Hello <Citation', { optimizeForStreaming: true })).toBe(
+      '<p>Hello</p>'
+    )
+    expect(
+      compiler('Hello <div>a</div> and 1 < 2', { optimizeForStreaming: true })
+    ).toBe('<p>Hello <div>a</div> and 1 &lt; 2</p>')
+  })
 })
 
 describe('regression #881 - trailing text after a nested HTML element', () => {
@@ -1896,6 +1980,46 @@ describe('unique heading IDs (#857)', () => {
     ).toMatchInlineSnapshot(
       `"<div><h1 id="foo">Foo</h1><h1 id="bar">Bar</h1><h2 id="foo-1">Foo</h2></div>"`
     )
+  })
+
+  it('slugs headings from inline text content, not raw source', () => {
+    expect(compiler('## [text](https://e.com)')).toBe(
+      '<h2 id="text"><a href="https://e.com">text</a></h2>'
+    )
+  })
+})
+
+describe('destination entity decode before sanitize', () => {
+  it('drops entity-obfuscated javascript: href and src', () => {
+    expect(compiler('[x](&#106;avascript:alert(1))')).toBe('<p><a>x</a></p>')
+    expect(compiler('![x](&#106;avascript:alert(1))')).toBe(
+      '<p><img src="" alt="x" /></p>'
+    )
+  })
+
+  it('re-sanitizes direct astToHTML link targets before href encoding', () => {
+    expect(
+      astToHTML([
+        {
+          type: RuleType.link,
+          target: 'javascript:alert(1)',
+          children: [{ type: RuleType.text, text: 'x' }],
+        },
+      ])
+    ).toBe('<a>x</a>')
+  })
+})
+
+describe('inline Type 1 content with tagfilter off', () => {
+  it('preserves single-line script content including forceInline', () => {
+    expect(compiler('<script>x</script>', { tagfilter: false })).toBe(
+      '<script>x</script>'
+    )
+    // forceInline wraps the document in a span; the script body must still
+    // survive (the bug dropped it to an empty <script></script>).
+    expect(
+      compiler('<script>x</script>', { tagfilter: false, forceInline: true })
+    ).toBe('<span><script>x</script></span>')
   })
 })
 

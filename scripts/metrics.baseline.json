@@ -1,45 +1,45 @@
 {
   "vue": {
-    "timestamp": "2026-07-20T06:36:53.275Z",
+    "timestamp": "2026-07-30T22:56:59.691Z",
     "target": "vue",
     "streaming": false,
     "inputSize": 173,
-    "parseTime": 2.35
+    "parseTime": 2.94
   },
   "html": {
-    "timestamp": "2026-07-20T06:36:52.372Z",
+    "timestamp": "2026-07-30T22:56:57.756Z",
     "target": "html",
     "streaming": false,
     "inputSize": 173,
-    "parseTime": 1.97
+    "parseTime": 2.24
   },
   "parser": {
-    "timestamp": "2026-07-20T06:36:52.160Z",
+    "timestamp": "2026-07-30T22:56:55.062Z",
     "target": "parser",
     "streaming": false,
     "inputSize": 173,
-    "parseTime": 1.52
+    "parseTime": 2.54
   },
   "react": {
-    "timestamp": "2026-07-20T06:36:52.629Z",
+    "timestamp": "2026-07-30T22:56:55.894Z",
     "target": "react",
     "streaming": false,
     "inputSize": 173,
-    "parseTime": 3.87
+    "parseTime": 2.15
   },
   "solid": {
-    "timestamp": "2026-07-20T06:36:52.934Z",
+    "timestamp": "2026-07-30T22:57:05.580Z",
     "target": "solid",
     "streaming": false,
     "inputSize": 173,
-    "parseTime": 2.69
+    "parseTime": 2.84
   },
   "react-native": {
-    "timestamp": "2026-07-20T06:36:59.886Z",
+    "timestamp": "2026-07-30T22:56:57.038Z",
     "target": "react-native",
     "streaming": false,
     "inputSize": 173,
-    "parseTime": 3.47
+    "parseTime": 4.18
   },
   "parser:streaming": {
     "timestamp": "2026-07-20T06:36:53.811Z",
@@ -49,10 +49,10 @@
     "parseTime": 2.32
   },
   "markdown": {
-    "timestamp": "2026-07-20T06:36:53.524Z",
+    "timestamp": "2026-07-30T22:57:00.396Z",
     "target": "markdown",
     "streaming": false,
     "inputSize": 173,
-    "parseTime": 1.99
+    "parseTime": 2.2
   }
 }

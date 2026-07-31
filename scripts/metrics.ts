@@ -1,18 +1,30 @@
-import fs from 'fs'
-import path from 'path'
-import { performance } from 'perf_hooks'
+import fs from 'node:fs'
+import path from 'node:path'
+import { performance } from 'node:perf_hooks'
+import process from 'node:process'
 import { parser } from '../lib/src/parse.ts'
 
 const WARMUP_ROUNDS = 50
 const SIGNIFICANCE_THRESHOLD = 2
 
-const markdown = fs.readFileSync(path.join(import.meta.dirname, '../lib/src/stress-test.generated.md'), 'utf8')
+const markdown = fs.readFileSync(
+  path.join(import.meta.dirname, '../lib/src/stress-test.generated.md'),
+  'utf8'
+)
 const shouldUpdateBaseline = process.argv.includes('-u')
 const isStreaming = process.argv.includes('--streaming')
 
 const targetIndex = process.argv.indexOf('--target')
-const targetArg = targetIndex !== -1 ? process.argv[targetIndex + 1] : 'parser'
-const validTargets = ['parser', 'react', 'react-native', 'html', 'solid', 'vue', 'markdown']
+const targetArg = targetIndex === -1 ? 'parser' : process.argv[targetIndex + 1]
+const validTargets = [
+  'parser',
+  'react',
+  'react-native',
+  'html',
+  'solid',
+  'vue',
+  'markdown',
+]
 if (!validTargets.includes(targetArg)) {
   console.error(
     `Invalid target: ${targetArg}. Valid targets are: ${validTargets.join(', ')}`
@@ -68,10 +80,14 @@ if (!global.gc) {
 const compilerOpts = isStreaming ? { optimizeForStreaming: true } : undefined
 const streamLabel = isStreaming ? ', streaming' : ''
 
-process.stdout.write(`Running warmup rounds (target: ${targetName}${streamLabel})`)
+process.stdout.write(
+  `Running warmup rounds (target: ${targetName}${streamLabel})`
+)
 for (let i = 0; i < WARMUP_ROUNDS; i++) {
   compiler(markdown, compilerOpts)
-  if (i % 5 === 4) process.stdout.write('.')
+  if (i % 5 === 4) {
+    process.stdout.write('.')
+  }
 }
 
 global.gc()
@@ -90,14 +106,14 @@ console.log(`Input size: ${Math.round(markdown.length / 1024)}KB`)
 console.log(`${timeLabel}: ${(t1 - t0).toFixed(2)}ms`)
 console.log('==================================================')
 
-const baselineKey = isStreaming ? targetName + ':streaming' : targetName
+const baselineKey = isStreaming ? `${targetName}:streaming` : targetName
 
 const metricsData = {
   timestamp: new Date().toISOString(),
   target: targetName,
   streaming: isStreaming,
   inputSize: Math.round(markdown.length / 1024),
-  parseTime: +(t1 - t0).toFixed(2),
+  parseTime: Number((t1 - t0).toFixed(2)),
 }
 
 const baselinePath = path.join(import.meta.dirname, 'metrics.baseline.json')
@@ -106,7 +122,7 @@ let allBaselines: Record<string, any> = {}
 if (fs.existsSync(baselinePath)) {
   try {
     allBaselines = JSON.parse(fs.readFileSync(baselinePath, 'utf8'))
-  } catch (e) {
+  } catch {
     allBaselines = {}
   }
 }
@@ -147,5 +163,16 @@ if (baseline && !shouldUpdateBaseline) {
   const timeChange = calcChange(metricsData.parseTime, baseline.parseTime)
   console.log(
     `${timeLabel}: ${metricsData.parseTime}ms (${timeChange.symbol}${timeChange.colorCode}${timeChange.change}%${timeChange.resetCode})`
+  )
+}
+
+if (process.argv.includes('--json')) {
+  var baselineRow = allBaselines[baselineKey]
+  console.log(
+    JSON.stringify({
+      baseline: baselineRow ? baselineRow.parseTime : null,
+      parseTime: metricsData.parseTime,
+      target: targetName,
+    })
   )
 }

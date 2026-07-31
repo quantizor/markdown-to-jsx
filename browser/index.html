@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>markdown-to-jsx live renderer harness</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      body {
+        background: #ffffff;
+        color: #1f2328;
+        margin: 0;
+        padding: 2rem 1rem;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #0d1117;
+          color: #e6edf3;
+        }
+      }
+      main {
+        margin: 0 auto;
+        max-width: 44rem;
+      }
+      section {
+        border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+        border-radius: 0.5rem;
+        margin: 1rem 0;
+        padding: 0 1rem 1rem;
+      }
+          section > header {
+            color: color-mix(in srgb, currentColor 55%, transparent);
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            padding: 0.75rem 0 0.25rem;
+            text-transform: uppercase;
+          }
+          article {
+            border-top: 1px dashed color-mix(in srgb, currentColor 18%, transparent);
+            padding: 0.5rem 0 0.75rem;
+          }
+          article > header {
+            color: color-mix(in srgb, currentColor 45%, transparent);
+            font-family: ui-monospace, monospace;
+            font-size: 0.7rem;
+            padding-bottom: 0.25rem;
+          }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Live renderer harness</h1>
+          <p>
+            Each section mounts every case in <code>fixtures/cases.ts</code>
+            through one compiler (package exports → built lib), one card per
+            case. Playwright runs this page in Vite preview and Vite dev.
+          </p>
+      <section>
+        <header>React</header>
+        <div id="react-root"></div>
+      </section>
+      <section>
+        <header>Solid</header>
+        <div id="solid-root"></div>
+      </section>
+      <section>
+        <header>Vue</header>
+        <div id="vue-root"></div>
+      </section>
+    </main>
+    <script type="module" src="/src/index.ts"></script>
+  </body>
+</html>
