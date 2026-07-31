@@ -364,7 +364,7 @@ describe('parseMarkdown', () => {
     // A single trailing ] defeats the "no ] in range" fast rejection, so every
     // opener walked to end-of-input before failing.
     function timeParse(N: number) {
-      const input = '['.repeat(N) + ']'
+      const input = `${'['.repeat(N)}]`
       p.parser(input)
       const start = performance.now()
       const result = p.parser(input)
@@ -404,13 +404,13 @@ describe('parseMarkdown', () => {
     expect(p.parser('[[foo](/url)')).toEqual(expected('['))
     // Same shape, with the outer scan long enough to be remembered.
     const pad = 'z'.repeat(400)
-    expect(p.parser('[' + pad + '[foo](/url)')).toEqual(expected('[' + pad))
+    expect(p.parser(`[${pad}[foo](/url)`)).toEqual(expected(`[${pad}`))
   })
 
   it('still parses long link text containing nested brackets', () => {
     // Capping the scanned span instead would stop treating this as a link.
-    const text = 'x'.repeat(9000) + ' [inner] ' + 'y'.repeat(500)
-    expect(p.parser('[' + text + '](/url)')).toEqual([
+    const text = `${'x'.repeat(9000)} [inner] ${'y'.repeat(500)}`
+    expect(p.parser(`[${text}](/url)`)).toEqual([
       {
         type: RuleType.paragraph,
         children: [

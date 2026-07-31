@@ -5780,15 +5780,15 @@ function scanLink(
     memo = state._linkTextMatch = undefined
   }
 
-  var i: number
-  var cached = memo !== undefined ? memo[start] : 0
+  var cached = memo === undefined ? 0 : memo[start]
+  if (cached < 0) {
+    return null // known: no matching ] before e
+  }
 
-  if (cached !== 0) {
-    if (cached < 0) {
-      return null // known: no matching ] before e
-    }
-    i = cached // a scan would have stopped just past the matching ]
-  } else {
+  // A remembered match ends just past its ], which is where the scan below
+  // would have stopped.
+  var i = cached
+  if (cached === 0) {
     // Fast rejection: if no ] in range, no valid link possible
     var closeBracket = s.indexOf(']', start + 1)
     if (closeBracket < 0 || closeBracket >= e) {
