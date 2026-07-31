@@ -713,8 +713,7 @@ describe('HTML blocks', () => {
       tagfilter: true,
     })
     expect(getVNodeType(result)).toBe('span')
-    const text = extractTextContent(result)
-    expect(text).toContain('<script>')
+    expect(extractTextContent(result)).toBe('<script>alert("xss")</script>')
   })
 
   it('should process markdown within HTML blocks', () => {
@@ -1316,6 +1315,75 @@ describe('unique heading IDs (#857)', () => {
       )
     ).toEqual(['foo', 'bar', 'foo-1'])
   })
+
+  it('slugs headings from inline text content, not raw source', () => {
+    expect(collectIds(compiler('## [text](https://e.com)'))).toEqual(['text'])
+  })
+})
+
+describe('destination entity decode before sanitize', () => {
+  function firstAttr(
+    vnode: VNode | VNode[] | null,
+    prop: string
+  ): unknown {
+    if (vnode == null) return undefined
+    if (Array.isArray(vnode)) {
+      for (const child of vnode) {
+        const found = firstAttr(child, prop)
+        if (found !== undefined) return found
+      }
+      return undefined
+    }
+    const value = getProp(vnode, prop)
+    if (value !== undefined) return value
+    const kids = vnode.children
+    if (Array.isArray(kids)) {
+      for (const child of kids) {
+        const found = firstAttr(child as VNode, prop)
+        if (found !== undefined) return found
+      }
+    } else if (kids && typeof kids === 'object') {
+      return firstAttr(kids as VNode, prop)
+    }
+    return undefined
+  }
+
+  it('drops entity-obfuscated javascript: href and src', () => {
+    expect(firstAttr(compiler('[x](&#106;avascript:alert(1))'), 'href')).toBe(
+      undefined
+    )
+    expect(firstAttr(compiler('![x](&#106;avascript:alert(1))'), 'src')).toBe(
+      undefined
+    )
+  })
+
+  it('re-sanitizes direct astToJSX link targets before href encoding', () => {
+    expect(
+      firstAttr(
+        astToJSX([
+          {
+            type: RuleType.link,
+            target: 'javascript:alert(1)',
+            children: [{ type: RuleType.text, text: 'x' }],
+          },
+        ]),
+        'href'
+      )
+    ).toBeUndefined()
+  })
+})
+
+describe('inline Type 1 content with tagfilter off', () => {
+  it('preserves single-line script content including forceInline', () => {
+    expect(
+      serialize(compiler('<script>x</script>', { tagfilter: false }))
+    ).toBe('<script>x</script>')
+    expect(
+      serialize(
+        compiler('<script>x</script>', { tagfilter: false, forceInline: true })
+      )
+    ).toBe('<script>x</script>')
+  })
 })
 
 describe('component-like HTML blank-line nesting (#870)', () => {
@@ -1331,5 +1399,58 @@ Some paragraph
     ).toMatchInlineSnapshot(
       `"<MyComponent><h2>My header</h2><p>Some paragraph</p></MyComponent>"`
     )
+  })
+})
+
+describe('tagfilter escapes dangerous tags by default', () => {
+  // Regression: the render-time tag filter defaulted OFF in vue (raw options
+  // flowed to the renderer; only parse options were coerced), so default output
+  // mounted live dangerous tags despite the documented default-on protection.
+  // Both compiler() and astToJSX must escape.
+  it('escapes script with default options via compiler()', () => {
+    expect(serialize(compiler('<script>alert(1)</script>'))).toBe(
+      '<span><script>alert(1)</script></span>'
+    )
+  })
+
+  it('escapes iframe with default options via compiler()', () => {
+    expect(serialize(compiler('<iframe src="evil.com"></iframe>'))).toBe(
+      '<span><iframe src="evil.com"></iframe></span>'
+    )
+  })
+
+  it('escapes dangerous tags by default via astToJSX()', () => {
+    expect(serialize(astToJSX(parser('<script>alert(1)</script>')))).toBe(
+      '<span><script>alert(1)</script></span>'
+    )
+  })
+
+  it('keeps allowed nested tags live inside a filtered parent', () => {
+    expect(
+      serialize(compiler('<iframe>hi <em>x</em></iframe>', { tagfilter: true }))
+    ).toBe('<span><iframe>hi <em>x</em></iframe></span>')
+  })
+
+  it('passes dangerous tags through only when tagfilter is explicitly disabled', () => {
+    expect(
+      serialize(compiler('<script>\nx\n</script>', { tagfilter: false }))
+    ).toBe('<script>x</script>')
+  })
+})
+
+describe('optimizeForStreaming preserves literal less-than', () => {
+  it('keeps comparison prose and defers incomplete tag prefixes', () => {
+    // Single-line input auto-inlines, so serialize sees a bare text node.
+    expect(
+      serialize(compiler('5 < 3 is false', { optimizeForStreaming: true }))
+    ).toBe('5 < 3 is false')
+    expect(
+      serialize(compiler('Hello <Citation', { optimizeForStreaming: true }))
+    ).toBe('Hello ')
+    expect(
+      serialize(
+        compiler('x < y\n\nsecond para', { optimizeForStreaming: true })
+      )
+    ).toBe('<div><p>x < y</p><p>second para</p></div>')
   })
 })

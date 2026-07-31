@@ -193,31 +193,48 @@ function render(
     case RuleType.htmlBlock: {
       const htmlNode = node as MarkdownToJSX.HTMLNode
 
-      // Apply options.tagfilter: escape dangerous tags
-      if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
-        // Construct opening tag for display (React will escape the angle brackets)
+      // Apply options.tagfilter: escape dangerous tags (GFM: leading '<' only;
+      // React text nodes also escape '>', which is the JSX sink's normal form).
+      if (util.tagfilterEnabled(options) && util.shouldFilterTag(htmlNode.tag)) {
+        var filtered = util.getFilteredTagEmit(htmlNode)
+        if (filtered.kind === 'literal') {
+          return h('span', { key: state.key }, filtered.literal)
+        }
         return h(
           'span',
           { key: state.key },
-          '<' + htmlNode.tag + util.formatFilteredTagAttrs(htmlNode.attrs) + '>'
+          ...util.assembleFilteredTagChildren(
+            filtered.open,
+            htmlNode.children ? output(htmlNode.children, state) : null,
+            filtered.close
+          )
         )
       }
 
-      if (htmlNode._rawText && htmlNode._verbatim) {
-        // For verbatim blocks, always use rawText for rendering (CommonMark compliance)
+      const rawOuter = htmlNode._rawOuter
+      const isRawOuter = rawOuter !== undefined
+      const rawSource = isRawOuter
+        ? rawOuter
+        : htmlNode._isClosingTag
+          ? htmlNode._rawBody || ''
+          : (htmlNode._rawBody || '') + (htmlNode._rawClose || '')
+      if (rawSource && htmlNode._verbatim) {
+        // For verbatim blocks, always use rawSource for rendering (CommonMark compliance)
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
         const htmlChildren = htmlNode.children
         const hasChildren = htmlChildren != null && htmlChildren.length > 0
 
-        // Type 1 blocks (pre, script, style, textarea) always render verbatim
+        // Type 1 blocks (pre, script, style, textarea) always render verbatim.
+        // The element wrapper below supplies its own closing tag, so the body
+        // excludes _rawClose; the full outer span is used as-is only when no
+        // closing tag was found (rare, matches the tag-filter sniff below).
         if (isType1Block) {
-          const textContent = util.type1TextContent(
-            htmlNode._rawText,
-            tagLower,
-            options.tagfilter
-          )
-          if (/<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)) {
+          const type1Body = isRawOuter ? rawOuter : htmlNode._rawBody || ''
+          const textContent = util.tagfilterEnabled(options)
+            ? util.applyTagFilterToText(type1Body)
+            : type1Body
+          if (/<[a-z][^>]{0,100}>/i.test(rawSource)) {
             var t1Props = keyedJsxProps(state.key, node.attrs)
             t1Props.dangerouslySetInnerHTML = { __html: textContent }
             return hJSX(node.tag, t1Props)
@@ -228,7 +245,7 @@ function render(
         // When the tag itself is filtered (e.g. <iframe>), prefer
         // children so each child element goes through its own tagfilter check
         const ownTagStartR = new RegExp(`^<${htmlNode.tag}(\\s|>)`, 'i')
-        if (hasChildren && !ownTagStartR.test(htmlNode._rawText) && options.tagfilter && util.containsTagfilterTag(htmlNode._rawText)) {
+        if (hasChildren && !ownTagStartR.test(rawSource) && util.tagfilterEnabled(options) && util.containsTagfilterTag(rawSource)) {
           return hJSX(
             node.tag,
             keyedJsxProps(state.key, node.attrs),
@@ -237,27 +254,23 @@ function render(
         }
 
         // Non-Type-1 verbatim blocks containing Type 1 tags use innerHTML
-        const containsVerbatimTags = parse.containsType1Tag(htmlNode._rawText)
+        const containsVerbatimTags = parse.containsType1Tag(rawSource)
         if (containsVerbatimTags) {
-          const innerHtml = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode._rawText)
-            : htmlNode._rawText
+          const innerHtml = util.tagfilterEnabled(options)
+            ? util.applyTagFilterToText(rawSource)
+            : rawSource
           var vProps = keyedJsxProps(state.key, node.attrs)
           vProps.dangerouslySetInnerHTML = { __html: innerHtml }
           return hJSX(node.tag, vProps)
         }
-        // For other verbatim blocks, re-parse rawText for JSX compilation
-        // (children are available for renderRule but default uses rawText)
-        const parseOptions: parse.ParseOptions = {
-          slugify: (input: string) => slug(input, util.slugify),
+        // For other verbatim blocks, re-parse rawSource for JSX compilation
+        // (children are available for renderRule but default uses rawSource)
+        const parseOptions = parse.toParseOptions({
+          slugify: options.slugify,
           sanitizer: sanitize,
           tagfilter: true,
-        }
-        const cleanedText = htmlNode._rawText
-          .replace(/>\s+</g, '><')
-          .replace(/\n+/g, ' ')
-          .trim()
-
+        })
+        const cleanedText = util.normalizeJsxReparseText(rawSource)
         // Avoid infinite recursion: if cleanedText is just the same HTML tag we're processing,
         // render as an empty element
         const selfTagRegex = new RegExp(
@@ -286,19 +299,14 @@ function render(
         // tag (issue #881). See util.stripVerbatim for the full rationale.
         util.stripVerbatim(astNodes)
 
-        // Check if rawText represents the FULL outer block (starts with opening tag
-        // and ends with closing tag of the same element, with no content after)
-        // In this case, render the parsed nodes directly without adding another wrapper
+        // _rawOuter means the parser already determined this span is the FULL
+        // outer block (own opening tag through own closing tag, or through end
+        // of input when no closer exists); render the parsed nodes directly
+        // without adding another wrapper.
         const tagLowerCheck = (htmlNode.tag as string).toLowerCase()
-        const closingTag = '</' + tagLowerCheck + '>'
-        const startsWithOwnTag = ownTagStartR.test(cleanedText)
-        const endsWithClosingTag = cleanedText
-          .toLowerCase()
-          .trimEnd()
-          .endsWith(closingTag)
-        const isFullOuterBlock = startsWithOwnTag && endsWithClosingTag
+        const isFullOuterBlock = isRawOuter
 
-        // When rawText wraps the full outer block, prefer children if available
+        // When rawSource wraps the full outer block, prefer children if available
         if (isFullOuterBlock && hasChildren) {
           return hJSX(
             node.tag,
@@ -353,14 +361,14 @@ function render(
       const htmlNode = node as MarkdownToJSX.HTMLSelfClosingNode
 
       // Apply options.tagfilter: escape dangerous self-closing tags
-      if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
+      if (util.tagfilterEnabled(options) && util.shouldFilterTag(htmlNode.tag)) {
+        var filteredSc = util.getFilteredTagEmit(htmlNode)
         return h(
           'span',
           { key: state.key },
-          '<' +
-            htmlNode.tag +
-            util.formatFilteredTagAttrs(htmlNode.attrs) +
-            ' />'
+          filteredSc.kind === 'literal'
+            ? filteredSc.literal
+            : filteredSc.open + (filteredSc.close || '')
         )
       }
 
@@ -382,9 +390,9 @@ function render(
     case RuleType.link: {
       const props: Record<string, unknown> = { key: state.key }
       if (node.target != null) {
-        // Entity references are already decoded during parsing (per CommonMark spec)
-        // URL-encode backslashes and backticks (per CommonMark spec)
-        props.href = util.encodeUrlTarget(node.target)
+        // Re-sanitize at emit so direct astToJSX(dangerous) cannot skip the gate.
+        const href = util.sanitizeAndEncodeUrlTarget(node.target, sanitize, 'a', 'href')
+        if (href != null) props.href = href
       }
       if (node.title) {
         // Entity references are already decoded during parsing (per CommonMark spec)
@@ -666,15 +674,7 @@ export function astToJSX(
     return h(tag, props, ...children)
   }
 
-  // Capture once so the adapter closure below sees a definitely-defined function
-  const userSlugify = opts.slugify
-  const parseOptions: parse.ParseOptions = {
-    ...opts,
-    // Fast path: when no user slugify, pass util.slugify directly (no closure)
-    slugify: userSlugify ? i => userSlugify(i, util.slugify) : util.slugify,
-    sanitizer: sanitize,
-    tagfilter: opts.tagfilter !== false,
-  }
+  const parseOptions = parse.toParseOptions(opts, opts.forceInline)
 
   const refs =
     ast[0] && ast[0].type === RuleType.refCollection
@@ -760,26 +760,9 @@ export function compiler(
     const inline =
       opts.forceInline ||
       (!opts.forceBlock && !util.SHOULD_RENDER_AS_BLOCK_R.test(input))
-    // Capture once so the adapter closure below sees a definitely-defined function
-    const userSlugify = opts.slugify
-    const parseOptions: parse.ParseOptions = {
-      ...opts,
-      // Fast path: when no user slugify, pass util.slugify directly (no closure)
-      slugify: userSlugify ? i => userSlugify(i, util.slugify) : util.slugify,
-      sanitizer: sanitize,
-      tagfilter: opts.tagfilter !== false,
-    }
+    const parseOptions = parse.toParseOptions(opts, inline)
 
     let processedInput = inline ? input : util.prepareBlockInput(input)
-
-    // In streaming mode, strip trailing incomplete HTML tags to prevent infinite recursion
-    if (opts.optimizeForStreaming) {
-      // Find last '<' that doesn't have a matching '>'
-      var lastLt = processedInput.lastIndexOf('<')
-      if (lastLt !== -1 && processedInput.indexOf('>', lastLt) === -1) {
-        processedInput = processedInput.slice(0, lastLt)
-      }
-    }
 
     let astNodes = parse.parseMarkdown(
       processedInput,
@@ -788,7 +771,7 @@ export function compiler(
     )
 
     return astToJSX(astNodes, {
-      ...parseOptions,
+      ...opts,
       forceInline: inline,
     })
   }

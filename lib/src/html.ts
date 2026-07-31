@@ -388,125 +388,70 @@ function _renderNode(
         attrsStr = formatAttributes(_mergeAttrs(htmlNode.attrs, overrideProps))
       }
       if (ctx.tagfilter && util.shouldFilterTag(tag)) {
-        return htmlNode._isClosingTag
-          ? '&lt;/' + tag + '>'
-          : '&lt;' + tag + attrsStr + '>'
-      }
-      if (htmlNode._rawText) {
-        if (htmlNode._verbatim) {
-          var textContent = ctx.tagfilter
-            ? util.applyTagFilterToText(htmlNode._rawText)
-            : htmlNode._rawText
-          if (htmlNode._isClosingTag) return '</' + tag + '>' + textContent
-          var tagLower = tag.toLowerCase()
-          var isType1Block = parse.isType1Block(tagLower)
-          if (isType1Block) {
-            var textLen = htmlNode._rawText.length
-            var textStart = 0
-            while (
-              textStart < textLen &&
-              htmlNode._rawText.charCodeAt(textStart) === $.CHAR_SPACE
-            )
-              textStart++
-            if (
-              textStart < textLen &&
-              htmlNode._rawText.charCodeAt(textStart) === $.CHAR_LT
-            ) {
-              var openingTagEnd = htmlNode._rawText.indexOf('>', textStart)
-              if (openingTagEnd !== -1) {
-                var rawOpeningTag = htmlNode._rawText.slice(
-                  textStart,
-                  openingTagEnd + 1
-                )
-                if (
-                  rawOpeningTag.charCodeAt(1) >= $.CHAR_a &&
-                  rawOpeningTag.charCodeAt(1) <= $.CHAR_z
-                ) {
-                  var tagStart = 1
-                  var tagEnd = tagStart
-                  while (
-                    tagEnd < rawOpeningTag.length &&
-                    rawOpeningTag.charCodeAt(tagEnd) >= $.CHAR_a &&
-                    rawOpeningTag.charCodeAt(tagEnd) <= $.CHAR_z
-                  )
-                    tagEnd++
-                  var foundTag = rawOpeningTag
-                    .slice(tagStart, tagEnd)
-                    .toLowerCase()
-                  if (foundTag === tagLower) {
-                    var innerText = htmlNode._rawText.slice(openingTagEnd + 1)
-                    return (
-                      rawOpeningTag +
-                      (ctx.tagfilter
-                        ? util.applyTagFilterToText(innerText)
-                        : innerText)
-                    )
-                  }
-                }
-              }
-            }
-            var closingTag = '</' + tagLower + '>'
-            var hasClosingTag = htmlNode._rawText.indexOf(closingTag) !== -1
-            return hasClosingTag
-              ? '<' + tag + attrsStr + '>' + textContent
-              : '<' + tag + attrsStr + '>' + textContent + '</' + tag + '>'
-          }
-          var trimmed = htmlNode._rawText.trim()
-          if (trimmed.length > 0 && trimmed.charCodeAt(0) === $.CHAR_LT) {
-            var secondCharCode = trimmed.charCodeAt(1)
-            if (
-              (secondCharCode >= $.CHAR_a && secondCharCode <= $.CHAR_z) ||
-              (secondCharCode >= $.CHAR_A && secondCharCode <= $.CHAR_Z)
-            ) {
-              var tagStart = 1
-              var tagEnd = tagStart
-              while (tagEnd < trimmed.length) {
-                var code = trimmed.charCodeAt(tagEnd)
-                if (
-                  (code >= $.CHAR_a && code <= $.CHAR_z) ||
-                  (code >= $.CHAR_A && code <= $.CHAR_Z) ||
-                  (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
-                  code === $.CHAR_DASH
-                ) {
-                  tagEnd++
-                } else {
-                  break
-                }
-              }
-              var foundTag = trimmed.slice(tagStart, tagEnd).toLowerCase()
-              if (foundTag === tagLower) {
-                return textContent
-              }
-            }
-          }
-          // Parser sets _emitOwnClose when rawText represents a closed HTML
-          // block nested inside another HTML block. rawText may carry trailing
-          // same-line siblings (kept for the React re-parse split), so slice
-          // at the own close tag and always emit our own </tag> (#862).
-          if (htmlNode._emitOwnClose) {
-            var ownCloseIdx67 = textContent.indexOf('</' + tagLower + '>')
-            var body67 = ownCloseIdx67 !== -1 ? textContent.slice(0, ownCloseIdx67) : textContent
-            return '<' + tag + attrsStr + '>' + body67 + '</' + tag + '>'
-          }
-          var trimmedStart = 0
-          while (
-            trimmedStart < textContent.length &&
-            textContent.charCodeAt(trimmedStart) === $.CHAR_SPACE
-          )
-            trimmedStart++
-          return '<' + tag + attrsStr + '>' + (trimmedStart > 0 ? textContent.slice(trimmedStart) : trimmed ? textContent : '')
+        var filtered = util.getFilteredTagEmit(htmlNode)
+        if (filtered.kind === 'literal') {
+          return util.applyTagFilterToText(filtered.literal)
         }
-        var textContent = ctx.tagfilter
-          ? util.applyTagFilterToText(htmlNode._rawText)
-          : htmlNode._rawText
-        return '<' + tag + attrsStr + '>' + textContent + '</' + tag + '>'
+        return (
+          util.applyTagFilterToText(filtered.open) +
+          (htmlNode.children ? _renderChildren(htmlNode.children, ctx) : '') +
+          util.applyTagFilterToText(filtered.close)
+        )
       }
-      // For multi-line attributes (rawAttrs contains newlines), preserve rawText formatting
-      if (htmlNode._rawAttrs && htmlNode._rawAttrs.indexOf('\n') !== -1 && htmlNode._rawText) {
-        var rawTextContent = ctx.tagfilter
-          ? util.applyTagFilterToText(htmlNode._rawText)
-          : htmlNode._rawText
-        return '<' + tag + attrsStr + '>' + rawTextContent + '</' + tag + '>'
+      var rawOuter = htmlNode._rawOuter
+      if (htmlNode._isClosingTag && htmlNode._rawBody) {
+        var closerTrailing = ctx.tagfilter
+          ? util.applyTagFilterToText(htmlNode._rawBody)
+          : htmlNode._rawBody
+        return '</' + tag + '>' + closerTrailing
+      }
+      if (htmlNode._verbatim && rawOuter !== undefined) {
+        // Parser-verified full outer span (own opening tag through own
+        // closing tag, or through end of input when none exists); emit
+        // as-is, no synthesized wrapper needed.
+        return ctx.tagfilter ? util.applyTagFilterToText(rawOuter) : rawOuter
+      }
+      if (htmlNode._verbatim && !htmlNode._isClosingTag) {
+        var tagLower = tag.toLowerCase()
+        var isType1Block = parse.isType1Block(tagLower)
+        if (isType1Block) {
+          // The parser always supplies _rawClose (or _rawOuter, handled
+          // above) for real Type 1 output; a missing close here only
+          // happens on a hand-built AST, so synthesize the tag's own
+          // closer rather than leaving the element unclosed.
+          var type1BodyAndClose =
+            (htmlNode._rawBody || '') + (htmlNode._rawClose || '</' + tag + '>')
+          var type1Content = ctx.tagfilter
+            ? util.applyTagFilterToText(type1BodyAndClose)
+            : type1BodyAndClose
+          return '<' + tag + attrsStr + '>' + type1Content
+        }
+        var bodyAndClose = (htmlNode._rawBody || '') + (htmlNode._rawClose || '')
+        var textContent = ctx.tagfilter
+          ? util.applyTagFilterToText(bodyAndClose)
+          : bodyAndClose
+        // Parser sets _emitOwnClose when rawBody represents a closed HTML
+        // block nested inside another HTML block. rawBody may carry trailing
+        // same-line siblings (kept for the React re-parse split), so slice
+        // at the own close tag and always emit our own </tag> (#862).
+        if (htmlNode._emitOwnClose) {
+          var ownCloseIdx67 = textContent.indexOf('</' + tagLower + '>')
+          var body67 = ownCloseIdx67 !== -1 ? textContent.slice(0, ownCloseIdx67) : textContent
+          return '<' + tag + attrsStr + '>' + body67 + '</' + tag + '>'
+        }
+        var trimmedStart = 0
+        while (
+          trimmedStart < textContent.length &&
+          textContent.charCodeAt(trimmedStart) === $.CHAR_SPACE
+        )
+          trimmedStart++
+        return '<' + tag + attrsStr + '>' + (trimmedStart > 0 ? textContent.slice(trimmedStart) : (htmlNode._rawBody || '').trim() ? textContent : '')
+      }
+      if (htmlNode._rawBody) {
+        var nonVerbatimContent = ctx.tagfilter
+          ? util.applyTagFilterToText(htmlNode._rawBody)
+          : htmlNode._rawBody
+        return '<' + tag + attrsStr + '>' + nonVerbatimContent + '</' + tag + '>'
       }
       if (util.isVoidElement(tag)) {
         return '<' + tag + attrsStr + '>'
@@ -531,24 +476,22 @@ function _renderNode(
     }
 
     case RuleType.htmlSelfClosing: {
-      var scNode = node as MarkdownToJSX.HTMLSelfClosingNode & {
-        _rawText?: string
-        _isClosingTag?: boolean
-      }
+      var scNode = node as MarkdownToJSX.HTMLSelfClosingNode
       var scDefaultTag = scNode.tag || 'div'
       var scTag = ctx.hasOverrides ? util.getTag(scDefaultTag, ctx.overrides) : scDefaultTag
-      if (scNode._rawText) {
-        return ctx.tagfilter && util.shouldFilterTag(scTag)
-          ? scNode._rawText.replace(/^</, '&lt;')
-          : scNode._rawText
+      if (ctx.tagfilter && util.shouldFilterTag(scTag)) {
+        var filteredSc = util.getFilteredTagEmit(scNode)
+        return util.applyTagFilterToText(
+          filteredSc.kind === 'literal'
+            ? filteredSc.literal
+            : filteredSc.open + (filteredSc.close || '')
+        )
       }
-      if (scNode._isClosingTag) return '</' + scTag + '>'
+      if (scNode._isClosingTag) return scNode._rawClose || '</' + scTag + '>'
+      if (scNode._rawOpen) return scNode._rawOpen
       var scOverrideProps = ctx.hasOverrides ? util.getOverrideProps(scDefaultTag, ctx.overrides) : _emptyObj
       var scMergedAttrs = _mergeAttrs(scNode.attrs, scOverrideProps)
       var scAttrsStr = formatAttributes(scMergedAttrs)
-      if (ctx.tagfilter && util.shouldFilterTag(scTag)) {
-        return '&lt;' + scTag + scAttrsStr + ' />'
-      }
       return '<' + scTag + scAttrsStr + ' />'
     }
 
@@ -569,13 +512,15 @@ function _renderNode(
       var linkOverrideProps = ctx.hasOverrides ? util.getOverrideProps('a', ctx.overrides) : _emptyObj
       var linkAttrs: Record<string, any> = hasKeys(linkOverrideProps) ? { ...linkOverrideProps } : {}
       if (node.target != null) {
-        var encodedTarget = util.encodeUrlTarget(util.decodeEntityReferences(node.target))
-        var sanitized = ctx.sanitize(encodedTarget, 'a', 'href')
-        if (sanitized !== null) {
-          linkAttrs.href = sanitized === encodedTarget
-            ? sanitized
-            : util.encodeUrlTarget(sanitized)
-        }
+        // Sanitize before encode (same order as the JSX compilers) so a
+        // dangerous direct-AST target never reaches href=.
+        var linkHref = util.sanitizeAndEncodeUrlTarget(
+          util.decodeEntityReferences(node.target),
+          ctx.sanitize,
+          'a',
+          'href'
+        )
+        if (linkHref !== null) linkAttrs.href = linkHref
       }
       if (node.title) linkAttrs.title = util.decodeEntityReferences(node.title)
       return '<' + linkTag + formatAttributes(linkAttrs) + '>' + (node.children ? _renderChildren(node.children, ctx) : '') + '</' + linkTag + '>'
@@ -743,7 +688,7 @@ export function astToHTML(
     overrides: overrides,
     hasOverrides: hasKeys(overrides),
     preserveFrontmatter: !!options.preserveFrontmatter,
-    tagfilter: options.tagfilter !== false,
+    tagfilter: util.tagfilterEnabled(options),
     forceInline: !!options.forceInline,
     renderRule: options.renderRule,
   }
@@ -775,12 +720,7 @@ export function astToHTML(
       var parsed = parse.parseMarkdown(
         refs[key].target,
         { inline: true, refs },
-        {
-          overrides: overrides as MarkdownToJSX.Overrides,
-          sanitizer: sanitize,
-          slugify: function (i: string) { return slug(i, util.slugify) },
-          tagfilter: options.tagfilter !== false,
-        }
+        parse.toParseOptions(options)
       )
       var filtered: MarkdownToJSX.ASTNode[] = []
       for (var pi = 0; pi < parsed.length; pi++) {
@@ -867,18 +807,7 @@ export function astToHTML(
  */
 export function compiler(markdown: string, options?: HTMLOptions): string {
   var inline = options?.forceInline || false
-  // Capture slugify once (const, so the closure sees it definitely defined)
-  const userSlugify = options?.slugify
-  var parseOptions: parse.ParseOptions = {
-    ...options,
-    overrides: options?.overrides as MarkdownToJSX.Overrides,
-    sanitizer: options?.sanitizer || util.sanitizer,
-    slugify: userSlugify
-      ? function (i: string) { return userSlugify(i, util.slugify) }
-      : util.slugify,
-    tagfilter: options?.tagfilter !== false,
-  }
-  var ast = parse.parser(markdown, { ...parseOptions, forceInline: inline })
+  var ast = parse.parser(markdown, { ...options, forceInline: inline })
   var htmlOptions: HTMLOptions = {
     ...options,
     forceInline: inline,

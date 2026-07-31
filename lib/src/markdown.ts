@@ -457,8 +457,10 @@ function compileImage(
   state: CompilerState
 ): string {
   const alt = node.alt || ''
-  const url = node.target
-  const title = node.title
+  // Rejected destinations are null; keep the round-trip as ![alt]() so a
+  // leftover title cannot become a live destination on re-parse.
+  const url = node.target || ''
+  const title = url ? node.title : undefined
 
   if (state.options.useReferenceLinks) {
     const refKey = generateReferenceKey(state)
@@ -646,15 +648,21 @@ function compileHTMLBlock(
   // Check if this is a void element (self-closing)
   const isVoid = isVoidElement(tag)
 
-  // An orphan closing tag re-emits as the bare closing tag; _rawText carries
+  // An orphan closing tag re-emits as the bare closing tag; _rawBody carries
   // any trailing same-line content (mirrors the html compiler).
   if (node._isClosingTag) {
-    return `</${tag}>${node._rawText || ''}`
+    return `</${tag}>${node._rawBody || ''}`
   }
 
   // Verbatim raw source already carries its own closing tag, so emit it as-is.
-  if (node._verbatim && node._rawText) {
-    return `<${tag}${attrs}>${node._rawText}`
+  // _rawOuter is the full span (own opener through closer, or through end of
+  // input) and is emitted without an added wrapper; otherwise the body and
+  // closer are appended after the reconstructed opening tag.
+  if (node._verbatim && node._rawOuter !== undefined) {
+    return node._rawOuter
+  }
+  if (node._verbatim && (node._rawBody || node._rawClose)) {
+    return `<${tag}${attrs}>${node._rawBody || ''}${node._rawClose || ''}`
   }
   // The deprecated text field holds inner content only, so a non-void element
   // needs its closing tag appended or the round-trip drops it (a following
@@ -681,6 +689,15 @@ function compileHTMLSelfClosing(
   node: MarkdownToJSX.HTMLSelfClosingNode,
   state: CompilerState
 ): string {
+  // An orphan closing tag and a self-contained leaf (processing instruction,
+  // CDATA section, declaration) carry no attrs/overrides to reconstruct from;
+  // their true source is the only faithful round-trip.
+  if (node._isClosingTag) {
+    return node._rawClose || `</${node.tag}>`
+  }
+  if (node._rawOpen) {
+    return node._rawOpen
+  }
   const defaultTag = node.tag || 'div'
   const tag = getTag(defaultTag, state.overrides)
   const overrideProps = getOverrideProps(defaultTag, state.overrides)

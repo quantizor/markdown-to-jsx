@@ -2076,6 +2076,31 @@ comment -->`)
       `"<SCRIPT>  new Date();</SCRIPT>"`)
   })
 
+  describe('tagfilter escapes dangerous tags by default', () => {
+    // Regression: render paths read options.tagfilter directly while only the
+    // parse-time options were defaulted, so solid/vue/native (and direct
+    // astToJSX calls here) emitted live dangerous tags despite the documented
+    // default-on protection. Both compiler() and astToJSX must escape.
+    it('escapes script with default options via compiler()', () => {
+      render(compiler('<script>alert(1)</script>'))
+      expect(root.innerHTML).toBe(
+        '<span>&lt;script&gt;alert(1)&lt;/script&gt;</span>'
+      )
+    })
+
+    it('escapes dangerous tags by default via astToJSX()', () => {
+      render(astToJSX(parser('<script>alert(1)</script>')))
+      expect(root.innerHTML).toBe(
+        '<span>&lt;script&gt;alert(1)&lt;/script&gt;</span>'
+      )
+    })
+
+    it('passes dangerous tags through only when tagfilter is explicitly disabled', () => {
+      render(compiler('<script>\nx\n</script>', { tagfilter: false }))
+      expect(root.innerHTML).toBe('<script>x</script>')
+    })
+  })
+
   it('handles nested tags of the same type with attributes', () => {
     render(
       compiler(theredoc`
@@ -3396,13 +3421,15 @@ describe('tagfilter option', () => {
   describe('HTML block with tagfilter enabled', () => {
     it('should escape script tags when tagfilter is enabled', () => {
       render(compiler('<script>alert("xss")</script>', { tagfilter: true }))
-      expect(root.innerHTML).toBe('<span>&lt;script&gt;</span>')
+      expect(root.innerHTML).toBe(
+        '<span>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</span>'
+      )
     })
 
     it('should escape iframe tags when tagfilter is enabled', () => {
       render(compiler('<iframe src="evil.com"></iframe>', { tagfilter: true }))
       expect(root.innerHTML).toBe(
-        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;</span>'
+        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;&lt;/iframe&gt;</span>'
       )
     })
 
@@ -3421,7 +3448,9 @@ describe('tagfilter option', () => {
 
       filteredTags.forEach(tag => {
         render(compiler(`<${tag}>content</${tag}>`, { tagfilter: true }))
-        expect(root.innerHTML).toBe(`<span>&lt;${tag}&gt;</span>`)
+        expect(root.innerHTML).toBe(
+          `<span>&lt;${tag}&gt;content&lt;/${tag}&gt;</span>`
+        )
       })
     })
 
@@ -3432,7 +3461,9 @@ describe('tagfilter option', () => {
 
     it('should handle case-insensitive tag matching', () => {
       render(compiler('<SCRIPT>alert("xss")</SCRIPT>', { tagfilter: true }))
-      expect(root.innerHTML).toBe('<span>&lt;SCRIPT&gt;</span>')
+      expect(root.innerHTML).toBe(
+        '<span>&lt;SCRIPT&gt;alert(&quot;xss&quot;)&lt;/SCRIPT&gt;</span>'
+      )
     })
 
     it('should escape filtered tags with attributes', () => {
@@ -3442,15 +3473,24 @@ describe('tagfilter option', () => {
         })
       )
       expect(root.innerHTML).toBe(
-        '<span>&lt;script src=&quot;evil.js&quot; type=&quot;text/javascript&quot;&gt;</span>'
+        '<span>&lt;script src=&quot;evil.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;</span>'
+      )
+    })
+
+    it('keeps allowed nested tags live inside a filtered parent', () => {
+      render(compiler('<iframe>hi <em>x</em></iframe>', { tagfilter: true }))
+      expect(root.innerHTML).toBe(
+        '<span>&lt;iframe&gt;hi <em>x</em>&lt;/iframe&gt;</span>'
       )
     })
   })
 
   describe('HTML block with tagfilter disabled', () => {
     it('should not escape script tags when tagfilter is false', () => {
+      // Single-line Type 1 must keep its text content (inline and block shapes
+      // share the verbatim node contract).
       render(compiler('<script>alert("xss")</script>', { tagfilter: false }))
-      expect(root.innerHTML).toBe('<script></script>')
+      expect(root.innerHTML).toBe('<script>alert("xss")</script>')
     })
 
     it('should not escape iframe tags when tagfilter is false', () => {
@@ -3462,13 +3502,15 @@ describe('tagfilter option', () => {
   describe('HTML block with default tagfilter', () => {
     it('should escape script tags by default (tagfilter default is true)', () => {
       render(compiler('<script>alert("xss")</script>'))
-      expect(root.innerHTML).toBe('<span>&lt;script&gt;</span>')
+      expect(root.innerHTML).toBe(
+        '<span>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</span>'
+      )
     })
 
     it('should escape iframe tags by default (tagfilter default is true)', () => {
       render(compiler('<iframe src="evil.com"></iframe>'))
       expect(root.innerHTML).toBe(
-        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;</span>'
+        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;&lt;/iframe&gt;</span>'
       )
     })
   })
@@ -3504,7 +3546,9 @@ describe('tagfilter option', () => {
           { tagfilter: true }
         )
       )
-      expect(root.innerHTML).toContain('<span>&lt;script&gt;</span>')
+      expect(root.innerHTML).toContain(
+        '<span>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</span>'
+      )
       expect(root.innerHTML).not.toContain('<script>')
     })
 
@@ -3515,9 +3559,11 @@ describe('tagfilter option', () => {
           { tagfilter: true }
         )
       )
-      expect(root.innerHTML).toContain('<span>&lt;script&gt;</span>')
       expect(root.innerHTML).toContain(
-        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;</span>'
+        '<span>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</span>'
+      )
+      expect(root.innerHTML).toContain(
+        '<span>&lt;iframe src=&quot;evil.com&quot;&gt;&lt;/iframe&gt;</span>'
       )
       expect(root.innerHTML).not.toContain('<script>')
       expect(root.innerHTML).not.toContain('<iframe>')
@@ -3887,7 +3933,32 @@ describe('optimizeForStreaming option', () => {
   })
 })
 
+describe('optimizeForStreaming preserves literal less-than', () => {
+  it('keeps comparison prose and multi-paragraph literal less-than', () => {
+    render(compiler('5 < 3 is false', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toBe('5 &lt; 3 is false')
+    render(compiler('x < y\n\nsecond para', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toBe(
+      '<div><p>x &lt; y</p><p>second para</p></div>'
+    )
+  })
 
+  it('defers incomplete tag prefixes without truncating prior text', () => {
+    render(compiler('Hello <Citation', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toBe('Hello ')
+    render(compiler('<div>incomplete', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toBe('<p>incomplete</p>')
+  })
+
+  it('keeps a completed tag plus a later literal less-than', () => {
+    render(
+      compiler('Hello <div>a</div> and 1 < 2', { optimizeForStreaming: true })
+    )
+    expect(root.innerHTML).toBe(
+      '<span>Hello <div>a</div> and 1 &lt; 2</span>'
+    )
+  })
+})
 
 describe('optimizeForStreaming with custom JSX overrides', () => {
   it('strips a trailing incomplete custom tag in inline content', () => {
@@ -4011,6 +4082,55 @@ describe('unique heading IDs (#857)', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<div><h1 id="foo">Foo</h1><h1 id="bar">Bar</h1><h2 id="foo-1">Foo</h2></div>"`
     )
+  })
+
+  it('slugs headings from inline text content, not raw source', () => {
+    render(compiler('## [text](https://e.com)'))
+    expect(root.innerHTML).toBe(
+      '<h2 id="text"><a href="https://e.com">text</a></h2>'
+    )
+  })
+})
+
+describe('destination entity decode before sanitize', () => {
+  it('drops entity-obfuscated javascript: href and src', () => {
+    render(compiler('[x](&#106;avascript:alert(1))'))
+    expect(root.innerHTML).toBe('<a>x</a>')
+    render(compiler('![x](&#106;avascript:alert(1))'))
+    expect(root.innerHTML).toBe('<img alt="x"/>')
+  })
+
+  it('re-sanitizes direct astToJSX link targets before href encoding', () => {
+    render(
+      astToJSX([
+        {
+          type: RuleType.link,
+          target: 'javascript:alert(1)',
+          children: [{ type: RuleType.text, text: 'x' }],
+        },
+      ])
+    )
+    expect(root.innerHTML).toBe('<a>x</a>')
+  })
+
+  it('applies a non-idempotent sanitizer rewrite at emit', () => {
+    render(
+      compiler('[x](https://e.com)', {
+        sanitizer: () => 'https://rewritten.example',
+      })
+    )
+    expect(root.innerHTML).toBe('<a href="https://rewritten.example">x</a>')
+  })
+})
+
+describe('inline Type 1 content with tagfilter off', () => {
+  it('preserves single-line script content including forceInline', () => {
+    render(compiler('<script>x</script>', { tagfilter: false }))
+    expect(root.innerHTML).toBe('<script>x</script>')
+    render(
+      compiler('<script>x</script>', { tagfilter: false, forceInline: true })
+    )
+    expect(root.innerHTML).toBe('<script>x</script>')
   })
 })
 

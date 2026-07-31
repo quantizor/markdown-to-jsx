@@ -2014,6 +2014,57 @@ describe('unique heading IDs (#857)', () => {
       )
     ).toMatchInlineSnapshot(`"<View><Text>Foo</Text><Text>Bar</Text><Text>Foo</Text></View>"`)
   })
+
+  it('renders a link-in-heading from text content without crashing', () => {
+    // Native emits no id; assert the visible text matches the slug source.
+    expect(extractTextContent(compiler('## [text](https://e.com)'))).toBe(
+      'text'
+    )
+  })
+})
+
+describe('destination entity decode before sanitize', () => {
+  function hasOnPress(node: React.ReactNode): boolean {
+    if (!isTestElement(node)) {
+      if (Array.isArray(node)) return node.some(hasOnPress)
+      return false
+    }
+    if (node.props?.onPress != null) return true
+    return hasOnPress(node.props?.children as React.ReactNode)
+  }
+
+  it('drops press handlers for entity-obfuscated javascript: links', () => {
+    const result = compiler('[x](&#106;avascript:alert(1))')
+    expect(extractTextContent(result)).toBe('x')
+    expect(hasOnPress(result)).toBe(false)
+  })
+
+  it('re-sanitizes direct astToNative link targets before press handlers', () => {
+    expect(
+      hasOnPress(
+        astToNative([
+          {
+            type: RuleType.link,
+            target: 'javascript:alert(1)',
+            children: [{ type: RuleType.text, text: 'x' }],
+          },
+        ])
+      )
+    ).toBe(false)
+  })
+})
+
+describe('inline Type 1 content with tagfilter off', () => {
+  it('preserves single-line script content including forceInline', () => {
+    expect(
+      extractTextContent(compiler('<script>x</script>', { tagfilter: false }))
+    ).toBe('x')
+    expect(
+      extractTextContent(
+        compiler('<script>x</script>', { tagfilter: false, forceInline: true })
+      )
+    ).toBe('x')
+  })
 })
 
 describe('component-like HTML blank-line nesting (#870)', () => {
@@ -2029,5 +2080,55 @@ Some paragraph
     ).toMatchInlineSnapshot(
       `"<View><Text>My header</Text><Text>Some paragraph</Text></View>"`
     )
+  })
+})
+
+describe('tagfilter escapes dangerous tags by default', () => {
+  // Regression: the render-time tag filter defaulted OFF (raw options flowed
+  // to the renderer; only parse options were coerced), so default output
+  // mounted dangerous tags unescaped despite the documented default-on
+  // protection. Both compiler() and astToNative must escape.
+  it('escapes script with default options via compiler()', () => {
+    expect(extractTextContent(compiler('<script>alert(1)</script>'))).toBe(
+      '<script>alert(1)</script>'
+    )
+  })
+
+  it('escapes dangerous tags by default via astToNative()', () => {
+    expect(
+      extractTextContent(astToNative(parser('<script>alert(1)</script>')))
+    ).toBe('<script>alert(1)</script>')
+  })
+
+  it('passes dangerous tags through only when tagfilter is explicitly disabled', () => {
+    expect(
+      extractTextContent(compiler('<script>x</script>', { tagfilter: false }))
+    ).toBe('x')
+  })
+})
+
+describe('optimizeForStreaming preserves literal less-than', () => {
+  it('keeps comparison prose in block and forceInline modes', () => {
+    expect(
+      extractTextContent(
+        compiler('5 < 3 is false', { optimizeForStreaming: true })
+      )
+    ).toBe('5 < 3 is false')
+    expect(
+      extractTextContent(
+        compiler('5 < 3 is false', {
+          optimizeForStreaming: true,
+          forceInline: true,
+        })
+      )
+    ).toBe('5 < 3 is false')
+  })
+
+  it('defers incomplete tag prefixes without dropping prior text', () => {
+    expect(
+      extractTextContent(
+        compiler('Hello <Citation', { optimizeForStreaming: true })
+      )
+    ).toBe('Hello ')
   })
 })

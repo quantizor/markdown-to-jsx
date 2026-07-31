@@ -666,18 +666,32 @@ describe('wrapper options', () => {
 })
 
 describe('tagfilter option', () => {
+  // Regression: the render-time tag filter defaulted OFF in solid (raw options
+  // flowed to the renderer; only parse options were coerced), so default output
+  // mounted live dangerous tags despite the documented default-on protection.
+  // Both compiler() and astToJSX must escape.
   it('should escape script tags by default', () => {
-    const result = compiler('<script>alert("xss")</script>')
-    const text = extractTextContent(result)
-    // Tagfilter should escape script tags, so they appear as text
+    expect(serialize(compiler('<script>alert(1)</script>'))).toBe(
+      '<span><script>alert(1)</script></span>'
+    )
   })
 
   it('should escape iframe tags by default', () => {
-    const result = compiler('<iframe src="evil.com"></iframe>')
+    expect(serialize(compiler('<iframe src="evil.com"></iframe>'))).toBe(
+      '<span><iframe src="evil.com"></iframe></span>'
+    )
+  })
+
+  it('should escape dangerous tags by default via astToJSX()', () => {
+    expect(serialize(astToJSX(parser('<script>alert(1)</script>')))).toBe(
+      '<span><script>alert(1)</script></span>'
+    )
   })
 
   it('should not escape when tagfilter is false', () => {
-    const result = compiler('<script>test</script>', { tagfilter: false })
+    expect(
+      serialize(compiler('<script>\ntest\n</script>', { tagfilter: false }))
+    ).toBe('<script>test</script>')
   })
 
   it('should escape all filtered tags', () => {
@@ -693,8 +707,16 @@ describe('tagfilter option', () => {
       'plaintext',
     ]
     filteredTags.forEach(tag => {
-      const result = compiler(`<${tag}>content</${tag}>`, { tagfilter: true })
+      expect(
+        extractTextContent(compiler(`<${tag}>content</${tag}>`, { tagfilter: true }))
+      ).toBe(`<${tag}>content</${tag}>`)
     })
+  })
+
+  it('keeps allowed nested tags live inside a filtered parent', () => {
+    expect(
+      serialize(compiler('<iframe>hi <em>x</em></iframe>', { tagfilter: true }))
+    ).toBe('<span><iframe>hi <em>x</em></iframe></span>')
   })
 
   it('should handle HTML block with rawText when tagfilter is enabled', () => {
@@ -747,8 +769,12 @@ describe('tagfilter option', () => {
   })
 
   it('should handle Type 1 blocks without HTML tags', () => {
-    // This tests the isType1Block && !containsHTMLTags path (lines 263-272)
-    const result = compiler('<style>body { color: red; }</style>')
+    // This tests the isType1Block && !containsHTMLTags path, which requires
+    // the tag filter off: default-on escapes <style> before the verbatim
+    // branch can render it.
+    const result = compiler('<style>body { color: red; }</style>', {
+      tagfilter: false,
+    })
     const text = extractTextContent(result)
     expect(text).toContain('body')
     expect(text).toContain('color: red')
@@ -1996,6 +2022,59 @@ describe('unique heading IDs (#857)', () => {
       )
     ).toEqual(['foo', 'bar', 'foo-1'])
   })
+
+  it('slugs headings from inline text content, not raw source', () => {
+    expect(collectIds(compiler('## [text](https://e.com)'))).toEqual(['text'])
+  })
+})
+
+describe('destination entity decode before sanitize', () => {
+  function firstHref(el: unknown): unknown {
+    if (el == null || typeof el !== 'object') return undefined
+    if (Array.isArray(el)) {
+      for (const child of el) {
+        const found = firstHref(child)
+        if (found !== undefined) return found
+      }
+      return undefined
+    }
+    const props = (el as { p?: Record<string, unknown> }).p
+    if (props && 'href' in props) return props.href
+    if (props && 'src' in props) return props.src
+    return firstHref(props?.children)
+  }
+
+  it('drops entity-obfuscated javascript: href and src', () => {
+    expect(firstHref(compiler('[x](&#106;avascript:alert(1))'))).toBeUndefined()
+    expect(firstHref(compiler('![x](&#106;avascript:alert(1))'))).toBeUndefined()
+  })
+
+  it('re-sanitizes direct astToJSX link targets before href encoding', () => {
+    expect(
+      firstHref(
+        astToJSX([
+          {
+            type: RuleType.link,
+            target: 'javascript:alert(1)',
+            children: [{ type: RuleType.text, text: 'x' }],
+          },
+        ])
+      )
+    ).toBeUndefined()
+  })
+})
+
+describe('inline Type 1 content with tagfilter off', () => {
+  it('preserves single-line script content including forceInline', () => {
+    expect(
+      serialize(compiler('<script>x</script>', { tagfilter: false }))
+    ).toBe('<script>x</script>')
+    expect(
+      serialize(
+        compiler('<script>x</script>', { tagfilter: false, forceInline: true })
+      )
+    ).toBe('<script>x</script>')
+  })
 })
 
 describe('component-like HTML blank-line nesting (#870)', () => {
@@ -2011,5 +2090,22 @@ Some paragraph
     ).toMatchInlineSnapshot(
       `"<MyComponent><h2>My header</h2><p>Some paragraph</p></MyComponent>"`
     )
+  })
+})
+
+describe('optimizeForStreaming preserves literal less-than', () => {
+  it('keeps comparison prose and defers incomplete tag prefixes', () => {
+    // Single-line input auto-inlines, so serialize sees a bare text node.
+    expect(
+      serialize(compiler('5 < 3 is false', { optimizeForStreaming: true }))
+    ).toBe('5 < 3 is false')
+    expect(
+      serialize(compiler('Hello <Citation', { optimizeForStreaming: true }))
+    ).toBe('Hello ')
+    expect(
+      serialize(
+        compiler('x < y\n\nsecond para', { optimizeForStreaming: true })
+      )
+    ).toBe('<div><p>x < y</p><p>second para</p></div>')
   })
 })

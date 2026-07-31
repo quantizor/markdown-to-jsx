@@ -568,6 +568,14 @@ export function normalizeInput(text: string): string {
 }
 
 /**
+ * Collapse inter-tag whitespace and newlines before re-parsing raw HTML as
+ * JSX in the react/native/solid/vue compilers.
+ */
+export function normalizeJsxReparseText(text: string): string {
+  return text.replace(/>\s+</g, '><').replace(/\n+/g, ' ').trim()
+}
+
+/**
  * Skip whitespace characters
  */
 export function skipWhitespace(
@@ -657,23 +665,6 @@ export function processVerbatimNode(
 }
 
 /**
- * True when cleaned verbatim rawText is the element's complete outer block
- * (opens with its own tag and ends with its own closing tag). The re-parsed AST
- * already contains that wrapper element, so the renderer emits the parsed nodes
- * directly rather than wrapping them again. Renderer-agnostic; shared by the
- * native, Solid, and Vue compilers.
- */
-export function isFullVerbatimBlock(cleanedText: string, tag: string): boolean {
-  return (
-    new RegExp(`^<${tag}(\\s|>)`, 'i').test(cleanedText) &&
-    cleanedText
-      .toLowerCase()
-      .trimEnd()
-      .endsWith('</' + tag.toLowerCase() + '>')
-  )
-}
-
-/**
  * Clear `_verbatim` on re-parsed HTML block nodes to prevent infinite re-parse
  * recursion, with one exception for issue #881: keep verbatim on a last-sibling
  * node whose rawText bleeds real content past its own closing tag. There the
@@ -690,11 +681,17 @@ export function stripVerbatim(nodes: MarkdownToJSX.ASTNode[]): void {
     if (nodes[ai].type === RuleType.htmlBlock) {
       var hn = nodes[ai] as MarkdownToJSX.HTMLNode
       var keepVerbatim = false
-      if (hn._verbatim && hn._rawText && ai === nodes.length - 1) {
+      if (hn._verbatim && ai === nodes.length - 1) {
+        var rawSource =
+          hn._rawOuter !== undefined
+            ? hn._rawOuter
+            : hn._isClosingTag
+              ? hn._rawBody || ''
+              : (hn._rawBody || '') + (hn._rawClose || '')
         var ownClose = '</' + String(hn.tag).toLowerCase() + '>'
-        var closeIdx = hn._rawText.toLowerCase().indexOf(ownClose)
+        var closeIdx = rawSource.toLowerCase().indexOf(ownClose)
         if (closeIdx !== -1) {
-          var bledTail = hn._rawText
+          var bledTail = rawSource
             .slice(closeIdx + ownClose.length)
             .replace(/<\/[a-z][a-z0-9-]*\s*>/gi, '')
           if (bledTail.trim()) keepVerbatim = true
@@ -813,22 +810,6 @@ export function validateCompilerArgs(
 }
 
 /**
- * Inner text of a type-1 verbatim block (pre/script/style/textarea): rawText
- * with the node's own trailing closing tag stripped, tagfiltered when enabled.
- */
-export function type1TextContent(
-  rawText: string,
-  tagLower: string,
-  tagfilter: boolean | undefined
-): string {
-  var text = rawText.replace(
-    new RegExp('\\s*</' + tagLower + '>\\s*$', 'i'),
-    ''
-  )
-  return tagfilter ? applyTagFilterToText(text) : text
-}
-
-/**
  * Serialize an HTML node's attributes for tagfilter display output (the
  * escaped `<tag attr="value">` text emitted for filtered tags).
  */
@@ -843,6 +824,176 @@ export function formatFilteredTagAttrs(
       attrStr += ' ' + key + '="' + String(value) + '"'
   }
   return attrStr
+}
+
+/**
+ * How a tagfiltered HTML node should be emitted. GFM replaces only each
+ * matching tag's leading `<`; the body and closer stay. Type 1 / verbatim
+ * nodes return a single `literal` (opener + body + closer). Structured nodes
+ * with children return `sandwich` so allowed nested tags still render.
+ */
+export type FilteredTagEmit =
+  | { kind: 'literal'; literal: string }
+  | { kind: 'sandwich'; close: string; open: string }
+
+/**
+ * Build a filtered open tag, preserving author whitespace in `_rawAttrs` when present.
+ * @param end - Tag terminator (`>` or ` />`)
+ */
+function filteredOpenTag(
+  tag: string,
+  rawAttrs: string | undefined,
+  attrs: Record<string, any> | null | undefined,
+  end: string
+): string {
+  var attrStr: string
+  if (rawAttrs !== undefined) {
+    attrStr =
+      rawAttrs.length > 0 && rawAttrs.charCodeAt(0) > $.CHAR_SPACE
+        ? ' ' + rawAttrs
+        : rawAttrs
+  } else {
+    attrStr = formatFilteredTagAttrs(attrs)
+  }
+  return '<' + tag + attrStr + end
+}
+
+/**
+ * Derive inert source parts for a tagfiltered htmlBlock / htmlSelfClosing node.
+ */
+export function getFilteredTagEmit(
+  node: MarkdownToJSX.HTMLNode | MarkdownToJSX.HTMLSelfClosingNode
+): FilteredTagEmit {
+  var tag = node.tag
+  var selfClosing = node.type === RuleType.htmlSelfClosing
+  var htmlNode = node as MarkdownToJSX.HTMLNode
+  var rawAttrs = htmlNode._rawAttrs
+  var close = '</' + tag + '>'
+
+  if (!selfClosing && htmlNode._isClosingTag) {
+    // Orphan closer: _rawClose is the closer literal, _rawBody any trailing
+    // content kept alongside it.
+    return {
+      kind: 'literal',
+      literal: (htmlNode._rawClose || close) + (htmlNode._rawBody || ''),
+    }
+  }
+
+  if (selfClosing) {
+    var scNode = node as MarkdownToJSX.HTMLSelfClosingNode
+    if (scNode._isClosingTag) {
+      return { kind: 'literal', literal: scNode._rawClose || close }
+    }
+    if (scNode._rawOpen) {
+      return { kind: 'literal', literal: scNode._rawOpen }
+    }
+    return {
+      kind: 'literal',
+      literal: filteredOpenTag(tag, rawAttrs, node.attrs, ' />'),
+    }
+  }
+
+  var open = filteredOpenTag(tag, rawAttrs, node.attrs, '>')
+  var kids = htmlNode.children
+  var hasKids = kids != null && kids.length > 0
+
+  // Verbatim source that already carries its own opener (JSX/component
+  // re-parse full-block form).
+  if (htmlNode._verbatim && htmlNode._rawOuter !== undefined) {
+    if (hasKids) return { kind: 'sandwich', open: open, close: close }
+    return { kind: 'literal', literal: htmlNode._rawOuter }
+  }
+
+  // Type 1 and other childless verbatim: body + own closer.
+  if (htmlNode._verbatim && !hasKids) {
+    return {
+      kind: 'literal',
+      literal: open + (htmlNode._rawBody || '') + (htmlNode._rawClose || close),
+    }
+  }
+
+  // Structured (or verbatim-with-children): sandwich inert open/close around
+  // normally rendered children so allowed nested tags stay live. Plain text
+  // children collapse into one literal so JSX sinks avoid adjacent text nodes.
+  if (kids != null && kids.length > 0) {
+    var plain = ''
+    for (var i = 0; i < kids.length; i++) {
+      var kid = kids[i]
+      if (kid.type !== RuleType.text) {
+        return { kind: 'sandwich', open: open, close: close }
+      }
+      plain += (kid as MarkdownToJSX.TextNode).text
+    }
+    return { kind: 'literal', literal: open + plain + close }
+  }
+
+  // Empty structured node: emit open + optional body text + close. The body
+  // may already carry a nested same-name closing tag as literal text (e.g. an
+  // identical tag appearing verbatim inside the content).
+  var body = htmlNode._rawBody || ''
+  if (body && body.indexOf(close) !== -1) {
+    return { kind: 'literal', literal: open + body }
+  }
+  return { kind: 'literal', literal: open + body + close }
+}
+
+/**
+ * Build span/Text children for a filtered open/close sandwich, merging
+ * adjacent strings so React SSR does not inject text-boundary comments.
+ */
+export function assembleFilteredTagChildren<T>(
+  open: string,
+  children: T | T[] | null | undefined,
+  close: string
+): Array<string | T> {
+  var parts: Array<string | T> = []
+  var openText = open
+  var closeText = close
+  if (openText) parts.push(openText)
+  if (Array.isArray(children)) {
+    for (var i = 0; i < children.length; i++) parts.push(children[i])
+  } else if (children != null) {
+    parts.push(children)
+  }
+  if (closeText) parts.push(closeText)
+  var merged: Array<string | T> = []
+  for (var j = 0; j < parts.length; j++) {
+    var p = parts[j]
+    if (
+      typeof p === 'string' &&
+      merged.length &&
+      typeof merged[merged.length - 1] === 'string'
+    ) {
+      merged[merged.length - 1] = (merged[merged.length - 1] as string) + p
+    } else {
+      merged.push(p)
+    }
+  }
+  return merged
+}
+
+/**
+ * Whether GFM tagfilter is active. Omitted/`undefined` means on (documented default).
+ */
+export function tagfilterEnabled(
+  options: { tagfilter?: boolean } | null | undefined
+): boolean {
+  return options == null || options.tagfilter !== false
+}
+
+/**
+ * Sanitize a URL attribute then percent-encode the surviving value for emit.
+ * Returns null when the sanitizer rejects the target.
+ */
+export function sanitizeAndEncodeUrlTarget(
+  target: string,
+  sanitizer: (value: string, tag: string, attribute: string) => string | null,
+  tag: string,
+  attribute: string
+): string | null {
+  var sanitized = sanitizer(target, tag, attribute)
+  if (sanitized === null) return null
+  return encodeUrlTarget(sanitized)
 }
 
 /**

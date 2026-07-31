@@ -2192,7 +2192,7 @@ describe('multi-line HTML attributes', () => {
         data-variant='horizontalTable'
       "
       ,
-          "_rawText": 
+          "_rawOuter": 
       "<dl-custom
         data-variant='horizontalTable'
       >
@@ -2209,7 +2209,8 @@ describe('multi-line HTML attributes', () => {
               "_emitOwnClose": true,
               "_isClosingTag": false,
               "_rawAttrs": "",
-              "_rawText": "title 1",
+              "_rawBody": "title 1",
+              "_rawOuter": undefined,
               "_verbatim": true,
               "attrs": {},
               "children": [
@@ -2226,7 +2227,8 @@ describe('multi-line HTML attributes', () => {
               "_emitOwnClose": true,
               "_isClosingTag": false,
               "_rawAttrs": "",
-              "_rawText": "description 1",
+              "_rawBody": "description 1",
+              "_rawOuter": undefined,
               "_verbatim": true,
               "attrs": {},
               "children": [
@@ -2273,7 +2275,8 @@ describe('multi-line HTML attributes', () => {
         data-value="123"
       "
       ,
-          "_rawText": 
+          "_rawBody": undefined,
+          "_rawOuter": 
       "<div
         class="test"
         id="main"
@@ -2324,7 +2327,8 @@ describe('multi-line HTML attributes', () => {
         data-value='123'
       "
       ,
-          "_rawText": 
+          "_rawBody": undefined,
+          "_rawOuter": 
       "<div
         class='test'
         id='main'
@@ -2375,7 +2379,7 @@ describe('multi-line HTML attributes', () => {
         onClick={handleClick}
       "
       ,
-          "_rawText": 
+          "_rawOuter": 
       "<MyComponent
         className="wrapper"
         onClick={handleClick}
@@ -2438,7 +2442,7 @@ describe('multi-line HTML attributes', () => {
                 },
                 {
                   "_isClosingTag": true,
-                  "_rawText": "</span>",
+                  "_rawClose": "</span>",
                   "attrs": {},
                   "tag": "span",
                   "type": "htmlSelfClosing",
@@ -2471,7 +2475,8 @@ describe('multi-line HTML attributes', () => {
         data-mixed="value"
       "
       ,
-          "_rawText": 
+          "_rawBody": undefined,
+          "_rawOuter": 
       "<div
         class="double-quoted"
         id='single-quoted'
@@ -2517,7 +2522,7 @@ describe('multi-line HTML attributes', () => {
           "children": [
             {
               "_isClosingTag": false,
-              "_rawText": 
+              "_rawOpen": 
       "<input
         type="checkbox"
         disabled
@@ -2557,7 +2562,7 @@ describe('multi-line HTML attributes', () => {
             data-c="3"
       "
       ,
-          "_rawText": 
+          "_rawOuter": 
       "<CustomElement
             data-a="1"
             data-b="2"
@@ -2602,7 +2607,7 @@ describe('multi-line HTML attributes', () => {
           data-variant='horizontalTable'
         "
         ,
-            "_rawText": 
+            "_rawOuter": 
         "<dl-custom
           data-variant='horizontalTable'
         >
@@ -2619,7 +2624,8 @@ describe('multi-line HTML attributes', () => {
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
-                "_rawText": "title 1",
+                "_rawBody": "title 1",
+                "_rawOuter": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2636,7 +2642,8 @@ describe('multi-line HTML attributes', () => {
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
-                "_rawText": "description 1",
+                "_rawBody": "description 1",
+                "_rawOuter": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2675,7 +2682,7 @@ describe('multi-line HTML attributes', () => {
           data-variant='horizontalTable'
         "
         ,
-            "_rawText": 
+            "_rawOuter": 
         "<dl-custom
           data-variant='horizontalTable'
         >
@@ -2693,7 +2700,8 @@ describe('multi-line HTML attributes', () => {
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
-                "_rawText": "title 1",
+                "_rawBody": "title 1",
+                "_rawOuter": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2710,7 +2718,8 @@ describe('multi-line HTML attributes', () => {
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
-                "_rawText": "description 1",
+                "_rawBody": "description 1",
+                "_rawOuter": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2750,7 +2759,7 @@ describe('multi-line HTML attributes', () => {
           data-variant='horizontalTable'
         "
         ,
-            "_rawText": 
+            "_rawOuter": 
         "<dl-custom
           data-variant='horizontalTable'
         >
@@ -2768,7 +2777,8 @@ describe('multi-line HTML attributes', () => {
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
-                "_rawText": "title 1",
+                "_rawBody": "title 1",
+                "_rawOuter": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2785,7 +2795,8 @@ describe('multi-line HTML attributes', () => {
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
-                "_rawText": "description 1",
+                "_rawBody": "description 1",
+                "_rawOuter": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2825,7 +2836,7 @@ describe('multi-line HTML attributes', () => {
           data-variant='horizontalTable'
         "
         ,
-            "_rawText": 
+            "_rawOuter": 
         "<dl-custom
           data-variant='horizontalTable'
         >
@@ -2842,7 +2853,8 @@ describe('multi-line HTML attributes', () => {
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
-                "_rawText": "title 1",
+                "_rawBody": "title 1",
+                "_rawOuter": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2859,7 +2871,8 @@ describe('multi-line HTML attributes', () => {
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
-                "_rawText": "description 1",
+                "_rawBody": "description 1",
+                "_rawOuter": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2898,7 +2911,7 @@ describe('multi-line HTML attributes', () => {
           data-variant='horizontalTable'
         "
         ,
-            "_rawText": 
+            "_rawOuter": 
         "<dl-custom
           data-variant='horizontalTable'
         >
@@ -2916,7 +2929,8 @@ describe('multi-line HTML attributes', () => {
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
-                "_rawText": "title 1",
+                "_rawBody": "title 1",
+                "_rawOuter": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2933,7 +2947,8 @@ describe('multi-line HTML attributes', () => {
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
-                "_rawText": "description 1",
+                "_rawBody": "description 1",
+                "_rawOuter": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2973,7 +2988,7 @@ describe('multi-line HTML attributes', () => {
           data-variant='horizontalTable'
         "
         ,
-            "_rawText": 
+            "_rawOuter": 
         "<dl-custom
           data-variant='horizontalTable'
         >
@@ -2990,7 +3005,8 @@ describe('multi-line HTML attributes', () => {
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
-                "_rawText": "title 1",
+                "_rawBody": "title 1",
+                "_rawOuter": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3007,7 +3023,8 @@ describe('multi-line HTML attributes', () => {
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
-                "_rawText": "description 1",
+                "_rawBody": "description 1",
+                "_rawOuter": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3056,7 +3073,7 @@ describe('multi-line HTML attributes', () => {
           propB="value2"
         "
         ,
-            "_rawText": 
+            "_rawOuter": 
         "<MyCustomComponent
           propA="value1"
           propB="value2"
@@ -3107,7 +3124,7 @@ describe('multi-line HTML attributes', () => {
           onRowClick={handleClick}
         "
         ,
-            "_rawText": 
+            "_rawOuter": 
         "<DataTable
           data={myData}
           columns={columns}
@@ -3162,7 +3179,7 @@ describe('multi-line HTML attributes', () => {
           disabled
         "
         ,
-            "_rawText": 
+            "_rawOuter": 
         "<Widget
           className="container"
           data-id="123"
@@ -3221,7 +3238,7 @@ describe('multi-line HTML attributes', () => {
           level="1"
         "
         ,
-            "_rawText": 
+            "_rawOuter": 
         "<Outer
           level="1"
         >
@@ -3248,7 +3265,7 @@ describe('multi-line HTML attributes', () => {
             level="2"
           "
         ,
-                "_rawText": 
+                "_rawOuter": 
         "<Middle
             level="2"
           >
@@ -3271,7 +3288,7 @@ describe('multi-line HTML attributes', () => {
               level="3"
             "
         ,
-                    "_rawText": 
+                    "_rawOuter": 
         "<Inner
               level="3"
             >
@@ -3350,7 +3367,7 @@ describe('multi-line HTML attributes', () => {
           filled
         "
         ,
-            "_rawText": "",
+            "_rawBody": "",
             "_verbatim": true,
             "attrs": {
               "color": "gold",
@@ -3385,7 +3402,8 @@ describe('multi-line HTML attributes', () => {
         	id="main"
         "
         ,
-            "_rawText": 
+            "_rawBody": undefined,
+            "_rawOuter": 
         "<div
         	class="test"
         	id="main"
@@ -3431,7 +3449,8 @@ describe('multi-line HTML attributes', () => {
         	  id="main"
         "
         ,
-            "_rawText": 
+            "_rawBody": undefined,
+            "_rawOuter": 
         "<div
           	class="test"
         	  id="main"
@@ -3471,10 +3490,11 @@ describe('multi-line HTML attributes', () => {
           {
             "_isClosingTag": false,
             "_rawAttrs": " data-variant='horizontalTable'",
-            "_rawText": 
+            "_rawBody": 
         "  <dt>title</dt>
         </dl-custom>"
         ,
+            "_rawOuter": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -3484,7 +3504,8 @@ describe('multi-line HTML attributes', () => {
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
-                "_rawText": "title",
+                "_rawBody": "title",
+                "_rawOuter": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3524,7 +3545,7 @@ describe('multi-line HTML attributes', () => {
           data-variant='horizontalTable'
         "
         ,
-            "_rawText": 
+            "_rawOuter": 
         "<dl-custom
           data-variant='horizontalTable'
         >
@@ -3672,7 +3693,6 @@ This is paragraph after the unordered nested list.`
         {
           "_isClosingTag": false,
           "_rawAttrs": "",
-          "_rawText": "",
           "_verbatim": false,
           "attrs": {},
           "children": [],
@@ -3689,7 +3709,7 @@ This is paragraph after the unordered nested list.`
     expect(result.length).toBe(2)
     expect(result[0].type).toBe(RuleType.htmlBlock)
     expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('br')
-    expect((result[0] as MarkdownToJSX.HTMLNode)._rawText).toBe('')
+    expect((result[0] as MarkdownToJSX.HTMLNode)._rawBody).toBeUndefined()
     expect(result[1].type).toBe(RuleType.paragraph)
   })
 
@@ -4527,7 +4547,9 @@ describe('Unserializable expression evaluation', () => {
         {
           "_isClosingTag": false,
           "_rawAttrs": "",
-          "_rawText": "Hello **world**</script>",
+          "_rawBody": "Hello **world**",
+          "_rawClose": "</script>",
+          "_rawOuter": undefined,
           "_verbatim": true,
           "attrs": {},
           "children": [],
@@ -4551,7 +4573,9 @@ describe('Unserializable expression evaluation', () => {
         {
           "_isClosingTag": false,
           "_rawAttrs": "",
-          "_rawText": "<code>const x = 1;</code></pre>",
+          "_rawBody": "<code>const x = 1;</code>",
+          "_rawClose": "</pre>",
+          "_rawOuter": undefined,
           "_verbatim": true,
           "attrs": {},
           "children": [],
@@ -4573,11 +4597,13 @@ describe('Unserializable expression evaluation', () => {
         {
           "_isClosingTag": false,
           "_rawAttrs": "",
-          "_rawText": 
+          "_rawBody": 
         "body { color: red; }
 
-        /* Comment */</style>"
+        /* Comment */"
         ,
+          "_rawClose": "</style>",
+          "_rawOuter": undefined,
           "_verbatim": true,
           "attrs": {},
           "children": [],
@@ -4605,7 +4631,7 @@ describe('Unserializable expression evaluation', () => {
         {
           "_isClosingTag": false,
           "_rawAttrs": "",
-          "_rawText": "",
+          "_rawBody": undefined,
           "_verbatim": false,
           "attrs": {},
           "children": [
@@ -4646,7 +4672,7 @@ describe('Unserializable expression evaluation', () => {
           {
             "_isClosingTag": false,
             "_rawAttrs": "",
-            "_rawText": "",
+            "_rawBody": undefined,
             "_verbatim": false,
             "attrs": {},
             "children": [
@@ -4654,11 +4680,12 @@ describe('Unserializable expression evaluation', () => {
                 "_emitOwnClose": true,
                 "_isClosingTag": false,
                 "_rawAttrs": "",
-                "_rawText": 
+                "_rawBody": 
         "
         inner
         "
         ,
+                "_rawOuter": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -4933,7 +4960,8 @@ describe('text normalization edge cases', () => {
           {
             "_isClosingTag": false,
             "_rawAttrs": " att1=tok1 att2=tok2",
-            "_rawText": "",
+            "_rawBody": "",
+            "_rawOuter": undefined,
             "_verbatim": true,
             "attrs": {
               "att1": "tok1",
@@ -4960,7 +4988,7 @@ describe('text normalization edge cases', () => {
               },
               {
                 "_isClosingTag": false,
-                "_rawText": "<gi att1=tok1 att2=tok2>",
+                "_rawOpen": "<gi att1=tok1 att2=tok2>",
                 "attrs": {
                   "att1": "tok1",
                   "att2": "tok2",
@@ -4991,7 +5019,7 @@ describe('text normalization edge cases', () => {
               },
               {
                 "_isClosingTag": false,
-                "_rawText": 
+                "_rawOpen": 
         "<gi att1=tok1
         att2=tok2>"
         ,
@@ -5993,7 +6021,9 @@ describe('text normalization edge cases', () => {
                 {
                   "_isClosingTag": false,
                   "_rawAttrs": "",
-                  "_rawText": "<script>",
+                  "_rawBody": undefined,
+                  "_rawClose": undefined,
+                  "_rawOuter": "<script>",
                   "_verbatim": true,
                   "attrs": {},
                   "children": [],
@@ -6017,7 +6047,7 @@ describe('text normalization edge cases', () => {
           },
           {
             "_isClosingTag": true,
-            "_rawText": "</script>",
+            "_rawClose": "</script>",
             "attrs": {},
             "tag": "script",
             "type": "htmlSelfClosing",
@@ -6111,14 +6141,14 @@ describe('text normalization edge cases', () => {
           {
             "_isClosingTag": false,
             "_rawAttrs": "",
-            "_rawText": 
+            "_rawBody": 
         "
         *foo*
 
-        _bar_
-
-        </textarea>"
+        _bar_"
         ,
+            "_rawClose": "</textarea>",
+            "_rawOuter": undefined,
             "_verbatim": true,
             "attrs": {},
             "children": [],
@@ -6196,7 +6226,7 @@ describe('text normalization edge cases', () => {
               },
               {
                 "_isClosingTag": false,
-                "_rawText": "<!A>",
+                "_rawOpen": "<!A>",
                 "attrs": {},
                 "tag": "!A",
                 "type": "htmlSelfClosing",
@@ -6980,6 +7010,124 @@ Foo
     expect(first).toEqual(['foo', 'foo-1'])
     expect(second).toEqual(['foo', 'foo-1'])
   })
+
+  // Slugs use flattened inline text (GitHub / rehype-slug), not raw source, so
+  // link destinations and image alt do not leak into the id.
+  it('slugs link text without the destination', () => {
+    expect(headingIds(p.parser('## [text](https://e.com)'))).toEqual(['text'])
+  })
+
+  it('slugs strong and code without their markers', () => {
+    expect(headingIds(p.parser('## **bold** text'))).toEqual(['bold-text'])
+    expect(headingIds(p.parser('## `code` here'))).toEqual(['code-here'])
+  })
+
+  it('omits image alt from heading slugs', () => {
+    expect(headingIds(p.parser('## ![alt](https://i/x.png)'))).toEqual([''])
+    expect(headingIds(p.parser('## text ![alt](https://i/x.png)'))).toEqual([
+      'text-',
+    ])
+  })
+
+  it('includes footnote reference display text in the slug', () => {
+    expect(headingIds(p.parser('# H[^1]\n\n[^1]: body'))).toEqual(['h1'])
+  })
+
+  it('slugs angle autolink visible text', () => {
+    expect(headingIds(p.parser('## <https://example.com>'))).toEqual([
+      'httpsexamplecom',
+    ])
+  })
+
+  it('slugs decoded entities in heading text', () => {
+    expect(headingIds(p.parser('## a &amp; b'))).toEqual(['a--b'])
+  })
+})
+
+describe('destination entity decode before sanitize', () => {
+  function linkTarget(md: string): string | null | undefined {
+    const nodes = p.parser(md)
+    const walk = (ns: MarkdownToJSX.ASTNode[]): string | null | undefined => {
+      for (const n of ns) {
+        if (n.type === RuleType.link || n.type === RuleType.image) {
+          return (n as MarkdownToJSX.LinkNode).target
+        }
+        if ('children' in n && Array.isArray(n.children)) {
+          const found = walk(n.children)
+          if (found !== undefined) return found
+        }
+      }
+      return undefined
+    }
+    return walk(nodes)
+  }
+
+  it('nulls entity-obfuscated javascript: link destinations', () => {
+    expect(linkTarget('[x](&#106;avascript:alert(1))')).toBe(null)
+    expect(linkTarget('[x](jav&#x61;script:alert(1))')).toBe(null)
+  })
+
+  it('nulls rejected image destinations', () => {
+    // ImageNode.target is string | null; null round-trips as ![alt]() in markdown.
+    expect(linkTarget('![x](&#106;avascript:alert(1))')).toBe(null)
+    expect(linkTarget('![x](javascript:alert(1) "t")')).toBe(null)
+    expect(linkTarget('![x][r]\n\n[r]: javascript:alert(1)')).toBe(null)
+  })
+
+  it('nulls entity-obfuscated javascript: reference link destinations', () => {
+    expect(
+      linkTarget('[x][r]\n\n[r]: &#106;avascript:alert(1)')
+    ).toBe(null)
+  })
+
+  it('keeps valid empty destinations and safe URLs', () => {
+    expect(linkTarget('![x]()')).toBe('')
+    expect(linkTarget('[x]()')).toBe('')
+    expect(linkTarget('[x](https://e.com)')).toBe('https://e.com')
+    expect(linkTarget('![x](https://e.com)')).toBe('https://e.com')
+  })
+
+  it('discards rewritten sanitizer returns at parse time', () => {
+    var calls = 0
+    const rewritten = p.parser('[x](https://e.com)', {
+      sanitizer: () => {
+        calls++
+        return 'https://rewritten.example'
+      },
+    })
+    expect(calls).toBe(1)
+    const walk = (ns: MarkdownToJSX.ASTNode[]): string | null | undefined => {
+      for (const n of ns) {
+        if (n.type === RuleType.link) return (n as MarkdownToJSX.LinkNode).target
+        if ('children' in n && Array.isArray(n.children)) {
+          const found = walk(n.children)
+          if (found !== undefined) return found
+        }
+      }
+      return undefined
+    }
+    // Parse keeps the original decoded destination; emit applies transforms.
+    expect(walk(rewritten)).toBe('https://e.com')
+  })
+})
+
+describe('inline Type 1 htmlBlock shape', () => {
+  it('emits verbatim Type 1 nodes for single-line script under inline mode', () => {
+    const state = createInlineState()
+    const options = createDefaultOptions()
+    const result = p.parseMarkdown(
+      '<script>x</script>',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    const node = result[0] as MarkdownToJSX.HTMLNode
+    expect(node.type).toBe(RuleType.htmlBlock)
+    expect(node.tag).toBe('script')
+    expect(node._verbatim).toBe(true)
+    expect(node._rawBody).toBe('x')
+    expect(node._rawClose).toBe('</script>')
+    expect(node.children).toEqual([])
+  })
 })
 
 describe('component-like HTML blank-line nesting (#870)', () => {
@@ -6994,7 +7142,7 @@ Some paragraph
         {
           "_isClosingTag": false,
           "_rawAttrs": "",
-          "_rawText": "",
+          "_rawBody": undefined,
           "_verbatim": false,
           "attrs": {},
           "children": [

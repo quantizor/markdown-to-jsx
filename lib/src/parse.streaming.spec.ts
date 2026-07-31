@@ -235,6 +235,51 @@ describe('Streaming optimization - HTML tags in code spans', () => {
     const html = htmlCompiler('<Markdown>', { optimizeForStreaming: true })
     expect(html).toBe('')
   })
+
+  it('defers a trailing incomplete tag name whose > has not arrived', () => {
+    const html = htmlCompiler('Hello <Citation', { optimizeForStreaming: true })
+    expect(html).toBe('<p>Hello</p>')
+  })
+
+  it('preserves literal less-than prose while streaming', () => {
+    expect(
+      htmlCompiler('5 < 3 is false', { optimizeForStreaming: true })
+    ).toBe('<p>5 &lt; 3 is false</p>')
+    expect(htmlCompiler('<3', { optimizeForStreaming: true })).toBe(
+      '<p>&lt;3</p>'
+    )
+    expect(htmlCompiler('< foo', { optimizeForStreaming: true })).toBe(
+      '<p>&lt; foo</p>'
+    )
+  })
+
+  it('preserves a later literal less-than after a completed tag', () => {
+    expect(
+      htmlCompiler('Hello <div>a</div> and 1 < 2', {
+        optimizeForStreaming: true,
+      })
+    ).toBe('<p>Hello <div>a</div> and 1 &lt; 2</p>')
+  })
+
+  it('preserves both paragraphs when a literal less-than sits in the first', () => {
+    expect(
+      htmlCompiler('x < y\n\nsecond para', { optimizeForStreaming: true })
+    ).toMatchInlineSnapshot(
+      `"<div><p>x &lt; y</p><p>second para</p></div>"`
+    )
+  })
+
+  it('defers incomplete comments, declarations, and closing tags', () => {
+    expect(
+      htmlCompiler('Hello <!-- incomplete comment', {
+        optimizeForStreaming: true,
+      })
+    ).toBe('<p>Hello</p>')
+    expect(htmlCompiler('<?xml version', { optimizeForStreaming: true })).toBe(
+      ''
+    )
+    expect(htmlCompiler('</div', { optimizeForStreaming: true })).toBe('')
+  })
 })
 
 describe('Streaming optimization - bold/italic markers', () => {

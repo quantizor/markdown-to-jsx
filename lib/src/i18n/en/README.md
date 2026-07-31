@@ -79,12 +79,14 @@ Some special features of the library:
 /** v9 */ compiler('&le; symbol')
 ```
 
-- **`tagfilter` enabled by default**: Dangerous HTML tags (`script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`) are now escaped by default in both HTML string output and React JSX output. Previously these tags were rendered as JSX elements in React output.
+- **`tagfilter` enabled by default**: Dangerous HTML tags (`script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`) are escaped by default across the React, HTML, Solid, Vue, and React Native outputs. Matching GFM, only each tag's leading `<` is neutralized; the body and closing tag stay visible as inert text, and allowed nested tags inside a filtered parent still render normally. Previously some renderers mounted these tags live, and escaped output dropped everything after the opener.
 
 ```typescript
 /** v8 */ tags rendered as JSX elements
-/** v9 */ tags escaped by default
-compiler('<script>alert("xss")</script>') // <span>&lt;script&gt;</span>
+/** v9 */ tags escaped by default (full source kept as inert text)
+compiler('<script>alert("xss")</script>')
+// React: <span>&lt;script&gt;alert("xss")&lt;/script&gt;</span>
+// HTML:  &lt;script>alert("xss")&lt;/script>
 
 /** Restore old behavior */
 compiler('<script>alert("xss")</script>', { tagfilter: false })
@@ -793,7 +795,7 @@ Dangerous tag names (`script`, `iframe`, `style`, and similar) are escaped separ
 
 #### options.slugify
 
-By default, a [lightweight deburring function](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate an HTML id from headings. When more than one heading produces the same id, a numeric suffix is added automatically (`foo`, `foo-1`, `foo-2`) so each id stays unique within that parse. You can override slug generation by passing a function to `options.slugify`; uniqueness is still applied to whatever your function returns. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
+By default, a [lightweight deburring function](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate an HTML id from each heading's plain text content (formatting markers, link destinations, and image alt text are omitted; footnote markers contribute their display text). When more than one heading produces the same id, a numeric suffix is added automatically (`foo`, `foo-1`, `foo-2`) so each id stays unique within that parse. You can override slug generation by passing a function to `options.slugify`; the function receives that plain text content, and uniqueness is still applied to whatever it returns. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
 
 <!-- prettier-ignore -->
 ```tsx

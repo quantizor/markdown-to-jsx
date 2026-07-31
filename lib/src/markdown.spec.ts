@@ -604,7 +604,6 @@ describe('markdown compiler', () => {
           },
         ],
         _verbatim: false,
-        _rawText: undefined,
       }
       expect(markdown(ast)).toBe('<div class="container">\nContent\n</div>')
     })
@@ -616,7 +615,8 @@ describe('markdown compiler', () => {
         attrs: {},
         children: [],
         _verbatim: true,
-        _rawText: 'console.log("hello");</script>',
+        _rawBody: 'console.log("hello");',
+        _rawClose: '</script>',
       }
       expect(markdown(ast)).toBe('<script>console.log("hello");</script>')
     })
@@ -633,11 +633,10 @@ describe('markdown compiler', () => {
     })
 
     it('should emit a bare closing tag for an orphan closing-tag node', () => {
-      // Regression: the verbatim branch required truthy _rawText, so an
+      // Regression: the verbatim branch required a truthy raw string, so an
       // orphan </details> fell through and re-emitted as <details></details>.
       const ast: MarkdownToJSX.HTMLNode = {
         _isClosingTag: true,
-        _rawText: '',
         _verbatim: true,
         attrs: {},
         children: [],
@@ -650,7 +649,7 @@ describe('markdown compiler', () => {
     it('should keep trailing same-line content after an orphan closing tag', () => {
       const ast: MarkdownToJSX.HTMLNode = {
         _isClosingTag: true,
-        _rawText: ' trailing text',
+        _rawBody: ' trailing text',
         _verbatim: true,
         attrs: {},
         children: [],
@@ -892,7 +891,8 @@ describe('markdown compiler', () => {
           tag: 'script',
           children: [],
           _verbatim: true,
-          _rawText: 'console.log("hello");</script>',
+          _rawBody: 'console.log("hello");',
+          _rawClose: '</script>',
         }
 
         expect(markdown(ast, options)).toBe(
@@ -1275,6 +1275,22 @@ More text`
       it('round-trips orphan closing tags', () => {
         expectRoundTrip('</details>')
         expectRoundTrip('</details> trailing text')
+      })
+
+      it('round-trips inline processing instructions, CDATA, and declarations verbatim', () => {
+        // Regression: these were reconstructed as a generic `<tag />` self-closing
+        // element, mangling `<?xml ?>` into `<? />` and dropping CDATA/DOCTYPE content.
+        const source = 'text <?xml version="1.0"?> more'
+        expect(astToMarkdown(parser(source))).toBe(source)
+
+        const cdata = 'text <![CDATA[ data ]]> more'
+        expect(astToMarkdown(parser(cdata))).toBe(cdata)
+
+        const doctype = 'text <!DOCTYPE html> more'
+        expect(astToMarkdown(parser(doctype))).toBe(doctype)
+
+        const orphanCloser = 'text </details> more'
+        expect(astToMarkdown(parser(orphanCloser))).toBe(orphanCloser)
       })
 
       it('round-trips a composite document', () => {
@@ -2212,6 +2228,34 @@ describe('unique heading IDs (#857)', () => {
       ## Foo"
     `)
   })
+
+  it('round-trips a link-in-heading without emitting an id', () => {
+    expect(compiler('## [text](https://e.com)')).toBe(
+      '## [text](https://e.com)'
+    )
+  })
+})
+
+describe('destination entity decode before sanitize', () => {
+  // Markdown re-emits destinations from the AST. A nulled dangerous link or
+  // image becomes an empty destination so the emitter writes [text]() /
+  // ![alt]() rather than embedding the word null.
+  it('emits an empty destination for entity-obfuscated javascript: links', () => {
+    expect(compiler('[x](&#106;avascript:alert(1))')).toBe('[x]()')
+  })
+
+  it('emits ![alt]() for rejected images, including those with titles', () => {
+    expect(compiler('![alt](javascript:alert(1))')).toBe('![alt]()')
+    expect(compiler('![alt](javascript:alert(1) "t")')).toBe('![alt]()')
+  })
+})
+
+describe('inline Type 1 content with tagfilter off', () => {
+  it('passes single-line script through unchanged', () => {
+    expect(compiler('<script>x</script>', { tagfilter: false })).toBe(
+      '<script>x</script>'
+    )
+  })
 })
 
 describe('component-like HTML blank-line nesting (#870)', () => {
@@ -2229,5 +2273,39 @@ Some paragraph
       Some paragraph
       </MyComponent>"
     `)
+  })
+})
+
+describe('tagfilter passthrough contract', () => {
+  // The markdown compiler emits markdown, not markup: raw HTML passes through
+  // byte-for-byte by design. It is not an execution sink, so tagfilter
+  // escaping does not apply here; the protection lands in the renderers that
+  // consume the HTML downstream.
+  it('passes raw dangerous tags through unchanged, with or without tagfilter', () => {
+    // Parity with HTML/JSX sinks: those emit inert full source
+    // (`&lt;script>…&lt;/script>` / span text). Markdown stays byte-preserving.
+    expect(compiler('<script>alert(1)</script>')).toBe(
+      '<script>alert(1)</script>'
+    )
+    expect(compiler('<iframe>hi <em>x</em></iframe>')).toBe(
+      '<iframe>hi <em>x</em></iframe>'
+    )
+    expect(compiler('<script>x</script>', { tagfilter: false })).toBe(
+      '<script>x</script>'
+    )
+  })
+})
+
+describe('optimizeForStreaming preserves literal less-than', () => {
+  it('keeps comparison prose and defers incomplete tag prefixes', () => {
+    expect(compiler('5 < 3 is false', { optimizeForStreaming: true })).toBe(
+      '5 < 3 is false'
+    )
+    expect(compiler('Hello <Citation', { optimizeForStreaming: true })).toBe(
+      'Hello'
+    )
+    expect(
+      compiler('x < y\n\nsecond para', { optimizeForStreaming: true })
+    ).toBe('x < y\n\nsecond para')
   })
 })

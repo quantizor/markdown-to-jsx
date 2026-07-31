@@ -1072,6 +1072,122 @@ describe('hasKeys', () => {
   })
 })
 
+describe('getFilteredTagEmit', () => {
+  // GFM tagfilter keeps body and closer; only each matching leading '<' is
+  // escaped at the HTML sink. This helper derives the inert source parts.
+  it('emits opener+body+closer for Type 1 verbatim nodes', () => {
+    expect(
+      u.getFilteredTagEmit({
+        type: RuleType.htmlBlock,
+        tag: 'script',
+        _verbatim: true,
+        _rawAttrs: '',
+        _rawBody: 'alert(1)',
+        _rawClose: '</script>',
+        children: [],
+      })
+    ).toEqual({ kind: 'literal', literal: '<script>alert(1)</script>' })
+  })
+
+  it('keeps attributes and empty Type 1 bodies (closer-only _rawClose)', () => {
+    expect(
+      u.getFilteredTagEmit({
+        type: RuleType.htmlBlock,
+        tag: 'script',
+        _verbatim: true,
+        _rawAttrs: ' src="evil.js" type="text/javascript"',
+        _rawClose: '</script>',
+        children: [],
+      })
+    ).toEqual({
+      kind: 'literal',
+      literal: '<script src="evil.js" type="text/javascript"></script>',
+    })
+  })
+
+  it('collapses plain-text children into a single literal', () => {
+    expect(
+      u.getFilteredTagEmit({
+        type: RuleType.htmlBlock,
+        tag: 'title',
+        _rawAttrs: '',
+        children: [{ type: RuleType.text, text: 'content' }],
+      })
+    ).toEqual({ kind: 'literal', literal: '<title>content</title>' })
+  })
+
+  it('uses open/close when structured children remain for nested rendering', () => {
+    expect(
+      u.getFilteredTagEmit({
+        type: RuleType.htmlBlock,
+        tag: 'iframe',
+        _verbatim: true,
+        _rawAttrs: '',
+        _rawBody: 'hi <em>x</em>',
+        _rawClose: '</iframe>',
+        children: [
+          { type: RuleType.text, text: 'hi ' },
+          {
+            type: RuleType.htmlBlock,
+            tag: 'em',
+            attrs: {},
+            children: [{ type: RuleType.text, text: 'x' }],
+          },
+        ],
+      })
+    ).toEqual({ kind: 'sandwich', open: '<iframe>', close: '</iframe>' })
+  })
+
+  it('merges adjacent strings when assembling sandwich children', () => {
+    expect(
+      u.assembleFilteredTagChildren('<iframe>', ['hi ', { type: 'em' }, ''], '</iframe>')
+    ).toEqual(['<iframe>hi ', { type: 'em' }, '</iframe>'])
+  })
+
+  it('reconstructs empty structured tags from attrs', () => {
+    expect(
+      u.getFilteredTagEmit({
+        type: RuleType.htmlBlock,
+        tag: 'iframe',
+        _rawAttrs: ' src="evil.com"',
+        children: [],
+      })
+    ).toEqual({ kind: 'literal', literal: '<iframe src="evil.com"></iframe>' })
+  })
+
+  it('emits self-closing and orphan closing literals', () => {
+    expect(
+      u.getFilteredTagEmit({
+        type: RuleType.htmlSelfClosing,
+        tag: 'script',
+        _rawAttrs: ' src="evil.js" ',
+        _rawOpen: '<script src="evil.js" />',
+      })
+    ).toEqual({ kind: 'literal', literal: '<script src="evil.js" />' })
+    expect(
+      u.getFilteredTagEmit({
+        type: RuleType.htmlBlock,
+        tag: 'script',
+        _isClosingTag: true,
+        _rawClose: '</script>',
+      })
+    ).toEqual({ kind: 'literal', literal: '</script>' })
+  })
+
+  it('prefixes a space when _rawAttrs omits the leading whitespace', () => {
+    expect(
+      u.getFilteredTagEmit({
+        type: RuleType.htmlBlock,
+        tag: 'script',
+        _verbatim: true,
+        _rawAttrs: 'src="x"',
+        _rawClose: '</script>',
+        children: [],
+      })
+    ).toEqual({ kind: 'literal', literal: '<script src="x"></script>' })
+  })
+})
+
 describe('htmlAttrsToJSXProps', () => {
   it('should map standard HTML attrs to JSX equivalents', () => {
     expect(u.htmlAttrsToJSXProps({ class: 'foo', for: 'bar' }))

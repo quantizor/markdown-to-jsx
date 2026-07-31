@@ -120,26 +120,43 @@ function render(
       const htmlNode = node as MarkdownToJSX.HTMLNode
 
       // Apply options.tagfilter: escape dangerous tags
-      if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
-        const tagText =
-          typeof htmlNode._rawText === 'string'
-            ? htmlNode._rawText
-            : `<${htmlNode.tag}${util.formatFilteredTagAttrs(htmlNode.attrs)}>`
-        return h('span', {}, tagText)
+      if (util.tagfilterEnabled(options) && util.shouldFilterTag(htmlNode.tag)) {
+        var filtered = util.getFilteredTagEmit(htmlNode)
+        if (filtered.kind === 'literal') {
+          return h('span', {}, filtered.literal)
+        }
+        return h(
+          'span',
+          {},
+          ...util.assembleFilteredTagChildren(
+            filtered.open,
+            htmlNode.children ? output(htmlNode.children, state) : null,
+            filtered.close
+          )
+        )
       }
 
-      if (htmlNode._rawText && htmlNode._verbatim) {
+      const rawOuter = htmlNode._rawOuter
+      const isRawOuter = rawOuter !== undefined
+      const rawSource = isRawOuter
+        ? rawOuter
+        : htmlNode._isClosingTag
+          ? htmlNode._rawBody || ''
+          : (htmlNode._rawBody || '') + (htmlNode._rawClose || '')
+      if (rawSource && htmlNode._verbatim) {
         // Type 1 blocks (script, style, pre, textarea) always render verbatim
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
 
         if (isType1Block) {
-          const textContent = util.type1TextContent(
-            htmlNode._rawText,
-            tagLower,
-            options.tagfilter
-          )
-          if (/<[a-z][^>]{0,100}>/i.test(htmlNode._rawText)) {
+          // The element wrapper below supplies its own closing tag, so the
+          // body excludes _rawClose; the full outer span is used as-is only
+          // when no closing tag was found (rare, matches the sniff below).
+          const type1Body = isRawOuter ? rawOuter : htmlNode._rawBody || ''
+          const textContent = util.tagfilterEnabled(options)
+            ? util.applyTagFilterToText(type1Body)
+            : type1Body
+          if (/<[a-z][^>]{0,100}>/i.test(rawSource)) {
             return h(node.tag, {
               ...node.attrs,
               innerHTML: textContent,
@@ -148,28 +165,25 @@ function render(
           return h(node.tag, { ...node.attrs }, textContent)
         }
 
-        const containsPreTags = /<\/?pre\b/i.test(htmlNode._rawText)
+        const containsPreTags = /<\/?pre\b/i.test(rawSource)
         if (containsPreTags) {
-          const innerHtml = options.tagfilter
-            ? util.applyTagFilterToText(htmlNode._rawText)
-            : htmlNode._rawText
+          const innerHtml = util.tagfilterEnabled(options)
+            ? util.applyTagFilterToText(rawSource)
+            : rawSource
           return h(node.tag, {
             ...node.attrs,
             innerHTML: innerHtml,
           })
         }
-        // Re-parse rawText so a nested element does not absorb a following text
+        // Re-parse rawSource so a nested element does not absorb a following text
         // line, then split at this element's own closing tag so any trailing
         // content renders as siblings (issue #881).
-        const parseOptions: parse.ParseOptions = {
-          slugify: (input: string) => slug(input, util.slugify),
+        const parseOptions = parse.toParseOptions({
+          slugify: options.slugify,
           sanitizer: sanitize,
           tagfilter: true,
-        }
-        const cleanedText = htmlNode._rawText
-          .replace(/>\s+</g, '><')
-          .replace(/\n+/g, ' ')
-          .trim()
+        })
+        const cleanedText = util.normalizeJsxReparseText(rawSource)
 
         const selfTagRegex = new RegExp(
           `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,
@@ -186,9 +200,10 @@ function render(
         )
         util.stripVerbatim(astNodes)
 
-        // rawText already contains its own wrapper element, so emit the parsed
-        // nodes directly instead of nesting them in another copy of the tag.
-        if (util.isFullVerbatimBlock(cleanedText, htmlNode.tag as string)) {
+        // _rawOuter means the parser already determined this span is the FULL
+        // outer block, so emit the parsed nodes directly instead of nesting
+        // them in another copy of the tag.
+        if (isRawOuter) {
           return output(astNodes.flatMap(util.processVerbatimNode), state)
         }
 
@@ -217,28 +232,36 @@ function render(
       const htmlNode = node as MarkdownToJSX.HTMLSelfClosingNode
 
       // Apply options.tagfilter: escape dangerous self-closing tags
-      if (options.tagfilter && util.shouldFilterTag(htmlNode.tag)) {
-        const tagText =
-          typeof htmlNode._rawText === 'string'
-            ? htmlNode._rawText
-            : `<${htmlNode.tag}${util.formatFilteredTagAttrs(htmlNode.attrs)} />`
-        return h('span', {}, tagText)
+      if (util.tagfilterEnabled(options) && util.shouldFilterTag(htmlNode.tag)) {
+        var filteredSc = util.getFilteredTagEmit(htmlNode)
+        return h(
+          'span',
+          {},
+          filteredSc.kind === 'literal'
+            ? filteredSc.literal
+            : filteredSc.open + (filteredSc.close || '')
+        )
       }
 
       return h(htmlNode.tag, { ...htmlNode.attrs })
     }
 
     case RuleType.image: {
+      const src = node.target != null ? sanitize(node.target, 'img', 'src') : null
       return h('img', {
         alt: node.alt && node.alt.length > 0 ? node.alt : undefined,
         title: node.title || undefined,
-        src: sanitize(node.target, 'img', 'src'),
+        src: src || undefined,
       } as Record<string, unknown>)
     }
 
     case RuleType.link: {
       const props: Record<string, unknown> = {}
-      if (node.target != null) props.href = util.encodeUrlTarget(node.target)
+      if (node.target != null) {
+        // Re-sanitize at emit so direct astToJSX(dangerous) cannot skip the gate.
+        const href = util.sanitizeAndEncodeUrlTarget(node.target, sanitize, 'a', 'href')
+        if (href != null) props.href = href
+      }
       if (node.title) props.title = node.title
       return h('a', props, ...toArray(output(node.children, state)))
     }
@@ -550,17 +573,7 @@ export function astToJSX(
     ((tag: HTag, props: HProps, ...children: HChildren[]): JSX.Element =>
       createSolidElement(tag, props || {}, ...children))
 
-  const parseOptions: parse.ParseOptions = {
-    slugify: i => slug(i, util.slugify),
-    sanitizer: sanitize,
-    tagfilter: opts.tagfilter !== false,
-    disableAutoLink: opts.disableAutoLink,
-    disableParsingRawHTML: opts.disableParsingRawHTML,
-    enforceAtxHeadings: opts.enforceAtxHeadings,
-    forceBlock: opts.forceBlock,
-    forceInline: opts.forceInline,
-    preserveFrontmatter: opts.preserveFrontmatter,
-  }
+  const parseOptions = parse.toParseOptions(opts, opts.forceInline)
 
   const refs =
     ast[0] && ast[0].type === RuleType.refCollection
@@ -665,22 +678,12 @@ export function compiler(
     const inline =
       opts.forceInline ||
       (!opts.forceBlock && !util.SHOULD_RENDER_AS_BLOCK_R.test(input))
-    const parseOptions: parse.ParseOptions = {
-      slugify: i => slug(i, util.slugify),
-      sanitizer: sanitize,
-      tagfilter: opts.tagfilter !== false,
-      disableAutoLink: opts.disableAutoLink,
-      disableParsingRawHTML: opts.disableParsingRawHTML,
-      enforceAtxHeadings: opts.enforceAtxHeadings,
-      forceBlock: opts.forceBlock,
-      forceInline: inline,
-      preserveFrontmatter: opts.preserveFrontmatter,
-    }
+    const parseOptions = parse.toParseOptions(opts, inline)
 
     let processedInput = inline ? input : util.prepareBlockInput(input)
 
     let astNodes = parse.parseMarkdown(
-      inline ? input : processedInput,
+      processedInput,
       { inline: inline, refs: refs },
       parseOptions
     )
