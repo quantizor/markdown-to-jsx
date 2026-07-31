@@ -1,4 +1,3 @@
-import process from 'node:process'
 import * as React from 'react'
 import type {
   ImageStyle,

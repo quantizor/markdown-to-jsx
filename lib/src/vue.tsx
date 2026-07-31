@@ -1,7 +1,6 @@
 /** @jsxRuntime classic */
 /** @jsx h */
 
-import process from 'node:process'
 import {
   type Component,
   computed,

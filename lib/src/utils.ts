@@ -1,4 +1,3 @@
-import process from 'node:process'
 import { decodeEntity } from 'markdown-to-jsx/entities'
 import * as $ from './constants.ts'
 import { type MarkdownToJSX, RuleType } from './types.ts'

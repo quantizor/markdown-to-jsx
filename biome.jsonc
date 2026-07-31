@@ -75,6 +75,10 @@
         "noInnerDeclarations": "off",
         // Bun scripts and test preload import node: and bun: builtins by design.
         "noNodejsModules": "off",
+        // Safe autofix inserts `import process from 'node:process'`, which
+        // blocks bunup/Vite define of process.env.NODE_ENV and crashes browser
+        // bundles that stub the module as {}. Keep bare process (see globals).
+        "noProcessGlobal": "off",
         "noUndeclaredDependencies": "off",
         // bun:test / react-native mocks / ambient benchtable decls are resolved at runtime.
         "noUnresolvedImports": "off",
@@ -99,6 +103,9 @@
         "noDefaultExport": "off",
         // DEV guards key off bare process.env.NODE_ENV (global, not an import)
         // so bunup's define can replace the identifier and DCE the branch.
+        // Never `import process from 'node:process'`: that local binding blocks
+        // define, and browser bundlers stub the module as {}, crashing on
+        // {}.env.NODE_ENV (broke the published site).
         "noProcessEnv": "off",
         // CHAR_* constants and AST field names are load-bearing identifiers.
         "useNamingConvention": "off"

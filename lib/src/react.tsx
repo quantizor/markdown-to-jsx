@@ -1,7 +1,6 @@
 /** @jsxRuntime classic */
 /** @jsx h */
 
-import process from 'node:process'
 import * as React from 'react'
 import * as $ from './constants.ts'
 import * as parse from './parse.ts'

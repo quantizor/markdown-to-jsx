@@ -12,6 +12,7 @@ import {
 } from 'solid-js'
 import solidH from 'solid-js/h'
 import * as parse from './parse.ts'
+import { parser } from './parse.ts'
 import {
   type MarkdownToJSX,
   type RequireAtLeastOne,
@@ -19,13 +20,9 @@ import {
 } from './types.ts'
 import * as util from './utils.ts'
 
-export { parser } from './parse.ts'
-
-import process from 'node:process'
-import { parser } from './parse.ts'
-
 export { type MarkdownToJSX, RuleType } from './types.ts'
 export { sanitizer, slugify } from './utils.ts'
+export { parser }
 
 const hasDom = typeof document !== 'undefined'
 

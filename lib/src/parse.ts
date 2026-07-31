@@ -5,7 +5,6 @@
  * to achieve dramatic code size reduction while maintaining CommonMark compliance.
  */
 
-import process from 'node:process'
 import * as $ from './constants.ts'
 import { type MarkdownToJSX, RuleType } from './types.ts'
 import * as util from './utils.ts'

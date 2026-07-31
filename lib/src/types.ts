@@ -1,6 +1,5 @@
 // Re-export React for convenience since types reference it
 
-import process from 'node:process'
 import type * as React from 'react'
 
 /**

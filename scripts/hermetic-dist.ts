@@ -21,6 +21,11 @@ const NetworkApis = [
   'new EventSource',
 ]
 
+// Browser consumers (and the site Vite build) resolve node:process to {}.
+// An import turns process into a local binding so define cannot replace
+// process.env.NODE_ENV, and runtime then crashes on {}.env.NODE_ENV.
+const ForbiddenModules = ['node:process', 'from"process"', "from'process'"]
+
 const distDir = path.join(import.meta.dirname, '..', 'lib', 'dist')
 
 function listDistFiles(dir: string): string[] {
@@ -63,6 +68,11 @@ for (const file of files) {
       if (line.includes(api)) {
         violations.push(`${rel}:${i + 1} contains "${api}"`)
       }
+    }
+  }
+  for (const mod of ForbiddenModules) {
+    if (content.includes(mod)) {
+      violations.push(`${rel}: contains "${mod}"`)
     }
   }
 }

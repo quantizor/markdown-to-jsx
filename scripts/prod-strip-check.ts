@@ -54,6 +54,11 @@ for (const file of files) {
   if (/\bconsole\.error\s*\(/.test(body)) {
     violations.push(`${rel}: contains console.error(`)
   }
+  // Surviving .env.NODE_ENV means define failed (usually a local process binding
+  // from `import process from 'node:process'`).
+  if (/\.env\.NODE_ENV\b/.test(body)) {
+    violations.push(`${rel}: retains .env.NODE_ENV after production define`)
+  }
 }
 
 if (violations.length > 0) {
