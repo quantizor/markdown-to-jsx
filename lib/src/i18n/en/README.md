@@ -793,7 +793,7 @@ Dangerous tag names (`script`, `iframe`, `style`, and similar) are escaped separ
 
 #### options.slugify
 
-By default, a [lightweight deburring function](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate an HTML id from headings. You can override this by passing a function to `options.slugify`. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
+By default, a [lightweight deburring function](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate an HTML id from headings. When more than one heading produces the same id, a numeric suffix is added automatically (`foo`, `foo-1`, `foo-2`) so each id stays unique within that parse. You can override slug generation by passing a function to `options.slugify`; uniqueness is still applied to whatever your function returns. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
 
 <!-- prettier-ignore -->
 ```tsx
@@ -1035,7 +1035,7 @@ The AST consists of the following node types (use `RuleType` to check node types
   { type: RuleType.htmlBlock, tag: "div", attrs?: Record<string, any>, children?: ASTNode[] }
   ```
 
-  **Note (v9.1+):** JSX components with blank lines between opening/closing tags now properly nest children instead of creating sibling nodes.
+  **Note:** PascalCase JSX components and hyphenated custom elements nest their children when blank lines appear between the opening and closing tags, instead of leaking later siblings. Known HTML block tags (`div`, `figure`, and the rest of the CommonMark block set) behave the same way. Lowercase unknown tags still follow CommonMark Type 7 and stop at the first blank line.
 
   **HTML Block Parsing (v9.2+):** HTML blocks are always fully parsed into the `children` property. The `renderRule` callback can access the fully parsed AST in `children` for all HTML blocks.
 

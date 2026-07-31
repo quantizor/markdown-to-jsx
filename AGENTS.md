@@ -153,10 +153,11 @@ Repository configuration
 
 Compiler parity
 
-Six output compilers: react, native, solid, vue, html, markdown. Any change to rendering behavior, especially HTML block handling, must be verified across all six rather than the one in front of you. They drift: the JSX renderers share AST logic through `utils.ts` but assemble elements with their own primitives, while html and markdown emit strings.
+Six output compilers: react, native, solid, vue, html, markdown. Any fix, whether it lands in the parser or in one renderer, must be verified across all six rather than the one in front of you. They drift: the JSX renderers share AST logic through `utils.ts` but assemble elements with their own primitives, while html and markdown emit strings.
 
 - Put renderer-agnostic AST logic in `utils.ts`; keep only element assembly per renderer.
-- Add a regression test to every affected compiler suite when fixing a rendering bug. Output shape differs per renderer, so assert each one's actual structure: serialize the JSX renderers to a string and snapshot, and snapshot the returned string for html and markdown.
+- Every fix ships a regression test in all six compiler suites, not only the suite where the report arrived. A compiler the fix does not visibly change still gets the assertion, because that assertion is what catches the next drift. Output shape differs per renderer, so assert each one's actual structure: serialize the JSX renderers to a string and snapshot, and snapshot the returned string for html and markdown.
+- Where a compiler cannot express the behavior under test (markdown discards heading ids, native emits no id), assert what that compiler does produce for the same input and say in a comment why the primary assertion does not apply there. Skipping the suite is not an option.
 - react-native cannot be imported directly in `bun -e`; preload the mock (`bun --preload ./lib/src/__mocks__/react-native.ts`), then walk React elements via `.type` and `.props.children`.
 - `react-dom/server` resolves only from `lib/`, so run one-off React render checks as `cd lib && bun -e "…"` with paths relative to `lib/src`. From the repo root the import fails outright.
 

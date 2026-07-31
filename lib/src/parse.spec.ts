@@ -6877,3 +6877,213 @@ describe('forward reference resolution', () => {
     expect(findLinks(p.parser('> - [foo]\n\n[foo]: /url'))).toEqual(expected)
   })
 })
+
+describe('unique heading IDs (#857)', () => {
+  function headingIds(nodes: MarkdownToJSX.ASTNode[]): string[] {
+    const ids: string[] = []
+    const walk = (ns: MarkdownToJSX.ASTNode[]) => {
+      for (const n of ns) {
+        if (n.type === RuleType.heading) ids.push(n.id)
+        if ('children' in n && Array.isArray(n.children)) walk(n.children)
+        if ('items' in n && Array.isArray((n as MarkdownToJSX.OrderedListNode).items)) {
+          for (const item of (n as MarkdownToJSX.OrderedListNode).items) walk(item)
+        }
+      }
+    }
+    walk(nodes)
+    return ids
+  }
+
+  it('suffixes duplicate ATX headings in source order', () => {
+    expect(
+      headingIds(
+        p.parser(`# Foo
+
+# Bar
+
+## Foo
+
+# Foo`)
+      )
+    ).toEqual(['foo', 'bar', 'foo-1', 'foo-2'])
+  })
+
+  it('suffixes duplicate setext headings', () => {
+    expect(
+      headingIds(
+        p.parser(`Foo
+===
+
+Foo
+---`)
+      )
+    ).toEqual(['foo', 'foo-1'])
+  })
+
+  it('skips an occupied numeric suffix (Foo, Foo-1, Foo)', () => {
+    expect(
+      headingIds(
+        p.parser(`# Foo
+
+# Foo-1
+
+# Foo`)
+      )
+    ).toEqual(['foo', 'foo-1', 'foo-2'])
+  })
+
+  it('dedupes headings nested in blockquote, list, and HTML', () => {
+    expect(
+      headingIds(
+        p.parser(`# Foo
+
+> # Foo
+
+- # Foo
+
+<div>
+
+# Foo
+
+</div>`)
+      )
+    ).toEqual(['foo', 'foo-1', 'foo-2', 'foo-3'])
+  })
+
+  it('dedupes collisions from a custom slugify', () => {
+    expect(
+      headingIds(
+        p.parser(`# Alpha
+
+# Beta`, {
+          slugify: () => 'same',
+        })
+      )
+    ).toEqual(['same', 'same-1'])
+  })
+
+  it('leaves empty slugify results empty without inventing a suffix', () => {
+    expect(
+      headingIds(
+        p.parser(`# One
+
+# Two`, {
+          slugify: () => '',
+        })
+      )
+    ).toEqual(['', ''])
+  })
+
+  it('starts fresh on each top-level parser call', () => {
+    const first = headingIds(p.parser('# Foo\n\n# Foo'))
+    const second = headingIds(p.parser('# Foo\n\n# Foo'))
+    expect(first).toEqual(['foo', 'foo-1'])
+    expect(second).toEqual(['foo', 'foo-1'])
+  })
+})
+
+describe('component-like HTML blank-line nesting (#870)', () => {
+  it('nests heading and paragraph inside a PascalCase component', () => {
+    const result = p.parser(`<MyComponent>
+## My header
+
+Some paragraph
+</MyComponent>`)
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "_isClosingTag": false,
+          "_rawAttrs": "",
+          "_rawText": "",
+          "_verbatim": false,
+          "attrs": {},
+          "children": [
+            {
+              "children": [
+                {
+                  "text": "My header",
+                  "type": "text",
+                },
+              ],
+              "id": "my-header",
+              "level": 2,
+              "type": "heading",
+            },
+            {
+              "children": [
+                {
+                  "text": "Some paragraph",
+                  "type": "text",
+                },
+              ],
+              "type": "paragraph",
+            },
+          ],
+          "tag": "MyComponent",
+          "text": 
+      "
+      ## My header
+
+      Some paragraph
+      "
+      ,
+          "type": "htmlBlock",
+        },
+      ]
+    `)
+  })
+
+  it('still nests known block tags and Figure', () => {
+    for (const tag of ['div', 'Figure']) {
+      const result = p.parser(`<${tag}>
+## My header
+
+Some paragraph
+</${tag}>`)
+      expect(result).toHaveLength(1)
+      expect(result[0].type).toBe(RuleType.htmlBlock)
+      const html = result[0] as MarkdownToJSX.HTMLNode
+      expect(html.tag).toBe(tag)
+      expect(html.children).toHaveLength(2)
+      expect(html.children![0].type).toBe(RuleType.heading)
+      expect(html.children![1].type).toBe(RuleType.paragraph)
+    }
+  })
+
+  it('nests hyphenated custom elements across a blank line', () => {
+    const result = p.parser(`<my-widget>
+## My header
+
+Some paragraph
+</my-widget>`)
+    expect(result).toHaveLength(1)
+    const html = result[0] as MarkdownToJSX.HTMLNode
+    expect(html.tag).toBe('my-widget')
+    expect(html.children).toHaveLength(2)
+    expect(html.children![0].type).toBe(RuleType.heading)
+    expect(html.children![1].type).toBe(RuleType.paragraph)
+  })
+
+  it('keeps lowercase unknown tags as Type 7 stopping at the blank line', () => {
+    const result = p.parser(`<widget>
+## My header
+
+Some paragraph
+</widget>`)
+    expect(result.length).toBeGreaterThan(1)
+    expect(result[0].type).toBe(RuleType.htmlBlock)
+    expect((result[0] as MarkdownToJSX.HTMLNode).tag).toBe('widget')
+  })
+
+  it('does not parse markdown inside a component with no blank lines (#860)', () => {
+    const result = p.parser(`<MyComponent>
+*Emphasized* text.
+</MyComponent>`)
+    expect(result).toHaveLength(1)
+    const html = result[0] as MarkdownToJSX.HTMLNode
+    expect(html.tag).toBe('MyComponent')
+    expect(html.children).toEqual([
+      { type: RuleType.text, text: '*Emphasized* text.' },
+    ])
+  })
+})

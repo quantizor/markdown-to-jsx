@@ -97,6 +97,14 @@ declare namespace MarkdownToJSX {
     _htmlDepth?: number
     /** internal: set by collectReferenceDefinitions when input ends inside an unclosed fence */
     _endsInsideFence?: boolean
+    /**
+     * internal: last accepted numeric suffix per heading id base (pairs with
+     * `_headingIds`). `0` means the unsuffixed base was taken; positive `n`
+     * means `base-n` was the last id assigned for that base.
+     */
+    _headingIdCounts?: { [id: string]: number }
+    /** internal: parse-local set of heading IDs already emitted; used to append -1, -2, … on collision */
+    _headingIds?: { [id: string]: true }
     /** internal: true when the current block content cannot hold the document's streaming edge, so streaming suppression can be skipped */
     _notAtEdge?: boolean
     /** internal: enable hard/soft line-break processing in parseInline (paragraph inline content) */

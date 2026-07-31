@@ -271,16 +271,18 @@ function __parseHTMLTag(
   source: string,
   pos: number
 ): {
-  tag: string
   attrs: Record<string, string>
-  selfClosing: boolean
   end: number
-  rawAttrs: string
-  whitespaceBeforeAttrs: string
-  isClosing: boolean
   hasSpaceBeforeSlash: boolean
+  /** PascalCase JSX component or hyphenated custom element. */
+  isComponentTag: boolean
+  isClosing: boolean
+  rawAttrs: string
   /** True when one or more dangerous attributes were stripped from this tag. */
   sanitized: boolean
+  selfClosing: boolean
+  tag: string
+  whitespaceBeforeAttrs: string
 } | null {
   if (source.charCodeAt(pos) !== $.CHAR_LT) return null // <
 
@@ -332,7 +334,7 @@ function __parseHTMLTag(
       const rawAttrs = dangerSpans
         ? buildSafeRawAttrs(source, attrStartPos, i, dangerSpans)
         : source.slice(attrStartPos, i)
-      return { tag, attrs, selfClosing: false, end: i + 1, rawAttrs, whitespaceBeforeAttrs, isClosing, hasSpaceBeforeSlash, sanitized: dangerSpans !== null }
+      return { attrs, end: i + 1, hasSpaceBeforeSlash, isComponentTag, isClosing, rawAttrs, sanitized: dangerSpans !== null, selfClosing: false, tag, whitespaceBeforeAttrs }
     }
     if (c === $.CHAR_SPACE || c === $.CHAR_TAB || c === $.CHAR_NEWLINE) {
       i++
@@ -343,7 +345,7 @@ function __parseHTMLTag(
       const rawAttrs = dangerSpans
         ? buildSafeRawAttrs(source, attrStartPos, i, dangerSpans)
         : source.slice(attrStartPos, i)
-      return { tag, attrs, selfClosing: true, end: i + 2, rawAttrs, whitespaceBeforeAttrs, isClosing, hasSpaceBeforeSlash, sanitized: dangerSpans !== null }
+      return { attrs, end: i + 2, hasSpaceBeforeSlash, isComponentTag, isClosing, rawAttrs, sanitized: dangerSpans !== null, selfClosing: true, tag, whitespaceBeforeAttrs }
     }
 
     // Parse attribute name per CommonMark: [a-zA-Z_:][a-zA-Z0-9_.:-]*
@@ -942,6 +944,39 @@ type ScanResult = { node: MarkdownToJSX.ASTNode; end: number } | null
 // BLOCK SCANNERS
 // ============================================================================
 
+/**
+ * Append -1, -2, … until the heading ID is unique within this parse.
+ * An empty base stays empty so a slugify that returns '' does not invent
+ * suffixes. Maps allocate lazily on the first non-empty heading. `used`
+ * records every assigned id; `counts` is the last numeric suffix accepted
+ * for each base (0 means the unsuffixed base was taken) so dense collisions
+ * stay amortized O(1) instead of O(n²).
+ */
+function uniqueHeadingId(base: string, state: MarkdownToJSX.State): string {
+  if (!base) return base
+  var used = state._headingIds || (state._headingIds = Object.create(null))
+  var counts =
+    state._headingIdCounts || (state._headingIdCounts = Object.create(null))
+  var last = counts[base]
+  if (last === undefined) {
+    counts[base] = 0
+    if (used[base] === undefined) {
+      used[base] = true
+      return base
+    }
+    last = 0
+  }
+  var n = last + 1
+  var candidate = base + '-' + n
+  while (used[candidate] !== undefined) {
+    n++
+    candidate = base + '-' + n
+  }
+  counts[base] = n
+  used[candidate] = true
+  return candidate
+}
+
 /** Scan ATX heading (# ... #) */
 function scanHeading(s: string, p: number, state: MarkdownToJSX.State, opts: ParseOptions): ScanResult {
   const e = lineEnd(s, p)
@@ -983,9 +1018,9 @@ function scanHeading(s: string, p: number, state: MarkdownToJSX.State, opts: Par
   const text = s.slice(i, contentEnd)
   const children = queueInline(text, false, state, opts)
 
-  // Generate heading ID (slug)
+  // Generate heading ID (slug), then dedupe within this parse
   const slugify = opts?.slugify || util.slugify
-  const id = slugify(text)
+  const id = uniqueHeadingId(slugify(text), state)
 
   return {
     node: {
@@ -2429,13 +2464,21 @@ function scanHTMLBlock(s: string, p: number, state: MarkdownToJSX.State, opts: P
 
         // Block extension: when no closing tag was found within the pre-blank-line
         // range, search beyond for the matching close tag and extend the block.
+        // Type 6 always qualifies. Component-like Type 7 tags (PascalCase JSX or
+        // hyphenated custom elements, via tagResult67.isComponentTag) also
+        // qualify so blank lines inside `<MyComponent>` nest children instead
+        // of leaking siblings (#870).
         // Skip extension when the opening tag is alone on its line followed by a
         // blank line and then another HTML tag (CommonMark Examples 190/191 — the
         // reference parser treats each blank-line-separated element as top level),
         // or when the content contains a Type 1 raw-content element (`<pre>`,
         // `<script>`, `<style>`, `<textarea>`) whose blank lines are structurally
         // inside raw content (CommonMark Example 148).
-        if (closeIdx67 === -1 && htmlBlockType === 6 && !tagResult67.isClosing) {
+        if (
+          closeIdx67 === -1 &&
+          !tagResult67.isClosing &&
+          (htmlBlockType === 6 || tagResult67.isComponentTag)
+        ) {
           var extCloseEnd = findClosingTag(s, tagResult67.end, tagNameLower67)
           if (extCloseEnd !== -1) {
             var extEnd67 = _closeTagStart
@@ -3415,7 +3458,7 @@ function scanParagraph(s: string, p: number, state: MarkdownToJSX.State, opts: P
   if (setextLevel) {
     // Setext heading
     const slugify = opts?.slugify || util.slugify
-    const id = slugify(text)
+    const id = uniqueHeadingId(slugify(text), state)
     return {
       node: {
         type: RuleType.heading,
@@ -5527,13 +5570,14 @@ export function parser(
     source = source.slice(1)
   }
 
-  // Default state with refs object
+  // Default state with refs object. Heading-id maps allocate lazily in
+  // uniqueHeadingId on the first non-empty heading.
   const state: MarkdownToJSX.State = {
-    inline: false,
     inAnchor: false,
+    inBlockQuote: false,
     inHTML: false,
     inList: false,
-    inBlockQuote: false,
+    inline: false,
     refs: {},
   }
 

@@ -2193,3 +2193,41 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
     })
   })
 })
+
+describe('unique heading IDs (#857)', () => {
+  it('round-trips duplicate headings without emitting ids', () => {
+    // The markdown compiler has no id attribute surface; assert the full
+    // emitted markdown for the same input so drift still fails the suite.
+    expect(
+      compiler(`# Foo
+
+# Bar
+
+## Foo`)
+    ).toMatchInlineSnapshot(`
+      "# Foo
+
+      # Bar
+
+      ## Foo"
+    `)
+  })
+})
+
+describe('component-like HTML blank-line nesting (#870)', () => {
+  it('preserves nested component markdown across blank lines', () => {
+    expect(
+      compiler(`<MyComponent>
+## My header
+
+Some paragraph
+</MyComponent>`)
+    ).toMatchInlineSnapshot(`
+      "<MyComponent>
+      ## My header
+
+      Some paragraph
+      </MyComponent>"
+    `)
+  })
+})
