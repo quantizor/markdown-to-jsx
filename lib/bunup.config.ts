@@ -94,14 +94,70 @@ function verifyDtsPlugin(): BunupPlugin {
   }
 }
 
+// JSX-only attr map marker. A multi-entry Bun.build shares the utils graph and
+// leaks this into markdown; fail the build if that regression returns.
+function verifyNoJsxAttrLeakPlugin(): BunupPlugin {
+  return {
+    name: 'verify-no-jsx-attr-leak',
+    hooks: {
+      onBuildDone({ files }) {
+        var failures: string[] = []
+        for (var file of files) {
+          if (file.kind !== 'entry-point' && file.kind !== 'chunk') continue
+          if (
+            !file.fullPath.endsWith('markdown.js') &&
+            !file.fullPath.endsWith('markdown.cjs')
+          ) {
+            continue
+          }
+          var code = readFileSync(file.fullPath, 'utf-8')
+          if (code.indexOf('allowtransparency') !== -1) {
+            failures.push(file.fullPath)
+          }
+        }
+        if (failures.length > 0) {
+          throw new Error(
+            'JSX attr map leaked into markdown bundle (multi-entry tree-shake regression):\n  ' +
+              failures.join('\n  ')
+          )
+        }
+      },
+    },
+  }
+}
+
+// clean:false: configs run concurrently and share outDir; package.json rimrafs
+// before bunup. Default clean:true would race across items.
 var common = {
+  clean: false,
   define: {
     'process.env.NODE_ENV': '"production"',
   },
+  dts: true,
+  format: ['esm', 'cjs'] as ('esm' | 'cjs')[],
   minify: true,
-  plugins: [manglePropsPlugin(), verifyReservedPropsPlugin(), verifyDtsPlugin()],
-  sourcemap: 'linked',
+  outDir: 'dist',
+  plugins: [
+    manglePropsPlugin(),
+    verifyReservedPropsPlugin(),
+    verifyDtsPlugin(),
+    verifyNoJsxAttrLeakPlugin(),
+  ],
+  sourcemap: 'linked' as const,
   splitting: false,
+  target: 'browser' as const,
+} satisfies DefineConfigItem
+
+var compiler = {
+  ...common,
+  external: [
+    'react',
+    'react-native',
+    'solid-js',
+    'solid-js/h',
+    'vue',
+    'markdown-to-jsx/entities',
+  ],
 } satisfies DefineConfigItem
 
 export default defineConfig([
@@ -110,28 +166,14 @@ export default defineConfig([
     ...common,
     name: 'entities',
     entry: ['src/entities.generated.ts', 'src/entities.browser.ts'],
-    outDir: 'dist',
-    format: ['esm', 'cjs'],
-    dts: true,
-    target: 'browser',
   },
-  // Main library build - ESM and CJS
-  {
-    ...common,
-    name: 'main',
-    entry: [
-      'src/index.tsx',
-      'src/react.tsx',
-      'src/html.ts',
-      'src/markdown.ts',
-      'src/native.tsx',
-      'src/solid.tsx',
-      'src/vue.tsx',
-    ],
-    outDir: 'dist',
-    format: ['esm', 'cjs'],
-    dts: true,
-    external: ['react', 'react-native', 'solid-js', 'solid-js/h', 'vue', 'markdown-to-jsx/entities'],
-    target: 'browser',
-  },
+  // One Bun.build per entry so unused utils exports do not survive into
+  // compilers that never import them (e.g. HTML_TO_JSX_MAP into markdown).
+  { ...compiler, name: 'index', entry: 'src/index.tsx' },
+  { ...compiler, name: 'react', entry: 'src/react.tsx' },
+  { ...compiler, name: 'html', entry: 'src/html.ts' },
+  { ...compiler, name: 'markdown', entry: 'src/markdown.ts' },
+  { ...compiler, name: 'native', entry: 'src/native.tsx' },
+  { ...compiler, name: 'solid', entry: 'src/solid.tsx' },
+  { ...compiler, name: 'vue', entry: 'src/vue.tsx' },
 ])

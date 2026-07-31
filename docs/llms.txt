@@ -128,8 +128,8 @@ Shared across every renderer unless noted.
 | `preserveFrontmatter`           | `boolean`                     | `false`  | Render frontmatter instead of dropping it.                                        |
 | `renderRule`                    | `function`                    | -        | Intercept rendering per AST node, before anything else.                           |
 | `sanitizer`                     | `function`                    | built-in | Replace URL scheme sanitization. Signature `(value, tag, attribute)`.             |
-| `slugify`                       | `function`                    | built-in | Replace heading id generation. Duplicate ids still get `-1`, `-2`, … suffixes.    |
-| `tagfilter`                     | `boolean`                     | `true`   | Escape `script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, and kin. |
+| `slugify`                       | `function`                    | built-in | Replace heading id generation from plain text content. Duplicate ids still get `-1`, `-2`, … suffixes. |
+| `tagfilter`                     | `boolean`                     | `true`   | Escape leading `<` on `script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, and kin; keep body and closer as inert text; allowed nested tags still render. |
 | `wrapper`                       | `string \| component \| null` | `'div'`  | Element wrapping multiple children. `null` returns an array. JSX renderers only.  |
 | `wrapperProps`                  | `object`                      | -        | Props for that wrapper.                                                           |
 
@@ -341,13 +341,13 @@ compiler('a\\\nb') // "<p>a<br />\nb</p>", trailing backslash
 - Use `overrides` for tag-level changes and `renderRule` for node-level ones. `overrides` is the simpler tool; reach past it only when you need `node.lang`, `node.text`, or a normally-skipped node.
 - Set `optimizeForStreaming` for any incrementally arriving content.
 - Set `wrapper: null` with `compiler()` when you want the children array rather than a container element, or `wrapper: React.Fragment` to render at the parent's DOM level.
-- Pass `slugify: str => str` when headings are non-Latin and the default deburring would empty the id. Duplicate heading text already gets unique ids (`foo`, `foo-1`); you do not need a stateful slugify closure for that.
+- Pass `slugify: str => str` when headings are non-Latin and the default deburring would empty the id. The input is the heading's plain text (no link URLs or image alt). Duplicate heading text already gets unique ids (`foo`, `foo-1`); you do not need a stateful slugify closure for that.
 - On React Native, set `styles.text` once for document-wide font and color; every other key merges over its default, so name only the properties you are changing.
 
 ## Don't
 
 - Don't enable `evalUnserializableExpressions` on content you did not write. It runs `eval()` on JSX prop expressions. For untrusted input, look up handlers by name in `renderRule` instead.
-- Don't disable `tagfilter` for user-generated content; it is the guard that escapes `<script>` and friends.
+- Don't disable `tagfilter` for user-generated content; it is the guard that escapes `<script>` and friends while keeping their source visible as inert text.
 - Don't reach for `dangerouslySetInnerHTML`. Raw HTML in the source already becomes real elements.
 - Don't call `compiler(..., { ast: true })`. That option is gone in v9; use `parser()`.
 - Don't pass `namedCodesToUnicode`. Removed in v9; the full HTML entity table is built in.
@@ -356,7 +356,7 @@ compiler('a\\\nb') // "<p>a<br />\nb</p>", trailing backslash
 
 - `ast: true` removed. Use `parser()`.
 - `namedCodesToUnicode` removed. All named entities decode by default.
-- `tagfilter` now defaults to `true`, so `script`, `iframe`, `style`, and similar tags are escaped rather than rendered. Pass `tagfilter: false` for the old behavior.
+- `tagfilter` now defaults to `true`, so `script`, `iframe`, `style`, and similar tags are escaped (GFM leading-`<` form, body and closer kept) rather than rendered live. Pass `tagfilter: false` for the old behavior.
 - `parser`, `astToJSX`, `astToHTML`, `astToMarkdown`, `astToNative` and the per-renderer entry points are new in v9.
 - From v8: `MarkdownToJSX.ParserResult` is now `MarkdownToJSX.ASTNode`, and the `textBolded`/`textEmphasized`/`textMarked`/`textStrikethroughed` rule types collapsed into `RuleType.textFormatted` with a `tag` field.
 
