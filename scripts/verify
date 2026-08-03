@@ -96,10 +96,15 @@ wait_wave() {
 
 # --- Wave 0: Biome (serial; only mutator of the source tree) ---
 wave0_t0=$(now_ms)
+# Snapshot the tracked-file state first: the audit below must report what Biome
+# itself rewrote, not edits that were already in the tree. CI checks out clean,
+# but a local run (or the pre-commit hook) often has unrelated work in flight,
+# and comparing against HEAD alone would blame Biome for it.
+pre_biome_diff=$(git diff HEAD)
 phase "biome" bunx biome check --write --unsafe .
 
 echo "==> biome audit (post-autofix)"
-if git diff --quiet; then
+if [[ "$(git diff HEAD)" == "${pre_biome_diff}" ]]; then
   echo "    clean: biome left no file changes"
 else
   git --no-pager diff --stat
@@ -113,7 +118,7 @@ echo "==> wave 0: ok ($(($(now_ms) - wave0_t0))ms)"
 
 # --- Wave 1: parallel source checks (no dist required) ---
 # Metrics run after the other wave-1 jobs so CPU contention does not inflate
-# the 3-run median past the 15% ceiling.
+# the 3-run median past the ceiling.
 wave1_t0=$(now_ms)
 bg_job "knip" bunx knip
 bg_job "typecheck" bun run typecheck
