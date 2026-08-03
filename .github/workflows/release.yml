@@ -22,8 +22,13 @@ jobs:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
+      # Pinned to a major: npm 12 changed `npm info --json` to return an array,
+      # which silently broke the published-version check in @changesets/cli
+      # below 2.31.1 and made every no-changeset push to main try to republish
+      # the current version. Move this pin deliberately, with a changesets
+      # version known to handle the new output.
       - name: Update npm
-        run: npm install -g npm@latest
+        run: npm install -g npm@12
 
       - name: Setup bun
         uses: oven-sh/setup-bun@v2
