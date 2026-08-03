@@ -5737,6 +5737,87 @@ function gateDestination(
   return sanitizerFn(decoded, tag, attribute) === null ? null : decoded
 }
 
+/**
+ * Scan memos for the inline scanners, scoped to one parseInline call.
+ *
+ * Every scanner reachable from the inline dispatch runs once per candidate
+ * position and walks forward to a terminator that may be far away. With
+ * nothing kept, the walk from candidate k+1 repeats nearly all of the walk
+ * from candidate k, which is quadratic on adversarial runs of one character
+ * (issues #874, #893).
+ *
+ * Two memo shapes cover every scanner so far:
+ *
+ * - A watermark, where failure is monotone: a scan that fails by running off
+ *   the end means every later start searches a subset of the same range and
+ *   fails too, so one position per scanner is enough.
+ * - A per-position table, for link-text bracket matching, where failure is
+ *   NOT monotone: in `[[foo](/url)` the outer opener never closes while the
+ *   inner one does, so the openers need individual answers.
+ *
+ * These live in module scratch rather than on State because they are scoped
+ * to a single parseInline call, which saves and restores them around
+ * recursion. Assigning them on State instead would transition its hidden
+ * class part-way through a parse.
+ */
+/**
+ * Each watermark is a position paired with the parseInline invocation that
+ * recorded it. Scoping by generation rather than clearing on entry keeps the
+ * per-call cost at one increment, and plain bindings beat a typed array here
+ * because the reads sit in scanners that run once per candidate character.
+ */
+var _urlFailFrom = 0
+var _urlFailGen = 0
+var _linkNoCloseFrom = 0
+var _linkNoCloseGen = 0
+var _footnoteNoCloseFrom = 0
+var _footnoteNoCloseGen = 0
+
+/** Invocation counter for parseInline; 0 is never a live generation. */
+var _scanGeneration = 0
+/** Generation of the parseInline call currently executing. */
+var _scanGen = 0
+
+/**
+ * Start a new memo generation. Retires every entry on wrap: a wrapped counter
+ * would let an entry recorded against a different string read as live, and a
+ * server parsing continuously reaches 2^31 calls in hours, not years.
+ */
+function nextScanGeneration(): number {
+  if (_scanGeneration === 0x7f_ff_ff_ff) {
+    _urlFailGen = 0
+    _linkNoCloseGen = 0
+    _footnoteNoCloseGen = 0
+    _linkTextMatchGen = 0
+    _scanGeneration = 0
+  }
+  return ++_scanGeneration
+}
+
+/**
+ * Link-text bracket matches for the current parseInline call, indexed by `[`
+ * position: 0 = unknown, -1 = no match in range, otherwise the offset just
+ * past the matching `]`. Allocated only once a single walk proves long enough
+ * to be worth remembering.
+ */
+var _linkTextMatch: Int32Array | null = null
+/** Generation `_linkTextMatch` belongs to; a mismatch means it is stale. */
+var _linkTextMatchGen = 0
+
+/**
+ * Reusable stack of `[` positions for the bracket matcher. The matcher only
+ * calls skipCodeSpan/scanAutolink/skipInlineHtmlElement, none of which
+ * re-enter scanLink, so one module-level buffer is safe and keeps the walk
+ * allocation-free.
+ */
+const _linkBracketStack: number[] = []
+
+/**
+ * Characters a single bracket walk must cover before it starts recording
+ * matches. Walks shorter than this are cheaper than the table they populate.
+ */
+const LINK_TEXT_MEMO_MIN_SPAN = 256
+
 /** Scan link [text](url) or ![alt](url) or [text][ref] or [text] */
 function scanLink(
   s: string,
@@ -5752,54 +5833,107 @@ function scanLink(
     return null // [
   }
 
-  // Fast rejection: if no ] in range, no valid link possible
-  var closeBracket = s.indexOf(']', start + 1)
-  if (closeBracket < 0 || closeBracket >= e) {
+  // A walk that found no `]` at all in range means no later opener finds one
+  // either, since every later opener searches a subset of this range.
+  if (_linkNoCloseGen === _scanGen && start >= _linkNoCloseFrom) {
     return null
   }
 
-  // Find closing ] - skip code spans, HTML tags, and autolinks
-  // Per CommonMark spec, we match brackets but don't nest them for link detection
-  var i = start + 1
-  var _bracketEnd = -1
-  var depth = 1
-  while (i < e && depth > 0) {
-    var c = s.charCodeAt(i)
-    if (c === $.CHAR_BACKSLASH && i + 1 < e) {
-      i += 2
-      continue
-    }
-    // Code spans take precedence over link brackets
-    if (c === $.CHAR_BACKTICK) {
-      var after = skipCodeSpan(s, i, e)
-      if (after > i) {
-        i = after
-        continue
-      }
-    }
-    // HTML tags take precedence
-    if (c === $.CHAR_LT) {
-      // Check for autolink first
-      var autoResult = scanAutolink(s, i, e)
-      if (autoResult) {
-        i = autoResult.end
-        continue
-      }
-      var afterHtml = skipInlineHtmlElement(s, i, e)
-      if (afterHtml > i) {
-        i = afterHtml
-        continue
-      }
-    }
-    if (c === $.CHAR_BRACKET_OPEN) {
-      depth++
-    } else if (c === $.CHAR_BRACKET_CLOSE) {
-      depth--
-    }
-    i++
+  var memo = _linkTextMatchGen === _scanGen ? _linkTextMatch : null
+  var cached = memo === null ? 0 : memo[start]
+  if (cached < 0) {
+    return null // this opener is known to have no matching ] in range
   }
-  if (depth !== 0) {
-    return null
+
+  // A remembered match ends just past its `]`, exactly where the walk below
+  // would have stopped.
+  var i = cached
+  if (cached === 0) {
+    // Fast rejection: if no ] in range, no valid link possible
+    var closeBracket = s.indexOf(']', start + 1)
+    if (closeBracket < 0 || closeBracket >= e) {
+      _linkNoCloseFrom = start
+      _linkNoCloseGen = _scanGen
+      return null
+    }
+
+    // Find closing ] - skip code spans, HTML tags, and autolinks
+    // Per CommonMark spec, we match brackets but don't nest them for link detection
+    //
+    // The walk's trajectory depends only on (s, position, e): skipCodeSpan,
+    // scanAutolink, skipInlineHtmlElement and the backslash rule all key off
+    // position alone. So each `[` this walk steps over resolves to exactly the
+    // `]` a walk started at that `[` would find, and recording the pairings
+    // costs one stack push per opener instead of a fresh walk per opener.
+    i = start + 1
+    var sp = 0
+    _linkBracketStack[sp++] = start
+    // Hoisted out of the walk: whether this walk can reach the span that earns
+    // a table is decided by the range, not rechecked every character.
+    var memoWorthwhile = e - start >= LINK_TEXT_MEMO_MIN_SPAN
+    while (i < e && sp > 0) {
+      var c = s.charCodeAt(i)
+      if (c === $.CHAR_BACKSLASH && i + 1 < e) {
+        i += 2
+        continue
+      }
+      // Code spans take precedence over link brackets
+      if (c === $.CHAR_BACKTICK) {
+        var after = skipCodeSpan(s, i, e)
+        if (after > i) {
+          i = after
+          continue
+        }
+      }
+      // HTML tags take precedence
+      if (c === $.CHAR_LT) {
+        // Check for autolink first
+        var autoResult = scanAutolink(s, i, e)
+        if (autoResult) {
+          i = autoResult.end
+          continue
+        }
+        var afterHtml = skipInlineHtmlElement(s, i, e)
+        if (afterHtml > i) {
+          i = afterHtml
+          continue
+        }
+      }
+      if (c === $.CHAR_BRACKET_OPEN) {
+        _linkBracketStack[sp++] = i
+      } else if (c === $.CHAR_BRACKET_CLOSE) {
+        var opener = _linkBracketStack[--sp]
+        if (
+          memo === null &&
+          memoWorthwhile &&
+          i - start >= LINK_TEXT_MEMO_MIN_SPAN
+        ) {
+          memo = _linkTextMatch = new Int32Array(e)
+          _linkTextMatchGen = _scanGen
+        }
+        if (memo !== null) {
+          memo[opener] = i + 1
+        }
+      }
+      i++
+    }
+    if (sp > 0) {
+      // Reached e with openers still on the stack: none of them can close.
+      if (
+        memo === null &&
+        memoWorthwhile &&
+        i - start >= LINK_TEXT_MEMO_MIN_SPAN
+      ) {
+        memo = _linkTextMatch = new Int32Array(e)
+        _linkTextMatchGen = _scanGen
+      }
+      if (memo !== null) {
+        while (sp > 0) {
+          memo[_linkBracketStack[--sp]] = -1
+        }
+      }
+      return null
+    }
   }
 
   var textEnd = i - 1
@@ -5857,10 +5991,8 @@ function scanLink(
       // from here may sit at depth 0 from a later start (e.g. `[](([](a)`).
       // Scoped per parseInline call so the source string can't change
       // underneath us.
-      if (
-        state._inlineUrlFailFrom !== undefined &&
-        i >= state._inlineUrlFailFrom
-      ) {
+      var urlFailFrom = _urlFailGen === _scanGen ? _urlFailFrom : -1
+      if (urlFailFrom >= 0 && i >= urlFailFrom) {
         inlineOk = false
       } else {
         var parenDepth = 0
@@ -5887,10 +6019,10 @@ function scanLink(
         if (
           urlEnd >= e &&
           !sawUnescapedCloseParen &&
-          (state._inlineUrlFailFrom === undefined ||
-            i < state._inlineUrlFailFrom)
+          (urlFailFrom < 0 || i < urlFailFrom)
         ) {
-          state._inlineUrlFailFrom = i
+          _urlFailFrom = i
+          _urlFailGen = _scanGen
         }
         url = s.slice(i, urlEnd)
       }
@@ -6193,6 +6325,13 @@ function scanFootnoteRef(
     return null
   }
 
+  // A scan that ran off the end found neither `]` nor a newline in [p+2, e),
+  // so no later `[^` finds one either. A scan stopped by a newline is already
+  // bounded by the line and needs no memo.
+  if (_footnoteNoCloseGen === _scanGen && p >= _footnoteNoCloseFrom) {
+    return null
+  }
+
   let i = p + 2
   // Find closing ]
   while (
@@ -6202,7 +6341,12 @@ function scanFootnoteRef(
   ) {
     i++
   }
-  if (i >= e || s.charCodeAt(i) !== $.CHAR_BRACKET_CLOSE) {
+  if (i >= e) {
+    _footnoteNoCloseFrom = p
+    _footnoteNoCloseGen = _scanGen
+    return null
+  }
+  if (s.charCodeAt(i) !== $.CHAR_BRACKET_CLOSE) {
     return null
   }
 
@@ -7050,10 +7194,12 @@ function parseInline(
     return [{ type: RuleType.text, text: s.slice(p, e) }]
   }
 
-  // Scope scanLink's URL-scan failure cache to this call so positions can't
-  // bleed across different source strings (issue #874).
-  var savedUrlFailFrom = state._inlineUrlFailFrom
-  state._inlineUrlFailFrom = undefined
+  // Scope the inline scan memos to this call: they are keyed by position in
+  // `s`, and a nested call parses a different string, so an entry must never
+  // outlive the call that recorded it (issue #874). Saving into locals keeps
+  // recursion correct without allocating.
+  var savedScanGen = _scanGen
+  _scanGen = nextScanGeneration()
 
   // Use state directly to avoid object spread allocation
   const childState = state
@@ -7574,7 +7720,7 @@ function parseInline(
     processEmphasis(nodes, delimStack, state, opts)
   }
 
-  state._inlineUrlFailFrom = savedUrlFailFrom
+  _scanGen = savedScanGen
   _globalInlineDepth--
   return nodes
 }

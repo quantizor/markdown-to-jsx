@@ -117,8 +117,9 @@ fi
 echo "==> wave 0: ok ($(($(now_ms) - wave0_t0))ms)"
 
 # --- Wave 1: parallel source checks (no dist required) ---
-# Metrics run after the other wave-1 jobs so CPU contention does not inflate
-# the 3-run median past the ceiling.
+# Metrics and scaling run after the other wave-1 jobs so CPU contention does
+# not inflate their timings: both compare measurements against a threshold, and
+# five sibling jobs competing for cores is enough to move either verdict.
 wave1_t0=$(now_ms)
 bg_job "knip" bunx knip
 bg_job "typecheck" bun run typecheck
@@ -148,6 +149,7 @@ bg_job "metrics-gate" bash -c '
   for target in parser react react-native html solid vue markdown; do
     bun scripts/metrics-gate.ts --target "${target}" || fail=1
   done
+  bun scripts/scaling-smoke.ts || fail=1
   exit "${fail}"
 '
 wait_wave 1b

@@ -112,8 +112,6 @@ declare namespace MarkdownToJSX {
     _notAtEdge?: boolean
     /** internal: enable hard/soft line-break processing in parseInline (paragraph inline content) */
     _breaks?: boolean
-    /** internal: smallest bare-URL start position known to fail by reaching end-of-input (issue #874); scoped per parseInline call */
-    _inlineUrlFailFrom?: number
     /** internal: deferred inline parses, drained by the owning parseMarkdown after the block pass so all reference definitions are known */
     _pendingInline?: {
       dest: ASTNode[]

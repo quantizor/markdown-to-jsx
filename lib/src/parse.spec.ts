@@ -336,6 +336,83 @@ describe('parseMarkdown', () => {
     ])
   })
 
+  // Scan memos let one walk answer for every candidate it passes, so the risk
+  // is an answer that is right for the walk that recorded it and wrong for a
+  // later reader. These assert the shapes where a too-eager memo would show,
+  // and `scripts/scaling-smoke.ts` covers the growth rate the memos exist for.
+  it('keeps bracket matching exact when an outer opener never closes', () => {
+    // In `[[foo](/url)` the outer `[` has no match while the inner one does,
+    // so a shared "nothing from here matches" answer would swallow the link.
+    function expected(leadingText: string) {
+      return [
+        {
+          type: RuleType.paragraph,
+          children: [
+            { type: RuleType.text, text: leadingText },
+            {
+              type: RuleType.link,
+              target: '/url',
+              title: undefined,
+              children: [{ type: RuleType.text, text: 'foo' }],
+            },
+          ],
+        },
+      ]
+    }
+    expect(p.parser('[[foo](/url)')).toEqual(expected('['))
+    // Same shape, padded past the span that earns a memo table, so the second
+    // opener is answered from the table rather than by its own walk.
+    const pad = 'z'.repeat(400)
+    expect(p.parser(`[${pad}[foo](/url)`)).toEqual(expected(`[${pad}`))
+  })
+
+  it('still parses long link text containing nested brackets', () => {
+    // Capping the scanned span instead of remembering it would stop treating
+    // this as a link, which is legal Markdown.
+    const text = `${'x'.repeat(9000)} [inner] ${'y'.repeat(500)}`
+    expect(p.parser(`[${text}](/url)`)).toEqual([
+      {
+        type: RuleType.paragraph,
+        children: [
+          {
+            type: RuleType.link,
+            target: '/url',
+            title: undefined,
+            children: [{ type: RuleType.text, text }],
+          },
+        ],
+      },
+    ])
+  })
+
+  it('keeps footnote references parsing after an unclosed opener', () => {
+    // The footnote memo records only scans that ran off the end. A newline
+    // ends a scan without proving anything about later openers, so a `[^` on
+    // one line must not suppress a real reference on the next.
+    expect(p.parser('[^unclosed\n\n[^1]: note\n\nsee [^1]')).toEqual([
+      {
+        type: RuleType.refCollection,
+        refs: { '^1': { target: 'note', title: undefined } },
+      },
+      {
+        type: RuleType.paragraph,
+        children: [{ type: RuleType.text, text: '[^unclosed' }],
+      },
+      { type: RuleType.footnote },
+      {
+        type: RuleType.paragraph,
+        children: [
+          { type: RuleType.text, text: 'see ' },
+          {
+            type: RuleType.footnoteReference,
+            target: '#1',
+            text: '1',
+          },
+        ],
+      },
+    ])
+  })
+
   it('does not let the failed-link cache reject a valid trailing link (issue #874 follow-up)', () => {
     // `[](([](a)` — outer link fails because the bare URL walks to end without
     // a balanced ')'. The cache must not block the inner `[](a)` from parsing.
