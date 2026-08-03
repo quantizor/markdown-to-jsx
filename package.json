@@ -51,6 +51,7 @@
     "typecheck": "bun run --filter markdown-to-jsx typecheck",
     "typecheck:harness": "bun run --filter @markdown-to-jsx/browser --filter @markdown-to-jsx/native typecheck",
     "verify": "bash scripts/verify",
+    "changeset-credits": "bun scripts/changeset-credits.ts",
     "changeset-publish": "bun run build && changeset publish",
     "validate-i18n": "bun run scripts/validate-i18n.ts"
   }

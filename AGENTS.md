@@ -89,6 +89,7 @@ Prose and communication
 - Commit messages serve their audience: public-facing code describes user impact, internal code describes codebase impact. Both stay concise and speak in general terms.
 - Changesets and PR descriptions are public-facing. Describe the change users perceive, in plain terms. No internal mechanics, file paths, flag names, or parser and AST terminology. Noteworthy changes and bugfixes get a changeset.
 - Changeset bodies use declarative release-note voice (what changed, for whom), never first-person "I". Match the tone of existing `.changeset/*.md` entries.
+- Before crediting anyone in a changeset, derive the list rather than recalling it: `bun run changeset-credits [name]` reports every commit author and co-author who introduced or edited that changeset file, pending or already released. Whoever the tool omits (a reporter, a fixer whose patch was rewritten) is a name to add to the commit's authorship, not just to the prose.
 - Issue and PR replies are first person from the maintainer and warm toward contributors: thank sincere reports, decline with a one-line reason and a workaround where one exists, and say you do not know rather than guess. Do not narrate internal triage or labeling.
 - Outbound public writing carries only what the reader needs to act. Omit internal paths and unrelated context.
 
@@ -127,6 +128,7 @@ Git and process
 - Run `bun run validate-i18n` before committing any i18n or documentation change.
 - A dependency version change updates the lockfile in the same commit and is verified working.
 - Versions are bumped and published by the release workflow from accumulated changesets. Never edit a version field or publish by hand.
+- `scripts/changelog.cjs` is the changelog generator, wired in `.changeset/config.json` along with the `maintainers` list it reads. Attribution comes from git history, so the release job checks out full history rather than a shallow clone.
 - Package lifecycle and postinstall scripts stay off by default. `bunfig.toml` also sets a three-day `minimumReleaseAge` floor on installs as a supply-chain guard; do not lower it to unblock a dependency.
 
 Wayfinding and backlog

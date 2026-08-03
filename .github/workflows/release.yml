@@ -16,6 +16,12 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Changelog attribution asks git which commits touched each changeset
+          # file. In a shallow checkout the tip commit has no parent, so it
+          # reads as the commit that added every file, and the release notes
+          # credit whoever pushed last instead of whoever wrote the change.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:

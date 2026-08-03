@@ -7,7 +7,9 @@
   "ignoreBinaries": ["pushd", "popd"],
   "workspaces": {
     ".": {
-      "entry": ["scripts/*.{ts,tsx,js,mjs}"],
+      // changelog.cjs is referenced from .changeset/config.json, which knip
+      // does not parse, so it only stays reachable as an entry point.
+      "entry": ["scripts/*.{ts,tsx,js,mjs,cjs}"],
       // Root hoists React for workspace typing; entry points live in lib/site/browser.
       "ignoreDependencies": ["@types/react", "react"]
     },
