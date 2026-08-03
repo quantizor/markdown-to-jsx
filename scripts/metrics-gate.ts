@@ -10,7 +10,13 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
-const CEILING_PCT = 15
+// The baseline is an absolute wall-clock time, so it only means anything on the
+// machine that recorded it: a shared CI runner is about half the speed of a
+// development machine and reads every target as a 60-96% regression. The
+// ceiling is therefore deliberately loose, sized to catch an extreme regression
+// (a quadratic path, a lost fast path) rather than percentage-point drift.
+// Small movements are read from `bun metrics` on a stable machine, not here.
+const CEILING_PCT = 200
 const RUNS = 3
 
 const targetIndex = process.argv.indexOf('--target')
