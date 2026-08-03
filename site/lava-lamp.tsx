@@ -1,253 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
-
-function generateMapFunction(numParticles: number): string {
-  var parts: string[] = [
-    'fn map(pos: vec3f) -> f32 {\n    let k = u.elasticity;\n    let p0 = particles[0u];\n    let delta0 = pos - p0.position.xyz;\n    var d = length(delta0) - p0.position.w;\n',
-  ]
-  for (var i = 1; i < numParticles; i++) {
-    parts.push(
-      `    let p${i} = particles[${i}u];\n    let delta${i} = pos - p${i}.position.xyz;\n    d = smin(d, length(delta${i}) - p${i}.position.w, k);\n`
-    )
-  }
-  parts.push('    return d;\n}\n')
-  return parts.join('')
-}
-
-function generateShaderCode(numParticles: number): string {
-  const mapFunction = generateMapFunction(numParticles)
-
-  return `
-struct Uniforms {
-    resolution: vec2f,
-    time: f32,
-    viscosity: f32,
-    elasticity: f32,
-    heatSpeed: f32,
-    baseColor: vec3f,
-    _pad1: f32,
-    glowColor: vec3f,
-    _pad2: f32,
-    cameraPos: vec3f,
-    _pad3: f32,
-}
-
-struct Particle {
-    position: vec4f, // xyz = pos, w = radius
-    velocity: vec4f, // xyz = vel, w = padding
-    state: vec4f,    // x = temperature (0..1), yzw = padding
-}
-
-@group(0) @binding(0) var<uniform> u: Uniforms;
-@group(0) @binding(1) var<storage, read_write> particles: array<Particle>;
-
-// --- COMPUTE STAGE: PHYSICS ---
-@compute @workgroup_size(64)
-fn simulate(@builtin(global_invocation_id) id : vec3u) {
-    let i = id.x;
-    if (i >= arrayLength(&particles)) { return; }
-
-    var p = particles[i];
-    let dt = 0.06;
-
-    let h = p.position.y;
-    let bottomZone = -2.0;
-    let topZone = 2.0;
-
-    // Heat Rate based on Slider
-    let heatRate = u.heatSpeed * 0.000225;
-
-    if (h < bottomZone) {
-        p.state.x += heatRate * 2.5;
-    } else if (h > topZone) {
-        p.state.x -= heatRate * 1.5;
-    } else {
-        p.state.x = mix(p.state.x, 0.4, 0.000025);
-    }
-    p.state.x = clamp(p.state.x, 0.0, 1.0);
-
-    // Buoyancy
-    let buoyancyScale = 0.00012 + (u.heatSpeed * 0.0003);
-    let buoyancyForce = (p.state.x - 0.5) * buoyancyScale;
-
-    p.velocity.y += buoyancyForce * dt;
-
-    // Add small random turbulence to prevent stagnation
-    let turbulence = 0.00003;
-    let noise1 = sin(dot(p.position.xyz, vec3f(12.9898, 78.233, 54.53)) + u.time * 0.5);
-    let noise2 = sin(dot(p.position.xyz, vec3f(19.9898, 88.233, 64.53)) + u.time * 0.7);
-    p.velocity.x += (noise1 * 0.5) * turbulence;
-    p.velocity.z += (noise2 * 0.5) * turbulence;
-
-    let drag = mix(0.998, 0.995, 1.0 - u.viscosity);
-    p.velocity *= drag;
-
-    p.position += p.velocity * dt;
-
-    let radius = 4.0;
-    let limitY = 3.0;
-
-    if (p.position.y < -limitY) {
-        p.position.y = -limitY + 0.01;
-        p.velocity.y = max(p.velocity.y, 0.001); // Don't completely stop at boundaries
-    }
-    if (p.position.y > limitY) {
-        p.position.y = limitY - 0.01;
-        p.velocity.y = min(p.velocity.y, -0.001); // Don't completely stop at boundaries
-    }
-
-    let distXZ = length(p.position.xz);
-    let radiusMinusW = radius - p.position.w;
-    if (distXZ > radiusMinusW) {
-        let invDistXZ = 1.0 / max(distXZ, 0.001);
-        let normX = p.position.x * invDistXZ;
-        let normZ = p.position.z * invDistXZ;
-        let push = (distXZ - radiusMinusW) * 0.02;
-        p.velocity.x -= normX * push;
-        p.velocity.z -= normZ * push;
-        p.position.x -= normX * 0.001;
-        p.position.z -= normZ * 0.001;
-        p.velocity.x += p.position.z * 0.0001;
-        p.velocity.z -= p.position.x * 0.0001;
-    }
-
-    particles[i] = p;
-}
-
-// --- RENDER STAGE: RAYMARCHING ---
-
-struct VertexOut {
-    @builtin(position) pos: vec4f,
-    @location(0) uv: vec2f,
-}
-
-@vertex
-fn vs_main(@builtin(vertex_index) vIdx: u32) -> VertexOut {
-    var pos = array<vec2f, 6>(
-        vec2f(-1.0, -1.0), vec2f(1.0, -1.0), vec2f(-1.0, 1.0),
-        vec2f(-1.0, 1.0), vec2f(1.0, -1.0), vec2f(1.0, 1.0)
-    );
-    var out: VertexOut;
-    out.pos = vec4f(pos[vIdx], 0.0, 1.0);
-    out.uv = pos[vIdx];
-    return out;
-}
-
-fn smin(a: f32, b: f32, k: f32) -> f32 {
-    let h = clamp(0.5 + 0.5 * (b - a) / max(k, 0.001), 0.0, 1.0);
-    return mix(b, a, h) - k * h * (1.0 - h);
-}
-
-{{MAP_FUNCTION}}
-
-fn calcNormal(p: vec3f) -> vec3f {
-    let e = 0.005;
-    return normalize(vec3f(
-        map(p + vec3f(e, 0.0, 0.0)) - map(p - vec3f(e, 0.0, 0.0)),
-        map(p + vec3f(0.0, e, 0.0)) - map(p - vec3f(0.0, e, 0.0)),
-        map(p + vec3f(0.0, 0.0, e)) - map(p - vec3f(0.0, 0.0, e))
-    ));
-}
-
-// Raymarch a single ray and return color
-fn getPixelColor(uv: vec2f) -> vec3f {
-    // Camera Basis
-    let ro = u.cameraPos;
-    let ta = vec3f(0.0, 0.0, 0.0);
-    let fw = normalize(ta - ro);
-    let rt = normalize(cross(fw, vec3f(0.0, 1.0, 0.0)));
-    let up = normalize(cross(rt, fw));
-    let rd = normalize(fw * 2.0 + rt * uv.x + up * uv.y);
-
-    // Background
-    let bgTop = u.glowColor * 0.3;
-    let bgBot = u.glowColor * 1.2;
-    var col = mix(bgBot, bgTop, uv.y * 0.5 + 0.5);
-
-    let lightPos = vec3f(0.0, -3.0, 0.0);
-    let limeLightPos = vec3f(0.0, 5.0, 0.0);
-    let pulse = 1.0 + 0.15 * sin(u.time * 0.75);
-
-    var t = 0.0;
-    var prevD = 1000.0;
-
-    for(var step=0; step<30; step++) {
-        let p = ro + rd * t;
-        let d = map(p);
-
-        // Early exit if distance is very large and increasing (ray moving away from scene)
-        if (d > 3.0 && d > prevD * 1.1) { break; }
-        prevD = d;
-
-        if(d < 0.002) { // Slightly relaxed hit threshold
-            let n = calcNormal(p);
-            let viewDir = ro - p;
-            let view = normalize(viewDir);
-            let viewDotN = max(dot(view, n), 0.0);
-            let lDir = lightPos - p;
-            let l = normalize(lDir);
-            let limeLDir = limeLightPos - p;
-            let limeL = normalize(limeLDir);
-            let limeDistSq = dot(limeLDir, limeLDir);
-
-            let oneMinusViewDotN = 1.0 - viewDotN;
-            let fresnel = pow(oneMinusViewDotN, 2.5);
-            let alpha = clamp(0.7 + 0.2 * fresnel, 0.0, 1.0);
-
-            let nDotL = max(dot(n, l), 0.0);
-            let nDotLimeL = max(dot(n, limeL), 0.0);
-            let negL = -l;
-            let negLimeL = -limeL;
-            let viewDotNegL = max(dot(view, negL), 0.0);
-            let viewDotNegLimeL = max(dot(view, negLimeL), 0.0);
-            let backScatter = pow(viewDotNegL, 3.0);
-            let limeBackScatter = pow(viewDotNegLimeL, 3.0);
-            let reflL = reflect(negL, n);
-            let reflLimeL = reflect(negLimeL, n);
-            let spec = pow(max(dot(view, reflL), 0.0), 8.0);
-            let limeSpec = pow(max(dot(view, reflLimeL), 0.0), 8.0);
-
-            let rim = u.baseColor * fresnel * 2.0;
-            let waxTint = mix(u.baseColor, u.baseColor * 1.4, smoothstep(-1.0, 1.0, p.y) * 0.5);
-
-            var surfCol = (waxTint * nDotL * 0.5) + (waxTint * backScatter * pulse) + rim;
-            surfCol += vec3f(1.0, 0.9, 0.8) * spec * 0.2;
-
-            let limeAttenuation = 1.0 / (1.0 + limeDistSq * 0.1);
-            let limeContribution = vec3f(0.5, 1.0, 0.0) * (nDotLimeL * 0.3 + limeBackScatter * pulse * 0.2) * 2.0 * limeAttenuation;
-            surfCol += limeContribution + vec3f(0.7, 1.0, 0.6) * limeSpec * 0.15 * limeAttenuation;
-
-            col = mix(col, surfCol, alpha);
-            break;
-        }
-
-        t += d;
-        if(t > 10.0) { break; }
-    }
-    return col;
-}
-
-@fragment
-fn fs_main(in: VertexOut) -> @location(0) vec4f {
-    // Aspect Ratio
-    let aspect = u.resolution.x / u.resolution.y;
-    let uv = in.uv * vec2f(aspect, 1.0);
-
-    // 2x Super-Sampling Anti-Aliasing (reduced for performance)
-    let pixelSize = 1.0 / u.resolution.y;
-
-    // 2-sample diagonal pattern
-    let o1 = vec2f(0.25, 0.25) * pixelSize;
-    let o2 = vec2f(-0.25, -0.25) * pixelSize;
-
-    let c1 = getPixelColor(uv + o1);
-    let c2 = getPixelColor(uv + o2);
-
-    let finalColor = (c1 + c2) * 0.5;
-
-    return vec4f(finalColor, 1.0);
-}
-`.replace('{{MAP_FUNCTION}}', mapFunction)
-}
+import type { FpsMeter } from './fps-meter'
+import { generateShaderCode } from './lava-lamp-shader'
 
 function hexToRgb(hex: string): [number, number, number] {
   const bigint = Number.parseInt(hex.slice(1), 16)
@@ -406,30 +159,9 @@ function saveParticleData(data: number[]): void {
 export function LavaLamp({ className }: { className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number>(null)
-  const saveTimeoutRef = useRef<number | null>(null)
   const mouseRef = useRef({ x: 0, y: 0, down: false })
   const camAnglesRef = useRef({ theta: 0, phi: 0.2 })
   const camRadiusRef = useRef(4.5)
-  const _isDestroyedRef = useRef(false)
-  const _resourcesRef = useRef<{
-    device: GPUDevice | null
-    context: GPUCanvasContext | null
-    uniformBuffer: GPUBuffer | null
-    particleBuffer: GPUBuffer | null
-    bindGroup: GPUBindGroup | null
-    computePipeline: GPUComputePipeline | null
-    renderPipeline: GPURenderPipeline | null
-    stagingBuffer: GPUBuffer | null
-  }>({
-    device: null,
-    context: null,
-    uniformBuffer: null,
-    particleBuffer: null,
-    bindGroup: null,
-    computePipeline: null,
-    renderPipeline: null,
-    stagingBuffer: null,
-  })
 
   const updateCamera = useCallback((dx: number, dy: number) => {
     camAnglesRef.current.theta -= dx * 0.01
@@ -518,10 +250,13 @@ export function LavaLamp({ className }: { className?: string }) {
     let computePipeline: GPUComputePipeline | null = null
     let renderPipeline: GPURenderPipeline | null = null
     let stagingBuffer: GPUBuffer | null = null
-    let handleWindowResize: (() => void) | null = null
-    let handleScroll: (() => void) | null = null
-    let scrollEndTimer: ReturnType<typeof setTimeout> | null = null
+    let fpsMeter: FpsMeter | null = null
     let isDestroyed = false
+    let sizeObserver: ResizeObserver | null = null
+    // Every listener below is registered with this signal, so teardown is one
+    // abort() rather than a removeEventListener per listener, each guarded by
+    // whether that listener was reached before the async setup finished.
+    const listeners = new AbortController()
     const numParticles = 16
     const uniformBufferSize = 160
 
@@ -537,7 +272,7 @@ export function LavaLamp({ className }: { className?: string }) {
         device.addEventListener('uncapturederror', event => {
           console.error('WebGPU uncaptured error:', event.error)
         })
-        context = canvas.getContext('webgpu')!
+        context = canvas.getContext('webgpu')
         if (!context) {
           console.warn('WebGPU context not available')
           return
@@ -642,57 +377,62 @@ export function LavaLamp({ className }: { className?: string }) {
         // flight nearly full-time, stalling the pipeline.
         const saveInterval = 1000
 
-        const updateCanvasSize = () => {
+        // Render at devicePixelRatio capped at 2 for edge sharpness. The cap
+        // is the only resolution concession: the scene holds 60fps at full dpr,
+        // scrolling included, so nothing drops resolution to keep up.
+        const renderScale = () => Math.min(window.devicePixelRatio || 1, 2)
+
+        // Sized from the canvas's own box, which CSS sizes in svw/svh, rather
+        // than from visualViewport. The two disagree on iOS while the URL bar
+        // collapses: sizing to the viewport stretches the image, because the
+        // element's box is following the stable svh instead.
+        const resizeCanvas = (cssWidth: number, cssHeight: number) => {
           if (isDestroyed) {
             return
           }
-          const width = window.visualViewport?.width || window.innerWidth
-          const height = window.visualViewport?.height || window.innerHeight
-          if (width > 0 && height > 0) {
-            // Render at devicePixelRatio capped at 2 for edge sharpness. A
-            // live scroll trace showed the GPU process saturates during scroll
-            // at dpr 2, so the frame loop drops to dpr 1 while a scroll is in
-            // progress and restores full res when it ends (motion masks the
-            // brief softness). Rest quality stays full; scroll frees 75% fill.
-            const dpr = Math.min(window.devicePixelRatio || 1, 2)
-            const renderWidth = Math.round(width * dpr)
-            const renderHeight = Math.round(height * dpr)
-            if (
-              canvas.width !== renderWidth ||
-              canvas.height !== renderHeight
-            ) {
-              canvas.width = renderWidth
-              canvas.height = renderHeight
-              canvas.style.width = `${width}px`
-              canvas.style.height = `${height}px`
-            }
+          const dpr = renderScale()
+          const width = Math.round(cssWidth * dpr)
+          const height = Math.round(cssHeight * dpr)
+          if (
+            width > 0 &&
+            height > 0 &&
+            (canvas.width !== width || canvas.height !== height)
+          ) {
+            canvas.width = width
+            canvas.height = height
           }
         }
 
-        updateCanvasSize()
-
-        handleWindowResize = () => {
-          updateCanvasSize()
-        }
-        window.addEventListener('resize', handleWindowResize)
-
-        // Scroll-adaptive resolution. Full dpr at rest for crisp edges; dpr 1
-        // while a scroll is in progress so the GPU process (which a live trace
-        // showed saturating during scroll) keeps up. A scroll settles 150ms
-        // after the last event, then full res is restored; the brief softness
-        // is masked by motion and invisible against the moving page.
-        let isScrolling = false
-        handleScroll = () => {
-          isScrolling = true
-          if (scrollEndTimer !== null) {
-            clearTimeout(scrollEndTimer)
+        // ResizeObserver reports the canvas's own box changing for any reason,
+        // which is the actual event of interest. Watching window resize,
+        // orientationchange, and visualViewport resize instead would be three
+        // proxies for it: none of them fires when the element's box changes on
+        // its own, all three can fire for one change, and answering them means
+        // reading the box back with getBoundingClientRect, a forced layout
+        // flush. The callback delivers the size directly, after layout and
+        // before paint, so nothing here reads layout at all.
+        sizeObserver = new ResizeObserver(entries => {
+          const box = entries.at(-1)?.contentRect
+          if (box) {
+            resizeCanvas(box.width, box.height)
           }
-          scrollEndTimer = setTimeout(() => {
-            isScrolling = false
-            scrollEndTimer = null
-          }, 150)
+        })
+        sizeObserver.observe(canvas)
+
+        // The observer fires once on observe(), but that is a frame away and
+        // the first render happens sooner.
+        const startRect = canvas.getBoundingClientRect()
+        resizeCanvas(startRect.width, startRect.height)
+
+        // Frame-rate readout for checking a real device: append ?fps to the
+        // URL. Imported only when asked for, so a normal visit downloads none
+        // of it.
+        if (new URLSearchParams(window.location.search).has('fps')) {
+          const { createFpsMeter } = await import('./fps-meter')
+          if (!isDestroyed) {
+            fpsMeter = createFpsMeter()
+          }
         }
-        window.addEventListener('scroll', handleScroll, { passive: true })
 
         const frame = (time: number) => {
           if (isDestroyed || !device || !context) {
@@ -707,27 +447,34 @@ export function LavaLamp({ className }: { className?: string }) {
             return
           }
 
+          // Cap the animation at 60fps on displays that run faster. The gate
+          // allows a tenth of a frame of slack: on a 60Hz display the browser
+          // routinely delivers a callback a hair under 16.67ms, and an exact
+          // comparison rejects it, drops that frame, and halves the animation
+          // to 30fps on exactly the displays with the least headroom.
           const elapsed = time - lastFrameTime
-          if (elapsed < frameInterval) {
+          if (elapsed < frameInterval * 0.9) {
             animationFrameRef.current = requestAnimationFrame(frame)
             return
           }
-          lastFrameTime = time - (elapsed % frameInterval)
+          // Carry the overshoot forward so the cadence stays on a 60fps grid
+          // rather than drifting later every frame. The remainder only makes
+          // sense once a full interval has passed: for a frame let through by
+          // the slack above, `elapsed % frameInterval` is the whole elapsed
+          // time, which would put the marker back where it already was and
+          // let every subsequent callback through, running the animation at
+          // the display's full rate instead of 60.
+          lastFrameTime =
+            elapsed >= frameInterval ? time - (elapsed % frameInterval) : time
 
-          const width = window.visualViewport?.width || window.innerWidth
-          const height = window.visualViewport?.height || window.innerHeight
-          const dpr = isScrolling
-            ? 1
-            : Math.min(window.devicePixelRatio || 1, 2)
-          const renderWidth = Math.round(width * dpr)
-          const renderHeight = Math.round(height * dpr)
+          // The backing store as the observer last sized it. Reading it back
+          // costs nothing, where measuring the element here would flush layout
+          // every frame.
+          const renderWidth = canvas.width
+          const renderHeight = canvas.height
+          const dpr = renderScale()
 
-          if (canvas.width !== renderWidth || canvas.height !== renderHeight) {
-            canvas.width = renderWidth
-            canvas.height = renderHeight
-            canvas.style.width = `${width}px`
-            canvas.style.height = `${height}px`
-          }
+          fpsMeter?.sample(time, renderWidth, renderHeight, dpr)
 
           camAnglesRef.current.theta += 0.0003
           const r = camRadiusRef.current
@@ -884,31 +631,34 @@ export function LavaLamp({ className }: { className?: string }) {
     canvas.removeAttribute('width')
     canvas.removeAttribute('height')
 
-    canvas.addEventListener('mousedown', handleMouseDown)
-    window.addEventListener('mouseup', handleMouseUp)
-    window.addEventListener('mousemove', handleMouseMove)
-    canvas.addEventListener('touchstart', handleTouchStart, { passive: false })
-    window.addEventListener('touchend', handleTouchEnd)
-    window.addEventListener('touchmove', handleTouchMove, { passive: false })
+    const signal = listeners.signal
+    canvas.addEventListener('mousedown', handleMouseDown, { signal })
+    window.addEventListener('mouseup', handleMouseUp, { signal })
+    window.addEventListener('mousemove', handleMouseMove, { signal })
+    canvas.addEventListener('touchstart', handleTouchStart, {
+      passive: false,
+      signal,
+    })
+    window.addEventListener('touchend', handleTouchEnd, { signal })
+    window.addEventListener('touchmove', handleTouchMove, {
+      passive: false,
+      signal,
+    })
 
     return () => {
       isDestroyed = true
-      if (handleWindowResize) {
-        window.removeEventListener('resize', handleWindowResize)
+      listeners.abort()
+      if (sizeObserver) {
+        sizeObserver.disconnect()
+        sizeObserver = null
       }
-      canvas.removeEventListener('mousedown', handleMouseDown)
-      window.removeEventListener('mouseup', handleMouseUp)
-      window.removeEventListener('mousemove', handleMouseMove)
-      canvas.removeEventListener('touchstart', handleTouchStart)
-      window.removeEventListener('touchend', handleTouchEnd)
-      window.removeEventListener('touchmove', handleTouchMove)
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
         animationFrameRef.current = null
       }
-      if (saveTimeoutRef.current !== null) {
-        clearTimeout(saveTimeoutRef.current)
-        saveTimeoutRef.current = null
+      if (fpsMeter) {
+        fpsMeter.destroy()
+        fpsMeter = null
       }
       if (stagingBuffer) {
         stagingBuffer.destroy()

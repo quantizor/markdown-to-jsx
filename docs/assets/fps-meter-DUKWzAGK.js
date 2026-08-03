@@ -1,0 +1,3 @@
+function u(){const e=document.createElement("div");e.setAttribute("aria-hidden","true"),e.style.cssText="position:fixed;top:0;left:0;z-index:2147483647;margin:calc(env(safe-area-inset-top, 0px) + 8px) 8px;padding:6px 8px;border-radius:6px;background:rgba(0,0,0,0.72);color:#fff;font:600 12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;pointer-events:none",document.body.append(e);const t=[];let n=0,p=0;return{destroy(){e.remove(),t.length=0},sample(o,a,d,i){if(n>0&&t.push(o-n),n=o,o-p<=500||t.length<2)return;p=o;const s=t.slice().sort((x,l)=>x-l),r=s[s.length/2|0],c=s.at(-1)??r;e.textContent=`${(1e3/r).toFixed(0)} fps  ${r.toFixed(1)} ms
+worst ${c.toFixed(1)} ms
+${a}x${d} @${i}x`,t.length=0}}}export{u as createFpsMeter};

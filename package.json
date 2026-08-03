@@ -49,7 +49,7 @@
     "test:native": "bun run --filter markdown-to-jsx build && bun run --filter @markdown-to-jsx/native test",
     "test:native:built": "bun run --filter @markdown-to-jsx/native test",
     "typecheck": "bun run --filter markdown-to-jsx typecheck",
-    "typecheck:harness": "bun run --filter @markdown-to-jsx/browser --filter @markdown-to-jsx/native typecheck",
+    "typecheck:harness": "bun run --filter @markdown-to-jsx/browser --filter @markdown-to-jsx/native --filter @markdown-to-jsx/site typecheck",
     "verify": "bash scripts/verify",
     "changeset-credits": "bun scripts/changeset-credits.ts",
     "changeset-publish": "bun run build && changeset publish",

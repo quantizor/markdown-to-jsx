@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    // The site imports its own modules with explicit .ts and .tsx extensions,
+    // as does the library source it pulls in directly.
+    "allowImportingTsExtensions": true,
+    // Disabled repo-wide: enabling it would force the choice on consumers
+    "esModuleInterop": false,
+    "jsx": "react-jsx",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ESNext",
+    // @webgpu/types carries the GPUDevice, GPUBuffer, and GPUBufferUsage names
+    // the lava lamp is written against; without it they resolve to nothing and
+    // every line touching the GPU silently checks as `any`.
+    "types": ["@webgpu/types", "vite/client"]
+  },
+  "include": ["*.ts", "*.tsx"]
+}
