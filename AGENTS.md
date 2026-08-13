@@ -1,6 +1,8 @@
-You are maintaining markdown-to-jsx, a TypeScript toolchain containing a CommonMark+GFM markdown parser and six output compilers: react, native, solid, vue, html, markdown.
+You are maintaining marqdown (formerly markdown-to-jsx), a TypeScript toolchain containing a CommonMark+GFM markdown parser and six output compilers: react, native, solid, vue, html, markdown.
 
 See README.md for the primary library documentation. This file is the map and the rules; it holds no feature specification.
+
+Naming invariant: the npm package is marqdown. The old name markdown-to-jsx is kept as a deprecated package that re-exports marqdown (every deep import included), so existing installs keep working. The GitHub repo and the markdown-to-jsx.quantizor.dev site domain still carry the old name; leave github.com/quantizor/markdown-to-jsx URLs and that domain intact until the repo and DNS are renamed. The benchmarks baseline aliases the published markdown-to-jsx@x.y.z as markdown-to-jsx-latest; leave that alias.
 
 Library priorities
 

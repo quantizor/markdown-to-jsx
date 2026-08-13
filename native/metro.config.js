@@ -19,8 +19,8 @@ config.resolver.unstable_enablePackageExports = true
 // source instead of the installed dist build. Every other import inside the
 // library source is relative, so these two entries cover the whole tree.
 const sourceEntries = {
-  'markdown-to-jsx/entities': path.join(libSrc, 'entities.generated.ts'),
-  'markdown-to-jsx/native': path.join(libSrc, 'native.tsx'),
+  'marqdown/entities': path.join(libSrc, 'entities.generated.ts'),
+  'marqdown/native': path.join(libSrc, 'native.tsx'),
 }
 
 const defaultResolveRequest = config.resolver.resolveRequest

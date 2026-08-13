@@ -201,7 +201,7 @@ var compiler = {
     'solid-js',
     'solid-js/h',
     'vue',
-    'markdown-to-jsx/entities',
+    'marqdown/entities',
   ],
 } satisfies DefineConfigItem
 

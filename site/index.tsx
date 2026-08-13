@@ -30,7 +30,7 @@ const detectLanguage = (): string => {
     return langParam
   }
 
-  const stored = localStorage.getItem('markdown-to-jsx-lang')
+  const stored = localStorage.getItem('marqdown-lang')
   if (stored && SUPPORTED_LANGUAGES.includes(stored)) {
     return stored
   }
@@ -399,9 +399,7 @@ function TryItLive() {
   React.useLayoutEffect(() => {
     document.documentElement.lang = lang
     const title =
-      lang === 'en'
-        ? 'markdown-to-jsx'
-        : `markdown-to-jsx | ${LANGUAGES[lang].nativeName}`
+      lang === 'en' ? 'marqdown' : `marqdown | ${LANGUAGES[lang].nativeName}`
     document.title = title
   }, [lang])
 
@@ -434,7 +432,7 @@ function TryItLive() {
 
   const handleLangChange = React.useCallback((newLang: string) => {
     setLang(newLang)
-    localStorage.setItem('markdown-to-jsx-lang', newLang)
+    localStorage.setItem('marqdown-lang', newLang)
     const url = new URL(window.location.href)
     url.searchParams.set('lang', newLang)
     window.history.pushState({}, '', url)
@@ -553,7 +551,7 @@ function TryItLive() {
         <div className=" mx-auto text-base space-y-6">
           <h1 className="text-accent leading-tight">
             <span className="font-display tracking-widest text-[15vw] lg:text-[9vw]">
-              <FloatingText text="markdown-to-jsx" />
+              <FloatingText text="marqdown" />
               <span className="text-[max(1vw,16px)] font-sans tracking-wider">
                 v{VERSION}
               </span>

@@ -1,5 +1,5 @@
 {
-  "name": "@markdown-to-jsx/benchmarks",
+  "name": "@marqdown/benchmarks",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "bench:html": "bun index.ts --html"
   },
   "dependencies": {
-    "markdown-to-jsx": "workspace:*"
+    "marqdown": "workspace:*"
   },
   "devDependencies": {
     "@types/benchmark": "^2.1.5",

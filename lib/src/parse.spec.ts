@@ -5102,7 +5102,7 @@ describe('text normalization edge cases', () => {
   // md4c regression edge cases
   // Sourced from https://github.com/mity/md4c/blob/master/test/regressions.txt
   // Tests md4c-specific extensions (--fpermissive-url-autolinks, --fwiki-links) are excluded.
-  // Single-tilde strikethrough tests adapted to double-tilde (~~) for markdown-to-jsx.
+  // Single-tilde strikethrough tests adapted to double-tilde (~~) for marqdown.
   describe('md4c regression edge cases', () => {
     // Issue 2: Raw HTML
     it('md4c#2: raw HTML block with attributes', () => {

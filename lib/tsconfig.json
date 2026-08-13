@@ -12,7 +12,7 @@
     "noEmit": true,
     "outDir": "./dist",
     "paths": {
-      "markdown-to-jsx/entities": ["./src/entities.generated.ts"]
+      "marqdown/entities": ["./src/entities.generated.ts"]
     },
     "preserveConstEnums": true,
     "skipLibCheck": true,

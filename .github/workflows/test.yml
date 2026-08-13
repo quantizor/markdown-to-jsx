@@ -29,7 +29,7 @@ jobs:
           CI: "1"
 
       - name: Build browser harness bundle
-        run: bun run --filter @markdown-to-jsx/browser build
+        run: bun run --filter @marqdown/browser build
 
       - name: Install Chromium for Playwright
         working-directory: browser

@@ -1,4 +1,4 @@
-import type { NativeOptions } from 'markdown-to-jsx/native'
+import type { NativeOptions } from 'marqdown/native'
 import { type HarnessCase, CASES as SHARED_CASES } from '../fixtures/cases'
 
 /**
