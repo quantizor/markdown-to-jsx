@@ -54,7 +54,7 @@
       "entry": ["*.{ts,tsx}", "index.css", "vite.config.ts"],
       "ignoreDependencies": [
         // Site imports lib source for HMR; package dep keeps the workspace edge.
-        "markdown-to-jsx",
+        "marqdown",
         // CSS @import / @plugin; knip does not see stylesheet references.
         "@tailwindcss/typography",
         "tailwindcss"

@@ -1,4 +1,4 @@
-import Markdown from 'markdown-to-jsx/native'
+import Markdown from 'marqdown/native'
 import { Component, type ReactNode } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { CASES, MARKDOWN_OPTIONS } from './fixture'
@@ -51,7 +51,7 @@ class CaseBoundary extends Component<BoundaryProps, BoundaryState> {
 export default function App() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>markdown-to-jsx native harness</Text>
+      <Text style={styles.title}>marqdown native harness</Text>
       {CASES.map((fixtureCase, index) => {
         var label = fixtureCase.ref
           ? `${fixtureCase.id} ${fixtureCase.ref}`

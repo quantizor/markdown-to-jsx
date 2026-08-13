@@ -1,5 +1,5 @@
 {
-  "name": "@markdown-to-jsx/site",
+  "name": "@marqdown/site",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "markdown-to-jsx": "workspace:*"
+    "marqdown": "workspace:*"
   },
   "devDependencies": {
     "@matejmazur/react-katex": "^3.1.3",

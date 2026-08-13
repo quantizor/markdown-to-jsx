@@ -1,5 +1,5 @@
 {
-  "name": "@markdown-to-jsx/browser",
+  "name": "@marqdown/browser",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "markdown-to-jsx": "workspace:*",
+    "marqdown": "workspace:*",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "solid-js": "^1.9.14",

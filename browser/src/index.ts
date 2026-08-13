@@ -2,7 +2,7 @@
  * Mounts every case in fixtures/cases.ts once per browser compiler, each case
  * into its own root so one crashing case cannot take down its neighbors and
  * the failure maps straight to a case id. Imports resolve through the built
- * package exports map (node_modules/markdown-to-jsx -> lib/), so this page
+ * package exports map (node_modules/marqdown -> lib/), so this page
  * verifies the shipped artifacts and, via the exports "browser" condition,
  * the DOM-based entity decoder in lib/src/entities.browser.ts.
  *
@@ -10,9 +10,9 @@
  * createElement/createComponent/h so the harness carries zero transform config.
  */
 
-import ReactMarkdown from 'markdown-to-jsx/react'
-import SolidMarkdown from 'markdown-to-jsx/solid'
-import VueMarkdown from 'markdown-to-jsx/vue'
+import ReactMarkdown from 'marqdown/react'
+import SolidMarkdown from 'marqdown/solid'
+import VueMarkdown from 'marqdown/vue'
 import { createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createComponent } from 'solid-js'

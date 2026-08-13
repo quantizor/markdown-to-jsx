@@ -1,8 +1,8 @@
 /**
- * Main entry point for markdown-to-jsx
+ * Main entry point for marqdown
  *
  * @deprecated The React exports from this entry point are deprecated.
- * Use `markdown-to-jsx/react` import instead for React-specific usage.
+ * Use `marqdown/react` import instead for React-specific usage.
  */
 
 // Re-export parser
@@ -21,10 +21,10 @@ import _default, {
   Markdown as _Markdown,
 } from './react.tsx'
 
-/** @deprecated Use the `markdown-to-jsx/react` import instead */
+/** @deprecated Use the `marqdown/react` import instead */
 var Markdown: typeof _Markdown = _Markdown
 
-/** @deprecated Use the `markdown-to-jsx/react` import instead */
+/** @deprecated Use the `marqdown/react` import instead */
 var compiler: typeof _compiler = _compiler
 
 export default _default

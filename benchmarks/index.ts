@@ -7,14 +7,14 @@ import type Benchmark from 'benchmark'
 import BenchTable from 'benchtable'
 import cliProgress from 'cli-progress'
 import MarkdownIt from 'markdown-it'
-import { compiler as htmlCompiler } from 'markdown-to-jsx/html'
-import { compiler, parser } from 'markdown-to-jsx/react'
 import { compiler as latestHtmlCompiler } from 'markdown-to-jsx-latest/html'
 import {
   compiler as latestCompiler,
   parser as latestParser,
 } from 'markdown-to-jsx-latest/react'
 import { marked } from 'marked'
+import { compiler as htmlCompiler } from 'marqdown/html'
+import { compiler, parser } from 'marqdown/react'
 import * as prod from 'react/jsx-runtime'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
@@ -33,7 +33,7 @@ const { version: latestVersion } = JSON.parse(
 )
 
 const mdIt = new MarkdownIt()
-const suite = new BenchTable('markdown-to-jsx benchmark')
+const suite = new BenchTable('marqdown benchmark')
 
 const fixture = fs.readFileSync(
   path.join(import.meta.dirname, '..', 'lib/src/markdown-spec.md'),
@@ -44,7 +44,7 @@ const largeFixture = fs.readFileSync(
   'utf8'
 )
 
-// Set up rehype processor with all plugins to match markdown-to-jsx features
+// Set up rehype processor with all plugins to match marqdown features
 // @ts-expect-error - rehype-react types may be incomplete
 const production = { Fragment: prod.Fragment, jsx: prod.jsx, jsxs: prod.jsxs }
 
@@ -80,7 +80,7 @@ interface Test {
 
 const parseTests = [
   {
-    name: 'markdown-to-jsx (next) [parse]',
+    name: 'marqdown (next) [parse]',
     fn: input => parser(input),
   },
   {
@@ -107,7 +107,7 @@ const parseTests = [
 
 const jsxTests = [
   {
-    name: 'markdown-to-jsx (next) [jsx]',
+    name: 'marqdown (next) [jsx]',
     fn: input => compiler(input),
   },
   {
@@ -137,7 +137,7 @@ const jsxTests = [
 
 const htmlTests = [
   (isAll || isHtml) && {
-    name: 'markdown-to-jsx (next) [html]',
+    name: 'marqdown (next) [html]',
     fn: input => htmlCompiler(input),
   },
   (isAll || isHtml) && {
@@ -197,11 +197,11 @@ async function setupBenchmark() {
       console.log(`Fastest is ${suite.filter('fastest').map('name')}`)
       console.log(suite.table.toString())
 
-      // Filter to only store markdown-to-jsx (next) results for baseline comparison
+      // Filter to only store marqdown (next) results for baseline comparison
       const filteredResults: Record<string, any[]> = {}
       if (suite._results) {
         Object.entries(suite._results).forEach(([functionName, benchmarks]) => {
-          if (functionName.includes('markdown-to-jsx (next)')) {
+          if (functionName.includes('marqdown (next)')) {
             filteredResults[functionName] = benchmarks
           }
         })
@@ -229,13 +229,13 @@ async function setupBenchmark() {
 
           console.log('\n=== Performance vs Baseline ===')
 
-          // Compare results - only show markdown-to-jsx (next) comparisons
+          // Compare results - only show marqdown (next) comparisons
           if (suite._results && baseline.results) {
             var prevGroup = ''
             Object.entries(suite._results).forEach(
               ([functionName, benchmarks]: [string, Benchmark[]]) => {
-                // Only compare markdown-to-jsx (next) results
-                if (functionName.includes('markdown-to-jsx (next)')) {
+                // Only compare marqdown (next) results
+                if (functionName.includes('marqdown (next)')) {
                   var group = functionName.replace(/.*\[(\w+)\].*/, '$1')
                   if (prevGroup && group !== prevGroup) {
                     console.log()
