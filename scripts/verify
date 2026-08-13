@@ -2,29 +2,33 @@
 # Local and CI quality gate. Wave 0 (Biome) mutates the tree; wave 1 fans out
 # read-only checks; wave 2 builds dist; wave 3 fans out dist/golden checks.
 # Browser and native harnesses stay separate CI steps after verify.
+#
+# Quiet by design: a successful run prints one final line. A failing phase or
+# job prints its own captured output (and nothing else) to stderr, then aborts,
+# so the signal is never buried under the output of the steps that passed.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-repo_root=$(pwd)
 
 branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "?")
 head=$(git rev-parse --short HEAD 2>/dev/null || echo "?")
-if [[ -f "${repo_root}/.git" ]]; then kind="worktree"; else kind="primary checkout"; fi
-echo "==> verifying ${repo_root} (${kind}, ${branch} @ ${head})"
 
+# Run a foreground step with its output captured; surface it only on failure.
 phase() {
   local name=$1
   shift
-  echo "==> ${name}"
-  "$@"
+  local log status=0
+  log=$(mktemp "${TMPDIR:-/tmp}/verify-${name}.XXXXXX")
+  "$@" >"${log}" 2>&1 || status=$?
+  if [[ "${status}" -ne 0 ]]; then
+    echo "==> ${name}: FAILED" >&2
+    cat "${log}" >&2
+    rm -f "${log}"
+    exit "${status}"
+  fi
+  rm -f "${log}"
 }
 
-now_ms() {
-  # Portable millisecond clock (macOS date has no %N).
-  python3 -c 'import time; print(int(time.time()*1000))'
-}
-
-# Run a named job in the background; log wall time to a sidecar file.
-# Usage: bg_job NAME COMMAND...
+# Run a named job in the background, capturing its status and output.
 declare -a BG_NAMES=()
 declare -a BG_PIDS=()
 declare -a BG_LOGS=()
@@ -35,16 +39,12 @@ bg_job() {
   local log
   log=$(mktemp -t "verify-${name}.XXXXXX")
   (
-    local t0 t1 status
-    t0=$(now_ms)
     set +e
     "$@" >"${log}.out" 2>&1
     status=$?
     set -e
-    t1=$(now_ms)
     {
       echo "status=${status}"
-      echo "elapsed_ms=$((t1 - t0))"
       echo "---- output ----"
       cat "${log}.out"
     } >"${log}"
@@ -56,11 +56,12 @@ bg_job() {
   BG_LOGS+=("${log}")
 }
 
+# Wait for the current wave. Quiet on success; on any failure print the failing
+# jobs' captured output to stderr and abort.
 wait_wave() {
   local wave=$1
   local fail=0
-  local i name pid log status elapsed
-  echo "==> wave ${wave}: waiting (${#BG_PIDS[@]} jobs)"
+  local i name pid log status
   for i in "${!BG_PIDS[@]}"; do
     name="${BG_NAMES[$i]}"
     pid="${BG_PIDS[$i]}"
@@ -68,59 +69,47 @@ wait_wave() {
     set +e
     wait "${pid}"
     set -e
-    status=0
-    elapsed=0
     if [[ -f "${log}" ]]; then
       status=$(sed -n 's/^status=//p' "${log}" | head -1)
-      elapsed=$(sed -n 's/^elapsed_ms=//p' "${log}" | head -1)
-      echo "---- ${name} (${elapsed}ms, exit ${status}) ----"
-      sed -n '/^---- output ----$/,$p' "${log}" | tail -n +2
+      if [[ "${status}" != "0" ]]; then
+        echo "==> ${name}: FAILED (wave ${wave})" >&2
+        sed -n '/^---- output ----$/,$p' "${log}" | tail -n +2 >&2
+      fi
       rm -f "${log}"
     else
       status=1
-      echo "---- ${name} (missing log) ----"
+      echo "==> ${name}: FAILED (wave ${wave}, missing log)" >&2
     fi
-    if [[ "${status}" != "0" ]]; then
-      fail=1
-    fi
+    [[ "${status}" != "0" ]] && fail=1
   done
   BG_NAMES=()
   BG_PIDS=()
   BG_LOGS=()
-  if [[ "${fail}" -ne 0 ]]; then
-    echo "==> wave ${wave}: FAILED"
-    exit 1
-  fi
-  echo "==> wave ${wave}: ok"
+  [[ "${fail}" -ne 0 ]] && exit 1
+  return 0
 }
 
 # --- Wave 0: Biome (serial; only mutator of the source tree) ---
-wave0_t0=$(now_ms)
-# Snapshot the tracked-file state first: the audit below must report what Biome
-# itself rewrote, not edits that were already in the tree. CI checks out clean,
-# but a local run (or the pre-commit hook) often has unrelated work in flight,
-# and comparing against HEAD alone would blame Biome for it.
+# Snapshot tracked-file state first so the audit blames only what Biome rewrote,
+# not edits already in flight locally (CI checks out clean; local often does not).
 pre_biome_diff=$(git diff HEAD)
 phase "biome" bunx biome check --write --unsafe .
 
-echo "==> biome audit (post-autofix)"
-if [[ "$(git diff HEAD)" == "${pre_biome_diff}" ]]; then
-  echo "    clean: biome left no file changes"
-else
-  git --no-pager diff --stat
+if [[ "$(git diff HEAD)" != "${pre_biome_diff}" ]]; then
   if [[ -n "${CI:-}" ]]; then
-    echo "Biome rewrote tracked files; run 'bun run format' locally and commit the result."
+    git --no-pager diff --stat >&2
+    echo "Biome rewrote tracked files; run 'bun run format' locally and commit the result." >&2
     exit 1
   fi
-  echo "    (local) review the diff above; continuing verify"
+  # Local: Biome fixed formatting in flight. Surface it so the user commits it.
+  echo "==> biome rewrote files (review and commit):" >&2
+  git --no-pager diff --stat >&2
 fi
-echo "==> wave 0: ok ($(($(now_ms) - wave0_t0))ms)"
 
 # --- Wave 1: parallel source checks (no dist required) ---
-# Metrics and scaling run after the other wave-1 jobs so CPU contention does
-# not inflate their timings: both compare measurements against a threshold, and
-# five sibling jobs competing for cores is enough to move either verdict.
-wave1_t0=$(now_ms)
+# Metrics and scaling run after the other wave-1 jobs so CPU contention does not
+# inflate their timings: both compare a measurement against a threshold, and
+# sibling jobs competing for cores are enough to move either verdict.
 bg_job "knip" bunx knip
 bg_job "typecheck" bun run typecheck
 bg_job "validate-i18n" bun run validate-i18n
@@ -140,9 +129,7 @@ bg_job "test+coverage" bash -c '
 '
 bg_job "redos-smoke" bun scripts/redos-smoke.ts
 wait_wave 1a
-echo "==> wave 1a wall: $(($(now_ms) - wave1_t0))ms"
 
-wave1b_t0=$(now_ms)
 bg_job "metrics-gate" bash -c '
   set -euo pipefail
   fail=0
@@ -153,18 +140,13 @@ bg_job "metrics-gate" bash -c '
   exit "${fail}"
 '
 wait_wave 1b
-echo "==> wave 1b wall: $(($(now_ms) - wave1b_t0))ms"
-echo "==> wave 1 wall: $(($(now_ms) - wave1_t0))ms"
 
 # --- Wave 2: build (serial; supplies lib/dist for wave 3) ---
-wave2_t0=$(now_ms)
 phase "build" bun run build
-echo "==> wave 2: ok ($(($(now_ms) - wave2_t0))ms)"
 
 # --- Wave 3: parallel dist / golden checks ---
-# Harness typecheck belongs here: browser/native resolve marqdown/*
-# through package exports into lib/dist, which wave 2 just produced.
-wave3_t0=$(now_ms)
+# Harness typecheck belongs here: browser/native resolve marqdown/* through
+# package exports into lib/dist, which wave 2 just produced.
 bg_job "typecheck:harness" bun run typecheck:harness
 bg_job "emit-selfcheck-dev" bun scripts/emit-selfcheck.ts
 bg_job "emit-selfcheck-prod" env NODE_ENV=production bun scripts/emit-selfcheck.ts
@@ -172,6 +154,5 @@ bg_job "prod-strip-check" bun scripts/prod-strip-check.ts
 bg_job "hermetic-dist" bun scripts/hermetic-dist.ts
 bg_job "llms-snippets" bun scripts/llms-snippets.ts
 wait_wave 3
-echo "==> wave 3 wall: $(($(now_ms) - wave3_t0))ms"
 
-echo "==> verify ok (${branch} @ ${head})"
+echo "verify ok (${branch} @ ${head})"

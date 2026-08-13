@@ -1,7 +1,19 @@
 #!/usr/bin/env bash
 # Refuse the commit unless the shared quality gate is green under CI rules
 # (Biome must leave a clean tree; same path CI runs).
+# Stays quiet on success: verify's output is shown only when it fails.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export CI=1
-exec bun run verify
+
+log="$(mktemp "${TMPDIR:-/tmp}/marqdown-precommit.XXXXXX")"
+trap 'rm -f "$log"' EXIT
+
+if bun run verify >"$log" 2>&1; then
+  exit 0
+fi
+
+status=$?
+cat "$log" >&2
+echo "pre-commit: 'bun run verify' failed (output above); commit aborted." >&2
+exit "$status"
