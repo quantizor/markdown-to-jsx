@@ -21,9 +21,6 @@ export interface ConsoleLeak {
 
 var leaks: ConsoleLeak[] = []
 
-var originalWarn = console.warn.bind(console)
-var originalError = console.error.bind(console)
-
 export function isAllowedConsoleMessage(args: unknown[]): boolean {
   var first = args[0]
   if (typeof first !== 'string') {
@@ -44,16 +41,19 @@ export function drainConsoleLeaks(): ConsoleLeak[] {
   return out
 }
 
+// The wrappers record but do not forward to the real console. Allowed DEV
+// sanitizer warnings are intentional and stay silent; an unexpected warn/error
+// is recorded and surfaced with its full args by the afterEach failure below,
+// so forwarding would only flood output (the security suites emit hundreds of
+// allowed warnings by design, and the self-test emits deliberate leaks).
 function installLeakWrappers() {
   console.warn = function warnLeak(...args: unknown[]) {
     if (!isAllowedConsoleMessage(args)) {
       leaks.push({ args, level: 'warn' })
     }
-    return originalWarn(...(args as Parameters<typeof console.warn>))
   }
   console.error = function errorLeak(...args: unknown[]) {
     leaks.push({ args, level: 'error' })
-    return originalError(...(args as Parameters<typeof console.error>))
   }
 }
 

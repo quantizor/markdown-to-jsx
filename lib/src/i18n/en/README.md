@@ -1,6 +1,8 @@
-[![npm version](https://badge.fury.io/js/markdown-to-jsx.svg)](https://badge.fury.io/js/markdown-to-jsx) [![downloads](https://badgen.net/npm/dy/markdown-to-jsx)](https://npm-stat.com/charts.html?package=markdown-to-jsx)
+[![npm version](https://badge.fury.io/js/@marqdown%2Freact.svg)](https://badge.fury.io/js/@marqdown/react) [![downloads](https://badgen.net/npm/dy/@marqdown/react)](https://npm-stat.com/charts.html?package=@marqdown/react)
 
-`markdown-to-jsx` is a gfm+commonmark compliant markdown parser and compiler toolchain for JavaScript and TypeScript-based projects. It is extremely fast, capable of processing large documents fast enough for real-time interactivity.
+`marqdown` is a gfm+commonmark compliant markdown parser and compiler toolchain for JavaScript and TypeScript-based projects. It is extremely fast, capable of processing large documents fast enough for real-time interactivity.
+
+> **`markdown-to-jsx` is now published as focused packages under the `@marqdown` scope, one per integration.** Install the one for your integration: `@marqdown/react`, `@marqdown/vue`, `@marqdown/solid`, `@marqdown/native`, `@marqdown/html`, `@marqdown/markdown`, and the framework-free `@marqdown/parser`. Each includes the parser and pulls in only the framework it targets. The `markdown-to-jsx` package remains a compatibility alias that re-exports these packages, deep imports included, so existing installs keep working; migrating is optional.
 
 Some special features of the library:
 
@@ -100,13 +102,13 @@ compiler('<script>alert("xss")</script>', { tagfilter: false })
 
 ```typescript
 // React-specific usage
-import Markdown, { compiler, parser } from 'markdown-to-jsx/react'
+import Markdown, { compiler, parser } from '@marqdown/react'
 
 // HTML string output
-import { compiler, astToHTML, parser } from 'markdown-to-jsx/html'
+import { compiler, astToHTML, parser } from '@marqdown/html'
 
 // Markdown string output (round-trip compilation)
-import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
+import { compiler, astToMarkdown, parser } from '@marqdown/markdown'
 ```
 
 **Migration Guide:**
@@ -122,7 +124,7 @@ import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
 
 ```typescript
 /** Legacy */ import from 'markdown-to-jsx'
-/** Recommended */ import from 'markdown-to-jsx/react'
+/** Recommended */ import from '@marqdown/react'
 ```
 
 3. **Remove `namedCodesToUnicode` option**: All named HTML entities are now supported automatically, so you can remove any custom entity mappings.
@@ -132,7 +134,7 @@ import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
 /** v9 */ compiler('&le; symbol')
 ```
 
-**Note:** The main entry point (`markdown-to-jsx`) continues to work for backward compatibility, but React code there is deprecated and will be removed in a future major release. Consider migrating to `markdown-to-jsx/react` for React-specific usage.
+**Note:** The `markdown-to-jsx` compatibility alias continues to work for backward compatibility, but importing React code from it is deprecated and will be removed in a future major release. Consider migrating to `@marqdown/react` for React-specific usage.
 
 <details>
 <summary>### Older Migration Guides</summary>
@@ -159,20 +161,20 @@ import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
 
 ## Installation
 
-Install `markdown-to-jsx` with your favorite package manager.
+Install the `@marqdown` package for your integration with your favorite package manager. For React:
 
 ```shell
-npm i markdown-to-jsx
+npm i @marqdown/react
 ```
 
 ## Usage
 
-`markdown-to-jsx` exports a React component by default for easy JSX composition:
+`@marqdown/react` exports a React component by default for easy JSX composition:
 
 ES6-style usage\*:
 
 ```tsx
-import Markdown from 'markdown-to-jsx'
+import Markdown from '@marqdown/react'
 import React from 'react'
 import { render } from 'react-dom'
 
@@ -189,24 +191,24 @@ render(<Markdown># Hello world!</Markdown>, document.body)
 
 ### Entry Points
 
-`markdown-to-jsx` provides multiple entry points for different use cases:
+The `@marqdown` packages provide an entry point per integration:
 
 #### Main
 
-The legacy default entry point exports everything, including the React compiler and component:
+The `markdown-to-jsx` compatibility alias exports everything, including the React compiler and component:
 
 ```tsx
 import Markdown, { compiler, parser } from 'markdown-to-jsx'
 ```
 
-_The React code in this entry point is deprecated and will be removed in a future major release, migrate to `markdown-to-jsx/react`._
+_The React code in this alias is deprecated and will be removed in a future major release, migrate to `@marqdown/react`._
 
 #### React
 
 For React-specific usage, import from the `/react` entry point:
 
 ```tsx
-import Markdown, { compiler, parser, astToJSX } from 'markdown-to-jsx/react'
+import Markdown, { compiler, parser, astToJSX } from '@marqdown/react'
 
 const jsxElement = compiler('# Hello world')
 
@@ -227,7 +229,7 @@ The `Markdown` component automatically detects whether it's running in a React S
 
 ```tsx
 // Server Component - works automatically
-import Markdown from 'markdown-to-jsx/react'
+import Markdown from '@marqdown/react'
 
 export default async function Page() {
   const content = await fetchMarkdownContent()
@@ -240,7 +242,7 @@ export default async function Page() {
 ```tsx
 // Client Component - also works automatically
 'use client'
-import Markdown from 'markdown-to-jsx/react'
+import Markdown from '@marqdown/react'
 
 export function ClientMarkdown({ content }: { content: string }) {
   return <Markdown>{content}</Markdown>
@@ -259,7 +261,7 @@ export function ClientMarkdown({ content }: { content: string }) {
 For React Native usage, import from the `/native` entry point:
 
 ```tsx
-import Markdown, { compiler, parser, astToNative } from 'markdown-to-jsx/native'
+import Markdown, { compiler, parser, astToNative } from '@marqdown/native'
 import { View, Text, StyleSheet, Linking } from 'react-native'
 
 const nativeElement = compiler('# Hello world', {
@@ -406,7 +408,7 @@ import Markdown, {
   parser,
   astToJSX,
   MarkdownProvider,
-} from 'markdown-to-jsx/solid'
+} from '@marqdown/solid'
 import { createSignal } from 'solid-js'
 
 // Static content
@@ -447,7 +449,7 @@ function AppWithContext() {
 For Vue.js 3 usage, import from the `/vue` entry point:
 
 ```tsx
-import Markdown, { compiler, parser, astToJSX } from 'markdown-to-jsx/vue'
+import Markdown, { compiler, parser, astToJSX } from '@marqdown/vue'
 import { h } from 'vue'
 
 // Using compiler
@@ -473,7 +475,7 @@ const vnode2 = astToJSX(ast)
 For HTML string output (server-side rendering), import from the `/html` entry point:
 
 ```tsx
-import { compiler, astToHTML, parser } from 'markdown-to-jsx/html'
+import { compiler, astToHTML, parser } from '@marqdown/html'
 
 const htmlString = compiler('# Hello world')
 
@@ -487,7 +489,7 @@ const htmlString2 = astToHTML(ast)
 For markdown-to-markdown compilation (normalization and formatting), import from the `/markdown` entry point:
 
 ```typescript
-import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
+import { compiler, astToMarkdown, parser } from '@marqdown/markdown'
 
 const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
 
@@ -526,7 +528,7 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 Sometimes, you might want to override the `React.createElement` default behavior to hook into the rendering process before the JSX gets rendered. This might be useful to add extra children or modify some props based on runtime conditions. The function mirrors the `React.createElement` function, so the params are [`type, [props], [...children]`](https://reactjs.org/docs/react-api.html#createelement):
 
 ```javascript
-import Markdown from 'markdown-to-jsx'
+import Markdown from '@marqdown/react'
 import React from 'react'
 import { render } from 'react-dom'
 
@@ -619,7 +621,7 @@ When enabled, attempts to eval expressions in JSX props that cannot be serialize
 **By default (recommended)**, unserializable expressions are kept as strings for security:
 
 ```tsx
-import { parser } from 'markdown-to-jsx'
+import { parser } from '@marqdown/parser'
 
 const ast = parser('<Button onClick={() => alert("hi")} />')
 // ast[0].attrs.onClick === "() => alert(\"hi\")" (string, safe)
@@ -712,7 +714,7 @@ Supply your own rendering function that can selectively override how _rules_ are
 You can use this functionality to do pretty much anything with an established AST node; here's an example of selectively overriding the "codeBlock" rule to process LaTeX syntax using the `@matejmazur/react-katex` library:
 
 ````tsx
-import Markdown, { RuleType } from 'markdown-to-jsx'
+import Markdown, { RuleType } from '@marqdown/react'
 import TeX from '@matejmazur/react-katex'
 
 const exampleContent =
@@ -862,7 +864,7 @@ When using [fenced code blocks](https://www.markdownguide.org/extended-syntax/#s
 ```
 
 ````tsx
-import { Markdown, RuleType } from 'markdown-to-jsx'
+import { Markdown, RuleType } from '@marqdown/react'
 
 const mdContainingFencedCodeBlock = '```js\nconsole.log("Hello world!");\n```\n'
 
@@ -900,7 +902,7 @@ function SyntaxHighlightedCode(props) {
 For Slack-style messaging with arbitrary shortcodes like `:smile:`, you can use `options.renderRule` to hook into the plain text rendering and adjust things to your liking, for example:
 
 ```tsx
-import Markdown, { RuleType } from 'markdown-to-jsx'
+import Markdown, { RuleType } from '@marqdown/react'
 
 const shortcodeMap = {
   smile: '🙂',
@@ -948,7 +950,7 @@ When rendering markdown content that arrives incrementally (e.g., from an AI/LLM
 The `optimizeForStreaming` option solves this by detecting incomplete markdown structures and holding them back until the content is complete (returning `null` on React and React Native, an empty string on HTML). It works across every renderer:
 
 ```tsx
-import Markdown from 'markdown-to-jsx/react'
+import Markdown from '@marqdown/react'
 
 function StreamingMarkdown({ content }) {
   return <Markdown options={{ optimizeForStreaming: true }}>{content}</Markdown>
@@ -960,7 +962,7 @@ function StreamingMarkdown({ content }) {
 A common pattern is rendering streamed responses from LLM APIs (OpenAI, Anthropic, etc.) where tokens arrive one at a time. Without `optimizeForStreaming`, users see distracting flashes of raw markdown syntax between each token. With it enabled, incomplete structures are suppressed until the closing delimiter arrives, producing a smooth reading experience:
 
 ```tsx
-import Markdown from 'markdown-to-jsx/react'
+import Markdown from '@marqdown/react'
 import { useState, useEffect } from 'react'
 
 function ChatMessage({ stream }) {
@@ -1106,7 +1108,7 @@ The parser intelligently parses JSX prop values:
 #### Example AST Structure
 
 ````tsx
-import { parser, RuleType } from 'markdown-to-jsx'
+import { parser, RuleType } from '@marqdown/parser'
 
 const ast = parser(`# Hello World
 
@@ -1167,7 +1169,7 @@ console.log('code')
 Use the `RuleType` enum to identify AST nodes:
 
 ```tsx
-import { RuleType } from 'markdown-to-jsx'
+import { RuleType } from '@marqdown/parser'
 
 if (node.type === RuleType.heading) {
   const heading = node as MarkdownToJSX.HeadingNode

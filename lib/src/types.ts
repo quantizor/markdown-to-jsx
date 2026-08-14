@@ -45,7 +45,7 @@ if (process.env.NODE_ENV === 'test') {
 type RuleTypeValue = (typeof RuleTypeConst)[keyof typeof RuleTypeConst]
 
 /**
- * markdown-to-jsx types and interfaces
+ * marqdown types and interfaces
  */
 declare namespace MarkdownToJSX {
   /**

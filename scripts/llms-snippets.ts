@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { spawnSync } from 'node:child_process'
 /**
- * Run executable fences from lib/llms.txt that import markdown-to-jsx string
+ * Run executable fences from lib/llms.txt that import @marqdown string
  * compilers (html/markdown) or a self-contained react compiler/parser call.
  * Skips illustrative fragments that reference undefined locals.
  */
@@ -46,22 +46,22 @@ var ran = 0
 var failed = 0
 
 for (const fence of fences) {
-  if (!/from ['"]markdown-to-jsx\//.test(fence.body)) {
+  if (!/from ['"]@marqdown\//.test(fence.body)) {
     continue
   }
   if (SKIP_IF.some(s => fence.body.includes(s))) {
     continue
   }
   // Only self-contained compile/parser demos against html, markdown, or react.
-  if (!/markdown-to-jsx\/(html|markdown|react)/.test(fence.body)) {
+  if (!/@marqdown\/(html|markdown|react)/.test(fence.body)) {
     continue
   }
   // native/solid/vue need more runtime than a one-shot eval
-  if (/markdown-to-jsx\/(native|solid|vue)/.test(fence.body)) {
+  if (/@marqdown\/(native|solid|vue)/.test(fence.body)) {
     continue
   }
 
-  const wrapped = fence.body.includes('markdown-to-jsx/react')
+  const wrapped = fence.body.includes('@marqdown/react')
     ? `
 import * as React from 'react'
 ${fence.body}
@@ -69,8 +69,9 @@ ${fence.body}
     : fence.body
 
   const result = spawnSync('bun', ['-e', wrapped], {
-    // Package exports resolve from lib/ (workspace package name).
-    cwd: path.join(import.meta.dirname, '..', 'lib'),
+    // The scoped @marqdown/* packages are linked into packages/compat, so run
+    // the snippet from there; react resolves from the root.
+    cwd: path.join(import.meta.dirname, '..', 'packages', 'compat'),
     encoding: 'utf8',
     env: process.env,
   })

@@ -1,6 +1,6 @@
 ---
 title: Comprehensive Markdown Syntax Fixture
-description: A comprehensive test fixture for markdown-to-jsx parser with all syntax elements and various input sizes
+description: A comprehensive test fixture for marqdown parser with all syntax elements and various input sizes
 version: 1.0.0
 tags:
   - markdown
@@ -9,12 +9,12 @@ tags:
   - comprehensive
   - performance
 date: 2025-01-15
-author: markdown-to-jsx test suite
+author: marqdown test suite
 ---
 
 # Comprehensive Markdown Syntax Fixture
 
-This fixture file is designed to test every markdown syntax element supported by markdown-to-jsx, with a variety of input string sizes to ensure comprehensive coverage.
+This fixture file is designed to test every markdown syntax element supported by marqdown, with a variety of input string sizes to ensure comprehensive coverage.
 
 ---
 
@@ -2384,4 +2384,4 @@ This is an extremely long piece of content designed to test parsing performance 
 
 # END OF COMPREHENSIVE FIXTURE FILE
 
-This file has been designed to comprehensively test all markdown syntax elements supported by markdown-to-jsx, with a focus on various input sizes and edge cases to ensure robust parsing performance. The file contains extensive content in multiple large blocks to exceed the 100KB size requirement while maintaining diverse markdown syntax coverage.
+This file has been designed to comprehensively test all markdown syntax elements supported by marqdown, with a focus on various input sizes and edge cases to ensure robust parsing performance. The file contains extensive content in multiple large blocks to exceed the 100KB size requirement while maintaining diverse markdown syntax coverage.

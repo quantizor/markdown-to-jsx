@@ -13,9 +13,9 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "@markdown-to-jsx/benchmarks",
-    "@markdown-to-jsx/browser",
-    "@markdown-to-jsx/native",
-    "@markdown-to-jsx/site"
+    "@marqdown/benchmarks",
+    "@marqdown/browser",
+    "@marqdown/native-harness",
+    "@marqdown/site"
   ]
 }

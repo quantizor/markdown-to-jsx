@@ -1,5 +1,5 @@
 /**
- * Script to generate a comprehensive markdown fixture file for testing markdown-to-jsx
+ * Script to generate a comprehensive markdown fixture file for testing marqdown
  *
  * This script creates a fixture file with all supported markdown syntax elements,
  * each tested with 5 different input sizes: tiny, short, medium, long, and veryLong.
@@ -54,7 +54,7 @@ function generateForSizes(templateFn: TemplateFunction): string {
 // Main output generation
 const output = `---
 title: Comprehensive Markdown Syntax Fixture
-description: A comprehensive test fixture for markdown-to-jsx parser with all syntax elements and various input sizes
+description: A comprehensive test fixture for marqdown parser with all syntax elements and various input sizes
 version: 1.0.0
 tags:
   - markdown
@@ -63,12 +63,12 @@ tags:
   - comprehensive
   - performance
 date: 2025-01-15
-author: markdown-to-jsx test suite
+author: marqdown test suite
 ---
 
 # Comprehensive Markdown Syntax Fixture
 
-This fixture file is designed to test every markdown syntax element supported by markdown-to-jsx, with a variety of input string sizes to ensure comprehensive coverage.
+This fixture file is designed to test every markdown syntax element supported by marqdown, with a variety of input string sizes to ensure comprehensive coverage.
 
 ---
 
@@ -780,7 +780,7 @@ ${sizes.veryLong}
 
 # END OF COMPREHENSIVE FIXTURE FILE
 
-This file has been designed to comprehensively test all markdown syntax elements supported by markdown-to-jsx, with a focus on various input sizes and edge cases to ensure robust parsing performance. The file contains extensive content in multiple large blocks to exceed the 100KB size requirement while maintaining diverse markdown syntax coverage.
+This file has been designed to comprehensively test all markdown syntax elements supported by marqdown, with a focus on various input sizes and edge cases to ensure robust parsing performance. The file contains extensive content in multiple large blocks to exceed the 100KB size requirement while maintaining diverse markdown syntax coverage.
 `
 
 // Write the output to file
