@@ -83,6 +83,16 @@ function pack(dir: string): void {
       `No dist files matched package "${dir}" in ${LIB_DIST}. Build lib first (bun run --filter marqdown build).`
     )
   }
+
+  // Distribute the shared README and LICENSE to the package root (each
+  // package.json lists them in `files`). Copies, refreshed every build.
+  var pkgRoot = path.join(ROOT, 'packages', dir)
+  copyFileSync(
+    path.join(ROOT, 'lib', 'README.md'),
+    path.join(pkgRoot, 'README.md')
+  )
+  copyFileSync(path.join(ROOT, 'lib', 'LICENSE'), path.join(pkgRoot, 'LICENSE'))
+
   console.log(`packed ${entry.scope} (${copied} files)`)
 }
 
