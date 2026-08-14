@@ -1,12 +1,10 @@
 {
   "name": "marqdown",
-  "description": "A very fast and versatile markdown toolchain (formerly markdown-to-jsx). AST, React, React Native, SolidJS, Vue, Markdown, and HTML output available with full customization.",
+  "description": "Private source and build home for the @marqdown/* packages (formerly the markdown-to-jsx library). Not published; the scoped @marqdown/* packages and the markdown-to-jsx compat alias are the published surface.",
   "homepage": "https://markdown-to-jsx.quantizor.dev",
   "license": "MIT",
   "version": "9.10.2",
-  "publishConfig": {
-    "access": "public"
-  },
+  "private": true,
   "engines": {
     "node": ">= 18"
   },

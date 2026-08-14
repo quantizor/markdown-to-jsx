@@ -2,7 +2,7 @@ You are maintaining marqdown (formerly markdown-to-jsx), a TypeScript toolchain 
 
 See README.md for the primary library documentation. This file is the map and the rules; it holds no feature specification.
 
-Naming invariant: the npm package is marqdown. The old name markdown-to-jsx is kept as a deprecated package that re-exports marqdown (every deep import included), so existing installs keep working. The GitHub repo and the markdown-to-jsx.quantizor.dev site domain still carry the old name; leave github.com/quantizor/markdown-to-jsx URLs and that domain intact until the repo and DNS are renamed. The benchmarks baseline aliases the published markdown-to-jsx@x.y.z as markdown-to-jsx-latest; leave that alias.
+Naming invariant: the toolchain publishes one scoped package per integration under the @marqdown org: @marqdown/parser, @marqdown/react, @marqdown/native, @marqdown/solid, @marqdown/vue, @marqdown/html, @marqdown/markdown. Each renderer inlines the parser and has zero @marqdown runtime dependencies. The old name markdown-to-jsx stays as a deprecated compatibility alias (packages/compat) that re-exports these packages, every deep import included, so existing installs keep working; new code installs the specific @marqdown/<integration> package. The unscoped name marqdown is NOT published (npm rejected it as too close to markdown): lib is the private source and build home, not a published package, though it keeps the workspace name marqdown and self-imports marqdown/entities internally. The GitHub repo and the markdown-to-jsx.quantizor.dev site domain still carry the old name; leave github.com/quantizor/markdown-to-jsx URLs and that domain intact until the repo and DNS are renamed. The benchmarks baseline aliases the published markdown-to-jsx@x.y.z as markdown-to-jsx-latest; leave that alias.
 
 Library priorities
 
@@ -181,8 +181,18 @@ Key library files
 - `lib/src/utils.ts` - entity decoding, sanitization, slugification, character classification
 - `lib/src/constants.ts` - character code constants
 - `lib/src/entities.generated.ts` - generated HTML entity mappings, regenerate with `bun entities`
+- `lib/src/parser.ts` - the `@marqdown/parser` public entry (parser-only, no compiler)
 - output adapters: `react.tsx`, `native.tsx`, `solid.tsx`, `vue.tsx`, `html.ts`, `markdown.ts`
 - entry points: `lib/src/index.tsx` (main, re-exports parser/types/utilities) and `lib/src/index.cjs.tsx` (CommonJS, with deprecated exports)
+
+Published packages (built from lib, not their own source)
+
+- `packages/<name>/package.json`: the seven scoped packages plus `packages/compat` (name markdown-to-jsx). No source lives here; dist is a slice of lib/dist.
+- `bunup.shared.ts` (root): shared bunup plugins/config imported by `lib/bunup.config.ts`.
+- `scripts/pack-packages.ts`: copies each package's slice from lib/dist and rewrites the `marqdown/entities` specifier to `<scope>/entities`. Runs in root `build`.
+- `scripts/gen-compat.ts`: generates the markdown-to-jsx compat shim stubs into `packages/compat/dist`. Runs in root `build`. The committed `packages/compat/package.json` owns the version.
+- `scripts/check-inlined-parser-changesets.ts`: release guard. A shared parser change means every renderer's inlined parser changed, so all seven packages need changesets; fires in verify once any changeset exists.
+- `scripts/verify-declarations.ts`: checks every package's declared `types` exports exist post-build.
 
 Internationalization
 
