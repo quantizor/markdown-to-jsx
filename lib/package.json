@@ -144,7 +144,6 @@
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
     "bunup": "0.15.14",
-    "esbuild": "^0.27.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-native": "^0.83.1",

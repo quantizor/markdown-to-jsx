@@ -15,7 +15,7 @@
   "ignore": [
     "@marqdown/benchmarks",
     "@marqdown/browser",
-    "@marqdown/native",
+    "@marqdown/native-harness",
     "@marqdown/site"
   ]
 }
