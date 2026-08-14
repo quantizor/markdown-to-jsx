@@ -1,43 +1,57 @@
 #!/usr/bin/env bun
 
 /**
- * Post-build verification script that ensures all TypeScript declaration
- * files referenced in package.json exports actually exist on disk.
- *
- * Runs independently of bunup's plugin system as a safety net against
- * silent DTS generation failures.
+ * Post-build safety net: every `types` path declared in a published package's
+ * exports (and its top-level `types`) must exist on disk. Guards against silent
+ * DTS generation failures in lib and against a scoped package whose slice was
+ * packed without its declarations. Runs independently of bunup's plugins.
  */
 
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import process from 'node:process'
 
-var pkgPath = resolve(import.meta.dir, '..', 'lib', 'package.json')
-var pkg = require(pkgPath)
-var libDir = resolve(import.meta.dir, '..', 'lib')
+var ROOT = resolve(import.meta.dir, '..')
+
+// Each published package: the directory holding its package.json and dist.
+var PACKAGE_DIRS = [
+  'lib',
+  'packages/parser',
+  'packages/react',
+  'packages/native',
+  'packages/solid',
+  'packages/vue',
+  'packages/html',
+  'packages/markdown',
+  'packages/compat',
+]
+
 var missing: string[] = []
 
-function walk(obj: unknown): void {
+function walk(baseDir: string, obj: unknown): void {
   if (typeof obj !== 'object' || obj === null) {
     return
   }
   for (var [key, val] of Object.entries(obj)) {
     if (key === 'types' && typeof val === 'string') {
-      var abs = resolve(libDir, val)
-      if (!existsSync(abs)) {
-        missing.push(val)
+      if (!existsSync(resolve(baseDir, val))) {
+        missing.push(`${baseDir}: ${val}`)
       }
     } else {
-      walk(val)
+      walk(baseDir, val)
     }
   }
 }
 
-if (pkg.exports) {
-  walk(pkg.exports)
-}
-if (pkg.types && !existsSync(resolve(libDir, pkg.types))) {
-  missing.push(pkg.types)
+for (var dir of PACKAGE_DIRS) {
+  var baseDir = resolve(ROOT, dir)
+  var pkg = require(resolve(baseDir, 'package.json'))
+  if (pkg.exports) {
+    walk(baseDir, pkg.exports)
+  }
+  if (pkg.types && !existsSync(resolve(baseDir, pkg.types))) {
+    missing.push(`${baseDir}: ${pkg.types}`)
+  }
 }
 
 if (missing.length > 0) {

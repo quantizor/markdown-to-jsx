@@ -1,0 +1,145 @@
+{
+  "name": "markdown-to-jsx",
+  "description": "Deprecated compatibility alias for marqdown. Re-exports the @marqdown/* packages so existing markdown-to-jsx imports keep working. For new code install the specific @marqdown/<renderer> package.",
+  "homepage": "https://markdown-to-jsx.quantizor.dev",
+  "license": "MIT",
+  "version": "9.10.2",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">= 18"
+  },
+  "keywords": [
+    "markdown-to-jsx",
+    "marqdown",
+    "markdown",
+    "react",
+    "jsx"
+  ],
+  "author": "Evan Jacobs <ej@quantizor.dev> (https://quantizor.dev)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quantizor/markdown-to-jsx.git",
+    "directory": "packages/compat"
+  },
+  "bugs": "https://github.com/quantizor/markdown-to-jsx/issues",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "package.json"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./react": {
+      "import": {
+        "types": "./dist/react.d.ts",
+        "default": "./dist/react.js"
+      },
+      "require": {
+        "types": "./dist/react.d.cts",
+        "default": "./dist/react.cjs"
+      }
+    },
+    "./native": {
+      "import": {
+        "types": "./dist/native.d.ts",
+        "default": "./dist/native.js"
+      },
+      "require": {
+        "types": "./dist/native.d.cts",
+        "default": "./dist/native.cjs"
+      }
+    },
+    "./solid": {
+      "import": {
+        "types": "./dist/solid.d.ts",
+        "default": "./dist/solid.js"
+      },
+      "require": {
+        "types": "./dist/solid.d.cts",
+        "default": "./dist/solid.cjs"
+      }
+    },
+    "./vue": {
+      "import": {
+        "types": "./dist/vue.d.ts",
+        "default": "./dist/vue.js"
+      },
+      "require": {
+        "types": "./dist/vue.d.cts",
+        "default": "./dist/vue.cjs"
+      }
+    },
+    "./html": {
+      "import": {
+        "types": "./dist/html.d.ts",
+        "default": "./dist/html.js"
+      },
+      "require": {
+        "types": "./dist/html.d.cts",
+        "default": "./dist/html.cjs"
+      }
+    },
+    "./markdown": {
+      "import": {
+        "types": "./dist/markdown.d.ts",
+        "default": "./dist/markdown.js"
+      },
+      "require": {
+        "types": "./dist/markdown.d.cts",
+        "default": "./dist/markdown.cjs"
+      }
+    },
+    "./entities": {
+      "import": {
+        "types": "./dist/entities.d.ts",
+        "default": "./dist/entities.js"
+      },
+      "require": {
+        "types": "./dist/entities.d.cts",
+        "default": "./dist/entities.cjs"
+      }
+    }
+  },
+  "sideEffects": false,
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@marqdown/html": "workspace:*",
+    "@marqdown/markdown": "workspace:*",
+    "@marqdown/parser": "workspace:*",
+    "@marqdown/react": "workspace:*"
+  },
+  "peerDependencies": {
+    "@marqdown/native": ">= 9.0.0",
+    "@marqdown/solid": ">= 9.0.0",
+    "@marqdown/vue": ">= 9.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@marqdown/native": {
+      "optional": true
+    },
+    "@marqdown/solid": {
+      "optional": true
+    },
+    "@marqdown/vue": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "build": "bun ../../scripts/gen-compat.ts"
+  }
+}

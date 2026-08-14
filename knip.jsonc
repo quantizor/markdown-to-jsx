@@ -4,6 +4,10 @@
   // Named + default Markdown exports (and markdown alias) are the public dual API.
   "exclude": ["duplicates"],
   "ignore": ["docs/**"],
+  // packages/compat is a generated re-export shim: its @marqdown/* dependencies
+  // are used only by the generated (gitignored) stubs, so a source scan reads
+  // them as unused. Nothing to analyze here.
+  "ignoreWorkspaces": ["packages/compat"],
   "ignoreBinaries": ["pushd", "popd"],
   "workspaces": {
     ".": {
@@ -18,6 +22,7 @@
         "bunup.config.ts",
         "src/index.tsx",
         "src/index.cjs.tsx",
+        "src/parser.ts",
         "src/react.tsx",
         "src/html.ts",
         "src/markdown.ts",

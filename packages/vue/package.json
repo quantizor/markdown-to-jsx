@@ -1,0 +1,79 @@
+{
+  "name": "@marqdown/vue",
+  "description": "Render markdown to Vue elements with marqdown (formerly markdown-to-jsx). Fast, customizable, CommonMark + GFM.",
+  "homepage": "https://markdown-to-jsx.quantizor.dev",
+  "license": "MIT",
+  "version": "9.10.2",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">= 18"
+  },
+  "keywords": [
+    "marqdown",
+    "markdown-to-jsx",
+    "markdown",
+    "vue",
+    "vuejs",
+    "vue3",
+    "commonmark",
+    "gfm"
+  ],
+  "author": "Evan Jacobs <ej@quantizor.dev> (https://quantizor.dev)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quantizor/markdown-to-jsx.git",
+    "directory": "packages/vue"
+  },
+  "bugs": "https://github.com/quantizor/markdown-to-jsx/issues",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "package.json"
+  ],
+  "type": "module",
+  "exports": {
+    "./entities": {
+      "browser": {
+        "import": {
+          "types": "./dist/entities.browser.d.ts",
+          "default": "./dist/entities.browser.js"
+        },
+        "require": {
+          "types": "./dist/entities.browser.d.cts",
+          "default": "./dist/entities.browser.cjs"
+        }
+      },
+      "import": {
+        "types": "./dist/entities.generated.d.ts",
+        "default": "./dist/entities.generated.js"
+      },
+      "require": {
+        "types": "./dist/entities.generated.d.cts",
+        "default": "./dist/entities.generated.cjs"
+      }
+    },
+    ".": {
+      "import": {
+        "types": "./dist/vue.d.ts",
+        "default": "./dist/vue.js"
+      },
+      "require": {
+        "types": "./dist/vue.d.cts",
+        "default": "./dist/vue.cjs"
+      }
+    }
+  },
+  "sideEffects": false,
+  "main": "dist/vue.cjs",
+  "module": "dist/vue.js",
+  "types": "dist/vue.d.ts",
+  "peerDependencies": {
+    "vue": ">= 3.0.0"
+  },
+  "scripts": {
+    "build": "bun ../../scripts/pack-packages.ts vue"
+  }
+}

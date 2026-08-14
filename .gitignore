@@ -5,8 +5,10 @@ coverage/
 *.cpuprofile
 CPU*.md
 *.log
+# non-bun package-manager artifacts (this repo uses bun; bun.lock is authoritative)
 package-lock.json
 pnpm-lock.yaml
+pnpm-workspace.yaml
 yarn.lock
 *.tsbuildinfo
 
