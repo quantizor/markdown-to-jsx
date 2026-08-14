@@ -1,8 +1,8 @@
-[![npm version](https://badge.fury.io/js/marqdown.svg)](https://badge.fury.io/js/marqdown) [![downloads](https://badgen.net/npm/dy/marqdown)](https://npm-stat.com/charts.html?package=marqdown)
+[![npm version](https://badge.fury.io/js/@marqdown%2Freact.svg)](https://badge.fury.io/js/@marqdown/react) [![downloads](https://badgen.net/npm/dy/@marqdown/react)](https://npm-stat.com/charts.html?package=@marqdown/react)
 
 `marqdown` 是一个为 JavaScript 和 TypeScript 项目设计的符合 GFM+CommonMark 规范的 Markdown 解析器 (Parser) 和编译器 (Compiler) 工具链。它的速度极快，能够处理大型文档，足以满足实时交互的需求。
 
-> **`marqdown` 是 `markdown-to-jsx` 的新名称。** 库本身、其 API 以及所有入口点均保持不变，仅包名有所变化。现有的 `markdown-to-jsx` 安装仍可正常使用，因为该包现在会重新导出 (re-export) `marqdown`（包括 `markdown-to-jsx/react` 等深层导入），并已被标记为已弃用 (Deprecated)，以推荐使用新包。迁移是可选的：方便时，运行 `npm i marqdown`，并将您导入语句中的 `markdown-to-jsx` 改为 `marqdown`（例如 `marqdown/react`、`marqdown/vue` 等）。
+> **`markdown-to-jsx` 现在以 `@marqdown` 作用域下的专注型包发布，每个集成对应一个包。** 请安装适合您集成的那个包：`@marqdown/react`、`@marqdown/vue`、`@marqdown/solid`、`@marqdown/native`、`@marqdown/html`、`@marqdown/markdown`，以及不依赖框架的 `@marqdown/parser`。每个包都包含解析器 (Parser)，并且只引入它所针对的框架。`markdown-to-jsx` 包仍作为兼容性别名 (compatibility alias) 保留，会重新导出 (re-export) 这些包（包括深层导入），因此现有安装仍可正常使用；迁移是可选的。
 
 本库的一些特别功能：
 
@@ -101,13 +101,13 @@ compiler('<script>alert("xss")</script>', { tagfilter: false })
 
 ```typescript
 // React 特定用法
-import Markdown, { compiler, parser } from 'marqdown/react'
+import Markdown, { compiler, parser } from '@marqdown/react'
 
 // HTML 字符串输出
-import { compiler, astToHTML, parser } from 'marqdown/html'
+import { compiler, astToHTML, parser } from '@marqdown/html'
 
 // Markdown 字符串输出 (往返编译)
-import { compiler, astToMarkdown, parser } from 'marqdown/markdown'
+import { compiler, astToMarkdown, parser } from '@marqdown/markdown'
 ```
 
 **迁移指南 (Migration Guide)：**
@@ -122,8 +122,8 @@ import { compiler, astToMarkdown, parser } from 'marqdown/markdown'
 2. **将 React 导入迁移到 `/react` 入口点**（可选但推荐）：
 
 ```typescript
-/** 旧版 */ import from 'marqdown'
-/** 推荐 */ import from 'marqdown/react'
+/** 旧版 */ import from 'markdown-to-jsx'
+/** 推荐 */ import from '@marqdown/react'
 ```
 
 3. **移除 `namedCodesToUnicode` 选项**：现在自动支持所有命名的 HTML 实体，因此您可以移除任何自定义实体映射。
@@ -133,7 +133,7 @@ import { compiler, astToMarkdown, parser } from 'marqdown/markdown'
 /** v9 */ compiler('&le; symbol')
 ```
 
-**注意：** 主入口点 (`marqdown`) 仍可继续使用以保持向后兼容性，但其中的 React 代码已被弃用，并将在未来的主要版本中移除。请考虑迁移到 `marqdown/react` 以供 React 特定使用。
+**注意：** `markdown-to-jsx` 兼容性别名仍可继续使用以保持向后兼容性，但从中导入 React 代码已被弃用，并将在未来的主要版本中移除。请考虑迁移到 `@marqdown/react` 以供 React 特定使用。
 
 <details>
 <summary>### 旧版迁移指南</summary>
@@ -160,20 +160,20 @@ import { compiler, astToMarkdown, parser } from 'marqdown/markdown'
 
 ## 安装 (Installation)
 
-使用您喜欢的包管理器安装 `marqdown`。
+使用您喜欢的包管理器安装适合您集成的 `@marqdown` 包。以 React 为例：
 
 ```shell
-npm i marqdown
+npm i @marqdown/react
 ```
 
 ## 用法 (Usage)
 
-`marqdown` 默认导出一个 React 组件，方便 JSX 组合：
+`@marqdown/react` 默认导出一个 React 组件，方便 JSX 组合：
 
 ES6 风格用法\*：
 
 ```tsx
-import Markdown from 'marqdown'
+import Markdown from '@marqdown/react'
 import React from 'react'
 import { render } from 'react-dom'
 
@@ -190,24 +190,24 @@ render(<Markdown># 你好世界!</Markdown>, document.body)
 
 ### 入口点 (Entry Points)
 
-`marqdown` 为不同的用例提供了多个入口点：
+`@marqdown` 包为每个集成提供一个入口点：
 
 #### 主入口 (Main)
 
-旧版默认入口点导出所有内容，包括 React 编译器和组件：
+`markdown-to-jsx` 兼容性别名导出所有内容，包括 React 编译器和组件：
 
 ```tsx
-import Markdown, { compiler, parser } from 'marqdown'
+import Markdown, { compiler, parser } from 'markdown-to-jsx'
 ```
 
-_此入口点中的 React 代码已被弃用，并将在未来的主要版本中移除，请迁移到 `marqdown/react`。_
+_此别名中的 React 代码已被弃用，并将在未来的主要版本中移除，请迁移到 `@marqdown/react`。_
 
 #### React
 
 对于 React 特定用法，从 `/react` 入口点导入：
 
 ```tsx
-import Markdown, { compiler, parser, astToJSX } from 'marqdown/react'
+import Markdown, { compiler, parser, astToJSX } from '@marqdown/react'
 
 const jsxElement = compiler('# 你好世界')
 
@@ -228,7 +228,7 @@ const jsxElement2 = astToJSX(ast)
 
 ```tsx
 // Server Component - 自动工作
-import Markdown from 'marqdown/react'
+import Markdown from '@marqdown/react'
 
 export default async function Page() {
   const content = await fetchMarkdownContent()
@@ -241,7 +241,7 @@ export default async function Page() {
 ```tsx
 // Client Component - 同样自动工作
 'use client'
-import Markdown from 'marqdown/react'
+import Markdown from '@marqdown/react'
 
 export function ClientMarkdown({ content }: { content: string }) {
   return <Markdown>{content}</Markdown>
@@ -260,7 +260,7 @@ export function ClientMarkdown({ content }: { content: string }) {
 对于 React Native 用法，从 `/native` 入口点导入：
 
 ```tsx
-import Markdown, { compiler, parser, astToNative } from 'marqdown/native'
+import Markdown, { compiler, parser, astToNative } from '@marqdown/native'
 import { View, Text, StyleSheet, Linking } from 'react-native'
 
 const nativeElement = compiler('# 你好世界', {
@@ -407,7 +407,7 @@ import Markdown, {
   parser,
   astToJSX,
   MarkdownProvider,
-} from 'marqdown/solid'
+} from '@marqdown/solid'
 import { createSignal } from 'solid-js'
 
 // 静态内容
@@ -448,7 +448,7 @@ function AppWithContext() {
 对于 Vue.js 3 用法，从 `/vue` 入口点导入：
 
 ```tsx
-import Markdown, { compiler, parser, astToJSX } from 'marqdown/vue'
+import Markdown, { compiler, parser, astToJSX } from '@marqdown/vue'
 import { h } from 'vue'
 
 // 使用编译器
@@ -474,7 +474,7 @@ const vnode2 = astToJSX(ast)
 对于 HTML 字符串输出 (服务端渲染)，从 `/html` 入口点导入：
 
 ```tsx
-import { compiler, astToHTML, parser } from 'marqdown/html'
+import { compiler, astToHTML, parser } from '@marqdown/html'
 
 const htmlString = compiler('# 你好世界')
 
@@ -488,7 +488,7 @@ const htmlString2 = astToHTML(ast)
 对于 Markdown 到 Markdown 的编译 (归一化和格式化)，从 `/markdown` 入口点导入：
 
 ```typescript
-import { compiler, astToMarkdown, parser } from 'marqdown/markdown'
+import { compiler, astToMarkdown, parser } from '@marqdown/markdown'
 
 const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
 
@@ -527,7 +527,7 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 有时，您可能想要覆盖 `React.createElement` 的默认行为，以便在渲染 JSX 之前切入渲染过程。这对于添加额外的子元素或根据运行时条件修改某些属性很有用。该函数的参数与 `React.createElement` 一致：[`type, [props], [...children]`](https://reactjs.org/docs/react-api.html#createelement)：
 
 ```javascript
-import Markdown from 'marqdown'
+import Markdown from '@marqdown/react'
 import React from 'react'
 import { render } from 'react-dom'
 
@@ -620,7 +620,7 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
 **默认情况下 (推荐)**，为了安全起见，不可序列化的表达式保持为字符串：
 
 ```tsx
-import { parser } from 'marqdown'
+import { parser } from '@marqdown/parser'
 
 const ast = parser('<Button onClick={() => alert("hi")} />')
 // ast[0].attrs.onClick === "() => alert(\"hi\")" (字符串，安全)
@@ -707,7 +707,7 @@ compiler(markdown, {
 您可以使用此功能对已建立的 AST 节点执行任何操作；这里有一个选择性覆盖 "codeBlock" 规则以使用 `@matejmazur/react-katex` 库处理 LaTeX 语法的示例：
 
 ````tsx
-import Markdown, { RuleType } from 'marqdown'
+import Markdown, { RuleType } from '@marqdown/react'
 import TeX from '@matejmazur/react-katex'
 
 const exampleContent =
@@ -857,7 +857,7 @@ compiler('One\n\nTwo\n\nThree', { wrapper: null })[
 ```
 
 ````tsx
-import { Markdown, RuleType } from 'marqdown'
+import { Markdown, RuleType } from '@marqdown/react'
 
 const mdContainingFencedCodeBlock = '```js\nconsole.log("你好世界!");\n```\n'
 
@@ -895,7 +895,7 @@ function SyntaxHighlightedCode(props) {
 对于像 `:smile:` 这样具有任意短代码的 Slack 风格消息，您可以使用 `options.renderRule` 切入纯文本渲染并根据您的喜好进行调整，例如：
 
 ```tsx
-import Markdown, { RuleType } from 'marqdown'
+import Markdown, { RuleType } from '@marqdown/react'
 
 const shortcodeMap = {
   smile: '🙂',
@@ -943,7 +943,7 @@ function Example() {
 `optimizeForStreaming` 选项通过检测不完整的 Markdown 结构并将其保留，直到内容完整后才渲染（在 React 和 React Native 上返回 `null`，在 HTML 上返回空字符串），从而解决这个问题。它在每一种渲染器中都能生效：
 
 ```tsx
-import Markdown from 'marqdown/react'
+import Markdown from '@marqdown/react'
 
 function StreamingMarkdown({ content }) {
   return <Markdown options={{ optimizeForStreaming: true }}>{content}</Markdown>
@@ -955,7 +955,7 @@ function StreamingMarkdown({ content }) {
 一个常见的模式是渲染来自 LLM API (OpenAI, Anthropic 等) 的流式响应，其中 token 逐个到达。如果不启用 `optimizeForStreaming`，用户会在每个 token 之间看到原始 Markdown 语法的闪烁。启用后，不完整的结构会被抑制直到闭合分隔符到达，从而提供流畅的阅读体验：
 
 ```tsx
-import Markdown from 'marqdown/react'
+import Markdown from '@marqdown/react'
 import { useState, useEffect } from 'react'
 
 function ChatMessage({ stream }) {
@@ -1101,7 +1101,7 @@ AST 由以下节点类型组成 (使用 `RuleType` 检查节点类型)：
 #### AST 结构示例
 
 ````tsx
-import { parser, RuleType } from 'marqdown'
+import { parser, RuleType } from '@marqdown/parser'
 
 const ast = parser(`# Hello World
 
@@ -1162,7 +1162,7 @@ console.log('code')
 使用 `RuleType` 枚举来标识 AST 节点：
 
 ```tsx
-import { RuleType } from 'marqdown'
+import { RuleType } from '@marqdown/parser'
 
 if (node.type === RuleType.heading) {
   const heading = node as MarkdownToJSX.HeadingNode

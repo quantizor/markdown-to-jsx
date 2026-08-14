@@ -155,6 +155,7 @@ bg_job "prod-strip-check" bun scripts/prod-strip-check.ts
 bg_job "hermetic-dist" bun scripts/hermetic-dist.ts
 bg_job "llms-snippets" bun scripts/llms-snippets.ts
 bg_job "attw" bun scripts/attw-packages.ts
+bg_job "package-resolution" bun scripts/check-package-resolution.ts
 wait_wave 3
 
 echo "verify ok (${branch} @ ${head})"

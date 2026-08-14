@@ -1,6 +1,6 @@
 # marqdown
 
-> CommonMark + GFM compliant markdown parser and compiler toolchain for JS/TS. Renders to React, React Native, Solid, Vue, HTML strings, or normalized markdown. Fast enough for real-time streaming. Current major version: v9. Formerly `markdown-to-jsx`; that package now re-exports `marqdown` (deep imports included), so existing installs keep working.
+> CommonMark + GFM compliant markdown parser and compiler toolchain for JS/TS. Renders to React, React Native, Solid, Vue, HTML strings, or normalized markdown. Fast enough for real-time streaming. Current major version: v9. Published as `@marqdown/*` packages, one per integration; the `markdown-to-jsx` package remains a compatibility alias re-exporting them (deep imports included), so existing installs keep working.
 
 Raw HTML in the source is parsed into real elements, never `dangerouslySetInnerHTML`. Every emitted tag is overridable. GFM tables, task lists, strikethrough, autolinks, footnotes, and tag filtering are on by default. Zero runtime dependencies and no network access.
 
@@ -8,8 +8,10 @@ Mental model: `parser(md) -> ASTNode[]` then `astTo*(ast, options) -> output`. `
 
 ## Install
 
+Install the `@marqdown` package for your integration (React shown; swap in `/vue`, `/solid`, `/native`, `/html`, `/markdown`, or the framework-free `@marqdown/parser`):
+
 ```shell
-npm i marqdown
+npm i @marqdown/react
 ```
 
 ## Entry points
@@ -18,22 +20,22 @@ Pick the entry point for your target. Each one ships only the renderer it names,
 
 | Import              | Default export | Named exports                                                                 | Output          |
 | ------------------- | -------------- | ----------------------------------------------------------------------------- | --------------- |
-| `marqdown`          | `Markdown`     | `compiler`, `parser`, `RuleType`, `sanitizer`, `slugify`, `MarkdownToJSX`     | React elements  |
-| `marqdown/react`    | `Markdown`     | above + `astToJSX`, `MarkdownProvider`, `MarkdownContext`                     | React elements  |
-| `marqdown/native`   | `Markdown`     | above + `astToNative`, `MarkdownProvider`, `MarkdownContext`                  | RN elements     |
-| `marqdown/solid`    | `Markdown`     | above + `astToJSX`, `MarkdownProvider`, `MarkdownContext`                     | Solid JSX       |
-| `marqdown/vue`      | `Markdown`     | above + `astToJSX`, `MarkdownProvider`, `MarkdownOptionsKey`                  | Vue vnodes      |
-| `marqdown/html`     | none           | `compiler`, `parser`, `astToHTML`, `RuleType`, `sanitizer`, `slugify`         | HTML string     |
-| `marqdown/markdown` | none           | `compiler`, `parser`, `astToMarkdown`, `markdown`, `RuleType`                 | markdown string |
+| `markdown-to-jsx`   | `Markdown`     | `compiler`, `parser`, `RuleType`, `sanitizer`, `slugify`, `MarkdownToJSX`     | React elements  |
+| `@marqdown/react`   | `Markdown`     | above + `astToJSX`, `MarkdownProvider`, `MarkdownContext`                     | React elements  |
+| `@marqdown/native`  | `Markdown`     | above + `astToNative`, `MarkdownProvider`, `MarkdownContext`                  | RN elements     |
+| `@marqdown/solid`   | `Markdown`     | above + `astToJSX`, `MarkdownProvider`, `MarkdownContext`                     | Solid JSX       |
+| `@marqdown/vue`     | `Markdown`     | above + `astToJSX`, `MarkdownProvider`, `MarkdownOptionsKey`                  | Vue vnodes      |
+| `@marqdown/html`    | none           | `compiler`, `parser`, `astToHTML`, `RuleType`, `sanitizer`, `slugify`         | HTML string     |
+| `@marqdown/markdown`| none           | `compiler`, `parser`, `astToMarkdown`, `markdown`, `RuleType`                 | markdown string |
 
-The bare `marqdown` entry is the legacy one: its React code still works but is deprecated. New React code should import `marqdown/react`.
+The `markdown-to-jsx` entry is the legacy compatibility alias: its React code still works but is deprecated. New React code should import `@marqdown/react`. For parser-only use with no framework, import `@marqdown/parser`.
 
 ## Core patterns
 
 React component. Works unchanged in a Server Component and a Client Component; no `'use client'` needed.
 
 ```tsx
-import Markdown from 'marqdown/react'
+import Markdown from '@marqdown/react'
 
 ;<Markdown options={{ wrapper: 'article' }}>{content}</Markdown>
 ```
@@ -41,7 +43,7 @@ import Markdown from 'marqdown/react'
 Direct compile, no component:
 
 ```tsx
-import { compiler } from 'marqdown/react'
+import { compiler } from '@marqdown/react'
 
 const element = compiler('# Hello world')
 ```
@@ -49,7 +51,7 @@ const element = compiler('# Hello world')
 AST first, render second:
 
 ```tsx
-import { parser, astToJSX, RuleType } from 'marqdown/react'
+import { parser, astToJSX, RuleType } from '@marqdown/react'
 
 const ast = parser('# Hello world')
 const headings = ast.filter(node => node.type === RuleType.heading)
@@ -59,7 +61,7 @@ const element = astToJSX(ast)
 HTML string for server rendering:
 
 ```ts
-import { compiler } from 'marqdown/html'
+import { compiler } from '@marqdown/html'
 
 const html = compiler('# Hello world') // "<h1 id="hello-world">Hello world</h1>"
 ```
@@ -67,7 +69,7 @@ const html = compiler('# Hello world') // "<h1 id="hello-world">Hello world</h1>
 Markdown in, normalized markdown out:
 
 ```ts
-import { compiler } from 'marqdown/markdown'
+import { compiler } from '@marqdown/markdown'
 
 compiler('Setext\n======\n\n* a\n* b') // "# Setext\n\n- a\n- b"
 ```
@@ -75,7 +77,7 @@ compiler('Setext\n======\n\n* a\n* b') // "# Setext\n\n- a\n- b"
 React Native, styled per element key:
 
 ```tsx
-import Markdown from 'marqdown/native'
+import Markdown from '@marqdown/native'
 import { Linking, StyleSheet } from 'react-native'
 
 ;<Markdown
@@ -95,7 +97,7 @@ import { Linking, StyleSheet } from 'react-native'
 Solid, reactive by passing an accessor:
 
 ```tsx
-import Markdown from 'marqdown/solid'
+import Markdown from '@marqdown/solid'
 
 const [content, setContent] = createSignal('# Hello world')
 ;<Markdown>{content}</Markdown>
@@ -104,7 +106,7 @@ const [content, setContent] = createSignal('# Hello world')
 Vue 3, via `h()` under the hood:
 
 ```tsx
-import Markdown, { compiler } from 'marqdown/vue'
+import Markdown, { compiler } from '@marqdown/vue'
 
 const vnode = compiler('# Hello world')
 ```
@@ -188,7 +190,7 @@ Runs before every other rendering path and sees nodes that are normally skipped 
 Here it swaps `:smile:` style shortcodes for emoji as text nodes are rendered:
 
 ```tsx
-import { RuleType } from 'marqdown/react'
+import { RuleType } from '@marqdown/react'
 
 const shortcodes = { smile: '🙂' }
 const detector = /(:[^:\s]+:)/g
@@ -218,7 +220,7 @@ A fenced block renders as `<pre><code class="language-js">`. The JSX renderers a
 Highlighters that take the code as a string (react-syntax-highlighter, Shiki, KaTeX) go through `renderRule`, where the raw text and language are both in hand:
 
 ```tsx
-import { RuleType } from 'marqdown/react'
+import { RuleType } from '@marqdown/react'
 import SyntaxHighlighter from 'react-syntax-highlighter'
 import TeX from '@matejmazur/react-katex'
 
@@ -336,7 +338,7 @@ compiler('a\\\nb') // "<p>a<br />\nb</p>", trailing backslash
 
 ## Do
 
-- Import the entry point matching your renderer (`marqdown/react`, `/html`, …) so unused renderers drop out of the bundle.
+- Import the package matching your renderer (`@marqdown/react`, `@marqdown/html`, …) so unused renderers drop out of the bundle.
 - Keep markdown in `.md` files or dedented variables. JSX collapses newlines, so markdown written inline in JSX loses its block structure.
 - Use `overrides` for tag-level changes and `renderRule` for node-level ones. `overrides` is the simpler tool; reach past it only when you need `node.lang`, `node.text`, or a normally-skipped node.
 - Set `optimizeForStreaming` for any incrementally arriving content.

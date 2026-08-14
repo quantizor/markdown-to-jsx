@@ -1,8 +1,8 @@
-[![npm version](https://badge.fury.io/js/marqdown.svg)](https://badge.fury.io/js/marqdown) [![downloads](https://badgen.net/npm/dy/marqdown)](https://npm-stat.com/charts.html?package=marqdown)
+[![npm version](https://badge.fury.io/js/@marqdown%2Freact.svg)](https://badge.fury.io/js/@marqdown/react) [![downloads](https://badgen.net/npm/dy/@marqdown/react)](https://npm-stat.com/charts.html?package=@marqdown/react)
 
 `marqdown` JavaScript और TypeScript-आधारित परियोजनाओं के लिए एक gfm+commonmark अनुरूप markdown पार्सर और कंपाइलर टूलचेन है। यह अत्यधिक तेज़ है, वास्तविक समय की अंतरक्रियाशीलता के लिए पर्याप्त तेज़ी से बड़े दस्तावेज़ों को प्रोसेस करने में सक्षम है।
 
-> **`marqdown`, `markdown-to-jsx` का नया नाम है।** लाइब्रेरी, इसका API, और हर एंट्री पॉइंट अपरिवर्तित हैं; केवल पैकेज का नाम अलग है। मौजूदा `markdown-to-jsx` इंस्टॉल काम करना जारी रखते हैं, क्योंकि वह पैकेज अब `marqdown` को फिर से एक्सपोर्ट करता है (डीप इम्पोर्ट्स जैसे `markdown-to-jsx/react` सहित) और इसके पक्ष में अप्रचलित कर दिया गया है। माइग्रेट करना वैकल्पिक है: जब सुविधाजनक हो, `npm i marqdown` चलाएं और अपने इम्पोर्ट्स में `markdown-to-jsx` को `marqdown` में बदलें (`marqdown/react`, `marqdown/vue`, आदि)।
+> **`markdown-to-jsx` अब `@marqdown` स्कोप के अंतर्गत केंद्रित पैकेजों के रूप में प्रकाशित होता है, प्रत्येक इंटीग्रेशन के लिए एक।** अपने इंटीग्रेशन के लिए उपयुक्त पैकेज इंस्टॉल करें: `@marqdown/react`, `@marqdown/vue`, `@marqdown/solid`, `@marqdown/native`, `@marqdown/html`, `@marqdown/markdown`, और फ्रेमवर्क-रहित `@marqdown/parser`। प्रत्येक में पार्सर (Parser) शामिल है और केवल उसी फ्रेमवर्क को लाता है जिसे वह लक्षित करता है। `markdown-to-jsx` पैकेज एक संगतता उपनाम (compatibility alias) के रूप में बना रहता है जो इन पैकेजों को फिर से एक्सपोर्ट करता है, डीप इम्पोर्ट्स सहित, ताकि मौजूदा इंस्टॉल काम करते रहें; माइग्रेट करना वैकल्पिक है।
 
 लाइब्रेरी की कुछ विशेष सुविधाएं:
 
@@ -101,13 +101,13 @@ compiler('<script>alert("xss")</script>', { tagfilter: false })
 
 ```typescript
 // React-विशिष्ट उपयोग
-import Markdown, { compiler, parser } from 'marqdown/react'
+import Markdown, { compiler, parser } from '@marqdown/react'
 
 // HTML स्ट्रिंग आउटपुट
-import { compiler, astToHTML, parser } from 'marqdown/html'
+import { compiler, astToHTML, parser } from '@marqdown/html'
 
 // Markdown स्ट्रिंग आउटपुट (राउंड-ट्रिप कंपाइलेशन)
-import { compiler, astToMarkdown, parser } from 'marqdown/markdown'
+import { compiler, astToMarkdown, parser } from '@marqdown/markdown'
 ```
 
 **माइग्रेशन गाइड:**
@@ -122,8 +122,8 @@ import { compiler, astToMarkdown, parser } from 'marqdown/markdown'
 2. **React इम्पोर्ट्स को `/react` एंट्री पॉइंट पर माइग्रेट करें** (वैकल्पिक लेकिन अनुशंसित):
 
 ```typescript
-/** लिगेसी */ import from 'marqdown'
-/** अनुशंसित */ import from 'marqdown/react'
+/** लिगेसी */ import from 'markdown-to-jsx'
+/** अनुशंसित */ import from '@marqdown/react'
 ```
 
 3. **`namedCodesToUnicode` विकल्प हटाएं**: सभी नामित HTML एंटिटीज अब स्वचालित रूप से समर्थित हैं, इसलिए आप किसी भी कस्टम एंटिटी मैपिंग को हटा सकते हैं।
@@ -133,7 +133,7 @@ import { compiler, astToMarkdown, parser } from 'marqdown/markdown'
 /** v9 */ compiler('&le; symbol')
 ```
 
-**नोट:** मुख्य एंट्री पॉइंट (`marqdown`) पिछड़ी संगतता के लिए काम करना जारी रखता है, लेकिन वहां React कोड को हटाना अप्रचलित किया गया है और भविष्य के प्रमुख रिलीज़ में हटा दिया जाएगा। React-विशिष्ट उपयोग के लिए `marqdown/react` पर माइग्रेट करने पर विचार करें।
+**नोट:** `markdown-to-jsx` संगतता उपनाम पिछड़ी संगतता के लिए काम करना जारी रखता है, लेकिन उससे React कोड इम्पोर्ट करना अप्रचलित है और भविष्य के प्रमुख रिलीज़ में हटा दिया जाएगा। React-विशिष्ट उपयोग के लिए `@marqdown/react` पर माइग्रेट करने पर विचार करें।
 
 <details>
 <summary>### पुराने माइग्रेशन गाइड</summary>
@@ -160,20 +160,20 @@ import { compiler, astToMarkdown, parser } from 'marqdown/markdown'
 
 <h2 id="installation">इंस्टॉलेशन</h2>
 
-अपने पसंदीदा पैकेज मैनेजर के साथ `marqdown` इंस्टॉल करें।
+अपने पसंदीदा पैकेज मैनेजर के साथ अपने इंटीग्रेशन के लिए उपयुक्त `@marqdown` पैकेज इंस्टॉल करें। React के लिए:
 
 ```shell
-npm i marqdown
+npm i @marqdown/react
 ```
 
 <h2 id="usage">उपयोग</h2>
 
-`marqdown` आसान JSX संरचना के लिए डिफ़ॉल्ट रूप से एक React कंपोनेंट एक्सपोर्ट करता है:
+`@marqdown/react` आसान JSX संरचना के लिए डिफ़ॉल्ट रूप से एक React कंपोनेंट एक्सपोर्ट करता है:
 
 ES6-शैली उपयोग\*:
 
 ```tsx
-import Markdown from 'marqdown'
+import Markdown from '@marqdown/react'
 import React from 'react'
 import { render } from 'react-dom'
 
@@ -190,24 +190,24 @@ render(<Markdown># नमस्कार दुनिया!</Markdown>, documen
 
 <h3 id="entry-points">एंट्री पॉइंट्स</h3>
 
-`marqdown` विभिन्न उपयोग के मामलों के लिए कई एंट्री पॉइंट्स प्रदान करता है:
+`@marqdown` पैकेज प्रत्येक इंटीग्रेशन के लिए एक एंट्री पॉइंट प्रदान करते हैं:
 
 <h4 id="main">मुख्य</h4>
 
-लिगेसी डिफ़ॉल्ट एंट्री पॉइंट React कंपाइलर और कंपोनेंट सहित सब कुछ एक्सपोर्ट करता है:
+`markdown-to-jsx` संगतता उपनाम React कंपाइलर और कंपोनेंट सहित सब कुछ एक्सपोर्ट करता है:
 
 ```tsx
-import Markdown, { compiler, parser } from 'marqdown'
+import Markdown, { compiler, parser } from 'markdown-to-jsx'
 ```
 
-_इस एंट्री पॉइंट में React कोड अप्रचलित है और भविष्य के प्रमुख रिलीज़ में हटा दिया जाएगा, `marqdown/react` पर माइग्रेट करें।_
+_इस उपनाम में React कोड अप्रचलित है और भविष्य के प्रमुख रिलीज़ में हटा दिया जाएगा, `@marqdown/react` पर माइग्रेट करें।_
 
 <h4 id="react">React</h4>
 
 React-विशिष्ट उपयोग के लिए, `/react` एंट्री पॉइंट से इम्पोर्ट करें:
 
 ```tsx
-import Markdown, { compiler, parser, astToJSX } from 'marqdown/react'
+import Markdown, { compiler, parser, astToJSX } from '@marqdown/react'
 
 const jsxElement = compiler('# नमस्कार दुनिया')
 
@@ -228,7 +228,7 @@ const jsxElement2 = astToJSX(ast)
 
 ```tsx
 // Server Component - स्वचालित रूप से काम करता है
-import Markdown from 'marqdown/react'
+import Markdown from '@marqdown/react'
 
 export default async function Page() {
   const content = await fetchMarkdownContent()
@@ -241,7 +241,7 @@ export default async function Page() {
 ```tsx
 // Client Component - भी स्वचालित रूप से काम करता है
 'use client'
-import Markdown from 'marqdown/react'
+import Markdown from '@marqdown/react'
 
 export function ClientMarkdown({ content }: { content: string }) {
   return <Markdown>{content}</Markdown>
@@ -260,7 +260,7 @@ export function ClientMarkdown({ content }: { content: string }) {
 React Native उपयोग के लिए, `/native` एंट्री पॉइंट से इम्पोर्ट करें:
 
 ```tsx
-import Markdown, { compiler, parser, astToNative } from 'marqdown/native'
+import Markdown, { compiler, parser, astToNative } from '@marqdown/native'
 import { View, Text, StyleSheet, Linking } from 'react-native'
 
 const nativeElement = compiler('# नमस्कार दुनिया', {
@@ -407,7 +407,7 @@ import Markdown, {
   parser,
   astToJSX,
   MarkdownProvider,
-} from 'marqdown/solid'
+} from '@marqdown/solid'
 import { createSignal } from 'solid-js'
 
 // स्थिर सामग्री
@@ -448,7 +448,7 @@ function AppWithContext() {
 Vue.js 3 उपयोग के लिए, `/vue` एंट्री पॉइंट से इम्पोर्ट करें:
 
 ```tsx
-import Markdown, { compiler, parser, astToJSX } from 'marqdown/vue'
+import Markdown, { compiler, parser, astToJSX } from '@marqdown/vue'
 import { h } from 'vue'
 
 // कंपाइलर का उपयोग करना
@@ -474,7 +474,7 @@ const vnode2 = astToJSX(ast)
 HTML स्ट्रिंग आउटपुट (सर्वर-साइड रेंडरिंग) के लिए, `/html` एंट्री पॉइंट से इम्पोर्ट करें:
 
 ```tsx
-import { compiler, astToHTML, parser } from 'marqdown/html'
+import { compiler, astToHTML, parser } from '@marqdown/html'
 
 const htmlString = compiler('# नमस्कार दुनिया')
 
@@ -488,7 +488,7 @@ const htmlString2 = astToHTML(ast)
 markdown-to-markdown कंपाइलेशन (सामान्यीकरण और फ़ॉर्मेटिंग) के लिए, `/markdown` एंट्री पॉइंट से इम्पोर्ट करें:
 
 ```typescript
-import { compiler, astToMarkdown, parser } from 'marqdown/markdown'
+import { compiler, astToMarkdown, parser } from '@marqdown/markdown'
 
 const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
 
@@ -527,7 +527,7 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 कभी-कभी, आप JSX के रेंडर होने से पहले रेंडरिंग प्रक्रिया में हुक करने के लिए `React.createElement` डिफ़ॉल्ट व्यवहार को ओवरराइड करना चाह सकते हैं। यह रनटाइम स्थितियों के आधार पर अतिरिक्त children जोड़ने या कुछ props को संशोधित करने के लिए उपयोगी हो सकता है। फ़ंक्शन `React.createElement` फ़ंक्शन को मिरर करता है, इसलिए params [`type, [props], [...children]`](https://reactjs.org/docs/react-api.html#createelement) हैं:
 
 ```javascript
-import Markdown from 'marqdown'
+import Markdown from '@marqdown/react'
 import React from 'react'
 import { render } from 'react-dom'
 
@@ -620,7 +620,7 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
 **डिफ़ॉल्ट रूप से (अनुशंसित)**, अनसीरियलाइज़ेबल expressions को सुरक्षा के लिए स्ट्रिंग्स के रूप में रखा जाता है:
 
 ```tsx
-import { parser } from 'marqdown'
+import { parser } from '@marqdown/parser'
 
 const ast = parser('<Button onClick={() => alert("hi")} />')
 // ast[0].attrs.onClick === "() => alert(\"hi\")" (स्ट्रिंग, सुरक्षित)
@@ -713,7 +713,7 @@ compiler(markdown, {
 आप इस कार्यक्षमता का उपयोग स्थापित AST नोड के साथ लगभग कुछ भी करने के लिए कर सकते हैं; यहां `@matejmazur/react-katex` लाइब्रेरी का उपयोग करके LaTeX सिंटैक्स को प्रोसेस करने के लिए चुनिंदा रूप से "codeBlock" नियम को ओवरराइड करने का एक उदाहरण है:
 
 ````tsx
-import Markdown, { RuleType } from 'marqdown'
+import Markdown, { RuleType } from '@marqdown/react'
 import TeX from '@matejmazur/react-katex'
 
 const exampleContent =
@@ -863,7 +863,7 @@ compiler('One\n\nTwo\n\nThree', { wrapper: null })[
 ```
 
 ````tsx
-import { Markdown, RuleType } from 'marqdown'
+import { Markdown, RuleType } from '@marqdown/react'
 
 const mdContainingFencedCodeBlock =
   '```js\nconsole.log("नमस्कार दुनिया!");\n```\n'
@@ -902,7 +902,7 @@ function SyntaxHighlightedCode(props) {
 `:smile:` जैसे मनमाने शॉर्टकोड्स के साथ Slack-शैली मैसेजिंग के लिए, आप प्लेन टेक्स्ट रेंडरिंग में हुक करने के लिए `options.renderRule` का उपयोग कर सकते हैं और चीजों को अपनी पसंद के अनुसार समायोजित कर सकते हैं, उदाहरण के लिए:
 
 ```tsx
-import Markdown, { RuleType } from 'marqdown'
+import Markdown, { RuleType } from '@marqdown/react'
 
 const shortcodeMap = {
   smile: '🙂',
@@ -950,7 +950,7 @@ function Example() {
 `optimizeForStreaming` विकल्प अपूर्ण markdown संरचनाओं का पता लगाकर और सामग्री पूर्ण होने तक उन्हें रोककर इसे हल करता है (React और React Native पर `null` रिटर्न करते हुए, HTML पर खाली स्ट्रिंग)। यह हर रेंडरर पर काम करता है:
 
 ```tsx
-import Markdown from 'marqdown/react'
+import Markdown from '@marqdown/react'
 
 function StreamingMarkdown({ content }) {
   return (
@@ -966,7 +966,7 @@ function StreamingMarkdown({ content }) {
 एक सामान्य पैटर्न LLM API (OpenAI, Anthropic, आदि) से स्ट्रीम किए गए प्रतिक्रियाओं को रेंडर करना है जहां tokens एक-एक करके आते हैं। `optimizeForStreaming` के बिना, उपयोगकर्ता प्रत्येक token के बीच raw markdown सिंटैक्स की विचलित करने वाली झलक देखते हैं। इसे सक्षम करने पर, अपूर्ण संरचनाओं को बंद करने वाले डेलिमीटर आने तक दबाया जाता है, जिससे एक सुचारू पठन अनुभव मिलता है:
 
 ```tsx
-import Markdown from 'marqdown/react'
+import Markdown from '@marqdown/react'
 import { useState, useEffect } from 'react'
 
 function ChatMessage({ stream }) {
@@ -1112,7 +1112,7 @@ AST निम्नलिखित नोड प्रकारों से ब
 <h4 id="example-ast-structure">उदाहरण AST संरचना</h4>
 
 ````tsx
-import { parser, RuleType } from 'marqdown'
+import { parser, RuleType } from '@marqdown/parser'
 
 const ast = parser(`# Hello World
 
@@ -1173,7 +1173,7 @@ console.log('code')
 AST नोड्स की पहचान करने के लिए `RuleType` enum का उपयोग करें:
 
 ```tsx
-import { RuleType } from 'marqdown'
+import { RuleType } from '@marqdown/parser'
 
 if (node.type === RuleType.heading) {
   const heading = node as MarkdownToJSX.HeadingNode
