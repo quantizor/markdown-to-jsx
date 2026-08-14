@@ -128,6 +128,7 @@ bg_job "test+coverage" bash -c '
   rm -f "${cov}"
 '
 bg_job "redos-smoke" bun scripts/redos-smoke.ts
+bg_job "parser-changesets" bun scripts/check-inlined-parser-changesets.ts
 wait_wave 1a
 
 bg_job "metrics-gate" bash -c '
@@ -153,6 +154,7 @@ bg_job "emit-selfcheck-prod" env NODE_ENV=production bun scripts/emit-selfcheck.
 bg_job "prod-strip-check" bun scripts/prod-strip-check.ts
 bg_job "hermetic-dist" bun scripts/hermetic-dist.ts
 bg_job "llms-snippets" bun scripts/llms-snippets.ts
+bg_job "attw" bun scripts/attw-packages.ts
 wait_wave 3
 
 echo "verify ok (${branch} @ ${head})"
