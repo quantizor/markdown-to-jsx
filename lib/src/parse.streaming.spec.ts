@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { compiler as htmlCompiler } from './html.ts'
 import { parser } from './parse.ts'
+import type { MarkdownToJSX } from './types.ts'
 
 describe('Streaming optimization - inline code', () => {
   it('should remove incomplete inline code backtick and content', () => {
@@ -33,6 +34,28 @@ describe('Streaming optimization - inline code', () => {
     expect(html).toContain('<code>code</code>')
     expect(html).toContain(' and')
     expect(html).not.toContain('incomplete')
+  })
+})
+
+describe('Streaming optimization - link destinations', () => {
+  it('should preserve underscores in complete link destinations', () => {
+    const url = 'https://example.com/search?geoShape=KLUv_WCPBdUbAFa_sCUAy0w'
+    const ast = parser(`[View results](${url})`, {
+      optimizeForStreaming: true,
+    })
+    const paragraph = ast[0] as MarkdownToJSX.ParagraphNode
+    const link = paragraph.children[0] as MarkdownToJSX.LinkNode
+
+    expect(link.target).toBe(url)
+  })
+
+  it('should still suppress delimiters in incomplete links', () => {
+    const html = htmlCompiler('[View_results](https://example.com/search?x=1', {
+      optimizeForStreaming: true,
+    })
+
+    expect(html).not.toContain('_')
+    expect(html).toContain('Viewresults')
   })
 })
 
