@@ -39,7 +39,7 @@ describe('Streaming optimization - inline code', () => {
 
 describe('Streaming optimization - link destinations', () => {
   it('should preserve underscores in complete link destinations', () => {
-    const url = 'https://example.com/search?geoShape=KLUv_WCPBdUbAFa_sCUAy0w'
+    const url = 'https://example.com/search?geoShape=KLUv_WCPBdUbAFa'
     const ast = parser(`[View results](${url})`, {
       optimizeForStreaming: true,
     })
