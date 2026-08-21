@@ -1117,17 +1117,41 @@ export function get(source: any, path: string, fallback: any): any {
   // Fast path: single-segment paths (the common case for override lookups)
   // skip the split allocation
   if (path.indexOf('.') === -1) {
-    return source?.[path] || fallback
+    var hit = source?.[path]
+    if (hit) {
+      return hit
+    }
+    // HTML tags are case-insensitive (#248). Only retry when the tag kept
+    // source case (leading A-Z) so lowercase misses stay one lookup.
+    var c0 = path.charCodeAt(0)
+    if (source && c0 >= $.CHAR_A && c0 <= $.CHAR_Z) {
+      return source[path.toLowerCase()] || fallback
+    }
+    return fallback
   }
   var result = source
   var segments = path.split('.')
   var i = 0
+  var firstMiss = false
   while (i < segments.length) {
     result = result?.[segments[i]]
     if (result === undefined) {
+      firstMiss = i === 0
       break
     }
     i++
+  }
+  if (firstMiss && source) {
+    var first = segments[0]
+    var c0 = first.charCodeAt(0)
+    if (c0 >= $.CHAR_A && c0 <= $.CHAR_Z) {
+      result = source[first.toLowerCase()]
+      i = 1
+      while (result !== undefined && i < segments.length) {
+        result = result?.[segments[i]]
+        i++
+      }
+    }
   }
   return result || fallback
 }

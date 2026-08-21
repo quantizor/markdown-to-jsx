@@ -910,6 +910,38 @@ describe('isVoidElement', () => {
   })
 })
 
+describe('get', () => {
+  it('returns the exact key when present', () => {
+    const source = { input: 'exact', INPUT: 'upper' }
+    expect(u.get(source, 'INPUT', 'fallback')).toBe('upper')
+    expect(u.get(source, 'input', 'fallback')).toBe('exact')
+  })
+
+  it('falls back to the lowercase key for HTML tag overrides (#248)', () => {
+    const source = {
+      input: { component: 'CustomInput', props: { className: 'foo' } },
+    }
+    expect(u.get(source, 'INPUT', undefined).component).toBe('CustomInput')
+    expect(u.get(source, 'INPUT.component', 'INPUT')).toBe('CustomInput')
+    expect(u.get(source, 'INPUT.props', {})).toEqual({ className: 'foo' })
+  })
+
+  it('does not steal nested fields from a lowercase key when the exact key exists', () => {
+    const source = {
+      INPUT: { props: { className: 'upper' } },
+      input: { component: 'CustomInput', props: { className: 'lower' } },
+    }
+    expect(u.get(source, 'INPUT.component', 'INPUT')).toBe('INPUT')
+    expect(u.get(source, 'INPUT.props', {})).toEqual({ className: 'upper' })
+  })
+
+  it('returns the fallback when neither casing is present', () => {
+    expect(u.get({ p: 'ok' }, 'div', 'fallback')).toBe('fallback')
+    expect(u.get({ p: 'ok' }, 'DIV.props', {})).toEqual({})
+    expect(u.get(undefined, 'input', 'fallback')).toBe('fallback')
+  })
+})
+
 describe('text processing', () => {
   describe('findLineEnd', () => {
     it('should find the end of the current line', () => {
