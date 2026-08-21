@@ -1111,42 +1111,21 @@ export function extractFootnoteEntries(
 }
 
 /**
- * Return `s.toLowerCase()` if `s` contains an ASCII uppercase letter, else `s`.
- * Avoids allocating on the already-lowercase override-lookup hot path.
- */
-function lowerAsciiIfNeeded(s: string): string {
-  var i = 0
-  var len = s.length
-  while (i < len) {
-    var c = s.charCodeAt(i)
-    if (c >= $.CHAR_A && c <= $.CHAR_Z) {
-      return s.toLowerCase()
-    }
-    i++
-  }
-  return s
-}
-
-/**
  * Get nested property from object using dot notation path
  */
 export function get(source: any, path: string, fallback: any): any {
   // Fast path: single-segment paths (the common case for override lookups)
-  // skip the split allocation. HTML tags are case-insensitive, so a miss
-  // retries the lowercase key (issue #248).
+  // skip the split allocation
   if (path.indexOf('.') === -1) {
-    var direct = source?.[path]
-    if (direct) {
-      return direct
+    var hit = source?.[path]
+    if (hit) {
+      return hit
     }
-    if (source) {
-      var lowered = lowerAsciiIfNeeded(path)
-      if (lowered !== path) {
-        var ci = source[lowered]
-        if (ci) {
-          return ci
-        }
-      }
+    // HTML tags are case-insensitive (#248). Only retry when the tag kept
+    // source case (leading A-Z) so lowercase misses stay one lookup.
+    var c0 = path.charCodeAt(0)
+    if (source && c0 >= $.CHAR_A && c0 <= $.CHAR_Z) {
+      return source[path.toLowerCase()] || fallback
     }
     return fallback
   }
@@ -1163,9 +1142,10 @@ export function get(source: any, path: string, fallback: any): any {
     i++
   }
   if (firstMiss && source) {
-    var firstLower = lowerAsciiIfNeeded(segments[0])
-    if (firstLower !== segments[0]) {
-      result = source[firstLower]
+    var first = segments[0]
+    var c0 = first.charCodeAt(0)
+    if (c0 >= $.CHAR_A && c0 <= $.CHAR_Z) {
+      result = source[first.toLowerCase()]
       i = 1
       while (result !== undefined && i < segments.length) {
         result = result?.[segments[i]]
