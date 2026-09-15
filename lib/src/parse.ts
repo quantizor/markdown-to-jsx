@@ -4569,7 +4569,9 @@ function scanRefDefinition(
 
   // Use parseRefDef which handles multi-line titles correctly
   if (!state.refs) {
-    state.refs = {}
+    state.refs = Object.create(null) as {
+      [key: string]: { target: string; title: string | undefined }
+    }
   }
   var result = parseRefDef(s, i, state.refs)
   if (result === null) {
@@ -5306,7 +5308,7 @@ function _skipLinkOrImage(s: string, i: number, e: number): number {
 
   // j is now past the ]
   if (j >= e) {
-    return j // just [text]
+    return i // shortcut links may not resolve, so keep their text parseable
   }
 
   const nextChar = s.charCodeAt(j)
@@ -5329,7 +5331,7 @@ function _skipLinkOrImage(s: string, i: number, e: number): number {
       }
       j++
     }
-    return j
+    return parenDepth === 0 ? j : i
   }
 
   // Reference link: [text][ref]
@@ -5346,10 +5348,10 @@ function _skipLinkOrImage(s: string, i: number, e: number): number {
       }
       j++
     }
-    return j
+    return depth2 === 0 ? j : i
   }
 
-  return j // shortcut link [text]
+  return i // shortcut links may not resolve, so keep their text parseable
 }
 
 /** Scan strikethrough ~~text~~ */
@@ -7224,6 +7226,17 @@ function parseInline(
     var lastTilDbl = -1
     for (var ei = 0; ei < content.length; ei++) {
       var ec = content.charCodeAt(ei)
+      // Link destinations are opaque to emphasis parsing. Skip complete links
+      // and images so punctuation such as `_` in a URL is not treated as a
+      // streaming delimiter. Incomplete links return their start position from
+      // _skipLinkOrImage and continue through the normal suppression logic.
+      if (ec === $.CHAR_BRACKET_OPEN) {
+        var linkEnd = _skipLinkOrImage(content, ei, content.length)
+        if (linkEnd > ei) {
+          ei = linkEnd - 1
+          continue
+        }
+      }
       if (ec === $.CHAR_ASTERISK) {
         if (
           ei + 1 < content.length &&
@@ -8248,7 +8261,9 @@ export function parser(
     inHTML: false,
     inList: false,
     inline: false,
-    refs: {},
+    refs: Object.create(null) as {
+      [key: string]: { target: string; title: string | undefined }
+    },
   }
 
   return parseMarkdown(source, state, toParseOptions(options))
@@ -8389,7 +8404,9 @@ export function parseMarkdown(
   input = util.normalizeInput(input)
 
   if (!state.refs) {
-    state.refs = {}
+    state.refs = Object.create(null) as {
+      [key: string]: { target: string; title: string | undefined }
+    }
   }
   // Inline parsing is deferred until after the block pass (queueInline), so
   // reference definitions registered by scanRefDefinition are complete before

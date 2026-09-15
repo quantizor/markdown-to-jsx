@@ -552,6 +552,26 @@ describe('links', () => {
     `)
   })
 
+  it('should not crash on __proto__ or constructor shortcut refs (#900)', () => {
+    render(compiler('[__proto__]'))
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<span>[<strong>proto</strong>]</span>"`
+    )
+
+    render(compiler('[constructor]'))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"[constructor]"`)
+
+    render(compiler('[__proto__]: /x\n\n[__proto__]'))
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<p><a href="/x"><strong>proto</strong></a></p>"`
+    )
+
+    render(compiler('[constructor]: /y\n\n[constructor]'))
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<p><a href="/y">constructor</a></p>"`
+    )
+  })
+
   it('list item should break paragraph', () => {
     render(compiler('foo\n- item'))
 

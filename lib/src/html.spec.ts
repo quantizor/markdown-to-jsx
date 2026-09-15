@@ -2036,3 +2036,19 @@ Some paragraph
     )
   })
 })
+
+describe('prototype-slot reference labels (#900)', () => {
+  it('renders [__proto__] and [constructor] without throwing', () => {
+    expect(compiler('[__proto__]')).toBe('<p>[<strong>proto</strong>]</p>')
+    expect(compiler('[constructor]')).toBe('<p>[constructor]</p>')
+  })
+
+  it('resolves __proto__ and constructor reference definitions', () => {
+    expect(compiler('[__proto__]: /x\n\n[__proto__]')).toBe(
+      '<p><a href="/x"><strong>proto</strong></a></p>'
+    )
+    expect(compiler('[constructor]: /y\n\n[constructor]')).toBe(
+      '<p><a href="/y">constructor</a></p>'
+    )
+  })
+})
