@@ -945,6 +945,28 @@ describe('overrides', () => {
     const text = extractTextContent(result)
     expect(text).toContain('Hello')
   })
+
+  it('#248 should apply mixed-case mid-string HTML tag overrides', () => {
+    const CustomDiv = (props: Record<string, unknown>) =>
+      ({
+        t: 'section',
+        p: { ...props, 'data-custom': 'mixed' },
+      }) as unknown as JSX.Element
+    expect(
+      JSON.stringify(
+        compiler('<dIV>hello</dIV>', {
+          overrides: { div: CustomDiv },
+        })
+      )
+    ).toContain('mixed')
+    expect(
+      extractTextContent(
+        compiler('<dIV>hello</dIV>', {
+          overrides: { div: CustomDiv },
+        })
+      )
+    ).toContain('hello')
+  })
 })
 
 describe('edge cases', () => {

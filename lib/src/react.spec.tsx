@@ -3315,6 +3315,21 @@ describe('overrides', () => {
       `"<section class="custom">hello</section>"`
     )
   })
+  it('#248 should apply mixed-case mid-string HTML tag overrides (#248 completeness)', () => {
+    const CustomDiv = ({ children }: { children?: React.ReactNode }) => (
+      <section className="custom-mixed">{children}</section>
+    )
+
+    render(
+      compiler('<dIV>hello</dIV>', {
+        overrides: { div: CustomDiv },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<section class="custom-mixed">hello</section>"`
+    )
+  })
 
   it('#530 nested overrides', () => {
     render(

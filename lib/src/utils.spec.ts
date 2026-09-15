@@ -926,6 +926,15 @@ describe('get', () => {
     expect(u.get(source, 'INPUT.props', {})).toEqual({ className: 'foo' })
   })
 
+  it('falls back for mixed-case mid-string uppercase tags (#248)', () => {
+    expect(u.get({ div: 'x' }, 'dIV', 'fallback')).toBe('x')
+    const source = {
+      div: { component: 'CustomDiv', props: { className: 'bar' } },
+    }
+    expect(u.get(source, 'dIV', undefined).component).toBe('CustomDiv')
+    expect(u.get(source, 'dIV.props', {})).toEqual({ className: 'bar' })
+  })
+
   it('does not steal nested fields from a lowercase key when the exact key exists', () => {
     const source = {
       INPUT: { props: { className: 'upper' } },

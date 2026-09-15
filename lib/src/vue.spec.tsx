@@ -940,6 +940,19 @@ describe('options.overrides with props', () => {
     expect(getProp(result, 'class')).toBe('custom-class')
     expect(getProp(result, 'id')).toBe('custom-id')
   })
+
+  it('#248 should apply mixed-case mid-string HTML tag overrides', () => {
+    const CustomDiv = (props: any) =>
+      h('section', { ...props, class: 'custom-mixed' })
+    const result = compiler('<dIV>hello</dIV>', {
+      overrides: { div: CustomDiv },
+    })
+    if (!isSingleVNode(result)) {
+      throw new Error('Expected single VNode')
+    }
+    expect(result.type).toBe(CustomDiv)
+    expect(extractTextContent(result)).toBe('hello')
+  })
 })
 
 describe('nested lists', () => {
