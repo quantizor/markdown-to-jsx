@@ -1,5 +1,21 @@
 # markdown-to-jsx
 
+## 9.10.3
+
+### Patch Changes
+
+- 9ce68bf: Link destinations now preserve punctuation such as underscores while markdown is streamed, preventing generated links from being changed or broken.
+
+  Thanks Jacob Wisniewski and Jacob Wisniewski!
+
+- 1c8f5a3: Apply HTML tag overrides regardless of source casing (#248)
+
+  Thanks Yuzhong Zhang and Yuzhong Zhang!
+
+- 4d6add6: Shortcut reference links whose label is `__proto__` or `constructor` no longer throw. Those labels now resolve like any other reference label.
+
+  Fixes #900.
+
 ## 9.10.2
 
 ### Patch Changes
