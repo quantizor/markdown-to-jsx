@@ -1548,6 +1548,36 @@ describe('tagfilter escapes dangerous tags by default', () => {
   })
 })
 
+describe('prototype-slot reference labels (#900)', () => {
+  it('renders [__proto__] and [constructor] without throwing', () => {
+    expect(serialize(compiler('[__proto__]'))).toBe(
+      '<span>[<strong>proto</strong>]</span>'
+    )
+    expect(serialize(compiler('[constructor]'))).toBe('[constructor]')
+  })
+
+  it('resolves __proto__ and constructor reference definitions', () => {
+    const proto = compiler('[__proto__]: /x\n\n[__proto__]')
+    expect(serialize(proto)).toBe('<p><a><strong>proto</strong></a></p>')
+    expect(getVNodeType(proto)).toBe('p')
+    if (!isSingleVNode(proto)) {
+      throw new Error('Expected single VNode')
+    }
+    const protoLink = findByTag(proto, 'a')
+    expect(protoLink).toBeDefined()
+    expect(getProp(protoLink, 'href')).toBe('/x')
+
+    const ctor = compiler('[constructor]: /y\n\n[constructor]')
+    expect(serialize(ctor)).toBe('<p><a>constructor</a></p>')
+    if (!isSingleVNode(ctor)) {
+      throw new Error('Expected single VNode')
+    }
+    const ctorLink = findByTag(ctor, 'a')
+    expect(ctorLink).toBeDefined()
+    expect(getProp(ctorLink, 'href')).toBe('/y')
+  })
+})
+
 describe('optimizeForStreaming preserves literal less-than', () => {
   it('keeps comparison prose and defers incomplete tag prefixes', () => {
     // Single-line input auto-inlines, so serialize sees a bare text node.
