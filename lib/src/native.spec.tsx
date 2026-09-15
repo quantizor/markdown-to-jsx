@@ -2246,6 +2246,40 @@ describe('tagfilter escapes dangerous tags by default', () => {
   })
 })
 
+describe('prototype-slot reference labels (#900)', () => {
+  it('does not crash on undefined __proto__ or constructor shortcut refs', () => {
+    expect(() => compiler('[__proto__]')).not.toThrow()
+    expect(extractTextContent(compiler('[__proto__]'))).toBe('[proto]')
+    expect(() => compiler('[constructor]')).not.toThrow()
+    expect(extractTextContent(compiler('[constructor]'))).toBe('[constructor]')
+  })
+
+  it('resolves __proto__ and constructor reference definitions', () => {
+    const onLinkPress = mock((_url: string) => {})
+
+    const proto = compiler('[__proto__]: /x\n\n[__proto__]', { onLinkPress })
+    expect(extractTextContent(proto)).toBe('proto')
+    const protoLink = findLinkElement(getFirstElement(proto))
+    const protoPress = protoLink.props.onPress
+    if (typeof protoPress !== 'function') {
+      throw new Error('Expected proto link onPress handler')
+    }
+    protoPress()
+    expect(onLinkPress).toHaveBeenCalledWith('/x', undefined)
+
+    onLinkPress.mockClear()
+    const ctor = compiler('[constructor]: /y\n\n[constructor]', { onLinkPress })
+    expect(extractTextContent(ctor)).toBe('constructor')
+    const ctorLink = findLinkElement(getFirstElement(ctor))
+    const ctorPress = ctorLink.props.onPress
+    if (typeof ctorPress !== 'function') {
+      throw new Error('Expected constructor link onPress handler')
+    }
+    ctorPress()
+    expect(onLinkPress).toHaveBeenCalledWith('/y', undefined)
+  })
+})
+
 describe('optimizeForStreaming preserves literal less-than', () => {
   it('keeps comparison prose in block and forceInline modes', () => {
     expect(

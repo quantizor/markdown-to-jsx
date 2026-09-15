@@ -2342,6 +2342,22 @@ describe('tagfilter passthrough contract', () => {
   })
 })
 
+describe('prototype-slot reference labels (#900)', () => {
+  it('emits escaped literal brackets for undefined __proto__/constructor refs', () => {
+    expect(compiler('[__proto__]')).toBe('\\[**proto**\\]')
+    expect(compiler('[constructor]')).toBe('\\[constructor\\]')
+  })
+
+  it('emits reference definitions and resolved inline links', () => {
+    expect(compiler('[__proto__]: /x\n\n[__proto__]')).toBe(
+      '[__proto__]: /x\n\n[**proto**](/x)'
+    )
+    expect(compiler('[constructor]: /y\n\n[constructor]')).toBe(
+      '[constructor]: /y\n\n[constructor](/y)'
+    )
+  })
+})
+
 describe('optimizeForStreaming preserves literal less-than', () => {
   it('keeps comparison prose and defers incomplete tag prefixes', () => {
     expect(compiler('5 < 3 is false', { optimizeForStreaming: true })).toBe(
