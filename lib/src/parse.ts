@@ -4569,7 +4569,9 @@ function scanRefDefinition(
 
   // Use parseRefDef which handles multi-line titles correctly
   if (!state.refs) {
-    state.refs = {}
+    state.refs = Object.create(null) as {
+      [key: string]: { target: string; title: string | undefined }
+    }
   }
   var result = parseRefDef(s, i, state.refs)
   if (result === null) {
@@ -8248,7 +8250,9 @@ export function parser(
     inHTML: false,
     inList: false,
     inline: false,
-    refs: {},
+    refs: Object.create(null) as {
+      [key: string]: { target: string; title: string | undefined }
+    },
   }
 
   return parseMarkdown(source, state, toParseOptions(options))
@@ -8389,7 +8393,9 @@ export function parseMarkdown(
   input = util.normalizeInput(input)
 
   if (!state.refs) {
-    state.refs = {}
+    state.refs = Object.create(null) as {
+      [key: string]: { target: string; title: string | undefined }
+    }
   }
   // Inline parsing is deferred until after the block pass (queueInline), so
   // reference definitions registered by scanRefDefinition are complete before

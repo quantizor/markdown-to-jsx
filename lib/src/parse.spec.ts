@@ -3,11 +3,11 @@ import * as p from './parse.ts'
 import { type MarkdownToJSX, RuleType } from './types.ts'
 
 // Test fixtures factories
-function createBlockState(refs = {}) {
+function createBlockState(refs = Object.create(null)) {
   return { inline: false, refs } as MarkdownToJSX.State
 }
 
-function createInlineState(refs = {}) {
+function createInlineState(refs = Object.create(null)) {
   return { inline: true, refs } as MarkdownToJSX.State
 }
 
@@ -22,7 +22,7 @@ function createForceBlockOptions() {
 }
 
 function createEmptyRefs() {
-  return {} as Exclude<MarkdownToJSX.State['refs'], undefined>
+  return Object.create(null) as Exclude<MarkdownToJSX.State['refs'], undefined>
 }
 
 describe('parser', () => {
@@ -4115,6 +4115,76 @@ describe('CRLF line endings', () => {
       const crlfResult = p.parser(crlfText)
       expect(stripEndPos(crlfResult)).toEqual(stripEndPos(lfResult))
       expect(lfResult.length).toBe(2)
+    })
+
+    // #900: plain-object refs look up Object.prototype for these labels
+    it('should not treat __proto__ or constructor as defined refs (#900)', () => {
+      expect(p.parser('[__proto__]')).toEqual([
+        {
+          type: RuleType.paragraph,
+          children: [
+            { type: RuleType.text, text: '[' },
+            {
+              type: RuleType.textFormatted,
+              tag: 'strong',
+              children: [{ type: RuleType.text, text: 'proto' }],
+            },
+            { type: RuleType.text, text: ']' },
+          ],
+        },
+      ])
+      expect(p.parser('[constructor]')).toEqual([
+        {
+          type: RuleType.paragraph,
+          children: [{ type: RuleType.text, text: '[constructor]' }],
+        },
+      ])
+    })
+
+    it('should store and resolve __proto__ and constructor ref definitions (#900)', () => {
+      const protoAst = p.parser('[__proto__]: /x\n\n[__proto__]')
+      expect(protoAst[0]).toEqual({
+        type: RuleType.refCollection,
+        refs: Object.assign(Object.create(null), {
+          ['__proto__']: { target: '/x', title: undefined },
+        }),
+      })
+      expect(protoAst[1]).toEqual({
+        type: RuleType.paragraph,
+        children: [
+          {
+            type: RuleType.link,
+            target: '/x',
+            title: undefined,
+            children: [
+              {
+                type: RuleType.textFormatted,
+                tag: 'strong',
+                children: [{ type: RuleType.text, text: 'proto' }],
+              },
+            ],
+          },
+        ],
+      })
+
+      const ctorAst = p.parser('[constructor]: /y\n\n[constructor]')
+      expect(ctorAst[0]).toEqual({
+        type: RuleType.refCollection,
+        refs: Object.assign(Object.create(null), {
+          constructor: { target: '/y', title: undefined },
+        }),
+      })
+      expect(ctorAst[1]).toEqual({
+        type: RuleType.paragraph,
+        children: [
+          {
+            type: RuleType.link,
+            target: '/y',
+            title: undefined,
+            children: [{ type: RuleType.text, text: 'constructor' }],
+          },
+        ],
+      })
     })
   })
 

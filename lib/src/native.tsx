@@ -1548,7 +1548,9 @@ export function astToNative(
   const refs =
     ast[0] && ast[0].type === RuleType.refCollection
       ? (ast[0] as MarkdownToJSX.ReferenceCollectionNode).refs
-      : {}
+      : (Object.create(null) as {
+          [key: string]: { target: string; title: string | undefined }
+        })
 
   const ctx: CompileContext = {
     h,
@@ -1707,7 +1709,7 @@ export function compiler(
 
   const refs: {
     [key: string]: { target: string; title: string | undefined }
-  } = {}
+  } = Object.create(null)
 
   return compile(markdown)
 }

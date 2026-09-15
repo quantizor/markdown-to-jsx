@@ -805,19 +805,20 @@ export function astToHTML(
 ): string {
   var sanitize = options.sanitizer || util.sanitizer
   var slug = options.slugify || util.slugify
-  var refs = options.refs || {}
+  var refs = options.refs || Object.create(null)
   var overrides = options.overrides || {}
 
   // Extract refs from reference collection node and filter non-renderable nodes
   var refsFromAst: {
     [key: string]: { target: string; title: string | undefined }
-  } = {}
+  } = Object.create(null)
   var nonRefCollectionNodes: MarkdownToJSX.ASTNode[] = []
   var foundRefCollection = false
   for (var i = 0; i < nodes.length; i++) {
     var node = nodes[i]
     if (node.type === RuleType.refCollection && !foundRefCollection) {
-      refsFromAst = (node as MarkdownToJSX.ReferenceCollectionNode).refs || {}
+      refsFromAst = (node as MarkdownToJSX.ReferenceCollectionNode).refs ||
+        Object.create(null)
       foundRefCollection = true
       continue
     }
@@ -884,7 +885,11 @@ export function astToHTML(
           filtered.push(parsed[pi])
         }
       }
-      var footnoteCtx: _Ctx = { ...ctx, refs: {}, forceInline: true }
+      var footnoteCtx: _Ctx = {
+        ...ctx,
+        refs: Object.create(null),
+        forceInline: true,
+      }
       var footnoteContent = _renderChildren(filtered, footnoteCtx)
       footnoteFooter +=
         '<div id="' +
@@ -932,7 +937,11 @@ export function astToHTML(
   ) {
     var paragraphNode = nonRefCollectionNodes[0] as MarkdownToJSX.ParagraphNode
     if (paragraphNode.children) {
-      var inlineCtx: _Ctx = { ...ctx, refs: {}, forceInline: true }
+      var inlineCtx: _Ctx = {
+        ...ctx,
+        refs: Object.create(null),
+        forceInline: true,
+      }
       contentToWrap = _renderChildren(paragraphNode.children, inlineCtx)
     }
   }
