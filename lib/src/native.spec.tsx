@@ -504,6 +504,17 @@ describe('component overrides', () => {
     const style = getComponentStyle(element)
     expect(style.fontSize).toBe(20)
   })
+
+  it('#248 should apply mixed-case mid-string HTML tag overrides', () => {
+    const CustomDiv = (props: ViewProps) =>
+      React.createElement(View, { ...props, testID: 'custom-mixed-div' })
+    const result = compiler('<dIV>hello</dIV>', {
+      overrides: { div: CustomDiv },
+    })
+    const element = findFirst(result, CustomDiv)
+    expect(element?.type).toBe(CustomDiv)
+    expect(extractTextContent(result)).toContain('hello')
+  })
 })
 
 function findFirst(

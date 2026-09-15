@@ -1111,23 +1111,67 @@ export function extractFootnoteEntries(
 }
 
 /**
+ * Return `s.toLowerCase()` if `s` contains an ASCII uppercase letter, else `s`.
+ * Avoids allocating on the already-lowercase override-lookup hot path.
+ */
+function lowerAsciiIfNeeded(s: string): string {
+  var i = 0
+  var len = s.length
+  while (i < len) {
+    var c = s.charCodeAt(i)
+    if (c >= $.CHAR_A && c <= $.CHAR_Z) {
+      return s.toLowerCase()
+    }
+    i++
+  }
+  return s
+}
+
+/**
  * Get nested property from object using dot notation path
  */
 export function get(source: any, path: string, fallback: any): any {
   // Fast path: single-segment paths (the common case for override lookups)
-  // skip the split allocation
+  // skip the split allocation. HTML tags are case-insensitive, so a miss
+  // retries the lowercase key (issue #248).
   if (path.indexOf('.') === -1) {
-    return source?.[path] || fallback
+    var direct = source?.[path]
+    if (direct) {
+      return direct
+    }
+    if (source) {
+      var lowered = lowerAsciiIfNeeded(path)
+      if (lowered !== path) {
+        var ci = source[lowered]
+        if (ci) {
+          return ci
+        }
+      }
+    }
+    return fallback
   }
   var result = source
   var segments = path.split('.')
   var i = 0
+  var firstMiss = false
   while (i < segments.length) {
     result = result?.[segments[i]]
     if (result === undefined) {
+      firstMiss = i === 0
       break
     }
     i++
+  }
+  if (firstMiss && source) {
+    var firstLower = lowerAsciiIfNeeded(segments[0])
+    if (firstLower !== segments[0]) {
+      result = source[firstLower]
+      i = 1
+      while (result !== undefined && i < segments.length) {
+        result = result?.[segments[i]]
+        i++
+      }
+    }
   }
   return result || fallback
 }

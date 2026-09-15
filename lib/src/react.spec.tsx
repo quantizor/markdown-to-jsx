@@ -3273,6 +3273,64 @@ describe('overrides', () => {
     )
   })
 
+  it('#248 should apply HTML tag overrides regardless of source casing', () => {
+    const CustomInput = () => <div>custom input would go here</div>
+
+    render(
+      compiler('<INPUT />', {
+        overrides: { input: CustomInput },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div>custom input would go here</div>"`
+    )
+  })
+
+  it('#248 exact-case custom component overrides still win over lowercase HTML keys', () => {
+    const Input = () => <span>component</span>
+    const htmlInput = () => <span>html</span>
+
+    render(
+      compiler('<Input />', {
+        overrides: { Input, input: htmlInput },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<span>component</span>"`)
+  })
+
+  it('#248 should apply block HTML tag overrides regardless of source casing', () => {
+    const CustomDiv = ({ children }: { children?: React.ReactNode }) => (
+      <section className="custom">{children}</section>
+    )
+
+    render(
+      compiler('<DIV>hello</DIV>', {
+        overrides: { div: CustomDiv },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<section class="custom">hello</section>"`
+    )
+  })
+  it('#248 should apply mixed-case mid-string HTML tag overrides (#248 completeness)', () => {
+    const CustomDiv = ({ children }: { children?: React.ReactNode }) => (
+      <section className="custom-mixed">{children}</section>
+    )
+
+    render(
+      compiler('<dIV>hello</dIV>', {
+        overrides: { div: CustomDiv },
+      })
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<section class="custom-mixed">hello</section>"`
+    )
+  })
+
   it('#530 nested overrides', () => {
     render(
       compiler('<Accordion><AccordionItem>test</AccordionItem></Accordion>', {
