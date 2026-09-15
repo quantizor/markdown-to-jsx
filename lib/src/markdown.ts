@@ -104,7 +104,8 @@ export function astToMarkdown(
   for (var i = 0; i < nodes.length; i++) {
     var node = nodes[i]
     if (node.type === RuleType.refCollection && !foundRefCollection) {
-      refs = (node as MarkdownToJSX.ReferenceCollectionNode).refs ||
+      refs =
+        (node as MarkdownToJSX.ReferenceCollectionNode).refs ||
         Object.create(null)
       foundRefCollection = true
       nonRefCollectionNodes.push(node)

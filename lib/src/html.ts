@@ -817,7 +817,8 @@ export function astToHTML(
   for (var i = 0; i < nodes.length; i++) {
     var node = nodes[i]
     if (node.type === RuleType.refCollection && !foundRefCollection) {
-      refsFromAst = (node as MarkdownToJSX.ReferenceCollectionNode).refs ||
+      refsFromAst =
+        (node as MarkdownToJSX.ReferenceCollectionNode).refs ||
         Object.create(null)
       foundRefCollection = true
       continue
