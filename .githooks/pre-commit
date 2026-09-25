@@ -1,7 +1,44 @@
 #!/usr/bin/env bash
 # Refuse the commit unless the shared quality gate is green under CI rules
-# (Biome must leave a clean tree; same path CI runs).
+# (Biome must leave a clean tree; same path CI runs) on exactly the content
+# being committed.
+#
+# When the working tree holds nothing beyond what is staged, verify runs in
+# place. Otherwise (unstaged edits to tracked files, or untracked files that
+# the checks would read), the staged snapshot is written into a temporary
+# detached worktree, installed, and verified there, then removed. The index
+# git hands this hook (GIT_INDEX_FILE, which `git commit -a` and
+# `git commit <paths>` point at a temporary index) is the snapshot.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# Verify the worktree being committed, not the checkout that holds this script:
+# with an absolute core.hooksPath every worktree runs the primary copy.
+cd "$(git rev-parse --show-toplevel)"
 export CI=1
-exec bun run verify
+
+if git diff --quiet && [[ -z "$(git ls-files --others --exclude-standard)" ]]; then
+  exec bun run verify
+fi
+
+index_file=${GIT_INDEX_FILE:-$(git rev-parse --git-path index)}
+index_file="$(cd "$(dirname "${index_file}")" && pwd)/$(basename "${index_file}")"
+tmp_root=${TMPDIR:-/tmp}
+snapshot=$(mktemp -d "${tmp_root%/}/markdown-to-jsx-pre-commit.XXXXXX")
+
+cleanup() {
+  env -u GIT_INDEX_FILE git worktree remove --force "${snapshot}" >/dev/null 2>&1 || true
+  rm -rf "${snapshot}"
+}
+trap cleanup EXIT
+
+echo "==> pre-commit: the working tree differs from what is being committed; verifying the staged snapshot in ${snapshot}"
+env -u GIT_INDEX_FILE git worktree add --quiet --detach --no-checkout "${snapshot}" HEAD
+GIT_INDEX_FILE="${index_file}" git checkout-index --all --force --prefix="${snapshot}/"
+cd "${snapshot}"
+unset GIT_INDEX_FILE GIT_DIR GIT_WORK_TREE
+git add --all
+if ! install_log=$(bun install --frozen-lockfile 2>&1); then
+  echo "${install_log}"
+  echo "==> pre-commit: bun install failed in the staged snapshot"
+  exit 1
+fi
+bun run verify
