@@ -34,7 +34,7 @@
     "hooks:install": "git config core.hooksPath .githooks",
     "knip": "knip",
     "lint": "biome check .",
-    "metrics": "bun --expose-gc scripts/metrics.ts",
+    "metrics:paired": "bun scripts/metrics-gate.ts --against origin/main",
     "profile": "bun --cpu-prof --expose-gc --cpu-prof-md scripts/profile.ts",
     "bench": "pushd benchmarks; bun run bench; popd",
     "bench:all": "pushd benchmarks; bun run bench:all; popd",
