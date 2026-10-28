@@ -2358,6 +2358,44 @@ describe('prototype-slot reference labels (#900)', () => {
   })
 })
 
+describe('optimizeForStreaming keeps literal delimiters', () => {
+  it('removes only unclosed emphasis openers', () => {
+    // Literal `_` and `*` in finished text survive; only the genuinely
+    // unclosed opener on the last line is held back (issue #905)
+    expect(
+      compiler(
+        'pass *args and **kwargs\n\ncustomer_id and `customer_id`\n\nSELECT * FROM t WHERE 2*3=6\n\nhttps://example.com/a_b and <https://example.com/c_d>\n\n**held',
+        { optimizeForStreaming: true }
+      )
+    ).toMatchInlineSnapshot(`
+      "pass \\*args and \\*\\*kwargs
+
+      customer\\_id and \`customer_id\`
+
+      SELECT \\* FROM t WHERE 2\\*3=6
+
+      [https://example.com/a\\_b](https://example.com/a_b) and [https://example.com/c\\_d](https://example.com/c_d)
+
+      held"
+    `)
+  })
+
+  it('keeps complete HTML and earlier blocks unchanged', () => {
+    // Complete raw HTML, and incomplete-looking links and code in a block
+    // that is no longer the last one, render exactly as without the option
+    const md = 'a <span>z</span> <br> b\n\nsee [a](b and `code\n\nlast'
+    const streamed = compiler(md, { optimizeForStreaming: true })
+    expect(streamed).toBe(compiler(md))
+    expect(streamed).toMatchInlineSnapshot(`
+      "a <span>z</span> <br> b
+
+      see \\[a\\](b and \\\`code
+
+      last"
+    `)
+  })
+})
+
 describe('optimizeForStreaming preserves literal less-than', () => {
   it('keeps comparison prose and defers incomplete tag prefixes', () => {
     expect(compiler('5 < 3 is false', { optimizeForStreaming: true })).toBe(

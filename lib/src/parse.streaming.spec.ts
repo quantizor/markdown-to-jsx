@@ -50,12 +50,13 @@ describe('Streaming optimization - link destinations', () => {
   })
 
   it('should still suppress delimiters in incomplete links', () => {
-    const html = htmlCompiler('[View_results](https://example.com/search?x=1', {
-      optimizeForStreaming: true,
-    })
+    const html = htmlCompiler(
+      '[View_results *now](https://example.com/search?x=1',
+      { optimizeForStreaming: true }
+    )
 
-    expect(html).not.toContain('_')
-    expect(html).toContain('Viewresults')
+    // The intraword `_` is literal; the `*` opener is still unclosed
+    expect(html).toMatchInlineSnapshot(`"<p>View_results now</p>"`)
   })
 })
 
@@ -376,9 +377,123 @@ describe('Streaming optimization - bold/italic markers', () => {
     const html = htmlCompiler('*italic* text', { optimizeForStreaming: true })
     expect(html).toMatchInlineSnapshot(`"<p><em>italic</em> text</p>"`)
   })
+
+  // Issue #905: a `_` or `*` the parser renders literally is never an opener
+  it.each([
+    ['intraword underscore', 'customer_id'],
+    ['underscore in code span', '`customer_id`'],
+    ['space-surrounded asterisk', 'SELECT * FROM t'],
+    ['intraword asterisk', '2*3=6'],
+    ['bare URL', 'https://example.com/a_b'],
+    ['autolink', '<https://example.com/a_b>'],
+    ['closer without opener', '*a* b*'],
+    ['escaped asterisk', 'a \\*b'],
+    ['opener enclosed by a pair', '*a _b* c'],
+    ['trailing intraword underscore', 'customer_'],
+    ['trailing closer after punctuation', '(note)*'],
+    ['rule of 3 on partly used runs', '__aa_)_.'],
+    ['rule of 3 with mixed lengths', '**b*(*.'],
+    ['nested closer at the end', '*foo *bar**'],
+    ['leftover closer at the end', '*a**'],
+    ['opener inside a complete link', '[**a](u) x'],
+    ['raw HTML comment', 'a <!-- *x --> b'],
+  ])('keeps literal delimiters: %s', (_name, input) => {
+    expect(htmlCompiler(input, { optimizeForStreaming: true })).toBe(
+      htmlCompiler(input)
+    )
+  })
+
+  // The JSX compilers append blank lines after the last block; those must
+  // not make it look as if more content follows
+  it.each([
+    ['', ''],
+    ['trailing blank lines', '\n\n'],
+  ])('holds back openers only in the last block: %s', (_name, tail) => {
+    expect(
+      htmlCompiler(
+        `pass *args\n\n- a *b\n- c\n\n> q _x\n\nlast **held${tail}`,
+        { optimizeForStreaming: true }
+      )
+    ).toMatchInlineSnapshot(
+      `"<div><p>pass *args</p><ul><li>a *b</li><li>c</li></ul><blockquote><p>q _x</p></blockquote><p>last held</p></div>"`
+    )
+  })
+
+  it('suppresses a partial table in a final blockquote before blank lines', () => {
+    expect(
+      htmlCompiler('> | a |\n> | - |\n\n', { optimizeForStreaming: true })
+    ).toMatchInlineSnapshot(`"<blockquote></blockquote>"`)
+  })
+
+  it('holds back an opener whose next char has not arrived', () => {
+    expect(
+      [
+        'foo **',
+        'foo _',
+        '**a *b',
+        'a **b** c **d',
+        '`a*b` and *c',
+        '_see `snake_',
+        '_see [docs](/my_',
+        'foo **bar `x**',
+        '**Note:**_x',
+        '~~**a',
+      ].map(input => htmlCompiler(input, { optimizeForStreaming: true }))
+    ).toMatchInlineSnapshot(`
+      [
+        "<p>foo </p>",
+        "<p>foo </p>",
+        "<p>a b</p>",
+        "<p>a <strong>b</strong> c d</p>",
+        "<p><code>a*b</code> and c</p>",
+        "<p>see </p>",
+        "<p>see docs</p>",
+        "<p>foo bar </p>",
+        "<p><strong>Note:</strong>x</p>",
+        "<p>a</p>",
+      ]
+    `)
+  })
 })
 
 describe('Streaming optimization - links', () => {
+  it('drops only the markup of incomplete links and images', () => {
+    expect(
+      [
+        '[a](b',
+        '[![alt](img',
+        '[[a]](b',
+        '[a]![b',
+        '![a]![b]![c',
+        '[a \\[b](c)',
+        'x [a] y',
+      ].map(input => htmlCompiler(input, { optimizeForStreaming: true }))
+    ).toMatchInlineSnapshot(`
+      [
+        "<p>a</p>",
+        "<p></p>",
+        "<p>a</p>",
+        "<p>a</p>",
+        "<p></p>",
+        "<p><a href="c">a [b</a></p>",
+        "<p>x [a] y</p>",
+      ]
+    `)
+  })
+
+  // Only the block at the streaming edge can still be completed
+  it.each([
+    ['link in an earlier block', 'p [a](b\n\nnext'],
+    ['code in an earlier block', '`code\n\nnext'],
+    ['closing tag', '<span>z</span> b'],
+    ['void element', 'a <img src="x.png"> b'],
+    ['line break element', 'a <br> b'],
+  ])('keeps complete text: %s', (_name, input) => {
+    expect(htmlCompiler(input, { optimizeForStreaming: true })).toBe(
+      htmlCompiler(input)
+    )
+  })
+
   it('should strip incomplete link with no closing bracket', () => {
     const html = htmlCompiler('Check [link text', {
       optimizeForStreaming: true,
