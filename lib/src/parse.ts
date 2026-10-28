@@ -5418,8 +5418,6 @@ interface DelimEntry {
   canOpen: boolean
   canClose: boolean
   active: boolean
-  /** Streaming: remove the run's markers if processEmphasis leaves it open */
-  hold: boolean
 }
 
 /** Collect delimiter run info without consuming - returns null if not a valid delimiter */
@@ -5481,6 +5479,7 @@ interface LNode {
 function processEmphasis(
   nodes: MarkdownToJSX.ASTNode[],
   delims: DelimEntry[],
+  held: number[] | null,
   _state: MarkdownToJSX.State,
   _opts: ParseOptions
 ): void {
@@ -5642,10 +5641,12 @@ function processEmphasis(
   // A held run still active with unmatched length is an opener whose closer
   // has not streamed in yet. Its text node holds exactly the unmatched
   // markers, so emptying it removes them and the flatten below drops it.
-  for (var hk = 0; hk < delims.length; hk++) {
-    var hd = delims[hk]
-    if (hd.hold && hd.active && hd.len > 0) {
-      ;(delimLn[hk].node as MarkdownToJSX.TextNode).text = ''
+  if (held) {
+    for (var hk = 0; hk < held.length; hk++) {
+      var hd = delims[held[hk]]
+      if (hd.active && hd.len > 0) {
+        ;(delimLn[held[hk]].node as MarkdownToJSX.TextNode).text = ''
+      }
     }
   }
 
@@ -7343,6 +7344,8 @@ function parseInline(
 
   const nodes: MarkdownToJSX.ASTNode[] = []
   var delimStack: DelimEntry[] = []
+  // Streaming: delimStack indices of runs to remove if left unmatched
+  var held: number[] | null = null
   let textStart = p
   // Soft-break normalization buffer: when a soft break strips surrounding spaces
   // the kept newline must merge with adjacent text into one node, so the carry is
@@ -7396,6 +7399,13 @@ function parseInline(
             holdRun = runEnd === e && prevWs
           }
         }
+        if (holdRun) {
+          // Kept outside DelimEntry so non-streaming entries keep one shape
+          if (held === null) {
+            held = []
+          }
+          held.push(delimStack.length)
+        }
         if (dinfo.canOpen || dinfo.canClose || holdRun) {
           // Flush text before delimiter
           if (pending || p > textStart) {
@@ -7411,7 +7421,6 @@ function parseInline(
             canOpen: dinfo.canOpen,
             canClose: dinfo.canClose,
             active: true,
-            hold: holdRun,
           })
           nodes.push(delimNode)
           p += dinfo.len
@@ -7644,7 +7653,7 @@ function parseInline(
 
   // Phase 2: Process emphasis delimiters using CommonMark algorithm
   if (delimStack.length > 0) {
-    processEmphasis(nodes, delimStack, state, opts)
+    processEmphasis(nodes, delimStack, held, state, opts)
   }
 
   _scanGen = savedScanGen
