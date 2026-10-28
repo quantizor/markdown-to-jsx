@@ -14,7 +14,7 @@
  */
 import { performance } from 'node:perf_hooks'
 import process from 'node:process'
-import { parser } from '../lib/src/parse.ts'
+import { type ParserInputOptions, parser } from '../lib/src/parse.ts'
 
 /**
  * Linear work lands near 1.0. The ceiling sits well above that so ordinary
@@ -31,7 +31,11 @@ const MIN_SIGNAL_MS = 1
 const BASE = 4000
 const MAX_BASE = 64_000
 
-const shapes: Array<{ name: string; make: (n: number) => string }> = [
+const shapes: Array<{
+  make: (n: number) => string
+  name: string
+  options?: ParserInputOptions
+}> = [
   { name: 'link-balanced', make: n => '['.repeat(n) + ']'.repeat(n) },
   { name: 'link-openers-one-close', make: n => `${'['.repeat(n)}]` },
   { name: 'link-openers-no-close', make: n => '['.repeat(n) },
@@ -55,18 +59,39 @@ const shapes: Array<{ name: string; make: (n: number) => string }> = [
     name: 'table-pipes',
     make: n => `|${'a|'.repeat(n)}\n|${'-|'.repeat(n)}`,
   },
+  // Streaming pre-pass (stripPendingDelimiters): delimiter pairing and skips
+  {
+    name: 'streaming-emphasis-mixed',
+    make: n => '*a '.repeat(n) + 'b_ '.repeat(n),
+    options: { optimizeForStreaming: true },
+  },
+  {
+    name: 'streaming-emphasis-openers',
+    make: n => '*a _b '.repeat(n),
+    options: { optimizeForStreaming: true },
+  },
+  {
+    name: 'streaming-emphasis-rule-of-3',
+    make: n => '**a '.repeat(n) + 'b*a'.repeat(n),
+    options: { optimizeForStreaming: true },
+  },
+  {
+    name: 'streaming-intraword',
+    make: n => 'a_b*c '.repeat(n),
+    options: { optimizeForStreaming: true },
+  },
 ]
 
 function median(xs: number[]) {
   return [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
 }
 
-function time(input: string) {
-  parser(input) // warm up so the first timed run is not measuring compilation
+function time(input: string, options?: ParserInputOptions) {
+  parser(input, options) // warm up so the first timed run is not measuring compilation
   const runs: number[] = []
   for (var i = 0; i < 3; i++) {
     const t0 = performance.now()
-    parser(input)
+    parser(input, options)
     runs.push(performance.now() - t0)
   }
   return median(runs)
@@ -78,10 +103,10 @@ for (const shape of shapes) {
   // this immediately; a shape that stays cheap at MAX_BASE is linear enough
   // that no ratio taken here would mean anything.
   var base = BASE
-  var small = time(shape.make(base))
+  var small = time(shape.make(base), shape.options)
   while (small < MIN_SIGNAL_MS && base < MAX_BASE) {
     base *= 2
-    small = time(shape.make(base))
+    small = time(shape.make(base), shape.options)
   }
   if (small < MIN_SIGNAL_MS) {
     console.log(
@@ -89,7 +114,7 @@ for (const shape of shapes) {
     )
     continue
   }
-  const large = time(shape.make(base * 4))
+  const large = time(shape.make(base * 4), shape.options)
   // Quadrupling the input costs 4x when linear and 16x when quadratic, so the
   // exponent is the log of the ratio over the two doublings between them.
   const exponent = Math.log2(Math.max(large, 0.01) / small) / 2

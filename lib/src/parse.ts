@@ -6369,6 +6369,30 @@ function scanFootnoteRef(
   }
 }
 
+/**
+ * Scan a bare URL at `p` after the cheap rejections every caller needs: the
+ * second char must be `t` (http/ttp, ftp) or `w` (www) before scanBareUrl is
+ * paid for, which rejects most English words (the, what, with, for, from...)
+ * at one compare each, and a URL directly after `<` belongs to an autolink.
+ */
+function scanBareUrlAt(
+  s: string,
+  p: number,
+  e: number,
+  opts: ParseOptions
+): ScanResult {
+  var c = s.charCodeAt(p)
+  var next = p + 1 < e ? s.charCodeAt(p + 1) : 0
+  if (
+    (p === 0 || s.charCodeAt(p - 1) !== $.CHAR_LT) &&
+    (((c === $.CHAR_H || c === $.CHAR_f) && next === $.CHAR_t) ||
+      (c === $.CHAR_W && next === $.CHAR_W))
+  ) {
+    return scanBareUrl(s, p, e, opts)
+  }
+  return null
+}
+
 /** Scan bare URL (https://..., http://..., or www.) */
 function scanBareUrl(
   s: string,
@@ -7174,6 +7198,182 @@ function scanInlineHtml(
   }
 }
 
+/** An emphasis opener run awaiting its closer in stripPendingDelimiters */
+interface PendingDelim {
+  /** Whether the run can also close (rule of 3) */
+  canClose: boolean
+  ch: number
+  /** Whether the run's markers are removed if it is never closed */
+  hold: boolean
+  /** Unmatched length: the outer `len` chars from `pos` */
+  len: number
+  /** Length of the whole run as written (rule of 3) */
+  origLen: number
+  pos: number
+}
+
+/**
+ * Streaming pre-pass: remove the markers of emphasis and strikethrough
+ * openers that nothing in `s` closes, so a construct that is still arriving
+ * renders as its plain text instead of flashing raw `**`.
+ *
+ * `*` and `_` runs are paired with the CommonMark flanking, rule-of-3, and
+ * nearest-opener rules the inline parser applies, so a run the parser renders
+ * literally (`customer_id`, `SELECT * FROM`, a closer with no opener) is
+ * never mistaken for an opener. Code spans, escapes, links, autolinks, and
+ * bare URLs are skipped because their delimiter characters are not emphasis.
+ * `~~` pairs greedily left to right, as scanStrikethrough does.
+ *
+ * The char after a run at the end of `s` has not arrived, so the run is
+ * treated as able to open when a word char following it would let it open.
+ * A `*` run with word chars on both sides is never removed: intraword
+ * emphasis is rare and arithmetic such as `2*3` is common, and removing it
+ * would corrupt finished text.
+ */
+function stripPendingDelimiters(
+  s: string,
+  opts: ParseOptions,
+  inAnchor: boolean | undefined
+): string {
+  var e = s.length
+  var stack: PendingDelim[] = []
+  // CommonMark openers_bottom: per closer (char, can-open, length % 3), the
+  // stack height below which a previous search found no usable opener
+  var bottom = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  var tildePos = -1
+  var i = 0
+  while (i < e) {
+    var c = s.charCodeAt(i)
+    if (c === $.CHAR_BACKSLASH) {
+      var esc = i + 1 < e ? s.charCodeAt(i + 1) : 0
+      i += esc < $.CHAR_ASCII_BOUNDARY && cc(esc) & C_PUNCT ? 2 : 1
+      continue
+    }
+    if (c === $.CHAR_BACKTICK) {
+      var codeEnd = skipCodeSpan(s, i, e)
+      i = codeEnd > i ? codeEnd : i + countChar(s, i, e, c)
+      continue
+    }
+    if (c === $.CHAR_BRACKET_OPEN) {
+      // Incomplete links return their start and fall through as text
+      var linkEnd = _skipLinkOrImage(s, i, e)
+      if (linkEnd > i) {
+        i = linkEnd
+        continue
+      }
+    } else if (c === $.CHAR_LT) {
+      var auto = scanAutolink(s, i, e)
+      if (auto) {
+        i = auto.end
+        continue
+      }
+    } else if (c === $.CHAR_TILDE) {
+      if (i + 1 < e && s.charCodeAt(i + 1) === $.CHAR_TILDE) {
+        tildePos = tildePos < 0 ? i : -1
+        i += 2
+        continue
+      }
+    } else if (c === $.CHAR_ASTERISK || c === $.CHAR_UNDERSCORE) {
+      var d = collectDelimiter(s, i, e)
+      if (d) {
+        var runEnd = i + d.len
+        var prev = i > 0 ? s.charCodeAt(i - 1) : $.CHAR_SPACE
+        var prevWord =
+          i > 0 && !isUws(prev, s, i - 1) && !isUPunct(prev, s, i - 1)
+        var nextWord = true
+        var canOpen = d.canOpen
+        if (runEnd < e) {
+          var next = s.charCodeAt(runEnd)
+          nextWord = !(isUws(next, s, runEnd) || isUPunct(next, s, runEnd))
+        } else {
+          // A following word char makes the run left-flanking, and an
+          // underscore run right-flanking unless preceded by a non-word char
+          canOpen = c === $.CHAR_ASTERISK || !prevWord
+        }
+        var rem = d.len
+        if (d.canClose) {
+          var key =
+            (c === $.CHAR_UNDERSCORE ? 6 : 0) + (canOpen ? 3 : 0) + (d.len % 3)
+          while (rem > 0) {
+            var k = stack.length - 1
+            while (k >= bottom[key]) {
+              var o = stack[k]
+              if (
+                o.ch === c &&
+                !(
+                  (o.canClose || canOpen) &&
+                  (o.origLen + d.len) % 3 === 0 &&
+                  (o.origLen % 3 !== 0 || d.len % 3 !== 0)
+                )
+              ) {
+                break
+              }
+              k--
+            }
+            if (k < bottom[key]) {
+              bottom[key] = stack.length
+              break
+            }
+            var use = stack[k].len >= 2 && rem >= 2 ? 2 : 1
+            stack[k].len -= use
+            rem -= use
+            // Openers between the pair are enclosed by it and become literal
+            stack.length = stack[k].len > 0 ? k + 1 : k
+            for (var bi = 0; bi < 12; bi++) {
+              if (bottom[bi] > stack.length) {
+                bottom[bi] = stack.length
+              }
+            }
+          }
+        }
+        if (rem > 0 && canOpen) {
+          stack.push({
+            canClose: d.canClose,
+            ch: c,
+            hold: !(c === $.CHAR_ASTERISK && prevWord && nextWord),
+            len: rem,
+            origLen: d.len,
+            pos: runEnd - rem,
+          })
+        }
+        i = runEnd
+        continue
+      }
+    } else if (
+      (c === $.CHAR_H || c === $.CHAR_W || c === $.CHAR_f) &&
+      !inAnchor &&
+      !opts.disableAutoLink
+    ) {
+      var url = scanBareUrlAt(s, i, e, opts)
+      if (url) {
+        i = url.end
+        continue
+      }
+    }
+    i++
+  }
+
+  // Splice out held openers and an open `~~` in one left-to-right pass
+  var out = ''
+  var from = 0
+  for (var si = 0; si <= stack.length; si++) {
+    var cut = si < stack.length ? stack[si] : null
+    if (cut && !cut.hold) {
+      continue
+    }
+    var at = cut ? cut.pos : e
+    if (tildePos >= from && tildePos < at) {
+      out += s.slice(from, tildePos)
+      from = tildePos + 2
+    }
+    if (cut) {
+      out += s.slice(from, at)
+      from = at + cut.len
+    }
+  }
+  return from === 0 ? s : out + s.slice(from)
+}
+
 /** Parse inline content */
 // Maximum inline recursion depth
 const MAX_INLINE_DEPTH = 200
@@ -7211,94 +7411,7 @@ function parseInline(
   if (opts.optimizeForStreaming) {
     let content = s.slice(p, e)
     const original = content
-    // Strip incomplete emphasis/strikethrough by counting delimiter pairs
-    // in a single charCode scan. For each delimiter type, if the count is
-    // odd (unmatched opener), find and strip from the last unmatched one.
-    var starDbl = 0
-    var starSgl = 0
-    var undDbl = 0
-    var undSgl = 0
-    var tilDbl = 0
-    var lastStarDbl = -1
-    var lastStarSgl = -1
-    var lastUndDbl = -1
-    var lastUndSgl = -1
-    var lastTilDbl = -1
-    for (var ei = 0; ei < content.length; ei++) {
-      var ec = content.charCodeAt(ei)
-      // Link destinations are opaque to emphasis parsing. Skip complete links
-      // and images so punctuation such as `_` in a URL is not treated as a
-      // streaming delimiter. Incomplete links return their start position from
-      // _skipLinkOrImage and continue through the normal suppression logic.
-      if (ec === $.CHAR_BRACKET_OPEN) {
-        var linkEnd = _skipLinkOrImage(content, ei, content.length)
-        if (linkEnd > ei) {
-          ei = linkEnd - 1
-          continue
-        }
-      }
-      if (ec === $.CHAR_ASTERISK) {
-        if (
-          ei + 1 < content.length &&
-          content.charCodeAt(ei + 1) === $.CHAR_ASTERISK
-        ) {
-          starDbl++
-          lastStarDbl = ei
-          ei++
-        } else {
-          starSgl++
-          lastStarSgl = ei
-        }
-      } else if (ec === $.CHAR_UNDERSCORE) {
-        if (
-          ei + 1 < content.length &&
-          content.charCodeAt(ei + 1) === $.CHAR_UNDERSCORE
-        ) {
-          undDbl++
-          lastUndDbl = ei
-          ei++
-        } else {
-          undSgl++
-          lastUndSgl = ei
-        }
-      } else if (ec === $.CHAR_TILDE) {
-        if (
-          ei + 1 < content.length &&
-          content.charCodeAt(ei + 1) === $.CHAR_TILDE
-        ) {
-          tilDbl++
-          lastTilDbl = ei
-          ei++
-        } else {
-          // single ~ is not a delimiter, skip
-        }
-      }
-    }
-    // Remove the last unmatched delimiter (just the marker chars, keep content).
-    // Collect removals sorted right-to-left to avoid index shifts.
-    var removals: [number, number][] = []
-    if (tilDbl % 2 === 1 && lastTilDbl >= 0) {
-      removals.push([lastTilDbl, 2])
-    }
-    if (undDbl % 2 === 1 && lastUndDbl >= 0) {
-      removals.push([lastUndDbl, 2])
-    }
-    if (undSgl % 2 === 1 && lastUndSgl >= 0) {
-      removals.push([lastUndSgl, 1])
-    }
-    if (starDbl % 2 === 1 && lastStarDbl >= 0) {
-      removals.push([lastStarDbl, 2])
-    }
-    if (starSgl % 2 === 1 && lastStarSgl >= 0) {
-      removals.push([lastStarSgl, 1])
-    }
-    // Sort descending by position so earlier splices don't shift later ones
-    removals.sort((a, b) => b[0] - a[0])
-    for (var ri = 0; ri < removals.length; ri++) {
-      var rPos = removals[ri][0]
-      var rLen = removals[ri][1]
-      content = content.slice(0, rPos) + content.slice(rPos + rLen)
-    }
+    content = stripPendingDelimiters(content, opts, childState.inAnchor)
     // Strip incomplete inline code - count backticks to detect unmatched
     // Only strip if there's an unmatched opening backtick
     let backtickCount = 0
@@ -7575,19 +7688,7 @@ function parseInline(
       !opts.disableAutoLink
     ) {
       // h/w/f — potential http://, https://, www., or ftp://
-      // Cheap pre-check: the second char must be `t` (http/ttp), `w` (www), or `t` (ftp)
-      // before we pay the scanBareUrl call. This rejects the vast majority of English
-      // words (the, what, with, here, for, from...) at one compare each.
-      if (p === 0 || s.charCodeAt(p - 1) !== $.CHAR_LT) {
-        var nextAfterPrefix = p + 1 < e ? s.charCodeAt(p + 1) : 0
-        if (
-          (c === $.CHAR_H && nextAfterPrefix === $.CHAR_t) ||
-          (c === $.CHAR_f && nextAfterPrefix === $.CHAR_t) ||
-          (c === $.CHAR_W && nextAfterPrefix === $.CHAR_W)
-        ) {
-          result = scanBareUrl(s, p, e, opts)
-        }
-      }
+      result = scanBareUrlAt(s, p, e, opts)
     }
     // Email autolink: try when we see alphanumeric that could be local part of email
     // nextAtPos tracks next @ position — only attempt email scan within 64 chars of @
@@ -7899,7 +8000,11 @@ function parseBlocks(
             sigEnd--
           }
           var isBareTerminal = hi + 1 >= sigEnd
-          if (isLetter || isClose || isBangOrPi || isBareTerminal) {
+          if (
+            (isLetter || isClose || isBangOrPi || isBareTerminal) &&
+            // A complete autolink (`<https://...>`) is not a tag
+            !(isLetter && scanAutolink(s, hi, s.length))
+          ) {
             // find end of tag name (letters/digits after optional '/' )
             var hn = hi + 1
             if (isClose) {

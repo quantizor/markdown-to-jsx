@@ -2177,6 +2177,23 @@ describe('prototype-slot reference labels (#900)', () => {
   })
 })
 
+describe('optimizeForStreaming keeps literal delimiters', () => {
+  it('removes only unclosed emphasis openers', () => {
+    // Literal `_` and `*` in finished text survive; only the genuinely
+    // unclosed opener on the last line is held back (issue #905)
+    expect(
+      serialize(
+        compiler(
+          'customer_id and `customer_id`\n\nSELECT * FROM t WHERE 2*3=6\n\nhttps://example.com/a_b and <https://example.com/c_d>\n\n**held',
+          { optimizeForStreaming: true }
+        )
+      )
+    ).toMatchInlineSnapshot(
+      `"<div><p>customer_id and <code>customer_id</code></p><p>SELECT * FROM t WHERE 2*3=6</p><p><a>https://example.com/a_b</a> and <a>https://example.com/c_d</a></p><p>held</p></div>"`
+    )
+  })
+})
+
 describe('optimizeForStreaming preserves literal less-than', () => {
   it('keeps comparison prose and defers incomplete tag prefixes', () => {
     // Single-line input auto-inlines, so serialize sees a bare text node.

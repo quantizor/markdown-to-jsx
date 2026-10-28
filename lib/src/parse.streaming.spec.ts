@@ -50,12 +50,13 @@ describe('Streaming optimization - link destinations', () => {
   })
 
   it('should still suppress delimiters in incomplete links', () => {
-    const html = htmlCompiler('[View_results](https://example.com/search?x=1', {
-      optimizeForStreaming: true,
-    })
+    const html = htmlCompiler(
+      '[View_results *now](https://example.com/search?x=1',
+      { optimizeForStreaming: true }
+    )
 
-    expect(html).not.toContain('_')
-    expect(html).toContain('Viewresults')
+    // The intraword `_` is literal; the `*` opener is still unclosed
+    expect(html).toMatchInlineSnapshot(`"<p>View_results now</p>"`)
   })
 })
 
@@ -375,6 +376,40 @@ describe('Streaming optimization - bold/italic markers', () => {
   it('should not strip complete italic', () => {
     const html = htmlCompiler('*italic* text', { optimizeForStreaming: true })
     expect(html).toMatchInlineSnapshot(`"<p><em>italic</em> text</p>"`)
+  })
+
+  // Issue #905: a `_` or `*` the parser renders literally is never an opener
+  it.each([
+    ['intraword underscore', 'customer_id'],
+    ['underscore in code span', '`customer_id`'],
+    ['space-surrounded asterisk', 'SELECT * FROM t'],
+    ['intraword asterisk', '2*3=6'],
+    ['bare URL', 'https://example.com/a_b'],
+    ['autolink', '<https://example.com/a_b>'],
+    ['closer without opener', '*a* b*'],
+    ['escaped asterisk', 'a \\*b'],
+    ['opener enclosed by a pair', '*a _b* c'],
+    ['trailing intraword underscore', 'customer_'],
+  ])('keeps literal delimiters: %s', (_name, input) => {
+    expect(htmlCompiler(input, { optimizeForStreaming: true })).toBe(
+      htmlCompiler(input)
+    )
+  })
+
+  it('holds back an opener whose next char has not arrived', () => {
+    expect(
+      ['foo **', 'foo _', '**a *b', 'a **b** c **d', '`a*b` and *c'].map(
+        input => htmlCompiler(input, { optimizeForStreaming: true })
+      )
+    ).toMatchInlineSnapshot(`
+      [
+        "<p>foo </p>",
+        "<p>foo </p>",
+        "<p>a b</p>",
+        "<p>a <strong>b</strong> c d</p>",
+        "<p><code>a*b</code> and c</p>",
+      ]
+    `)
   })
 })
 
