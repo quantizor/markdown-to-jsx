@@ -25,3 +25,8 @@ Add a corpus case when it is fixed.
 
 - Fenced code block class names differ by renderer: the JSX renderers (react, native, solid, vue) emit `language-js lang-js` while the html string compiler emits `language-js` alone. `language-` is what hljs and prism key on and is the one to keep; `lang-` is legacy. Aligning them means either adding a duplicate class to html output or dropping `lang-` from the JSX renderers, and both change published output bytes, so it needs a maintainer call and a major or a clearly-flagged minor.
 
+
+## Streaming (`optimizeForStreaming`)
+
+- Closed raw HTML in finished text is damaged by the block-level incomplete-HTML strip, which treats the last `<tag ...>` with a `>` as an unclosed opener. `<span>z</span> b` renders without `</span>`, and void elements (`a <img src="x.png"> b`, `<br>`) are dropped entirely. The strip needs to recognize void elements and a later matching close tag before suppressing anything.
+- The inline incomplete-link strip is quadratic: each `[` re-scans to the end for its `]`, and the outer `while (linkDidStrip)` loop rescans after every strip. Run time grows with the square of the number of `[`, so a few kilobytes of `[a ` take seconds. Add a `scripts/scaling-smoke.ts` streaming case with the fix.

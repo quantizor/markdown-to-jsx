@@ -4121,12 +4121,12 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
     // unclosed opener on the last line is held back (issue #905)
     render(
       compiler(
-        'customer_id and `customer_id`\n\nSELECT * FROM t WHERE 2*3=6\n\nhttps://example.com/a_b and <https://example.com/c_d>\n\n**held',
+        'pass *args and **kwargs\n\ncustomer_id and `customer_id`\n\nSELECT * FROM t WHERE 2*3=6\n\nhttps://example.com/a_b and <https://example.com/c_d>\n\n**held',
         { optimizeForStreaming: true }
       )
     )
     expect(root.innerHTML).toMatchInlineSnapshot(
-      `"<div><p>customer_id and <code>customer_id</code></p><p>SELECT * FROM t WHERE 2*3=6</p><p><a href="https://example.com/a_b">https://example.com/a_b</a> and <a href="https://example.com/c_d">https://example.com/c_d</a></p><p>held</p></div>"`
+      `"<div><p>pass *args and **kwargs</p><p>customer_id and <code>customer_id</code></p><p>SELECT * FROM t WHERE 2*3=6</p><p><a href="https://example.com/a_b">https://example.com/a_b</a> and <a href="https://example.com/c_d">https://example.com/c_d</a></p><p>held</p></div>"`
     )
   })
 })

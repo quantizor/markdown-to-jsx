@@ -59,25 +59,10 @@ const shapes: Array<{
     name: 'table-pipes',
     make: n => `|${'a|'.repeat(n)}\n|${'-|'.repeat(n)}`,
   },
-  // Streaming pre-pass (stripPendingDelimiters): delimiter pairing and skips
+  // Streaming: per-block edge marking plus held openers in every block
   {
-    name: 'streaming-emphasis-mixed',
-    make: n => '*a '.repeat(n) + 'b_ '.repeat(n),
-    options: { optimizeForStreaming: true },
-  },
-  {
-    name: 'streaming-emphasis-openers',
-    make: n => '*a _b '.repeat(n),
-    options: { optimizeForStreaming: true },
-  },
-  {
-    name: 'streaming-emphasis-rule-of-3',
-    make: n => '**a '.repeat(n) + 'b*a'.repeat(n),
-    options: { optimizeForStreaming: true },
-  },
-  {
-    name: 'streaming-intraword',
-    make: n => 'a_b*c '.repeat(n),
+    make: n => 'p *a _b\n\n'.repeat(n),
+    name: 'streaming-held-openers',
     options: { optimizeForStreaming: true },
   },
 ]

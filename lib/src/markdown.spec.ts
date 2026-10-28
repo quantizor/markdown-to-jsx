@@ -2364,11 +2364,13 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
     // unclosed opener on the last line is held back (issue #905)
     expect(
       compiler(
-        'customer_id and `customer_id`\n\nSELECT * FROM t WHERE 2*3=6\n\nhttps://example.com/a_b and <https://example.com/c_d>\n\n**held',
+        'pass *args and **kwargs\n\ncustomer_id and `customer_id`\n\nSELECT * FROM t WHERE 2*3=6\n\nhttps://example.com/a_b and <https://example.com/c_d>\n\n**held',
         { optimizeForStreaming: true }
       )
     ).toMatchInlineSnapshot(`
-      "customer\\_id and \`customer_id\`
+      "pass \\*args and \\*\\*kwargs
+
+      customer\\_id and \`customer_id\`
 
       SELECT \\* FROM t WHERE 2\\*3=6
 

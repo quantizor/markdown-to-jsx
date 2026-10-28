@@ -390,17 +390,55 @@ describe('Streaming optimization - bold/italic markers', () => {
     ['escaped asterisk', 'a \\*b'],
     ['opener enclosed by a pair', '*a _b* c'],
     ['trailing intraword underscore', 'customer_'],
+    ['trailing closer after punctuation', '(note)*'],
+    ['rule of 3 on partly used runs', '__aa_)_.'],
+    ['rule of 3 with mixed lengths', '**b*(*.'],
+    ['nested closer at the end', '*foo *bar**'],
+    ['leftover closer at the end', '*a**'],
+    ['opener inside a complete link', '[**a](u) x'],
+    ['raw HTML comment', 'a <!-- *x --> b'],
   ])('keeps literal delimiters: %s', (_name, input) => {
     expect(htmlCompiler(input, { optimizeForStreaming: true })).toBe(
       htmlCompiler(input)
     )
   })
 
+  // The JSX compilers append blank lines after the last block; those must
+  // not make it look as if more content follows
+  it.each([
+    ['', ''],
+    ['trailing blank lines', '\n\n'],
+  ])('holds back openers only in the last block: %s', (_name, tail) => {
+    expect(
+      htmlCompiler(
+        `pass *args\n\n- a *b\n- c\n\n> q _x\n\nlast **held${tail}`,
+        { optimizeForStreaming: true }
+      )
+    ).toMatchInlineSnapshot(
+      `"<div><p>pass *args</p><ul><li>a *b</li><li>c</li></ul><blockquote><p>q _x</p></blockquote><p>last held</p></div>"`
+    )
+  })
+
+  it('suppresses a partial table in a final blockquote before blank lines', () => {
+    expect(
+      htmlCompiler('> | a |\n> | - |\n\n', { optimizeForStreaming: true })
+    ).toMatchInlineSnapshot(`"<blockquote></blockquote>"`)
+  })
+
   it('holds back an opener whose next char has not arrived', () => {
     expect(
-      ['foo **', 'foo _', '**a *b', 'a **b** c **d', '`a*b` and *c'].map(
-        input => htmlCompiler(input, { optimizeForStreaming: true })
-      )
+      [
+        'foo **',
+        'foo _',
+        '**a *b',
+        'a **b** c **d',
+        '`a*b` and *c',
+        '_see `snake_',
+        '_see [docs](/my_',
+        'foo **bar `x**',
+        '**Note:**_x',
+        '~~**a',
+      ].map(input => htmlCompiler(input, { optimizeForStreaming: true }))
     ).toMatchInlineSnapshot(`
       [
         "<p>foo </p>",
@@ -408,6 +446,11 @@ describe('Streaming optimization - bold/italic markers', () => {
         "<p>a b</p>",
         "<p>a <strong>b</strong> c d</p>",
         "<p><code>a*b</code> and c</p>",
+        "<p>see </p>",
+        "<p>see docs</p>",
+        "<p>foo bar </p>",
+        "<p><strong>Note:</strong>x</p>",
+        "<p>a</p>",
       ]
     `)
   })

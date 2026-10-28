@@ -2298,12 +2298,12 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
     expect(
       serialize(
         compiler(
-          'customer_id and `customer_id`\n\nSELECT * FROM t WHERE 2*3=6\n\nhttps://example.com/a_b and <https://example.com/c_d>\n\n**held',
+          'pass *args and **kwargs\n\ncustomer_id and `customer_id`\n\nSELECT * FROM t WHERE 2*3=6\n\nhttps://example.com/a_b and <https://example.com/c_d>\n\n**held',
           { optimizeForStreaming: true }
         )
       )
     ).toMatchInlineSnapshot(
-      `"<View><Text>customer_id and <Text>customer_id</Text></Text><Text>SELECT * FROM t WHERE 2*3=6</Text><Text><Text>https://example.com/a_b</Text> and <Text>https://example.com/c_d</Text></Text><Text>held</Text></View>"`
+      `"<View><Text>pass *args and **kwargs</Text><Text>customer_id and <Text>customer_id</Text></Text><Text>SELECT * FROM t WHERE 2*3=6</Text><Text><Text>https://example.com/a_b</Text> and <Text>https://example.com/c_d</Text></Text><Text>held</Text></View>"`
     )
   })
 })

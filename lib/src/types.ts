@@ -125,6 +125,7 @@ declare namespace MarkdownToJSX {
       inBlockQuote?: boolean
       noSetext?: boolean
       depth?: number
+      notAtEdge?: boolean
     }[]
     /** internal: deferred list-item unwrap/concat ops, run after _pendingInline drains */
     _pendingOps?: { src: ASTNode[]; dest: ASTNode[]; unwrap: boolean }[]
