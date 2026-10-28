@@ -457,6 +457,43 @@ describe('Streaming optimization - bold/italic markers', () => {
 })
 
 describe('Streaming optimization - links', () => {
+  it('drops only the markup of incomplete links and images', () => {
+    expect(
+      [
+        '[a](b',
+        '[![alt](img',
+        '[[a]](b',
+        '[a]![b',
+        '![a]![b]![c',
+        '[a \\[b](c)',
+        'x [a] y',
+      ].map(input => htmlCompiler(input, { optimizeForStreaming: true }))
+    ).toMatchInlineSnapshot(`
+      [
+        "<p>a</p>",
+        "<p></p>",
+        "<p>a</p>",
+        "<p>a</p>",
+        "<p></p>",
+        "<p><a href="c">a [b</a></p>",
+        "<p>x [a] y</p>",
+      ]
+    `)
+  })
+
+  // Only the block at the streaming edge can still be completed
+  it.each([
+    ['link in an earlier block', 'p [a](b\n\nnext'],
+    ['code in an earlier block', '`code\n\nnext'],
+    ['closing tag', '<span>z</span> b'],
+    ['void element', 'a <img src="x.png"> b'],
+    ['line break element', 'a <br> b'],
+  ])('keeps complete text: %s', (_name, input) => {
+    expect(htmlCompiler(input, { optimizeForStreaming: true })).toBe(
+      htmlCompiler(input)
+    )
+  })
+
   it('should strip incomplete link with no closing bracket', () => {
     const html = htmlCompiler('Check [link text', {
       optimizeForStreaming: true,

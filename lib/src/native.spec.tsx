@@ -2306,6 +2306,17 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
       `"<View><Text>pass *args and **kwargs</Text><Text>customer_id and <Text>customer_id</Text></Text><Text>SELECT * FROM t WHERE 2*3=6</Text><Text><Text>https://example.com/a_b</Text> and <Text>https://example.com/c_d</Text></Text><Text>held</Text></View>"`
     )
   })
+
+  it('keeps complete HTML and earlier blocks unchanged', () => {
+    // Complete raw HTML, and incomplete-looking links and code in a block
+    // that is no longer the last one, render exactly as without the option
+    const md = 'a <span>z</span> <br> b\n\nsee [a](b and `code\n\nlast'
+    const streamed = serialize(compiler(md, { optimizeForStreaming: true }))
+    expect(streamed).toBe(serialize(compiler(md)))
+    expect(streamed).toMatchInlineSnapshot(
+      `"<View><Text>a <Text>z</Text> <Text></Text> b</Text><Text>see [a](b and \`code</Text><Text>last</Text></View>"`
+    )
+  })
 })
 
 describe('optimizeForStreaming preserves literal less-than', () => {

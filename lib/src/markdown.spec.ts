@@ -2379,6 +2379,21 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
       held"
     `)
   })
+
+  it('keeps complete HTML and earlier blocks unchanged', () => {
+    // Complete raw HTML, and incomplete-looking links and code in a block
+    // that is no longer the last one, render exactly as without the option
+    const md = 'a <span>z</span> <br> b\n\nsee [a](b and `code\n\nlast'
+    const streamed = compiler(md, { optimizeForStreaming: true })
+    expect(streamed).toBe(compiler(md))
+    expect(streamed).toMatchInlineSnapshot(`
+      "a <span>z</span> <br> b
+
+      see \\[a\\](b and \\\`code
+
+      last"
+    `)
+  })
 })
 
 describe('optimizeForStreaming preserves literal less-than', () => {

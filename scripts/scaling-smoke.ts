@@ -59,6 +59,12 @@ const shapes: Array<{
     name: 'table-pipes',
     make: n => `|${'a|'.repeat(n)}\n|${'-|'.repeat(n)}`,
   },
+  // Streaming: incomplete-link stripping over unmatched openers
+  {
+    make: n => '[a '.repeat(n),
+    name: 'streaming-link-openers',
+    options: { optimizeForStreaming: true },
+  },
   // Streaming: per-block edge marking plus held openers in every block
   {
     make: n => 'p *a _b\n\n'.repeat(n),

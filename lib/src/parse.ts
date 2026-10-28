@@ -7125,6 +7125,104 @@ function scanInlineHtml(
   }
 }
 
+/**
+ * Streaming: drop the markup of a link or image that has not finished
+ * arriving. An unmatched `[` loses its bracket and keeps its text; `[text]`
+ * at the end, `[text](url`, and `[text][ref` keep only `text`, which is then
+ * scanned in turn since it can hold its own incomplete link (`[[a]](b` ->
+ * `a`); an incomplete image is removed with its alt text, which is metadata
+ * rather than content.
+ *
+ * Brackets are matched once with a stack, and the scan only moves forward
+ * while the kept end shrinks, so the work is linear in `s`.
+ */
+function stripIncompleteLinks(s: string): string {
+  if (s.indexOf('[') === -1) {
+    return s
+  }
+  var n = s.length
+  // Index of each opener's matching `]`; -1 unmatched, -2 bracket dropped
+  var close = new Int32Array(n).fill(-1)
+  var stack: number[] = []
+  for (var i = 0; i < n; i++) {
+    var c = s.charCodeAt(i)
+    if (
+      (c === $.CHAR_BRACKET_OPEN || c === $.CHAR_BRACKET_CLOSE) &&
+      (i === 0 || s.charCodeAt(i - 1) !== $.CHAR_BACKSLASH)
+    ) {
+      if (c === $.CHAR_BRACKET_OPEN) {
+        stack.push(i)
+      } else {
+        var open = stack.pop()
+        if (open !== undefined) {
+          close[open] = i
+        }
+      }
+    }
+  }
+  // Openers skipped as plain `[text]`, innermost last
+  var skipped: number[] = []
+  var end = n
+  for (i = 0; i < end; i++) {
+    if (
+      s.charCodeAt(i) !== $.CHAR_BRACKET_OPEN ||
+      (i > 0 && s.charCodeAt(i - 1) === $.CHAR_BACKSLASH)
+    ) {
+      continue
+    }
+    var image = i > 0 && s.charCodeAt(i - 1) === $.CHAR_EXCLAMATION
+    var ci = close[i]
+    if (ci >= 0) {
+      var after = ci + 1
+      if (after < end) {
+        var ac = s.charCodeAt(after)
+        if (ac !== $.CHAR_PAREN_OPEN && ac !== $.CHAR_BRACKET_OPEN) {
+          // [text] followed by other text is not a link
+          skipped.push(i)
+          i = ci
+          continue
+        }
+        var want =
+          ac === $.CHAR_PAREN_OPEN ? $.CHAR_PAREN_CLOSE : $.CHAR_BRACKET_CLOSE
+        var j = after + 1
+        while (j < end && s.charCodeAt(j) !== want) {
+          j++
+        }
+        if (j < end) {
+          // Complete [text](url) or [text][ref]
+          i = j
+          continue
+        }
+      }
+    }
+    if (image) {
+      end = i - 1
+      // A skipped `[text]` that the cut leaves at the end is now `[text]` at
+      // the end (`[a]![b` -> `[a]` -> `a`), so revisit it
+      var last = skipped.pop()
+      if (last !== undefined && close[last] === end - 1) {
+        i = last - 1
+        continue
+      }
+      break
+    }
+    close[i] = -2
+    if (ci >= 0) {
+      // Keep only the text; the scan continues inside it
+      end = ci
+    }
+  }
+  var out = ''
+  var from = 0
+  for (i = 0; i < end; i++) {
+    if (close[i] === -2) {
+      out += s.slice(from, i)
+      from = i + 1
+    }
+  }
+  return out + s.slice(from, end)
+}
+
 /** Parse inline content */
 // Maximum inline recursion depth
 const MAX_INLINE_DEPTH = 200
@@ -7157,9 +7255,18 @@ function parseInline(
   // Use state directly to avoid object spread allocation
   const childState = state
 
-  // If streaming mode, preprocess to strip incomplete markers BEFORE parsing
-  // This prevents bare URLs inside incomplete links from being autolinked
-  if (opts.optimizeForStreaming) {
+  // Streaming suppresses only constructs that text still to arrive could
+  // complete: those in the outermost inline run of the block at the streaming
+  // edge, not in an earlier block or nested in a link, strikethrough, or
+  // other closed construct
+  var streamEdge =
+    opts.optimizeForStreaming === true &&
+    _globalInlineDepth === 1 &&
+    !state._notAtEdge
+
+  // Strip incomplete markers BEFORE parsing, which also keeps bare URLs
+  // inside incomplete links from being autolinked
+  if (streamEdge) {
     let content = s.slice(p, e)
     const original = content
     // Strip incomplete inline code - count backticks to detect unmatched
@@ -7195,100 +7302,7 @@ function parseInline(
         content = content.slice(0, codeStart)
       }
     }
-    // Strip incomplete link/image markers using charCode scan.
-    // Handles nested constructs like [![alt](img)](link).
-    // Find matching ] for a [ at position pos, respecting bracket nesting.
-    function findMatchingClose(str: string, pos: number): number {
-      var depth = 1
-      for (var fi = pos + 1; fi < str.length; fi++) {
-        var fc = str.charCodeAt(fi)
-        if (fc === $.CHAR_BRACKET_OPEN) {
-          depth++
-        } else if (fc === $.CHAR_BRACKET_CLOSE) {
-          depth--
-          if (depth === 0) {
-            return fi
-          }
-        }
-      }
-      return -1
-    }
-    // Loop to handle nested constructs (e.g. [![alt](img-url being typed)
-    // First pass strips outer [, second pass strips inner ![
-    var linkDidStrip = true
-    while (linkDidStrip) {
-      linkDidStrip = false
-      var linkStripPos = -1
-      var linkTextStart = -1
-      var linkTextEnd = -1
-      var linkIsImage = false
-      for (var li = 0; li < content.length; li++) {
-        var lc = content.charCodeAt(li)
-        if (
-          lc === $.CHAR_BRACKET_OPEN &&
-          (li === 0 || content.charCodeAt(li - 1) !== $.CHAR_BACKSLASH)
-        ) {
-          var imgPrefix =
-            li > 0 && content.charCodeAt(li - 1) === $.CHAR_EXCLAMATION
-          var lStart = imgPrefix ? li - 1 : li
-          var lClose = findMatchingClose(content, li)
-          if (lClose === -1) {
-            // [text... — no matching ]
-            linkStripPos = lStart
-            linkIsImage = imgPrefix
-            linkTextStart = li + 1
-            linkTextEnd = content.length
-          } else {
-            var lAfter = lClose + 1
-            if (lAfter >= content.length) {
-              // [text] at end — no destination yet
-              linkStripPos = lStart
-              linkIsImage = imgPrefix
-              linkTextStart = li + 1
-              linkTextEnd = lClose
-            } else if (content.charCodeAt(lAfter) === $.CHAR_PAREN_OPEN) {
-              var lParen = content.indexOf(')', lAfter + 1)
-              if (lParen === -1) {
-                // [text](url — incomplete
-                linkStripPos = lStart
-                linkIsImage = imgPrefix
-                linkTextStart = li + 1
-                linkTextEnd = lClose
-                li = content.length
-              } else {
-                // [text](url) — complete, skip past
-                li = lParen
-              }
-            } else if (content.charCodeAt(lAfter) === $.CHAR_BRACKET_OPEN) {
-              var lRef = content.indexOf(']', lAfter + 1)
-              if (lRef === -1) {
-                // [text][ref — incomplete ref
-                linkStripPos = lStart
-                linkIsImage = imgPrefix
-                linkTextStart = li + 1
-                linkTextEnd = lClose
-                li = content.length
-              } else {
-                // [text][ref] — complete ref, skip past
-                li = lRef
-              }
-            } else {
-              // [text] followed by non-link char — not a link, skip
-              li = lClose
-            }
-          }
-        }
-      }
-      if (linkStripPos >= 0) {
-        // For images, suppress entirely (alt text is metadata, not content).
-        // For links, show the link text as plain text.
-        var linkText = linkIsImage
-          ? ''
-          : content.slice(linkTextStart, linkTextEnd)
-        content = content.slice(0, linkStripPos) + linkText
-        linkDidStrip = true
-      }
-    }
+    content = stripIncompleteLinks(content)
     // Strip incomplete HTML/JSX tags - <Tag>content but no closing </Tag>
     // Match <TagName...>content at end without corresponding closing tag
     // But skip if the tag is inside a code span (backticks)
@@ -7329,14 +7343,6 @@ function parseInline(
 
   const nodes: MarkdownToJSX.ASTNode[] = []
   var delimStack: DelimEntry[] = []
-  // Streaming holds back only openers that text still to arrive could close:
-  // those in the outermost inline run of the block at the streaming edge, not
-  // in an earlier block or nested in a link, strikethrough, or other closed
-  // construct
-  var streamEdge =
-    opts.optimizeForStreaming === true &&
-    _globalInlineDepth === 1 &&
-    !state._notAtEdge
   let textStart = p
   // Soft-break normalization buffer: when a soft break strips surrounding spaces
   // the kept newline must merge with adjacent text into one node, so the carry is
@@ -7843,8 +7849,10 @@ function parseBlocks(
               htmlTagPos = hi
               htmlIncompletePrefix = true
             } else if (
-              (isLetter || isClose) &&
-              s.charCodeAt(hg - 1) !== $.CHAR_SLASH
+              // A complete closing tag or void element closes nothing later
+              isLetter &&
+              s.charCodeAt(hg - 1) !== $.CHAR_SLASH &&
+              !util.isVoidElement(s.slice(hi + 1, hn))
             ) {
               // verify no '<' in content after '>'
               var hasLt = false
