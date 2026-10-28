@@ -115,7 +115,7 @@ Organization and naming
 
 Git and process
 
-- Ask before pushing, every time. Approval for one push does not carry to the next.
+- Ask before the first push to a branch. Once approved, later pushes to that branch's PR are covered by the same approval; a new branch or PR needs its own.
 - Never use `git stash`. Use a temporary commit instead.
 - Never gate a shell `&&` chain on `grep -c` (a zero count exits 1) or on a piped command's exit status (a pipe reports only the last command's). Verify the intended step's own effect instead.
 - Amend formatter output into the commit that produced it rather than making a style-only commit, as long as that commit is unpushed.
