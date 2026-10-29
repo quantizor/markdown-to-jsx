@@ -10,6 +10,8 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
     permissions:
       contents: write
       pull-requests: write
@@ -55,3 +57,15 @@ jobs:
         with:
           createGithubReleases: true
           publish: bun run changeset-publish
+
+  # Releases created here use GITHUB_TOKEN, and events made with that token
+  # don't trigger other workflows, so website.yml's `release` trigger never
+  # fires for them. Deploy the site directly after a publish instead.
+  website:
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    permissions:
+      id-token: write
+      contents: read
+      pages: write
+    uses: ./.github/workflows/website.yml
