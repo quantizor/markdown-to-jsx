@@ -17,7 +17,7 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Changelog attribution asks git which commits touched each changeset
           # file. In a shallow checkout the tip commit has no parent, so it
@@ -25,7 +25,7 @@ jobs:
           # credit whoever pushed last instead of whoever wrote the change.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
@@ -51,12 +51,12 @@ jobs:
 
       - name: Create Release Pull Request
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          createGithubReleases: true
-          publish: bun run changeset-publish
+          create-github-releases: true
+          publish-script: bun run changeset-publish
 
   # Releases created here use GITHUB_TOKEN, and events made with that token
   # don't trigger other workflows, so website.yml's `release` trigger never
