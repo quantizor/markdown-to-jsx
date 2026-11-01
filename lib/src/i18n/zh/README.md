@@ -958,15 +958,20 @@ import { useState, useEffect } from 'react'
 
 function ChatMessage({ stream }) {
   const [content, setContent] = useState('')
+  const [done, setDone] = useState(false)
 
   useEffect(() => {
     // 从 LLM 流中累积 token
     stream.on('token', token => setContent(prev => prev + token))
+    // 按原样渲染已完成的消息
+    stream.on('end', () => setDone(true))
   }, [stream])
 
-  return <Markdown options={{ optimizeForStreaming: true }}>{content}</Markdown>
+  return <Markdown options={{ optimizeForStreaming: !done }}>{content}</Markdown>
 }
 ```
+
+最终渲染时请关闭该选项。启用期间，解析器无法区分写到一半的语法和已完成的文本，因此始终没有闭合配对的 `*` 或 `_`（例如 `*args` 或 `_id`）会一直被隐藏。使用 `optimizeForStreaming: false` 渲染完整消息，即可按原样显示。
 
 **它抑制的内容：**
 

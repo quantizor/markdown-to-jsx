@@ -965,15 +965,20 @@ import { useState, useEffect } from 'react'
 
 function ChatMessage({ stream }) {
   const [content, setContent] = useState('')
+  const [done, setDone] = useState(false)
 
   useEffect(() => {
     // Accumulate tokens from the LLM stream
     stream.on('token', token => setContent(prev => prev + token))
+    // Render the finished message as written
+    stream.on('end', () => setDone(true))
   }, [stream])
 
-  return <Markdown options={{ optimizeForStreaming: true }}>{content}</Markdown>
+  return <Markdown options={{ optimizeForStreaming: !done }}>{content}</Markdown>
 }
 ```
+
+Turn the option off for the final render. While it is on, the parser cannot tell half-written syntax from finished text, so a `*` or `_` that never gets a closing partner (such as `*args` or `_id`) stays hidden. Rendering the completed message with `optimizeForStreaming: false` shows it exactly as written.
 
 **What it suppresses:**
 
