@@ -270,8 +270,10 @@ The `code` override fires for inline backticks too, so branch on `props.classNam
 For markdown arriving token by token from an LLM or socket, `optimizeForStreaming` suppresses half-written syntax until its closing delimiter lands, so readers never see a flash of raw `**` or `[text](`.
 
 ```tsx
-<Markdown options={{ optimizeForStreaming: true }}>{content}</Markdown>
+<Markdown options={{ optimizeForStreaming: !done }}>{content}</Markdown>
 ```
+
+Turn it off once the stream ends. The parser cannot tell a half-written `*text` from finished text, so a `*` or `_` with no closing partner (`*args`, `_id`) stays hidden while the option is on.
 
 Held back: unclosed HTML tags and comments, unclosed inline code, bold, italic, strikethrough, unclosed links, and a table before its first data row. Fenced code blocks stream visibly as they arrive.
 
@@ -339,7 +341,7 @@ compiler('a\\\nb') // "<p>a<br />\nb</p>", trailing backslash
 - Import the entry point matching your renderer (`markdown-to-jsx/react`, `/html`, …) so unused renderers drop out of the bundle.
 - Keep markdown in `.md` files or dedented variables. JSX collapses newlines, so markdown written inline in JSX loses its block structure.
 - Use `overrides` for tag-level changes and `renderRule` for node-level ones. `overrides` is the simpler tool; reach past it only when you need `node.lang`, `node.text`, or a normally-skipped node.
-- Set `optimizeForStreaming` for any incrementally arriving content.
+- Set `optimizeForStreaming` for any incrementally arriving content, and turn it off for the final render.
 - Set `wrapper: null` with `compiler()` when you want the children array rather than a container element, or `wrapper: React.Fragment` to render at the parent's DOM level.
 - Pass `slugify: str => str` when headings are non-Latin and the default deburring would empty the id. The input is the heading's plain text (no link URLs or image alt). Duplicate heading text already gets unique ids (`foo`, `foo-1`); you do not need a stateful slugify closure for that.
 - On React Native, set `styles.text` once for document-wide font and color; every other key merges over its default, so name only the properties you are changing.

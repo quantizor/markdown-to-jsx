@@ -969,15 +969,20 @@ import { useState, useEffect } from 'react'
 
 function ChatMessage({ stream }) {
   const [content, setContent] = useState('')
+  const [done, setDone] = useState(false)
 
   useEffect(() => {
     // LLM स्ट्रीम से tokens संचित करें
     stream.on('token', token => setContent(prev => prev + token))
+    // पूर्ण संदेश को लिखे अनुसार रेंडर करें
+    stream.on('end', () => setDone(true))
   }, [stream])
 
-  return <Markdown options={{ optimizeForStreaming: true }}>{content}</Markdown>
+  return <Markdown options={{ optimizeForStreaming: !done }}>{content}</Markdown>
 }
 ```
+
+अंतिम रेंडर के लिए इस विकल्प को बंद करें। जब यह चालू रहता है, तो पार्सर अधूरे सिंटैक्स और पूर्ण टेक्स्ट में अंतर नहीं कर सकता, इसलिए ऐसा `*` या `_` जिसका कभी बंद करने वाला जोड़ा नहीं आता (जैसे `*args` या `_id`) छिपा रहता है। पूर्ण संदेश को `optimizeForStreaming: false` के साथ रेंडर करने पर वह ठीक वैसा ही दिखता है जैसा लिखा गया है।
 
 **यह क्या दबाता है:**
 

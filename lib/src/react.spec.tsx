@@ -4130,6 +4130,17 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
     )
   })
 
+  it('hides a never-closed opener until the final render (issue #909)', () => {
+    // The parser cannot tell a streaming edge from finished text, so an
+    // opener with no closer stays hidden while the option is on; the
+    // documented final render with the option off shows it as written
+    const md = 'Use _trace and *args'
+    render(compiler(md, { optimizeForStreaming: true }))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Use trace and args"`)
+    render(compiler(md, { optimizeForStreaming: false }))
+    expect(root.innerHTML).toMatchInlineSnapshot(`"Use _trace and *args"`)
+  })
+
   it('keeps complete HTML and earlier blocks unchanged', () => {
     // Complete raw HTML, and incomplete-looking links and code in a block
     // that is no longer the last one, render exactly as without the option
