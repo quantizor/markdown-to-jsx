@@ -24,4 +24,13 @@ Add a corpus case when it is fixed.
 ## Renderer drift
 
 - Fenced code block class names differ by renderer: the JSX renderers (react, native, solid, vue) emit `language-js lang-js` while the html string compiler emits `language-js` alone. `language-` is what hljs and prism key on and is the one to keep; `lang-` is legacy. Aligning them means either adding a duplicate class to html output or dropping `lang-` from the JSX renderers, and both change published output bytes, so it needs a maintainer call and a major or a clearly-flagged minor.
+- An HTML block whose content sits on its own lines with heading syntax (`<div>\n# x\n</div>`) renders differently by renderer: the html and markdown compilers emit the block's source text, so `# x` stays literal, while the JSX renderers (react, native, solid, vue) render the parsed children, an `<h1>`. CommonMark Example 189 keeps newline-wrapped content without a blank line raw, so html is the conforming side. The block-syntax check that sends such content to block parsing feeds the JSX renderers only; aligning them changes published JSX output.
+
+## Performance
+
+- Parse speed depends on what the process parsed before. One copy of the parser parses the stress fixture about 17% slower after parsing `gfm-spec.md` and `markdown-spec.md` than in a fresh process (six processes each way, no overlap), and compile logs tie the slow state to `parseBlocks` keeping optimized code from the earlier inputs. Unmeasured: whether real mixes of documents trigger it or only the synthetic stress fixture. A worker that cycles a corpus of real documents and compares per-document time against fresh processes settles it.
+
+## Tooling
+
+- No typecheck covers `scripts/`: verify's typecheck runs `lib/tsconfig.typecheck.json` (library and specs) and the harness workspaces, so a type error in a dev script or its spec surfaces only at run time. Add a tsconfig for `scripts/` (Bun types, the lib type roots) to verify's typecheck wave.
 

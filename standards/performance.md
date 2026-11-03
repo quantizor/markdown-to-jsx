@@ -27,6 +27,8 @@ String handling in hot paths
 - For multi-condition classification (delimiter, whitespace, digit) a single charCodeAt walk against a 128-entry ASCII lookup table beats several regex passes.
 - Do not call `.trim()`; it allocates. Track the trimmed `[start, end)` range and substring once at the emit point.
 - Normalize at parse time rather than emit time when the normalization is deterministic, so emit stays a pure concatenation.
+- A string the parser sliced and nothing has read yet is unresolved in JSC. The first `charCodeAt` (or index) on it pays to resolve it, about as much as a short regex test costs; a regex test reads it without resolving it, and does not make a later `charCodeAt` cheaper. On a per-node renderer path, decide with one regex test before reading characters.
+- A whole-input scan on every parse (an `indexOf` for a rare character) is a measurable share of parsing a short input. Compute a per-document fact on first use, not up front.
 
 Optimistic rewrite
 
@@ -69,17 +71,36 @@ What is recoverable, all confirmed by paired A/B:
 
 Benchmark methodology
 
-`bun metrics --target <name>` compares against the stored baseline. The `benchmarks/` workspace compares against other libraries. Neither is trustworthy without the following.
+`bun run metrics:paired` compares the working tree against its merge base with origin/main (method below). The `benchmarks/` workspace compares against other libraries. None of them is trustworthy without the following.
 
-Import position biases paired A/B runs. Two byte-identical copies of a module imported into one process show a systematic bias favoring the second import: 1 to 3% on ~1.3ms workloads, up to 13% on ~0.25ms workloads. It is stable across runs and tracks position rather than content. Correct for it by running each comparison twice with the import order swapped and scoring:
+Position biases paired A/B runs. Two byte-identical copies of a module in one process time differently by position, not content: which was imported first, which runs first in each warmup round, and which is timed first within a sample. Five corrections, all required:
+
+- Time each input in its own process. An input timed after others runs on code the engine specialized for them, and the implementation that tiers up first can stay on it for the rest of the process: the stress fixture timed after the two spec fixtures read 10 to 15% slower for whichever implementation led warmup, in both import orders.
+- Tie the first warmup call to the import order and alternate the leader every round after it. Even in a fresh process the implementation that calls first tiers up first, a bias of a few percent that follows the leader; tied to the import order, the swap below cancels it.
+- Warm up for a time floor, not only a round count. A fixed round count on a small input ends while the engine is still optimizing; the implementation that runs first in warmup then reads slower in both import orders, so swapping imports cannot cancel it.
+- Score a pair of consecutive samples, one with each implementation timed first, as one ratio. The block timed second in a sample runs faster, so per-sample ratios are bimodal and their median jumps between the two clusters.
+- Run each comparison twice with the import order swapped and score:
 
 ```
-corrected delta = (delta_with_candidate_second - delta_with_candidate_first) / 2
+delta           = median over sample pairs of (candidate time / baseline time) - 1, positive when the candidate is slower
+corrected delta = (delta with the candidate imported first + delta with the candidate imported second) / 2
+position bias   = (delta with the candidate imported first - delta with the candidate imported second) / 2
 ```
 
-Under the null this lands under 1%, and a real effect keeps its sign in both orientations. Calibrate the inner repeat count so every timed block is about 2.5ms regardless of input size, and mirror the warmup order to the timed order within each sample.
+Under the null the corrected delta lands within 3%, and a real effect keeps its sign in both orientations. Calibrate the inner repeat count so every timed block is at least 2.5ms regardless of input size.
+
+Paired gate against the merge base
+
+- Command: `bun run metrics:paired` (`scripts/metrics-gate.ts --against origin/main`, optionally `--target <name>` repeated and `--streaming`). Needs origin/main fetched. Without `--target` it measures every target plus the parser with `optimizeForStreaming`.
+- Baseline: `git merge-base origin/main HEAD`, its `lib/` extracted to a temp dir that resolves dependencies through this checkout's `lib/node_modules`, removed afterward (`scripts/checkout-ref.ts`). Candidate: the working tree, uncommitted edits included, or a committed ref extracted the same way with `--candidate <ref>`. `--against HEAD --candidate HEAD` is a null run: the committed tree against itself, showing the noise floor on the current machine.
+- Per target and input, `scripts/metrics.ts --against <dir> --order <order> --input <name>` runs once per import order, each in its own process. Each run imports both implementations, warms up for the round count and time floor above with the import-order-tied alternating leader, then takes 20 sample pairs, each sample one calibrated block per implementation with a GC before it, the pair timing each implementation first once. Inputs: the stress fixture, `markdown-spec.md` (27kB), and `gfm-spec.md` (211kB).
+- Tiny case, per target: `scripts/metrics.ts --tiny --root <dir>` times an 18-byte input in a process that imports only that one implementation, reporting the median per-call time of calibrated blocks after a long warmup. The gate runs a fixed number of these processes per implementation, alternating which goes first, and scores the ratio of the two implementations' median per-call times. It runs cross-process because the import-position bias above grows as the workload shrinks and swamps a sub-microsecond delta; separate processes trade that bias for process-to-process spread, which the null run measures.
+- Verdict: the corrected delta per target and input against the limits in `scripts/metrics-gate.ts`, one limit for the parser and string compilers, a looser one for the JSX renderers (framework element creation adds noise), and one for the tiny case, sized above the largest null-run tiny delta seen on a loaded machine. Prints every target and input with both orders' median and quartiles, and the tiny case with each implementation's median and quartiles; exits 1 when any delta is over its limit. A row whose quartiles span wider than its spread limit (in either import order, or either tiny implementation) reports NOISY instead of a verdict (also exit 1): a median that uncertain cannot resolve a delta the size of the limit, so rerun at low load. The exception is a row whose favorable bound already clears the limit (the lower quartile of the delta in both import orders; for the tiny case, the candidate's lower quartile against the baseline's upper): that regression holds whatever the spread, so it reports FAIL. A missing, duplicated, or non-finite measurement row exits 1 with the offending row rather than scoring it.
+- Run it before opening a PR that touches `lib/src/`. It stays out of verify: a paired comparison cancels machine speed but not contention, and the pre-commit hook runs while sibling sessions load the same machine, which moves small workloads by more than the limit.
 
 Sampling-profiler line attribution smears. `bun --cpu-prof` spreads self time onto lines adjacent to the real cost inside a function. Two false leads from one session: an `indexOf` on the line above a hot dispatch loop was credited 3 to 6% self time when its true cost was microseconds, and a bounded `indexOf` fast-reject two lines above a char walk was credited 6%. Function-level self time is trustworthy; line-level is not. Instrument call counts and scan distances with counters before optimizing a hot line.
+
+Attribute a sub-microsecond cost by retired instructions, not wall time. On macOS `/usr/bin/time -l` prints instructions retired for a process; run the workload at two call counts and divide the difference by the difference in calls, so startup and compilation cancel. The count holds steady on a loaded machine where wall time does not. Revert one function at a time on a copy of the tree to attribute the cost, then confirm the result in wall time. JSC inlines a hot helper only under a bytecode-cost budget, and one added branch can push a per-node function past it, costing more than the branch itself: `BUN_JSC_reportCompileTimes=1` prints each optimized function's cost and `BUN_JSC_printEachDFGFTLInlineCall=1` each inlining decision. Keep a per-node common path small and move rare branches into a separate function.
 
 Benchmark at multiple scales (about 30B, 80B, 600B, 2KB, 10KB, then the 211KB fixture). Speedups routinely collapse at large scales once GC pressure and string flattening dominate. Use a median across N measured runs after warmup, and `--expose-gc` with a collection between runs when measuring allocation-sensitive code.
 

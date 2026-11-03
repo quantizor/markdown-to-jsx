@@ -118,7 +118,7 @@ Shared across every renderer unless noted.
 | `createElement`                 | `function`                    | -        | Hook `(type, props, children)` before elements are built. JSX renderers only.     |
 | `disableAutoLink`               | `boolean`                     | `false`  | Leave bare URLs as text.                                                          |
 | `disableParsingRawHTML`         | `boolean`                     | `false`  | Skip converting raw HTML to elements.                                             |
-| `enforceAtxHeadings`            | `boolean`                     | `false`  | Require a space after `#` for a heading.                                          |
+| `enforceAtxHeadings`            | `boolean`                     | `true`   | Require a space after `#` for a heading. `false` also reads `#heading` as one.    |
 | `evalUnserializableExpressions` | `boolean`                     | `false`  | Run `eval()` on JSX prop expressions. Unsafe; see Don't.                          |
 | `forceBlock` / `forceInline`    | `boolean`                     | `false`  | Pin the whole input to block or inline parsing.                                   |
 | `forceWrapper`                  | `boolean`                     | `false`  | Wrap even a single child. JSX renderers only.                                     |

@@ -47,7 +47,7 @@ For integrations that require a view library:
 
 ### 5. Add to Metrics and Profile
 
-Add the new target to both `scripts/metrics.ts` and `scripts/profile.ts` so it can be benchmarked and profiled for performance analysis.
+Add the new target to `TARGETS` in `scripts/metrics-targets.ts` so it can be benchmarked and profiled for performance analysis.
 
 ### 6. Documentation
 
