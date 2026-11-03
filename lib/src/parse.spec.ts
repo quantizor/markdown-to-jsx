@@ -7515,3 +7515,43 @@ Some paragraph
     ])
   })
 })
+
+describe('inline HTML keeps the spaces at the edges of its content (#904)', () => {
+  const htmlChildren = (input: string, options = {}) => {
+    const [first] = p.parser(input, options) as MarkdownToJSX.ParagraphNode[]
+    const span = first.children.find(
+      n => n.type === RuleType.htmlBlock
+    ) as MarkdownToJSX.HTMLNode
+    return span.children ?? []
+  }
+
+  it.each([
+    {},
+    { optimizeForStreaming: true },
+  ])('keeps leading and trailing spaces between the tags (%o)', options => {
+    expect(htmlChildren('a<span> b </span>c', options)).toEqual([
+      { type: RuleType.text, text: ' b ' },
+    ])
+    expect(htmlChildren('<b>bold </b>next', options)).toEqual([
+      { type: RuleType.text, text: 'bold ' },
+    ])
+  })
+
+  it('keeps a whitespace-only body', () => {
+    expect(htmlChildren('a<span> </span>b')).toEqual([
+      { type: RuleType.text, text: ' ' },
+    ])
+  })
+
+  it('keeps the spaces around a nested element', () => {
+    const children = htmlChildren('a<span> <em>x</em> </span>b')
+
+    expect(children.map(n => n.type)).toEqual([
+      RuleType.text,
+      RuleType.htmlBlock,
+      RuleType.text,
+    ])
+    expect((children[0] as MarkdownToJSX.TextNode).text).toBe(' ')
+    expect((children[2] as MarkdownToJSX.TextNode).text).toBe(' ')
+  })
+})

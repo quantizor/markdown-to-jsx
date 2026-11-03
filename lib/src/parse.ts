@@ -7086,7 +7086,7 @@ function scanInlineHtml(
 
   var children: MarkdownToJSX.ASTNode[] = []
   var trimmed = innerContent.trim()
-  if (trimmed) {
+  if (innerContent) {
     var savedAnchorH = state.inAnchor
     var savedInlineH = state.inline
     var savedBreaksH = state._breaks
@@ -7099,9 +7099,10 @@ function scanInlineHtml(
     var hasBlocks = trimmed.indexOf('\n\n') !== -1 || /^#{1,6}\s/.test(trimmed)
     if (hasBlocks) {
       state.inline = false
+      // Trimmed: leading spaces would read as an indented code block.
       children = parseBlocks(trimmed, state, opts)
     } else {
-      children = parseInline(trimmed, 0, trimmed.length, state, opts)
+      children = parseInline(innerContent, 0, innerContent.length, state, opts)
     }
     state.inAnchor = savedAnchorH
     state.inline = savedInlineH

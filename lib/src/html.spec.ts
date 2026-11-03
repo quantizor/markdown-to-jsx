@@ -2091,3 +2091,16 @@ describe('prototype-slot reference labels (#900)', () => {
     )
   })
 })
+
+describe('inline HTML keeps the spaces at the edges of its content (#904)', () => {
+  it.each([
+    ['a<span> b </span>c', '<p>a<span> b </span>c</p>'],
+    ['<b>bold </b>next', '<p><b>bold </b>next</p>'],
+    ['<span> </span>', '<p><span> </span></p>'],
+    ['<span> x </span>', '<p><span> x </span></p>'],
+    ['a<span> <em>x</em> </span>b', '<p>a<span> <em>x</em> </span>b</p>'],
+  ])('renders %j as written', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+    expect(compiler(input, { optimizeForStreaming: true })).toBe(expected)
+  })
+})

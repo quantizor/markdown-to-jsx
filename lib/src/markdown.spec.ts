@@ -2422,3 +2422,16 @@ describe('optimizeForStreaming preserves literal less-than', () => {
     ).toBe('x < y\n\nsecond para')
   })
 })
+
+describe('inline HTML keeps the spaces at the edges of its content (#904)', () => {
+  it.each([
+    ['a<span> b </span>c', 'a<span> b </span>c'],
+    ['<b>bold </b>next', '<b>bold </b>next'],
+    ['<span> </span>', '<span> </span>'],
+    ['<span> x </span>', '<span> x </span>'],
+    ['a<span> <em>x</em> </span>b', 'a<span> <em>x</em> </span>b'],
+  ])('writes %j back as written', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+    expect(compiler(input, { optimizeForStreaming: true })).toBe(expected)
+  })
+})

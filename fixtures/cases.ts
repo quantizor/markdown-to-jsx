@@ -815,4 +815,11 @@ export var CASES: HarnessCase[] = [
     dom: [{ sel: '', text: '5 < 3 is false' }],
     skip: ['native'],
   },
+  {
+    id: 'inline-html-edge-spaces',
+    ref: '#904',
+    // Spaces just inside an inline tag stay, so the words do not run together.
+    md: 'a<span> b </span>c\n\nsecond',
+    dom: [{ sel: 'p', text: 'a b c' }],
+  },
 ]
