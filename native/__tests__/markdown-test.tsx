@@ -1,10 +1,10 @@
 import { describe, expect, it } from '@jest/globals'
 import { render } from '@testing-library/react-native'
-import Markdown from 'markdown-to-jsx/native'
+import Markdown from 'marqdown/native'
 import { CASES, MARKDOWN_OPTIONS } from '../fixture'
 
 /**
- * Smoke suite for the built markdown-to-jsx/native artifact (node_modules
+ * Smoke suite for the built marqdown/native artifact (node_modules
  * resolves the workspace package through its exports map to lib/dist). The
  * Metro dev loop deliberately consumes source instead; this suite validates
  * what actually ships. Runs under jest-expo, never under bun test: the root
@@ -14,7 +14,7 @@ import { CASES, MARKDOWN_OPTIONS } from '../fixture'
  * rather than the screen proxy (the proxy is not reliable under bun's
  * isolated install layout).
  */
-describe('markdown-to-jsx/native built package', () => {
+describe('marqdown/native built package', () => {
   it('renders every shared case without throwing', async () => {
     for (var i = 0; i < CASES.length; i++) {
       var c = CASES[i]

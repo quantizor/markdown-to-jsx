@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "markdown-to-jsx native harness",
-    "slug": "markdown-to-jsx-native-harness",
+    "name": "marqdown native harness",
+    "slug": "marqdown-native-harness",
     "version": "1.0.0",
     "platforms": ["ios"],
     "userInterfaceStyle": "automatic"

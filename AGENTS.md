@@ -1,6 +1,8 @@
-You are maintaining markdown-to-jsx, a TypeScript toolchain containing a CommonMark+GFM markdown parser and six output compilers: react, native, solid, vue, html, markdown.
+You are maintaining marqdown (formerly markdown-to-jsx), a TypeScript toolchain containing a CommonMark+GFM markdown parser and six output compilers: react, native, solid, vue, html, markdown.
 
 See README.md for the primary library documentation. This file is the map and the rules; it holds no feature specification.
+
+Naming invariant: the toolchain publishes one scoped package per integration under the @marqdown org: @marqdown/parser, @marqdown/react, @marqdown/native, @marqdown/solid, @marqdown/vue, @marqdown/html, @marqdown/markdown. Each renderer inlines the parser and has zero @marqdown runtime dependencies. The old name markdown-to-jsx stays as a deprecated compatibility alias (packages/compat) that re-exports these packages, every deep import included, so existing installs keep working; new code installs the specific @marqdown/<integration> package. The unscoped name marqdown is NOT published (npm rejected it as too close to markdown): lib is the private source and build home, not a published package, though it keeps the workspace name marqdown and self-imports marqdown/entities internally. The GitHub repo and the markdown-to-jsx.quantizor.dev site domain still carry the old name; leave github.com/quantizor/markdown-to-jsx URLs and that domain intact until the repo and DNS are renamed. The benchmarks baseline aliases the published markdown-to-jsx@x.y.z as markdown-to-jsx-latest; leave that alias.
 
 Library priorities
 
@@ -147,8 +149,8 @@ Not applicable here
 
 Repository configuration
 
-- Use `bun`, not `npm`. Use `bunx`, not `npx`. The repo uses the bun package manager and the bun test runner.
-- `bun run verify` (`scripts/verify`) is the shared local and CI quality gate. Wave 0 runs Biome with `--write --unsafe` then a post-autofix diff audit (CI fails if Biome rewrote the tree). Wave 1a fans out in parallel: knip, typecheck (lib only), validate-i18n, `timeout 5 bun test --coverage` (80% funcs and lines floor on All files), and redos-smoke. Wave 1b runs metrics-gate for all seven targets and then scaling-smoke, serially, so CPU contention does not move a timing verdict. Its ceiling is deliberately loose, sized to catch an extreme regression on hardware slower than the machine that recorded the baseline; read small movements from `bun metrics` on a stable machine instead. Wave 2 builds. Wave 3 fans out: typecheck:harness (browser/native/site against lib/dist exports), emit-selfcheck (dev and production), prod-strip-check, hermetic-dist, llms-snippets. Browser and native harness smoke tests stay outside verify as separate CI steps. Pre-commit runs the same gate with `CI=1` via `.githooks/pre-commit` after `bun run hooks:install`.
+- Use `bun`, not `npm`. Use `bunx`, not `npx`. The repo uses the bun package manager and the bun test runner. The root `packageManager` field pins bun, and bun.lock is the only authoritative lockfile. Files from other managers (package-lock.json, pnpm-lock.yaml, pnpm-workspace.yaml, yarn.lock) are gitignored strays, not config; never author or commit them.
+- `bun run verify` (`scripts/verify`) is the shared local and CI quality gate. It is quiet on success (one final `verify ok` line) and prints only a failing step's captured output to stderr, so a clean run stays silent through its waves. Wave 0 runs Biome with `--write --unsafe` then a post-autofix diff audit (CI fails if Biome rewrote the tree). Wave 1a fans out in parallel: knip, typecheck (lib only), validate-i18n, `timeout 5 bun test --coverage` (80% funcs and lines floor on All files), and redos-smoke. Wave 1b runs metrics-gate for all seven targets and then scaling-smoke, serially, so CPU contention does not move a timing verdict. Its ceiling is deliberately loose, sized to catch an extreme regression on hardware slower than the machine that recorded the baseline; read small movements from `bun metrics` on a stable machine instead. Wave 2 builds. Wave 3 fans out: typecheck:harness (browser/native/site against lib/dist exports), emit-selfcheck (dev and production), prod-strip-check, hermetic-dist, llms-snippets. Browser and native harness smoke tests stay outside verify as separate CI steps. Pre-commit runs the same gate with `CI=1` via `.githooks/pre-commit` after `bun run hooks:install`.
 - `biome.json` scopes framework lint domains per compiler path; `knip.json` covers workspace entry points. Native jest keeps `prettierPath: null` for Jest 29 inline snapshots; that setting is unrelated to Biome.
 - `bun metrics --target <name>` (`scripts/metrics.ts`) measures one entry point against its stored baseline: `parser`, `react`, `react-native`, `html`, `solid`, `vue`, or `markdown` (defaults to `parser`). Verify runs the live ceiling via `scripts/metrics-gate.ts`. Re-baseline with `-u` in the release flow so the stored baseline does not go stale and misreport unrelated movement as a regression.
 - `bun profile` produces a CPU profile; `--cpu-prof-md` writes it as markdown (`CPU.*.md`).
@@ -179,8 +181,18 @@ Key library files
 - `lib/src/utils.ts` - entity decoding, sanitization, slugification, character classification
 - `lib/src/constants.ts` - character code constants
 - `lib/src/entities.generated.ts` - generated HTML entity mappings, regenerate with `bun entities`
+- `lib/src/parser.ts` - the `@marqdown/parser` public entry (parser-only, no compiler)
 - output adapters: `react.tsx`, `native.tsx`, `solid.tsx`, `vue.tsx`, `html.ts`, `markdown.ts`
 - entry points: `lib/src/index.tsx` (main, re-exports parser/types/utilities) and `lib/src/index.cjs.tsx` (CommonJS, with deprecated exports)
+
+Published packages (built from lib, not their own source)
+
+- `packages/<name>/package.json`: the seven scoped packages plus `packages/compat` (name markdown-to-jsx). No source lives here; dist is a slice of lib/dist.
+- `bunup.shared.ts` (root): shared bunup plugins/config imported by `lib/bunup.config.ts`.
+- `scripts/pack-packages.ts`: copies each package's slice from lib/dist and rewrites the `marqdown/entities` specifier to `<scope>/entities`. Runs in root `build`.
+- `scripts/gen-compat.ts`: generates the markdown-to-jsx compat shim stubs into `packages/compat/dist`. Runs in root `build`. The committed `packages/compat/package.json` owns the version.
+- `scripts/check-inlined-parser-changesets.ts`: release guard. A shared parser change means every renderer's inlined parser changed, so all seven packages need changesets; fires in verify once any changeset exists.
+- `scripts/verify-declarations.ts`: checks every package's declared `types` exports exist post-build.
 
 Internationalization
 

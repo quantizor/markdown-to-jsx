@@ -1,0 +1,75 @@
+{
+  "name": "@marqdown/parser",
+  "description": "The marqdown CommonMark + GFM markdown parser (formerly markdown-to-jsx). Produces an AST with no output compiler attached.",
+  "homepage": "https://markdown-to-jsx.quantizor.dev",
+  "license": "MIT",
+  "version": "9.10.2",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">= 18"
+  },
+  "keywords": [
+    "marqdown",
+    "markdown-to-jsx",
+    "markdown",
+    "markdown parser",
+    "commonmark",
+    "gfm",
+    "ast"
+  ],
+  "author": "Evan Jacobs <ej@quantizor.dev> (https://quantizor.dev)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quantizor/markdown-to-jsx.git",
+    "directory": "packages/parser"
+  },
+  "bugs": "https://github.com/quantizor/markdown-to-jsx/issues",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "package.json"
+  ],
+  "type": "module",
+  "exports": {
+    "./entities": {
+      "browser": {
+        "import": {
+          "types": "./dist/entities.browser.d.ts",
+          "default": "./dist/entities.browser.js"
+        },
+        "require": {
+          "types": "./dist/entities.browser.d.cts",
+          "default": "./dist/entities.browser.cjs"
+        }
+      },
+      "import": {
+        "types": "./dist/entities.generated.d.ts",
+        "default": "./dist/entities.generated.js"
+      },
+      "require": {
+        "types": "./dist/entities.generated.d.cts",
+        "default": "./dist/entities.generated.cjs"
+      }
+    },
+    ".": {
+      "import": {
+        "types": "./dist/parser.d.ts",
+        "default": "./dist/parser.js"
+      },
+      "require": {
+        "types": "./dist/parser.d.cts",
+        "default": "./dist/parser.cjs"
+      }
+    }
+  },
+  "sideEffects": false,
+  "main": "dist/parser.cjs",
+  "module": "dist/parser.js",
+  "types": "dist/parser.d.ts",
+  "scripts": {
+    "build": "bun ../../scripts/pack-packages.ts parser"
+  }
+}

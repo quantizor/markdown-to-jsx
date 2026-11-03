@@ -1,0 +1,74 @@
+{
+  "name": "@marqdown/markdown",
+  "description": "Normalize and re-render markdown to a markdown string with marqdown (formerly markdown-to-jsx). Fast, CommonMark + GFM. No framework required.",
+  "homepage": "https://markdown-to-jsx.quantizor.dev",
+  "license": "MIT",
+  "version": "9.10.2",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">= 18"
+  },
+  "keywords": [
+    "marqdown",
+    "markdown-to-jsx",
+    "markdown",
+    "formatter",
+    "commonmark",
+    "gfm"
+  ],
+  "author": "Evan Jacobs <ej@quantizor.dev> (https://quantizor.dev)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quantizor/markdown-to-jsx.git",
+    "directory": "packages/markdown"
+  },
+  "bugs": "https://github.com/quantizor/markdown-to-jsx/issues",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "package.json"
+  ],
+  "type": "module",
+  "exports": {
+    "./entities": {
+      "browser": {
+        "import": {
+          "types": "./dist/entities.browser.d.ts",
+          "default": "./dist/entities.browser.js"
+        },
+        "require": {
+          "types": "./dist/entities.browser.d.cts",
+          "default": "./dist/entities.browser.cjs"
+        }
+      },
+      "import": {
+        "types": "./dist/entities.generated.d.ts",
+        "default": "./dist/entities.generated.js"
+      },
+      "require": {
+        "types": "./dist/entities.generated.d.cts",
+        "default": "./dist/entities.generated.cjs"
+      }
+    },
+    ".": {
+      "import": {
+        "types": "./dist/markdown.d.ts",
+        "default": "./dist/markdown.js"
+      },
+      "require": {
+        "types": "./dist/markdown.d.cts",
+        "default": "./dist/markdown.cjs"
+      }
+    }
+  },
+  "sideEffects": false,
+  "main": "dist/markdown.cjs",
+  "module": "dist/markdown.js",
+  "types": "dist/markdown.d.ts",
+  "scripts": {
+    "build": "bun ../../scripts/pack-packages.ts markdown"
+  }
+}

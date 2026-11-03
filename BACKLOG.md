@@ -1,6 +1,16 @@
 # Backlog
 
-Open work and known issues for markdown-to-jsx. Remove an entry as the final step of the change that resolves it.
+Open work and known issues for marqdown. Remove an entry as the final step of the change that resolves it.
+
+## Package rename (marqdown), remaining publish/infra steps
+
+The in-repo rename from markdown-to-jsx to marqdown (package name, workspace scopes, imports, docs, i18n) is done. These outward-facing steps are the maintainer's and are not yet done:
+
+- Publish the shim: ship a final markdown-to-jsx version whose entry points re-export marqdown for every subpath (`.`, `/entities`, `/react`, `/html`, `/markdown`, `/native`, `/solid`, `/vue`) and that depends on marqdown, so existing installs and deep imports keep resolving. The README, llms.txt, and AGENTS.md already describe this shim as live, so publishing it is what makes those docs true.
+- Deprecate the old name: `npm deprecate markdown-to-jsx@"*" "Renamed to marqdown; see https://www.npmjs.com/package/marqdown"` after both are published.
+- Rename the GitHub repo quantizor/markdown-to-jsx to quantizor/marqdown (GitHub auto-redirects the old paths). Then update the github.com URLs and lib/package.json homepage/repository fields that were intentionally left pointing at the old name.
+- Point the site domain at marqdown (DNS + CNAME files at ./CNAME, docs/CNAME, public/CNAME) once ready; the site currently still serves markdown-to-jsx.quantizor.dev.
+- Re-run `bun bench -u` to re-baseline benchmarks/bench.baseline.json under the new working-copy label (marqdown (next)).
 
 ## Security
 
