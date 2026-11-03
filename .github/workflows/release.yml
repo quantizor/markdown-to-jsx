@@ -58,6 +58,8 @@ jobs:
         with:
           createGithubReleases: true
           publish: bun run changeset-publish
+          # Version bumps change workspace versions recorded in bun.lock
+          version: bun run changeset-version
 
   # Releases created here use GITHUB_TOKEN, and events made with that token
   # don't trigger other workflows, so website.yml's `release` trigger never

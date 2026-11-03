@@ -54,6 +54,7 @@
     "verify": "bash scripts/verify",
     "changeset-credits": "bun scripts/changeset-credits.ts",
     "changeset-publish": "bun run build && changeset publish",
+    "changeset-version": "changeset version && bun install --lockfile-only",
     "validate-i18n": "bun run scripts/validate-i18n.ts"
   }
 }
