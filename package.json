@@ -1,5 +1,6 @@
 {
   "name": "@markdown-to-jsx/root",
+  "packageManager": "bun@1.4.2",
   "private": true,
   "type": "module",
   "workspaces": [
