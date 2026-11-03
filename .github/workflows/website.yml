@@ -3,6 +3,12 @@ on:
   release:
     types: [created]
   workflow_dispatch:
+  workflow_call:
+
+# One Pages deploy at a time; let an in-flight deploy finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -15,7 +21,7 @@ jobs:
       contents: read
       pages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup bun
         uses: oven-sh/setup-bun@v2
@@ -29,13 +35,13 @@ jobs:
         run: bun run build-site
 
       - name: Setup site
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload site
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: 'docs'
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4 # or specific "vX.X.X" version tag for this action
+        uses: actions/deploy-pages@v5
