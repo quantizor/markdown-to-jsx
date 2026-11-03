@@ -518,10 +518,11 @@ declare namespace MarkdownToJSX {
     tagfilter?: boolean
 
     /**
-     * Forces the compiler to have space between hash sign and the header text which
-     * is explicitly stated in the most of the markdown specs.
-     * https://github.github.com/gfm/#atx-heading
-     * `The opening sequence of # characters must be followed by a space or by the end of line.`
+     * Requires a space or tab between the opening `#` characters and the heading
+     * text, as CommonMark and GFM do. Set to `false` to also read `#heading` as a
+     * heading; the markdown compiler then writes headings without the space.
+     * https://spec.commonmark.org/0.31.2/#atx-headings
+     * @default true
      */
     enforceAtxHeadings: boolean
 

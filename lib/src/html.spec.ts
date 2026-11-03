@@ -2104,3 +2104,26 @@ describe('inline HTML keeps the spaces at the edges of its content (#904)', () =
     expect(compiler(input, { optimizeForStreaming: true })).toBe(expected)
   })
 })
+
+describe('enforceAtxHeadings (#903)', () => {
+  it.each([
+    [undefined, '#heading', '<p>#heading</p>'],
+    [true, '#heading', '<p>#heading</p>'],
+    [false, '#heading', '<h1 id="heading">heading</h1>'],
+    [undefined, '# heading', '<h1 id="heading">heading</h1>'],
+    [true, '# heading', '<h1 id="heading">heading</h1>'],
+    [false, '# heading', '<h1 id="heading">heading</h1>'],
+    [undefined, 'foo\n#bar', '<p>foo\n#bar</p>'],
+    [true, 'foo\n#bar', '<p>foo\n#bar</p>'],
+    [false, 'foo\n#bar', '<div><p>foo</p><h1 id="bar">bar</h1></div>'],
+    [false, '#######x', '<p>#######x</p>'],
+    [undefined, 'a<span>#</span>b', '<p>a<span>#</span>b</p>'],
+    [false, 'a<span>#</span>b', '<p>a<span>#</span>b</p>'],
+    // The html compiler re-emits a block HTML element's source text, so the
+    // heading the parser reads inside <div> under false does not show here.
+    [undefined, '<div>\n#x\n</div>', '<div>\n#x\n</div>'],
+    [false, '<div>\n#x\n</div>', '<div>\n#x\n</div>'],
+  ])('with enforceAtxHeadings %j renders %j as %j', (enforceAtxHeadings, input, expected) => {
+    expect(compiler(input, { enforceAtxHeadings })).toBe(expected)
+  })
+})

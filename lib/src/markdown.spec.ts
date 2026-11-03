@@ -2435,3 +2435,26 @@ describe('inline HTML keeps the spaces at the edges of its content (#904)', () =
     expect(compiler(input, { optimizeForStreaming: true })).toBe(expected)
   })
 })
+
+describe('enforceAtxHeadings (#903)', () => {
+  it.each([
+    [undefined, '#heading', '\\#heading'],
+    [true, '#heading', '\\#heading'],
+    [false, '#heading', '#heading'],
+    [undefined, '# heading', '# heading'],
+    [true, '# heading', '# heading'],
+    [false, '# heading', '#heading'],
+    [undefined, 'foo\n#bar', 'foo\n\\#bar'],
+    [true, 'foo\n#bar', 'foo\n\\#bar'],
+    [false, 'foo\n#bar', 'foo\n\n#bar'],
+    [false, '#######x', '\\#######x'],
+    [undefined, 'a<span>#</span>b', 'a<span>#</span>b'],
+    [false, 'a<span>#</span>b', 'a<span>#</span>b'],
+    // The markdown compiler re-emits a block HTML element's source text, so the
+    // heading the parser reads inside <div> under false does not show here.
+    [undefined, '<div>\n#x\n</div>', '<div>\n#x\n</div>'],
+    [false, '<div>\n#x\n</div>', '<div>\n#x\n</div>'],
+  ])('with enforceAtxHeadings %j writes %j as %j', (enforceAtxHeadings, input, expected) => {
+    expect(compiler(input, { enforceAtxHeadings })).toBe(expected)
+  })
+})

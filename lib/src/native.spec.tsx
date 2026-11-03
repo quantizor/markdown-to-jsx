@@ -2377,3 +2377,24 @@ describe('inline HTML keeps the spaces at the edges of its content (#904)', () =
     ).toBe(expected)
   })
 })
+
+describe('enforceAtxHeadings (#903)', () => {
+  it.each([
+    [undefined, '#heading', '<Text>#heading</Text>'],
+    [true, '#heading', '<Text>#heading</Text>'],
+    [false, '#heading', '<Text>heading</Text>'],
+    [undefined, '# heading', '<Text>heading</Text>'],
+    [true, '# heading', '<Text>heading</Text>'],
+    [false, '# heading', '<Text>heading</Text>'],
+    [undefined, 'foo\n#bar', '<Text>foo\n#bar</Text>'],
+    [true, 'foo\n#bar', '<Text>foo\n#bar</Text>'],
+    [false, 'foo\n#bar', '<View><Text>foo</Text><Text>bar</Text></View>'],
+    [false, '#######x', '<Text>#######x</Text>'],
+    [undefined, 'a<span>#</span>b', '<Text>a<Text>#</Text>b</Text>'],
+    [false, 'a<span>#</span>b', '<Text>a<Text>#</Text>b</Text>'],
+    [undefined, '<div>\n#x\n</div>', '<View><Text>#x</Text></View>'],
+    [false, '<div>\n#x\n</div>', '<View><Text>x</Text></View>'],
+  ])('with enforceAtxHeadings %j renders %j as %j', (enforceAtxHeadings, input, expected) => {
+    expect(serialize(compiler(input, { enforceAtxHeadings }))).toBe(expected)
+  })
+})
