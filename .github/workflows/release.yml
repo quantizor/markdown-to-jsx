@@ -51,12 +51,13 @@ jobs:
 
       - name: Create Release Pull Request
         id: changesets
-        uses: changesets/action@v2
+        # v2 requires Changesets CLI v3 and refuses to start on 2.x; move both together
+        uses: changesets/action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          create-github-releases: true
-          publish-script: bun run changeset-publish
+          createGithubReleases: true
+          publish: bun run changeset-publish
 
   # Releases created here use GITHUB_TOKEN, and events made with that token
   # don't trigger other workflows, so website.yml's `release` trigger never
