@@ -35,7 +35,8 @@ for (const c of CORPORA) {
 }
 
 if (save) {
-  fs.writeFileSync(goldenPath, JSON.stringify(out))
+  // Biome's JSON layout, so verify's format step does not rewrite a fresh save
+  fs.writeFileSync(goldenPath, `${JSON.stringify(out, null, 2)}\n`)
   console.log(
     'saved golden:',
     Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v.length]))
