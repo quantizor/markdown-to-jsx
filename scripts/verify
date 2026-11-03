@@ -98,7 +98,7 @@ wait_wave() {
 wave0_t0=$(now_ms)
 # Snapshot the tracked-file state first: the audit below must report what Biome
 # itself rewrote, not edits that were already in the tree. CI checks out clean,
-# but a local run (or the pre-commit hook) often has unrelated work in flight,
+# but a local run often has unrelated work in flight,
 # and comparing against HEAD alone would blame Biome for it.
 pre_biome_diff=$(git diff HEAD)
 phase "biome" bunx biome check --write --unsafe .

@@ -4,38 +4,45 @@
 # being committed.
 #
 # When the working tree holds nothing beyond what is staged, verify runs in
-# place. Otherwise (unstaged edits to tracked files, or untracked files that
-# the checks would read), the staged snapshot is written into a temporary
-# detached worktree, installed, and verified there, then removed. The index
-# git hands this hook (GIT_INDEX_FILE, which `git commit -a` and
-# `git commit <paths>` point at a temporary index) is the snapshot.
+# place. Otherwise (unstaged edits to tracked files, or any untracked file that
+# is not git-ignored), the staged content is written into a temporary detached
+# worktree, installed, and verified there, then removed. The index git hands
+# this hook (GIT_INDEX_FILE, which `git commit -a` and `git commit <paths>`
+# point at a temporary index) defines that content.
 set -euo pipefail
-# Verify the worktree being committed, not the checkout that holds this script:
-# with an absolute core.hooksPath every worktree runs the primary copy.
-cd "$(git rev-parse --show-toplevel)"
 export CI=1
 
 if git diff --quiet && [[ -z "$(git ls-files --others --exclude-standard)" ]]; then
   exec bun run verify
 fi
 
-index_file=${GIT_INDEX_FILE:-$(git rev-parse --git-path index)}
-index_file="$(cd "$(dirname "${index_file}")" && pwd)/$(basename "${index_file}")"
+# Hash the index being committed (honors GIT_INDEX_FILE) before it is unset below.
+tree=$(git write-tree)
 tmp_root=${TMPDIR:-/tmp}
-snapshot=$(mktemp -d "${tmp_root%/}/markdown-to-jsx-pre-commit.XXXXXX")
+origin=${PWD}
+snapshot=
 
 cleanup() {
-  env -u GIT_INDEX_FILE git worktree remove --force "${snapshot}" >/dev/null 2>&1 || true
-  rm -rf "${snapshot}"
+  # The run ends inside the snapshot; git cannot run from a directory that is about to be deleted.
+  cd "${origin}"
+  if [[ -n "${snapshot}" ]]; then
+    env -u GIT_INDEX_FILE git worktree remove --force "${snapshot}" >/dev/null 2>&1 || true
+    rm -rf "${snapshot}"
+  fi
+  # Reaps the snapshot of an earlier run that was killed before it could clean up.
+  env -u GIT_INDEX_FILE git worktree prune >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
+snapshot=$(mktemp -d "${tmp_root%/}/markdown-to-jsx-pre-commit.XXXXXX")
+
 echo "==> pre-commit: the working tree differs from what is being committed; verifying the staged snapshot in ${snapshot}"
 env -u GIT_INDEX_FILE git worktree add --quiet --detach --no-checkout "${snapshot}" HEAD
-GIT_INDEX_FILE="${index_file}" git checkout-index --all --force --prefix="${snapshot}/"
 cd "${snapshot}"
 unset GIT_INDEX_FILE GIT_DIR GIT_WORK_TREE
-git add --all
+# Leaves the snapshot's index equal to the staged tree, so its status and
+# `git diff HEAD` show exactly the staged changes.
+git read-tree -u --reset "${tree}"
 if ! install_log=$(bun install --frozen-lockfile 2>&1); then
   echo "${install_log}"
   echo "==> pre-commit: bun install failed in the staged snapshot"

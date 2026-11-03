@@ -7,7 +7,7 @@
  * must match the same golden bytes.
  *
  * Usage: bun scripts/emit-selfcheck.ts [--save]
- * (run from lib/ so react-dom resolves)
+ * (run from the repo root, as verify does)
  */
 
 import fs from 'node:fs'
@@ -31,7 +31,7 @@ const save = process.argv.includes('--save')
 
 const out: Record<string, string> = {}
 for (const c of CORPORA) {
-  out[c.name] = renderToStaticMarkup(compiler(c.text) as any)
+  out[c.name] = renderToStaticMarkup(compiler(c.text))
 }
 
 if (save) {
@@ -51,7 +51,7 @@ if (save) {
         'MISMATCH',
         c.name,
         'golden',
-        golden[c.name].length,
+        golden[c.name]?.length ?? 'missing',
         'now',
         out[c.name].length
       )
