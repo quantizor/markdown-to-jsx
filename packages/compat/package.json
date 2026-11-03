@@ -3,7 +3,7 @@
   "description": "Deprecated compatibility alias for marqdown. Re-exports the @marqdown/* packages so existing markdown-to-jsx imports keep working. For new code install the specific @marqdown/<renderer> package.",
   "homepage": "https://markdown-to-jsx.quantizor.dev",
   "license": "MIT",
-  "version": "9.10.2",
+  "version": "9.10.4",
   "publishConfig": {
     "access": "public"
   },
