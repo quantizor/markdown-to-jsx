@@ -7515,3 +7515,237 @@ Some paragraph
     ])
   })
 })
+
+describe('inline HTML keeps the spaces at the edges of its content (#904)', () => {
+  const htmlChildren = (input: string, options = {}) => {
+    const [first] = p.parser(input, options) as MarkdownToJSX.ParagraphNode[]
+    const span = first.children.find(
+      n => n.type === RuleType.htmlBlock
+    ) as MarkdownToJSX.HTMLNode
+    return span.children ?? []
+  }
+
+  it.each([
+    {},
+    { optimizeForStreaming: true },
+  ])('keeps leading and trailing spaces between the tags (%o)', options => {
+    expect(htmlChildren('a<span> b </span>c', options)).toEqual([
+      { type: RuleType.text, text: ' b ' },
+    ])
+    expect(htmlChildren('<b>bold </b>next', options)).toEqual([
+      { type: RuleType.text, text: 'bold ' },
+    ])
+  })
+
+  it('keeps a whitespace-only body', () => {
+    expect(htmlChildren('a<span> </span>b')).toEqual([
+      { type: RuleType.text, text: ' ' },
+    ])
+  })
+
+  it('keeps the spaces around a nested element', () => {
+    const children = htmlChildren('a<span> <em>x</em> </span>b')
+
+    expect(children.map(n => n.type)).toEqual([
+      RuleType.text,
+      RuleType.htmlBlock,
+      RuleType.text,
+    ])
+    expect((children[0] as MarkdownToJSX.TextNode).text).toBe(' ')
+    expect((children[2] as MarkdownToJSX.TextNode).text).toBe(' ')
+  })
+})
+
+describe('enforceAtxHeadings (#903)', () => {
+  const types = (input: string, options?: { enforceAtxHeadings?: boolean }) =>
+    p.parser(input, options).map(n => n.type)
+
+  it.each([
+    undefined,
+    true,
+  ])('requires a space after the # run when the option is %s', enforceAtxHeadings => {
+    const options = { enforceAtxHeadings }
+
+    expect(types('#heading', options)).toEqual([RuleType.paragraph])
+    expect(types('foo\n#bar', options)).toEqual([RuleType.paragraph])
+    expect(types('# heading', options)).toEqual([RuleType.heading])
+  })
+
+  it('reads #heading as a heading when the option is false', () => {
+    const options = { enforceAtxHeadings: false }
+    const [heading] = p.parser(
+      '#heading',
+      options
+    ) as MarkdownToJSX.HeadingNode[]
+
+    expect(heading.type).toBe(RuleType.heading)
+    expect(heading.level).toBe(1)
+    expect(heading.children).toEqual([{ type: RuleType.text, text: 'heading' }])
+    expect(types('# heading', options)).toEqual([RuleType.heading])
+  })
+
+  it('lets #bar interrupt a paragraph when the option is false', () => {
+    const options = { enforceAtxHeadings: false }
+
+    expect(types('foo\n#bar', options)).toEqual(types('foo\n# bar', options))
+    expect(types('foo\n#bar', options)).toEqual([
+      RuleType.paragraph,
+      RuleType.heading,
+    ])
+  })
+
+  it('reads #bar as a heading inside list items and blockquotes when the option is false', () => {
+    const options = { enforceAtxHeadings: false }
+
+    expect(JSON.stringify(p.parser('- #bar', options))).toBe(
+      JSON.stringify(p.parser('- # bar', options))
+    )
+    expect(JSON.stringify(p.parser('> #bar', options))).toBe(
+      JSON.stringify(p.parser('> # bar', options))
+    )
+  })
+
+  it('reads #bar inside inline HTML blocks as a heading when the option is false', () => {
+    const options = { enforceAtxHeadings: false }
+
+    const spanChildren = (input: string) =>
+      (
+        (p.parser(input, options)[0] as MarkdownToJSX.ParagraphNode)
+          .children[1] as MarkdownToJSX.HTMLNode
+      ).children
+
+    expect(spanChildren('a<span>#bar</span>c')).toEqual(
+      spanChildren('a<span># bar</span>c')
+    )
+    expect(spanChildren('a<span>#bar</span>c')?.[0].type).toBe(RuleType.heading)
+  })
+
+  it('keeps more than six # characters as text when the option is false', () => {
+    expect(types('#######x', { enforceAtxHeadings: false })).toEqual([
+      RuleType.paragraph,
+    ])
+  })
+
+  it('treats #bar like a heading line for reference definitions when the option is false', () => {
+    const options = { enforceAtxHeadings: false }
+
+    expect(types('[a]: /x\n#bar\n[b]: /y\n\n[a][b]', options)).toEqual(
+      types('[a]: /x\n# bar\n[b]: /y\n\n[a][b]', options)
+    )
+  })
+
+  it('treats #bar like a heading while streaming when the option is false', () => {
+    const options = { enforceAtxHeadings: false, optimizeForStreaming: true }
+
+    expect(types('foo\n#bar', options)).toEqual(types('foo\n# bar', options))
+  })
+
+  it.each([
+    undefined,
+    true,
+    false,
+  ])('keeps a lone # inside inline HTML as text when the option is %s', enforceAtxHeadings => {
+    const [paragraph] = p.parser('a<span>#</span>b', {
+      enforceAtxHeadings,
+    }) as MarkdownToJSX.ParagraphNode[]
+    const span = paragraph.children[1] as MarkdownToJSX.HTMLNode
+
+    expect(span.children).toEqual([{ type: RuleType.text, text: '#' }])
+  })
+
+  it('keeps <span>#x</span> as a span holding text by default and a heading when the option is false', () => {
+    const spanChildren = (options?: { enforceAtxHeadings?: boolean }) =>
+      (
+        (p.parser('<span>#x</span>', options)[0] as MarkdownToJSX.ParagraphNode)
+          .children[0] as MarkdownToJSX.HTMLNode
+      ).children
+
+    expect(spanChildren()).toEqual([{ type: RuleType.text, text: '#x' }])
+    expect(spanChildren({ enforceAtxHeadings: true })).toEqual([
+      { type: RuleType.text, text: '#x' },
+    ])
+    expect(spanChildren({ enforceAtxHeadings: false })?.[0].type).toBe(
+      RuleType.heading
+    )
+  })
+
+  it.each([
+    ['<div>\n#x\n</div>', 1],
+    ['<div>\n ## y\n</div>', 2],
+    ['<section>\n#x\n</section>', 1],
+  ] as const)('block-parses %j as a level %i heading inside HTML when the option is false', (input, level) => {
+    const tag = input.slice(1, input.indexOf('>'))
+    const relaxed = p.parser(input, {
+      enforceAtxHeadings: false,
+    }) as MarkdownToJSX.HTMLNode[]
+    const heading = relaxed[0].children?.[0] as MarkdownToJSX.HeadingNode
+
+    expect(relaxed[0].tag).toBe(tag)
+    expect(relaxed[0].children).toHaveLength(1)
+    expect(heading.type).toBe(RuleType.heading)
+    expect(heading.level).toBe(level)
+  })
+
+  it('keeps #x inside block HTML as text by default', () => {
+    for (const enforceAtxHeadings of [undefined, true]) {
+      const [div] = p.parser('<div>\n#x\n</div>', {
+        enforceAtxHeadings,
+      }) as MarkdownToJSX.HTMLNode[]
+
+      expect(div.children).toEqual([{ type: RuleType.text, text: '#x' }])
+    }
+  })
+
+  it('reads ## y inside block HTML as a heading in every mode', () => {
+    for (const enforceAtxHeadings of [undefined, true, false]) {
+      const [div] = p.parser('<div>\n ## y\n</div>', {
+        enforceAtxHeadings,
+      }) as MarkdownToJSX.HTMLNode[]
+
+      expect(div.children?.[0].type).toBe(RuleType.heading)
+    }
+  })
+
+  it('never reads a run of seven # characters inside block HTML as a heading, with the same result in every mode', () => {
+    for (const enforceAtxHeadings of [undefined, true, false]) {
+      const [div] = p.parser('<div>\n#######x\n</div>', {
+        enforceAtxHeadings,
+      }) as MarkdownToJSX.HTMLNode[]
+
+      expect(div.children).toEqual([
+        {
+          type: RuleType.paragraph,
+          children: [{ type: RuleType.text, text: '#######x' }],
+        },
+      ])
+    }
+  })
+
+  it('reads ##x as a level 2 heading when the option is false', () => {
+    const [heading] = p.parser('##x', {
+      enforceAtxHeadings: false,
+    }) as MarkdownToJSX.HeadingNode[]
+
+    expect(heading.type).toBe(RuleType.heading)
+    expect(heading.level).toBe(2)
+    expect(heading.children).toEqual([{ type: RuleType.text, text: 'x' }])
+  })
+
+  it.each([
+    undefined,
+    false,
+  ])('reads a lone # as an empty level 1 heading when the option is %s', enforceAtxHeadings => {
+    expect(p.parser('#', { enforceAtxHeadings })).toEqual([
+      { type: RuleType.heading, level: 1, children: [], id: '' },
+    ])
+  })
+
+  it.each([
+    undefined,
+    false,
+  ])('never reads a lone ####### as a heading when the option is %s', enforceAtxHeadings => {
+    expect(types('#######', { enforceAtxHeadings })).toEqual([
+      RuleType.paragraph,
+    ])
+  })
+})

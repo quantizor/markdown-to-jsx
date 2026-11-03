@@ -114,6 +114,19 @@ var TYPE1_STICKY_R = /<(?:pre|script|style|textarea)\b/iy
 // Detects block-level markdown syntax at the start of a line (heading, list, blockquote, fenced code)
 var BLOCK_SYNTAX_R =
   /^(\s{0,3}#[#\s]|\s{0,3}[-*+]\s|\s{0,3}\d+\.\s|\s{0,3}>\s|\s{0,3}```)/m
+// enforceAtxHeadings: false variant: a # followed by any character counts as block syntax, a superset of the relaxed heading start (#x)
+var BLOCK_SYNTAX_RELAXED_R =
+  /^(\s{0,3}#[\s\S]|\s{0,3}[-*+]\s|\s{0,3}\d+\.\s|\s{0,3}>\s|\s{0,3}```)/m
+// Heading start at the beginning of inline HTML content, strict and enforceAtxHeadings: false variants
+var INLINE_HTML_HEADING_R = /^#{1,6}\s/
+var INLINE_HTML_HEADING_RELAXED_R = /^#{1,6}[^#]/
+
+function blockSyntaxFor(opts: ParseOptions): RegExp {
+  return opts.enforceAtxHeadings === false
+    ? BLOCK_SYNTAX_RELAXED_R
+    : BLOCK_SYNTAX_R
+}
+
 // Detects HTML opening tags
 var HTML_OPEN_TAG_R = /^<([a-z][^ >/\n\r]*) ?([^>]*?)>/im
 
@@ -1501,14 +1514,15 @@ function scanHeading(
   }
 
   // Count # characters (1-6)
-  const level = countChar(s, i, e, 35)
+  const level = countChar(s, i, e, $.CHAR_HASH)
   if (level < 1 || level > 6) {
     return null
   }
   i += level
 
-  // Must be followed by space or end of line
+  // Must be followed by space or end of line, unless enforceAtxHeadings is false
   if (
+    opts.enforceAtxHeadings !== false &&
     i < e &&
     s.charCodeAt(i) !== $.CHAR_SPACE &&
     s.charCodeAt(i) !== $.CHAR_TAB
@@ -3758,7 +3772,7 @@ function scanHtmlBlock(
           } else {
             // Detect block content using raw content (before trim) to preserve blank line detection
             var hasDoubleNewline67 = rawContent67.indexOf('\n\n') !== -1
-            var hasBlockSyntax67 = BLOCK_SYNTAX_R.test(trimmed67)
+            var hasBlockSyntax67 = blockSyntaxFor(opts).test(trimmed67)
             var hasHtmlTags67 = HTML_OPEN_TAG_R.test(trimmed67)
             var contentHasBlocks67 =
               hasDoubleNewline67 ||
@@ -3822,7 +3836,7 @@ function scanHtmlBlock(
         var hasHtmlInContent67 = /<[a-zA-Z][^>]*>/.test(rawContent67)
         var hasBlockInContent67 =
           rawContent67.indexOf('\n\n') !== -1 ||
-          BLOCK_SYNTAX_R.test(rawContent67)
+          blockSyntaxFor(opts).test(rawContent67)
         if (hasHtmlInContent67 && !hasBlockInContent67) {
           type6InlineVerbatim67 = true
         }
@@ -4037,7 +4051,7 @@ function scanHtmlBlock(
     if (trimmed) {
       // Detect block content vs inline content (same logic as Type 6/7 path)
       var hasDoubleNl = rawContent.indexOf('\n\n') !== -1
-      var hasBlockSyn = BLOCK_SYNTAX_R.test(trimmed)
+      var hasBlockSyn = blockSyntaxFor(opts).test(trimmed)
       var hasHtmlTagsS = HTML_OPEN_TAG_R.test(trimmed)
       var sInl = state.inline
       var sHtm = state.inHTML
@@ -4778,7 +4792,8 @@ function scanParagraph(
           if (
             atxLevel >= 1 &&
             atxLevel <= 6 &&
-            (atxP >= nextLe ||
+            (opts.enforceAtxHeadings === false ||
+              atxP >= nextLe ||
               s.charCodeAt(atxP) === $.CHAR_SPACE ||
               s.charCodeAt(atxP) === $.CHAR_TAB)
           ) {
@@ -7086,7 +7101,7 @@ function scanInlineHtml(
 
   var children: MarkdownToJSX.ASTNode[] = []
   var trimmed = innerContent.trim()
-  if (trimmed) {
+  if (innerContent) {
     var savedAnchorH = state.inAnchor
     var savedInlineH = state.inline
     var savedBreaksH = state._breaks
@@ -7096,12 +7111,18 @@ function scanInlineHtml(
     // Inline HTML element children were never break-processed under the
     // pre-pass (it skipped over HTML spans); preserve that by clearing the flag.
     state._breaks = false
-    var hasBlocks = trimmed.indexOf('\n\n') !== -1 || /^#{1,6}\s/.test(trimmed)
+    var hasBlocks =
+      trimmed.indexOf('\n\n') !== -1 ||
+      (opts.enforceAtxHeadings === false
+        ? INLINE_HTML_HEADING_RELAXED_R
+        : INLINE_HTML_HEADING_R
+      ).test(trimmed)
     if (hasBlocks) {
       state.inline = false
+      // Trimmed: leading spaces would read as an indented code block.
       children = parseBlocks(trimmed, state, opts)
     } else {
-      children = parseInline(trimmed, 0, trimmed.length, state, opts)
+      children = parseInline(innerContent, 0, innerContent.length, state, opts)
     }
     state.inAnchor = savedAnchorH
     state.inline = savedInlineH

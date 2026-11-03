@@ -504,7 +504,7 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 | `createElement`                 | `function`                    | -       | 自定义 createElement 行为 (仅限 React/React Native/SolidJS/Vue)。详见 [createElement](#optionscreateelement)。 |
 | `disableAutoLink`               | `boolean`                     | `false` | 禁用将裸 URL 自动转换为锚点标签。                                                                              |
 | `disableParsingRawHTML`         | `boolean`                     | `false` | 禁用将原始 HTML 解析为 JSX。                                                                                   |
-| `enforceAtxHeadings`            | `boolean`                     | `false` | 要求 `#` 与标题文本之间有空格 (符合 GFM 规范)。                                                                |
+| `enforceAtxHeadings`            | `boolean`                     | `true`  | 要求 `#` 与标题文本之间有空格 (符合 CommonMark)。设为 `false` 时，`#heading` 也会被识别为标题。                |
 | `evalUnserializableExpressions` | `boolean`                     | `false` | ⚠️ 计算不可序列化的属性 (危险)。详见 [evalUnserializableExpressions](#optionsevalunserializableexpressions)。  |
 | `forceBlock`                    | `boolean`                     | `false` | 强制将所有内容视为块级元素。                                                                                   |
 | `forceInline`                   | `boolean`                     | `false` | 强制将所有内容视为内联元素。                                                                                   |

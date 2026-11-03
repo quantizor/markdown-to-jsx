@@ -1648,3 +1648,41 @@ describe('optimizeForStreaming preserves literal less-than', () => {
     ).toBe('<div><p>x < y</p><p>second para</p></div>')
   })
 })
+
+describe('inline HTML keeps the spaces at the edges of its content (#904)', () => {
+  it.each([
+    ['a<span> b </span>c', '<p>a<span> b </span>c</p>'],
+    ['<b>bold </b>next', '<p><b>bold </b>next</p>'],
+    ['<span> </span>', '<p><span> </span></p>'],
+    ['<span> x </span>', '<p><span> x </span></p>'],
+    ['a<span> <em>x</em> </span>b', '<p>a<span> <em>x</em> </span>b</p>'],
+  ])('renders %j as written', (input, expected) => {
+    expect(serialize(compiler(input, { forceBlock: true }))).toBe(expected)
+    expect(
+      serialize(
+        compiler(input, { forceBlock: true, optimizeForStreaming: true })
+      )
+    ).toBe(expected)
+  })
+})
+
+describe('enforceAtxHeadings (#903)', () => {
+  it.each([
+    [undefined, '#heading', '<p>#heading</p>'],
+    [true, '#heading', '<p>#heading</p>'],
+    [false, '#heading', '<h1>heading</h1>'],
+    [undefined, '# heading', '<h1>heading</h1>'],
+    [true, '# heading', '<h1>heading</h1>'],
+    [false, '# heading', '<h1>heading</h1>'],
+    [undefined, 'foo\n#bar', '<p>foo\n#bar</p>'],
+    [true, 'foo\n#bar', '<p>foo\n#bar</p>'],
+    [false, 'foo\n#bar', '<div><p>foo</p><h1>bar</h1></div>'],
+    [false, '#######x', '<p>#######x</p>'],
+    [undefined, 'a<span>#</span>b', '<span>a<span>#</span>b</span>'],
+    [false, 'a<span>#</span>b', '<span>a<span>#</span>b</span>'],
+    [undefined, '<div>\n#x\n</div>', '<div>#x</div>'],
+    [false, '<div>\n#x\n</div>', '<div><h1>x</h1></div>'],
+  ])('with enforceAtxHeadings %j renders %j as %j', (enforceAtxHeadings, input, expected) => {
+    expect(serialize(compiler(input, { enforceAtxHeadings }))).toBe(expected)
+  })
+})

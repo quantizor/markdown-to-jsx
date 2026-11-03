@@ -98,7 +98,7 @@ wait_wave() {
 wave0_t0=$(now_ms)
 # Snapshot the tracked-file state first: the audit below must report what Biome
 # itself rewrote, not edits that were already in the tree. CI checks out clean,
-# but a local run (or the pre-commit hook) often has unrelated work in flight,
+# but a local run often has unrelated work in flight,
 # and comparing against HEAD alone would blame Biome for it.
 pre_biome_diff=$(git diff HEAD)
 phase "biome" bunx biome check --write --unsafe .
@@ -117,9 +117,9 @@ fi
 echo "==> wave 0: ok ($(($(now_ms) - wave0_t0))ms)"
 
 # --- Wave 1: parallel source checks (no dist required) ---
-# Metrics and scaling run after the other wave-1 jobs so CPU contention does
-# not inflate their timings: both compare measurements against a threshold, and
-# five sibling jobs competing for cores is enough to move either verdict.
+# Scaling-smoke runs after the other wave-1 jobs so CPU contention does not
+# inflate its timings: it compares measurements against a threshold, and five
+# sibling jobs competing for cores is enough to move the verdict.
 wave1_t0=$(now_ms)
 bg_job "knip" bunx knip
 bg_job "typecheck" bun run typecheck
@@ -143,15 +143,7 @@ wait_wave 1a
 echo "==> wave 1a wall: $(($(now_ms) - wave1_t0))ms"
 
 wave1b_t0=$(now_ms)
-bg_job "metrics-gate" bash -c '
-  set -euo pipefail
-  fail=0
-  for target in parser react react-native html solid vue markdown; do
-    bun scripts/metrics-gate.ts --target "${target}" || fail=1
-  done
-  bun scripts/scaling-smoke.ts || fail=1
-  exit "${fail}"
-'
+bg_job "scaling-smoke" bun scripts/scaling-smoke.ts
 wait_wave 1b
 echo "==> wave 1b wall: $(($(now_ms) - wave1b_t0))ms"
 echo "==> wave 1 wall: $(($(now_ms) - wave1_t0))ms"

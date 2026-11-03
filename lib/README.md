@@ -505,7 +505,7 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 | `createElement`                 | `function`                    | -        | Custom createElement behavior (React/React Native/SolidJS/Vue only). See [createElement](#optionscreateelement) for details.      |
 | `disableAutoLink`               | `boolean`                     | `false`  | Disable automatic conversion of bare URLs to anchor tags.                                                                         |
 | `disableParsingRawHTML`         | `boolean`                     | `false`  | Disable parsing of raw HTML into JSX.                                                                                             |
-| `enforceAtxHeadings`            | `boolean`                     | `false`  | Require space between `#` and header text (GFM spec compliance).                                                                  |
+| `enforceAtxHeadings`            | `boolean`                     | `true`   | Require a space between `#` and heading text (CommonMark). Set `false` to also read `#heading` as a heading.                      |
 | `evalUnserializableExpressions` | `boolean`                     | `false`  | ⚠️ Eval unserializable props (DANGEROUS). See [evalUnserializableExpressions](#optionsevalunserializableexpressions) for details. |
 | `forceBlock`                    | `boolean`                     | `false`  | Force all content to be treated as block-level.                                                                                   |
 | `forceInline`                   | `boolean`                     | `false`  | Force all content to be treated as inline.                                                                                        |

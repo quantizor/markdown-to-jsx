@@ -1,7 +1,51 @@
 #!/usr/bin/env bash
 # Refuse the commit unless the shared quality gate is green under CI rules
-# (Biome must leave a clean tree; same path CI runs).
+# (Biome must leave a clean tree; same path CI runs) on exactly the content
+# being committed.
+#
+# When the working tree holds nothing beyond what is staged, verify runs in
+# place. Otherwise (unstaged edits to tracked files, or any untracked file that
+# is not git-ignored), the staged content is written into a temporary detached
+# worktree, installed, and verified there, then removed. The index git hands
+# this hook (GIT_INDEX_FILE, which `git commit -a` and `git commit <paths>`
+# point at a temporary index) defines that content.
 set -euo pipefail
-cd "$(dirname "$0")/.."
 export CI=1
-exec bun run verify
+
+if git diff --quiet && [[ -z "$(git ls-files --others --exclude-standard)" ]]; then
+  exec bun run verify
+fi
+
+# Hash the index being committed (honors GIT_INDEX_FILE) before it is unset below.
+tree=$(git write-tree)
+tmp_root=${TMPDIR:-/tmp}
+origin=${PWD}
+snapshot=
+
+cleanup() {
+  # The run ends inside the snapshot; git cannot run from a directory that is about to be deleted.
+  cd "${origin}"
+  if [[ -n "${snapshot}" ]]; then
+    env -u GIT_INDEX_FILE git worktree remove --force "${snapshot}" >/dev/null 2>&1 || true
+    rm -rf "${snapshot}"
+  fi
+  # Reaps the snapshot of an earlier run that was killed before it could clean up.
+  env -u GIT_INDEX_FILE git worktree prune >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+snapshot=$(mktemp -d "${tmp_root%/}/markdown-to-jsx-pre-commit.XXXXXX")
+
+echo "==> pre-commit: the working tree differs from what is being committed; verifying the staged snapshot in ${snapshot}"
+env -u GIT_INDEX_FILE git worktree add --quiet --detach --no-checkout "${snapshot}" HEAD
+cd "${snapshot}"
+unset GIT_INDEX_FILE GIT_DIR GIT_WORK_TREE
+# Leaves the snapshot's index equal to the staged tree, so its status and
+# `git diff HEAD` show exactly the staged changes.
+git read-tree -u --reset "${tree}"
+if ! install_log=$(bun install --frozen-lockfile 2>&1); then
+  echo "${install_log}"
+  echo "==> pre-commit: bun install failed in the staged snapshot"
+  exit 1
+fi
+bun run verify

@@ -11,3 +11,6 @@ preload = [
 # Prune them from bun test discovery by config so a stray *.spec.ts there can
 # never be collected by the root suite.
 pathIgnorePatterns = ["native/**", "browser/**"]
+# Dev scripts are tested where their logic decides something (the timing
+# verdict), but they are not library code and stay out of the coverage floor.
+coveragePathIgnorePatterns = ["scripts/**"]
