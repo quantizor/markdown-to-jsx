@@ -1,5 +1,12 @@
 # markdown-to-jsx
 
+## 9.10.5
+
+### Patch Changes
+
+- d9976b1: `enforceAtxHeadings: false` now works. With it set, `#heading` (no space after the `#`) renders as a heading, including when it follows a paragraph line, inside list items and quotes, and inside inline HTML. By default, and with `enforceAtxHeadings: true`, a space or tab is still required after the `#` characters, as CommonMark specifies. More than six `#` characters never make a heading.
+- d9976b1: Inline HTML now keeps the spaces just inside its tags. `a<span> b </span>c` and `<b>bold </b>next` render with the spaces as written instead of running the words together, and an element holding only a space, such as `<span> </span>`, keeps it. This applies to every output format, with or without `optimizeForStreaming`.
+
 ## 9.10.4
 
 ### Patch Changes
