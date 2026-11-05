@@ -2272,3 +2272,718 @@ describe('enforceAtxHeadings (#903)', () => {
     expect(serialize(compiler(input, { enforceAtxHeadings }))).toBe(expected)
   })
 })
+
+/** The type of every `on*` prop in a Solid element tree, serialize showing no props. */
+function handlerProps(el: unknown): string[] {
+  if (Array.isArray(el)) {
+    return el.flatMap(handlerProps)
+  }
+  if (el === null || typeof el !== 'object') {
+    return []
+  }
+  const props = (el as { p?: Record<string, unknown> }).p || {}
+  return [
+    ...Object.keys(props)
+      .filter(name => name.toLowerCase().startsWith('on'))
+      .map(name => `${name}=${typeof props[name]}`),
+    ...handlerProps(props.children),
+  ]
+}
+
+/** Every prop name in a Solid element tree but children and the compiler's own innerHTML. */
+function propNames(el: unknown): string[] {
+  if (Array.isArray(el)) {
+    return el.flatMap(propNames)
+  }
+  if (el === null || typeof el !== 'object') {
+    return []
+  }
+  const props = (el as { p?: Record<string, unknown> }).p || {}
+  return [
+    ...Object.keys(props).filter(
+      name => name !== 'children' && name !== 'innerHTML'
+    ),
+    ...propNames(props.children),
+  ]
+}
+
+describe('attribute names a renderer acts on rather than writes', () => {
+  it('removes an object children value from a registered tag', () => {
+    const result = compiler('<Foo children={{"a":1}}>y</Foo>', {
+      overrides: { Foo: { props: {} } },
+    })
+
+    expect(serialize(result)).toBe('<Foo>y</Foo>')
+    expect(propNames(result)).toEqual([])
+  })
+
+  it.each([
+    ['<div innerHTML="x<img src=x onerror=alert(1)>">y</div>', '<div>y</div>'],
+    [
+      '<div prop:innerHTML="x<img src=x onerror=alert(1)>">y</div>',
+      '<div>y</div>',
+    ],
+    ['<div attr:onclick="alert(1)">y</div>', '<div>y</div>'],
+    ['<a attr:href="javascript:alert(1)">y</a>', '<a>y</a>'],
+    ['<a prop:href="javascript:alert(1)">y</a>', '<a>y</a>'],
+    [
+      '<svg><a xlinkHref="javascript:alert(1)"><text>y</text></a></svg>',
+      '<svg><a><text>y</text></a></svg>',
+    ],
+    ['<div ref="x">y</div>', '<div>y</div>'],
+    ['<div ref={{"current":1}}>y</div>', '<div>y</div>'],
+    [
+      '<div dangerouslySetInnerHTML={{"__html":"<img src=x onerror=alert(1)>"}}></div>',
+      '<div></div>',
+    ],
+    // An element in innerHTML would reach the page as [object HTMLElement]
+    ['<pre><b>x</b></pre>', '<pre><b>x</b></pre>'],
+    // The raw body keeps its stray closer, which a browser ignores
+    ['<div><pre>a</pre></div>', '<div><pre>a</pre></div>\n</div>'],
+  ])('renders %j with no prop, as %j', (input, expected) => {
+    const result = compiler(input)
+    expect(serialize(result)).toBe(expected)
+    expect(propNames(result)).toEqual([])
+  })
+
+  it.each([
+    [
+      '<svg><a><set attributeName="href" to="javascript:alert(1)"/><rect/></a></svg>',
+      '<svg><a><set></set><rect></rect></a></svg>',
+      ['to'],
+    ],
+    [
+      '<svg><a><animate attributeName="&#104;ref" values="javascript:alert(1)"/></a></svg>',
+      '<svg><a><animate></animate></a></svg>',
+      ['values'],
+    ],
+    [
+      'x <svg><a><set attributename="xlink:href" to="javascript:alert(1)"/></a></svg>',
+      '<span>x <svg><a><set></set></a></svg></span>',
+      ['to'],
+    ],
+    [
+      '<svg><a><set attributeName={href} to="javascript:alert(1)"/></a></svg>',
+      '<svg><a><set></set></a></svg>',
+      ['to'],
+    ],
+    [
+      '<svg><g><animate attributeName="opacity" values="0;1"/></g></svg>',
+      '<svg><g><animate></animate></g></svg>',
+      ['attributeName', 'values'],
+    ],
+    ['<Btn action={javascript:alert(1)}>x</Btn>', '<Btn>x</Btn>', []],
+    ['<Btn href={link}>x</Btn>', '<Btn>x</Btn>', ['href']],
+    // A filtered tag is a text node, which the serializer writes as is
+    [
+      '<!-- c --> <script>alert(1)</script>',
+      '<span> <span><script>alert(1)</script></span></span>',
+      [],
+    ],
+    // A filtered tag in a list item is text too
+    [
+      '- a <!-- c --> <script>alert(1)</script>',
+      '<ul><li>a  <span><script>alert(1)</script></span></li></ul>',
+      ['start'],
+    ],
+    ['<!-- <script> -->', '', []],
+    // A block left open before raw markup: an element tree has no browser reading to confuse
+    ['<p><? a\n\n<!-- x><script>alert(1)</script>', '<p></p>', []],
+    [
+      '<p><? a\n\n<div title="x><script>alert(1)</script>">body</div>',
+      '<div><p></p><div>body</div></div>',
+      ['title'],
+    ],
+    [
+      '<p><!-- a\n\nb <br title="--><script>alert(1)</script>"> c',
+      '<div><p></p><p>b <br></br> c</p></div>',
+      ['title'],
+    ],
+    // A prop value is written whole, so no tag starts inside it
+    ['<div x={a><script>alert(1)</script>}>y</div>', '<div>y</div>', ['x']],
+  ])('renders %j as %j, with props %j', (input, expected, props) => {
+    const result = compiler(input)
+    expect(serialize(result)).toBe(expected)
+    expect(propNames(result)).toEqual(props)
+  })
+
+  it('renders a void element given a children attribute', () => {
+    const result = compiler('<img children="z" src="/x">')
+    expect(serialize(result)).toBe('<img></img>')
+    expect(propNames(result)).toEqual(['src'])
+  })
+
+  it('renders image alt text holding a quote as one image', () => {
+    const result = compiler('![" onclick=alert(1)>](/x)')
+    expect(serialize(result)).toBe('<img></img>')
+    expect(propNames(result)).toEqual(['alt', 'title', 'src'])
+  })
+})
+
+describe('a children attribute on a lowercase tag with an override', () => {
+  it('reaches the override', () => {
+    const result = compiler('<card children="z" />', {
+      overrides: { card: { component: 'i' } },
+    })
+
+    expect(serialize(result)).toBe('<i>z</i>')
+  })
+
+  it.each([
+    [
+      '<img children="z" src="/x">',
+      { img: { props: { title: 't' } } },
+      '<img>z</img>',
+    ],
+    ['<card children="z" />', { card: { component: 'img' } }, '<img>z</img>'],
+  ])('does not throw on %j with void override %j', (input, overrides, expected) => {
+    expect(serialize(compiler(input, { overrides }))).toBe(expected)
+  })
+})
+
+describe('a URL that names a dangerous scheme', () => {
+  const firstHref = (el: unknown): unknown => {
+    if (Array.isArray(el)) {
+      return el.map(firstHref).find(href => href !== undefined)
+    }
+    if (el === null || typeof el !== 'object') {
+      return
+    }
+    const props = (el as { p?: Record<string, unknown> }).p || {}
+    return 'href' in props ? props.href : firstHref(props.children)
+  }
+
+  it.each([
+    [
+      '[a](https://en.wikipedia.org/wiki/Javascript:_The_Good_Parts)',
+      'https://en.wikipedia.org/wiki/Javascript:_The_Good_Parts',
+    ],
+    [
+      '<https://example.com/?q=javascript:x>',
+      'https://example.com/?q=javascript:x',
+    ],
+    ['<a href="/docs/javascript:intro">x</a>', '/docs/javascript:intro'],
+    ['[l](/[x](javascript:alert(1)))', '/%5Bx%5D(javascript:alert(1))'],
+    ['[a](javascript:alert(1))', undefined],
+    ['[a](feed:javascript:alert(1))', undefined],
+  ])('gives %j the href %j, by where a browser reads a scheme', (input, expected) => {
+    expect(firstHref(compiler(input))).toBe(expected)
+  })
+})
+
+describe('markup a browser reads differently from the parser', () => {
+  it('keeps the line breaks of a renderRule result for a raw element in a list item', () => {
+    expect(
+      serialize(
+        compiler('- <b>x</b>', {
+          renderRule: (next, node) =>
+            node.type === RuleType.htmlBlock ? 'alpha\nbeta' : next(),
+        })
+      )
+    ).toBe('<ul><li>alpha\nbeta</li></ul>')
+  })
+
+  it.each([
+    ['<!--><svg onload=alert(1)>', '<svg></svg>'],
+    ['<?"><b onclick=alert(1)>b</b>', '<span><?"><b>b</b></span>'],
+    [
+      '<div>\n<!-- x\n\n<a title="--><img src=x onerror=alert(1)>">',
+      '<div><div></div><a></a></div>',
+    ],
+    [
+      '<!---><noscript><a title="</noscript><img src=x onerror=alert(1)>">',
+      '<span><noscript><a title="</noscript><img></img>"></span>',
+    ],
+    [
+      '<!-- x\n\n<a title="--><b y=\'">\n\n\' onclick=alert(1)>',
+      "<p>' onclick=alert(1)></p>",
+    ],
+    ['<a x="<b" y=z>', '<a></a>'],
+    ["<div onclick='alert(1)'--!>", "<div onclick='alert(1)'--!>"],
+    ['<div onclick={alert(1)}<xmp>', '<div onclick={alert(1)}<xmp>'],
+    ['<div x={a><img src=x onerror=alert(1)>}>\nhi\n</div>', '<div>hi</div>'],
+    [
+      'p <span x={a><img src=x onerror=alert(1)>}>hi</span>',
+      '<span>p <span>hi</span></span>',
+    ],
+    [
+      '<pre><Img onclick={alert(1)}',
+      '<pre><pre>&lt;Img onclick={alert(1)}</pre>',
+    ],
+    ['<div>\n<b onclick=alert(1)', '<div><b onclick=alert(1)</div>'],
+    ['```x onmouseover="alert(1)"\ny\n```', '<pre><code>y</code></pre>'],
+    [
+      '<iframe><img src=x onerror=alert(1)',
+      '<span><span><iframe></span><img src=x onerror=alert(1)</span>',
+    ],
+    ['\\<svg onload=alert(1)>', '<svg onload=alert(1)>'],
+    ['&lt;img src=x onerror=alert(1)&gt;', '<img src=x onerror=alert(1)>'],
+    [
+      'a[^1]\n\n[^1]: javascript:alert(1)',
+      '<div><p>a<a><sup>1</sup></a></p><footer><div>1: javascript:alert(1)</div></footer></div>',
+    ],
+    [
+      'a[^1]\n\n[^1]: hi [x](javascript:alert(1))',
+      '<div><p>a<a><sup>1</sup></a></p><footer><div>1: hi <a>x</a></div></footer></div>',
+    ],
+    ['![a](&amp;#106;avascript:alert(1))', '<img></img>'],
+    ['[x](javascript:alert(1) "t")', '<a>x</a>'],
+    [
+      '<!-- x -->İİİİİİİİİİ</pre><pre>',
+      '<span>İİİİİİİİİİ<pre></pre><pre></pre></span>',
+    ],
+    ['<span>[l](javascript:alert(1))</span>', '<span><a>l</a></span>'],
+    [
+      'x <javascript:alert(1)> y',
+      '<span>x <a>javascript:alert(1)</a> y</span>',
+    ],
+    // The markdown output ends an autolink at an ASCII space or control only, so a
+    // Unicode space in one is the same link here
+    [
+      'x <span><javascript:alert(1)//\xa0></span>',
+      '<span>x <span><a>javascript:alert(1)//\xa0</a></span></span>',
+    ],
+    [
+      'x <span><JavaScript:alert&#40;1&#41;\u{2003}x></span>',
+      '<span>x <span><a>JavaScript:alert&#40;1&#41;\u{2003}x</a></span></span>',
+    ],
+    [
+      'x <span><a:b\xa0<javascript:alert(1)\u{2028}x></span>',
+      '<span>x <span><a:b\xa0<a>javascript:alert(1)\u{2028}x</a></span></span>',
+    ],
+    [
+      'x <span>[y <https:a\xa0](javascript:alert(1))></span>',
+      '<span>x <span>[y <a>https:a\xa0](javascript:alert(1))</a></span></span>',
+    ],
+    [
+      'x <span><javascript:a](<javascript:alert(1)>)></span>',
+      '<span>x <span><javascript:a](<a>javascript:alert(1)</a>)></span></span>',
+    ],
+    ['[l](&amp;amp;#106;avascript:alert(1))', '<a>l</a>'],
+    ['[l](&#106avascript:alert(1))', '<a>l</a>'],
+    ['a\nb\n=', '<h1>a\nb</h1>'],
+    [
+      '- [^1]: a )\n[^1]:&#106avascript:alert(1)',
+      '<div><ul><li><a><sup>1</sup></a>:&#106avascript:alert(1)</li></ul><footer><div>1: a )</div></footer></div>',
+    ],
+    ['<q> <b>x</b>', '<span><q></q> <b>x</b></span>'],
+    ['&amp;copy; a &amp; b', '&copy; a & b'],
+    [
+      '\n﻿[^1]:javascript:alert(1)\n[^1]',
+      '<p>﻿[^1]:javascript:alert(1)\n[^1]</p>',
+    ],
+    [
+      '<title>a\n\n<!--</title>\n\n```\n<b>\n```',
+      '<div><span><title><p>a</p></title></span><pre><code><b></code></pre></div>',
+    ],
+    [
+      '1. # [^1]\n[^1]:&#106avascript:alert(1)',
+      '<ol><li><h1>[^1]</h1>[^1]:&#106avascript:alert(1)</li></ol>',
+    ],
+    [
+      '1. <!-- c --> x\n[^1]:&#106avascript:alert(1)\n\n[^1]',
+      '<div><ol><li></li></ol><p><a><sup>1</sup></a></p><footer><div>1: &#106avascript:alert(1)</div></footer></div>',
+    ],
+    ['- <pre>x\ny</pre>', '<ul><li><pre>x\ny</pre></li></ul>'],
+    ['- <!-- x\ny -->', '<ul><li></li></ul>'],
+    ['- <div\nonclick=alert(1)>x</div>', '<ul><li><div>x</div></li></ul>'],
+    ['- <x-y\nonclick=alert(1)>y</x-y>', '<ul><li><x-y>y</x-y></li></ul>'],
+    ['- <Foo x="1\n2">y</Foo>', '<ul><li><Foo>y</Foo></li></ul>'],
+    ['- ```\ny', '<ul><li><pre><code>y</code></pre></li></ul>'],
+    ['1. <x-y>x\ny', '<ol><li><x-y>x y</x-y></li></ol>'],
+    ['1. [r]:\n/u "a\nb"\n\n   [r]', '<ol><li><p><a>r</a></p></li></ol>'],
+    [
+      '- <b>f</b><!-- c --><img\nsrc=x>z onclick=alert(1)',
+      '<ul><li><b>f</b><img></img>z onclick=alert(1)</li></ul>',
+    ],
+    [
+      '- # h\na | b\n  --- | ---',
+      '<ul><li><h1>h</h1><table><thead><tr><th>a</th><th>b</th></tr></thead></table></li></ul>',
+    ],
+    [
+      '- - [^1]:\nz\n\n  [^1]',
+      '<div><ul><li><ul><li></li></ul><p><a><sup>1</sup></a></p></li></ul><footer><div>1: z</div></footer></div>',
+    ],
+    ['[r]: a\\\nb\n\n[r]', '<div><p>b</p><p><a>r</a></p></div>'],
+    ['[r]: a\\ "t"\n\n[r]', '<p><a>r</a></p>'],
+    ['[r]: <a\\\nb>', '<p>[r]: <a<br></br>b></p>'],
+    ['[x](a\\\\)', '<a>x</a>'],
+    [
+      '- a | b\n  --- | ---\nc | d',
+      '<ul><li><table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>c</td><td>d</td></tr></tbody></table></li></ul>',
+    ],
+    [
+      '1. [^1]:\nb\n\n   [^1]',
+      '<div><ol><li><p><a><sup>1</sup></a></p></li></ol><footer><div>1: b</div></footer></div>',
+    ],
+    // A paragraph's lazy line stays out of block parsing, so no heading
+    ['- <b>x</b>\ny\n===', '<ul><li><b>x</b>\ny\n===</li></ul>'],
+    [
+      '<div <b c="d"/>\n<![CDATA[</pre>\n\n```\n<b>\n```',
+      '<div><div><div <b c="d"/>\n<![CDATA[</pre>\n</div><pre><code><b></code></pre></div>',
+    ],
+    [
+      '<p><!--\n\n<a e="--><b e=">">\n<div>"onclick=alert(1)>',
+      '<div><p></p><p><a></a>"></p><div>"onclick=alert(1)></div></div>',
+    ],
+    [
+      '<textarea>```\n```\n</script>\n    [x](&#106avascript:alert(1))',
+      '<div><span><textarea>```\n```\n</script></span><pre><code>[x](&#106avascript:alert(1))</code></pre></div>',
+    ],
+    [
+      '<details>\n<summary>x</summary>\n\n```js\ncode\n```\n\n</details>',
+      '<details><summary>x</summary><pre><code>code</code></pre></details>',
+    ],
+    [
+      '<div>\n\n```\n``` \n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
+      '<div><div><pre><code>``` \n</code></pre></div><pre><code><img src=x onerror=alert(1)>\n</code></pre></div>',
+    ],
+    [
+      '<![CDATA[a]]]>\n\n```\n<img src=x onerror=alert(1)>\n```',
+      '<pre><code><img src=x onerror=alert(1)></code></pre>',
+    ],
+    [
+      '- <?p ?> <?q ?>[x](\njavascript:alert(1))',
+      '<ul><li>javascript:alert(1))</li></ul>',
+    ],
+    [
+      '<div>\n\n```\n```\t\n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
+      '<div><div><pre><code></code></pre></div><pre><code><img src=x onerror=alert(1)>\n</code></pre></div>',
+    ],
+    [
+      '<div>\n\n```\n```~\n```\n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
+      '<div><div><pre><code>```~</code></pre></div><pre><code><img src=x onerror=alert(1)>\n</code></pre></div>',
+    ],
+    [
+      '<details>\n\n```\n```js\n```\n\n</details>',
+      '<details><pre><code>```js</code></pre></details>',
+    ],
+    [
+      '<script></textarea></script >\n\n```\n<img src=x onerror=alert(1)>\n```',
+      '<div><span><script></textarea></script ></span><pre><code><img src=x onerror=alert(1)></code></pre></div>',
+    ],
+    ['[^a](javascript:alert(1))', '<a>^a</a>'],
+    [
+      '[^a](javascript:alert(1))\n\n[^a]: y',
+      '<div><p><a><sup>a</sup></a>(javascript:alert(1))</p><footer><div>a: y</div></footer></div>',
+    ],
+    [
+      'y [^a<img src=x onerror=alert(1)>]\n\n[^a<img src=x onerror=alert(1)>]: a',
+      '<div><p>y <a><sup>a<img src=x onerror=alert(1)></sup></a></p><footer><div>a<img src=x onerror=alert(1)>: a</div></footer></div>',
+    ],
+    [
+      '[^1]: a [\n[r]: a "](javascript:alert(1))"',
+      '<footer><div>1: a [</div></footer>',
+    ],
+    [
+      '[^1]: a b\n[r]: a "[x](javascript:alert(1))"',
+      '<footer><div>1: a b</div></footer>',
+    ],
+    ['[\\[a\\](javascript:alert(1))](/u)', '<a>[a](javascript:alert(1))</a>'],
+    [
+      '\\\n[^1]:&#106avascript:alert(1)\n[^1]',
+      '<p><br></br>[^1]:&#106avascript:alert(1)\n[^1]</p>',
+    ],
+    [
+      'x&#60;~~~~javascript:alert(1)>',
+      '<span>x<<del></del>javascript:alert(1)></span>',
+    ],
+    ["<C><?><a e='?>'> onclick/", "<span><C></C>'> onclick/</span>"],
+    ['<![CDATA[<?><a e="?>"\n<!--"onclick>]', ''],
+    [
+      '<?e><a e="?>">\n<style>"onclick=alert(1)>',
+      '<span><style>"onclick=alert(1)></span>',
+    ],
+    [
+      '[x][^1]\n\n[^1]: &amp;#106;avascript:alert(1)',
+      '<div><p>[x]<a><sup>1</sup></a></p><footer><div>1: &#106;avascript:alert(1)</div></footer></div>',
+    ],
+    ['[x][^1]', '[x][^1]'],
+    [
+      '[^1][^2]\n\n[^1]: see [^3]',
+      '<div><p><a><sup>1</sup></a>[^2]</p><footer><div>1: see [^3]</div></footer></div>',
+    ],
+    [
+      '[^1]\n\n[^1]: see [^2]\n\n[^2]: y',
+      '<div><p><a><sup>1</sup></a></p><footer><div>1: see <a><sup>2</sup></a></div><div>2: y</div></footer></div>',
+    ],
+    [
+      '<?p ?><!DOCTYPE html>```\n```\n<svg onload=alert(1)>',
+      '<pre><code><svg onload=alert(1)>\n</code></pre>',
+    ],
+    ['[l](/u "--><img src=x onerror=alert(1)>")', '<a>l</a>'],
+    ['![a"--><img src=x onerror=alert(1)>](/x)', '<img></img>'],
+    [
+      '<svg>](<javascript:alert(1)></svg>',
+      '<svg>](<a>javascript:alert(1)</a></svg>',
+    ],
+    [
+      '<!DOCTYPE html>](<javascript:alert(1)>',
+      '<span>](<a>javascript:alert(1)</a></span>',
+    ],
+    [
+      '| a | b |\n|---|---|\n[l](javascript:alert(1)',
+      '<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>[l](javascript:alert(1)</td><td></td></tr></tbody></table>',
+    ],
+    [
+      '| h | i |\n|---|---|\n| a\\\\\\|b | z |',
+      '<table><thead><tr><th>h</th><th>i</th></tr></thead><tbody><tr><td>a\\|b</td><td>z</td></tr></tbody></table>',
+    ],
+    [
+      '[^1]: data:text/html,x\n[^1]',
+      '<div><p><a><sup>1</sup></a></p><footer><div>1: data:text/html,x</div></footer></div>',
+    ],
+    [
+      '<foreignObject>~~~~```x onmouseover="alert(1)"\n<svg onload=alert(1)>```\n',
+      '<p><foreignObject></foreignObject><del></del><code>x onmouseover="alert(1)" <svg onload=alert(1)></code></p>',
+    ],
+    [
+      '[^1]: <iframe srcdoc="x"></iframe>[r][^1]',
+      '<span>[^1]: <span><iframe></iframe></span>[r][^1]</span>',
+    ],
+    [
+      '<annotation-xml>[^1]: ](javascript:alert(1)',
+      '<span><annotation-xml></annotation-xml>[^1]: ](javascript:alert(1)</span>',
+    ],
+    ['<pre>a', '<pre><pre>a</pre>'],
+    ['<div><pre>a', '<div><pre>a\n</div>'],
+    ["<div </div>'", "<div </div>'"],
+    ['<?php echo 1 ?>', ''],
+    ['<!DOCTYPE html>', ''],
+    ['<![CDATA[x]]>', ''],
+    // The string outputs' quote re-pairing has no reading here: these are elements and text
+    [
+      '<![CDATA[<a title="</style><a title="</textarea><a href="javascript:alert(1)">l</a> x" onclick=alert(1)>',
+      '<span><![CDATA[<a title="<span></style></span><a title="<span></textarea></span><a>l</a> x" onclick=alert(1)></span>',
+    ],
+    ['a <?b?> c', '<span>a  c</span>'],
+    ['a <!B c> d', '<span>a  d</span>'],
+    ['a <![CDATA[b]]> c', '<span>a  c</span>'],
+    ['a <!-- b --> c', '<span>a  c</span>'],
+    ['[l](java&Tab;script:alert(1))', '<a>l</a>'],
+    ['<a href="java\tscript:alert(1)">l</a>', '<a>l</a>'],
+    ['<a href="java\nscript:alert(1)">l</a>', '<p><a>l</a></p>'],
+    ['<my-widget onclick={alert(1)}>x</my-widget>', '<my-widget>x</my-widget>'],
+    ['<my-widget items={x}>y</my-widget>', '<my-widget>y</my-widget>'],
+    [
+      '<my-widget href={javascript:x}>z</my-widget>',
+      '<my-widget>z</my-widget>',
+    ],
+    [
+      '<a title="?><!--[^1]: ![a](javascript:alert(1))\n</div\n-->',
+      '<p><a title="?></p>',
+    ],
+    [
+      '1. </div x={a ><img src=x onerror=alert(1)>}>    innerHTML="x<img src=x onerror=alert(1)>"',
+      '<span>1. </div x={a ><img></img>}>    innerHTML="x<img></img>"</span>',
+    ],
+    [
+      '- </div x={a ><img src=x onerror=alert(1)>}>    <b onclick=alert(1)>b</b>',
+      '<ul><li><div></div><pre><code><b onclick=alert(1)>b</b></code></pre></li></ul>',
+    ],
+    [
+      '<div x={a><a title="</textarea>[^1]: ![a](javascript:alert(1))\nprop:innerHTML="x<img src=x onerror=alert(1)>"](onclick={alert(1)}',
+      '<div></div>',
+    ],
+    [
+      '![<!---></span ](javascript:alert(1))>![a"--><img src=x onerror=alert(1)>](/x)',
+      '<img></img>',
+    ],
+    ['![a\\\\\\](javascript:alert(1))b](/x)', '<img></img>'],
+  ])('renders %j as %j with no handler prop', (input, expected) => {
+    const result = compiler(input)
+    expect(serialize(result)).toBe(expected)
+    expect(handlerProps(result)).toEqual([])
+  })
+
+  it.each([
+    [
+      `> <div a=1${String.fromCharCode(0x20_28)}>  onclick=alert(1) b>y</div>`,
+      '<blockquote><div>onclick=alert(1) b>y</div></blockquote>',
+    ],
+    ['<pre>a &lt; b &amp; c</pre>', '<pre>a < b & c</pre>'],
+    [
+      `> <div </div${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
+      '<blockquote><div></div></blockquote>',
+    ],
+    [
+      '/\n    <pre>\n```\n<img src=x onerror=alert(1)>\n```',
+      '<div><p>/\n<pre></pre></p><pre><code><img src=x onerror=alert(1)></code></pre></div>',
+    ],
+    [
+      '- <div/>`<img src=x onerror=alert(1)>`',
+      '<ul><li><div></div><code><img src=x onerror=alert(1)></code></li></ul>',
+    ],
+    [
+      '- z\n  <b/>\n  `<img src=x onerror=alert(1)>`',
+      '<ul><li>z\n<b></b>\n<code><img src=x onerror=alert(1)></code></li></ul>',
+    ],
+    [
+      '- <br>\n  `<img src=x onerror=alert(1)>`',
+      '<ul><li><br></br><code><img src=x onerror=alert(1)></code></li></ul>',
+    ],
+    [
+      '- a\n  - <div/>\n  `<img src=x onerror=alert(1)>`',
+      '<ul><li>a<ul><li><div></div></li></ul><code><img src=x onerror=alert(1)></code></li></ul>',
+    ],
+    [
+      '- a\n\n- z\n  <b/>\n  `<img src=x onerror=alert(1)>`',
+      '<ul><li><p>a</p></li><li><p>z\n<b></b>\n<code><img src=x onerror=alert(1)></code></p></li></ul>',
+    ],
+    [
+      '<b>`</b>x`<img src=x onerror=alert(1)>`',
+      '<span><b>`</b>x<code><img src=x onerror=alert(1)></code></span>',
+    ],
+    [
+      'z\n    <div>`<img src=x onerror=alert(1)>`',
+      '<p>z\n<div></div><code><img src=x onerror=alert(1)></code></p>',
+    ],
+    ['~~~<a href="javascript:alert(1)">\nq\n~~~', '<pre><code>q</code></pre>'],
+    ['`[x](javascript:alert(1))`', '<code>[x](javascript:alert(1))</code>'],
+    [
+      '- <?a ?>[x]:\n  javascript:alert(1)\n\n<span>[x]</span>',
+      '<div><ul><li>javascript:alert(1)</li></ul><p><span>[x]</span></p></div>',
+    ],
+    [
+      'a[^1]\n\n[^1]: 100% of people',
+      '<div><p>a<a><sup>1</sup></a></p><footer><div>1: 100% of people</div></footer></div>',
+    ],
+    ['1. ```\n   foo\n   ```', '<ol><li><pre><code>foo</code></pre></li></ol>'],
+    ['a #\n=', '<h1>a #</h1>'],
+    ['`<script> https://a.b/c`', '<code><script> https://a.b/c</code>'],
+    [
+      `> <div </div ${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
+      '<blockquote><div></div></blockquote>',
+    ],
+    [
+      '<pre/>\n\n```\n<img src=x onerror=alert(1)>\n```',
+      '<div><pre>\n</pre><pre><code><img src=x onerror=alert(1)></code></pre></div>',
+    ],
+    [
+      '<pre/>y\n\n```\n<img src=x onerror=alert(1)>\n```',
+      '<div><pre>y\n</pre><pre><code><img src=x onerror=alert(1)></code></pre></div>',
+    ],
+    [
+      '<![CDATA[\n<![CDATA[]]]>\n\n```\n<img src=x onerror=alert(1)>\n```',
+      '<pre><code><img src=x onerror=alert(1)></code></pre>',
+    ],
+  ])('renders %j as %j, a shape only the markdown output screens', (input, expected) => {
+    const result = compiler(input)
+    expect(serialize(result)).toBe(expected)
+    expect(handlerProps(result)).toEqual([])
+  })
+
+  it.each([
+    [
+      '<br>\n\n```\n<img src=x onerror=alert(1)>\n```',
+      '<div><pre></pre><pre><code><img src=x onerror=alert(1)></code></pre></div>',
+      'br',
+      'pre',
+    ],
+    [
+      '<div>\nx\n\n```\n<img src=x onerror=alert(1)>\n```',
+      '<div><pre>x</pre><pre><code><img src=x onerror=alert(1)></code></pre></div>',
+      'div',
+      'pre',
+    ],
+    [
+      '<b/>\n\n```\n<img src=x onerror=alert(1)>\n```',
+      '<div><script></script><pre><code><img src=x onerror=alert(1)></code></pre></div>',
+      'b',
+      'script',
+    ],
+    [
+      '<span>y</span>`<img src=x onerror=alert(1)>`',
+      '<span><div>y</div><code><img src=x onerror=alert(1)></code></span>',
+      'span',
+      'div',
+    ],
+    [
+      '<pre/>`<img src=x onerror=alert(1)>`',
+      '<script>`<img src=x>`\n</script>',
+      'pre',
+      'script',
+    ],
+    [
+      '<div>\n<a title="></textarea>\nplain "text"\n<div>"onclick=alert(1)>',
+      '<pre><a title="> plain "text" <pre></pre>"onclick=alert(1)></pre>',
+      'div',
+      'pre',
+    ],
+    [
+      '<pre>\n<a title=">\n\nplain "text"\n\n<div>"onclick=alert(1)>\n</pre>',
+      '<div><a title=">\n\nplain "text"\n\n<div>"onclick=alert(1)></div>',
+      'pre',
+      'div',
+    ],
+  ])('renders %j as %j when %j is renamed to %j', (input, expected, tag, component) => {
+    const result = compiler(input, { overrides: { [tag]: { component } } })
+    expect(serialize(result)).toBe(expected)
+    expect(handlerProps(result)).toEqual([])
+  })
+
+  it('escapes a tag hidden in a quoted value that runs past the read limit', () => {
+    const long = 'x'.repeat(1100)
+    expect(
+      serialize(compiler(`<div>\n<a title="<b ${long}">y</a>\n</div>`))
+    ).toBe(`<div><a title="<b ${long}">y</div>`)
+  })
+
+  it.each([
+    ['<Img onclick={alert(1)} />', undefined, '<Img></Img>', []],
+    ['<Img attr:onerror={alert(1)} />', undefined, '<Img></Img>', []],
+    ['<Btn on:click={alert(1)}>x</Btn>', undefined, '<Btn>x</Btn>', []],
+    ['<Btn onclick={[1]}>x</Btn>', undefined, '<Btn>x</Btn>', []],
+    // Solid hands a bare name's `true` to addEventListener, which throws
+    ['<Img onerror />', undefined, '<Img></Img>', []],
+    ['<Btn onclick>x</Btn>', undefined, '<Btn>x</Btn>', []],
+    ['<Btn on:click>x</Btn>', undefined, '<Btn>x</Btn>', []],
+    ['<Btn oncapture:click>x</Btn>', undefined, '<Btn>x</Btn>', []],
+    [
+      '<my-widget onerror>x</my-widget>',
+      undefined,
+      '<my-widget>x</my-widget>',
+      [],
+    ],
+    [
+      '<my-widget online>x</my-widget>',
+      undefined,
+      '<my-widget>x</my-widget>',
+      [],
+    ],
+    [
+      '<Btn onclick>x</Btn>',
+      { overrides: { Btn: { props: {} } } },
+      '<Btn>x</Btn>',
+      [],
+    ],
+    [
+      '<constructor>hi</constructor>',
+      { overrides: {} },
+      '<constructor>hi</constructor>',
+      [],
+    ],
+    [
+      '<Constructor>hi</Constructor>',
+      { overrides: {} },
+      '<Constructor>hi</Constructor>',
+      [],
+    ],
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      { overrides: { 'my-widget': { props: {} } } },
+      '<my-widget>x</my-widget>',
+      ['onclick=string'],
+    ],
+    [
+      '<my-widget onclick={() => 1}>x</my-widget>',
+      { evalUnserializableExpressions: true },
+      '<my-widget>x</my-widget>',
+      ['onclick=function'],
+    ],
+  ])('with its options keeps %j and %j as %j with props %j', (input, options, expected, handlers) => {
+    const result = compiler(input, options)
+    expect(serialize(result)).toBe(expected)
+    expect(handlerProps(result)).toEqual(handlers)
+  })
+})

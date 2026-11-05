@@ -157,7 +157,11 @@ const renderers: Record<
             innerHTML: textContent,
           })
         }
-        return h(node.tag, { key: state.key, ...node.attrs }, textContent)
+        return h(
+          node.tag,
+          { key: state.key, ...node.attrs },
+          util.verbatimText(node.tag, textContent)
+        )
       }
 
       // Use already-parsed children if available instead of re-parsing rawSource
@@ -175,6 +179,7 @@ const renderers: Record<
 
       // Fallback to re-parsing rawSource if children not available (edge case)
       const parseOptions = parse.toParseOptions({
+        overrides: options.overrides,
         slugify: options.slugify,
         sanitizer: sanitize,
         tagfilter: true,
@@ -199,6 +204,9 @@ const renderers: Record<
       // following text line into itself, then split at this element's own
       // closing tag so any trailing content renders as siblings (issue #881).
       util.stripVerbatim(astNodes)
+      if (util.reparsedToItself(astNodes, cleanedText)) {
+        return cleanedText
+      }
 
       // _rawOuter means the parser already determined this span is the FULL
       // outer block, so emit the parsed nodes directly instead of nesting
@@ -611,9 +619,12 @@ export function astToJSX(
 
     // Convert HTML content in props (early exit for non-HTML)
     if (vueProps) {
+      parse.dropUnresolvedHandlers(tagKey, vueProps, opts.overrides)
       for (const key in vueProps) {
         const value = vueProps[key]
+        // innerHTML is the compiler's own screened markup, and only a string reaches the page
         if (
+          key !== 'innerHTML' &&
           typeof value === 'string' &&
           value.length > 0 &&
           value[0] === '<' &&
@@ -621,12 +632,7 @@ export function astToJSX(
             parse.UPPERCASE_TAG_R.test(value) ||
             parse.parseHTMLTag(value, 0))
         ) {
-          const compiled = compileHtml(value.trim())
-          // For innerHTML, take first element if array (matches original parser behavior)
-          vueProps[key] =
-            key === 'innerHTML' && Array.isArray(compiled)
-              ? compiled[0]
-              : compiled
+          vueProps[key] = compileHtml(value.trim())
         }
       }
     }

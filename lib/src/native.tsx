@@ -865,7 +865,11 @@ function render(
           return h(
             htmlNode.tag,
             { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs) },
-            h(Text, { style: styled.codeText }, textContent)
+            h(
+              Text,
+              { style: styled.codeText },
+              util.verbatimText(htmlNode.tag, textContent)
+            )
           )
         }
 
@@ -893,6 +897,7 @@ function render(
         }
 
         const parseOptions = parse.toParseOptions({
+          overrides: options.overrides,
           slugify: options.slugify,
           sanitizer: sanitize,
           tagfilter: true,
@@ -903,6 +908,9 @@ function render(
           parseOptions
         )
         util.stripVerbatim(astNodes)
+        if (util.reparsedToItself(astNodes, cleanedText)) {
+          return cleanedText
+        }
 
         // _rawOuter means the parser already determined this span is the FULL
         // outer block, so emit the parsed nodes directly instead of nesting
@@ -1535,6 +1543,11 @@ export function astToNative(
 
     if (typeof Component !== 'string') {
       return createElement(Component, finalProps, ...children)
+    }
+    // An override can keep a tag void or make it one, and an Image can't hold children
+    if (hasOverrides && util.isVoidElement(Component)) {
+      delete finalProps.children
+      children.length = 0
     }
     return createElement(
       mapHtmlTagToNativeComponent(Component),

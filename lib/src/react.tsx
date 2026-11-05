@@ -242,7 +242,7 @@ function render(
           return hJsx(
             node.tag,
             keyedJsxProps(state.key, node.attrs),
-            textContent
+            util.verbatimText(node.tag, textContent)
           )
         }
 
@@ -275,6 +275,7 @@ function render(
         // For other verbatim blocks, re-parse rawSource for JSX compilation
         // (children are available for renderRule but default uses rawSource)
         const parseOptions = parse.toParseOptions({
+          overrides: options.overrides,
           slugify: options.slugify,
           sanitizer: sanitize,
           tagfilter: true,
@@ -307,6 +308,9 @@ function render(
         // recursion, keeping it only where trailing content bled past a closing
         // tag (issue #881). See util.stripVerbatim for the full rationale.
         util.stripVerbatim(astNodes)
+        if (util.reparsedToItself(astNodes, cleanedText)) {
+          return cleanedText
+        }
 
         // _rawOuter means the parser already determined this span is the FULL
         // outer block (own opening tag through own closing tag, or through end
@@ -689,6 +693,11 @@ export function astToJSX(
         ...overrideProps,
         className:
           util.cx(finalProps.className, overrideProps.className) || undefined,
+      }
+      // An override can keep a tag void or make it one, and React throws on children there
+      if (typeof resolvedTag === 'string' && util.isVoidElement(resolvedTag)) {
+        delete finalProps.children
+        children.length = 0
       }
     }
 

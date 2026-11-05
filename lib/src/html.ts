@@ -214,6 +214,11 @@ interface _Ctx {
 
 var _emptyObj: Record<string, any> = {}
 
+/** A filtered tag's text body as markup in this output; the parser already warned for it */
+function screenFilteredBody(text: string): string {
+  return parse.stripDangerousHtml(text, true)
+}
+
 function shouldSkipNode(
   node: MarkdownToJSX.ASTNode,
   preserveFrontmatter: boolean
@@ -417,13 +422,12 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
 
     case RuleType.htmlComment: {
       var htmlCommentNode = node as MarkdownToJSX.HTMLCommentNode
-      if (htmlCommentNode.raw) {
-        return htmlCommentNode.text
-      }
-      if (htmlCommentNode._endsWithGT) {
-        return `<!--${node.text}>`
-      }
-      return `<!--${node.text}-->`
+      var markup = htmlCommentNode.raw
+        ? htmlCommentNode.text
+        : htmlCommentNode._endsWithGT
+          ? `<!--${node.text}>`
+          : `<!--${node.text}-->`
+      return ctx.tagfilter ? util.applyTagFilterToText(markup) : markup
     }
 
     case RuleType.htmlBlock: {
@@ -439,7 +443,11 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
       if (htmlNode._rawAttrs === undefined) {
         attrsStr = formatAttributes(_mergeAttrs(htmlNode.attrs, overrideProps))
       } else {
-        var rawAttrsValue = htmlNode._rawAttrs
+        // Filtered in values too, since what comes earlier in the output can end
+        // a value early. `&lt;` decodes back to `<`, so the value holds
+        var rawAttrsValue = ctx.tagfilter
+          ? util.applyTagFilterToText(htmlNode._rawAttrs)
+          : htmlNode._rawAttrs
         var needsLeadingSpace =
           rawAttrsValue.length > 0 && rawAttrsValue.charCodeAt(0) > $.CHAR_SPACE
         attrsStr =
@@ -450,7 +458,7 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
             : '')
       }
       if (ctx.tagfilter && util.shouldFilterTag(tag)) {
-        var filtered = util.getFilteredTagEmit(htmlNode)
+        var filtered = util.getFilteredTagEmit(htmlNode, screenFilteredBody)
         if (filtered.kind === 'literal') {
           return util.applyTagFilterToText(filtered.literal)
         }
@@ -577,7 +585,9 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
         return scNode._rawClose || `</${scTag}>`
       }
       if (scNode._rawOpen) {
-        return scNode._rawOpen
+        return ctx.tagfilter
+          ? util.applyTagFilterToText(scNode._rawOpen)
+          : scNode._rawOpen
       }
       var scOverrideProps = ctx.hasOverrides
         ? util.getOverrideProps(scDefaultTag, ctx.overrides)
@@ -623,13 +633,15 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
         // Sanitize before encode (same order as the JSX compilers) so a
         // dangerous direct-AST target never reaches href=.
         var linkHref = util.sanitizeAndEncodeUrlTarget(
-          util.decodeEntityReferences(node.target),
+          node.target,
           ctx.sanitize,
           'a',
           'href'
         )
         if (linkHref != null) {
-          linkAttrs.href = linkHref
+          // Decoded text, so an `&` left as written would decode again in a
+          // browser, past the sanitizer: `&#106;avascript:` is `javascript:`.
+          linkAttrs.href = escapeHtml(linkHref)
         }
       }
       if (node.title) {

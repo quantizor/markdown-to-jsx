@@ -163,7 +163,11 @@ function render(
               innerHTML: textContent,
             })
           }
-          return h(node.tag, { ...node.attrs }, textContent)
+          return h(
+            node.tag,
+            { ...node.attrs },
+            util.verbatimText(node.tag, textContent)
+          )
         }
 
         const containsPreTags = /<\/?pre\b/i.test(rawSource)
@@ -180,6 +184,7 @@ function render(
         // line, then split at this element's own closing tag so any trailing
         // content renders as siblings (issue #881).
         const parseOptions = parse.toParseOptions({
+          overrides: options.overrides,
           slugify: options.slugify,
           sanitizer: sanitize,
           tagfilter: true,
@@ -200,6 +205,9 @@ function render(
           parseOptions
         )
         util.stripVerbatim(astNodes)
+        if (util.reparsedToItself(astNodes, cleanedText)) {
+          return cleanedText
+        }
 
         // _rawOuter means the parser already determined this span is the FULL
         // outer block, so emit the parsed nodes directly instead of nesting
@@ -561,10 +569,22 @@ export function astToJSX(
 
     // Compile any HTML content in props
     const jsxProps = (props || {}) as Record<string, unknown>
+    parse.dropUnresolvedHandlers(tag, jsxProps, opts.overrides)
+    const finalTag = getTag(tag, opts.overrides)
     // Only check props that might contain HTML (avoid iterating all props)
     for (const key in jsxProps) {
       const value = jsxProps[key]
+      // Solid hands an on* prop to addEventListener, which throws on a bare name's `true`
       if (
+        value === true &&
+        typeof finalTag === 'string' &&
+        key.startsWith('on')
+      ) {
+        delete jsxProps[key]
+      }
+      // innerHTML is the compiler's own screened markup, and only a string reaches the page
+      if (
+        key !== 'innerHTML' &&
         typeof value === 'string' &&
         value.length > 0 &&
         value[0] === '<' &&
@@ -572,16 +592,10 @@ export function astToJSX(
           parse.UPPERCASE_TAG_R.test(value) ||
           parse.parseHTMLTag(value, 0))
       ) {
-        const compiled = compileHtml(value.trim())
-        // For innerHTML, take first element if array (matches original parser behavior)
-        jsxProps[key] =
-          key === 'innerHTML' && Array.isArray(compiled)
-            ? compiled[0]
-            : compiled
+        jsxProps[key] = compileHtml(value.trim())
       }
     }
 
-    const finalTag = getTag(tag, opts.overrides)
     const mergedClassName =
       util.cx(
         jsxProps?.class as string | undefined,
