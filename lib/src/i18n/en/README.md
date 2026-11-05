@@ -394,7 +394,7 @@ HTML tags are automatically mapped to React Native components:
 
 **Note:** Links are underlined by default for better accessibility and discoverability. You can override this via the `styles.link` option.
 
-**Note:** Footnote reference markers (`[^1]`) render as a superscript, matching the `<sup>` the web renderers emit. React Native cannot raise or shrink inline text through styles (it ignores `verticalAlign` and transforms on inline text), so numeric markers use Unicode superscript glyphs (`¹²³`), which the font draws raised and sized relative to the surrounding text on their own. Non-numeric identifiers (`[^note]`) render as plain text. Style the marker via the `styles.footnote` option.
+**Note:** Footnote reference markers (`[^1]`, with a definition) render as a superscript, matching the `<sup>` the web renderers emit. React Native cannot raise or shrink inline text through styles (it ignores `verticalAlign` and transforms on inline text), so numeric markers use Unicode superscript glyphs (`¹²³`), which the font draws raised and sized relative to the surrounding text on their own. Non-numeric identifiers (`[^note]`) render as plain text. Style the marker via the `styles.footnote` option.
 
 #### SolidJS
 
@@ -495,6 +495,8 @@ const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
 const ast = parser('# Hello  world')
 const normalizedMarkdown2 = astToMarkdown(ast)
 ```
+
+A code block or code span whose contents would be unsafe read as raw HTML or a link is written as `<pre><code>` or `<code>` with entities, because another renderer can read the markup around it as raw HTML. A browser shows the same characters, and other code keeps its fence or backticks.
 
 ### Library Options
 
@@ -786,10 +788,11 @@ Raw HTML in your markdown is sanitized automatically in every renderer (React, R
 Removed before rendering:
 
 - Inline event handlers: `onclick`, `onerror`, `onload`, and any other `on*` attribute.
-- URL attributes carrying a `javascript:`, `vbscript:`, or non-image `data:` scheme, in `href`, `src`, `action`, `formaction`, `poster`, `cite`, `background`, `data`, `longdesc`, and `xlink:href`. Schemes hidden behind HTML entities such as `java&#9;script:` or a semicolon-less `&#106avascript:` are decoded and caught too.
+- URL attributes carrying a `javascript:`, `vbscript:`, or non-image `data:` scheme, in `href`, `src`, `action`, `formaction`, `poster`, `cite`, `background`, `data`, `longdesc`, and `xlink:href` (or `xlinkHref`). Schemes hidden behind HTML entities such as `java&#9;script:` or a semicolon-less `&#106avascript:` are decoded and caught too.
 - The `iframe` `srcdoc` attribute.
+- Attributes that only mean something to a framework: `innerHTML`, `outerHTML`, `dangerouslySetInnerHTML`, `ref`, and `children` (kept on your own components), plus anything above behind a Solid `attr:`, `prop:`, or `bool:` prefix.
 
-Kept: safe attributes with their original formatting, `data:image` URLs, and event handlers you pass as expressions to your own components (`<MyButton onClick={fn} />`) along with bare boolean props on them (`<MyButton onClick />`). One caveat: `data:image/svg+xml` is allowed but can execute script when opened as a top-level navigation, so treat SVG data URLs from untrusted sources with care.
+Kept: safe attributes with their original formatting, `data:image` URLs, and event handlers you pass as expressions to your own components (`<MyButton onClick={fn} />`, where `MyButton` is an `overrides` key) along with bare boolean props on them (`<MyButton onClick />`). HTML and markdown output emit a component's expression handler as written, and a browser runs it, so do not render untrusted input that uses your component names to an HTML string you insert into a page. React does the same for a hyphenated tag whose override leaves it a string. One caveat: `data:image/svg+xml` is allowed but can execute script when opened as a top-level navigation, so treat SVG data URLs from untrusted sources with care.
 
 Dangerous tag names (`script`, `iframe`, `style`, and similar) are escaped separately by the [`tagfilter`](#all-options) option, which is on by default.
 
@@ -1085,7 +1088,7 @@ The AST consists of the following node types (use `RuleType` to check node types
 - `RuleType.footnote` - Footnote definition node (not rendered, stored in refCollection)
 - `RuleType.footnoteReference` - Footnote reference (`[^identifier]`)
   ```tsx
-  { type: RuleType.footnoteReference, target: "#fn-identifier", text: "1" }
+  { type: RuleType.footnoteReference, target: "#1", text: "1" }
   ```
 - `RuleType.frontmatter` - YAML frontmatter blocks
   ```tsx

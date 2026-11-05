@@ -312,7 +312,7 @@ JSX props on custom components are parsed for you: arrays and objects through `J
 
 ## Security
 
-Raw HTML is sanitized in every renderer, always, independent of `options.sanitizer`. Stripped before render: every `on*` inline handler, `javascript:`/`vbscript:`/non-image `data:` URLs in `href`, `src`, `action`, `formaction`, `poster`, `cite`, `background`, `data`, `longdesc`, and `xlink:href` (including entity-obfuscated variants), and `iframe` `srcdoc`. Dangerous tag names are escaped separately by `tagfilter`.
+Raw HTML is sanitized in every renderer, always, independent of `options.sanitizer`. Stripped before render: every `on*` inline handler (a `{…}` handler stays on a capitalized or hyphenated tag in `overrides`, and HTML and markdown output emit it as written, as React does on a hyphenated tag that stays a string), `javascript:`/`vbscript:`/non-image `data:` URLs in `href`, `src`, `action`, `formaction`, `poster`, `cite`, `background`, `data`, `longdesc`, and `xlink:href` or `xlinkHref` (including entity-obfuscated variants), `iframe` `srcdoc`, the framework-only attributes `innerHTML`, `outerHTML`, `dangerouslySetInnerHTML`, `ref`, and `children` (kept on a tag in `overrides`), and any of these behind a Solid `attr:`, `prop:`, or `bool:` prefix. Dangerous tag names are escaped separately by `tagfilter`.
 
 `data:image/svg+xml` passes the filter and can still execute script if a user opens it as a top-level navigation, so treat SVG data URLs from untrusted authors with care.
 
@@ -341,6 +341,7 @@ compiler('a\\\nb') // "<p>a<br />\nb</p>", trailing backslash
 - Import the entry point matching your renderer (`markdown-to-jsx/react`, `/html`, …) so unused renderers drop out of the bundle.
 - Keep markdown in `.md` files or dedented variables. JSX collapses newlines, so markdown written inline in JSX loses its block structure.
 - Use `overrides` for tag-level changes and `renderRule` for node-level ones. `overrides` is the simpler tool; reach past it only when you need `node.lang`, `node.text`, or a normally-skipped node.
+- In `/markdown` output, a code block or code span whose contents would be unsafe read as raw HTML or a link is written as `<pre><code>` or `<code>` with entities. A browser shows the same characters.
 - Set `optimizeForStreaming` for any incrementally arriving content, and turn it off for the final render.
 - Set `wrapper: null` with `compiler()` when you want the children array rather than a container element, or `wrapper: React.Fragment` to render at the parent's DOM level.
 - Pass `slugify: str => str` when headings are non-Latin and the default deburring would empty the id. The input is the heading's plain text (no link URLs or image alt). Duplicate heading text already gets unique ids (`foo`, `foo-1`); you do not need a stateful slugify closure for that.

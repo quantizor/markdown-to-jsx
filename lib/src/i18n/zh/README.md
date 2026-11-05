@@ -393,7 +393,7 @@ HTML 标签会自动映射到 React Native 组件：
 
 **注意：** 为了更好的可访问性和可发现性，链接默认带有下划线。您可以通过 `styles.link` 选项覆盖此行为。
 
-**注意：** 脚注引用标记（`[^1]`）渲染为上标，与 Web 渲染器输出的 `<sup>` 一致。React Native 无法通过样式让内联文本升高或缩小（会忽略内联文本上的 `verticalAlign` 和变换），因此数字标记使用 Unicode 上标字形（`¹²³`），字体会自行以相对周围文本升高、缩小的方式绘制这些字形。非数字标识符（`[^note]`）则渲染为纯文本。可通过 `styles.footnote` 选项设置该标记的样式。
+**注意：** 脚注引用标记（`[^1]`，需有定义）渲染为上标，与 Web 渲染器输出的 `<sup>` 一致。React Native 无法通过样式让内联文本升高或缩小（会忽略内联文本上的 `verticalAlign` 和变换），因此数字标记使用 Unicode 上标字形（`¹²³`），字体会自行以相对周围文本升高、缩小的方式绘制这些字形。非数字标识符（`[^note]`）则渲染为纯文本。可通过 `styles.footnote` 选项设置该标记的样式。
 
 #### SolidJS
 
@@ -494,6 +494,8 @@ const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
 const ast = parser('# Hello  world')
 const normalizedMarkdown2 = astToMarkdown(ast)
 ```
+
+如果代码块或行内代码的内容被当作原始 HTML 或链接读取时不安全，它会以带实体的 `<pre><code>` 或 `<code>` 形式写出，因为其他渲染器可能把它周围的标记读作原始 HTML。浏览器显示的字符相同，其他代码仍保留围栏或反引号。
 
 ### 库选项 (Library Options)
 
@@ -779,10 +781,11 @@ compiler('[foo](javascript:alert("foo"))', {
 渲染前移除：
 
 - 内联事件处理程序：`onclick`、`onerror`、`onload` 以及任何其他 `on*` 属性。
-- 在 `href`、`src`、`action`、`formaction`、`poster`、`cite`、`background`、`data`、`longdesc` 和 `xlink:href` 中携带 `javascript:`、`vbscript:` 或非图像 `data:` scheme 的 URL 属性。隐藏在 HTML 实体后面的 scheme，例如 `java&#9;script:` 或无分号的 `&#106avascript:`，也会被解码并捕获。
+- 在 `href`、`src`、`action`、`formaction`、`poster`、`cite`、`background`、`data`、`longdesc` 和 `xlink:href` (或 `xlinkHref`) 中携带 `javascript:`、`vbscript:` 或非图像 `data:` scheme 的 URL 属性。隐藏在 HTML 实体后面的 scheme，例如 `java&#9;script:` 或无分号的 `&#106avascript:`，也会被解码并捕获。
 - `iframe` 的 `srcdoc` 属性。
+- 仅对框架有意义的属性：`innerHTML`、`outerHTML`、`dangerouslySetInnerHTML`、`ref` 和 `children` (在您自己的组件上保留)，以及位于 Solid 的 `attr:`、`prop:` 或 `bool:` 前缀之后的上述任何一项。
 
-保留：保持原始格式的安全属性、`data:image` URL，以及您作为表达式传递给自己组件的事件处理程序 (`<MyButton onClick={fn} />`)，以及它们上面的裸布尔属性 (`<MyButton onClick />`)。一个注意事项：`data:image/svg+xml` 是允许的，但当作为顶级导航打开时可能会执行脚本，因此请谨慎处理来自不受信任来源的 SVG data URL。
+保留：保持原始格式的安全属性、`data:image` URL，以及您作为表达式传递给自己组件的事件处理程序 (`<MyButton onClick={fn} />`，其中 `MyButton` 是一个 `overrides` 键)，以及它们上面的裸布尔属性 (`<MyButton onClick />`)。HTML 和 markdown 输出会按原样输出组件的表达式事件处理程序，而浏览器会运行它，因此请勿将使用了您组件名称的不受信任输入渲染为要插入页面的 HTML 字符串。对于 override 仍保留为字符串的带连字符标签，React 也会这样做。一个注意事项：`data:image/svg+xml` 是允许的，但当作为顶级导航打开时可能会执行脚本，因此请谨慎处理来自不受信任来源的 SVG data URL。
 
 危险的标签名称 (`script`、`iframe`、`style` 等) 由 [`tagfilter`](#all-options) 选项单独转义，该选项默认启用。
 
@@ -1078,7 +1081,7 @@ AST 由以下节点类型组成 (使用 `RuleType` 检查节点类型)：
 - `RuleType.footnote` - 脚注定义节点 (不渲染，存储在 refCollection 中)
 - `RuleType.footnoteReference` - 脚注引用 (`[^identifier]`)
   ```tsx
-  { type: RuleType.footnoteReference, target: "#fn-identifier", text: "1" }
+  { type: RuleType.footnoteReference, target: "#1", text: "1" }
   ```
 - `RuleType.frontmatter` - YAML Frontmatter 块
   ```tsx
