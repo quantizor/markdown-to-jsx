@@ -2628,6 +2628,28 @@ describe('a children attribute on a lowercase tag with an override', () => {
     ).toBe('<i ></i>')
   })
 
+  it('stays out of the written tag when the override is inherited', () => {
+    expect(
+      compiler('<card children="z" />', {
+        overrides: Object.create({ card: { component: 'i' } }),
+      })
+    ).toBe('<i ></i>')
+  })
+
+  it('stays an unknown attribute on a capitalized tag, like any other prop there', () => {
+    expect(
+      compiler('<CARD children="z" />', {
+        overrides: { card: { component: 'i' } },
+      })
+    ).toBe('<i children="z" ></i>')
+  })
+
+  it('does not take a built-in object property for an override', () => {
+    expect(compiler('<constructor children="z" />', { overrides: {} })).toBe(
+      '<constructor ></constructor>'
+    )
+  })
+
   it('writes a void override with no children', () => {
     expect(
       compiler('<img children="z" src="/x">', {

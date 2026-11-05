@@ -1208,9 +1208,7 @@ function lowerAsciiIfNeeded(s: string): string {
   return s
 }
 
-/** `Object.prototype.hasOwnProperty`, as a `.call` target for an object that may not inherit it. */
-export var ownProperty: typeof Object.prototype.hasOwnProperty =
-  Object.prototype.hasOwnProperty
+var ownProperty = Object.prototype.hasOwnProperty
 
 /**
  * `source[key]`, unless `key` names a member of a built-in prototype that

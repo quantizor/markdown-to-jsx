@@ -396,16 +396,15 @@ type TagKind = (typeof TAG_KIND)[keyof typeof TAG_KIND]
  */
 var _parseOptionsForTags: ParseOptions | undefined
 
-function hasOwnOverride(tag: string): boolean {
-  var overrides = _parseOptionsForTags?.overrides
-  return overrides ? util.ownProperty.call(overrides, tag) : false
+function hasOverride(tag: string): boolean {
+  return Boolean(util.get(_parseOptionsForTags?.overrides, tag, undefined))
 }
 
 function isRegisteredTag(tag: string): boolean {
   return (
     _parseOptionsForTags !== undefined &&
     (_parseOptionsForTags.evalUnserializableExpressions === true ||
-      Boolean(util.get(_parseOptionsForTags.overrides, tag, undefined)))
+      hasOverride(tag))
   )
 }
 
@@ -1149,7 +1148,7 @@ function __parseHtmlTag(
         (tagKind === TAG_KIND.html &&
           attrName.toLowerCase() === 'children' &&
           !BRACE_OBJECT_VALUE_R.test(attrValue) &&
-          hasOwnOverride(tag))
+          hasOverride(tag))
       ) {
         attrs[attrName] = attrValue
       }

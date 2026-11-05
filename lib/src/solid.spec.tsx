@@ -2430,6 +2430,19 @@ describe('a children attribute on a lowercase tag with an override', () => {
   })
 
   it.each([
+    ['<card children="z" />', Object.create({ card: { component: 'i' } })],
+    ['<CARD children="z" />', { card: { component: 'i' } }],
+  ])('reaches the override for %j, inherited or keyed in lowercase, as the renderer finds it', (input, overrides) => {
+    expect(serialize(compiler(input, { overrides }))).toBe('<i>z</i>')
+  })
+
+  it('does not take a built-in object property for an override', () => {
+    expect(
+      serialize(compiler('<constructor children="z" />', { overrides: {} }))
+    ).toBe('<constructor></constructor>')
+  })
+
+  it.each([
     [
       '<img children="z" src="/x">',
       { img: { props: { title: 't' } } },

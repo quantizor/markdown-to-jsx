@@ -2565,6 +2565,19 @@ describe('a children attribute on a lowercase tag with an override', () => {
     expect(serialize(result)).toBe('<Text>z</Text>')
   })
 
+  it.each([
+    ['<card children="z" />', Object.create({ card: { component: 'i' } })],
+    ['<CARD children="z" />', { card: { component: 'i' } }],
+  ])('reaches the override for %j, inherited or keyed in lowercase, as the renderer finds it', (input, overrides) => {
+    expect(serialize(compiler(input, { overrides }))).toBe('<Text>z</Text>')
+  })
+
+  it('does not take a built-in object property for an override', () => {
+    expect(
+      serialize(compiler('<constructor children="z" />', { overrides: {} }))
+    ).toBe('<Text></Text>')
+  })
+
   it.each<[string, MarkdownToJSX.Overrides, string]>([
     [
       '<img children="z" src="/x">',

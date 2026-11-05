@@ -3302,6 +3302,19 @@ describe('a children attribute on a lowercase tag with an override', () => {
     ).toBe('<i></i>')
   })
 
+  it.each([
+    ['<card children="z" />', Object.create({ card: { component: 'i' } })],
+    ['<CARD children="z" />', { card: { component: 'i' } }],
+  ])('stays out of the written tag for %j, inherited or keyed in lowercase', (input, overrides) => {
+    expect(compiler(input, { overrides })).toBe('<i></i>')
+  })
+
+  it('does not take a built-in object property for an override', () => {
+    expect(compiler('<constructor children="z" />', { overrides: {} })).toBe(
+      '<constructor ></constructor>'
+    )
+  })
+
   it('writes a void override with no children', () => {
     expect(
       compiler('<img children="z" src="/x">', {

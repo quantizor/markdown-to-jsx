@@ -4595,6 +4595,32 @@ describe('a children attribute on a lowercase tag with an override', () => {
     expect(root.innerHTML).toBe('<i>z</i>')
   })
 
+  it.each([
+    ['<card children="z" />', 'inherited'],
+    ['<CARD children="z" />', 'keyed in lowercase'],
+  ])('reaches the override for %j when it is %s, as the renderer finds it', input => {
+    const Card = (props: { children?: React.ReactNode }) => (
+      <i>{props.children}</i>
+    )
+
+    render(
+      compiler(input, {
+        overrides:
+          input === '<CARD children="z" />'
+            ? { card: Card }
+            : Object.create({ card: Card }),
+      })
+    )
+
+    expect(root.innerHTML).toBe('<i>z</i>')
+  })
+
+  it('does not take a built-in object property for an override', () => {
+    render(compiler('<constructor children="z" />', { overrides: {} }))
+
+    expect(root.innerHTML).toBe('<constructor></constructor>')
+  })
+
   it.each<[string, MarkdownToJSX.Overrides, string]>([
     [
       '<img children="z">',
