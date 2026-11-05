@@ -2398,6 +2398,13 @@ describe('tagfilter passthrough contract', () => {
   ])('writes %j as HTML when raw HTML parsing is off', (input, expected) => {
     expect(compiler(input, { disableParsingRawHTML: true })).toBe(expected)
   })
+
+  it('reads a truthy option as on, as the parser does', () => {
+    // Options parsed from JSON reach this with no type holding them to a boolean
+    expect(
+      compiler('`<script>`', JSON.parse('{"disableParsingRawHTML":1}'))
+    ).toBe('<code>&lt;script></code>')
+  })
 })
 
 describe('prototype-slot reference labels (#900)', () => {

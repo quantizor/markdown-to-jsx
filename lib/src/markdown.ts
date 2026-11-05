@@ -546,7 +546,7 @@ function codeTextIsUnsafe(text: string, options: WriterOptions): boolean {
   }
   return (
     stripDangerousHtml(text, true) !== text ||
-    (options.disableParsingRawHTML === true && containsTagfilterTag(text)) ||
+    (Boolean(options.disableParsingRawHTML) && containsTagfilterTag(text)) ||
     screenRawLinks(text) !== text
   )
 }
