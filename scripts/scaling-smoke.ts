@@ -24,6 +24,7 @@
  */
 import { performance } from 'node:perf_hooks'
 import process from 'node:process'
+import { compiler as markdownCompiler } from '../lib/src/markdown.ts'
 import { type ParserInputOptions, parser } from '../lib/src/parse.ts'
 
 /**
@@ -44,6 +45,8 @@ const MAX_SIZE = 1 << 21
 const RUNS = 7
 
 const shapes: Array<{
+  /** Run through the markdown compiler rather than only the parser */
+  compile?: boolean
   make: (n: number) => string
   name: string
   options?: ParserInputOptions
@@ -54,7 +57,14 @@ const shapes: Array<{
   { make: n => '['.repeat(n) + '\\]'.repeat(n), name: 'link-escaped-close' },
   { make: n => '!['.repeat(n) + ']'.repeat(n), name: 'image-openers' },
   { make: n => `[a](${'('.repeat(n)}`, name: 'link-dest-unclosed-paren' },
+  // Issue #874: each `[](` once retried the bare-URL scan to end of input
+  { make: n => '[]('.repeat(n), name: 'link-empty-dest-openers' },
   { make: n => '[^'.repeat(n), name: 'footnote-openers' },
+  { make: n => '[^a]'.repeat(n), name: 'footnote-undefined-refs' },
+  { make: n => '[^a]('.repeat(n), name: 'footnote-undefined-dest-openers' },
+  { make: n => `${'[^'.repeat(n)}]`, name: 'footnote-openers-one-close' },
+  { make: n => `${'[^a '.repeat(n)}]`, name: 'footnote-words-one-close' },
+  { make: n => `${'[^'.repeat(n)}\nx`, name: 'footnote-openers-line-end' },
   { make: n => '*'.repeat(n), name: 'emphasis-star' },
   { make: n => '_'.repeat(n), name: 'emphasis-underscore' },
   { make: n => '*a'.repeat(n), name: 'emphasis-alternating' },
@@ -63,10 +73,39 @@ const shapes: Array<{
   { make: n => '`'.repeat(n), name: 'code-backticks' },
   { make: n => '<'.repeat(n), name: 'html-angle' },
   { make: n => '<a '.repeat(n), name: 'html-partial-tag' },
+  { make: n => '[<b>] '.repeat(n), name: 'link-tag-no-closer' },
+  { make: n => `${'[<b>] '.repeat(n)}</b>`, name: 'link-tag-one-closer' },
+  {
+    make: n =>
+      Array.from({ length: n }, (_, i) => `[<x${i.toString(36)}>] `).join(''),
+    name: 'link-tag-distinct-names',
+  },
+  {
+    make: n =>
+      Array.from({ length: n }, (_, i) => `<x${i.toString(36)}>[<y>](/u)`).join(
+        ''
+      ),
+    name: 'html-tag-distinct-names-link-holds-tag',
+  },
+  {
+    make: n =>
+      Array.from({ length: n }, (_, i) => `<x${i.toString(36)}> `).join(''),
+    name: 'html-tag-distinct-names',
+  },
+  {
+    make: n =>
+      `${Array.from({ length: n }, (_, i) => `<x${i.toString(36)}> `).join('')}</z>`,
+    name: 'html-tag-distinct-names-other-closer',
+  },
+  { make: n => `<i>${'</a'.repeat(n)}`, name: 'html-closers-unended' },
+  { make: n => `${'[<a '.repeat(n)}\n]`, name: 'link-tag-unended' },
+  { make: n => '[</a '.repeat(n), name: 'link-closer-unended' },
+  { make: n => `${'[<!-- '.repeat(n)}]`, name: 'link-comment-unended' },
   { make: n => '<http://'.repeat(n), name: 'autolink-partial' },
   { make: n => '&am'.repeat(n), name: 'entity-partial' },
   { make: n => 'http://'.repeat(n), name: 'bare-url' },
   { make: n => 'a@'.repeat(n), name: 'bare-email' },
+  { make: n => 'a'.repeat(n), name: 'plain-text' },
   {
     make: n => `|${'a|'.repeat(n)}\n|${'-|'.repeat(n)}`,
     name: 'table-pipes',
@@ -83,12 +122,317 @@ const shapes: Array<{
     name: 'streaming-held-openers',
     options: { optimizeForStreaming: true },
   },
+  // The raw HTML screen: a browser's read of a tag the parser rejects or reads
+  // differently, first at block level, where the screen sees one long string
+  { make: n => `<div>\n${'<a x="'.repeat(n)}`, name: 'screen-quote-run' },
+  {
+    make: n => `<div>\n${'<a x="'.repeat(n)}>`,
+    name: 'screen-quote-run-closed',
+  },
+  {
+    make: n => `<div>\n${`<a x="<b y='`.repeat(n)}`,
+    name: 'screen-mixed-quotes',
+  },
+  {
+    make: n => `<div>\n${`<a x="<b y='`.repeat(n)}>`,
+    name: 'screen-mixed-quotes-closed',
+  },
+  {
+    make: n => `<div>\n<a x="${'<b '.repeat(n)}">`,
+    name: 'screen-hidden-tags',
+  },
+  {
+    make: n => `<div>\n<a x="${'<b <c >'.repeat(n)}">`,
+    name: 'screen-hidden-tags-closing',
+  },
+  { make: n => `<div>\n${'<a b c '.repeat(n)}`, name: 'screen-open-tag-run' },
+  {
+    make: n => `<div>\n${'<!-- <a x="'.repeat(n)}`,
+    name: 'screen-comment-run',
+  },
+  { make: n => `<!-- ${'<a x="'.repeat(n)} -->`, name: 'screen-in-comment' },
+  { make: n => `<?${'<a x="'.repeat(n)}?>`, name: 'screen-in-instruction' },
+  { make: n => `<iframe>${'<a x="'.repeat(n)}`, name: 'screen-filtered-body' },
+  // A parsed tag that a browser reads differently, inline, where each tag is
+  // parsed on its own. Each is closed, since a run of unclosed inline tags is
+  // its own cost, whatever the tag holds
+  { make: n => `x ${'<a b={c d}>y</a>'.repeat(n)}`, name: 'screen-brace-tags' },
+  {
+    make: n => `x ${'<a b={c>d}>y</a>'.repeat(n)}`,
+    name: 'screen-brace-gt-tags',
+  },
+  {
+    make: n => `x ${'<a b={c><d>}>y</a>'.repeat(n)}`,
+    name: 'screen-brace-hidden-tags',
+  },
+  {
+    make: n => `x <a b={c${'><d'.repeat(n)}}>y</a>`,
+    name: 'screen-brace-hidden-tag-run',
+  },
+  {
+    make: n => `x ${'<a b={ c="}>y</a>'.repeat(n)}`,
+    name: 'screen-brace-quote-tags',
+  },
+  {
+    make: n => `x ${'<a b={ c="}>"</a>'.repeat(n)}`,
+    name: 'screen-brace-quote-chain',
+  },
+  {
+    make: n => `x ${'<a b="<c>">y</a>'.repeat(n)}`,
+    name: 'screen-quoted-tag-tags',
+  },
+  {
+    make: n => `\`\`\`x ${'a="b" '.repeat(n)}\ny\n\`\`\``,
+    name: 'fence-attrs',
+  },
+  {
+    make: n => `<div>\n${'<section>\n</section>\n'.repeat(n)}`,
+    name: 'html-body-nested-blocks',
+  },
+  {
+    make: n => `<div>\n${'<section>\n<b>x</b>\n</section>\n'.repeat(n)}`,
+    name: 'html-body-nested-block-bodies',
+  },
+  {
+    make: n => `<Foo>\n${'<section>\n</section>\n'.repeat(n)}\n</Foo>`,
+    name: 'component-body-nested-blocks',
+  },
+  {
+    make: n =>
+      `<Foo>\n${'<section>\n<b>x</b>\n</section>\n'.repeat(n)}\n</Foo>`,
+    name: 'component-body-nested-block-bodies',
+  },
+  // Deeply nested same-tag openers. `n >> 4` repeats, so n stays the input
+  // size: a closer search per opener costs too much to start at a repeat of BASE
+  ...[
+    ['<div>\n\n', '</div>\n\n', 'blank'],
+    ['<div>\n\n', '', 'blank-unclosed'],
+    ['<div>\n', '</div>\n', 'newline'],
+  ].map(([opener, closer, name]) => ({
+    make: (n: number) => opener.repeat(n >> 4) + closer.repeat(n >> 4),
+    name: `html-nested-openers-${name}`,
+  })),
+  // A closer search per opener: no closer at all, one past a Type 1 tag (a near
+  // tag, a far one all openers share, or one inside an attribute), and the
+  // cursors and verdicts a nested string must not cost the outer one
+  ...[
+    ['<div>\nx\n\n', 'opener-text-blank'],
+    ['<Foo>\nx\n\n', 'component-text-blank'],
+    ['<div>\nx\n\n<pre>\n</pre>\n\n', 'opener-near-pre', '</div>\n'],
+    ['<div>\nx\n\n', 'opener-far-pre', '</div>\n', '<pre></pre>\n\n'],
+    [
+      '<div>\nx\n\ny <b>z\n\n',
+      'opener-far-pre-unclosed-between',
+      '</div>\n',
+      '<pre></pre>\n\n',
+    ],
+    ['<div title="</div><pre>">\nx\n\n', 'opener-pre-in-attribute'],
+    ['<pre></pre>\n', 'type1-run'],
+    [
+      '<section>\nx\n\n<div>\ny\n\nz\n</div>\n</section>\n',
+      'nested-closed-far-pre',
+      '',
+      '<pre></pre>\n',
+    ],
+    ['<div>\nx\n\n<section>\ny\n\n<p>\nq\n\n</section>\n', 'nested-unclosed'],
+    // A blockquote or list parses its own string without going through an HTML body
+    ['<div>\nx\n\n> <div>\n> y\n\n', 'blockquote-between'],
+    ['<div>\nx\n\n- <div>\n  y\n\n', 'list-between'],
+  ].map(([unit, name, closer = '', middle = '']) => ({
+    make: (n: number) => unit.repeat(n >> 4) + middle + closer.repeat(n >> 4),
+    name: `html-closer-search-${name}`,
+  })),
+  { make: n => `x ${'<b>a'.repeat(n)}`, name: 'inline-openers-unclosed' },
+  // Link text walks over a comment opener whose terminator never comes
+  { make: n => `[ ${'<!-- '.repeat(n)}]`, name: 'link-text-comment-openers' },
+  {
+    make: n => '[a<!-- b](/u) '.repeat(n),
+    name: 'links-holding-comment-openers',
+  },
+  // An inline opener of raw markup whose terminator never comes
+  ...[
+    ['<!-- ', 'comment'],
+    ['<? ', 'instruction'],
+    ['<![CDATA[ ', 'cdata'],
+    ['<!A ', 'declaration'],
+  ].map(([unit, name]) => ({
+    make: (n: number) => `x ${unit.repeat(n)}`,
+    name: `inline-unterminated-${name}`,
+  })),
+  // A nested inline parse fails on the same terminator between the outer openers
+  {
+    make: n => `x ${'<? [<? a](/u) '.repeat(n)}`,
+    name: 'inline-unterminated-instruction-in-link',
+  },
+  // The markdown output's raw-string screens
+  {
+    compile: true,
+    make: n => '<![CDATA[a]]]>'.repeat(n),
+    name: 'markdown-raw-cdata-odd-ends',
+  },
+  {
+    compile: true,
+    make: n => `<![CDATA[${']'.repeat(n)}>`,
+    name: 'markdown-raw-cdata-bracket-run',
+  },
+  {
+    compile: true,
+    make: n => `${'<![CDATA['.repeat(n)}]]]>`,
+    name: 'markdown-raw-cdata-shared-end',
+  },
+  {
+    compile: true,
+    make: n => `<!-- x -->${'<pre>'.repeat(n)}`,
+    name: 'markdown-raw-mode-openers',
+  },
+  {
+    compile: true,
+    make: n => `<!-- x -->${'<!--'.repeat(n)}`,
+    name: 'markdown-raw-comment-openers',
+  },
+  {
+    compile: true,
+    make: n => `${'<?p ?>'.repeat(n)}\`\`\`\n`,
+    name: 'markdown-raw-markup-chain',
+  },
+  {
+    compile: true,
+    make: n => `<?p ?>${'<?p '.repeat(n)}`,
+    name: 'markdown-raw-markup-chain-unended',
+  },
+  {
+    compile: true,
+    make: n => `<?e>${'<a '.repeat(n)}?>`,
+    name: 'markdown-raw-markup-body-tags',
+  },
+  {
+    compile: true,
+    make: n => `<div>${'<?'.repeat(n)}</div>`,
+    name: 'markdown-raw-markup-bodies-unended',
+  },
+  {
+    compile: true,
+    make: n => `<div>\n\n${'<?\n'.repeat(n)}</div>`,
+    name: 'markdown-raw-openers-past-blank-line',
+  },
+  {
+    compile: true,
+    make: n => `${'&a'.repeat(n)};`,
+    name: 'markdown-text-entity-shape',
+  },
+  {
+    compile: true,
+    make: n => `<div>${'<?><a ?>'.repeat(n)}</div>`,
+    name: 'markdown-raw-markup-bodies-many',
+  },
+  {
+    compile: true,
+    make: n => `<div>${'<![cdata[><a ]]>'.repeat(n)}</div>`,
+    name: 'markdown-raw-markup-bodies-cdata',
+  },
+  {
+    compile: true,
+    make: n => `[l](${'&#106'.repeat(n)})`,
+    name: 'markdown-numeric-references',
+  },
+  {
+    compile: true,
+    make: n => `<div>\n\n${'[a](javascript:b) '.repeat(n)}`,
+    name: 'markdown-raw-links',
+  },
+  {
+    compile: true,
+    make: n => `<div>\n${'<javascript:b> '.repeat(n)}`,
+    name: 'markdown-raw-autolinks',
+  },
+  {
+    compile: true,
+    make: n => `<div>\n${'<javascript:b'.repeat(n)}>`,
+    name: 'markdown-raw-autolink-chain',
+  },
+  {
+    compile: true,
+    make: n => `<div>\n${'<javascript:](b '.repeat(n)}>`,
+    name: 'markdown-raw-autolink-bodies',
+  },
+  {
+    compile: true,
+    make: n => `<div>\n${'[a <b:c](<javascript:d>)> '.repeat(n)}`,
+    name: 'markdown-raw-autolink-links',
+  },
+  {
+    compile: true,
+    make: n => `<div>\n${'!['.repeat(n)}`,
+    name: 'markdown-raw-image-openers',
+  },
+  {
+    compile: true,
+    make: n => `<div>\n${'!["]'.repeat(n)}`,
+    name: 'markdown-raw-image-alts',
+  },
+  // The walks over a raw string, each reached through what the parser keeps raw:
+  // a block's body or what follows a comment on its line
+  ...[
+    [']', 'bracket'],
+    ['](', 'paren'],
+    [']: ', 'colon'],
+    ['&lt;/', 'entity-closer'],
+  ].map(([unit, name]) => ({
+    compile: true,
+    make: (n: number) => `<div>\n${unit.repeat(n)}`,
+    name: `markdown-raw-run-${name}`,
+  })),
+  ...[
+    ['<a:', 'autolink-short-scheme'],
+    ['<aa:', 'autolink-body'],
+    ['<!', 'declaration'],
+    ['<?', 'instruction'],
+    ['<pre', 'tag'],
+    ['</pre', 'tag-closer'],
+    ['<![cdata[', 'cdata'],
+    ['![', 'image'],
+    ['](', 'paren'],
+  ].map(([unit, name]) => ({
+    compile: true,
+    make: (n: number) => `<!-- x -->${unit.repeat(n)}`,
+    name: `markdown-after-markup-${name}`,
+  })),
+  // A code body is tested as raw HTML before it is written
+  ...[
+    ['<', 'openers'],
+    ['<b onclick=a>', 'tags'],
+    ['](', 'links'],
+    ['<!--', 'comments'],
+  ].map(([unit, name]) => ({
+    compile: true,
+    make: (n: number) => `\`\`\`\n${unit.repeat(n)}\n\`\`\``,
+    name: `markdown-code-body-${name}`,
+  })),
+  {
+    compile: true,
+    make: n => '`<b onclick=a>` '.repeat(n),
+    name: 'markdown-code-spans-many',
+  },
+  { compile: true, make: n => '\\<b '.repeat(n), name: 'markdown-text-lt' },
+  {
+    compile: true,
+    make: n => `a[^1]\n\n[^1]: ${'<b>y</b> '.repeat(n)}`,
+    name: 'markdown-footnote-html',
+  },
 ]
 
-function timeOnce(input: string, options?: ParserInputOptions): number {
+function timeOnce(shape: (typeof shapes)[number], input: string): number {
   const t0 = performance.now()
-  parser(input, options)
+  run(shape, input)
   return performance.now() - t0
+}
+
+function run(shape: (typeof shapes)[number], input: string): void {
+  if (shape.compile) {
+    markdownCompiler(input)
+  } else {
+    parser(input, shape.options)
+  }
 }
 
 /**
@@ -107,23 +451,22 @@ function measure(
   // to see.
   var size = BASE
   var input = shape.make(size)
-  parser(input, shape.options)
+  run(shape, input)
   while (
-    Math.min(timeOnce(input, shape.options), timeOnce(input, shape.options)) <
-      targetMs &&
+    Math.min(timeOnce(shape, input), timeOnce(shape, input)) < targetMs &&
     size < MAX_SIZE
   ) {
     size *= 2
     input = shape.make(size)
-    parser(input, shape.options)
+    run(shape, input)
   }
   const largeInput = input
   const smallInput = shape.make(size / 4)
   var small = Number.POSITIVE_INFINITY
   var large = Number.POSITIVE_INFINITY
   for (var r = 0; r < runs; r++) {
-    small = Math.min(small, timeOnce(smallInput, shape.options))
-    large = Math.min(large, timeOnce(largeInput, shape.options))
+    small = Math.min(small, timeOnce(shape, smallInput))
+    large = Math.min(large, timeOnce(shape, largeInput))
   }
   // Quadrupling the input costs 4x when linear and 16x when quadratic, so the
   // exponent is the log of the ratio over the two doublings between them.
@@ -133,6 +476,9 @@ function measure(
     sizes: `${small.toFixed(2)}ms (n=${size / 4}) -> ${large.toFixed(2)}ms (n=${size})`,
   }
 }
+
+// Purpose-built bad input warns once per URL, and the logging would be the cost measured
+console.warn = () => {}
 
 var failed = 0
 for (const shape of shapes) {

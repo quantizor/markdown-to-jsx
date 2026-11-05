@@ -16,6 +16,9 @@
     "@types/react": "^19.2.6",
     "in-publish": "^2.0.1",
     "knip": "6.24.0",
+    "marked": "^17.0.0",
+    "micromark": "^4.0.2",
+    "parse5": "^8.0.1",
     "react": "^19.2.8",
     "react-dom": "19.2.8",
     "rimraf": "^6.1.0"
