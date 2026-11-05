@@ -26,6 +26,25 @@ function createEmptyRefs() {
 }
 
 describe('parser', () => {
+  it('keeps a later link once the tags in brackets have spent their reading budget', () => {
+    const nodes = p.parser(
+      `${'[<b>] '.repeat(2000)}[<i>l</i>](/u)`
+    ) as MarkdownToJSX.ParagraphNode[]
+    const children = nodes[0].children
+
+    expect(JSON.stringify(children.at(-1))).toMatchInlineSnapshot(
+      `"{"type":"link","target":"/u","children":[{"type":"htmlBlock","tag":"i","attrs":{},"_rawAttrs":"","children":[{"type":"text","text":"l"}],"text":"l","_verbatim":false,"_isClosingTag":false}]}"`
+    )
+  })
+
+  it('finds a closer after another tag failed to find one', () => {
+    const nodes = p.parser('<q> <b>x</b>') as MarkdownToJSX.ASTNode[]
+
+    expect(JSON.stringify(nodes)).toMatchInlineSnapshot(
+      `"[{"type":"paragraph","children":[{"type":"htmlSelfClosing","tag":"q","attrs":{},"_rawOpen":"<q>","_isClosingTag":false},{"type":"text","text":" "},{"type":"htmlBlock","tag":"b","attrs":{},"_rawAttrs":"","children":[{"type":"text","text":"x"}],"text":"x","_verbatim":false,"_isClosingTag":false}]}]"`
+    )
+  })
+
   it('should parse basic markdown to paragraph', () => {
     const result = p.parser('hello world') as MarkdownToJSX.ParagraphNode[]
     expect(result).toEqual([
@@ -310,28 +329,14 @@ describe('parseMarkdown', () => {
     ])
   })
 
-  it('parses many unterminated inline-link openers in linear time (issue #874)', () => {
-    // Pre-fix, each `[](` retried the bare-URL scan to end-of-input, giving
-    // O(N^2) total work (N=8000 ~260ms, N=32000 ~4s). Compare doubling-size
-    // runs and assert sub-quadratic scaling, which is robust to absolute
-    // machine speed.
-    function timeParse(N: number) {
-      const input = '[]('.repeat(N)
-      // One warmup to stabilize JIT.
-      p.parser(input)
-      const start = performance.now()
-      const result = p.parser(input)
-      return { ms: performance.now() - start, result, input }
-    }
-    const small = timeParse(8000)
-    const large = timeParse(16_000)
-    // 2x input should be <3x time for linear behavior. Pre-fix this ratio was
-    // ~4x. Use 3x to absorb timing noise on small absolute durations.
-    expect(large.ms).toBeLessThan(small.ms * 3 + 50)
-    expect(large.result).toEqual([
+  // The linear-time half of issue #874 is link-empty-dest-openers in
+  // scripts/scaling-smoke.ts; a wall-clock check here fails under machine load.
+  it('keeps many unterminated inline-link openers as literal text (issue #874)', () => {
+    const input = '[]('.repeat(2000)
+    expect(p.parser(input)).toEqual([
       {
         type: RuleType.paragraph,
-        children: [{ type: RuleType.text, text: large.input }],
+        children: [{ type: RuleType.text, text: input }],
       },
     ])
   })
@@ -386,9 +391,7 @@ describe('parseMarkdown', () => {
   })
 
   it('keeps footnote references parsing after an unclosed opener', () => {
-    // The footnote memo records only scans that ran off the end. A newline
-    // ends a scan without proving anything about later openers, so a `[^` on
-    // one line must not suppress a real reference on the next.
+    // A `[^` on one line must not suppress a real reference on the next.
     expect(p.parser('[^unclosed\n\n[^1]: note\n\nsee [^1]')).toEqual([
       {
         type: RuleType.refCollection,
@@ -411,6 +414,113 @@ describe('parseMarkdown', () => {
         ],
       },
     ])
+  })
+
+  it('keeps a footnote reference with no definition as text', () => {
+    expect(p.parser('a [^1] b')).toEqual([
+      {
+        type: RuleType.paragraph,
+        children: [{ type: RuleType.text, text: 'a [^1] b' }],
+      },
+    ])
+  })
+
+  it('reads a footnote-shaped link with no definition as a link', () => {
+    expect(p.parser('[^1](/u)')).toEqual([
+      {
+        type: RuleType.paragraph,
+        children: [
+          {
+            type: RuleType.link,
+            target: '/u',
+            title: undefined,
+            children: [{ type: RuleType.text, text: '^1' }],
+          },
+        ],
+      },
+    ])
+  })
+
+  it('matches a footnote reference to its definition in any letter case', () => {
+    expect(p.parser('[^A]\n\n[^a]: y')).toEqual([
+      {
+        type: RuleType.refCollection,
+        refs: { '^a': { target: 'y', title: undefined } },
+      },
+      {
+        type: RuleType.paragraph,
+        children: [
+          { type: RuleType.footnoteReference, target: '#a', text: 'A' },
+        ],
+      },
+      { type: RuleType.footnote },
+    ])
+  })
+
+  it('keeps a footnote name holding a bracket as text even with a definition', () => {
+    expect(p.parser('[^a[b]\n\n[^a[b]: y')).toEqual([
+      {
+        type: RuleType.refCollection,
+        refs: { '^a[b': { target: 'y', title: undefined } },
+      },
+      {
+        type: RuleType.paragraph,
+        children: [{ type: RuleType.text, text: '[^a[b]' }],
+      },
+      { type: RuleType.footnote },
+    ])
+  })
+
+  it('shows a footnote reference ending the streamed text like any bracket, as a link may still open', () => {
+    expect(p.parser('a [^1]', { optimizeForStreaming: true })).toEqual(
+      p.parser('a ^1', { optimizeForStreaming: true })
+    )
+  })
+
+  it('keeps a footnote reference while streaming, as its definition may still arrive', () => {
+    expect(p.parser('a [^1] b', { optimizeForStreaming: true })).toEqual([
+      {
+        type: RuleType.paragraph,
+        children: [
+          { type: RuleType.text, text: 'a ' },
+          { type: RuleType.footnoteReference, target: '#1', text: '1' },
+          { type: RuleType.text, text: ' b' },
+        ],
+      },
+    ])
+  })
+
+  it.each([
+    ['blockquote', '> R'],
+    ['component body', '<Foo>R</Foo>'],
+    ['emphasis', '*a R*'],
+    ['heading', '# a R'],
+    ['HTML block body', '<div>\n\nR\n\n</div>'],
+    ['inline HTML', 'a <span>R</span>'],
+    ['link text', '[a R](/u)'],
+    ['list item', '- R'],
+    ['nested list item', '- a\n  - R'],
+    ['setext heading', 'a R\n==='],
+    ['table cell', '| h |\n|---|\n| R |'],
+    ['table header', '| R |\n|---|\n| c |'],
+  ])('finds a definition after a footnote reference in a %s', (_name, shape) => {
+    const countReferences = (value: unknown): number => {
+      if (Array.isArray(value)) {
+        return value.reduce((sum, item) => sum + countReferences(item), 0)
+      }
+      if (!value || typeof value !== 'object') {
+        return 0
+      }
+
+      return Object.values(value).reduce(
+        (sum: number, item) => sum + countReferences(item),
+        'type' in value && value.type === RuleType.footnoteReference ? 1 : 0
+      )
+    }
+    const body = shape.replace('R', '[^1]')
+
+    expect(countReferences(p.parser(`${body}\n\n[^1]: y`))).toBe(1)
+    expect(countReferences(p.parser(body))).toBe(0)
   })
 
   it('does not let the failed-link cache reject a valid trailing link (issue #874 follow-up)', () => {
@@ -2450,15 +2560,11 @@ describe('multi-line HTML attributes', () => {
           "_isClosingTag": false,
           "_rawAttrs": 
       "
-        className="wrapper"
-        onClick={handleClick}
-      "
+        className="wrapper""
       ,
           "_rawOuter": 
       "<MyComponent
-        className="wrapper"
-        onClick={handleClick}
-      >
+        className="wrapper">
         inner content
       </MyComponent>"
       ,
@@ -3195,16 +3301,12 @@ describe('multi-line HTML attributes', () => {
             "_rawAttrs": 
         "
           data={myData}
-          columns={columns}
-          onRowClick={handleClick}
-        "
+          columns={columns}"
         ,
             "_rawOuter": 
         "<DataTable
           data={myData}
-          columns={columns}
-          onRowClick={handleClick}
-        >
+          columns={columns}>
           Loading...
         </DataTable>"
         ,
@@ -3249,18 +3351,12 @@ describe('multi-line HTML attributes', () => {
             "_rawAttrs": 
         "
           className="container"
-          data-id="123"
-          onClick={handleClick}
-          disabled
-        "
+          data-id="123" disabled"
         ,
             "_rawOuter": 
         "<Widget
           className="container"
-          data-id="123"
-          onClick={handleClick}
-          disabled
-        >
+          data-id="123" disabled>
           content
         </Widget>"
         ,
@@ -4646,8 +4742,10 @@ describe('Unserializable expression evaluation', () => {
     })
 
     it('keeps brace-expression props on component-like tags but strips dangerous brace handlers on standard HTML elements', () => {
-      // Component (capitalized) and custom-element (hyphenated) tags take brace
-      // expressions as renderer-resolved props, so they are kept.
+      // A capitalized tag takes brace expressions as renderer-resolved props,
+      // so they are kept. A hyphenated tag keeps them too, except a handler,
+      // which a string output would write as a live attribute unless overrides
+      // registers the tag.
       const jsx = p.parser(
         '<MyComponent onClick={handler} onChange={fn} href={url} data={[1,2,3]} />'
       ) as MarkdownToJSX.HTMLSelfClosingNode[]
@@ -4658,9 +4756,13 @@ describe('Unserializable expression evaluation', () => {
         onClick: 'handler',
       })
       const custom = p.parser(
-        '<my-el onClick={handleClick}>x</my-el>'
+        '<my-el onClick={handleClick} items={x}>x</my-el>'
       ) as MarkdownToJSX.HTMLNode[]
-      expect(custom[0].attrs?.onClick).toBe('handleClick')
+      expect(custom[0].attrs).toEqual({ items: 'x' })
+      const registered = p.parser('<my-el onClick={handleClick}>x</my-el>', {
+        overrides: { 'my-el': { props: {} } },
+      }) as MarkdownToJSX.HTMLNode[]
+      expect(registered[0].attrs).toEqual({ onClick: 'handleClick' })
       // A standard HTML element is not a component, so a brace-valued event
       // handler would still emit an executable handler in string output and is
       // stripped; a non-dangerous brace attribute is kept.
@@ -6462,11 +6564,10 @@ describe('text normalization edge cases', () => {
                 "type": "text",
               },
               {
-                "_isClosingTag": false,
-                "_rawOpen": "<!A>",
-                "attrs": {},
-                "tag": "!A",
-                "type": "htmlSelfClosing",
+                "_endsWithGT": false,
+                "raw": true,
+                "text": "<!A>",
+                "type": "htmlComment",
               },
             ],
             "type": "paragraph",
@@ -7747,5 +7848,199 @@ describe('enforceAtxHeadings (#903)', () => {
     expect(types('#######', { enforceAtxHeadings })).toEqual([
       RuleType.paragraph,
     ])
+  })
+})
+
+describe('table cell pipe escapes', () => {
+  it.each([
+    ['a\\|b', 'a|b'],
+    ['a\\\\\\|b', 'a\\|b'],
+    ['a\\\\b', 'a\\b'],
+  ])('reads the cell %j as the text %j', (cell, expected) => {
+    const table = p.parser(
+      `| h | i |\n|---|---|\n| ${cell} | z |`
+    )[0] as MarkdownToJSX.TableNode
+    expect(table.cells[0].length).toBe(2)
+    expect(
+      table.cells[0][0]
+        .map(node => (node.type === RuleType.text ? node.text : ''))
+        .join('')
+    ).toBe(expected)
+  })
+
+  it('still reads an even backslash run before a pipe as a column split', () => {
+    const table = p.parser(
+      '| h | i |\n|---|---|\n| a\\\\|b | z |'
+    )[0] as MarkdownToJSX.TableNode
+    // Two header columns keep the first two of the row's three cells
+    expect(
+      table.cells[0].map(cell =>
+        cell
+          .map(node => (node.type === RuleType.text ? node.text : ''))
+          .join('')
+      )
+    ).toEqual(['a\\', 'b'])
+  })
+})
+
+describe('attribute names a renderer acts on rather than writes', () => {
+  const attrsOf = (source: string, options?: Parameters<typeof p.parser>[1]) =>
+    (p.parser(source, options)[0] as MarkdownToJSX.HTMLNode).attrs
+
+  it.each([
+    ['innerHTML="x"'],
+    ['INNERHTML="x"'],
+    ['outerHTML="x"'],
+    ['dangerouslySetInnerHTML="x"'],
+    ['dangerouslySetInnerHTML={{"__html":"x"}}'],
+    ['ref="x"'],
+    ['ref={x}'],
+    ['children="x"'],
+    ['prop:innerHTML="x"'],
+    ['attr:onclick="x"'],
+    ['bool:onclick="x"'],
+    ['prop:onclick="x"'],
+    ['attr:srcdoc="x"'],
+    ['attr:href="javascript:x"'],
+    ['prop:href="javascript:x"'],
+    ['xlinkHref="javascript:x"'],
+    ['attr:xlink:href="javascript:x"'],
+  ])('removes %s from an element', attribute => {
+    expect(attrsOf(`<div ${attribute}>y</div>`)).toEqual({})
+  })
+
+  it.each([
+    ['attr:title="x"', { 'attr:title': 'x' }],
+    ['prop:title="x"', { 'prop:title': 'x' }],
+    ['attr:href="/x"', { 'attr:href': '/x' }],
+    ['xlinkHref="/x"', { xlinkHref: '/x' }],
+    ['textContent="x"', { textContent: 'x' }],
+    ['key="x"', { key: 'x' }],
+  ])('keeps %s on an element', (attribute, attrs) => {
+    expect(attrsOf(`<div ${attribute}>y</div>`)).toEqual(attrs)
+  })
+
+  it.each([
+    ['innerHTML={x}', {}],
+    ['outerHTML={x}', {}],
+    ['dangerouslySetInnerHTML={{"__html":"x"}}', {}],
+    ['ref={x}', {}],
+    ['children="x"', {}],
+    ['children={x}', {}],
+    ['children={{"a":1}}', {}],
+  ])('reads %s on a capitalized tag as %j', (attribute, attrs) => {
+    expect(attrsOf(`<Foo ${attribute}>y</Foo>`)).toEqual(attrs)
+  })
+
+  it.each([
+    ['<Foo children="x">y</Foo>', { children: 'x' }],
+    ['<Foo children={x}>y</Foo>', { children: 'x' }],
+    ['<my-el children="x">y</my-el>', { children: 'x' }],
+    ['<Foo children={{"a":1}}>y</Foo>', {}],
+    ['<Foo children={ {"a":1} }>y</Foo>', {}],
+    ['<Foo children={[{"a":1}]}>y</Foo>', {}],
+  ])('reads children on registered %s as %j', (source, attrs) => {
+    expect(
+      attrsOf(source, {
+        overrides: { Foo: { props: {} }, 'my-el': { props: {} } },
+      })
+    ).toEqual(attrs)
+  })
+
+  it('removes children from a custom element', () => {
+    expect(attrsOf('<my-el children="x">y</my-el>')).toEqual({})
+  })
+
+  it.each([
+    ['<div innerHTML="x">y</div>', '<div >y</div>'],
+    ['<div attr:onclick="x">y</div>', '<div >y</div>'],
+    ['<b ref="x" title="y">z</b>', '<b title="y">z</b>'],
+  ])('removes it from the raw string %j', (raw, screened) => {
+    expect(p.stripDangerousHtml(raw)).toBe(screened)
+  })
+})
+
+describe('markup a browser reads differently from the parser', () => {
+  // A tag hidden in a value reads on past the tag that holds it, to a quote left
+  // open earlier in the string: written as text, there is no open quote left for
+  // a later rewrite to re-pair
+  const OPEN_QUOTE = '<![CDATA[<a title="</style><a title="</textarea>'
+  const OPEN_QUOTE_TEXT =
+    '<![CDATA[&lt;a title="&lt;/style>&lt;a title="&lt;/textarea>'
+
+  it.each([
+    [
+      `${OPEN_QUOTE}<a href="javascript:alert(1)">l</a> x" onclick=alert(1)>`,
+      `${OPEN_QUOTE_TEXT}<a >l</a> x" onclick=alert(1)>`,
+    ],
+    [
+      `${OPEN_QUOTE}<img src=x onerror="y">l x" onclick=alert(1)>`,
+      `${OPEN_QUOTE_TEXT}<img src=x>l x" onclick=alert(1)>`,
+    ],
+  ])('writes the tag with the open quote in %j as text', (raw, screened) => {
+    expect(p.stripDangerousHtml(raw)).toBe(screened)
+  })
+
+  it('keeps the rest of a string whose rewrite a second read leaves alone', () => {
+    expect(
+      p.stripDangerousHtml('<img src=x onerror="y"><b title="z">w</b>')
+    ).toBe('<img src=x><b title="z">w</b>')
+  })
+
+  it.each([
+    ['<?php echo 1 ?>', '<?php echo 1 ?>'],
+    ['<!DOCTYPE html>', '<!DOCTYPE html>'],
+    ['<![CDATA[x]]>', '<![CDATA[x]]>'],
+  ])('reads the inline markup in a %j paragraph as a raw comment', (markup, text) => {
+    const paragraph = p.parser(
+      `a ${markup} c`
+    )[0] as MarkdownToJSX.ParagraphNode
+    expect(paragraph.children[1]).toEqual({
+      _endsWithGT: false,
+      raw: true,
+      text,
+      type: RuleType.htmlComment,
+    })
+  })
+
+  it('reads a fence info string with the attribute screen', () => {
+    const code = p.parser(
+      '```x onmouseover="alert(1)" title="t"\ny\n```'
+    )[0] as MarkdownToJSX.CodeBlockNode
+    expect(Object.keys(code.attrs ?? {})).toEqual(['title'])
+  })
+
+  it.each([
+    ['<my-el onClick={go} items={x}>y</my-el>', undefined, { items: 'x' }],
+    [
+      '<my-el onClick={go}>y</my-el>',
+      { overrides: { 'my-el': { props: {} } } },
+      { onClick: 'go' },
+    ],
+    ['<My-el onClick={go}>y</My-el>', undefined, { onClick: 'go' }],
+  ])('keeps the attributes of %j with %j as %j', (input, options, attrs) => {
+    const node = p.parser(input, options)[0] as MarkdownToJSX.HTMLNode
+    expect(node.attrs).toEqual(attrs)
+  })
+
+  it('reads no registered tag from a parse that ended', () => {
+    p.parser('x', { overrides: { 'my-el': { props: {} } } })
+    const node = p.parser(
+      '<my-el onClick={go}>y</my-el>'
+    )[0] as MarkdownToJSX.HTMLNode
+    expect(node.attrs).toEqual({})
+  })
+
+  it.each([
+    ['<div><a x="<b>">y</a>', '<div><a x="<b>">y</a>'],
+    ['<div>\n<b onclick=alert(1)', '<div>\n&lt;b onclick=alert(1)'],
+    [
+      '<div>\n<a title="<b onclick=alert(1)>">',
+      '<div>\n&lt;a title="&lt;b onclick=alert(1)>">',
+    ],
+    ['<!--><svg onload=alert(1)>', '<!--><svg >'],
+    ['<?"><b onclick=alert(1)>b</b>', '<?"><b >b</b>'],
+  ])('screens the raw string %j to %j', (input, expected) => {
+    expect(p.stripDangerousHtml(input, true)).toBe(expected)
   })
 })

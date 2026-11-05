@@ -243,53 +243,105 @@ export function decodeEntityReferences(text: string): string {
   })
 }
 
-export const SANITIZE_R: RegExp = /(javascript|vbscript|data(?!:image)):/i
+var BLOCKED_SCHEME_R = /(javascript|vbscript|data(?!:image)):/i
+
+/**
+ * A blocked scheme before a URL's first `/`, `?`, or `#`, the only place a browser
+ * can read a scheme. It need not be at the start, so `feed:javascript:` is blocked.
+ */
+export const SANITIZE_R: RegExp = new RegExp(
+  `^[^/?#]*?${BLOCKED_SCHEME_R.source}`,
+  'i'
+)
+
+/** The path, query, and fragment of a URL */
+var URL_AFTER_SCHEME_R = /[/?#][\s\S]*$/
+
+/** What urlVerdict found: a safe URL, or why one is unsafe (a blocked scheme as written, one after percent-decoding, or an undecodable sequence) */
+export const URL_VERDICT = {
+  malformed: 3,
+  safe: 0,
+  unsafe: 1,
+  unsafeDecoded: 2,
+} as const
+
+var URL_STRIP_R = /[^A-Za-z0-9/:]/g
+
+/** Anything that makes the decode and strip pass necessary: a browser's URL parser deletes tab, LF, and CR anywhere in a URL, and decodes `%` */
+var URL_NEEDS_DECODE_R = /[%\t\n\r]/
+
+/** The percent-decoded URL with everything outside `[A-Za-z0-9/:]` removed; throws on a malformed sequence */
+function decodeUrlScheme(input: string): string {
+  return decodeURIComponent(input).replace(URL_STRIP_R, '')
+}
+
+/**
+ * The sanitizer's judgment of a URL, with no warning: a value of URL_VERDICT.
+ * For a caller that screens text a browser may read as markup, where one URL
+ * can be judged more than once.
+ */
+export function urlVerdict(
+  input: string
+): (typeof URL_VERDICT)[keyof typeof URL_VERDICT] {
+  if (SANITIZE_R.test(input)) {
+    return URL_VERDICT.unsafe
+  }
+
+  if (!URL_NEEDS_DECODE_R.test(input)) {
+    return URL_VERDICT.safe
+  }
+
+  try {
+    // An undecodable sequence is rejected anywhere, so the whole URL is decoded first
+    decodeURIComponent(input)
+    // The strip removes `?` and `#`, so the scheme part is cut before it
+    return SANITIZE_R.test(
+      decodeUrlScheme(input.replace(URL_AFTER_SCHEME_R, ''))
+    )
+      ? URL_VERDICT.unsafeDecoded
+      : URL_VERDICT.safe
+  } catch {
+    return URL_VERDICT.malformed
+  }
+}
+
+/**
+ * Whether a blocked scheme stands anywhere in a URL, as written or decoded once.
+ * For text another renderer will read, which can take a later part of it as a URL
+ * of its own. Throws on an undecodable sequence, which urlVerdict reports first.
+ */
+export function urlNamesBlockedScheme(input: string): boolean {
+  return (
+    BLOCKED_SCHEME_R.test(input) ||
+    (URL_NEEDS_DECODE_R.test(input) &&
+      BLOCKED_SCHEME_R.test(decodeUrlScheme(input)))
+  )
+}
 
 /**
  * Sanitize URLs and other input values to prevent XSS attacks.
- * Filters out javascript:, vbscript:, and data: URLs (except data:image).
+ * Filters out javascript:, vbscript:, and data: URLs (except data:image), judged
+ * where a browser reads a scheme: before the first `/`, `?`, or `#`.
  *
  *
  * @param input - The URL or value to sanitize
  * @returns Sanitized value, or null if unsafe
  */
 export function sanitizer(input: string): string | null {
-  if (SANITIZE_R.test(input)) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn(
-        'Input contains an unsafe JavaScript/VBScript/data expression, it will not be rendered.',
-        input
-      )
-    }
-    return null
-  }
-
-  if (input.indexOf('%') === -1) {
+  var verdict = urlVerdict(input)
+  if (verdict === URL_VERDICT.safe) {
     return input
   }
 
-  try {
-    const decoded = decodeURIComponent(input).replace(/[^A-Za-z0-9/:]/g, '')
-    if (SANITIZE_R.test(decoded)) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn(
-          'Input contains an unsafe JavaScript/VBScript/data expression, it will not be rendered.',
-          decoded
-        )
-      }
-      return null
-    }
-  } catch {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn(
-        'Input could not be decoded due to malformed syntax or characters, it will not be rendered.',
-        input
-      )
-    }
-    return null
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(
+      verdict === URL_VERDICT.malformed
+        ? 'Input could not be decoded due to malformed syntax or characters, it will not be rendered.'
+        : 'Input contains an unsafe JavaScript/VBScript/data expression, it will not be rendered.',
+      verdict === URL_VERDICT.unsafeDecoded ? decodeUrlScheme(input) : input
+    )
   }
-
-  return input
+  return null
 }
 
 // Character replacement lookup table for slugify (Unicode to ASCII)
@@ -745,7 +797,8 @@ export function processVerbatimNode(
  * node whose rawText bleeds real content past its own closing tag. There the
  * bled tail is the only place that trailing content exists, so the renderer
  * re-parses and splits it out as siblings. Each split strictly shrinks rawText,
- * so the recursion is bounded. When siblings follow (e.g. nested same-type
+ * so the recursion is bounded; reparsedToItself catches the one source that
+ * does not split. When siblings follow (e.g. nested same-type
  * blocks like table rows) they already carry the bled content, so keeping
  * verbatim would duplicate it; a bled tail of pure closing tags (e.g.
  * "</dd></dl>") carries no content. Both fall to the default strip.
@@ -788,6 +841,24 @@ export function stripVerbatim(nodes: MarkdownToJSX.ASTNode[]): void {
       )
     }
   }
+}
+
+/**
+ * Whether stripVerbatim left a re-parse of `source` verbatim over all of it,
+ * which an opener the tag parser rejects does (`<div </div>'`). Re-parsing again
+ * would never end, so the renderer writes the source as text.
+ */
+export function reparsedToItself(
+  nodes: MarkdownToJSX.ASTNode[],
+  source: string
+): boolean {
+  const last = nodes.at(-1)
+  return (
+    last !== undefined &&
+    last.type === RuleType.htmlBlock &&
+    (last as MarkdownToJSX.HTMLNode)._verbatim === true &&
+    (last as MarkdownToJSX.HTMLNode)._rawOuter === source
+  )
 }
 
 /**
@@ -945,7 +1016,9 @@ function filteredOpenTag(
  * Derive inert source parts for a tagfiltered htmlBlock / htmlSelfClosing node.
  */
 export function getFilteredTagEmit(
-  node: MarkdownToJSX.HTMLNode | MarkdownToJSX.HTMLSelfClosingNode
+  node: MarkdownToJSX.HTMLNode | MarkdownToJSX.HTMLSelfClosingNode,
+  /** Screens a text body for a string output, where it is emitted as markup */
+  screenText?: (text: string) => string
 ): FilteredTagEmit {
   var tag = node.tag
   var selfClosing = node.type === RuleType.htmlSelfClosing
@@ -989,11 +1062,16 @@ export function getFilteredTagEmit(
     return { kind: 'literal', literal: htmlNode._rawOuter }
   }
 
-  // Type 1 and other childless verbatim: body + own closer.
+  // Type 1 and other childless verbatim: body + own closer. A parsed opener
+  // whose source has no closer gets none: the `>` of an added one would close a
+  // tag left open in the body
   if (htmlNode._verbatim && !hasKids) {
     return {
       kind: 'literal',
-      literal: open + (htmlNode._rawBody || '') + (htmlNode._rawClose || close),
+      literal:
+        open +
+        (htmlNode._rawBody || '') +
+        (htmlNode._rawClose || (rawAttrs === undefined ? close : '')),
     }
   }
 
@@ -1009,7 +1087,10 @@ export function getFilteredTagEmit(
       }
       plain += (kid as MarkdownToJSX.TextNode).text
     }
-    return { kind: 'literal', literal: open + plain + close }
+    return {
+      kind: 'literal',
+      literal: open + (screenText ? screenText(plain) : plain) + close,
+    }
   }
 
   // Empty structured node: emit open + optional body text + close. The body
@@ -1127,22 +1208,44 @@ function lowerAsciiIfNeeded(s: string): string {
   return s
 }
 
+/** `Object.prototype.hasOwnProperty`, as a `.call` target for an object that may not inherit it. */
+export var ownProperty: typeof Object.prototype.hasOwnProperty =
+  Object.prototype.hasOwnProperty
+
 /**
- * Get nested property from object using dot notation path
+ * `source[key]`, unless `key` names a member of a built-in prototype that
+ * `source` does not own. The key can be a tag name from the document, so
+ * `constructor` or `call` must not answer, while any other inherited key
+ * (`Object.create(defaults)`, a class getter, a Proxy) still does.
+ */
+export function overrideValue(source: any, key: string): any {
+  if (source == null) {
+    return
+  }
+  var builtIn =
+    typeof source === 'function' ? Function.prototype : Object.prototype
+  return key in builtIn && !ownProperty.call(source, key)
+    ? undefined
+    : source[key]
+}
+
+/**
+ * Get nested property from object using dot notation path, read through
+ * overrideValue.
  */
 export function get(source: any, path: string, fallback: any): any {
   // Fast path: single-segment paths (the common case for override lookups)
   // skip the split allocation. HTML tags are case-insensitive, so a miss
   // retries the lowercase key (issue #248).
   if (path.indexOf('.') === -1) {
-    var direct = source?.[path]
+    var direct = overrideValue(source, path)
     if (direct) {
       return direct
     }
     if (source) {
       var lowered = lowerAsciiIfNeeded(path)
       if (lowered !== path) {
-        var ci = source[lowered]
+        var ci = overrideValue(source, lowered)
         if (ci) {
           return ci
         }
@@ -1155,7 +1258,7 @@ export function get(source: any, path: string, fallback: any): any {
   var i = 0
   var firstMiss = false
   while (i < segments.length) {
-    result = result?.[segments[i]]
+    result = overrideValue(result, segments[i])
     if (result === undefined) {
       firstMiss = i === 0
       break
@@ -1165,10 +1268,10 @@ export function get(source: any, path: string, fallback: any): any {
   if (firstMiss && source) {
     var firstLower = lowerAsciiIfNeeded(segments[0])
     if (firstLower !== segments[0]) {
-      result = source[firstLower]
+      result = overrideValue(source, firstLower)
       i = 1
       while (result !== undefined && i < segments.length) {
-        result = result?.[segments[i]]
+        result = overrideValue(result, segments[i])
         i++
       }
     }
@@ -1312,6 +1415,17 @@ export function shouldFilterTag(tagName: string): boolean {
 export function containsTagfilterTag(text: string): boolean {
   TAGFILTER_R.lastIndex = 0
   return TAGFILTER_R.test(text)
+}
+
+/**
+ * What a browser shows for a type 1 body, for a sink that sets it as text: `pre`
+ * and `textarea` decode references, and `script` and `style` hold raw text.
+ */
+export function verbatimText(tag: string, body: string): string {
+  var lower = tag.toLowerCase()
+  return lower === 'pre' || lower === 'textarea'
+    ? decodeEntityReferences(body)
+    : body
 }
 
 /**

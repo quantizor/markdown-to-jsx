@@ -35,6 +35,7 @@ export interface ParseOptions {
   inHTML?: boolean
   inList?: boolean
   optimizeForStreaming?: boolean
+  overrides?: { [tag: string]: unknown }
   preserveFrontmatter?: boolean
   sanitizer: (value: string, tag: string, attribute: string) => string | null
   slugify: (input: string) => string
@@ -52,6 +53,8 @@ export interface ParserInputOptions {
   forceInline?: boolean
   ignoreHTMLBlocks?: boolean
   optimizeForStreaming?: boolean
+  /** Registers a hyphenated tag, which keeps its `{...}` handler attributes as props */
+  overrides?: { [tag: string]: unknown }
   preserveFrontmatter?: boolean
   sanitizer?: (value: string, tag: string, attribute: string) => string | null
   slugify?: (input: string, defaultFn: (input: string) => string) => string
@@ -85,6 +88,7 @@ export function toParseOptions(
     forceInline: forceInline === undefined ? opts.forceInline : forceInline,
     ignoreHTMLBlocks: opts.ignoreHTMLBlocks,
     optimizeForStreaming: opts.optimizeForStreaming,
+    overrides: opts.overrides,
     preserveFrontmatter: opts.preserveFrontmatter,
     sanitizer: opts.sanitizer || util.sanitizer,
     slugify: resolvedSlugify,
@@ -103,13 +107,23 @@ export const HTML_BLOCK_ELEMENT_START_R_ATTR: RegExp =
   /^<([a-zA-Z][a-zA-Z0-9-]*)\s[^>]*>/
 export const UPPERCASE_TAG_R: RegExp = /^<[A-Z]/
 // HTML Type 1 tags (raw HTML blocks) — CommonMark §4.6
-var TYPE1_TAG_LIST = ['script', 'pre', 'style', 'textarea']
-var TYPE1_TAGS = new Set(TYPE1_TAG_LIST)
+export var TYPE1_TAG_NAMES: string[] = ['pre', 'script', 'style', 'textarea']
+var TYPE1_TAGS = new Set(TYPE1_TAG_NAMES)
 
 /** Matches Type 1 tags in raw HTML text */
 var TYPE1_R = /<(?:pre|script|style|textarea)\b/i
 // Sticky variant for matching at a specific position without substring allocation
 var TYPE1_STICKY_R = /<(?:pre|script|style|textarea)\b/iy
+var TYPE1_CLOSER_STICKY_R = /<\/(?:pre|script|style|textarea)>/iy
+
+var LAZY_MARKER = String.fromCharCode($.CHAR_RECORD_SEP)
+
+/** Text a scanner takes in as content, where the lazy line marker has no place */
+function dropLazyMarkers(text: string): string {
+  return text.indexOf(LAZY_MARKER) === -1
+    ? text
+    : text.split(LAZY_MARKER).join('')
+}
 
 // Detects block-level markdown syntax at the start of a line (heading, list, blockquote, fenced code)
 var BLOCK_SYNTAX_R =
@@ -274,6 +288,68 @@ const URL_BEARING_ATTRS: { [name: string]: 1 } = {
   poster: 1,
   src: 1,
   'xlink:href': 1,
+  // React writes this name as xlink:href
+  xlinkhref: 1,
+}
+
+/**
+ * Names a renderer acts on rather than writes, read in lowercase. Solid and Vue
+ * put innerHTML and outerHTML into the page as markup, and a string or object
+ * value of the rest throws while React, Solid, or Vue renders. children is a
+ * real prop on a component, so isDangerousAttr keeps it there.
+ */
+const RENDERER_ONLY_ATTRS: { [name: string]: 1 } = {
+  children: 1,
+  dangerouslysetinnerhtml: 1,
+  innerhtml: 1,
+  outerhtml: 1,
+  ref: 1,
+}
+
+/** Prefixes Solid strips to reach the attribute or property named after them. */
+const SOLID_TARGET_PREFIX_R = /^(?:attr|bool|prop):/i
+const BRACE_OBJECT_VALUE_R = /^\{\s*[[{]/
+const BRACE_NAME_WRAPPER_R = /[{}"'`]/g
+
+/**
+ * Whether an attribute name is an on* event handler (onclick, onError), including
+ * behind a Solid target prefix.
+ */
+function isHandlerName(name: string): boolean {
+  // All three prefixes are four letters; the check spares every other name the regex
+  var at =
+    name.charCodeAt(4) === $.CHAR_COLON && SOLID_TARGET_PREFIX_R.test(name)
+      ? 5
+      : 0
+  var c0 = name.charCodeAt(at)
+  var c1 = name.charCodeAt(at + 1)
+  return (
+    (c0 === $.CHAR_o || c0 === $.CHAR_O) && (c1 === $.CHAR_n || c1 === $.CHAR_N)
+  )
+}
+
+/**
+ * Removes handler source from the props of a capitalized tag `overrides` does not
+ * register. Vue and Solid write such a prop to a native element, where a browser
+ * runs it or the renderer throws; a function from `evalUnserializableExpressions`
+ * stays, and so does a bare name's `true`, which holds no script.
+ */
+export function dropUnresolvedHandlers(
+  tag: string,
+  props: Record<string, unknown>,
+  overrides: unknown
+): void {
+  var first = tag.charCodeAt(0)
+  var isCapitalized = first >= $.CHAR_A && first <= $.CHAR_Z
+  if (!isCapitalized || util.get(overrides, tag, undefined)) {
+    return
+  }
+  for (var key in props) {
+    var value = props[key]
+    if (typeof value !== 'function' && value !== true && isHandlerName(key)) {
+      delete props[key]
+    }
+  }
 }
 
 /**
@@ -301,6 +377,38 @@ function decodeNumericEntities(value: string): string {
   })
 }
 
+/** How the attribute screen treats a tag: a capitalized or hyphenated tag `overrides` registers, a capitalized one it does not, a hyphenated one it does not, or anything else */
+const TAG_KIND = {
+  component: 2,
+  customElement: 1,
+  html: 0,
+  registeredComponent: 3,
+} as const
+type TagKind = (typeof TAG_KIND)[keyof typeof TAG_KIND]
+
+/**
+ * Whether the parse in progress treats a capitalized or hyphenated tag as a real
+ * component: its `overrides` registers the tag, or `evalUnserializableExpressions`
+ * makes a brace value a function. Module state rather than a parameter since every
+ * tag parse and raw-string screen reads it and most have no options to hand: a tag
+ * parsed with none in reach counts as unregistered, the safe direction. Cleared
+ * when a parse ends.
+ */
+var _parseOptionsForTags: ParseOptions | undefined
+
+function hasOwnOverride(tag: string): boolean {
+  var overrides = _parseOptionsForTags?.overrides
+  return overrides ? util.ownProperty.call(overrides, tag) : false
+}
+
+function isRegisteredTag(tag: string): boolean {
+  return (
+    _parseOptionsForTags !== undefined &&
+    (_parseOptionsForTags.evalUnserializableExpressions === true ||
+      Boolean(util.get(_parseOptionsForTags.overrides, tag, undefined)))
+  )
+}
+
 /**
  * Decide whether a raw HTML attribute must be stripped for safety. String-valued
  * event handlers (on* attributes) and srcdoc are removed; a bare boolean on* on a
@@ -310,36 +418,61 @@ function decodeNumericEntities(value: string): string {
  * The scheme check is intentionally independent of any caller-supplied
  * sanitizer so the raw HTML path is secure by default.
  *
- * A JSX brace-expression value ({...}) is a component prop resolved by the
- * library (see processHTMLAttributes), not a raw-HTML inline-handler string, so
- * it is never the XSS vector and is always kept. Only string-literal values
- * (quoted or unquoted) are the classic injection vector and are stripped.
+ * A JSX brace-expression value ({...}) on a capitalized or registered tag is a
+ * component prop resolved by the library (see processHTMLAttributes), not a
+ * raw-HTML inline-handler string, so it is kept. A handler is kept only on a
+ * registered tag: on any other, a browser runs it as a block statement.
+ *
+ * A name is judged as what it reaches in a renderer rather than as written, and
+ * the exemption above does not apply to one no prop value can make safe, or to a
+ * URL attribute unless its brace value is an object or array.
  */
 function isDangerousAttr(
   name: string,
   value: string,
-  isComponent: boolean
+  tagKind: TagKind,
+  /** Skips the sanitizer's DEV warning, for a screen that may judge a URL the tag parser already judged */
+  quiet?: boolean
 ): boolean {
-  // A JSX brace-expression value ({...}) on a component-like tag is a prop the
-  // renderer resolves, so it is kept. On a standard HTML tag it is not a prop,
-  // and an on*/dangerous-URL brace value would still emit an executable handler
-  // in string output, so it is screened like any other value.
-  if (isComponent && value.charCodeAt(0) === $.CHAR_BRACE_OPEN) {
-    return false
+  // All three prefixes are four letters; the check spares every other name the regex
+  if (name.charCodeAt(4) === $.CHAR_COLON && SOLID_TARGET_PREFIX_R.test(name)) {
+    return isDangerousAttr(name.slice(5), value, tagKind, quiet)
   }
-  var c0 = name.charCodeAt(0)
-  var c1 = name.charCodeAt(1)
-  // on* event handlers (case-insensitive), e.g. onclick, onerror, onload
+  var lower = name.toLowerCase()
+  if (RENDERER_ONLY_ATTRS[lower] === 1) {
+    // No component can render an object as a child: React throws on the whole tree
+    return !(
+      lower === 'children' &&
+      tagKind === TAG_KIND.registeredComponent &&
+      !BRACE_OBJECT_VALUE_R.test(value)
+    )
+  }
+  var isPropBrace =
+    tagKind !== TAG_KIND.html && value.charCodeAt(0) === $.CHAR_BRACE_OPEN
+  if (lower === 'attributename') {
+    return !isPropBrace && animatesDangerousAttr(value)
+  }
+  var isHandler = isHandlerName(name)
+  // A JSX brace-expression value ({...}) on a component-like tag is a prop the
+  // renderer resolves, so it is kept, except a handler on a tag that is no
+  // registered component (a browser runs `{...}` as a block statement) and a
+  // brace string on a URL prop (it reaches a component as the URL itself, so the
+  // URL screen below reads it). On a standard HTML tag it is not a prop, and an
+  // on*/dangerous-URL brace value would still emit an executable handler in
+  // string output, so it is screened like any other value.
   if (
-    (c0 === $.CHAR_o || c0 === $.CHAR_O) &&
-    (c1 === $.CHAR_n || c1 === $.CHAR_N)
+    isPropBrace &&
+    (URL_BEARING_ATTRS[lower] !== 1 || BRACE_OBJECT_VALUE_R.test(value))
   ) {
+    return isHandler && tagKind !== TAG_KIND.registeredComponent
+  }
+  // on* event handlers (case-insensitive), e.g. onclick, onerror, onload
+  if (isHandler) {
     // A bare boolean on* on a component-like tag (`<MyComponent onClick />`) is a
     // prop set to true, not a string-valued inline handler, so keep it. A
     // string-valued on*, and any on* on a standard HTML tag, is still stripped.
-    return !(isComponent && value === '')
+    return !(tagKind !== TAG_KIND.html && value === '')
   }
-  var lower = name.toLowerCase()
   if (lower === 'srcdoc') {
     return true
   }
@@ -351,16 +484,32 @@ function isDangerousAttr(
   }
   if (URL_BEARING_ATTRS[lower] === 1) {
     var decoded = decodeNumericEntities(util.decodeEntityReferences(value))
-    if (util.sanitizer(decoded) === null) {
+    if (isUnsafeUrl(decoded, quiet)) {
       return true
     }
     // Browsers ignore ASCII tab/newline/CR (and other C0 controls) when
     // resolving a URL scheme, so java&#9;script: becomes javascript:. Strip
     // those and recheck; the raw value is otherwise left untouched.
     var normalized = decoded.replace(CONTROL_CHARS_R, '')
-    return normalized !== decoded && util.sanitizer(normalized) === null
+    return normalized !== decoded && isUnsafeUrl(normalized, quiet)
   }
   return false
+}
+
+/** Whether an attributeName value names a URL or on* attribute, as a JSX output resolves it: `{href}` reaches it as `href`. */
+function animatesDangerousAttr(value: string): boolean {
+  var target = decodeNumericEntities(util.decodeEntityReferences(value))
+    .replace(BRACE_NAME_WRAPPER_R, '')
+    .trim()
+    .toLowerCase()
+  target = target.slice(target.lastIndexOf(':') + 1)
+  return URL_BEARING_ATTRS[target] === 1 || target.slice(0, 2) === 'on'
+}
+
+function isUnsafeUrl(url: string, quiet: boolean | undefined): boolean {
+  return quiet
+    ? util.urlVerdict(url) !== util.URL_VERDICT.safe
+    : util.sanitizer(url) === null
 }
 
 /**
@@ -423,11 +572,257 @@ function buildSafeRawAttrs(
   return parts.join(' ')
 }
 
-// Parse an HTML tag at position
+/**
+ * Longest read of a tag hidden in a quoted value, and longest read past a
+ * parsed tag's own end. A read that gets there counts as dangerous, which keeps
+ * the screen linear.
+ */
+var HIDDEN_TAG_READ_LIMIT = 1024
+
+/**
+ * A character inside a brace value that a browser reads differently: it ends an
+ * unquoted value at whitespace or `>`, and a quote after whitespace opens a
+ * value of its own
+ */
+function isBraceReadStop(c: number): boolean {
+  return (
+    util.isASCIIWhitespace(c) ||
+    c === $.CHAR_GT ||
+    c === $.CHAR_DOUBLE_QUOTE ||
+    c === $.CHAR_SINGLE_QUOTE
+  )
+}
+
+export function isASCIILetter(c: number): boolean {
+  return (c | 0x20) >= $.CHAR_a && (c | 0x20) <= $.CHAR_z
+}
+
+/**
+ * Whether the last browserTagEnd span must be neutralized: it holds an
+ * attribute isDangerousAttr rejects, it hides a tag with one, or it is still
+ * open at the end of the string, where it would read on into whatever markup
+ * is emitted next
+ */
+var _browserTagUnsafe = false
+
+/**
+ * End of the tag at `lt` (a `<` then an ASCII letter; pass the `/` of an end
+ * tag as `lt`) as a browser's tokenizer reads it: just past the first `>`
+ * outside a quoted value, or the end of the string. Every attribute counts,
+ * including names a tag parser rejects (`<img` inside `<div\n<img onerror=x>`
+ * is an attribute of the div) and pieces of a brace value. `ownAttrs` is the
+ * parsed attributes of a component-like tag, and null otherwise: a piece keeps
+ * the exemption for a `{`-leading value only when it starts the parsed value of
+ * the same name. Sets `_browserTagUnsafe`.
+ *
+ * Every `<` then letter in a quoted value is read the same way, past the
+ * value's close: the string can land in a tokenizer state that ends the value
+ * early (an earlier piece's open comment, `<noscript>`). `hiddenEnd` marks such
+ * a read and stops it there. It has no attributes of its own and enumerates
+ * nothing itself, since the outer read reaches every `<` in its values.
+ */
+export function browserTagEnd(
+  html: string,
+  lt: number,
+  ownAttrs: Record<string, string> | null,
+  hiddenEnd?: number
+): number {
+  var len = hiddenEnd === undefined ? html.length : hiddenEnd
+  var i = lt + 2
+  var hiddenReadEnd = 0
+  _browserTagUnsafe = false
+  while (i < len) {
+    var c = html.charCodeAt(i)
+    if (util.isASCIIWhitespace(c) || c === $.CHAR_SLASH || c === $.CHAR_GT) {
+      break
+    }
+    i++
+  }
+  var tagNameEnd = i
+  while (i < len) {
+    c = html.charCodeAt(i)
+    if (c === $.CHAR_GT) {
+      // Past this tag a hidden read's closing quote is text, which an output can
+      // write as `&quot;`, so a browser's read goes on to a quote in a later block
+      _browserTagUnsafe = _browserTagUnsafe || hiddenReadEnd > i + 1
+      return i + 1
+    }
+    if (util.isASCIIWhitespace(c) || c === $.CHAR_SLASH) {
+      i++
+      continue
+    }
+    // A name runs to whitespace, `/`, `>`, or `=`; a leading `=` belongs to it
+    var nameStart = i
+    i++
+    while (i < len) {
+      c = html.charCodeAt(i)
+      if (
+        util.isASCIIWhitespace(c) ||
+        c === $.CHAR_SLASH ||
+        c === $.CHAR_GT ||
+        c === $.CHAR_EQ
+      ) {
+        break
+      }
+      i++
+    }
+    var name = html.slice(nameStart, i)
+    while (i < len && util.isASCIIWhitespace(html.charCodeAt(i))) {
+      i++
+    }
+    var value = ''
+    var quotedStart = -1
+    if (i < len && html.charCodeAt(i) === $.CHAR_EQ) {
+      i++
+      while (i < len && util.isASCIIWhitespace(html.charCodeAt(i))) {
+        i++
+      }
+      var quote = html.charCodeAt(i)
+      if (quote === $.CHAR_DOUBLE_QUOTE || quote === $.CHAR_SINGLE_QUOTE) {
+        quotedStart = ++i
+        while (i < len && html.charCodeAt(i) !== quote) {
+          i++
+        }
+        value = html.slice(quotedStart, i)
+        i++
+      } else {
+        var valueStart = i
+        while (i < len) {
+          c = html.charCodeAt(i)
+          if (util.isASCIIWhitespace(c) || c === $.CHAR_GT) {
+            break
+          }
+          i++
+        }
+        value = html.slice(valueStart, i)
+      }
+    }
+    if (!_browserTagUnsafe) {
+      var ownValue =
+        ownAttrs === null ? undefined : util.overrideValue(ownAttrs, name)
+      // A piece that starts an own value keeps the exemptions of a component-like
+      // tag; only a registered one's cover a handler
+      _browserTagUnsafe = isDangerousAttr(
+        name,
+        value,
+        ownValue?.startsWith(value)
+          ? isRegisteredTag(html.slice(lt + 1, tagNameEnd))
+            ? TAG_KIND.registeredComponent
+            : TAG_KIND.component
+          : TAG_KIND.html,
+        true
+      )
+    }
+    if (hiddenEnd === undefined && quotedStart !== -1) {
+      var hidden = value.indexOf('<')
+      while (hidden !== -1 && !_browserTagUnsafe) {
+        if (isASCIILetter(value.charCodeAt(hidden + 1))) {
+          var hiddenLt = quotedStart + hidden
+          hiddenReadEnd = Math.max(
+            hiddenReadEnd,
+            browserTagEnd(
+              html,
+              hiddenLt,
+              null,
+              Math.min(len, hiddenLt + HIDDEN_TAG_READ_LIMIT)
+            )
+          )
+        }
+        hidden = value.indexOf('<', hidden + 1)
+      }
+    }
+  }
+  // Out of string is a tag open at the end, for a hidden read too: its open
+  // quote carries a browser's read into the next emitted block
+  _browserTagUnsafe = true
+  return len
+}
+
+/**
+ * The spans of a parsed tag's attributes a browser can read differently are
+ * dropped from its raw attributes when its read of the tag is unsafe. The
+ * parsed `attrs` keep them: the JSX outputs escape a value as a whole.
+ */
+function withBrowserReadSpans(
+  source: string,
+  pos: number,
+  end: number,
+  ownAttrs: Record<string, string> | null,
+  dangerSpans: number[] | null,
+  readSpans: number[]
+): number[] | null {
+  // The opener is walked already; past it, a value a brace value's split opened
+  // can run on, and capping that is what keeps a run of such tags linear
+  var capped = source.slice(0, end + HIDDEN_TAG_READ_LIMIT)
+  // What goes from a component-like tag is gone for a browser too. Blanks keep
+  // every position, and a tag's own span keeps a run of such tags linear
+  if (dangerSpans !== null && ownAttrs !== null) {
+    var blanked = capped.slice(pos, dangerSpans[0])
+    for (var d = 0; d < dangerSpans.length; d += 2) {
+      blanked +=
+        ' '.repeat(dangerSpans[d + 1] - dangerSpans[d]) +
+        capped.slice(
+          dangerSpans[d + 1],
+          d + 2 < dangerSpans.length ? dangerSpans[d + 2] : capped.length
+        )
+    }
+    capped = blanked
+    end -= pos
+    pos = 0
+  }
+  var readEnd = browserTagEnd(
+    capped,
+    capped.charCodeAt(pos + 1) === $.CHAR_SLASH ? pos + 1 : pos,
+    ownAttrs
+  )
+  // A `>` in a brace value ends the tag early, so the rest of the value is markup
+  while (!_browserTagUnsafe && readEnd < end) {
+    var next = capped.indexOf('<', readEnd)
+    if (next === -1 || next >= end) {
+      break
+    }
+    var isEndTag = capped.charCodeAt(next + 1) === $.CHAR_SLASH
+    readEnd = isASCIILetter(capped.charCodeAt(next + (isEndTag ? 2 : 1)))
+      ? browserTagEnd(capped, isEndTag ? next + 1 : next, null)
+      : next + 1
+  }
+  if (!_browserTagUnsafe) {
+    return dangerSpans
+  }
+  if (dangerSpans === null) {
+    return readSpans
+  }
+  var merged: number[] = []
+  var a = 0
+  var b = 0
+  while (a < dangerSpans.length || b < readSpans.length) {
+    if (b >= readSpans.length || dangerSpans[a] < readSpans[b]) {
+      merged.push(dangerSpans[a], dangerSpans[a + 1])
+      a += 2
+    } else {
+      merged.push(readSpans[b], readSpans[b + 1])
+      b += 2
+    }
+  }
+  return merged
+}
+
+// Parse an HTML tag at position. `quiet` skips the DEV warnings for stripped
+// attributes, and `forRawScreen` leaves a browser's differing read to the caller.
 function __parseHtmlTag(
   source: string,
-  pos: number
+  pos: number,
+  quiet?: boolean,
+  forRawScreen?: boolean
 ): {
+  /**
+   * True when a browser can read this tag differently from ours: a JSX
+   * brace-expression value holds whitespace, a quote, or `>` (a browser splits
+   * it into attributes or ends the tag inside it), or a quoted value holds a
+   * `<` then a letter (a tokenizer state the string lands in can end the value
+   * early and read that tag).
+   */
+  _browserReadDiffers: boolean
   _hasSpaceBeforeSlash: boolean
   /** PascalCase JSX component or hyphenated custom element. */
   _isComponentTag: boolean
@@ -485,9 +880,15 @@ function __parseHtmlTag(
   // element) take brace-expression attributes as renderer-resolved props;
   // standard HTML tags do not, so brace on*/URL values on them stay screened.
   const tagFirstChar = tag.charCodeAt(0)
-  const isComponentTag =
-    (tagFirstChar >= $.CHAR_A && tagFirstChar <= $.CHAR_Z) ||
-    tag.indexOf('-') !== -1
+  const isCapitalized = tagFirstChar >= $.CHAR_A && tagFirstChar <= $.CHAR_Z
+  const isComponentTag = isCapitalized || tag.indexOf('-') !== -1
+  const tagKind: TagKind = isComponentTag
+    ? isRegisteredTag(tag)
+      ? TAG_KIND.registeredComponent
+      : isCapitalized
+        ? TAG_KIND.component
+        : TAG_KIND.customElement
+    : TAG_KIND.html
 
   const wsStart = i
   while (
@@ -514,15 +915,29 @@ function __parseHtmlTag(
    * Stays null on the common safe path so rawAttrs uses the fast raw slice.
    */
   var dangerSpans: number[] | null = null
+  /** Source spans of attributes a browser can read differently; null on the common path. */
+  var readSpans: number[] | null = null
+  var valueReadsDifferently = false
 
   while (i < len) {
     const c = source.charCodeAt(i)
     if (c === $.CHAR_GT) {
       // >
+      if (readSpans !== null && !forRawScreen) {
+        dangerSpans = withBrowserReadSpans(
+          source,
+          pos,
+          i + 1,
+          isComponentTag ? attrs : null,
+          dangerSpans,
+          readSpans
+        )
+      }
       const rawAttrs = dangerSpans
         ? buildSafeRawAttrs(source, attrStartPos, i, dangerSpans)
         : source.slice(attrStartPos, i)
       return {
+        _browserReadDiffers: readSpans !== null,
         _hasSpaceBeforeSlash: hasSpaceBeforeSlash,
         _isComponentTag: isComponentTag,
         _isClosing: isClosing,
@@ -547,10 +962,21 @@ function __parseHtmlTag(
       // />
       hasSpaceBeforeSlash =
         i > attrStartPos && source.charCodeAt(i - 1) === $.CHAR_SPACE
+      if (readSpans !== null && !forRawScreen) {
+        dangerSpans = withBrowserReadSpans(
+          source,
+          pos,
+          i + 2,
+          isComponentTag ? attrs : null,
+          dangerSpans,
+          readSpans
+        )
+      }
       const rawAttrs = dangerSpans
         ? buildSafeRawAttrs(source, attrStartPos, i, dangerSpans)
         : source.slice(attrStartPos, i)
       return {
+        _browserReadDiffers: readSpans !== null,
         _hasSpaceBeforeSlash: hasSpaceBeforeSlash,
         _isComponentTag: isComponentTag,
         _isClosing: isClosing,
@@ -629,7 +1055,14 @@ function __parseHtmlTag(
         i++
         var valueStart = i
         // Newlines are allowed in quoted attribute values per CommonMark
-        while (i < len && source.charCodeAt(i) !== quote) {
+        while (i < len) {
+          var qc = source.charCodeAt(i)
+          if (qc === quote) {
+            break
+          }
+          if (qc === $.CHAR_LT && isASCIILetter(source.charCodeAt(i + 1))) {
+            valueReadsDifferently = true
+          }
           i++
         }
         if (i >= len) {
@@ -662,6 +1095,8 @@ function __parseHtmlTag(
             depth++
           } else if (ac === $.CHAR_BRACE_CLOSE) {
             depth--
+          } else if (isBraceReadStop(ac)) {
+            valueReadsDifferently = true
           }
           i++
         }
@@ -699,15 +1134,30 @@ function __parseHtmlTag(
       attrEnd = attrNameEnd
     }
 
-    if (isDangerousAttr(attrName, attrValue, isComponentTag)) {
+    if (isDangerousAttr(attrName, attrValue, tagKind, quiet)) {
       if (dangerSpans === null) {
         dangerSpans = []
       }
       dangerSpans.push(attrStart, attrEnd)
+      // Out of raw source, but still a prop: a `createElement` or `renderRule` can
+      // make the tag a component, and a JSX renderer writes no block statement.
+      // An override claims a lowercase tag too, and a child string is safe in any
+      if (
+        (tagKind === TAG_KIND.component &&
+          attrValue.charCodeAt(0) === $.CHAR_BRACE_OPEN &&
+          isHandlerName(attrName)) ||
+        (tagKind === TAG_KIND.html &&
+          attrName.toLowerCase() === 'children' &&
+          !BRACE_OBJECT_VALUE_R.test(attrValue) &&
+          hasOwnOverride(tag))
+      ) {
+        attrs[attrName] = attrValue
+      }
       // Style XSS is screened here so string compilers cannot re-emit it via
       // _rawAttrs; keep the same DEV warn processHtmlAttributes used to emit.
       if (
         process.env.NODE_ENV !== 'production' &&
+        !quiet &&
         attrName.toLowerCase() === 'style'
       ) {
         console.warn(
@@ -717,21 +1167,70 @@ function __parseHtmlTag(
       }
     } else {
       attrs[attrName] = attrValue
+      if (valueReadsDifferently) {
+        if (readSpans === null) {
+          readSpans = []
+        }
+        readSpans.push(attrStart, attrEnd)
+      }
     }
+    valueReadsDifferently = false
   }
 
   return null
 }
 
+var LT_R = /</g
+
 /**
  * Strip dangerous attributes from every tag in a raw HTML string, reusing
  * __parseHTMLTag as the single tag scanner so nested tags are covered too.
- * Returns the input unchanged (same reference) when nothing is stripped, so
- * safe content stays byte-identical and allocation-free. Guards the raw-HTML
- * output paths (html string compiler, solid/vue innerHTML) that emit raw
- * source verbatim and so bypass the sanitized attrs map.
+ * Tag boundaries follow a browser's reading wherever the parser's could differ
+ * (a rejected tag, a brace value, a quoted value holding a tag), and a tag still
+ * open at the end of the string is escaped. Returns the input unchanged (same
+ * reference) when nothing is stripped, so safe content stays byte-identical and
+ * allocation-free. Guards the raw-HTML output paths (html string compiler,
+ * solid/vue innerHTML) that emit raw source verbatim and so bypass the sanitized
+ * attrs map. `quiet` as in __parseHtmlTag.
  */
-function stripDangerousHtml(html: string): string {
+export function stripDangerousHtml(html: string, quiet?: boolean): string {
+  var once = screenRawTags(html, quiet)
+  if (once === html) {
+    return html
+  }
+  // A removed attribute takes its quotes with it, which re-pairs a quote left
+  // open earlier in the string, so a rewrite is not settled until it reads the
+  // same. A string that a second read changes too keeps no tag, which keeps
+  // this to two passes
+  return screenRawTags(once, true) === once ? once : once.replace(LT_R, '&lt;')
+}
+
+/**
+ * Index past a tag with no attributes at `lt`, or -1. `<p>` and `</p>` make up most
+ * tags, hold nothing to screen, and read the same to a browser, so they skip the
+ * full tag parse.
+ */
+function bareTagEnd(html: string, lt: number): number {
+  var i = lt + 1
+  if (html.charCodeAt(i) === $.CHAR_SLASH) {
+    i++
+  }
+  if (!isASCIILetter(html.charCodeAt(i))) {
+    return -1
+  }
+  var code = html.charCodeAt(++i)
+  while (
+    isASCIILetter(code) ||
+    (code >= $.CHAR_DIGIT_0 && code <= $.CHAR_DIGIT_9) ||
+    code === $.CHAR_DASH
+  ) {
+    code = html.charCodeAt(++i)
+  }
+  return code === $.CHAR_GT ? i + 1 : -1
+}
+
+/** One read of a raw string for stripDangerousHtml; the same reference when nothing changes. */
+function screenRawTags(html: string, quiet: boolean | undefined): string {
   var lt = html.indexOf('<')
   if (lt === -1) {
     return html
@@ -740,15 +1239,54 @@ function stripDangerousHtml(html: string): string {
   var cursor = 0
   var changed = false
   while (lt !== -1) {
-    var tagResult = __parseHtmlTag(html, lt)
-    if (tagResult) {
+    var bareEnd = bareTagEnd(html, lt)
+    if (bareEnd !== -1) {
+      lt = html.indexOf('<', bareEnd)
+      continue
+    }
+    var tagResult = __parseHtmlTag(html, lt, quiet, true)
+    if (
+      tagResult?._sanitized &&
+      tagResult._browserReadDiffers &&
+      tagResult._isComponentTag
+    ) {
+      // What goes from a component-like tag goes whatever a browser reads, and
+      // what a browser reads of the rest decides the rest
+      out +=
+        html.slice(cursor, lt) +
+        screenRawTags(reconstructOpenTag(tagResult), quiet)
+      cursor = tagResult.end
+      changed = true
+      lt = html.indexOf('<', tagResult.end)
+    } else if (tagResult && !tagResult._browserReadDiffers) {
       if (tagResult._sanitized) {
         out += html.slice(cursor, lt) + reconstructOpenTag(tagResult)
         cursor = tagResult.end
         changed = true
       }
       lt = html.indexOf('<', tagResult.end)
+    } else if (tagResult || isASCIILetter(html.charCodeAt(lt + 1))) {
+      // A tag to a browser that the parser rejects, or one a browser can read
+      // differently: the browser's reading decides. Every `<` before its end is
+      // inside the tag, so escaping each of them leaves the whole span as text;
+      // the scan resumes at the browser's end, so tags inside a brace value are
+      // screened as tags
+      var tagEnd = browserTagEnd(
+        html,
+        tagResult?._isClosing ? lt + 1 : lt,
+        tagResult?._isComponentTag ? tagResult.attrs : null
+      )
+      if (_browserTagUnsafe) {
+        out +=
+          html.slice(cursor, lt) + html.slice(lt, tagEnd).replace(LT_R, '&lt;')
+        cursor = tagEnd
+        changed = true
+      }
+      lt = html.indexOf('<', tagEnd)
     } else {
+      // A comment, processing instruction, declaration, CDATA section, or a
+      // plain `<`: the string can land in any tokenizer state, so what follows
+      // is read as usual
       lt = html.indexOf('<', lt + 1)
     }
   }
@@ -999,7 +1537,7 @@ function parseRefDef(
     return null
   }
 
-  const rawLabel = s.slice(p + 1, i - 1)
+  const rawLabel = dropLazyMarkers(s.slice(p + 1, i - 1))
   // Label must not exceed 999 chars per CommonMark spec
   if (rawLabel.length > 999) {
     return null
@@ -1023,6 +1561,8 @@ function parseRefDef(
       i++
     } else if (c === $.CHAR_NEWLINE && !hasNewline) {
       hasNewline = true
+      i++
+    } else if (c === $.CHAR_RECORD_SEP && hasNewline) {
       i++
     } else {
       break
@@ -1049,7 +1589,12 @@ function parseRefDef(
       s.charCodeAt(i) !== $.CHAR_GT &&
       s.charCodeAt(i) !== $.CHAR_NEWLINE
     ) {
-      if (s.charCodeAt(i) === $.CHAR_BACKSLASH && i + 1 < len) {
+      // A line break ends the destination even after a backslash
+      if (
+        s.charCodeAt(i) === $.CHAR_BACKSLASH &&
+        i + 1 < len &&
+        s.charCodeAt(i + 1) !== $.CHAR_NEWLINE
+      ) {
         i++ // escape
       }
       i++
@@ -1102,7 +1647,15 @@ function parseRefDef(
       ) {
         break
       } else if (c === $.CHAR_BACKSLASH && i + 1 < len) {
-        i++ // escape
+        var escaped = s.charCodeAt(i + 1)
+        // Whitespace ends the destination even after a backslash
+        if (
+          escaped !== $.CHAR_SPACE &&
+          escaped !== $.CHAR_TAB &&
+          escaped !== $.CHAR_NEWLINE
+        ) {
+          i++ // escape
+        }
       }
       i++
     }
@@ -1169,7 +1722,7 @@ function parseRefDef(
             afterTitle >= len ||
             s.charCodeAt(afterTitle) === $.CHAR_NEWLINE
           ) {
-            title = s.slice(titleStart, ti)
+            title = dropLazyMarkers(s.slice(titleStart, ti))
             titleParsed = true
             titleEnd = afterTitle < len ? afterTitle + 1 : len
           }
@@ -1347,6 +1900,14 @@ var _leCacheS: string | null = null
 var _leCacheP = -1
 var _leCacheE = -1
 
+// The last findNextBlankLine answer: no line start in [_blankFrom, _blankEnd) is
+// blank. A component body scans a nested block per line, and without this each one
+// walks to the end of the body. parseBlocks keeps a nested parse from replacing the
+// entry its parent is still using, and clears it as the outermost parse returns.
+var _blankS: string | null = null
+var _blankFrom = -1
+var _blankEnd = -1
+
 /** Find end of current line (position of \n or end of string) */
 function lineEnd(s: string, p: number): number {
   if (p >= _leCacheP && p <= _leCacheE && s === _leCacheS) {
@@ -1383,14 +1944,16 @@ function findNextBlankLine(s: string, p: number): number {
   // CommonMark Type 7 blocks continue until a truly blank line is reached.
   // We start searching AFTER the current line.
   let i = nextLine(s, p)
-  while (i < s.length) {
-    const e = lineEnd(s, i)
-    if (isBlank(s, i, e)) {
-      return i
-    }
+  if (i >= _blankFrom && i <= _blankEnd && s === _blankS) {
+    return _blankEnd
+  }
+  _blankS = s
+  _blankFrom = i
+  while (i < s.length && !isBlank(s, i, lineEnd(s, i))) {
     i = nextLine(s, i)
   }
-  return s.length
+  _blankEnd = i < s.length ? i : s.length
+  return _blankEnd
 }
 
 /** Skip all whitespace including newlines */
@@ -1640,7 +2203,7 @@ var _fenceNeedleStr = ''
 function scanFenced(
   s: string,
   p: number,
-  _state: MarkdownToJSX.State
+  state: MarkdownToJSX.State
 ): ScanResult {
   const e = lineEnd(s, p)
   indent(s, p, e)
@@ -1706,10 +2269,14 @@ function scanFenced(
     FENCE_ATTR_R.lastIndex = 0
     var match: RegExpExecArray | null
     while ((match = FENCE_ATTR_R.exec(attrsStr)) != null) {
+      var fenceAttrValue = match[2] === undefined ? match[3] : match[2]
+      if (isDangerousAttr(match[1], fenceAttrValue, TAG_KIND.html)) {
+        continue
+      }
       if (!attrs) {
         attrs = {}
       }
-      attrs[match[1]] = match[2] === undefined ? match[3] : match[2]
+      attrs[match[1]] = fenceAttrValue
     }
   }
 
@@ -1797,6 +2364,11 @@ function scanFenced(
     ) {
       content = content.slice(0, -1)
     }
+  }
+
+  // A fence takes a lazy line in as code, so its marker is not content
+  if (state.inList) {
+    content = dropLazyMarkers(content)
   }
 
   return {
@@ -3071,68 +3643,31 @@ function processHtmlAttributes(
 /**
  * Case-insensitive indexOf without allocating new string.
  *
- * Fast path: when the search string starts with a non-letter ASCII char
- * (the only callers here all start with '<'), use native indexOf to SIMD-skip
- * past non-matching positions, then verify the rest CI. This is typically
- * 4-16x faster than a manual scan because '<' is rare in typical markdown.
+ * `search` starts with a non-letter (every caller's starts with '<'), so native
+ * indexOf SIMD-skips past non-matching positions and the rest is verified CI.
+ * This is typically 4-16x faster than a manual scan because '<' is rare in
+ * typical markdown.
  */
-function indexOfCi(str: string, search: string, from: number): number {
+export function indexOfCi(
+  str: string,
+  search: string,
+  from: number,
+  end: number
+): number {
   const searchLen = search.length
-  if (searchLen === 0) {
-    return from
-  }
-  var fc = search.charCodeAt(0)
-  // Fast path: first char is a non-letter (e.g. '<') — native indexOf is SIMD
-  var fcIsLetter =
-    (fc >= $.CHAR_A && fc <= $.CHAR_Z) || (fc >= $.CHAR_a && fc <= $.CHAR_z)
-  if (!fcIsLetter) {
-    var searchCh = String.fromCharCode(fc)
-    var strEnd = str.length - searchLen
-    var j = from
-    while (j <= strEnd) {
-      var found = str.indexOf(searchCh, j)
-      if (found === -1 || found > strEnd) {
-        return -1
-      }
-      // Verify tail case-insensitively
-      var match = true
-      for (var k = 1; k < searchLen; k++) {
-        var c1 = str.charCodeAt(found + k)
-        var c2 = search.charCodeAt(k)
-        if (c1 >= $.CHAR_A && c1 <= $.CHAR_Z) {
-          c1 += $.CHAR_CASE_OFFSET
-        }
-        if (c2 >= $.CHAR_A && c2 <= $.CHAR_Z) {
-          c2 += $.CHAR_CASE_OFFSET
-        }
-        if (c1 !== c2) {
-          match = false
-          break
-        }
-      }
-      if (match) {
-        return found
-      }
-      j = found + 1
+  var searchCh = search.charAt(0)
+  var strEnd = end - searchLen
+  var j = from
+  while (j <= strEnd) {
+    var found = str.indexOf(searchCh, j)
+    if (found === -1 || found > strEnd) {
+      return -1
     }
-    return -1
-  }
-  // Slow path: first char is a letter — fall back to manual CI scan
-  if (fc >= $.CHAR_A && fc <= $.CHAR_Z) {
-    fc += $.CHAR_CASE_OFFSET
-  }
-  for (let j = from; j <= str.length - searchLen; j++) {
-    var c0 = str.charCodeAt(j)
-    if (c0 >= $.CHAR_A && c0 <= $.CHAR_Z) {
-      c0 += $.CHAR_CASE_OFFSET
-    }
-    if (c0 !== fc) {
-      continue
-    }
-    let match = true
-    for (let k = 1; k < searchLen; k++) {
-      let c1 = str.charCodeAt(j + k)
-      let c2 = search.charCodeAt(k)
+    // Verify tail case-insensitively
+    var match = true
+    for (var k = 1; k < searchLen; k++) {
+      var c1 = str.charCodeAt(found + k)
+      var c2 = search.charCodeAt(k)
       if (c1 >= $.CHAR_A && c1 <= $.CHAR_Z) {
         c1 += $.CHAR_CASE_OFFSET
       }
@@ -3145,65 +3680,189 @@ function indexOfCi(str: string, search: string, from: number): number {
       }
     }
     if (match) {
-      return j
+      return found
     }
+    j = found + 1
   }
   return -1
 }
 
-/** Case-insensitive lastIndexOf without allocating new string */
-function lastIndexOfCi(str: string, search: string, from: number): number {
-  const searchLen = search.length
-  var fc = search.charCodeAt(0)
-  if (fc >= $.CHAR_A && fc <= $.CHAR_Z) {
-    fc += $.CHAR_CASE_OFFSET
-  }
-  for (let j = Math.min(from, str.length - searchLen); j >= 0; j--) {
-    var c0 = str.charCodeAt(j)
-    if (c0 >= $.CHAR_A && c0 <= $.CHAR_Z) {
-      c0 += $.CHAR_CASE_OFFSET
+/**
+ * Whether `text` holds `lower` at `at`, folding ASCII letters only: a wider fold
+ * reads U+017F as `s` and U+212A as `k`, which no raw HTML tokenizer does.
+ */
+export function matchesFolded(
+  text: string,
+  at: number,
+  lower: string
+): boolean {
+  for (var i = 0; i < lower.length; i++) {
+    var code = text.charCodeAt(at + i)
+    if (code >= $.CHAR_A && code <= $.CHAR_Z) {
+      code += $.CHAR_CASE_OFFSET
     }
-    if (c0 !== fc) {
-      continue
-    }
-    let match = true
-    for (let k = 1; k < searchLen; k++) {
-      let c1 = str.charCodeAt(j + k)
-      let c2 = search.charCodeAt(k)
-      if (c1 >= $.CHAR_A && c1 <= $.CHAR_Z) {
-        c1 += $.CHAR_CASE_OFFSET
-      }
-      if (c2 >= $.CHAR_A && c2 <= $.CHAR_Z) {
-        c2 += $.CHAR_CASE_OFFSET
-      }
-      if (c1 !== c2) {
-        match = false
-        break
-      }
-    }
-    if (match) {
-      return j
+    if (code !== lower.charCodeAt(i)) {
+      return false
     }
   }
-  return -1
+  return true
 }
-/** Find matching closing tag (case-insensitive without allocation) */
-var _closeTagStart = -1 // start of closing tag (e.g. position of <)
-function findClosingTag(s: string, start: number, tagName: string): number {
+
+/**
+ * Last index at or before `from` where the lowercase `search`, which starts with
+ * a non-letter, occurs in `str` with ASCII case folded, or -1. Native lastIndexOf
+ * finds each candidate, as it is far faster than a per-character walk when the
+ * first character is rare.
+ */
+export function lastIndexOfCi(
+  str: string,
+  search: string,
+  from: number
+): number {
+  var first = search.charAt(0)
+  var last = Math.min(from, str.length - search.length)
+  var at = last < 0 ? -1 : str.lastIndexOf(first, last)
+  while (at !== -1 && !matchesFolded(str, at, search)) {
+    // A negative fromIndex clamps to 0, which would find index 0 again
+    at = at === 0 ? -1 : str.lastIndexOf(first, at - 1)
+  }
+  return at
+}
+/** One tag's findClosingTag verdicts; an end of -1 means none recorded */
+interface TagMemo {
+  /** The bound the failStarts verdicts hold under */
+  failEnd: number
+  /** Ascending, so a scan drops the verdicts past its start by truncating the list */
+  failStarts: number[]
+  /** The bound the noCloseFrom verdict holds under */
+  noCloseEnd: number
+  /** Position from which no `</tag` exists before noCloseEnd */
+  noCloseFrom: number
+}
+
+/**
+ * findClosingTag memo for the string being parsed, so a run of unpaired openers
+ * of one tag does not rescan to the bound once per opener. Cleared when the
+ * owning parse ends, so a finished document is not kept alive.
+ */
+var _closeMemoS: string | null = null
+var _closeMemo: Record<string, TagMemo | undefined> = Object.create(null)
+
+/**
+ * Last `</name` per lowercased name in `_closeMemoS`, or null until failed searches
+ * have read as much as the table costs to build. The memo above is per name, so a
+ * run of openers under new names would rescan once per name; with this they cost
+ * two passes in all, and a document with few failed searches builds nothing.
+ */
+var _lastCloser: Record<string, number | undefined> | null = null
+/** Characters failed searches of `_closeMemoS` have read */
+var _failedSearchLength = 0
+
+function resetCloseTagMemo(): void {
+  _closeMemoS = null
+  _closeMemo = Object.create(null)
+  _lastCloser = null
+  _failedSearchLength = 0
+}
+
+/** Whether a code after `</tag` ends the closer's name, rather than continuing it as a longer name */
+function isCloserTail(code: number): boolean {
+  return (
+    code === $.CHAR_GT ||
+    code === $.CHAR_SPACE ||
+    code === $.CHAR_TAB ||
+    code === $.CHAR_NEWLINE
+  )
+}
+
+/**
+ * Builds `_lastCloser`. A tag name holds no `/`, so a walk reaching one has no name
+ * to record and resumes at the `<` that can precede it, which keeps `</a</a` linear.
+ */
+function lastCloserByName(s: string): Record<string, number | undefined> {
+  var table: Record<string, number | undefined> = Object.create(null)
+  var at = s.indexOf('</')
+  while (at !== -1) {
+    var nameEnd = at + 2
+    var code = s.charCodeAt(nameEnd)
+    while (nameEnd < s.length && code !== $.CHAR_SLASH && !isCloserTail(code)) {
+      code = s.charCodeAt(++nameEnd)
+    }
+    if (nameEnd === s.length || code !== $.CHAR_SLASH) {
+      table[s.slice(at + 2, nameEnd).toLowerCase()] = at
+    }
+    at = s.indexOf('</', nameEnd - 1)
+  }
+  return table
+}
+
+/** Start of the closer (its `<`) found by the last successful findClosingTag */
+var _closeTagStart = -1
+
+/**
+ * Find the matching closing tag (case-insensitive) after `start`; returns the
+ * index just past its `>` or -1, and sets `_closeTagStart`. With `limit` before
+ * the end of `s`, the walk stops at `limit`, so a closer past it counts as none,
+ * while what it reads of a tag or closer that crosses `limit` is the same as
+ * with no limit.
+ */
+function findClosingTag(
+  s: string,
+  start: number,
+  tagName: string,
+  limit: number
+): number {
   const tagLower = tagName.toLowerCase()
   const openTag = `<${tagLower}`
   const closeTag = `</${tagLower}`
   let depth = 1
   let i = start
-  const len = s.length
   _closeTagStart = -1
 
-  while (i < len && depth > 0) {
-    const openIdx = indexOfCi(s, openTag, i)
-    const closeIdx = indexOfCi(s, closeTag, i)
+  if (_closeMemoS === s) {
+    if (_lastCloser !== null) {
+      var lastCloserAt = _lastCloser[tagLower]
+      if (lastCloserAt === undefined || lastCloserAt < start) {
+        return -1
+      }
+    }
+    var known = _closeMemo[tagLower]
+    if (known !== undefined) {
+      if (start >= known.noCloseFrom && limit <= known.noCloseEnd) {
+        return -1
+      }
+      if (limit === known.failEnd) {
+        var fails = known.failStarts
+        var failIdx = firstAtOrAfter(fails, start)
+        if (failIdx < fails.length && fails[failIdx] === start) {
+          return -1
+        }
+      }
+    }
+  }
+
+  // Each counted tag in order, for the failure memo: an opener's end, or -1
+  // for a closer. Allocated on the first one, so a scan that finds its closer
+  // with no nested pair allocates nothing
+  var eventEnds: number[] | null = null
+  // Where the scan proved no `</tag` remains before the limit, or -1
+  var noCloseFrom = -1
+  // The next `<tag` and `</tag` each stay valid until the scan passes them;
+  // -1 (none left) stays valid for the rest of the scan
+  var openIdx = -2
+  var closeIdx = -2
+
+  while (i < limit && depth > 0) {
+    if (openIdx !== -1 && openIdx < i) {
+      openIdx = indexOfCi(s, openTag, i, limit)
+    }
+    if (closeIdx < i) {
+      closeIdx = indexOfCi(s, closeTag, i, limit)
+    }
 
     if (closeIdx === -1) {
-      return -1 // No closing tag found
+      noCloseFrom = i
+      break
     }
 
     if (openIdx !== -1 && openIdx < closeIdx) {
@@ -3218,6 +3877,10 @@ function findClosingTag(s: string, start: number, tagName: string): number {
           !util.isVoidElement(res.tag)
         ) {
           depth++
+          if (eventEnds === null) {
+            eventEnds = []
+          }
+          eventEnds.push(res.end)
         }
         i = res.end
       } else {
@@ -3226,29 +3889,176 @@ function findClosingTag(s: string, start: number, tagName: string): number {
     } else {
       // Found closing tag - verify it's the exact tag (not a prefix of a longer tag name)
       var afterClosePos = closeIdx + closeTag.length
-      var afterClose = afterClosePos < len ? s.charCodeAt(afterClosePos) : 62 // treat EOF as >
-      if (
-        afterClose === $.CHAR_GT ||
-        afterClose === $.CHAR_SPACE ||
-        afterClose === $.CHAR_TAB ||
-        afterClose === $.CHAR_NEWLINE
-      ) {
+      // The end of the string counts as a `>`
+      var afterClose =
+        afterClosePos < s.length ? s.charCodeAt(afterClosePos) : $.CHAR_GT
+      if (isCloserTail(afterClose)) {
         depth--
         if (depth === 0) {
           _closeTagStart = closeIdx
           // Find end of closing tag
           let j = closeIdx + closeTag.length
-          while (j < len && s.charCodeAt(j) !== $.CHAR_GT) {
+          while (j < s.length && s.charCodeAt(j) !== $.CHAR_GT) {
             j++
           }
           return j + 1
         }
+        if (eventEnds === null) {
+          eventEnds = []
+        }
+        eventEnds.push(-1)
       }
       i = closeIdx + 1
     }
   }
 
+  if (_closeMemoS !== s) {
+    resetCloseTagMemo()
+    _closeMemoS = s
+  }
+  _failedSearchLength += limit - start
+  if (_lastCloser === null && _failedSearchLength >= s.length) {
+    _lastCloser = lastCloserByName(s)
+  }
+  var memo = _closeMemo[tagLower]
+  if (memo === undefined) {
+    memo = _closeMemo[tagLower] = {
+      failEnd: -1,
+      failStarts: [],
+      noCloseEnd: -1,
+      noCloseFrom: -1,
+    }
+  }
+  if (noCloseFrom !== -1) {
+    memo.noCloseFrom = noCloseFrom
+    memo.noCloseEnd = limit
+  }
+
+  // This scan visited every opener from start to where it stopped (past that,
+  // the no-closer memo answers), so its verdicts replace the memo's entries
+  // past start and the list stays ascending
+  var memoFails = memo.failStarts
+  if (memo.failEnd !== limit) {
+    memoFails.length = 0
+    memo.failEnd = limit
+  }
+  memoFails.length = firstAtOrAfter(memoFails, start)
+  if (eventEnds === null) {
+    return -1
+  }
+
+  // A later search from a counted opener's end walks these same events with
+  // its depth shifted down, and fails unless a later event drops below that
+  // opener's depth; an opener that would succeed is cleared to -1. Depth
+  // changes only at an event, so it is derived walking back from the final one
+  var laterMin = depth
+  var eventDepth = depth
+  for (var ei = eventEnds.length - 1; ei >= 0; ei--) {
+    var isOpener = eventEnds[ei] !== -1
+    if (laterMin < eventDepth) {
+      eventEnds[ei] = -1
+    }
+    if (eventDepth < laterMin) {
+      laterMin = eventDepth
+    }
+    eventDepth += isOpener ? -1 : 1
+  }
+  for (ei = 0; ei < eventEnds.length; ei++) {
+    if (eventEnds[ei] !== -1) {
+      memoFails.push(eventEnds[ei])
+    }
+  }
   return -1
+}
+
+/** Index of the first value >= x in an ascending list (its length if none). */
+function firstAtOrAfter(list: number[], x: number): number {
+  var lo = 0
+  var hi = list.length
+  while (lo < hi) {
+    var mid = (lo + hi) >> 1
+    if (list[mid] < x) {
+      lo = mid + 1
+    } else {
+      hi = mid
+    }
+  }
+  return lo
+}
+
+/** The first match at or after `from` in `s` is at `at`, the string's length if none. */
+interface ForwardCursor {
+  at: number
+  from: number
+  s: string
+}
+
+/** Each lookup of a parse's blocks moves forward, so these keep the walk linear; parseBlocks saves and restores them across a nested string. */
+var _type1TagCursor: ForwardCursor | null = null
+var _type1CloserCursor: ForwardCursor | null = null
+
+/** The cursor answering `from`: the one given when it still does, otherwise a new one from a sticky test at each `prefix`. */
+function advanceCursor(
+  cursor: ForwardCursor | null,
+  s: string,
+  from: number,
+  prefix: string,
+  stickyR: RegExp
+): ForwardCursor {
+  if (
+    cursor !== null &&
+    cursor.s === s &&
+    from >= cursor.from &&
+    from <= cursor.at
+  ) {
+    return cursor
+  }
+
+  var at = s.indexOf(prefix, from)
+  while (at !== -1) {
+    stickyR.lastIndex = at
+    if (stickyR.test(s)) {
+      return { at, from, s }
+    }
+    at = s.indexOf(prefix, at + 1)
+  }
+  return { at: s.length, from, s }
+}
+
+/** Whether an opening tag ending at `from` is followed by a blank line and a tag other than `closeTag`, which rules out extending the block without a closer search. */
+function isOpenerBeforeBlankLineTag(
+  s: string,
+  from: number,
+  closeTag: string
+): boolean {
+  var newlines = 0
+  var i = from
+  var c = s.charCodeAt(i)
+  while (c === $.CHAR_NEWLINE || c === $.CHAR_SPACE || c === $.CHAR_TAB) {
+    if (c === $.CHAR_NEWLINE) {
+      newlines++
+    }
+    c = s.charCodeAt(++i)
+  }
+  if (newlines < 2 || c !== $.CHAR_LT) {
+    return false
+  }
+  if (s.slice(i, i + closeTag.length).toLowerCase() !== closeTag) {
+    return true
+  }
+  var afterClose = i + closeTag.length
+  var after = afterClose < s.length ? s.charCodeAt(afterClose) : $.CHAR_GT
+  return !isCloserTail(after)
+}
+
+/** Whether a capitalized or hyphenated tag, which scanHtmlBlock takes as a block, is at `start` */
+function isComponentShapedTag(s: string, start: number): boolean {
+  var tag = __parseHtmlTag(s, start)
+  if (tag === null) {
+    return false
+  }
+  var first = tag.tag.charCodeAt(0)
+  return (first >= $.CHAR_A && first <= $.CHAR_Z) || tag.tag.includes('-')
 }
 
 /** Scan HTML block */
@@ -3294,18 +4104,17 @@ function scanHtmlBlock(
   if (htmlBlockType >= 1 && htmlBlockType <= 5) {
     var rawEnd = s.length
     if (htmlBlockType === 1) {
-      // Search for closing tags of Type 1 elements (case-insensitive)
-      var bestPos = s.length
-      for (var ti = 0; ti < TYPE1_TAG_LIST.length; ti++) {
-        var pos = indexOfCi(s, `</${TYPE1_TAG_LIST[ti]}>`, start)
-        if (pos >= 0 && pos < bestPos) {
-          bestPos = pos
-        }
-      }
-      if (bestPos < s.length) {
-        // Find the > that closes the tag
-        var closeGt = s.indexOf('>', bestPos)
-        rawEnd = closeGt >= 0 ? nextLine(s, closeGt + 1) : s.length
+      _type1CloserCursor = advanceCursor(
+        _type1CloserCursor,
+        s,
+        start,
+        '</',
+        TYPE1_CLOSER_STICKY_R
+      )
+      var closerAt = _type1CloserCursor.at
+      if (closerAt < s.length) {
+        // The cursor matched the closer through its `>`, so one follows
+        rawEnd = nextLine(s, s.indexOf('>', closerAt) + 1)
       }
     } else {
       // Types 2-5: simple string search
@@ -3330,7 +4139,7 @@ function scanHtmlBlock(
       return {
         node: {
           type: RuleType.htmlComment,
-          text: rawText,
+          text: stripDangerousHtml(rawText),
           _endsWithGT: false,
           raw: true,
         } as MarkdownToJSX.HTMLCommentNode,
@@ -3364,7 +4173,7 @@ function scanHtmlBlock(
     var type1Children: MarkdownToJSX.ASTNode[] = []
     var type1TagNameLower = type1TagName.toLowerCase()
     var type1ClosePattern = `</${type1TagNameLower}`
-    var type1CloseIdx = indexOfCi(rawText, type1ClosePattern, 0)
+    var type1CloseIdx = indexOfCi(rawText, type1ClosePattern, 0, rawText.length)
     var type1TextContent = ''
     var type1RawOuter: string | undefined
     var type1RawBody: string | undefined
@@ -3372,7 +4181,7 @@ function scanHtmlBlock(
     if (type1TagResult?._isClosing) {
       // Closing tag: node is the orphan closer; any trailing same-line/block
       // content becomes the body.
-      type1RawClose = rawText.slice(0, type1TagResult.end - start)
+      type1RawClose = rawCloser(s, start, type1TagResult.end, type1TagName)
       var type1Trailing = rawText.slice(type1TagResult.end - start)
       while (
         type1Trailing.length > 0 &&
@@ -3479,7 +4288,7 @@ function scanHtmlBlock(
             tag: tagName67,
             attrs: {},
             children: [],
-            _rawClose: s.slice(start, tagResult67.end),
+            _rawClose: rawCloser(s, start, tagResult67.end, tagName67),
             _rawBody: afterTag67 ? stripDangerousHtml(afterTag67) : undefined,
             text: afterTag67,
             _verbatim: true,
@@ -3523,9 +4332,26 @@ function scanHtmlBlock(
         var searchStart67 = tagResult67.end - start
         var depth67 = 1
         var ci67 = searchStart67
+        // As in findClosingTag, each index stays valid until the scan passes it
+        var openIdx67 = -2
+        var cIdx67 = -2
         while (ci67 < blockContent67.length && depth67 > 0) {
-          var openIdx67 = indexOfCi(blockContent67, `<${tagNameLower67}`, ci67)
-          var cIdx67 = indexOfCi(blockContent67, closeTag67, ci67)
+          if (openIdx67 !== -1 && openIdx67 < ci67) {
+            openIdx67 = indexOfCi(
+              blockContent67,
+              `<${tagNameLower67}`,
+              ci67,
+              blockContent67.length
+            )
+          }
+          if (cIdx67 < ci67) {
+            cIdx67 = indexOfCi(
+              blockContent67,
+              closeTag67,
+              ci67,
+              blockContent67.length
+            )
+          }
 
           if (cIdx67 === -1) {
             break // no closing tag in block
@@ -3551,13 +4377,7 @@ function scanHtmlBlock(
             // Check closing tag is exact match
             var afterClose67 = cIdx67 + closeTag67.length
             if (afterClose67 < blockContent67.length) {
-              var ac67c = blockContent67.charCodeAt(afterClose67)
-              if (
-                ac67c === $.CHAR_GT ||
-                ac67c === $.CHAR_SPACE ||
-                ac67c === $.CHAR_TAB ||
-                ac67c === $.CHAR_NEWLINE
-              ) {
+              if (isCloserTail(blockContent67.charCodeAt(afterClose67))) {
                 depth67--
                 if (depth67 === 0) {
                   closeIdx67 = cIdx67
@@ -3601,61 +4421,27 @@ function scanHtmlBlock(
         if (
           closeIdx67 === -1 &&
           !tagResult67._isClosing &&
-          (htmlBlockType === 6 || tagResult67._isComponentTag)
+          (htmlBlockType === 6 || tagResult67._isComponentTag) &&
+          !isOpenerBeforeBlankLineTag(s, tagResult67.end, closeTag67)
         ) {
-          var extCloseEnd = findClosingTag(s, tagResult67.end, tagNameLower67)
+          // The Type 1 rule is settled by the limit: a closer past the next
+          // Type 1 tag rules out extension whether it exists or not
+          _type1TagCursor = advanceCursor(
+            _type1TagCursor,
+            s,
+            tagResult67.end,
+            '<',
+            TYPE1_STICKY_R
+          )
+          var extCloseEnd = findClosingTag(
+            s,
+            tagResult67.end,
+            tagNameLower67,
+            _type1TagCursor.at
+          )
           if (extCloseEnd !== -1) {
             var extEnd67 = _closeTagStart
-            var extStart67 = tagResult67.end
-            // Single forward scan: detect blank line presence, fragment pattern,
-            // and Type 1 raw-content tags in one pass over [extStart67, extEnd67).
-            var hasBlank67 = false
-            var hasType167 = false
-            var shouldFragment67 = false
-            var prefixNl67 = 0
-            var prefixDone67 = false
-            var prevNl67 = false
-            var p67 = extStart67
-            while (p67 < extEnd67) {
-              var c67 = s.charCodeAt(p67)
-              if (c67 === $.CHAR_NEWLINE) {
-                if (prevNl67) {
-                  hasBlank67 = true
-                }
-                if (!prefixDone67) {
-                  prefixNl67++
-                }
-                prevNl67 = true
-                p67++
-              } else if (c67 === $.CHAR_SPACE || c67 === $.CHAR_TAB) {
-                p67++
-              } else {
-                if (!prefixDone67) {
-                  prefixDone67 = true
-                  if (prefixNl67 >= 2 && c67 === $.CHAR_LT) {
-                    shouldFragment67 = true
-                    break
-                  }
-                }
-                prevNl67 = false
-                if (c67 === $.CHAR_LT) {
-                  var nameC67 = s.charCodeAt(p67 + 1) | 0x20
-                  if (
-                    nameC67 === $.CHAR_p ||
-                    nameC67 === $.CHAR_s ||
-                    nameC67 === $.CHAR_t
-                  ) {
-                    TYPE1_STICKY_R.lastIndex = p67
-                    if (TYPE1_STICKY_R.test(s)) {
-                      hasType167 = true
-                      break
-                    }
-                  }
-                }
-                p67++
-              }
-            }
-            if (hasBlank67 && !shouldFragment67 && !hasType167) {
+            if (extEnd67 > findNextBlankLine(s, tagResult67.end)) {
               var extLineEnd = lineEnd(s, extCloseEnd)
               rawEnd6 = extLineEnd
               end6 = nextLine(s, extLineEnd)
@@ -3995,7 +4781,7 @@ function scanHtmlBlock(
         _rawBody: type67RawBodyF,
         _rawClose: type67RawCloseF,
         _rawOuter: type67RawOuterF,
-        text: type67IsClosingF ? type67TrailingF : rawText6,
+        text: type67IsClosingF ? type67TrailingF : type67RawOuterF,
         _verbatim: true,
         _isClosingTag: type67IsClosingF,
       } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
@@ -4034,14 +4820,14 @@ function scanHtmlBlock(
         type: RuleType.htmlSelfClosing,
         tag: tagName,
         attrs: {},
-        _rawClose: s.slice(start, tagResult.end),
+        _rawClose: rawCloser(s, start, tagResult.end, tagName),
         _isClosingTag: true,
       } as MarkdownToJSX.HTMLSelfClosingNode & { _isClosingTag: boolean },
       end: tagResult.end,
     }
   }
 
-  var closeEnd = findClosingTag(s, tagResult.end, tagName)
+  var closeEnd = findClosingTag(s, tagResult.end, tagName, s.length)
 
   var children: MarkdownToJSX.ASTNode[] = []
   if (closeEnd !== -1) {
@@ -4285,7 +5071,9 @@ function parseTableRow(
   while (
     rStart < rEnd &&
     (s.charCodeAt(rStart) === $.CHAR_SPACE ||
-      s.charCodeAt(rStart) === $.CHAR_TAB)
+      s.charCodeAt(rStart) === $.CHAR_TAB ||
+      // A header or body row can be a lazy line of a list item, once per list
+      s.charCodeAt(rStart) === $.CHAR_RECORD_SEP)
   ) {
     rStart++
   }
@@ -4380,9 +5168,12 @@ function parseTableRow(
   cells.push(lastCell.trim())
 
   return cells.map(cell => {
-    // Replace remaining \| with | (pipe escapes inside code spans are kept during splitting)
+    // Replace remaining \| with | (pipe escapes inside code spans are kept during
+    // splitting). Reads pairs: the pipe in `\\|` is one the split already unescaped.
     var processed =
-      cell.indexOf('\\|') === -1 ? cell : cell.replace(/\\\|/g, '|')
+      cell.indexOf('\\|') === -1
+        ? cell
+        : cell.replace(/\\[\s\S]/g, pair => (pair === '\\|' ? '|' : pair))
     if (!processed) {
       return []
     }
@@ -4657,6 +5448,10 @@ function parseFootnoteDefinition(
   }
   if (i < len && s.charCodeAt(i) === $.CHAR_NEWLINE) {
     i++
+    // A lazy line carries one marker per list it continues
+    while (s.charCodeAt(i) === $.CHAR_RECORD_SEP) {
+      i++
+    }
     while (
       i < len &&
       (s.charCodeAt(i) === $.CHAR_SPACE || s.charCodeAt(i) === $.CHAR_TAB)
@@ -5159,10 +5954,21 @@ function skipCodeSpan(s: string, i: number, e: number): number {
   return i // no valid close
 }
 
+/** Least characters a parse can spend on `_tagSkipBudget`, so a short input never reaches it */
+const TAG_SKIP_BUDGET_FLOOR = 1_048_576
+
+/**
+ * Characters the bracket walk may still read through tags in this parse. A tag
+ * with no closer reads to the end of the range and every `[` can reach another,
+ * under any number of names, so no per-tag memo bounds it. Documents stay far
+ * under this total; past it a `<` is a plain character to the walk.
+ */
+var _tagSkipBudget = TAG_SKIP_BUDGET_FLOOR
+
 /** Skip over an inline HTML element (including content and closing tag) starting at position i */
 function skipInlineHtmlElement(s: string, i: number, e: number): number {
-  if (s.charCodeAt(i) !== $.CHAR_LT) {
-    return i // <
+  if (s.charCodeAt(i) !== $.CHAR_LT || _tagSkipBudget <= 0) {
+    return i
   }
 
   // Check for closing tag or comment
@@ -5173,7 +5979,11 @@ function skipInlineHtmlElement(s: string, i: number, e: number): number {
     while (j < e && s.charCodeAt(j) !== $.CHAR_GT) {
       j++
     }
-    return j < e ? j + 1 : i
+    if (j < e) {
+      return j + 1
+    }
+    _tagSkipBudget -= j - i
+    return i
   }
 
   if (
@@ -5183,8 +5993,8 @@ function skipInlineHtmlElement(s: string, i: number, e: number): number {
     s.charCodeAt(i + 3) === $.CHAR_DASH
   ) {
     // HTML comment <!-- -->
-    const closeIdx = s.indexOf('-->', i + 4)
-    return closeIdx >= 0 ? closeIdx + 3 : i
+    const closeIdx = terminatorAt(s, '-->', i + 4)
+    return closeIdx < 0 ? i : closeIdx + 3
   }
 
   // Get tag name
@@ -5237,6 +6047,7 @@ function skipInlineHtmlElement(s: string, i: number, e: number): number {
       continue
     }
     if (c === $.CHAR_NEWLINE) {
+      _tagSkipBudget -= j - i
       return i // newline outside quoted attribute
     }
     j++
@@ -5739,8 +6550,6 @@ var _urlFailFrom = 0
 var _urlFailGen = 0
 var _linkNoCloseFrom = 0
 var _linkNoCloseGen = 0
-var _footnoteNoCloseFrom = 0
-var _footnoteNoCloseGen = 0
 
 /** Invocation counter for parseInline; 0 is never a live generation. */
 var _scanGeneration = 0
@@ -5756,7 +6565,6 @@ function nextScanGeneration(): number {
   if (_scanGeneration === 0x7f_ff_ff_ff) {
     _urlFailGen = 0
     _linkNoCloseGen = 0
-    _footnoteNoCloseGen = 0
     _linkTextMatchGen = 0
     _scanGeneration = 0
   }
@@ -5864,6 +6672,7 @@ function scanLink(
         }
         var afterHtml = skipInlineHtmlElement(s, i, e)
         if (afterHtml > i) {
+          _tagSkipBudget -= afterHtml - i
           i = afterHtml
           continue
         }
@@ -6156,9 +6965,9 @@ function scanLink(
     label = normalizeLabel(text)
   }
 
-  // Look up reference
+  // Look up reference. A `^` label is a footnote's, whose text is not a destination.
   var refData = state.refs?.[label]
-  if (!refData) {
+  if (!refData || label.charCodeAt(0) === $.CHAR_CARET) {
     return null
   }
 
@@ -6283,7 +7092,8 @@ function scanFootnoteRef(
   s: string,
   p: number,
   e: number,
-  _state: MarkdownToJSX.State
+  state: MarkdownToJSX.State,
+  opts: ParseOptions
 ): ScanResult {
   // Must start with [^
   if (
@@ -6294,28 +7104,18 @@ function scanFootnoteRef(
     return null
   }
 
-  // A scan that ran off the end found neither `]` nor a newline in [p+2, e),
-  // so no later `[^` finds one either. A scan stopped by a newline is already
-  // bounded by the line and needs no memo.
-  if (_footnoteNoCloseGen === _scanGen && p >= _footnoteNoCloseFrom) {
-    return null
-  }
-
   let i = p + 2
-  // Find closing ]
+  // A label holds no `[`: stopping at the next opener bounds a failed scan, so
+  // a run of `[^` before one `]` stays linear even though it consumes nothing.
   while (
     i < e &&
     s.charCodeAt(i) !== $.CHAR_BRACKET_CLOSE &&
+    s.charCodeAt(i) !== $.CHAR_BRACKET_OPEN &&
     s.charCodeAt(i) !== $.CHAR_NEWLINE
   ) {
     i++
   }
-  if (i >= e) {
-    _footnoteNoCloseFrom = p
-    _footnoteNoCloseGen = _scanGen
-    return null
-  }
-  if (s.charCodeAt(i) !== $.CHAR_BRACKET_CLOSE) {
+  if (i >= e || s.charCodeAt(i) !== $.CHAR_BRACKET_CLOSE) {
     return null
   }
 
@@ -6324,8 +7124,13 @@ function scanFootnoteRef(
     return null
   }
 
-  // Return footnote reference regardless of whether ref exists
-  // (refs get populated during first pass)
+  // With no definition this is text, as GitHub reads it; the key is the one
+  // parseFootnoteDefinition stores. A streamed document may still receive the
+  // definition, so a reference stays one there.
+  if (!(opts.optimizeForStreaming || state.refs?.[`^${id}`.toLowerCase()])) {
+    return null
+  }
+
   return {
     node: {
       type: RuleType.footnoteReference,
@@ -6838,6 +7643,54 @@ function scanEntityRef(s: string, p: number, e: number): number {
   return i < e && s.charCodeAt(i) === $.CHAR_SEMICOLON ? i + 1 : -1
 }
 
+/**
+ * A closer as written, unless it holds another `<`: a browser reads `</a <svg x>`
+ * as one closer and a markdown renderer as text and a live tag, so that one is
+ * written bare.
+ */
+function rawCloser(s: string, start: number, end: number, tag: string): string {
+  return s.lastIndexOf('<', end - 1) === start
+    ? s.slice(start, end)
+    : `</${tag}>`
+}
+
+/** A processing instruction, declaration, or CDATA section at [start, end): screened text in a comment node */
+function rawMarkupComment(
+  s: string,
+  start: number,
+  end: number
+): NonNullable<ScanResult> {
+  return {
+    node: {
+      type: RuleType.htmlComment,
+      text: stripDangerousHtml(s.slice(start, end)),
+      _endsWithGT: false,
+      raw: true,
+    } as MarkdownToJSX.HTMLCommentNode,
+    end,
+  }
+}
+
+/** The position from which each terminator has no occurrence left in the string of the current parseInline call, which resets and restores it; allocated on the first miss. */
+var _noEndFrom: Record<string, number> | null = null
+
+/** Index of the first `terminator` at or after `from`, or -1. A miss is remembered, so a run of unterminated openers searches once. */
+function terminatorAt(s: string, terminator: string, from: number): number {
+  var noEndFrom = _noEndFrom === null ? undefined : _noEndFrom[terminator]
+  if (noEndFrom !== undefined && from >= noEndFrom) {
+    return -1
+  }
+
+  var at = s.indexOf(terminator, from)
+  if (at === -1) {
+    if (_noEndFrom === null) {
+      _noEndFrom = {}
+    }
+    _noEndFrom[terminator] = from
+  }
+  return at
+}
+
 /** Scan inline HTML element - CommonMark types 1-7 */
 function scanInlineHtml(
   s: string,
@@ -6892,36 +7745,36 @@ function scanInlineHtml(
       }
     }
     // Regular comment: scan for -->
-    var endComment = s.indexOf('-->', commentStart)
-    if (endComment !== -1 && endComment <= e - 3) {
-      return {
-        node: {
-          type: RuleType.htmlComment,
-          text: s.slice(p + 4, endComment),
-          _endsWithGT: false,
-        } as MarkdownToJSX.HTMLCommentNode,
-        end: endComment + 3,
-      }
+    var endComment = terminatorAt(s, '-->', commentStart)
+    if (endComment === -1) {
+      return null
     }
-    return null
+    var commentSource = s.slice(p, endComment + 3)
+    var screenedComment = stripDangerousHtml(commentSource)
+    return {
+      // A screen can remove the closing `-->` with the tag that swallowed
+      // it, so a changed comment is stored whole rather than rewrapped
+      node:
+        screenedComment === commentSource
+          ? ({
+              type: RuleType.htmlComment,
+              text: s.slice(p + 4, endComment),
+              _endsWithGT: false,
+            } as MarkdownToJSX.HTMLCommentNode)
+          : ({
+              type: RuleType.htmlComment,
+              text: screenedComment,
+              _endsWithGT: false,
+              raw: true,
+            } as MarkdownToJSX.HTMLCommentNode),
+      end: endComment + 3,
+    }
   }
 
   // Type 3: Processing instruction <?...?>
   if (ch === $.CHAR_QUESTION) {
-    var endPi = s.indexOf('?>', i + 1)
-    if (endPi !== -1 && endPi < e) {
-      return {
-        node: {
-          type: RuleType.htmlSelfClosing,
-          tag: '?',
-          attrs: {},
-          _rawOpen: s.slice(p, endPi + 2),
-          _isClosingTag: false,
-        } as MarkdownToJSX.HTMLSelfClosingNode,
-        end: endPi + 2,
-      }
-    }
-    return null
+    var endPi = terminatorAt(s, '?>', i + 1)
+    return endPi === -1 ? null : rawMarkupComment(s, p, endPi + 2)
   }
 
   // Type 4/5: Declaration <!LETTER...> or CDATA <![CDATA[...]]>
@@ -6929,37 +7782,13 @@ function scanInlineHtml(
     var nextCh = s.charCodeAt(i + 1)
     // CDATA: <![CDATA[...]]>
     if (nextCh === $.CHAR_BRACKET_OPEN && s.slice(i + 1, i + 8) === '[CDATA[') {
-      var endCdata = s.indexOf(']]>', i + 8)
-      if (endCdata !== -1 && endCdata < e) {
-        return {
-          node: {
-            type: RuleType.htmlSelfClosing,
-            tag: '![CDATA[',
-            attrs: {},
-            _rawOpen: s.slice(p, endCdata + 3),
-            _isClosingTag: false,
-          } as MarkdownToJSX.HTMLSelfClosingNode,
-          end: endCdata + 3,
-        }
-      }
-      return null
+      var endCdata = terminatorAt(s, ']]>', i + 8)
+      return endCdata === -1 ? null : rawMarkupComment(s, p, endCdata + 3)
     }
     // Declaration: <!LETTER ...>
     if (nextCh >= $.CHAR_A && nextCh <= $.CHAR_Z) {
-      var endDecl = s.indexOf('>', i + 2)
-      if (endDecl !== -1 && endDecl < e) {
-        return {
-          node: {
-            type: RuleType.htmlSelfClosing,
-            tag: `!${s.slice(i + 1, endDecl)}`,
-            attrs: {},
-            _rawOpen: s.slice(p, endDecl + 1),
-            _isClosingTag: false,
-          } as MarkdownToJSX.HTMLSelfClosingNode,
-          end: endDecl + 1,
-        }
-      }
-      return null
+      var endDecl = terminatorAt(s, '>', i + 2)
+      return endDecl === -1 ? null : rawMarkupComment(s, p, endDecl + 1)
     }
   }
 
@@ -7054,7 +7883,7 @@ function scanInlineHtml(
   var isVerbatim = TYPE1_TAGS.has(tagNameLower)
 
   // Find closing tag (within the inline scope)
-  var closeEnd = findClosingTag(s.slice(0, e), tagResult.end, tagName)
+  var closeEnd = findClosingTag(s, tagResult.end, tagName, e)
   if (closeEnd === -1) {
     // No closing tag found - pass through as raw HTML open tag (CommonMark spec)
     return {
@@ -7090,7 +7919,7 @@ function scanInlineHtml(
         _rawAttrs: tagResult._whitespaceBeforeAttrs + tagResult._rawAttrs,
         children: [],
         _rawBody: type1Body || undefined,
-        _rawClose: s.slice(closeTagStart, closeEnd),
+        _rawClose: rawCloser(s, closeTagStart, closeEnd, tagName),
         text: type1Body,
         _verbatim: true,
         _isClosingTag: false,
@@ -7273,6 +8102,12 @@ function parseInline(
   // recursion correct without allocating.
   var savedScanGen = _scanGen
   _scanGen = nextScanGeneration()
+  var savedNoEndFrom = _noEndFrom
+  _noEndFrom = null
+  var savedCloseMemoS = _closeMemoS
+  var savedCloseMemo = _closeMemo
+  var savedLastCloser = _lastCloser
+  var savedFailedSearchLength = _failedSearchLength
 
   // Use state directly to avoid object spread allocation
   const childState = state
@@ -7348,7 +8183,7 @@ function parseInline(
         if (!inCodeSpan) {
           const tagName = tagMatch[1]
           // Only strip if there's no closing tag for this tag
-          if (indexOfCi(content, `</${tagName}`, 0) === -1) {
+          if (indexOfCi(content, `</${tagName}`, 0, content.length) === -1) {
             // Strip the unclosed tag but keep the inner content; the match
             // bounds are already in hand, so splice instead of rescanning
             content = content.slice(0, tagMatch.index) + tagMatch[2]
@@ -7478,7 +8313,7 @@ function parseInline(
       // Check for footnote reference [^id] first
       if (p + 1 < e && s.charCodeAt(p + 1) === $.CHAR_CARET) {
         // ^
-        result = scanFootnoteRef(s, p, e, childState)
+        result = scanFootnoteRef(s, p, e, childState, opts)
       }
       if (!result) {
         result = scanLink(s, p, e, childState, opts)
@@ -7678,6 +8513,15 @@ function parseInline(
   }
 
   _scanGen = savedScanGen
+  _noEndFrom = savedNoEndFrom
+  // A failed search in this call's own string replaced the memo of the string
+  // around it, whose run of unclosed tags would rescan to the end per tag
+  if (savedCloseMemoS !== null && savedCloseMemoS !== _closeMemoS) {
+    _closeMemoS = savedCloseMemoS
+    _closeMemo = savedCloseMemo
+    _lastCloser = savedLastCloser
+    _failedSearchLength = savedFailedSearchLength
+  }
   _globalInlineDepth--
   return nodes
 }
@@ -7704,6 +8548,15 @@ function parseBlocks(
 
   state._depth = savedDepth + 1
   const _childState = state
+  var savedBlankS = _blankS
+  var savedBlankFrom = _blankFrom
+  var savedBlankEnd = _blankEnd
+  var savedCloseMemoS = _closeMemoS
+  var savedCloseMemo = _closeMemo
+  var savedLastCloser = _lastCloser
+  var savedFailedSearchLength = _failedSearchLength
+  var savedType1TagCursor = _type1TagCursor
+  var savedType1CloserCursor = _type1CloserCursor
 
   // For streaming mode: strip incomplete tables (header + separator without data rows)
   // Only strip if the table is at the END of the input (might be incomplete during streaming)
@@ -7915,7 +8768,7 @@ function parseBlocks(
             s = s.slice(0, htmlTagPos)
           } else {
             var hTag = s.slice(htmlTagPos + 1, htmlTagEnd)
-            if (indexOfCi(s, `</${hTag}`, 0) === -1) {
+            if (indexOfCi(s, `</${hTag}`, 0, s.length) === -1) {
               // Remove the unclosed tag but keep its content
               s = s.slice(0, htmlTagPos) + s.slice(htmlContentStart)
             }
@@ -8054,7 +8907,9 @@ function parseBlocks(
 
   const nodes: MarkdownToJSX.ASTNode[] = []
   let p = 0
-  const e = s.length
+  var e = s.length
+  // Not looked up until a `<` block in a list item needs it
+  var lastLazyMarker = -2
 
   // Check for frontmatter at the start of the document (requires valid YAML)
   if (p === 0 && !opts.disableFrontmatter && s.startsWith('---')) {
@@ -8142,6 +8997,24 @@ function parseBlocks(
         result = scanList(s, p, state, opts)
       } else if (c === $.CHAR_LT) {
         // <
+        if (state.inList) {
+          if (lastLazyMarker === -2) {
+            lastLazyMarker = s.lastIndexOf(LAZY_MARKER)
+          }
+          // An HTML block takes a lazy line in as raw content, where the marker
+          // would reach the output and hide an attribute name from the handler
+          // screen. Later lines have no open paragraph to be lazy to.
+          if (
+            lastLazyMarker > p &&
+            !opts.ignoreHTMLBlocks &&
+            !opts.disableParsingRawHTML &&
+            (detectHtmlBlockType(s, i) !== 0 || isComponentShapedTag(s, i))
+          ) {
+            s = s.slice(0, p) + dropLazyMarkers(s.slice(p))
+            e = s.length
+            lastLazyMarker = -1
+          }
+        }
         result = scanHtmlBlock(s, p, state, opts)
       } else if (c === $.CHAR_PIPE) {
         // |
@@ -8197,6 +9070,15 @@ function parseBlocks(
     }
   }
 
+  _blankS = savedBlankS
+  _blankFrom = savedBlankFrom
+  _blankEnd = savedBlankEnd
+  _closeMemoS = savedCloseMemoS
+  _closeMemo = savedCloseMemo
+  _lastCloser = savedLastCloser
+  _failedSearchLength = savedFailedSearchLength
+  _type1TagCursor = savedType1TagCursor
+  _type1CloserCursor = savedType1CloserCursor
   state._depth = savedDepth
   return nodes
 }
@@ -8213,7 +9095,7 @@ export function parser(
   options?: ParserInputOptions | null
 ): MarkdownToJSX.ASTNode[] {
   // Strip BOM (U+FEFF) at document start per CommonMark spec
-  if (source.charCodeAt(0) === 0xfe_ff) {
+  if (source.charCodeAt(0) === $.CHAR_BYTE_ORDER_MARK) {
     source = source.slice(1)
   }
 
@@ -8363,9 +9245,12 @@ export function parseMarkdown(
 ): MarkdownToJSX.ASTNode[] {
   // Reset global depth counter at the start of each parse
   _globalInlineDepth = 0
+  var outerOptionsForTags = _parseOptionsForTags
+  _parseOptionsForTags = opts
 
   // Normalize input (CRLF → LF, null bytes → U+FFFD)
   input = util.normalizeInput(input)
+  _tagSkipBudget = input.length * 16 + TAG_SKIP_BUDGET_FLOOR
 
   if (!state.refs) {
     state.refs = Object.create(null) as {
@@ -8460,11 +9345,17 @@ export function parseMarkdown(
 
     state._pendingInline = undefined
     state._pendingOps = undefined
+    // Most documents never search for a closing tag; skip the reallocation
+    if (_closeMemoS !== null) {
+      resetCloseTagMemo()
+    }
 
     // Heading ids need filled inline children (links, code, footnotes). Assign
     // after the flush so slugify sees rendered text, not raw source.
     assignHeadingIds(nodes, state, opts.slugify)
   }
+
+  _parseOptionsForTags = outerOptionsForTags
 
   // Add refCollection node at the start if there are refs
   if (util.hasKeys(state.refs)) {

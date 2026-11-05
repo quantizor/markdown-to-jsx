@@ -286,6 +286,14 @@ export var CASES: HarnessCase[] = [
     ],
   },
   {
+    id: 'footnote-undefined',
+    md: 'a[^n] *b*',
+    dom: [
+      { sel: 'sup', absent: true },
+      { sel: 'em', text: 'b' },
+    ],
+  },
+  {
     id: 'frontmatter',
     // Frontmatter parses to its own node and renderers skip it.
     md: '---\ntitle: x\n---\n\nbody',
@@ -711,6 +719,33 @@ export var CASES: HarnessCase[] = [
       { sel: 'a', text: 'Hack Me' },
       { sel: 'a[href]', absent: true },
     ],
+  },
+  {
+    id: 'raw-html-innerhtml-attribute',
+    md: '<div innerHTML="x<img src=x onerror=alert(1)>">y</div>',
+    dom: [
+      { sel: 'div', text: 'y' },
+      { sel: 'img', absent: true },
+    ],
+  },
+  {
+    id: 'raw-html-ref-attribute',
+    md: '<div ref="x">y</div>',
+    dom: [{ sel: 'div', text: 'y' }],
+  },
+  {
+    id: 'raw-html-solid-attr-prefix',
+    md: '<a attr:href="javascript:alert(1)">y</a>',
+    dom: [
+      { sel: 'a', text: 'y' },
+      { sel: 'a[href]', absent: true },
+    ],
+  },
+  {
+    id: 'raw-html-pre-with-markup',
+    md: '<pre><b>x</b></pre>',
+    dom: [{ sel: 'pre b', text: 'x' }],
+    skip: ['native'],
   },
   {
     id: 'code-span-shortcut-refs',

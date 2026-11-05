@@ -186,7 +186,8 @@ declare namespace MarkdownToJSX {
   }
 
   /**
-   * Footnote reference node
+   * Footnote reference node. The parser emits one only when the document
+   * defines the footnote, or while `optimizeForStreaming` is on.
    */
   export interface FootnoteReferenceNode {
     type: typeof RuleType.footnoteReference
