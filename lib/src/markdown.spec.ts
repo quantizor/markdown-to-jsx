@@ -2362,6 +2362,42 @@ describe('tagfilter passthrough contract', () => {
       '<script>x</script>'
     )
   })
+
+  // A document can write these tags raw, so naming one in code adds nothing to
+  // what another renderer can be shown
+  it.each([
+    ['`<script>`'],
+    ['`<style>`'],
+    ['```html\n<script src="https://a.b/c.js"></script>\n```'],
+    ['```html\n<title>x</title>\n```'],
+    ['```\n<iframe src="https://a.b"></iframe>\n```'],
+    ['```\n<textarea>\n```'],
+  ])('keeps code naming a filtered tag as code: %j', input => {
+    expect(compiler(input)).toBe(input)
+  })
+
+  it.each([
+    ['<img onerror=alert(1)>', '<code>&lt;img onerror=alert(1)></code>'],
+    ['<script onload=alert(1)>', '<code>&lt;script onload=alert(1)></code>'],
+  ])('still writes code %j that holds a handler as HTML', (code, expected) => {
+    expect(compiler(`\`${code}\``)).toBe(expected)
+  })
+
+  // With raw HTML off, code is the one way a tag can reach another renderer
+  it.each([
+    ['`<script>`', '<code>&lt;script></code>'],
+    ['`<title>`', '<code>&lt;title></code>'],
+    [
+      '```html\n<script src="https://a.b/c.js"></script>\n```',
+      '<pre><code class="language-html">&lt;script src="https://a.b/c.js">&lt;/script>\n</code></pre>',
+    ],
+    [
+      '[^a`b]: x\n\n[^a`b] `<script>alert(1)</script>`',
+      '[^a`b]: x\n\n[^a`b] <code>&lt;script>alert(1)&lt;/script></code>',
+    ],
+  ])('writes %j as HTML when raw HTML parsing is off', (input, expected) => {
+    expect(compiler(input, { disableParsingRawHTML: true })).toBe(expected)
+  })
 })
 
 describe('prototype-slot reference labels (#900)', () => {
@@ -2890,11 +2926,17 @@ describe('markup a browser or downstream renderer reads differently from the par
     ],
     // A renderer reads markdown in a code span written as HTML, where a URL becomes a link
     [
-      '`<script> https://a.b/c`',
-      '<code>&lt;script> https&#58;//a&#46;b/c</code>',
+      '`<img onerror=x> https://a.b/c`',
+      '<code>&lt;img onerror=x> https&#58;//a&#46;b/c</code>',
     ],
-    ['`<script> www.a.com`', '<code>&lt;script> www&#46;a&#46;com</code>'],
-    ['`<script> a@b.co`', '<code>&lt;script> a&#64;b&#46;co</code>'],
+    [
+      '`<img onerror=x> www.a.com`',
+      '<code>&lt;img onerror=x> www&#46;a&#46;com</code>',
+    ],
+    [
+      '`<img onerror=x> a@b.co`',
+      '<code>&lt;img onerror=x> a&#64;b&#46;co</code>',
+    ],
     // A reference definition split across raw HTML and the next line of a list item
     [
       '- <?a ?>[x]:\n  javascript:alert(1)\n\n<span>[x]</span>',
@@ -2918,8 +2960,8 @@ describe('markup a browser or downstream renderer reads differently from the par
     ['1. ```\n   foo\n   ```', '1. ```\n   foo\n   ```'],
     ['10. ```\n    foo\n    ```', '10. ```\n    foo\n    ```'],
     [
-      '1. ```\n   <script>\n   ```',
-      '1. <pre><code>&lt;script>\n   </code></pre>',
+      '1. ```\n   <img onerror=x>\n   ```',
+      '1. <pre><code>&lt;img onerror=x>\n   </code></pre>',
     ],
     // A last `#` run after a space reads as a closing sequence
     ['a #\n=', '# a \\#'],

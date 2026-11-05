@@ -2454,6 +2454,17 @@ describe('a children attribute on a lowercase tag with an override', () => {
   })
 })
 
+describe('code naming a filtered tag', () => {
+  it.each([
+    [{}],
+    [{ disableParsingRawHTML: true }],
+  ])('stays code with %j, as only the markdown output writes it differently', options => {
+    expect(serialize(compiler('`<script>`', options))).toBe(
+      '<code><script></code>'
+    )
+  })
+})
+
 describe('a URL that names a dangerous scheme', () => {
   const firstHref = (el: unknown): unknown => {
     if (Array.isArray(el)) {

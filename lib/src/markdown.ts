@@ -299,10 +299,10 @@ function compileNode(
       return compileBreakLine(node)
 
     case RuleType.codeBlock:
-      return compileCodeBlock(node)
+      return compileCodeBlock(node, state.options)
 
     case RuleType.codeInline:
-      return compileCodeInline(node)
+      return compileCodeInline(node, state.options)
 
     case RuleType.textFormatted:
       return compileTextFormatted(node, state)
@@ -537,14 +537,16 @@ function compileBreakLine(_node: MarkdownToJSX.BreakLineNode): string {
  * would be unsafe read that way, or a fence's info string, is not written as code
  * markup. `<` and `]` open everything this looks for. Raw HTML earlier in the
  * document is not required: `[^a`b]` re-pairs the backtick of a later code span.
+ * A filtered tag counts only with raw HTML off: otherwise the document can write
+ * that tag raw, and it passes through.
  */
-function codeTextIsUnsafe(text: string): boolean {
+function codeTextIsUnsafe(text: string, options: WriterOptions): boolean {
   if (text.indexOf('<') === -1 && text.indexOf(']') === -1) {
     return false
   }
   return (
     stripDangerousHtml(text, true) !== text ||
-    containsTagfilterTag(text) ||
+    (options.disableParsingRawHTML === true && containsTagfilterTag(text)) ||
     screenRawLinks(text) !== text
   )
 }
@@ -556,10 +558,13 @@ function encodeCodeText(text: string, markup: RegExp): string {
   )
 }
 
-function compileCodeBlock(node: MarkdownToJSX.CodeBlockNode): string {
+function compileCodeBlock(
+  node: MarkdownToJSX.CodeBlockNode,
+  options: WriterOptions
+): string {
   if (
-    codeTextIsUnsafe(node.text) ||
-    (node.lang && codeTextIsUnsafe(node.lang))
+    codeTextIsUnsafe(node.text, options) ||
+    (node.lang && codeTextIsUnsafe(node.lang, options))
   ) {
     var langClass =
       node.lang && PLAIN_LANG_R.test(node.lang)
@@ -589,9 +594,12 @@ function compileCodeBlock(node: MarkdownToJSX.CodeBlockNode): string {
   return `${node.lang ? `${fence}${node.lang}\n` : `${fence}\n`}${node.text}\n${fence}`
 }
 
-function compileCodeInline(node: MarkdownToJSX.CodeInlineNode): string {
+function compileCodeInline(
+  node: MarkdownToJSX.CodeInlineNode,
+  options: WriterOptions
+): string {
   var text = node.text
-  if (codeTextIsUnsafe(text)) {
+  if (codeTextIsUnsafe(text, options)) {
     return `<code>${encodeCodeText(text, CODE_SPAN_MARKUP_R)}</code>`
   }
   // The delimiter must be longer than the longest backtick run inside, or the
@@ -647,7 +655,10 @@ function compileTextFormatted(
     case 'mark':
       return `==${content}==`
     case 'code':
-      return compileCodeInline({ type: RuleType.codeInline, text: content })
+      return compileCodeInline(
+        { type: RuleType.codeInline, text: content },
+        state.options
+      )
     default:
       return content
   }
