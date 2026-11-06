@@ -84,7 +84,7 @@ function render(
         ? util.decodeEntityReferences(node.lang)
         : ''
       const codeProps = {
-        ...(node.attrs || {}),
+        ...util.withoutHandlerSource('code', node.attrs, options.overrides),
         class: decodedLang ? `language-${decodedLang} lang-${decodedLang}` : '',
       } as Record<string, unknown>
       return h('pre', {}, h('code', codeProps, node.text))
@@ -137,6 +137,11 @@ function render(
         )
       }
 
+      const attrs = util.withoutHandlerSource(
+        node.tag,
+        node.attrs,
+        options.overrides
+      )
       const rawOuter = htmlNode._rawOuter
       const isRawOuter = rawOuter !== undefined
       const rawSource = isRawOuter
@@ -150,20 +155,25 @@ function render(
         const isType1Block = parse.isType1Block(tagLower)
 
         if (isType1Block) {
-          // The element wrapper below supplies its own closing tag, so the
-          // body excludes _rawClose; the full outer span is used as-is only
-          // when no closing tag was found (rare, matches the sniff below).
-          const type1Body = isRawOuter ? rawOuter : htmlNode._rawBody || ''
+          // The element wrapper below supplies its own tags, so the body is
+          // the inner content: the text field when no closing tag was found,
+          // since the outer span holds this element's own opening tag
+          const type1Body =
+            (isRawOuter ? htmlNode.text : htmlNode._rawBody) || ''
           const textContent = util.tagfilterEnabled(options)
             ? util.applyTagFilterToText(type1Body)
             : type1Body
-          if (/<[a-z][^>]{0,100}>/i.test(rawSource)) {
+          if (/<[a-z][^>]{0,100}>/i.test(type1Body)) {
             return h(node.tag, {
-              ...node.attrs,
+              ...attrs,
               innerHTML: textContent,
             })
           }
-          return h(node.tag, { ...node.attrs }, textContent)
+          return h(
+            node.tag,
+            { ...attrs },
+            util.verbatimText(node.tag, textContent)
+          )
         }
 
         const containsPreTags = /<\/?pre\b/i.test(rawSource)
@@ -172,7 +182,7 @@ function render(
             ? util.applyTagFilterToText(rawSource)
             : rawSource
           return h(node.tag, {
-            ...node.attrs,
+            ...attrs,
             innerHTML: innerHtml,
           })
         }
@@ -180,18 +190,22 @@ function render(
         // line, then split at this element's own closing tag so any trailing
         // content renders as siblings (issue #881).
         const parseOptions = parse.toParseOptions({
+          overrides: options.overrides,
           slugify: options.slugify,
           sanitizer: sanitize,
           tagfilter: true,
         })
-        const cleanedText = util.normalizeJsxReparseText(rawSource)
+        // The parser's re-parse span holds the children attribute rawSource cut
+        const cleanedText = util.normalizeJsxReparseText(
+          htmlNode._reparseSource || rawSource
+        )
 
         const selfTagRegex = new RegExp(
           `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,
           'i'
         )
         if (selfTagRegex.test(cleanedText)) {
-          return h(node.tag, { ...node.attrs })
+          return h(node.tag, { ...attrs })
         }
 
         const astNodes = parse.parseMarkdown(
@@ -200,6 +214,9 @@ function render(
           parseOptions
         )
         util.stripVerbatim(astNodes)
+        if (util.reparsedToItself(astNodes, cleanedText)) {
+          return cleanedText
+        }
 
         // _rawOuter means the parser already determined this span is the FULL
         // outer block, so emit the parsed nodes directly instead of nesting
@@ -213,7 +230,7 @@ function render(
           return [
             h(
               node.tag,
-              { ...node.attrs },
+              { ...attrs },
               ...toArray(
                 output(
                   split.beforeClose.flatMap(util.processVerbatimNode),
@@ -231,14 +248,14 @@ function render(
           astNodes.flatMap(util.processVerbatimNode),
           state
         )
-        return h(node.tag, { ...node.attrs }, ...toArray(processedChildren))
+        return h(node.tag, { ...attrs }, ...toArray(processedChildren))
       }
       if (util.isVoidElement(node.tag)) {
-        return h(node.tag, { ...node.attrs })
+        return h(node.tag, { ...attrs })
       }
       return h(
         node.tag,
-        { ...node.attrs },
+        { ...attrs },
         ...(node.children ? toArray(output(node.children, state)) : [])
       )
     }
@@ -261,7 +278,13 @@ function render(
         )
       }
 
-      return h(htmlNode.tag, { ...htmlNode.attrs })
+      return h(htmlNode.tag, {
+        ...util.withoutHandlerSource(
+          htmlNode.tag,
+          htmlNode.attrs,
+          options.overrides
+        ),
+      })
     }
 
     case RuleType.image: {
@@ -561,10 +584,34 @@ export function astToJSX(
 
     // Compile any HTML content in props
     const jsxProps = (props || {}) as Record<string, unknown>
+    const finalTag = getTag(tag, opts.overrides)
+    // A children string is the element's text when it has no content of its
+    // own, which also keeps it from being compiled as markup below. A void tag
+    // takes none.
+    if (typeof jsxProps.children === 'string') {
+      const attrText = util.childrenAttrContent(jsxProps.children, children)
+      delete jsxProps.children
+      if (
+        attrText !== undefined &&
+        !(typeof finalTag === 'string' && util.isVoidElement(finalTag))
+      ) {
+        children = [attrText]
+      }
+    }
     // Only check props that might contain HTML (avoid iterating all props)
     for (const key in jsxProps) {
       const value = jsxProps[key]
+      // Solid hands an on* prop to addEventListener, which throws on a bare name's `true`
       if (
+        value === true &&
+        typeof finalTag === 'string' &&
+        key.startsWith('on')
+      ) {
+        delete jsxProps[key]
+      }
+      // innerHTML is the compiler's own screened markup, and only a string reaches the page
+      if (
+        key !== 'innerHTML' &&
         typeof value === 'string' &&
         value.length > 0 &&
         value[0] === '<' &&
@@ -572,16 +619,10 @@ export function astToJSX(
           parse.UPPERCASE_TAG_R.test(value) ||
           parse.parseHTMLTag(value, 0))
       ) {
-        const compiled = compileHtml(value.trim())
-        // For innerHTML, take first element if array (matches original parser behavior)
-        jsxProps[key] =
-          key === 'innerHTML' && Array.isArray(compiled)
-            ? compiled[0]
-            : compiled
+        jsxProps[key] = compileHtml(value.trim())
       }
     }
 
-    const finalTag = getTag(tag, opts.overrides)
     const mergedClassName =
       util.cx(
         jsxProps?.class as string | undefined,

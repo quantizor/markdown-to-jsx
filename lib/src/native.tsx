@@ -853,10 +853,12 @@ function render(
         // Type 1 blocks (pre, script, style, textarea) always render verbatim.
         // These tags map to a native View, so the verbatim text is wrapped in a
         // Text rather than placed directly inside the View (issue #884). The
-        // View's own closing tag is implicit, so the text excludes _rawClose;
-        // the full outer span is used as-is only when no closing tag was found.
+        // View's own tags are implicit, so the text is the inner content: the
+        // text field when no closing tag was found, since the outer span holds
+        // this element's own opening tag.
         if (isType1Block) {
-          const type1Body = isRawOuter ? rawOuter : htmlNode._rawBody || ''
+          const type1Body =
+            (isRawOuter ? htmlNode.text : htmlNode._rawBody) || ''
           const textContent = util.tagfilterEnabled(options)
             ? util.applyTagFilterToText(type1Body)
             : type1Body
@@ -864,8 +866,12 @@ function render(
           // its literal shape, as a pre or code block reads.
           return h(
             htmlNode.tag,
-            { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs) },
-            h(Text, { style: styled.codeText }, textContent)
+            htmlNodeProps(htmlNode, state.key, ctx.overrides),
+            h(
+              Text,
+              { style: styled.codeText },
+              util.verbatimText(htmlNode.tag, textContent)
+            )
           )
         }
 
@@ -879,20 +885,23 @@ function render(
         // Re-parse rawSource so a nested element does not absorb a following text
         // line, then split at this element's own closing tag so any trailing
         // content renders as siblings (issue #881).
-        const cleanedText = util.normalizeJsxReparseText(rawSource)
-        const props = {
-          key: state.key,
-          ...util.htmlAttrsToJSXProps(htmlNode.attrs),
-        }
+        // The parser's re-parse span holds the children attribute rawSource cut
+        const cleanedText = util.normalizeJsxReparseText(
+          htmlNode._reparseSource || rawSource
+        )
+        const props = htmlNodeProps(htmlNode, state.key, ctx.overrides)
         const selfTagRegex = new RegExp(
           `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,
           'i'
         )
         if (selfTagRegex.test(cleanedText)) {
-          return h(htmlNode.tag, props)
+          return typeof props.children === 'string'
+            ? emitHtmlElement(htmlNode.tag, props, [], output, state, ctx)
+            : h(htmlNode.tag, props)
         }
 
         const parseOptions = parse.toParseOptions({
+          overrides: options.overrides,
           slugify: options.slugify,
           sanitizer: sanitize,
           tagfilter: true,
@@ -903,6 +912,9 @@ function render(
           parseOptions
         )
         util.stripVerbatim(astNodes)
+        if (util.reparsedToItself(astNodes, cleanedText)) {
+          return cleanedText
+        }
 
         // _rawOuter means the parser already determined this span is the FULL
         // outer block, so emit the parsed nodes directly instead of nesting
@@ -969,25 +981,21 @@ function render(
         )
       }
 
+      const blockProps = htmlNodeProps(htmlNode, state.key, ctx.overrides)
       if (util.isVoidElement(htmlNode.tag)) {
-        return h(htmlNode.tag, {
-          key: state.key,
-          ...util.htmlAttrsToJSXProps(htmlNode.attrs),
-        })
+        delete blockProps.children
+        return h(htmlNode.tag, blockProps)
       }
       return htmlNode.children
         ? emitHtmlElement(
             htmlNode.tag,
-            { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs) },
+            blockProps,
             htmlNode.children,
             output,
             state,
             ctx
           )
-        : h(htmlNode.tag, {
-            key: state.key,
-            ...util.htmlAttrsToJSXProps(htmlNode.attrs),
-          })
+        : h(htmlNode.tag, blockProps)
     }
 
     case RuleType.htmlSelfClosing: {
@@ -1005,10 +1013,17 @@ function render(
             : filteredSc.open + (filteredSc.close || '')
         )
       }
-      return h(htmlNode.tag, {
-        key: state.key,
-        ...util.htmlAttrsToJSXProps(htmlNode.attrs),
-      })
+      const selfClosingProps = htmlNodeProps(htmlNode, state.key, ctx.overrides)
+      return typeof selfClosingProps.children === 'string'
+        ? emitHtmlElement(
+            htmlNode.tag,
+            selfClosingProps,
+            [],
+            output,
+            state,
+            ctx
+          )
+        : h(htmlNode.tag, selfClosingProps)
     }
 
     case RuleType.image: {
@@ -1451,6 +1466,18 @@ const mapHtmlTagToNativeComponent = (tag: string): React.ElementType => {
   return cached
 }
 
+/** An HTML node's attributes as props under `key`, without handler source (util.withoutHandlerSource) */
+const htmlNodeProps = (
+  htmlNode: MarkdownToJSX.HTMLNode | MarkdownToJSX.HTMLSelfClosingNode,
+  key: MarkdownToJSX.State['key'],
+  overrides: CompileContext['overrides']
+): Record<string, unknown> => ({
+  key,
+  ...util.htmlAttrsToJSXProps(
+    util.withoutHandlerSource(htmlNode.tag, htmlNode.attrs, overrides)
+  ),
+})
+
 /**
  * Emit an HTML element, routing by whether its tag maps to a native View. A
  * View-mapped tag groups its inline children into a Text so no bare string sits
@@ -1461,12 +1488,13 @@ const mapHtmlTagToNativeComponent = (tag: string): React.ElementType => {
 const emitHtmlElement = (
   tag: string,
   props: Record<string, unknown> & { style?: StyleProp<TextStyle> },
-  childNodes: MarkdownToJSX.ASTNode[],
+  ownNodes: MarkdownToJSX.ASTNode[],
   output: MarkdownToJSX.ASTRender,
   state: MarkdownToJSX.State,
   ctx: CompileContext
-): React.ReactNode =>
-  mapsToNativeView(tag)
+): React.ReactNode => {
+  const childNodes = withChildrenAttr(props, ownNodes)
+  return mapsToNativeView(tag)
     ? ctx.h(
         tag,
         props,
@@ -1483,6 +1511,25 @@ const emitHtmlElement = (
         state,
         ctx
       )
+}
+
+/**
+ * The child nodes of an HTML element whose props may hold a `children` string:
+ * its own nodes, or the string as one text node when it has none, so a View-mapped
+ * tag groups it into a Text like any other text. The prop leaves props either way,
+ * and a text node is plain text, never parsed as markdown or HTML.
+ */
+const withChildrenAttr = (
+  props: Record<string, unknown>,
+  ownNodes: MarkdownToJSX.ASTNode[]
+): MarkdownToJSX.ASTNode[] => {
+  if (typeof props.children !== 'string') {
+    return ownNodes
+  }
+  const text = util.childrenAttrContent(props.children, ownNodes)
+  delete props.children
+  return text === undefined ? ownNodes : [{ type: RuleType.text, text }]
+}
 
 /**
  * Convert AST nodes to React Native elements
@@ -1535,6 +1582,11 @@ export function astToNative(
 
     if (typeof Component !== 'string') {
       return createElement(Component, finalProps, ...children)
+    }
+    // An override can keep a tag void or make it one, and an Image can't hold children
+    if (hasOverrides && util.isVoidElement(Component)) {
+      delete finalProps.children
+      children.length = 0
     }
     return createElement(
       mapHtmlTagToNativeComponent(Component),

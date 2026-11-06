@@ -11,6 +11,7 @@ Every string operation must complete in bounded linear time. The shapes that bre
 - `\s` where a newline is structurally invalid. `\s` matches `\n`, so a pattern meant to stay within one line wanders across line boundaries and backtracks. Restrict to `[ \t]`.
 - A regex run against the whole document via `.match()` or `.test()`. A linear pattern pays repeatedly and a backtracking one detonates. Prefer one forward charCode walk.
 - Unbounded `indexOf`, `lastIndexOf`, or `includes` inside a loop. Each call rescans from a fixed point, making the pair O(n*m). Clamp the search to the relevant range, typically the current line end.
+- A memo keyed by a name the input chooses. Every new name misses it, so a run of `<x1> <x2> <x3>` pays a full search per name. Answer "does any closer of this name remain" from one table per string, and bound a search the table cannot answer, such as the bracket walk's read through tags, with a total per parse.
 
 Emphasis parsing is the classic detonation site: `*`, `_`, and `~~` runs open and close in many combinations, and any matcher that tries every open/close pairing across N delimiters is super-linear in N. The linear form is the CommonMark delimiter stack. Push each delimiter run with its length and open/close potential, resolve in a single pass, mark consumed runs inactive.
 
@@ -22,7 +23,7 @@ String handling in hot paths
 
 - Track `segStart`/`segEnd` indices into the input and `slice()` once when the segment closes. Never accumulate with `out += s[i]`. `String.prototype.slice()` returns a view (pointer, offset, length) rather than a copy, so slicing stays cheap until the result is mutated or stored.
 - Keep `.split()`, `.match()`, and `.slice()` out of tight loops. Each allocates. A charCode walk extracts the same result in one pass.
-- In Bun/JSC, string `+=` beats array-push-then-`join('')` for small and medium segment counts, because JSC builds a rope (a tree of substring references) and defers the flatten until the string is consumed. The usual "always build an array and join" advice is a V8 habit that does not hold here. Switch to join only when assembling a very large string from many pieces.
+- In Bun/JSC, string `+=` beats array-push-then-`join('')` for small and medium segment counts, because JSC builds a rope (a tree of substring references) and defers the flatten until the string is consumed. A `charCodeAt` on the rope consumes it, so a check on output being assembled reads a smaller node instead. The usual "always build an array and join" advice is a V8 habit that does not hold here. Switch to join only when assembling a very large string from many pieces.
 - `indexOf` for a single character is SIMD-backed. Prefer it to a manual charCodeAt loop when searching for one delimiter in a bounded range.
 - For multi-condition classification (delimiter, whitespace, digit) a single charCodeAt walk against a 128-entry ASCII lookup table beats several regex passes.
 - Do not call `.trim()`; it allocates. Track the trimmed `[start, end)` range and substring once at the emit point.

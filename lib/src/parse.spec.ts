@@ -26,6 +26,25 @@ function createEmptyRefs() {
 }
 
 describe('parser', () => {
+  it('keeps a later link once the tags in brackets have spent their reading budget', () => {
+    const nodes = p.parser(
+      `${'[<b>] '.repeat(2000)}[<i>l</i>](/u)`
+    ) as MarkdownToJSX.ParagraphNode[]
+    const children = nodes[0].children
+
+    expect(JSON.stringify(children.at(-1))).toMatchInlineSnapshot(
+      `"{"type":"link","target":"/u","children":[{"type":"htmlBlock","tag":"i","attrs":{},"_rawAttrs":"","children":[{"type":"text","text":"l"}],"text":"l","_verbatim":false,"_isClosingTag":false}]}"`
+    )
+  })
+
+  it('finds a closer after another tag failed to find one', () => {
+    const nodes = p.parser('<q> <b>x</b>') as MarkdownToJSX.ASTNode[]
+
+    expect(JSON.stringify(nodes)).toMatchInlineSnapshot(
+      `"[{"type":"paragraph","children":[{"type":"htmlSelfClosing","tag":"q","attrs":{},"_rawOpen":"<q>","_isClosingTag":false},{"type":"text","text":" "},{"type":"htmlBlock","tag":"b","attrs":{},"_rawAttrs":"","children":[{"type":"text","text":"x"}],"text":"x","_verbatim":false,"_isClosingTag":false}]}]"`
+    )
+  })
+
   it('should parse basic markdown to paragraph', () => {
     const result = p.parser('hello world') as MarkdownToJSX.ParagraphNode[]
     expect(result).toEqual([
@@ -310,28 +329,14 @@ describe('parseMarkdown', () => {
     ])
   })
 
-  it('parses many unterminated inline-link openers in linear time (issue #874)', () => {
-    // Pre-fix, each `[](` retried the bare-URL scan to end-of-input, giving
-    // O(N^2) total work (N=8000 ~260ms, N=32000 ~4s). Compare doubling-size
-    // runs and assert sub-quadratic scaling, which is robust to absolute
-    // machine speed.
-    function timeParse(N: number) {
-      const input = '[]('.repeat(N)
-      // One warmup to stabilize JIT.
-      p.parser(input)
-      const start = performance.now()
-      const result = p.parser(input)
-      return { ms: performance.now() - start, result, input }
-    }
-    const small = timeParse(8000)
-    const large = timeParse(16_000)
-    // 2x input should be <3x time for linear behavior. Pre-fix this ratio was
-    // ~4x. Use 3x to absorb timing noise on small absolute durations.
-    expect(large.ms).toBeLessThan(small.ms * 3 + 50)
-    expect(large.result).toEqual([
+  // The linear-time half of issue #874 is link-empty-dest-openers in
+  // scripts/scaling-smoke.ts; a wall-clock check here fails under machine load.
+  it('keeps many unterminated inline-link openers as literal text (issue #874)', () => {
+    const input = '[]('.repeat(2000)
+    expect(p.parser(input)).toEqual([
       {
         type: RuleType.paragraph,
-        children: [{ type: RuleType.text, text: large.input }],
+        children: [{ type: RuleType.text, text: input }],
       },
     ])
   })
@@ -386,9 +391,7 @@ describe('parseMarkdown', () => {
   })
 
   it('keeps footnote references parsing after an unclosed opener', () => {
-    // The footnote memo records only scans that ran off the end. A newline
-    // ends a scan without proving anything about later openers, so a `[^` on
-    // one line must not suppress a real reference on the next.
+    // A `[^` on one line must not suppress a real reference on the next.
     expect(p.parser('[^unclosed\n\n[^1]: note\n\nsee [^1]')).toEqual([
       {
         type: RuleType.refCollection,
@@ -411,6 +414,114 @@ describe('parseMarkdown', () => {
         ],
       },
     ])
+  })
+
+  it('keeps a footnote reference with no definition as text', () => {
+    expect(p.parser('a [^1] b')).toEqual([
+      {
+        type: RuleType.paragraph,
+        children: [{ type: RuleType.text, text: 'a [^1] b' }],
+      },
+    ])
+  })
+
+  it('reads a footnote-shaped link with no definition as a link', () => {
+    expect(p.parser('[^1](/u)')).toEqual([
+      {
+        type: RuleType.paragraph,
+        children: [
+          {
+            type: RuleType.link,
+            target: '/u',
+            title: undefined,
+            children: [{ type: RuleType.text, text: '^1' }],
+          },
+        ],
+      },
+    ])
+  })
+
+  it('matches a footnote reference to its definition in any letter case', () => {
+    expect(p.parser('[^A]\n\n[^a]: y')).toEqual([
+      {
+        type: RuleType.refCollection,
+        refs: { '^a': { target: 'y', title: undefined } },
+      },
+      {
+        type: RuleType.paragraph,
+        children: [
+          { type: RuleType.footnoteReference, target: '#a', text: 'A' },
+        ],
+      },
+      { type: RuleType.footnote },
+    ])
+  })
+
+  it('keeps a footnote name holding a bracket as text even with a definition', () => {
+    expect(p.parser('[^a[b]\n\n[^a[b]: y')).toEqual([
+      {
+        type: RuleType.refCollection,
+        refs: { '^a[b': { target: 'y', title: undefined } },
+      },
+      {
+        type: RuleType.paragraph,
+        children: [{ type: RuleType.text, text: '[^a[b]' }],
+      },
+      { type: RuleType.footnote },
+    ])
+  })
+
+  it('shows a footnote reference ending the streamed text like any bracket, as a link may still open', () => {
+    expect(p.parser('a [^1]', { optimizeForStreaming: true })).toEqual(
+      p.parser('a ^1', { optimizeForStreaming: true })
+    )
+  })
+
+  it('keeps a footnote reference while streaming, as its definition may still arrive', () => {
+    expect(p.parser('a [^1] b', { optimizeForStreaming: true })).toEqual([
+      {
+        type: RuleType.paragraph,
+        children: [
+          { type: RuleType.text, text: 'a ' },
+          { type: RuleType.footnoteReference, target: '#1', text: '1' },
+          { type: RuleType.text, text: ' b' },
+        ],
+      },
+    ])
+  })
+
+  const countReferences = (value: unknown): number => {
+    if (Array.isArray(value)) {
+      return value.reduce((sum, item) => sum + countReferences(item), 0)
+    }
+    if (!value || typeof value !== 'object') {
+      return 0
+    }
+
+    return Object.values(value).reduce(
+      (sum: number, item) => sum + countReferences(item),
+      'type' in value && value.type === RuleType.footnoteReference ? 1 : 0
+    )
+  }
+
+  it.each([
+    ['blockquote', '> R'],
+    ['component body', '<Foo>R</Foo>'],
+    ['emphasis', '*a R*'],
+    ['heading', '# a R'],
+    ['HTML block body', '<div>\n\nR\n\n</div>'],
+    ['inline HTML', 'a <span>R</span>'],
+    ['link text', '[a R](/u)'],
+    ['list item', '- R'],
+    ['nested list item', '- a\n  - R'],
+    ['setext heading', 'a R\n==='],
+    ['table cell', '| h |\n|---|\n| R |'],
+    ['table header', '| R |\n|---|\n| c |'],
+  ])('finds a definition after a footnote reference in a %s', (_name, shape) => {
+    const body = shape.replace('R', '[^1]')
+
+    expect(countReferences(p.parser(`${body}\n\n[^1]: y`))).toBe(1)
+    expect(countReferences(p.parser(body))).toBe(0)
   })
 
   it('does not let the failed-link cache reject a valid trailing link (issue #874 follow-up)', () => {
@@ -2275,6 +2386,7 @@ describe('multi-line HTML attributes', () => {
         <dd>description 1</dd>
       </dl-custom>"
       ,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {
             "data-variant": "horizontalTable",
@@ -2286,6 +2398,7 @@ describe('multi-line HTML attributes', () => {
               "_rawAttrs": "",
               "_rawBody": "title 1",
               "_rawOuter": undefined,
+              "_reparseSource": undefined,
               "_verbatim": true,
               "attrs": {},
               "children": [
@@ -2304,6 +2417,7 @@ describe('multi-line HTML attributes', () => {
               "_rawAttrs": "",
               "_rawBody": "description 1",
               "_rawOuter": undefined,
+              "_reparseSource": undefined,
               "_verbatim": true,
               "attrs": {},
               "children": [
@@ -2319,12 +2433,10 @@ describe('multi-line HTML attributes', () => {
           ],
           "tag": "dl-custom",
           "text": 
-      "<dl-custom
-        data-variant='horizontalTable'
-      >
+      "
         <dt>title 1</dt>
         <dd>description 1</dd>
-      </dl-custom>"
+      "
       ,
           "type": "htmlBlock",
         },
@@ -2358,6 +2470,7 @@ describe('multi-line HTML attributes', () => {
         data-value="123"
       >content</div>"
       ,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {
             "class": "test",
@@ -2371,13 +2484,7 @@ describe('multi-line HTML attributes', () => {
             },
           ],
           "tag": "div",
-          "text": 
-      "<div
-        class="test"
-        id="main"
-        data-value="123"
-      >content</div>"
-      ,
+          "text": "content",
           "type": "htmlBlock",
         },
       ]
@@ -2410,6 +2517,7 @@ describe('multi-line HTML attributes', () => {
         data-value='123'
       >content</div>"
       ,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {
             "class": "test",
@@ -2423,13 +2531,7 @@ describe('multi-line HTML attributes', () => {
             },
           ],
           "tag": "div",
-          "text": 
-      "<div
-        class='test'
-        id='main'
-        data-value='123'
-      >content</div>"
-      ,
+          "text": "content",
           "type": "htmlBlock",
         },
       ]
@@ -2438,12 +2540,15 @@ describe('multi-line HTML attributes', () => {
 
   it('should parse JSX components with multi-line attributes', () => {
     expect(
-      p.parser(`<MyComponent
+      p.parser(
+        `<MyComponent
   className="wrapper"
   onClick={handleClick}
 >
   inner content
-</MyComponent>`)
+</MyComponent>`,
+        { overrides: { MyComponent: { props: {} } } }
+      )
     ).toMatchInlineSnapshot(`
       [
         {
@@ -2462,6 +2567,7 @@ describe('multi-line HTML attributes', () => {
         inner content
       </MyComponent>"
       ,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {
             "className": "wrapper",
@@ -2558,6 +2664,7 @@ describe('multi-line HTML attributes', () => {
         data-mixed="value"
       >content</div>"
       ,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {
             "class": "double-quoted",
@@ -2571,13 +2678,7 @@ describe('multi-line HTML attributes', () => {
             },
           ],
           "tag": "div",
-          "text": 
-      "<div
-        class="double-quoted"
-        id='single-quoted'
-        data-mixed="value"
-      >content</div>"
-      ,
+          "text": "content",
           "type": "htmlBlock",
         },
       ]
@@ -2644,6 +2745,7 @@ describe('multi-line HTML attributes', () => {
             data-c="3"
       >inner</CustomElement>"
       ,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {
             "data-a": "1",
@@ -2690,6 +2792,7 @@ describe('multi-line HTML attributes', () => {
           <dd>description 1</dd>
         </dl-custom>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -2701,6 +2804,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "title 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2719,6 +2823,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "description 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2734,12 +2839,10 @@ describe('multi-line HTML attributes', () => {
             ],
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>"
+        "
         ,
             "type": "htmlBlock",
           },
@@ -2766,6 +2869,7 @@ describe('multi-line HTML attributes', () => {
         </dl-custom>
         "
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -2777,6 +2881,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "title 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2795,6 +2900,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "description 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2810,12 +2916,9 @@ describe('multi-line HTML attributes', () => {
             ],
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>
         "
         ,
             "type": "htmlBlock",
@@ -2843,6 +2946,7 @@ describe('multi-line HTML attributes', () => {
         </dl-custom>
         "
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -2854,6 +2958,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "title 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2872,6 +2977,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "description 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2887,12 +2993,9 @@ describe('multi-line HTML attributes', () => {
             ],
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>
         "
         ,
             "type": "htmlBlock",
@@ -2919,6 +3022,7 @@ describe('multi-line HTML attributes', () => {
           <dd>description 1</dd>
         </dl-custom>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -2930,6 +3034,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "title 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2948,6 +3053,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "description 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2963,12 +3069,10 @@ describe('multi-line HTML attributes', () => {
             ],
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>"
+        "
         ,
             "type": "htmlBlock",
           },
@@ -2995,6 +3099,7 @@ describe('multi-line HTML attributes', () => {
         </dl-custom>
         "
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -3006,6 +3111,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "title 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3024,6 +3130,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "description 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3039,12 +3146,9 @@ describe('multi-line HTML attributes', () => {
             ],
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>
         "
         ,
             "type": "htmlBlock",
@@ -3071,6 +3175,7 @@ describe('multi-line HTML attributes', () => {
           <dd>description 1</dd>
         </dl-custom>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -3082,6 +3187,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "title 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3100,6 +3206,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "description 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3115,12 +3222,10 @@ describe('multi-line HTML attributes', () => {
             ],
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>"
+        "
         ,
             "type": "htmlBlock",
           },
@@ -3156,6 +3261,7 @@ describe('multi-line HTML attributes', () => {
           content
         </MyCustomComponent>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "propA": "value1",
@@ -3181,13 +3287,16 @@ describe('multi-line HTML attributes', () => {
 
     it('should handle JSX curly brace attributes on separate lines', () => {
       expect(
-        p.parser(`<DataTable
+        p.parser(
+          `<DataTable
   data={myData}
   columns={columns}
   onRowClick={handleClick}
 >
   Loading...
-</DataTable>`)
+</DataTable>`,
+          { overrides: { DataTable: { props: {} } } }
+        )
       ).toMatchInlineSnapshot(`
         [
           {
@@ -3208,6 +3317,7 @@ describe('multi-line HTML attributes', () => {
           Loading...
         </DataTable>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "columns": "columns",
@@ -3234,14 +3344,17 @@ describe('multi-line HTML attributes', () => {
 
     it('should handle mixed HTML and JSX attributes on separate lines', () => {
       expect(
-        p.parser(`<Widget
+        p.parser(
+          `<Widget
   className="container"
   data-id="123"
   onClick={handleClick}
   disabled
 >
   content
-</Widget>`)
+</Widget>`,
+          { overrides: { Widget: { props: {} } } }
+        )
       ).toMatchInlineSnapshot(`
         [
           {
@@ -3264,6 +3377,7 @@ describe('multi-line HTML attributes', () => {
           content
         </Widget>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "className": "container",
@@ -3328,6 +3442,7 @@ describe('multi-line HTML attributes', () => {
           </Middle>
         </Outer>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "level": "1",
@@ -3351,6 +3466,7 @@ describe('multi-line HTML attributes', () => {
             </Inner>
           </Middle>"
         ,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {
                   "level": "2",
@@ -3370,6 +3486,7 @@ describe('multi-line HTML attributes', () => {
               content
             </Inner>"
         ,
+                    "_reparseSource": undefined,
                     "_verbatim": true,
                     "attrs": {
                       "level": "3",
@@ -3424,12 +3541,15 @@ describe('multi-line HTML attributes', () => {
 
     it('should handle self-closing JSX with multi-line attributes', () => {
       expect(
-        p.parser(`<Icon
+        p.parser(
+          `<Icon
   name="star"
   size={24}
   color="gold"
   filled
-/>`)
+/>`,
+          { overrides: { Icon: { props: {} } } }
+        )
       ).toMatchInlineSnapshot(`
         [
           {
@@ -3443,6 +3563,7 @@ describe('multi-line HTML attributes', () => {
         "
         ,
             "_rawBody": "",
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "color": "gold",
@@ -3484,6 +3605,7 @@ describe('multi-line HTML attributes', () => {
         	id="main"
         >content</div>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "class": "test",
@@ -3496,12 +3618,7 @@ describe('multi-line HTML attributes', () => {
               },
             ],
             "tag": "div",
-            "text": 
-        "<div
-        	class="test"
-        	id="main"
-        >content</div>"
-        ,
+            "text": "content",
             "type": "htmlBlock",
           },
         ]
@@ -3531,6 +3648,7 @@ describe('multi-line HTML attributes', () => {
         	  id="main"
         >content</div>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "class": "test",
@@ -3543,12 +3661,7 @@ describe('multi-line HTML attributes', () => {
               },
             ],
             "tag": "div",
-            "text": 
-        "<div
-          	class="test"
-        	  id="main"
-        >content</div>"
-        ,
+            "text": "content",
             "type": "htmlBlock",
           },
         ]
@@ -3570,6 +3683,7 @@ describe('multi-line HTML attributes', () => {
         </dl-custom>"
         ,
             "_rawOuter": undefined,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -3581,6 +3695,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "title",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3597,7 +3712,7 @@ describe('multi-line HTML attributes', () => {
             "tag": "dl-custom",
             "text": 
         "  <dt>title</dt>
-        </dl-custom>"
+        "
         ,
             "type": "htmlBlock",
           },
@@ -3626,6 +3741,7 @@ describe('multi-line HTML attributes', () => {
         >
         </dl-custom>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -3633,10 +3749,8 @@ describe('multi-line HTML attributes', () => {
             "children": [],
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
-        </dl-custom>"
+        "
+        "
         ,
             "type": "htmlBlock",
           },
@@ -3768,6 +3882,7 @@ This is paragraph after the unordered nested list.`
         {
           "_isClosingTag": false,
           "_rawAttrs": "",
+          "_reparseSource": undefined,
           "_verbatim": false,
           "attrs": {},
           "children": [],
@@ -4439,16 +4554,20 @@ Final paragraph.`
 })
 
 describe('raw HTML on* attribute stripping', () => {
-  it('keeps a bare boolean on* on a component-like tag (a prop, not a handler)', () => {
+  const myComponent = { overrides: { MyComponent: { props: {} } } }
+
+  it('keeps a bare boolean on* on a component (a prop, not a handler)', () => {
     const result = p.parser(
-      '<MyComponent onClick />'
+      '<MyComponent onClick />',
+      myComponent
     ) as (MarkdownToJSX.HTMLSelfClosingNode & { endPos: number })[]
     expect(result[0].attrs?.onClick).toBe(true)
   })
 
-  it('strips a string-valued on* even on a component-like tag', () => {
+  it('strips a string-valued on* even on a component', () => {
     const result = p.parser(
-      '<MyComponent onclick="alert(1)" />'
+      '<MyComponent onclick="alert(1)" />',
+      myComponent
     ) as (MarkdownToJSX.HTMLSelfClosingNode & { endPos: number })[]
     expect(result[0].attrs?.onclick).toBeUndefined()
   })
@@ -4462,11 +4581,20 @@ describe('raw HTML on* attribute stripping', () => {
 })
 
 describe('Unserializable expression evaluation', () => {
+  const components = {
+    overrides: {
+      Button: { props: {} },
+      Component: { props: {} },
+      Input: { props: {} },
+    },
+  }
+
   describe('with evalUnserializableExpressions: false (default)', () => {
     it('should keep function expressions as strings', () => {
       const markdown = '<Button onClick={() => alert("test")} />'
       const result = p.parser(
-        markdown
+        markdown,
+        components
       ) as (MarkdownToJSX.HTMLSelfClosingNode & {
         endPos: number
       })[]
@@ -4478,7 +4606,8 @@ describe('Unserializable expression evaluation', () => {
     it('should keep arrow functions as strings', () => {
       const markdown = '<Input onChange={(e) => setValue(e.target.value)} />'
       const result = p.parser(
-        markdown
+        markdown,
+        components
       ) as (MarkdownToJSX.HTMLSelfClosingNode & {
         endPos: number
       })[]
@@ -4490,7 +4619,8 @@ describe('Unserializable expression evaluation', () => {
     it('should keep function declarations as strings', () => {
       const markdown = '<Component handler={function handleClick() { }} />'
       const result = p.parser(
-        markdown
+        markdown,
+        components
       ) as (MarkdownToJSX.HTMLSelfClosingNode & {
         endPos: number
       })[]
@@ -4501,7 +4631,8 @@ describe('Unserializable expression evaluation', () => {
     it('should keep complex expressions as strings', () => {
       const markdown = '<Component value={someVar + 10} />'
       const result = p.parser(
-        markdown
+        markdown,
+        components
       ) as (MarkdownToJSX.HTMLSelfClosingNode & {
         endPos: number
       })[]
@@ -4512,7 +4643,7 @@ describe('Unserializable expression evaluation', () => {
   })
 
   describe('with evalUnserializableExpressions: true', () => {
-    const options = { evalUnserializableExpressions: true }
+    const options = { ...components, evalUnserializableExpressions: true }
 
     it('should evaluate arrow functions', () => {
       const markdown = '<Button onClick={() => 42} />'
@@ -4590,7 +4721,8 @@ describe('Unserializable expression evaluation', () => {
       const maliciousMarkdown =
         '<Component onClick={() => fetch("/admin/delete")} />'
       const safeResult = p.parser(
-        maliciousMarkdown
+        maliciousMarkdown,
+        components
       ) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof safeResult[0].attrs?.onClick).toBe('string')
     })
@@ -4598,6 +4730,7 @@ describe('Unserializable expression evaluation', () => {
     it('should eval expressions when evalUnserializableExpressions is true', () => {
       const markdown = '<Component onClick={() => 42} />'
       const result = p.parser(markdown, {
+        ...components,
         evalUnserializableExpressions: true,
       }) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.onClick).toBe('function')
@@ -4606,7 +4739,10 @@ describe('Unserializable expression evaluation', () => {
     it('should keep functions as strings by default to prevent code execution', () => {
       const markdown =
         '<Button onClick={() => window.location.href = "https://evil.com"} />'
-      const result = p.parser(markdown) as MarkdownToJSX.HTMLSelfClosingNode[]
+      const result = p.parser(
+        markdown,
+        components
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.onClick).toBe('string')
       expect(() => {
         ;(result[0].attrs?.onClick as Function)()
@@ -4645,11 +4781,13 @@ describe('Unserializable expression evaluation', () => {
       expect(safe[0].attrs).toEqual({ alt: 'a', src: '/s?a=1&#38;b=2' })
     })
 
-    it('keeps brace-expression props on component-like tags but strips dangerous brace handlers on standard HTML elements', () => {
-      // Component (capitalized) and custom-element (hyphenated) tags take brace
-      // expressions as renderer-resolved props, so they are kept.
+    it('keeps brace-expression props on components but strips dangerous brace handlers on HTML tags', () => {
+      // A capitalized tag an override matches takes brace expressions as
+      // renderer-resolved props, so they are kept. A lowercase tag an override
+      // matches keeps a handler in attrs, as written; without one it is HTML.
       const jsx = p.parser(
-        '<MyComponent onClick={handler} onChange={fn} href={url} data={[1,2,3]} />'
+        '<MyComponent onClick={handler} onChange={fn} href={url} data={[1,2,3]} />',
+        { overrides: { MyComponent: { props: {} } } }
       ) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(jsx[0].attrs).toEqual({
         data: [1, 2, 3],
@@ -4658,17 +4796,21 @@ describe('Unserializable expression evaluation', () => {
         onClick: 'handler',
       })
       const custom = p.parser(
-        '<my-el onClick={handleClick}>x</my-el>'
+        '<my-el onClick={handleClick} items={x}>x</my-el>'
       ) as MarkdownToJSX.HTMLNode[]
-      expect(custom[0].attrs?.onClick).toBe('handleClick')
+      expect(custom[0].attrs).toEqual({ items: '{x}' })
+      const registered = p.parser('<my-el onClick={handleClick}>x</my-el>', {
+        overrides: { 'my-el': { props: {} } },
+      }) as MarkdownToJSX.HTMLNode[]
+      expect(registered[0].attrs).toEqual({ onClick: '{handleClick}' })
       // A standard HTML element is not a component, so a brace-valued event
       // handler would still emit an executable handler in string output and is
-      // stripped; a non-dangerous brace attribute is kept.
+      // stripped; a non-dangerous brace attribute is kept as written.
       const div = p.parser(
         '<div onClick={alert(1)} title={t}>x</div>'
       ) as MarkdownToJSX.HTMLNode[]
       expect(div[0].attrs?.onClick).toBeUndefined()
-      expect(div[0].attrs?.title).toBe('t')
+      expect(div[0].attrs?.title).toBe('{t}')
     })
   })
 
@@ -4679,6 +4821,7 @@ describe('Unserializable expression evaluation', () => {
   return x + 1;
 }} />`
       const result = p.parser(markdown, {
+        ...components,
         evalUnserializableExpressions: true,
       }) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.handler).toBe('function')
@@ -4688,6 +4831,7 @@ describe('Unserializable expression evaluation', () => {
     it('should evaluate nested braces in functions', () => {
       const markdown = '<Component fn={() => { return { nested: true } }} />'
       const result = p.parser(markdown, {
+        ...components,
         evalUnserializableExpressions: true,
       }) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.fn).toBe('function')
@@ -4697,6 +4841,7 @@ describe('Unserializable expression evaluation', () => {
     it('should evaluate empty functions', () => {
       const markdown = '<Component noop={() => {}} />'
       const result = p.parser(markdown, {
+        ...components,
         evalUnserializableExpressions: true,
       }) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.noop).toBe('function')
@@ -4718,6 +4863,7 @@ describe('Unserializable expression evaluation', () => {
           "_rawBody": "Hello **world**",
           "_rawClose": "</script>",
           "_rawOuter": undefined,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {},
           "children": [],
@@ -4744,6 +4890,7 @@ describe('Unserializable expression evaluation', () => {
           "_rawBody": "<code>const x = 1;</code>",
           "_rawClose": "</pre>",
           "_rawOuter": undefined,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {},
           "children": [],
@@ -4772,6 +4919,7 @@ describe('Unserializable expression evaluation', () => {
         ,
           "_rawClose": "</style>",
           "_rawOuter": undefined,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {},
           "children": [],
@@ -4800,6 +4948,7 @@ describe('Unserializable expression evaluation', () => {
           "_isClosingTag": false,
           "_rawAttrs": "",
           "_rawBody": undefined,
+          "_reparseSource": undefined,
           "_verbatim": false,
           "attrs": {},
           "children": [
@@ -4843,6 +4992,7 @@ describe('Unserializable expression evaluation', () => {
             "_isClosingTag": false,
             "_rawAttrs": "",
             "_rawBody": undefined,
+            "_reparseSource": undefined,
             "_verbatim": false,
             "attrs": {},
             "children": [
@@ -4856,6 +5006,7 @@ describe('Unserializable expression evaluation', () => {
         "
         ,
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -5185,6 +5336,7 @@ describe('text normalization edge cases', () => {
             "_rawAttrs": " att1=tok1 att2=tok2",
             "_rawBody": "",
             "_rawOuter": undefined,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "att1": "tok1",
@@ -6257,6 +6409,7 @@ describe('text normalization edge cases', () => {
                   "_rawBody": undefined,
                   "_rawClose": undefined,
                   "_rawOuter": "<script>",
+                  "_reparseSource": undefined,
                   "_verbatim": true,
                   "attrs": {},
                   "children": [],
@@ -6384,6 +6537,7 @@ describe('text normalization edge cases', () => {
         ,
             "_rawClose": "</textarea>",
             "_rawOuter": undefined,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {},
             "children": [],
@@ -6462,11 +6616,10 @@ describe('text normalization edge cases', () => {
                 "type": "text",
               },
               {
-                "_isClosingTag": false,
-                "_rawOpen": "<!A>",
-                "attrs": {},
-                "tag": "!A",
-                "type": "htmlSelfClosing",
+                "_endsWithGT": false,
+                "raw": true,
+                "text": "<!A>",
+                "type": "htmlComment",
               },
             ],
             "type": "paragraph",
@@ -7423,6 +7576,7 @@ Some paragraph
           "_isClosingTag": false,
           "_rawAttrs": "",
           "_rawBody": undefined,
+          "_reparseSource": undefined,
           "_verbatim": false,
           "attrs": {},
           "children": [
@@ -7747,5 +7901,582 @@ describe('enforceAtxHeadings (#903)', () => {
     expect(types('#######', { enforceAtxHeadings })).toEqual([
       RuleType.paragraph,
     ])
+  })
+})
+
+const attrsOf = (source: string, options?: Parameters<typeof p.parser>[1]) =>
+  (p.parser(source, options)[0] as MarkdownToJSX.HTMLNode).attrs
+
+describe('table cell pipe escapes', () => {
+  it.each([
+    ['a\\|b', ['a|b', 'z']],
+    ['a\\\\\\|b', ['a\\|b', 'z']],
+    ['a\\\\b', ['a\\b', 'z']],
+    // An even backslash run before a pipe is a column split; two header
+    // columns keep the first two of the row's three cells
+    ['a\\\\|b', ['a\\', 'b']],
+  ])('reads the row cell %j as the cell texts %j', (cell, expected) => {
+    const table = p.parser(
+      `| h | i |\n|---|---|\n| ${cell} | z |`
+    )[0] as MarkdownToJSX.TableNode
+    expect(
+      table.cells[0].map(nodes =>
+        nodes
+          .map(node => (node.type === RuleType.text ? node.text : ''))
+          .join('')
+      )
+    ).toEqual(expected)
+  })
+})
+
+describe('attribute names a renderer acts on rather than writes', () => {
+  it.each([
+    '<div innerHTML="x">y</div>',
+    '<div INNERHTML="x">y</div>',
+    '<div outerHTML="x">y</div>',
+    '<div dangerouslySetInnerHTML="x">y</div>',
+    '<div dangerouslySetInnerHTML={{"__html":"x"}}>y</div>',
+    '<div ref="x">y</div>',
+    '<div ref={x}>y</div>',
+    '<div children="x">y</div>',
+    '<div prop:innerHTML="x">y</div>',
+    '<div attr:onclick="x">y</div>',
+    '<div bool:onclick="x">y</div>',
+    '<div prop:onclick="x">y</div>',
+    '<div attr:srcdoc="x">y</div>',
+    '<div attr:href="javascript:x">y</div>',
+    '<div prop:href="javascript:x">y</div>',
+    '<div xlinkHref="javascript:x">y</div>',
+    '<div attr:xlink:href="javascript:x">y</div>',
+    '<Foo innerHTML={x}>y</Foo>',
+    '<Foo outerHTML={x}>y</Foo>',
+    '<Foo dangerouslySetInnerHTML={{"__html":"x"}}>y</Foo>',
+    '<Foo ref={x}>y</Foo>',
+    '<Foo children="x">y</Foo>',
+    '<Foo children={x}>y</Foo>',
+    '<Foo children={{"a":1}}>y</Foo>',
+    '<my-el children="x">y</my-el>',
+  ])('removes the attribute from %j', source => {
+    expect(attrsOf(source)).toEqual({})
+  })
+
+  it.each([
+    ['attr:title="x"', { 'attr:title': 'x' }],
+    ['prop:title="x"', { 'prop:title': 'x' }],
+    ['attr:href="/x"', { 'attr:href': '/x' }],
+    ['xlinkHref="/x"', { xlinkHref: '/x' }],
+    ['textContent="x"', { textContent: 'x' }],
+    ['key="x"', { key: 'x' }],
+  ])('keeps %s on an element', (attribute, attrs) => {
+    expect(attrsOf(`<div ${attribute}>y</div>`)).toEqual(attrs)
+  })
+
+  it.each([
+    ['<div innerHTML="x">y</div>', '<div >y</div>'],
+    ['<div attr:onclick="x">y</div>', '<div >y</div>'],
+    ['<b ref="x" title="y">z</b>', '<b title="y">z</b>'],
+    [
+      '<img src=x onerror="y"><b title="z">w</b>',
+      '<img src=x><b title="z">w</b>',
+    ],
+  ])('removes it from the raw string %j', (raw, screened) => {
+    expect(p.stripDangerousHtml(raw)).toBe(screened)
+  })
+})
+
+describe('markup a browser reads differently from the parser', () => {
+  // A tag hidden in a value reads on past the tag that holds it, to a quote left
+  // open earlier in the string: written as text, there is no open quote left for
+  // a later rewrite to re-pair
+  const OPEN_QUOTE = '<![CDATA[<a title="</style><a title="</textarea>'
+  const OPEN_QUOTE_TEXT =
+    '<![CDATA[&lt;a title="&lt;/style>&lt;a title="&lt;/textarea>'
+
+  it.each([
+    [
+      `${OPEN_QUOTE}<a href="javascript:alert(1)">l</a> x" onclick=alert(1)>`,
+      `${OPEN_QUOTE_TEXT}<a >l</a> x" onclick=alert(1)>`,
+    ],
+    [
+      `${OPEN_QUOTE}<img src=x onerror="y">l x" onclick=alert(1)>`,
+      `${OPEN_QUOTE_TEXT}<img src=x>l x" onclick=alert(1)>`,
+    ],
+  ])('writes the tag with the open quote in %j as text', (raw, screened) => {
+    expect(p.stripDangerousHtml(raw)).toBe(screened)
+  })
+
+  it.each([
+    ['<?php echo 1 ?>', '<?php echo 1 ?>'],
+    ['<!DOCTYPE html>', '<!DOCTYPE html>'],
+    ['<![CDATA[x]]>', '<![CDATA[x]]>'],
+  ])('reads the inline markup in a %j paragraph as a raw comment', (markup, text) => {
+    const paragraph = p.parser(
+      `a ${markup} c`
+    )[0] as MarkdownToJSX.ParagraphNode
+    expect(paragraph.children[1]).toEqual({
+      _endsWithGT: false,
+      raw: true,
+      text,
+      type: RuleType.htmlComment,
+    })
+  })
+
+  it('reads a fence info string with the attribute screen', () => {
+    const code = p.parser(
+      '```x onmouseover="alert(1)" title="t"\ny\n```'
+    )[0] as MarkdownToJSX.CodeBlockNode
+    expect(Object.keys(code.attrs ?? {})).toEqual(['title'])
+  })
+
+  const registeredTags = {
+    overrides: { Foo: { props: {} }, 'my-el': { props: {} } },
+  }
+
+  it.each([
+    ['<my-el onClick={go} items={x}>y</my-el>', undefined, { items: '{x}' }],
+    ['<my-el onClick={go}>y</my-el>', registeredTags, { onClick: '{go}' }],
+    ['<My-el onClick={go}>y</My-el>', undefined, {}],
+    ['<My-el onClick={go}>y</My-el>', registeredTags, { onClick: 'go' }],
+    ['<Foo children="x">y</Foo>', registeredTags, { children: 'x' }],
+    ['<Foo children={x}>y</Foo>', registeredTags, { children: 'x' }],
+    ['<my-el children="x">y</my-el>', registeredTags, { children: 'x' }],
+    ['<Foo children={{"a":1}}>y</Foo>', registeredTags, {}],
+    ['<Foo children={ {"a":1} }>y</Foo>', registeredTags, {}],
+    ['<Foo children={[{"a":1}]}>y</Foo>', registeredTags, {}],
+  ])('keeps the attributes of %j with %j as %j', (input, options, attrs) => {
+    expect(attrsOf(input, options)).toEqual(attrs)
+  })
+
+  it('reads no registered tag from a parse that ended', () => {
+    p.parser('x', { overrides: { 'my-el': { props: {} } } })
+    expect(attrsOf('<my-el onClick={go}>y</my-el>')).toEqual({})
+  })
+
+  it.each([
+    ['<div><a x="<b>">y</a>', '<div><a x="<b>">y</a>'],
+    ['<div>\n<b onclick=alert(1)', '<div>\n&lt;b onclick=alert(1)'],
+    [
+      '<div>\n<a title="<b onclick=alert(1)>">',
+      '<div>\n&lt;a title="&lt;b onclick=alert(1)>">',
+    ],
+    ['<!--><svg onload=alert(1)>', '<!--><svg >'],
+    ['<?"><b onclick=alert(1)>b</b>', '<?"><b >b</b>'],
+  ])('screens the raw string %j to %j', (input, expected) => {
+    expect(p.stripDangerousHtml(input, true)).toBe(expected)
+  })
+})
+
+describe('a tag that matches an override is a component, and every other tag is HTML', () => {
+  /** The attributes of the first node with the tag, at any depth */
+  const attrsOfTag = (
+    source: string,
+    tag: string,
+    options?: Parameters<typeof p.parser>[1]
+  ) => {
+    const find = (nodes: unknown): unknown => {
+      if (!Array.isArray(nodes)) {
+        return
+      }
+      for (const node of nodes) {
+        if (node.tag === tag) {
+          return node.attrs
+        }
+        const inner = find(node.children)
+        if (inner !== undefined) {
+          return inner
+        }
+      }
+    }
+    return find(p.parser(source, options))
+  }
+
+  const keys = ['Card', 'card', 'CARD']
+
+  it.each(
+    ['Card', 'CARD', 'CaRd'].flatMap(tag => keys.map(key => [tag, key]))
+  )('reads <%s> as the component a %j key names', (tag, key) => {
+    const overrides = { [key]: { component: 'aside' } }
+    expect(
+      attrsOfTag(`a <${tag} data={[1]} children="z" />`, tag, { overrides })
+    ).toEqual({
+      children: 'z',
+      data: [1],
+    })
+  })
+
+  it('reads <card> as HTML against a `Card` key', () => {
+    const overrides = { Card: { component: 'aside' } }
+    expect(
+      attrsOfTag('a <card data={[1]} children="z" />', 'card', { overrides })
+    ).toEqual({ data: '{[1]}' })
+  })
+
+  it.each([
+    '<Card data={[1]} title="t" onClick={go} on={true}>x</Card>',
+    '<div>\n<Card data={[1]} title="t" onClick={go} on={true}>x</Card>\n</div>',
+    'a <Card data={[1]} title="t" onClick={go} on={true}>x</Card> b',
+  ])('keeps the attributes of an unmatched capitalized tag in %j as written, without its handlers', input => {
+    expect(attrsOfTag(input, 'Card')).toEqual({ data: '{[1]}', title: 't' })
+    expect(attrsOfTag(input, 'Card', { overrides: { Other: 'b' } })).toEqual({
+      data: '{[1]}',
+      title: 't',
+    })
+  })
+
+  it.each([
+    [
+      '<div data={[1]} hidden={true}>x</div>',
+      undefined,
+      { data: '{[1]}', hidden: '{true}' },
+    ],
+    [
+      '<div data={[1]} hidden={true}>x</div>',
+      { overrides: { div: { props: {} } } },
+      { data: '{[1]}', hidden: '{true}' },
+    ],
+    ['<my-el data={[1]} onclick={go}>x</my-el>', undefined, { data: '{[1]}' }],
+    // A lowercase tag an override matches keeps its handler in attrs, as written
+    [
+      '<my-el data={[1]} onclick={go}>x</my-el>',
+      { overrides: { 'my-el': { props: {} } } },
+      { data: '{[1]}', onclick: '{go}' },
+    ],
+    [
+      '<a data={{"a":1}}>x</a>',
+      { overrides: { a: { props: {} } } },
+      { data: '{{"a":1}}' },
+    ],
+    [
+      '<card children="z" />',
+      { overrides: { card: { props: {} } } },
+      { children: 'z' },
+    ],
+  ])('reads the lowercase tag %j with %j as HTML: %j', (input, options, attrs) => {
+    expect(
+      attrsOfTag(input, input.slice(1, input.indexOf(' ')), options)
+    ).toEqual(attrs)
+  })
+
+  it.each([
+    ['<Card onClick={() => 1} data={foo} />', { data: '{foo}' }],
+    ['<div data={foo}>x</div>', { data: '{foo}' }],
+  ])('evaluates no expression in %j when no override matches the tag', (input, attrs) => {
+    const withEval = { evalUnserializableExpressions: true }
+    expect(
+      attrsOfTag(input, input.slice(1, input.indexOf(' ')), withEval)
+    ).toEqual(attrs)
+  })
+
+  it('evaluates the expressions of a tag an override matches when the option is on', () => {
+    const attrs = attrsOfTag('<CARD onClick={() => 1} />', 'CARD', {
+      evalUnserializableExpressions: true,
+      overrides: { Card: { props: {} } },
+    }) as { onClick: () => number }
+    expect(typeof attrs.onClick).toBe('function')
+    expect(attrs.onClick()).toBe(1)
+  })
+
+  it('keeps a brace handler on a lowercase tag an override restyles, as written', () => {
+    expect(
+      attrsOfTag('x <a href="/" onclick={alert(1)}>y</a>', 'a', {
+        overrides: { a: { props: { class: 'x' } } },
+      })
+    ).toEqual({ href: '/', onclick: '{alert(1)}' })
+  })
+
+  const RAW_SPANS = [
+    '_rawAttrs',
+    '_rawOpen',
+    '_rawOuter',
+    '_rawBody',
+    '_reparseSource',
+  ] as const
+
+  /** Every raw source span in a parsed tree, as `[field, value]` in tree order */
+  const rawSpans = (nodes: unknown) => {
+    const out: string[][] = []
+    const walk = (list: unknown) => {
+      if (!Array.isArray(list)) {
+        return
+      }
+      for (const node of list) {
+        for (const field of RAW_SPANS) {
+          if (typeof node[field] === 'string') {
+            out.push([field, node[field]])
+          }
+        }
+        walk(node.children)
+      }
+    }
+    walk(nodes)
+    return out
+  }
+
+  const link = { overrides: { a: { props: {} } } }
+  const widget = { overrides: { 'my-widget': { props: {} } } }
+  const widgetBlock = [
+    ['_rawAttrs', ' '],
+    ['_rawOuter', '<my-widget >x</my-widget>'],
+  ]
+  const widgetNested = [
+    ['_rawAttrs', ''],
+    ['_rawBody', '<my-widget >x</my-widget>\n</div>'],
+    ['_rawAttrs', ' '],
+    ['_rawOuter', '<my-widget >x</my-widget>\n'],
+  ]
+
+  it.each([
+    [
+      'x <a href="/" onclick="alert(1)">y</a>',
+      link,
+      { href: '/', onclick: 'alert(1)' },
+      [['_rawAttrs', 'href="/"']],
+    ],
+    [
+      'x <a href="/" onclick={alert(1)}>y</a>',
+      link,
+      { href: '/', onclick: '{alert(1)}' },
+      [['_rawAttrs', 'href="/"']],
+    ],
+    [
+      'x <a href="/" onclick>y</a>',
+      link,
+      { href: '/', onclick: true },
+      [['_rawAttrs', 'href="/"']],
+    ],
+    [
+      'x <img src="/x.png" onerror="alert(1)"> y',
+      { overrides: { img: { props: {} } } },
+      { onerror: 'alert(1)', src: '/x.png' },
+      [['_rawOpen', '<img src="/x.png">']],
+    ],
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      { onclick: '{alert(1)}' },
+      widgetBlock,
+    ],
+    [
+      '<my-widget onclick="alert(1)">x</my-widget>',
+      widget,
+      { onclick: 'alert(1)' },
+      widgetBlock,
+    ],
+    [
+      'a <my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      { onclick: '{alert(1)}' },
+      [['_rawAttrs', '']],
+    ],
+    [
+      'a <my-widget onclick="alert(1)">x</my-widget>',
+      widget,
+      { onclick: 'alert(1)' },
+      [['_rawAttrs', '']],
+    ],
+    [
+      '<div>\n<my-widget onclick={alert(1)}>x</my-widget>\n</div>',
+      widget,
+      { onclick: '{alert(1)}' },
+      widgetNested,
+    ],
+    [
+      '<div>\n<my-widget onclick="alert(1)">x</my-widget>\n</div>',
+      widget,
+      { onclick: 'alert(1)' },
+      widgetNested,
+    ],
+    // A tag no override matches is HTML, whose handlers go
+    [
+      'x <a href="/" onclick={alert(1)}>y</a>',
+      undefined,
+      { href: '/' },
+      [['_rawAttrs', 'href="/"']],
+    ],
+    ['<my-widget onclick={alert(1)}>x</my-widget>', undefined, {}, widgetBlock],
+    // A capitalized tag an override matches is a component, which keeps its handler in raw source too
+    [
+      '<Btn onClick={go}>x</Btn>',
+      { overrides: { Btn: { props: {} } } },
+      { onClick: 'go' },
+      [
+        ['_rawAttrs', ' onClick={go}'],
+        ['_rawOuter', '<Btn onClick={go}>x</Btn>'],
+      ],
+    ],
+  ])('keeps the handlers of %j with %j in attrs as %j, with raw source %j', (input, options, attrs, spans) => {
+    // The tag holding the handler
+    const opener = input.slice(input.lastIndexOf('<', input.indexOf(' on')) + 1)
+    const tag = opener.slice(0, opener.indexOf(' '))
+    const tree = p.parser(input, options)
+    expect(attrsOfTag(input, tag, options)).toEqual(attrs)
+    expect(rawSpans(tree)).toEqual(spans)
+  })
+
+  const widgetX = (
+    attrs: Record<string, string>,
+    rawOuter: string
+  ): MarkdownToJSX.HTMLNode => ({
+    _isClosingTag: false,
+    _rawAttrs: ' ',
+    _rawOuter: rawOuter,
+    _verbatim: true,
+    attrs,
+    children: [{ text: 'x', type: RuleType.text }],
+    tag: 'my-widget',
+    text: 'x',
+    type: RuleType.htmlBlock,
+  })
+
+  it.each([
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      undefined,
+      [widgetX({}, '<my-widget >x</my-widget>')],
+    ],
+    [
+      '<my-widget onclick="alert(1)">x</my-widget>',
+      widget,
+      [widgetX({ onclick: 'alert(1)' }, '<my-widget >x</my-widget>')],
+    ],
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      [widgetX({ onclick: '{alert(1)}' }, '<my-widget >x</my-widget>')],
+    ],
+    [
+      '<div>\n<my-widget onclick="alert(1)">x</my-widget>\n</div>',
+      undefined,
+      [
+        {
+          _isClosingTag: false,
+          _rawAttrs: '',
+          _rawBody: '<my-widget >x</my-widget>\n</div>',
+          _verbatim: true,
+          attrs: {},
+          children: [widgetX({}, '<my-widget >x</my-widget>\n')],
+          tag: 'div',
+          text: '<my-widget >x</my-widget>\n',
+          type: RuleType.htmlBlock,
+        },
+      ],
+    ],
+    [
+      '<div><img src=x onerror="alert(1)"></div>',
+      undefined,
+      [
+        {
+          _isClosingTag: false,
+          _rawAttrs: '',
+          _rawBody: '<img src=x></div>',
+          _verbatim: true,
+          attrs: {},
+          children: [
+            {
+              _isClosingTag: false,
+              _rawAttrs: ' src=x',
+              _verbatim: false,
+              attrs: { src: 'x' },
+              children: [],
+              tag: 'img',
+              text: '',
+              type: RuleType.htmlBlock,
+            },
+          ],
+          tag: 'div',
+          text: '<img src=x>',
+          type: RuleType.htmlBlock,
+        },
+      ],
+    ],
+    [
+      '<pre>\n<img src=x onerror="alert(1)">\n</pre>',
+      undefined,
+      [
+        {
+          _isClosingTag: false,
+          _rawAttrs: '',
+          _rawBody: '<img src=x>',
+          _rawClose: '</pre>',
+          _verbatim: true,
+          attrs: {},
+          children: [],
+          tag: 'pre',
+          text: '<img src=x>',
+          type: RuleType.htmlBlock,
+        },
+      ],
+    ],
+    [
+      '</div><img src=x onerror="alert(1)">',
+      undefined,
+      [
+        {
+          _isClosingTag: true,
+          _rawBody: '<img src=x>',
+          _rawClose: '</div>',
+          _verbatim: true,
+          attrs: {},
+          children: [],
+          tag: 'div',
+          text: '<img src=x>',
+          type: RuleType.htmlBlock,
+        },
+      ],
+    ],
+    // The line break ending the opening tag's line is not content, as in the raw body
+    [
+      '<Card children="z">\n',
+      { overrides: { card: { component: 'i' } } },
+      [
+        {
+          _isClosingTag: false,
+          _rawAttrs: ' ',
+          _rawBody: '',
+          _verbatim: true,
+          attrs: { children: 'z' },
+          children: [],
+          tag: 'Card',
+          text: '',
+          type: RuleType.htmlBlock,
+        },
+      ],
+    ],
+    [
+      '<div>\n\n',
+      undefined,
+      [
+        {
+          _isClosingTag: false,
+          _rawAttrs: '',
+          _rawBody: '',
+          _verbatim: true,
+          attrs: {},
+          children: [],
+          tag: 'div',
+          text: '',
+          type: RuleType.htmlBlock,
+        },
+      ],
+    ],
+    [
+      '<pre>\n<img src=x onerror="alert(1)">\n',
+      undefined,
+      [
+        {
+          _isClosingTag: false,
+          _rawAttrs: '',
+          _rawOuter: '<pre>\n<img src=x>',
+          _verbatim: true,
+          attrs: {},
+          children: [],
+          tag: 'pre',
+          text: '<img src=x>',
+          type: RuleType.htmlBlock,
+        },
+      ],
+    ],
+  ])('stores the screened inner content of %j with %j as text', (input, options, expected) => {
+    expect(p.parser(input, options)).toEqual(expected)
   })
 })

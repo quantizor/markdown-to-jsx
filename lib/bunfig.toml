@@ -2,4 +2,4 @@
 minimumReleaseAge = 259200 # 3d
 
 [test]
-preload = ["./src/__mocks__/react-native.ts"]
+preload = ["./src/__mocks__/react-native.ts", "./src/__mocks__/console-leak.ts"]

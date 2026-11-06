@@ -192,6 +192,61 @@ export function htmlAttrsToJSXProps(
 }
 
 /**
+ * Whether rendered children hold anything: a non-empty string, a number, or an
+ * element, at any depth of nested arrays. Booleans, null, undefined, '' and
+ * empty arrays hold nothing, as React renders them.
+ */
+export function hasContent(children: unknown): boolean {
+  if (Array.isArray(children)) {
+    for (var i = 0; i < children.length; i++) {
+      if (hasContent(children[i])) {
+        return true
+      }
+    }
+    return false
+  }
+  return (
+    children !== undefined &&
+    children !== null &&
+    typeof children !== 'boolean' &&
+    children !== ''
+  )
+}
+
+/**
+ * The text a registered tag's `children` attribute supplies as the element's
+ * content, or undefined. The element's own content wins, as in React, and only
+ * a string value is text: a bare `children` or `{true}` is `true`, and
+ * parse.ts drops an object value. The caller passes the text as a plain child
+ * (never parsed as markdown or HTML) and drops `children` from the props. A
+ * caller reads it once the tag it writes is known, since a void tag takes none.
+ */
+export function childrenAttrContent(
+  value: unknown,
+  ownChildren: unknown
+): string | undefined {
+  return typeof value === 'string' && !hasContent(ownChildren)
+    ? value
+    : undefined
+}
+
+/**
+ * The attribute text of a self-closing tag's raw opening tag (`_rawOpen`): what
+ * lies between the tag name, `tagLength` long, and its ending (` />`, `/>`, or
+ * `>`), leading gap included.
+ */
+export function rawOpenTagAttrs(openTag: string, tagLength: number): string {
+  var last = openTag.length - 1
+  var endingLength =
+    openTag.charCodeAt(last - 1) === $.CHAR_SLASH
+      ? openTag.charCodeAt(last - 2) === $.CHAR_SPACE
+        ? 3
+        : 2
+      : 1
+  return openTag.slice(1 + tagLength, openTag.length - endingLength)
+}
+
+/**
  * Regex for determining if markdown content should be rendered as block-level
  * Matches: newlines, list items, headings, indented content, thematic breaks, blockquotes
  */
@@ -243,53 +298,105 @@ export function decodeEntityReferences(text: string): string {
   })
 }
 
-export const SANITIZE_R: RegExp = /(javascript|vbscript|data(?!:image)):/i
+var BLOCKED_SCHEME_R = /(javascript|vbscript|data(?!:image)):/i
+
+/**
+ * A blocked scheme before a URL's first `/`, `?`, or `#`, the only place a browser
+ * can read a scheme. It need not be at the start, so `feed:javascript:` is blocked.
+ */
+export const SANITIZE_R: RegExp = new RegExp(
+  `^[^/?#]*?${BLOCKED_SCHEME_R.source}`,
+  'i'
+)
+
+/** The path, query, and fragment of a URL */
+var URL_AFTER_SCHEME_R = /[/?#][\s\S]*$/
+
+/** What urlVerdict found: a safe URL, or why one is unsafe (a blocked scheme as written, one after percent-decoding, or an undecodable sequence) */
+export const URL_VERDICT = {
+  malformed: 3,
+  safe: 0,
+  unsafe: 1,
+  unsafeDecoded: 2,
+} as const
+
+var URL_STRIP_R = /[^A-Za-z0-9/:]/g
+
+/** Anything that makes the decode and strip pass necessary: a browser's URL parser deletes tab, LF, and CR anywhere in a URL, and decodes `%` */
+var URL_NEEDS_DECODE_R = /[%\t\n\r]/
+
+/** The percent-decoded URL with everything outside `[A-Za-z0-9/:]` removed; throws on a malformed sequence */
+function decodeUrlScheme(input: string): string {
+  return decodeURIComponent(input).replace(URL_STRIP_R, '')
+}
+
+/**
+ * The sanitizer's judgment of a URL, with no warning: a value of URL_VERDICT.
+ * For a caller that screens text a browser may read as markup, where one URL
+ * can be judged more than once.
+ */
+export function urlVerdict(
+  input: string
+): (typeof URL_VERDICT)[keyof typeof URL_VERDICT] {
+  if (SANITIZE_R.test(input)) {
+    return URL_VERDICT.unsafe
+  }
+
+  if (!URL_NEEDS_DECODE_R.test(input)) {
+    return URL_VERDICT.safe
+  }
+
+  try {
+    // An undecodable sequence is rejected anywhere, so the whole URL is decoded first
+    decodeURIComponent(input)
+    // The strip removes `?` and `#`, so the scheme part is cut before it
+    return SANITIZE_R.test(
+      decodeUrlScheme(input.replace(URL_AFTER_SCHEME_R, ''))
+    )
+      ? URL_VERDICT.unsafeDecoded
+      : URL_VERDICT.safe
+  } catch {
+    return URL_VERDICT.malformed
+  }
+}
+
+/**
+ * Whether a blocked scheme stands anywhere in a URL, as written or decoded once.
+ * For text another renderer will read, which can take a later part of it as a URL
+ * of its own. Throws on an undecodable sequence, which urlVerdict reports first.
+ */
+export function urlNamesBlockedScheme(input: string): boolean {
+  return (
+    BLOCKED_SCHEME_R.test(input) ||
+    (URL_NEEDS_DECODE_R.test(input) &&
+      BLOCKED_SCHEME_R.test(decodeUrlScheme(input)))
+  )
+}
 
 /**
  * Sanitize URLs and other input values to prevent XSS attacks.
- * Filters out javascript:, vbscript:, and data: URLs (except data:image).
+ * Filters out javascript:, vbscript:, and data: URLs (except data:image), judged
+ * where a browser reads a scheme: before the first `/`, `?`, or `#`.
  *
  *
  * @param input - The URL or value to sanitize
  * @returns Sanitized value, or null if unsafe
  */
 export function sanitizer(input: string): string | null {
-  if (SANITIZE_R.test(input)) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn(
-        'Input contains an unsafe JavaScript/VBScript/data expression, it will not be rendered.',
-        input
-      )
-    }
-    return null
-  }
-
-  if (input.indexOf('%') === -1) {
+  var verdict = urlVerdict(input)
+  if (verdict === URL_VERDICT.safe) {
     return input
   }
 
-  try {
-    const decoded = decodeURIComponent(input).replace(/[^A-Za-z0-9/:]/g, '')
-    if (SANITIZE_R.test(decoded)) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn(
-          'Input contains an unsafe JavaScript/VBScript/data expression, it will not be rendered.',
-          decoded
-        )
-      }
-      return null
-    }
-  } catch {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn(
-        'Input could not be decoded due to malformed syntax or characters, it will not be rendered.',
-        input
-      )
-    }
-    return null
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(
+      verdict === URL_VERDICT.malformed
+        ? 'Input could not be decoded due to malformed syntax or characters, it will not be rendered.'
+        : 'Input contains an unsafe JavaScript/VBScript/data expression, it will not be rendered.',
+      verdict === URL_VERDICT.unsafeDecoded ? decodeUrlScheme(input) : input
+    )
   }
-
-  return input
+  return null
 }
 
 // Character replacement lookup table for slugify (Unicode to ASCII)
@@ -635,12 +742,62 @@ export function normalizeInput(text: string): string {
   return crlfParts.join('')
 }
 
+var MARKUP_GAP_R = />\s+</g
+var LINE_BREAKS_R = /\n+/g
+
+function collapseMarkupWhitespace(text: string): string {
+  return text.replace(MARKUP_GAP_R, '><').replace(LINE_BREAKS_R, ' ')
+}
+
 /**
  * Collapse inter-tag whitespace and newlines before re-parsing raw HTML as
- * JSX in the react/native/solid/vue compilers.
+ * JSX in the react/native/solid/vue compilers. A quoted attribute value is
+ * kept byte for byte: it is the element's data (a children value is its
+ * text), so it renders as it does outside a raw block.
  */
 export function normalizeJsxReparseText(text: string): string {
-  return text.replace(/>\s+</g, '><').replace(/\n+/g, ' ').trim()
+  var out = ''
+  var segStart = 0
+  var inTag = false
+  // The last character inside a tag that is not whitespace: a quote opens a
+  // value only after `=`, as a browser reads it
+  var prev = 0
+  for (var i = 0; i < text.length; i += 1) {
+    var code = text.charCodeAt(i)
+    if (code === $.CHAR_LT) {
+      var next = text.charCodeAt(i + 1)
+      inTag =
+        (next >= $.CHAR_a && next <= $.CHAR_z) ||
+        (next >= $.CHAR_A && next <= $.CHAR_Z)
+      prev = code
+    } else if (code === $.CHAR_GT) {
+      inTag = false
+    } else if (
+      inTag &&
+      prev === $.CHAR_EQ &&
+      (code === $.CHAR_DOUBLE_QUOTE || code === $.CHAR_SINGLE_QUOTE)
+    ) {
+      // An unclosed value runs to the end of the text
+      var close = text.indexOf(text[i], i + 1)
+      if (close === -1) {
+        close = text.length
+      }
+      out +=
+        collapseMarkupWhitespace(text.slice(segStart, i + 1)) +
+        text.slice(i + 1, close)
+      segStart = close
+      i = close
+      prev = code
+    } else if (
+      code !== $.CHAR_SPACE &&
+      code !== $.CHAR_TAB &&
+      code !== $.CHAR_NEWLINE &&
+      code !== $.CHAR_CR
+    ) {
+      prev = code
+    }
+  }
+  return (out + collapseMarkupWhitespace(text.slice(segStart))).trim()
 }
 
 /**
@@ -680,6 +837,7 @@ export function alertHeaderNode(alert: string): MarkdownToJSX.HTMLNode {
   return {
     attrs: {},
     children: [{ type: RuleType.text, text: alert }],
+    _reparseSource: undefined,
     _verbatim: true,
     type: RuleType.htmlBlock,
     tag: 'header',
@@ -745,7 +903,8 @@ export function processVerbatimNode(
  * node whose rawText bleeds real content past its own closing tag. There the
  * bled tail is the only place that trailing content exists, so the renderer
  * re-parses and splits it out as siblings. Each split strictly shrinks rawText,
- * so the recursion is bounded. When siblings follow (e.g. nested same-type
+ * so the recursion is bounded; reparsedToItself catches the one source that
+ * does not split. When siblings follow (e.g. nested same-type
  * blocks like table rows) they already carry the bled content, so keeping
  * verbatim would duplicate it; a bled tail of pure closing tags (e.g.
  * "</dd></dl>") carries no content. Both fall to the default strip.
@@ -788,6 +947,27 @@ export function stripVerbatim(nodes: MarkdownToJSX.ASTNode[]): void {
       )
     }
   }
+}
+
+/**
+ * Whether stripVerbatim left a re-parse of `source` verbatim over all of it,
+ * which an opener the tag parser rejects does (`<div </div>'`). Re-parsing again
+ * would never end, so the renderer writes the source as text.
+ */
+export function reparsedToItself(
+  nodes: MarkdownToJSX.ASTNode[],
+  source: string
+): boolean {
+  const last = nodes.at(-1)
+  if (
+    last === undefined ||
+    last.type !== RuleType.htmlBlock ||
+    last._verbatim !== true
+  ) {
+    return false
+  }
+  // The span the next re-parse would read; a set _reparseSource holds a tag
+  return (last._reparseSource || last._rawOuter) === source
 }
 
 /**
@@ -945,7 +1125,9 @@ function filteredOpenTag(
  * Derive inert source parts for a tagfiltered htmlBlock / htmlSelfClosing node.
  */
 export function getFilteredTagEmit(
-  node: MarkdownToJSX.HTMLNode | MarkdownToJSX.HTMLSelfClosingNode
+  node: MarkdownToJSX.HTMLNode | MarkdownToJSX.HTMLSelfClosingNode,
+  /** Screens a text body for a string output, where it is emitted as markup */
+  screenText?: (text: string) => string
 ): FilteredTagEmit {
   var tag = node.tag
   var selfClosing = node.type === RuleType.htmlSelfClosing
@@ -989,11 +1171,16 @@ export function getFilteredTagEmit(
     return { kind: 'literal', literal: htmlNode._rawOuter }
   }
 
-  // Type 1 and other childless verbatim: body + own closer.
+  // Type 1 and other childless verbatim: body + own closer. A parsed opener
+  // whose source has no closer gets none: the `>` of an added one would close a
+  // tag left open in the body
   if (htmlNode._verbatim && !hasKids) {
     return {
       kind: 'literal',
-      literal: open + (htmlNode._rawBody || '') + (htmlNode._rawClose || close),
+      literal:
+        open +
+        (htmlNode._rawBody || '') +
+        (htmlNode._rawClose || (rawAttrs === undefined ? close : '')),
     }
   }
 
@@ -1009,7 +1196,10 @@ export function getFilteredTagEmit(
       }
       plain += (kid as MarkdownToJSX.TextNode).text
     }
-    return { kind: 'literal', literal: open + plain + close }
+    return {
+      kind: 'literal',
+      literal: open + (screenText ? screenText(plain) : plain) + close,
+    }
   }
 
   // Empty structured node: emit open + optional body text + close. The body
@@ -1127,53 +1317,139 @@ function lowerAsciiIfNeeded(s: string): string {
   return s
 }
 
+var ownProperty = Object.prototype.hasOwnProperty
+
 /**
- * Get nested property from object using dot notation path
+ * `source[key]`, unless `key` names a member of a built-in prototype that
+ * `source` does not own. The key can be a tag name from the document, so
+ * `constructor` or `call` must not answer, while any other inherited key
+ * (`Object.create(defaults)`, a class getter, a Proxy) still does.
+ */
+export function overrideValue(source: any, key: string): any {
+  if (source == null) {
+    return
+  }
+  var builtIn =
+    typeof source === 'function' ? Function.prototype : Object.prototype
+  return key in builtIn && !ownProperty.call(source, key)
+    ? undefined
+    : source[key]
+}
+
+/**
+ * The value for `key` once its own key misses: the all-lowercase key (HTML tags
+ * are case-insensitive, issue #248), then, for a key that starts with an
+ * uppercase letter, the first key in `for...in` order equal to it ignoring case.
+ */
+function valueIgnoringCase(source: any, key: string): any {
+  var lowered = lowerAsciiIfNeeded(key)
+  if (lowered === key) {
+    return
+  }
+  var lower = overrideValue(source, lowered)
+  var first = key.charCodeAt(0)
+  if (lower || first < $.CHAR_A || first > $.CHAR_Z) {
+    return lower
+  }
+  var firstLower = first + $.CHAR_CASE_OFFSET
+  // A scan rather than an index, so a key added to the same object later is seen
+  for (var name in source) {
+    var c = name.charCodeAt(0)
+    // A different ASCII first character settles it with no lowercased copy; any
+    // other takes the full compare (the Kelvin sign lowercases to `k`)
+    var mayMatch =
+      name.length === key.length &&
+      (c === first || c === firstLower || c >= $.CHAR_ASCII_BOUNDARY)
+    if (mayMatch && name.toLowerCase() === lowered) {
+      var found = overrideValue(source, name)
+      if (found) {
+        return found
+      }
+    }
+  }
+}
+
+/**
+ * Get nested property from object using dot notation path, read through
+ * overrideValue. A first segment that misses is matched by valueIgnoringCase.
  */
 export function get(source: any, path: string, fallback: any): any {
   // Fast path: single-segment paths (the common case for override lookups)
-  // skip the split allocation. HTML tags are case-insensitive, so a miss
-  // retries the lowercase key (issue #248).
+  // skip the split allocation
   if (path.indexOf('.') === -1) {
-    var direct = source?.[path]
-    if (direct) {
-      return direct
+    var direct = overrideValue(source, path)
+    if (direct || !source) {
+      return direct || fallback
     }
-    if (source) {
-      var lowered = lowerAsciiIfNeeded(path)
-      if (lowered !== path) {
-        var ci = source[lowered]
-        if (ci) {
-          return ci
-        }
-      }
-    }
-    return fallback
+    return valueIgnoringCase(source, path) || fallback
   }
-  var result = source
   var segments = path.split('.')
-  var i = 0
-  var firstMiss = false
-  while (i < segments.length) {
-    result = result?.[segments[i]]
-    if (result === undefined) {
-      firstMiss = i === 0
-      break
-    }
+  var result = overrideValue(source, segments[0])
+  if (result === undefined && source) {
+    result = valueIgnoringCase(source, segments[0])
+  }
+  var i = 1
+  while (result !== undefined && i < segments.length) {
+    result = overrideValue(result, segments[i])
     i++
   }
-  if (firstMiss && source) {
-    var firstLower = lowerAsciiIfNeeded(segments[0])
-    if (firstLower !== segments[0]) {
-      result = source[firstLower]
-      i = 1
-      while (result !== undefined && i < segments.length) {
-        result = result?.[segments[i]]
-        i++
+  return result || fallback
+}
+
+/** Prefixes Solid strips to reach the attribute or property named after them. */
+export const SOLID_TARGET_PREFIX_R: RegExp = /^(?:attr|bool|prop):/i
+
+/**
+ * Whether an attribute name is an on* event handler (onclick, onError), including
+ * behind a Solid target prefix.
+ */
+export function isHandlerName(name: string): boolean {
+  // All three prefixes are four letters; the check spares every other name the regex
+  var at =
+    name.charCodeAt(4) === $.CHAR_COLON && SOLID_TARGET_PREFIX_R.test(name)
+      ? 5
+      : 0
+  var c0 = name.charCodeAt(at)
+  var c1 = name.charCodeAt(at + 1)
+  return (
+    (c0 === $.CHAR_o || c0 === $.CHAR_O) && (c1 === $.CHAR_n || c1 === $.CHAR_N)
+  )
+}
+
+/**
+ * An HTML node's attributes without any on* value that is not a function, for
+ * a JSX renderer to build the tag's props from, unless the tag is a component:
+ * it starts with an uppercase letter and an `overrides` key matches it. The
+ * parser keeps a lowercase tag's handler in `attrs` as written text for
+ * `renderRule` and `parser()` users, and a hand-built AST can hold one, but no
+ * output passes it on. A function is the caller's own code (or
+ * `evalUnserializableExpressions` output on a component), not text from the
+ * document, so it stays. Returns `attrs` itself when nothing goes.
+ */
+export function withoutHandlerSource(
+  tag: string,
+  attrs: Record<string, any> | undefined,
+  overrides: unknown
+): Record<string, any> | undefined {
+  var kept: Record<string, any> | undefined
+  for (var key in attrs) {
+    if (isHandlerName(key) && typeof attrs[key] !== 'function') {
+      // Settled once, and only for a tag that holds handler source
+      if (kept === undefined) {
+        var first = tag.charCodeAt(0)
+        if (
+          first >= $.CHAR_A &&
+          first <= $.CHAR_Z &&
+          get(overrides, tag, undefined)
+        ) {
+          return attrs
+        }
+        kept = { ...attrs }
       }
+      delete kept[key]
     }
   }
-  return result || fallback
+  return kept || attrs
 }
 
 /**
@@ -1312,6 +1588,17 @@ export function shouldFilterTag(tagName: string): boolean {
 export function containsTagfilterTag(text: string): boolean {
   TAGFILTER_R.lastIndex = 0
   return TAGFILTER_R.test(text)
+}
+
+/**
+ * What a browser shows for a type 1 body, for a sink that sets it as text: `pre`
+ * and `textarea` decode references, and `script` and `style` hold raw text.
+ */
+export function verbatimText(tag: string, body: string): string {
+  var lower = tag.toLowerCase()
+  return lower === 'pre' || lower === 'textarea'
+    ? decodeEntityReferences(body)
+    : body
 }
 
 /**

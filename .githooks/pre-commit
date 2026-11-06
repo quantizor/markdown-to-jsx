@@ -10,6 +10,17 @@
 # this hook (GIT_INDEX_FILE, which `git commit -a` and `git commit <paths>`
 # point at a temporary index) defines that content.
 set -euo pipefail
+
+# An absolute core.hooksPath (worktree tooling writes one) makes git run one
+# checkout's hook for every worktree. Hand off to the committing worktree's
+# own hook so its own verify, at its own version, checks its own files.
+top=$(git rev-parse --show-toplevel)
+own_hook="${top}/.githooks/pre-commit"
+hook_root=$(cd "$(dirname "$0")/.." && pwd -P)
+if [[ "${hook_root}" != "$(cd "${top}" && pwd -P)" && -x "${own_hook}" ]]; then
+  exec "${own_hook}" "$@"
+fi
+
 export CI=1
 
 if git diff --quiet && [[ -z "$(git ls-files --others --exclude-standard)" ]]; then

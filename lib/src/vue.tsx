@@ -77,10 +77,10 @@ const renderers: Record<
       ? h('pre', { key: state.key }, node.text)
       : null,
 
-  [RuleType.codeBlock]: (node, { h, state }) => {
+  [RuleType.codeBlock]: (node, { h, state, options }) => {
     const decodedLang = node.lang ? util.decodeEntityReferences(node.lang) : ''
     const codeProps = {
-      ...(node.attrs || {}),
+      ...util.withoutHandlerSource('code', node.attrs, options.overrides),
       class: decodedLang ? `language-${decodedLang} lang-${decodedLang}` : '',
     } as Record<string, unknown>
     return h('pre', { key: state.key }, h('code', codeProps, node.text))
@@ -130,6 +130,11 @@ const renderers: Record<
       )
     }
 
+    const attrs = util.withoutHandlerSource(
+      node.tag,
+      node.attrs,
+      options.overrides
+    )
     const rawOuter = node._rawOuter
     const isRawOuter = rawOuter !== undefined
     const rawSource = isRawOuter
@@ -142,22 +147,26 @@ const renderers: Record<
       const isType1Block = parse.isType1Block(tagLower)
 
       // Type 1 blocks (pre, script, style, textarea) always render verbatim.
-      // The element wrapper below supplies its own closing tag, so the body
-      // excludes _rawClose; the full outer span is used as-is only when no
-      // closing tag was found (rare, matches the sniff below).
+      // The element wrapper below supplies its own tags, so the body is the
+      // inner content: the text field when no closing tag was found, since
+      // the outer span holds this element's own opening tag
       if (isType1Block) {
-        const type1Body = isRawOuter ? rawOuter : node._rawBody || ''
+        const type1Body = (isRawOuter ? node.text : node._rawBody) || ''
         const textContent = util.tagfilterEnabled(options)
           ? util.applyTagFilterToText(type1Body)
           : type1Body
-        if (/<[a-z][^>]{0,100}>/i.test(rawSource)) {
+        if (/<[a-z][^>]{0,100}>/i.test(type1Body)) {
           return h(node.tag, {
             key: state.key,
-            ...node.attrs,
+            ...attrs,
             innerHTML: textContent,
           })
         }
-        return h(node.tag, { key: state.key, ...node.attrs }, textContent)
+        return h(
+          node.tag,
+          { key: state.key, ...attrs },
+          util.verbatimText(node.tag, textContent)
+        )
       }
 
       // Use already-parsed children if available instead of re-parsing rawSource
@@ -168,24 +177,28 @@ const renderers: Record<
           : rawSource
         return h(node.tag, {
           key: state.key,
-          ...node.attrs,
+          ...attrs,
           innerHTML: innerHtml,
         })
       }
 
       // Fallback to re-parsing rawSource if children not available (edge case)
       const parseOptions = parse.toParseOptions({
+        overrides: options.overrides,
         slugify: options.slugify,
         sanitizer: sanitize,
         tagfilter: true,
       })
-      const cleanedText = util.normalizeJsxReparseText(rawSource)
+      // The parser's re-parse span holds the children attribute rawSource cut
+      const cleanedText = util.normalizeJsxReparseText(
+        node._reparseSource || rawSource
+      )
 
       const selfTagRegex = new RegExp(
         `^<${node.tag}(\\s[^>]*)?>(\\s*</${node.tag}>)?$`,
         'i'
       )
-      const props = { key: state.key, ...node.attrs }
+      const props = { key: state.key, ...attrs }
       if (selfTagRegex.test(cleanedText)) {
         return h(node.tag, props)
       }
@@ -199,6 +212,9 @@ const renderers: Record<
       // following text line into itself, then split at this element's own
       // closing tag so any trailing content renders as siblings (issue #881).
       util.stripVerbatim(astNodes)
+      if (util.reparsedToItself(astNodes, cleanedText)) {
+        return cleanedText
+      }
 
       // _rawOuter means the parser already determined this span is the FULL
       // outer block, so emit the parsed nodes directly instead of nesting
@@ -235,11 +251,11 @@ const renderers: Record<
     }
 
     if (util.isVoidElement(node.tag)) {
-      return h(node.tag, { key: state.key, ...node.attrs })
+      return h(node.tag, { key: state.key, ...attrs })
     }
     return h(
       node.tag,
-      { key: state.key, ...node.attrs },
+      { key: state.key, ...attrs },
       ...normalizeChildren(node.children ? output(node.children, state) : null)
     )
   },
@@ -258,7 +274,10 @@ const renderers: Record<
           : filteredSc.open + (filteredSc.close || '')
       )
     }
-    return h(node.tag, { key: state.key, ...node.attrs })
+    return h(node.tag, {
+      key: state.key,
+      ...util.withoutHandlerSource(node.tag, node.attrs, options.overrides),
+    })
   },
 
   [RuleType.image]: (node, { h, state, sanitize }) => {
@@ -608,12 +627,28 @@ export function astToJSX(
         >)
       : null
     const vueProps = props ? (props as Record<string, unknown>) : null
+    const finalTag = hasOverrides ? getTag(tag, opts.overrides) : tag
 
     // Convert HTML content in props (early exit for non-HTML)
     if (vueProps) {
+      // Vue writes a children prop as an attribute, so a children string is
+      // the element's text (a vnode child, a component's default slot) when it
+      // has no content of its own. A void tag takes none.
+      if (typeof vueProps.children === 'string') {
+        const attrText = util.childrenAttrContent(vueProps.children, children)
+        delete vueProps.children
+        if (
+          attrText !== undefined &&
+          !(typeof finalTag === 'string' && util.isVoidElement(finalTag))
+        ) {
+          children = [attrText]
+        }
+      }
       for (const key in vueProps) {
         const value = vueProps[key]
+        // innerHTML is the compiler's own screened markup, and only a string reaches the page
         if (
+          key !== 'innerHTML' &&
           typeof value === 'string' &&
           value.length > 0 &&
           value[0] === '<' &&
@@ -621,17 +656,11 @@ export function astToJSX(
             parse.UPPERCASE_TAG_R.test(value) ||
             parse.parseHTMLTag(value, 0))
         ) {
-          const compiled = compileHtml(value.trim())
-          // For innerHTML, take first element if array (matches original parser behavior)
-          vueProps[key] =
-            key === 'innerHTML' && Array.isArray(compiled)
-              ? compiled[0]
-              : compiled
+          vueProps[key] = compileHtml(value.trim())
         }
       }
     }
 
-    const finalTag = hasOverrides ? getTag(tag, opts.overrides) : tag
     const vueClass = vueProps?.class as string
     const overrideClass = overrideProps?.class as string
     const mergedClass =

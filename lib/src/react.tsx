@@ -149,7 +149,9 @@ function render(
         ? util.decodeEntityReferences(node.lang)
         : ''
       var codeProps: Record<string, any> = node.attrs
-        ? util.htmlAttrsToJSXProps(node.attrs)
+        ? util.htmlAttrsToJSXProps(
+            util.withoutHandlerSource('code', node.attrs, options.overrides)
+          )
         : {}
       codeProps.className = decodedLang
         ? `language-${decodedLang} lang-${decodedLang}`
@@ -226,15 +228,16 @@ function render(
         const hasChildren = htmlChildren != null && htmlChildren.length > 0
 
         // Type 1 blocks (pre, script, style, textarea) always render verbatim.
-        // The element wrapper below supplies its own closing tag, so the body
-        // excludes _rawClose; the full outer span is used as-is only when no
-        // closing tag was found (rare, matches the tag-filter sniff below).
+        // The element wrapper below supplies its own tags, so the body is the
+        // inner content: the text field when no closing tag was found, since
+        // the outer span holds this element's own opening tag
         if (isType1Block) {
-          const type1Body = isRawOuter ? rawOuter : htmlNode._rawBody || ''
+          const type1Body =
+            (isRawOuter ? htmlNode.text : htmlNode._rawBody) || ''
           const textContent = util.tagfilterEnabled(options)
             ? util.applyTagFilterToText(type1Body)
             : type1Body
-          if (/<[a-z][^>]{0,100}>/i.test(rawSource)) {
+          if (/<[a-z][^>]{0,100}>/i.test(type1Body)) {
             var t1Props = keyedJsxProps(state.key, node.attrs)
             t1Props.dangerouslySetInnerHTML = { __html: textContent }
             return hJsx(node.tag, t1Props)
@@ -242,7 +245,7 @@ function render(
           return hJsx(
             node.tag,
             keyedJsxProps(state.key, node.attrs),
-            textContent
+            util.verbatimText(node.tag, textContent)
           )
         }
 
@@ -275,11 +278,15 @@ function render(
         // For other verbatim blocks, re-parse rawSource for JSX compilation
         // (children are available for renderRule but default uses rawSource)
         const parseOptions = parse.toParseOptions({
+          overrides: options.overrides,
           slugify: options.slugify,
           sanitizer: sanitize,
           tagfilter: true,
         })
-        const cleanedText = util.normalizeJsxReparseText(rawSource)
+        // The parser's re-parse span holds the children attribute rawSource cut
+        const cleanedText = util.normalizeJsxReparseText(
+          htmlNode._reparseSource || rawSource
+        )
         // Avoid infinite recursion: if cleanedText is just the same HTML tag we're processing,
         // render as an empty element
         const selfTagRegex = new RegExp(
@@ -307,6 +314,9 @@ function render(
         // recursion, keeping it only where trailing content bled past a closing
         // tag (issue #881). See util.stripVerbatim for the full rationale.
         util.stripVerbatim(astNodes)
+        if (util.reparsedToItself(astNodes, cleanedText)) {
+          return cleanedText
+        }
 
         // _rawOuter means the parser already determined this span is the FULL
         // outer block (own opening tag through own closing tag, or through end
@@ -690,6 +700,11 @@ export function astToJSX(
         className:
           util.cx(finalProps.className, overrideProps.className) || undefined,
       }
+      // An override can keep a tag void or make it one, and React throws on children there
+      if (typeof resolvedTag === 'string' && util.isVoidElement(resolvedTag)) {
+        delete finalProps.children
+        children.length = 0
+      }
     }
 
     // Fast path: bypass React.createElement when no custom createElement
@@ -709,10 +724,26 @@ export function astToJSX(
     return customCreateElement(resolvedTag, finalProps, ...children)
   }
 
-  // Variant that runs the embedded-JSX compile loop on props before
-  // delegating to h. Used only by HTML block / self-closing render cases.
-  function hJsx(tag: any, props: any, ...children: any[]): any {
+  // Variant that drops handler source and runs the embedded-JSX compile loop
+  // on props before delegating to h. Used only by HTML block / self-closing
+  // render cases.
+  function hJsx(tag: any, attrProps: any, ...children: any[]): any {
+    var props =
+      attrProps && util.withoutHandlerSource(tag, attrProps, opts.overrides)
     if (props) {
+      // A children string is the element's text when it has no content of its
+      // own; as a prop it would be parsed as markup, and an empty child array
+      // would override it
+      if (typeof props.children === 'string') {
+        var attrText =
+          props.dangerouslySetInnerHTML === undefined
+            ? util.childrenAttrContent(props.children, children)
+            : undefined
+        delete props.children
+        if (attrText !== undefined) {
+          children = [attrText]
+        }
+      }
       _compilePropsJsx(props)
     }
     return h(tag, props, ...children)

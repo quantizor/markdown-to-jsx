@@ -370,12 +370,6 @@ describe('sanitizer', () => {
     )
   })
 
-  it('should decode and check percent-encoded dangerous content', () => {
-    expect(
-      u.sanitizer('https://example.com/%6a%61%76%61%73%63%72%69%70%74:alert(1)')
-    ).toBeNull()
-  })
-
   it('should return null for malformed URLs that cannot be decoded', () => {
     expect(u.sanitizer('https://example.com/%FF%FF')).toBeNull()
   })
@@ -445,6 +439,49 @@ describe('sanitizer', () => {
     expect(u.sanitizer('notjavascript:alert(1)')).toBeNull() // sanitizer is more aggressive
   })
 
+  it.each([
+    'https://en.wikipedia.org/wiki/Javascript:_The_Good_Parts',
+    'https://example.com/?q=javascript:x',
+    'https://example.com/search?q=data:text',
+    'https://example.com/#vbscript:x',
+    'https://example.com/%6a%61%76%61%73%63%72%69%70%74:alert(1)',
+    '/docs/javascript:intro',
+    './javascript:x',
+    'a/javascript:x',
+    '?javascript:x',
+    '#javascript:x',
+    '?q=java%0Ascript:x',
+  ])('keeps %j, where a browser reads no dangerous scheme', url => {
+    expect(u.sanitizer(url)).toBe(url)
+  })
+
+  it.each([
+    'javascript:/x',
+    'javascript://x/%0Aalert(1)',
+    'JAVASCRIPT:x/y',
+    'vbscript:x?y',
+    'data:text/html,x',
+    'data:#x',
+    'feed:javascript:alert(1)',
+    ' javascript:x',
+    `${String.fromCharCode(1)}javascript:x`,
+    '\\javascript:x',
+    'java\tscript:x',
+    'java\tscript:alert(1)',
+    'java\nscript:x/y',
+    'java\nscript:alert(1)',
+    'java\rscript:alert(1)',
+    'ja\tva\nscr\ript:alert(1)',
+    'java%09script:alert(1)',
+    'da\tta:text/html,x',
+    'java%0Ascript:x',
+    '%6A%61vascript:x',
+    'javascript%3Ax',
+    'https://example.com/%',
+  ])('rejects %j, which holds a blocked scheme before any path', url => {
+    expect(u.sanitizer(url)).toBeNull()
+  })
+
   it('should handle empty and whitespace URLs', () => {
     expect(u.sanitizer('')).toBe('')
     expect(u.sanitizer('   ')).toBe('   ')
@@ -464,9 +501,7 @@ describe('sanitizer', () => {
   })
 
   it('should reject URLs with encoded dangerous content', () => {
-    expect(
-      u.sanitizer('https://example.com/%6a%61%76%61%73%63%72%69%70%74:alert(1)')
-    ).toBeNull()
+    expect(u.sanitizer('%6a%61%76%61%73%63%72%69%70%74:alert(1)')).toBeNull()
     expect(
       u.sanitizer('data:text/html,%3cscript%3ealert(1)%3c/script%3e')
     ).toBeNull()
@@ -911,6 +946,34 @@ describe('isVoidElement', () => {
 })
 
 describe('get', () => {
+  class WithGetter {
+    get a() {
+      return 'from getter'
+    }
+  }
+
+  it.each([
+    ['an inherited key', Object.create({ a: 'inherited' }), 'a', 'inherited'],
+    ['a class getter', new WithGetter(), 'a', 'from getter'],
+    [
+      'a Proxy',
+      new Proxy({}, { get: (_, key) => `proxied ${String(key)}` }),
+      'a',
+      'proxied a',
+    ],
+    [
+      'a built-in the source owns',
+      { constructor: 'own' },
+      'constructor',
+      'own',
+    ],
+    ['an unowned built-in', {}, 'constructor', 'fallback'],
+    ['an unowned built-in, mixed case', {}, 'toString', 'fallback'],
+    ['an unowned built-in in a path', {}, 'constructor.name', 'fallback'],
+  ])('reads %s', (_label, source, key, expected) => {
+    expect(u.get(source, key, 'fallback')).toBe(expected)
+  })
+
   it('returns the exact key when present', () => {
     const source = { input: 'exact', INPUT: 'upper' }
     expect(u.get(source, 'INPUT', 'fallback')).toBe('upper')
@@ -948,6 +1011,67 @@ describe('get', () => {
     expect(u.get({ p: 'ok' }, 'div', 'fallback')).toBe('fallback')
     expect(u.get({ p: 'ok' }, 'DIV.props', {})).toEqual({})
     expect(u.get(undefined, 'input', 'fallback')).toBe('fallback')
+  })
+
+  it.each([
+    ['CARD', { Card: 'found' }],
+    ['CaRd', { Card: 'found' }],
+    ['Card', { CARD: 'found' }],
+    ['CaRd', { CARD: 'found' }],
+    ['CARD', { cArD: 'found' }],
+    // The Kelvin sign lowercases to `k`
+    ['KEY', { '\u{212A}ey': 'found' }],
+  ])('matches %j to a key in any casing when the tag starts with an uppercase letter', (tag, source) => {
+    expect(u.get(source, tag, 'fallback')).toBe('found')
+    expect(
+      u.get(
+        { [Object.keys(source)[0]]: { props: { a: 1 } } },
+        `${tag}.props`,
+        {}
+      )
+    ).toEqual({ a: 1 })
+  })
+
+  it.each([
+    ['card', { Card: 'found' }],
+    ['cARD', { Card: 'found' }],
+    ['dIV', { Div: 'found' }],
+  ])('matches %j only to its own or its lowercase key when the tag starts with a lowercase letter', (tag, source) => {
+    expect(u.get(source, tag, 'fallback')).toBe('fallback')
+  })
+
+  it('matches a key ignoring case by the rule an exact key follows', () => {
+    expect(
+      u.get(Object.create({ CARD: 'inherited' }), 'Card', 'fallback')
+    ).toBe('inherited')
+
+    const proto = Object.prototype as Record<string, unknown>
+    proto.CARD = 'polluted'
+    try {
+      expect(u.get({}, 'Card', 'fallback')).toBe('fallback')
+      expect(u.get({}, 'Card.props', 'fallback')).toBe('fallback')
+    } finally {
+      delete proto.CARD
+    }
+  })
+
+  it('prefers the exact key, then the lowercase key, then the first key in order', () => {
+    expect(
+      u.get({ CARD: 'other', Card: 'exact', card: 'lower' }, 'Card', 'fallback')
+    ).toBe('exact')
+    expect(u.get({ CARD: 'other', card: 'lower' }, 'CaRd', 'fallback')).toBe(
+      'lower'
+    )
+    expect(u.get({ CARD: 'first', cARD: 'second' }, 'CaRd', 'fallback')).toBe(
+      'first'
+    )
+  })
+
+  it('sees a key added to the overrides object after an earlier lookup', () => {
+    const source: Record<string, string> = { Other: 'x' }
+    expect(u.get(source, 'CARD', 'fallback')).toBe('fallback')
+    source.Card = 'added'
+    expect(u.get(source, 'CARD', 'fallback')).toBe('added')
   })
 })
 
@@ -1306,6 +1430,56 @@ describe('htmlAttrsToJSXProps', () => {
         "viewBox": "0 0 100 100",
       }
     `)
+  })
+})
+
+describe('withoutHandlerSource', () => {
+  const fn = () => 1
+  const attrs = () => ({
+    'attr:onclick': 'b',
+    href: '/',
+    onClick: fn,
+    onclick: 'a',
+    onerror: true,
+  })
+  const kept = { href: '/', onClick: fn }
+
+  it.each([
+    ['a', undefined, kept],
+    ['a', { a: { props: {} } }, kept],
+    ['my-widget', { 'my-widget': { props: {} } }, kept],
+    ['Btn', undefined, kept],
+    ['Btn', { Other: { props: {} } }, kept],
+    ['Btn', { btn: { props: {} } }, attrs()],
+    ['BTN', { Btn: { props: {} } }, attrs()],
+  ])('gives the attributes of <%s> with %j as %j, leaving the node as written', (tag, overrides, expected) => {
+    const own = attrs()
+    expect(u.withoutHandlerSource(tag, own, overrides)).toEqual(expected)
+    expect(own).toEqual(attrs())
+  })
+
+  it.each([
+    ['no handler', { className: 'x', href: '/' }],
+    ['no attributes', undefined],
+  ])('gives back the same attributes with %s', (_, own) => {
+    expect(u.withoutHandlerSource('a', own, undefined)).toBe(own)
+  })
+})
+
+describe('normalizeJsxReparseText', () => {
+  it.each([
+    ['<div>\n  <b>x</b>\n</div>\n', '<div><b>x</b></div>'],
+    ['a\n\nb', 'a b'],
+    ['<i title="a >  < b"></i>', '<i title="a >  < b"></i>'],
+    ["<i title='a\nb'>\nx\n</i>", "<i title='a\nb'> x </i>"],
+    ['<i title = "a\nb">x</i>', '<i title = "a\nb">x</i>'],
+    ['<i title="a\nb', '<i title="a\nb'],
+    // A quote that follows no `=` opens no value, so what follows is markup
+    ['<a title="x"\nb"c\nd">\ne', '<a title="x" b"c d"> e'],
+    ["<p>don't\n<b>x</b></p>", "<p>don't <b>x</b></p>"],
+    ['</i title="a\nb">', '</i title="a b">'],
+  ])('writes %j as %j', (text, expected) => {
+    expect(u.normalizeJsxReparseText(text)).toBe(expected)
   })
 })
 

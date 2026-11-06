@@ -1453,45 +1453,4 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
       }
     })
   })
-
-  describe('Performance Regression Detection', () => {
-    it('should complete basic parsing in reasonable time', () => {
-      const testCases = [
-        { input: '*text*', name: 'simple italics' },
-        { input: '**text**', name: 'simple bold' },
-        { input: '<div>content</div>', name: 'simple HTML' },
-        { input: '# heading', name: 'heading' },
-        { input: '1. item', name: 'list' },
-        { input: '[link](url)', name: 'link' },
-      ]
-
-      for (const testCase of testCases) {
-        const executionTime = timeExecution(() => {
-          compiler(testCase.input)
-        })
-
-        expect(executionTime).toBeLessThan(10)
-      }
-    })
-
-    it('should scale linearly with input size', () => {
-      const baseSize = 100
-      const multiplier = 10
-
-      const baseInput = 'a'.repeat(baseSize)
-      const largeInput = 'a'.repeat(baseSize * multiplier)
-
-      const baseTime = timeExecution(() => {
-        compiler(baseInput)
-      })
-
-      const largeTime = timeExecution(() => {
-        compiler(largeInput)
-      })
-
-      // Linear scaling means largeTime should be roughly multiplier * baseTime
-      // We allow for some overhead (2x margin)
-      expect(largeTime).toBeLessThan(baseTime * multiplier * 2)
-    })
-  })
 })

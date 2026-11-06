@@ -139,6 +139,7 @@ bg_job "test+coverage" bash -c '
   rm -f "${cov}"
 '
 bg_job "redos-smoke" bun scripts/redos-smoke.ts
+bg_job "html-fuzz" bun scripts/html-fuzz.ts
 wait_wave 1a
 echo "==> wave 1a wall: $(($(now_ms) - wave1_t0))ms"
 

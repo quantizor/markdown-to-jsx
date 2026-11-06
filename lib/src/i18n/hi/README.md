@@ -393,7 +393,7 @@ HTML टैग स्वचालित रूप से React Native कंप�
 
 **नोट:** बेहतर पहुंच और खोज योग्यता के लिए लिंक डिफ़ॉल्ट रूप से रेखांकित हैं। आप इसे `styles.link` विकल्प के माध्यम से ओवरराइड कर सकते हैं।
 
-**नोट:** फ़ुटनोट संदर्भ मार्कर (`[^1]`) सुपरस्क्रिप्ट के रूप में रेंडर होते हैं, जो वेब रेंडरर द्वारा उत्पन्न `<sup>` से मेल खाता है। React Native स्टाइल के ज़रिए इनलाइन टेक्स्ट को न ऊपर उठा सकता है न सिकोड़ सकता है (यह इनलाइन टेक्स्ट पर `verticalAlign` और ट्रांसफ़ॉर्म को नज़रअंदाज़ करता है), इसलिए संख्यात्मक मार्कर यूनिकोड सुपरस्क्रिप्ट ग्लिफ़ (`¹²³`) का उपयोग करते हैं, जिन्हें फ़ॉन्ट स्वयं ही आसपास के टेक्स्ट के सापेक्ष ऊपर उठाकर और उपयुक्त आकार में बनाता है। गैर-संख्यात्मक पहचानकर्ता (`[^note]`) सादे टेक्स्ट के रूप में रेंडर होते हैं। मार्कर को `styles.footnote` विकल्प के ज़रिए स्टाइल करें।
+**नोट:** फ़ुटनोट संदर्भ मार्कर (`[^1]`, परिभाषा होने पर) सुपरस्क्रिप्ट के रूप में रेंडर होते हैं, जो वेब रेंडरर द्वारा उत्पन्न `<sup>` से मेल खाता है। React Native स्टाइल के ज़रिए इनलाइन टेक्स्ट को न ऊपर उठा सकता है न सिकोड़ सकता है (यह इनलाइन टेक्स्ट पर `verticalAlign` और ट्रांसफ़ॉर्म को नज़रअंदाज़ करता है), इसलिए संख्यात्मक मार्कर यूनिकोड सुपरस्क्रिप्ट ग्लिफ़ (`¹²³`) का उपयोग करते हैं, जिन्हें फ़ॉन्ट स्वयं ही आसपास के टेक्स्ट के सापेक्ष ऊपर उठाकर और उपयुक्त आकार में बनाता है। गैर-संख्यात्मक पहचानकर्ता (`[^note]`) सादे टेक्स्ट के रूप में रेंडर होते हैं। मार्कर को `styles.footnote` विकल्प के ज़रिए स्टाइल करें।
 
 <h4 id="solidjs">SolidJS</h4>
 
@@ -494,6 +494,8 @@ const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
 const ast = parser('# Hello  world')
 const normalizedMarkdown2 = astToMarkdown(ast)
 ```
+
+यदि किसी कोड ब्लॉक या इनलाइन कोड की सामग्री को कच्चे HTML या लिंक के रूप में पढ़ना असुरक्षित हो, तो उसे एंटिटी के साथ `<pre><code>` या `<code>` के रूप में लिखा जाता है, क्योंकि कोई अन्य रेंडरर उसके आसपास के मार्कअप को कच्चे HTML के रूप में पढ़ सकता है। ब्राउज़र वही अक्षर दिखाता है, और बाकी कोड अपनी फ़ेंस या बैकटिक रखता है।
 
 <h3 id="library-options">लाइब्रेरी विकल्प</h3>
 
@@ -601,11 +603,14 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
 
 **महत्वपूर्ण नोट्स:**
 
-- **JSX props को बुद्धिमानी से पार्स किया जाता है** (v9.1+):
+- **टैग किस key से मैच होता है:** बड़े अक्षर से शुरू होने वाला टैग कंपोनेंट होता है और अपनी key से अक्षरों का केस अनदेखा करके मैच होता है, इसलिए `<Card>`, `<CARD>` और `<CaRd>` सभी `Card`, `card` या `CARD` key ढूँढ लेते हैं। छोटे अक्षर से शुरू होने वाला टैग HTML होता है, इसलिए `<card>` को `Card` key कभी नहीं मिलती।
+- **छोटे अक्षर वाले टैग का ओवरराइड अपने एट्रिब्यूट जैसे लिखे गए हैं वैसे ही टेक्स्ट के रूप में पाता है**, `{…}` सहित: `{ a: MyLink }` के साथ `<a data={{"a":1}}>` MyLink को `data="{{"a":1}}"` देता है, जिसे वह अपनी इच्छा से पार्स कर सकता है। उस पर लगे इवेंट हैंडलर पार्स किए गए नोड पर [renderRule](#optionsrenderrule) और `parser()` के लिए रखे जाते हैं, और MyLink या पेज तक कभी नहीं पहुँचते।
+- **JSX props को बुद्धिमानी से पार्स किया जाता है** (v9.1+), उस बड़े अक्षर वाले टैग पर जो `overrides` की किसी key से मैच होता है:
   - Arrays और objects: `data={[1, 2, 3]}` → `[1, 2, 3]` के रूप में पार्स किया गया
   - Booleans: `enabled={true}` → `true` के रूप में पार्स किया गया
   - Functions: `onClick={() => ...}` → सुरक्षा के लिए स्ट्रिंग के रूप में रखा गया (केस-बाई-केस हैंडलिंग के लिए [renderRule](#optionsrenderrule) का उपयोग करें, या [evalUnserializableExpressions](#optionsevalunserializableexpressions) देखें)
   - जटिल expressions: `value={someVar}` → स्ट्रिंग के रूप में रखा गया
+- **जिस टैग की कोई मैचिंग key नहीं है वह HTML है**, उसका केस कुछ भी हो: हर एट्रिब्यूट मान जैसा लिखा गया है वैसा ही रहता है, `{…}` सहित, और इवेंट हैंडलर हटा दिए जाते हैं। `Table` key के बिना `<Table data={[1, 2, 3]} />` से `data="{[1, 2, 3]}"` मिलता है। पार्स किए गए props पाने के लिए, कंपोनेंट में या [renderRule](#optionsrenderrule) में, टैग को `overrides` में सूचीबद्ध करें।
 - कुछ props संरक्षित हैं: `a` (`href`, `title`), `img` (`src`, `alt`, `title`), `input[type="checkbox"]` (`checked`, `readonly`), `ol` (`start`), `td`/`th` (`style`)
 - एलिमेंट मैपिंग: इनलाइन टेक्स्ट के लिए `span`, इनलाइन कोड के लिए `code`, कोड ब्लॉक्स के लिए `pre > code`
 
@@ -613,18 +618,22 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
 
 **⚠️ सुरक्षा चेतावनी: उपयोगकर्ता इनपुट के लिए अत्यधिक हतोत्साहित**
 
-जब सक्षम किया जाता है, तो JSX props में expressions को eval करने का प्रयास करता है जिन्हें JSON के रूप में सीरियलाइज़ नहीं किया जा सकता है (फ़ंक्शन, वेरिएबल, जटिल expressions)। यह `eval()` का उपयोग करता है जो मनमाने कोड को निष्पादित कर सकता है।
+जब सक्षम किया जाता है, तो JSX props में expressions को eval करने का प्रयास करता है जिन्हें JSON के रूप में सीरियलाइज़ नहीं किया जा सकता है (फ़ंक्शन, वेरिएबल, जटिल expressions), ऐसे बड़े अक्षर वाले टैग पर जो `overrides` की किसी key से मैच होता है। यह `eval()` का उपयोग करता है जो मनमाने कोड को निष्पादित कर सकता है। कोई भी अन्य टैग HTML है और उसे कभी eval नहीं किया जाता।
 
 **डिफ़ॉल्ट रूप से (अनुशंसित)**, अनसीरियलाइज़ेबल expressions को सुरक्षा के लिए स्ट्रिंग्स के रूप में रखा जाता है:
 
 ```tsx
 import { parser } from 'markdown-to-jsx'
 
-const ast = parser('<Button onClick={() => alert("hi")} />')
+const ast = parser('<Button onClick={() => alert("hi")} />', {
+  overrides: { Button: 'button' },
+})
 // ast[0].attrs.onClick === "() => alert(\"hi\")" (स्ट्रिंग, सुरक्षित)
 
 // Arrays और objects स्वचालित रूप से पार्स किए जाते हैं (कोई eval की आवश्यकता नहीं):
-const ast2 = parser('<Table data={[1, 2, 3]} />')
+const ast2 = parser('<Table data={[1, 2, 3]} />', {
+  overrides: { Table: 'table' },
+})
 // ast2[0].attrs.data === [1, 2, 3] (JSON.parse के माध्यम से पार्स किया गया)
 ```
 
@@ -647,22 +656,27 @@ const ast2 = parser('<Table data={[1, 2, 3]} />')
 const userMarkdown = '<Component onClick={() => fetch("/admin/delete-all")} />'
 
 // ❌ खतरनाक - फ़ंक्शन निष्पादन योग्य होगा
-parser(userMarkdown, { evalUnserializableExpressions: true })
+parser(userMarkdown, {
+  evalUnserializableExpressions: true,
+  overrides: { Component },
+})
 
 // ✅ सुरक्षित - फ़ंक्शन स्ट्रिंग के रूप में रखा गया
-parser(userMarkdown) // डिफ़ॉल्ट व्यवहार
+parser(userMarkdown, { overrides: { Component } }) // डिफ़ॉल्ट व्यवहार
 ```
 
 **सुरक्षित विकल्प: केस-बाई-केस हैंडलिंग के लिए renderRule का उपयोग करें:**
 
 ```tsx
-// मनमाने expressions को eval करने के बजाय, उन्हें renderRule में चुनिंदा रूप से संभालें:
+// मनमाने expressions को eval करने के बजाय, उन्हें renderRule में चुनिंदा रूप से संभालें।
+// टैग की `overrides` में एक key होनी चाहिए: जिस टैग की कोई key नहीं है वह HTML है और अपने हैंडलर खो देता है।
 const handlers = {
   handleClick: () => console.log('clicked'),
   handleSubmit: () => console.log('submitted'),
 }
 
 compiler(markdown, {
+  overrides: { TrustedComponent },
   renderRule(next, node) {
     if (
       node.type === RuleType.htmlBlock &&
@@ -785,10 +799,11 @@ compiler('[foo](javascript:alert("foo"))', {
 रेंडरिंग से पहले हटाया गया:
 
 - इनलाइन इवेंट हैंडलर: `onclick`, `onerror`, `onload`, और कोई भी अन्य `on*` एट्रिब्यूट।
-- `href`, `src`, `action`, `formaction`, `poster`, `cite`, `background`, `data`, `longdesc`, और `xlink:href` में `javascript:`, `vbscript:`, या गैर-छवि `data:` scheme वाले URL एट्रिब्यूट। HTML एंटिटीज़ के पीछे छिपे schemes, जैसे `java&#9;script:` या अर्धविराम-रहित `&#106avascript:`, को भी डिकोड करके पकड़ा जाता है।
+- `href`, `src`, `action`, `formaction`, `poster`, `cite`, `background`, `data`, `longdesc`, और `xlink:href` (या `xlinkHref`) में `javascript:`, `vbscript:`, या गैर-छवि `data:` scheme वाले URL एट्रिब्यूट। HTML एंटिटीज़ के पीछे छिपे schemes, जैसे `java&#9;script:` या अर्धविराम-रहित `&#106avascript:`, को भी डिकोड करके पकड़ा जाता है।
 - `iframe` का `srcdoc` एट्रिब्यूट।
+- वे एट्रिब्यूट जिनका अर्थ केवल किसी फ़्रेमवर्क के लिए होता है: `innerHTML`, `outerHTML`, `dangerouslySetInnerHTML`, `ref`, और `children` (आपके अपने कंपोनेंट्स पर रखा जाता है), साथ ही Solid के `attr:`, `prop:`, या `bool:` उपसर्ग के पीछे ऊपर बताई गई कोई भी चीज़।
 
-रखा गया: अपने मूल स्वरूप के साथ सुरक्षित एट्रिब्यूट, `data:image` URLs, और वे इवेंट हैंडलर जिन्हें आप अपने स्वयं के कंपोनेंट्स को एक्सप्रेशन के रूप में पास करते हैं (`<MyButton onClick={fn} />`), साथ ही उन पर सादे बूलियन props (`<MyButton onClick />`)। एक चेतावनी: `data:image/svg+xml` की अनुमति है लेकिन यह टॉप-लेवल नेविगेशन के रूप में खोले जाने पर स्क्रिप्ट चला सकता है, इसलिए अविश्वसनीय स्रोतों से आए SVG data URLs को सावधानी से संभालें।
+रखा गया: अपने मूल स्वरूप के साथ सुरक्षित एट्रिब्यूट, `data:image` URLs, और वे इवेंट हैंडलर जिन्हें आप अपने स्वयं के कंपोनेंट्स को एक्सप्रेशन के रूप में पास करते हैं (`<MyButton onClick={fn} />`, जहाँ `MyButton` एक `overrides` कुंजी है), साथ ही उन पर सादे बूलियन props (`<MyButton onClick />`)। HTML और markdown आउटपुट किसी कंपोनेंट के एक्सप्रेशन इवेंट हैंडलर को जैसा लिखा गया है वैसा ही उत्सर्जित करते हैं, और ब्राउज़र उसे चलाता है, इसलिए जो अविश्वसनीय इनपुट आपके कंपोनेंट नामों का उपयोग करता है, उसे ऐसे HTML स्ट्रिंग में रेंडर न करें जिसे आप किसी पेज में डालते हैं। React भी ऐसे हाइफ़न वाले टैग के लिए यही करता है जिसे उसका override स्ट्रिंग ही रहने देता है। एक चेतावनी: `data:image/svg+xml` की अनुमति है लेकिन यह टॉप-लेवल नेविगेशन के रूप में खोले जाने पर स्क्रिप्ट चला सकता है, इसलिए अविश्वसनीय स्रोतों से आए SVG data URLs को सावधानी से संभालें।
 
 खतरनाक टैग नाम (`script`, `iframe`, `style`, और इसी तरह के) [`tagfilter`](#all-options) विकल्प द्वारा अलग से एस्केप किए जाते हैं, जो डिफ़ॉल्ट रूप से सक्रिय है।
 
@@ -1089,7 +1104,7 @@ AST निम्नलिखित नोड प्रकारों से ब
 - `RuleType.footnote` - फ़ुटनोट परिभाषा नोड (रेंडर नहीं किया गया, refCollection में संग्रहीत)
 - `RuleType.footnoteReference` - फ़ुटनोट संदर्भ (`[^identifier]`)
   ```tsx
-  { type: RuleType.footnoteReference, target: "#fn-identifier", text: "1" }
+  { type: RuleType.footnoteReference, target: "#1", text: "1" }
   ```
 - `RuleType.frontmatter` - YAML frontmatter ब्लॉक्स
   ```tsx
@@ -1106,7 +1121,7 @@ AST निम्नलिखित नोड प्रकारों से ब
 
 **JSX Prop Parsing (v9.1+):**
 
-पार्सर बुद्धिमानी से JSX prop values को पार्स करता है:
+पार्सर बुद्धिमानी से JSX prop values को पार्स करता है, उस बड़े अक्षर वाले टैग पर जो `overrides` की किसी key से मैच होता है; हर दूसरा टैग हर मान को जैसा लिखा गया है वैसा ही रखता है:
 
 - Arrays/objects को `JSON.parse()` के माध्यम से पार्स किया जाता है: `rows={[["a", "b"]]}` → `attrs.rows = [["a", "b"]]`
 - Functions को सुरक्षा के लिए स्ट्रिंग्स के रूप में रखा जाता है: `onClick={() => ...}` → `attrs.onClick = "() => ..."`
@@ -1192,7 +1207,7 @@ if (node.type === RuleType.heading) {
 
 <h3 id="gotchas">समस्याएं</h3>
 
-**JSX prop parsing (v9.1+):** JSX props में Arrays और objects स्वचालित रूप से पार्स किए जाते हैं:
+**JSX prop parsing (v9.1+):** JSX props में Arrays और objects, `overrides` में सूचीबद्ध बड़े अक्षर वाले टैग पर (यहाँ `{ Table }`), स्वचालित रूप से पार्स किए जाते हैं:
 
 <!-- biome-ignore format: keep example fences intact -->
 ```tsx
@@ -1220,7 +1235,7 @@ const Table = ({ columns, data, ...props }) => {
 }
 ```
 
-**Function props को स्ट्रिंग्स के रूप में रखा जाता है** सुरक्षा के लिए। केस-बाई-केस हैंडलिंग के लिए [renderRule](#optionsrenderrule) का उपयोग करें, या opt-in eval के लिए [evalUnserializableExpressions](#optionsevalunserializableexpressions) देखें।
+**Function props को स्ट्रिंग्स के रूप में रखा जाता है** सुरक्षा के लिए, `overrides` में सूचीबद्ध बड़े अक्षर वाले टैग पर; कोई भी अन्य टैग HTML है और अपने इवेंट हैंडलर खो देता है। केस-बाई-केस हैंडलिंग के लिए [renderRule](#optionsrenderrule) का उपयोग करें, या opt-in eval के लिए [evalUnserializableExpressions](#optionsevalunserializableexpressions) देखें।
 
 **HTML indentation:** markdown सिंटैक्स संघर्षों से बचने के लिए HTML ब्लॉक्स में अग्रणी व्हाइटस्पेस को पहली लाइन के इंडेंटेशन के आधार पर स्वतः-ट्रिम किया जाता है।
 

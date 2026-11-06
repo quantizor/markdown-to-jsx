@@ -33,6 +33,17 @@ function normalizeHtml(html: string): string {
   return html.replace(/\n\s*/g, '').replace(/>\s+</g, '><').trim()
 }
 
+/**
+ * Examples whose output deviates from the spec on purpose, with the exact output
+ * asserted instead: each is a tag still open at the end of its string, which a
+ * browser would read on into whatever markup follows.
+ */
+const SECURITY_DEVIATIONS: Record<number, string> = {
+  156: '&lt;div id="foo"\n*hi*\n',
+  157: '&lt;div class\nfoo\n',
+  158: '&lt;div *???-&&&-&lt;---\n*foo*\n',
+}
+
 describe('CommonMark 0.31.2 Specification', () => {
   it.each(
     specExamples
@@ -40,6 +51,7 @@ describe('CommonMark 0.31.2 Specification', () => {
     markdown,
     html: expectedHtml,
     section,
+    example,
   }) => {
     // Enable GFM extensions for autolinks and tagfilter tests
     // Note: angle bracket autolinks (<https://...>) are part of core CommonMark spec
@@ -56,6 +68,11 @@ describe('CommonMark 0.31.2 Specification', () => {
     })
 
     const actualHtml = astToHTML(ast, { tagfilter: isTagfilterTest })
+
+    if (example in SECURITY_DEVIATIONS) {
+      expect(actualHtml).toBe(SECURITY_DEVIATIONS[example])
+      return
+    }
 
     expect(normalizeHtml(actualHtml)).toBe(normalizeHtml(expectedHtml))
   })

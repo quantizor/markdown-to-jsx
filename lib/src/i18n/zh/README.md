@@ -393,7 +393,7 @@ HTML 标签会自动映射到 React Native 组件：
 
 **注意：** 为了更好的可访问性和可发现性，链接默认带有下划线。您可以通过 `styles.link` 选项覆盖此行为。
 
-**注意：** 脚注引用标记（`[^1]`）渲染为上标，与 Web 渲染器输出的 `<sup>` 一致。React Native 无法通过样式让内联文本升高或缩小（会忽略内联文本上的 `verticalAlign` 和变换），因此数字标记使用 Unicode 上标字形（`¹²³`），字体会自行以相对周围文本升高、缩小的方式绘制这些字形。非数字标识符（`[^note]`）则渲染为纯文本。可通过 `styles.footnote` 选项设置该标记的样式。
+**注意：** 脚注引用标记（`[^1]`，需有定义）渲染为上标，与 Web 渲染器输出的 `<sup>` 一致。React Native 无法通过样式让内联文本升高或缩小（会忽略内联文本上的 `verticalAlign` 和变换），因此数字标记使用 Unicode 上标字形（`¹²³`），字体会自行以相对周围文本升高、缩小的方式绘制这些字形。非数字标识符（`[^note]`）则渲染为纯文本。可通过 `styles.footnote` 选项设置该标记的样式。
 
 #### SolidJS
 
@@ -494,6 +494,8 @@ const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
 const ast = parser('# Hello  world')
 const normalizedMarkdown2 = astToMarkdown(ast)
 ```
+
+如果代码块或行内代码的内容被当作原始 HTML 或链接读取时不安全，它会以带实体的 `<pre><code>` 或 `<code>` 形式写出，因为其他渲染器可能把它周围的标记读作原始 HTML。浏览器显示的字符相同，其他代码仍保留围栏或反引号。
 
 ### 库选项 (Library Options)
 
@@ -601,11 +603,14 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
 
 **重要说明：**
 
-- **JSX 属性会被智能解析** (v9.1+)：
+- **标签匹配哪个键：** 以大写字母开头的标签是组件，匹配其键时忽略大小写，因此 `<Card>`、`<CARD>` 和 `<CaRd>` 都能找到 `Card`、`card` 或 `CARD` 键。以小写字母开头的标签是 HTML，因此 `<card>` 永远找不到 `Card` 键。
+- **小写标签的覆盖接收的属性是原样书写的文本**，包括 `{…}`：使用 `{ a: MyLink }` 时，`<a data={{"a":1}}>` 会给 MyLink 传入 `data="{{"a":1}}"`，由它自行解析。该标签上的事件处理器会保留在已解析的节点上，供 [renderRule](#optionsrenderrule) 和 `parser()` 使用，但永远不会到达 MyLink 或页面。
+- **JSX 属性会被智能解析** (v9.1+)，前提是大写标签匹配 `overrides` 中的某个键：
   - 数组和对象：`data={[1, 2, 3]}` → 解析为 `[1, 2, 3]`
   - 布尔值：`enabled={true}` → 解析为 `true`
   - 函数：`onClick={() => ...}` → 出于安全考虑保持为字符串 (使用 [renderRule](#optionsrenderrule) 进行逐例处理，或参阅 [evalUnserializableExpressions](#optionsevalunserializableexpressions))
   - 复杂表达式：`value={someVar}` → 保持为字符串
+- **没有匹配键的标签就是 HTML**，无论大小写如何：每个属性值都保持原样书写，包括 `{…}`，并且事件处理器会被移除。没有 `Table` 键时，`<Table data={[1, 2, 3]} />` 得到 `data="{[1, 2, 3]}"`。若要接收已解析的属性，无论是在组件中还是在 [renderRule](#optionsrenderrule) 中，都请将该标签列入 `overrides`。
 - 某些属性会被保留：`a` (`href`, `title`)，`img` (`src`, `alt`, `title`)，`input[type="checkbox"]` (`checked`, `readonly`)，`ol` (`start`)，`td`/`th` (`style`)。
 - 元素映射：内联文本使用 `span`，内联代码使用 `code`，代码块使用 `pre > code`。
 
@@ -613,18 +618,22 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
 
 **⚠️ 安全警告：强烈建议不要用于用户输入的内容**
 
-启用后，尝试计算 JSX 属性中无法序列化为 JSON 的表达式 (函数、变量、复杂表达式)。这使用 `eval()`，可能会执行任意代码。
+启用后，尝试计算 JSX 属性中无法序列化为 JSON 的表达式 (函数、变量、复杂表达式)，前提是大写标签匹配 `overrides` 中的某个键。这使用 `eval()`，可能会执行任意代码。任何其他标签都是 HTML，永远不会被计算。
 
 **默认情况下 (推荐)**，为了安全起见，不可序列化的表达式保持为字符串：
 
 ```tsx
 import { parser } from 'markdown-to-jsx'
 
-const ast = parser('<Button onClick={() => alert("hi")} />')
+const ast = parser('<Button onClick={() => alert("hi")} />', {
+  overrides: { Button: 'button' },
+})
 // ast[0].attrs.onClick === "() => alert(\"hi\")" (字符串，安全)
 
 // 数组和对象会被自动解析 (无需 eval)：
-const ast2 = parser('<Table data={[1, 2, 3]} />')
+const ast2 = parser('<Table data={[1, 2, 3]} />', {
+  overrides: { Table: 'table' },
+})
 // ast2[0].attrs.data === [1, 2, 3] (通过 JSON.parse 解析)
 ```
 
@@ -641,22 +650,27 @@ const ast2 = parser('<Table data={[1, 2, 3]} />')
 const userMarkdown = '<Component onClick={() => fetch("/admin/delete-all")} />'
 
 // ❌ 危险 - 函数将可执行
-parser(userMarkdown, { evalUnserializableExpressions: true })
+parser(userMarkdown, {
+  evalUnserializableExpressions: true,
+  overrides: { Component },
+})
 
 // ✅ 安全 - 函数保持为字符串
-parser(userMarkdown) // 默认行为
+parser(userMarkdown, { overrides: { Component } }) // 默认行为
 ```
 
 **安全替代方案：使用 renderRule 进行逐例处理：**
 
 ```tsx
-// 与其 eval 任意表达式，不如在 renderRule 中选择性地处理它们：
+// 与其 eval 任意表达式，不如在 renderRule 中选择性地处理它们。
+// 该标签需要在 `overrides` 中有一个键：没有键的标签就是 HTML，会失去它的处理器。
 const handlers = {
   handleClick: () => console.log('clicked'),
   handleSubmit: () => console.log('submitted'),
 }
 
 compiler(markdown, {
+  overrides: { TrustedComponent },
   renderRule(next, node) {
     if (
       node.type === RuleType.htmlBlock &&
@@ -779,10 +793,11 @@ compiler('[foo](javascript:alert("foo"))', {
 渲染前移除：
 
 - 内联事件处理程序：`onclick`、`onerror`、`onload` 以及任何其他 `on*` 属性。
-- 在 `href`、`src`、`action`、`formaction`、`poster`、`cite`、`background`、`data`、`longdesc` 和 `xlink:href` 中携带 `javascript:`、`vbscript:` 或非图像 `data:` scheme 的 URL 属性。隐藏在 HTML 实体后面的 scheme，例如 `java&#9;script:` 或无分号的 `&#106avascript:`，也会被解码并捕获。
+- 在 `href`、`src`、`action`、`formaction`、`poster`、`cite`、`background`、`data`、`longdesc` 和 `xlink:href` (或 `xlinkHref`) 中携带 `javascript:`、`vbscript:` 或非图像 `data:` scheme 的 URL 属性。隐藏在 HTML 实体后面的 scheme，例如 `java&#9;script:` 或无分号的 `&#106avascript:`，也会被解码并捕获。
 - `iframe` 的 `srcdoc` 属性。
+- 仅对框架有意义的属性：`innerHTML`、`outerHTML`、`dangerouslySetInnerHTML`、`ref` 和 `children` (在您自己的组件上保留)，以及位于 Solid 的 `attr:`、`prop:` 或 `bool:` 前缀之后的上述任何一项。
 
-保留：保持原始格式的安全属性、`data:image` URL，以及您作为表达式传递给自己组件的事件处理程序 (`<MyButton onClick={fn} />`)，以及它们上面的裸布尔属性 (`<MyButton onClick />`)。一个注意事项：`data:image/svg+xml` 是允许的，但当作为顶级导航打开时可能会执行脚本，因此请谨慎处理来自不受信任来源的 SVG data URL。
+保留：保持原始格式的安全属性、`data:image` URL，以及您作为表达式传递给自己组件的事件处理程序 (`<MyButton onClick={fn} />`，其中 `MyButton` 是一个 `overrides` 键)，以及它们上面的裸布尔属性 (`<MyButton onClick />`)。HTML 和 markdown 输出会按原样输出组件的表达式事件处理程序，而浏览器会运行它，因此请勿将使用了您组件名称的不受信任输入渲染为要插入页面的 HTML 字符串。对于 override 仍保留为字符串的带连字符标签，React 也会这样做。一个注意事项：`data:image/svg+xml` 是允许的，但当作为顶级导航打开时可能会执行脚本，因此请谨慎处理来自不受信任来源的 SVG data URL。
 
 危险的标签名称 (`script`、`iframe`、`style` 等) 由 [`tagfilter`](#all-options) 选项单独转义，该选项默认启用。
 
@@ -1078,7 +1093,7 @@ AST 由以下节点类型组成 (使用 `RuleType` 检查节点类型)：
 - `RuleType.footnote` - 脚注定义节点 (不渲染，存储在 refCollection 中)
 - `RuleType.footnoteReference` - 脚注引用 (`[^identifier]`)
   ```tsx
-  { type: RuleType.footnoteReference, target: "#fn-identifier", text: "1" }
+  { type: RuleType.footnoteReference, target: "#1", text: "1" }
   ```
 - `RuleType.frontmatter` - YAML Frontmatter 块
   ```tsx
@@ -1095,7 +1110,7 @@ AST 由以下节点类型组成 (使用 `RuleType` 检查节点类型)：
 
 **JSX 属性解析 (v9.1+)：**
 
-解析器会智能解析 JSX 属性值：
+解析器会智能解析 JSX 属性值，前提是大写标签匹配 `overrides` 中的某个键；其他所有标签都保持每个值的原样书写：
 
 - 数组/对象通过 `JSON.parse()` 解析：`rows={[["a", "b"]]}` → `attrs.rows = [["a", "b"]]`
 - 出于安全考虑，函数保持为字符串：`onClick={() => ...}` → `attrs.onClick = "() => ..."`
@@ -1181,7 +1196,7 @@ if (node.type === RuleType.heading) {
 
 ### 注意事项 (Gotchas)
 
-**JSX 属性解析 (v9.1+)**：JSX 属性中的数组和对象会被自动解析：
+**JSX 属性解析 (v9.1+)**：JSX 属性中的数组和对象，在列入 `overrides` 的大写标签上 (此处为 `{ Table }`)，会被自动解析：
 
 <!-- biome-ignore format: keep example fences intact -->
 ```tsx
@@ -1209,7 +1224,7 @@ const Table = ({ columns, data, ...props }) => {
 }
 ```
 
-**函数属性保持为字符串**以确保安全。使用 [renderRule](#optionsrenderrule) 进行逐例处理，或参阅 [evalUnserializableExpressions](#optionsevalunserializableexpressions) 了解如何选择性启用 eval。
+**函数属性保持为字符串**以确保安全，前提是列入 `overrides` 的大写标签；任何其他标签都是 HTML，会失去其事件处理器。使用 [renderRule](#optionsrenderrule) 进行逐例处理，或参阅 [evalUnserializableExpressions](#optionsevalunserializableexpressions) 了解如何选择性启用 eval。
 
 **HTML 缩进**：HTML 块中的前导空格会根据第一行的缩进自动修剪，以避免 Markdown 语法冲突。
 

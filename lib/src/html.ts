@@ -156,6 +156,74 @@ function formatAttributes(attrs: Record<string, any>): string {
   return result
 }
 
+/** The attributes of a node the parser did not read, without `children`, which is written as content and never as an attribute; the same object when it has none. */
+function _withoutChildren(
+  attrs: Record<string, any> | undefined
+): Record<string, any> | undefined {
+  if (attrs === undefined || attrs.children === undefined) {
+    return attrs
+  }
+  var rest: Record<string, any> = {}
+  for (var key in attrs) {
+    if (key !== 'children') {
+      rest[key] = attrs[key]
+    }
+  }
+  return rest
+}
+
+/**
+ * Writes a self-closing tag whose attributes hold `children`: the string
+ * becomes the content of the element written for the tag, escaped as text, and
+ * a void tag takes none. The attribute is never written.
+ */
+function _selfClosingWithChildren(
+  node: MarkdownToJSX.HTMLSelfClosingNode,
+  attrs: Record<string, any>,
+  defaultTag: string,
+  tag: string,
+  ctx: _Ctx
+): string {
+  var text = util.childrenAttrContent(attrs.children, null)
+  var open = node._rawOpen
+  if (open && text === undefined) {
+    return ctx.tagfilter ? util.applyTagFilterToText(open) : open
+  }
+  var overrideProps = ctx.hasOverrides
+    ? util.getOverrideProps(defaultTag, ctx.overrides)
+    : _emptyObj
+  var attrsStr: string
+  if (open) {
+    // The parser wrote the attributes between the tag name and its ending
+    // (` />`, `/>`, or `>`), screened and without `children`
+    var raw = util.rawOpenTagAttrs(open, defaultTag.length)
+    if (ctx.tagfilter) {
+      raw = util.applyTagFilterToText(raw)
+    }
+    attrsStr =
+      (raw.length > 0 && raw.charCodeAt(0) > $.CHAR_SPACE ? ' ' : '') +
+      raw +
+      (hasKeys(overrideProps)
+        ? ` ${formatAttributes(overrideProps).trim()}`
+        : '')
+  } else {
+    attrsStr = formatAttributes(
+      _mergeAttrs(
+        _withoutChildren(
+          util.withoutHandlerSource(defaultTag, attrs, ctx.overrides)
+        ),
+        overrideProps
+      )
+    )
+  }
+  if (text === undefined) {
+    return `<${tag}${attrsStr} />`
+  }
+  return util.isVoidElement(tag)
+    ? `<${tag}${attrsStr}>`
+    : `<${tag}${attrsStr}>${escapeHtml(text)}</${tag}>`
+}
+
 /**
  * Override configuration for HTML tags or custom components in HTML output
  */
@@ -213,6 +281,11 @@ interface _Ctx {
 }
 
 var _emptyObj: Record<string, any> = {}
+
+/** A filtered tag's text body as markup in this output; the parser already warned for it */
+function screenFilteredBody(text: string): string {
+  return parse.stripDangerousHtml(text, true)
+}
 
 function shouldSkipNode(
   node: MarkdownToJSX.ASTNode,
@@ -361,7 +434,8 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
     }
 
     case RuleType.codeBlock: {
-      var codeAttrs: Record<string, any> = node.attrs || {}
+      var codeAttrs: Record<string, any> =
+        util.withoutHandlerSource('code', node.attrs, ctx.overrides) || {}
       if (node.lang) {
         codeAttrs = { ...codeAttrs }
         var decodedLang = util.decodeEntityReferences(node.lang)
@@ -417,13 +491,12 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
 
     case RuleType.htmlComment: {
       var htmlCommentNode = node as MarkdownToJSX.HTMLCommentNode
-      if (htmlCommentNode.raw) {
-        return htmlCommentNode.text
-      }
-      if (htmlCommentNode._endsWithGT) {
-        return `<!--${node.text}>`
-      }
-      return `<!--${node.text}-->`
+      var markup = htmlCommentNode.raw
+        ? htmlCommentNode.text
+        : htmlCommentNode._endsWithGT
+          ? `<!--${node.text}>`
+          : `<!--${node.text}-->`
+      return ctx.tagfilter ? util.applyTagFilterToText(markup) : markup
     }
 
     case RuleType.htmlBlock: {
@@ -437,9 +510,24 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
         : _emptyObj
       var attrsStr: string
       if (htmlNode._rawAttrs === undefined) {
-        attrsStr = formatAttributes(_mergeAttrs(htmlNode.attrs, overrideProps))
+        attrsStr = formatAttributes(
+          _mergeAttrs(
+            _withoutChildren(
+              util.withoutHandlerSource(
+                defaultTag,
+                htmlNode.attrs,
+                ctx.overrides
+              )
+            ),
+            overrideProps
+          )
+        )
       } else {
-        var rawAttrsValue = htmlNode._rawAttrs
+        // Filtered in values too, since what comes earlier in the output can end
+        // a value early. `&lt;` decodes back to `<`, so the value holds
+        var rawAttrsValue = ctx.tagfilter
+          ? util.applyTagFilterToText(htmlNode._rawAttrs)
+          : htmlNode._rawAttrs
         var needsLeadingSpace =
           rawAttrsValue.length > 0 && rawAttrsValue.charCodeAt(0) > $.CHAR_SPACE
         attrsStr =
@@ -450,7 +538,7 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
             : '')
       }
       if (ctx.tagfilter && util.shouldFilterTag(tag)) {
-        var filtered = util.getFilteredTagEmit(htmlNode)
+        var filtered = util.getFilteredTagEmit(htmlNode, screenFilteredBody)
         if (filtered.kind === 'literal') {
           return util.applyTagFilterToText(filtered.literal)
         }
@@ -466,6 +554,27 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
           ? util.applyTagFilterToText(htmlNode._rawBody)
           : htmlNode._rawBody
         return `</${tag}>${closerTrailing}`
+      }
+      // A raw span with no content of its own (an empty pair, or a tag left
+      // open) takes a children attribute as its content, and closes, as the
+      // markdown output writes it
+      var hasRawContent =
+        rawOuter === undefined && (htmlNode._rawBody || htmlNode._rawClose)
+      if (
+        htmlNode._verbatim &&
+        !hasRawContent &&
+        htmlNode.attrs !== undefined &&
+        htmlNode.attrs.children !== undefined
+      ) {
+        var verbatimAttrText = util.childrenAttrContent(
+          htmlNode.attrs.children,
+          [htmlNode.children, htmlNode.text]
+        )
+        if (verbatimAttrText !== undefined) {
+          return util.isVoidElement(tag)
+            ? `<${tag}${attrsStr}>`
+            : `<${tag}${attrsStr}>${escapeHtml(verbatimAttrText)}</${tag}>`
+        }
       }
       if (htmlNode._verbatim && rawOuter !== undefined) {
         // Parser-verified full outer span (own opening tag through own
@@ -539,6 +648,18 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
       if (htmlNode._isClosingTag) {
         return `</${tag}>${children}`
       }
+      if (
+        htmlNode.attrs !== undefined &&
+        htmlNode.attrs.children !== undefined
+      ) {
+        var attrChildren = util.childrenAttrContent(
+          htmlNode.attrs.children,
+          children
+        )
+        if (attrChildren !== undefined) {
+          children = escapeHtml(attrChildren)
+        }
+      }
       // Structurally-closed elements always emit </tag>, even when empty.
       // _verbatim is raw source pass-through (e.g. unclosed <div>); only then
       // do we suppress the close, and only when children is whitespace-only.
@@ -576,13 +697,27 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
       if (scNode._isClosingTag) {
         return scNode._rawClose || `</${scTag}>`
       }
+      if (scNode.attrs !== undefined && scNode.attrs.children !== undefined) {
+        return _selfClosingWithChildren(
+          scNode,
+          scNode.attrs,
+          scDefaultTag,
+          scTag,
+          ctx
+        )
+      }
       if (scNode._rawOpen) {
-        return scNode._rawOpen
+        return ctx.tagfilter
+          ? util.applyTagFilterToText(scNode._rawOpen)
+          : scNode._rawOpen
       }
       var scOverrideProps = ctx.hasOverrides
         ? util.getOverrideProps(scDefaultTag, ctx.overrides)
         : _emptyObj
-      var scMergedAttrs = _mergeAttrs(scNode.attrs, scOverrideProps)
+      var scMergedAttrs = _mergeAttrs(
+        util.withoutHandlerSource(scDefaultTag, scNode.attrs, ctx.overrides),
+        scOverrideProps
+      )
       var scAttrsStr = formatAttributes(scMergedAttrs)
       return `<${scTag}${scAttrsStr} />`
     }
@@ -623,13 +758,15 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
         // Sanitize before encode (same order as the JSX compilers) so a
         // dangerous direct-AST target never reaches href=.
         var linkHref = util.sanitizeAndEncodeUrlTarget(
-          util.decodeEntityReferences(node.target),
+          node.target,
           ctx.sanitize,
           'a',
           'href'
         )
         if (linkHref != null) {
-          linkAttrs.href = linkHref
+          // Decoded text, so an `&` left as written would decode again in a
+          // browser, past the sanitizer: `&#106;avascript:` is `javascript:`.
+          linkAttrs.href = escapeHtml(linkHref)
         }
       }
       if (node.title) {

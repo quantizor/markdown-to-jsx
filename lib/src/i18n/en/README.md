@@ -394,7 +394,7 @@ HTML tags are automatically mapped to React Native components:
 
 **Note:** Links are underlined by default for better accessibility and discoverability. You can override this via the `styles.link` option.
 
-**Note:** Footnote reference markers (`[^1]`) render as a superscript, matching the `<sup>` the web renderers emit. React Native cannot raise or shrink inline text through styles (it ignores `verticalAlign` and transforms on inline text), so numeric markers use Unicode superscript glyphs (`¹²³`), which the font draws raised and sized relative to the surrounding text on their own. Non-numeric identifiers (`[^note]`) render as plain text. Style the marker via the `styles.footnote` option.
+**Note:** Footnote reference markers (`[^1]`, with a definition) render as a superscript, matching the `<sup>` the web renderers emit. React Native cannot raise or shrink inline text through styles (it ignores `verticalAlign` and transforms on inline text), so numeric markers use Unicode superscript glyphs (`¹²³`), which the font draws raised and sized relative to the surrounding text on their own. Non-numeric identifiers (`[^note]`) render as plain text. Style the marker via the `styles.footnote` option.
 
 #### SolidJS
 
@@ -495,6 +495,8 @@ const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
 const ast = parser('# Hello  world')
 const normalizedMarkdown2 = astToMarkdown(ast)
 ```
+
+A code block or code span whose contents would be unsafe read as raw HTML or a link is written as `<pre><code>` or `<code>` with entities, because another renderer can read the markup around it as raw HTML. A browser shows the same characters, and other code keeps its fence or backticks.
 
 ### Library Options
 
@@ -602,11 +604,14 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
 
 **Important notes:**
 
-- **JSX props are intelligently parsed** (v9.1+):
+- **Which key a tag matches:** a tag that starts with an uppercase letter is a component and matches its key ignoring case, so `<Card>`, `<CARD>`, and `<CaRd>` all find a `Card`, `card`, or `CARD` key. A tag that starts with a lowercase letter is HTML, so `<card>` never finds a `Card` key.
+- **A lowercase tag's override receives its attributes as written text**, `{…}` included: with `{ a: MyLink }`, `<a data={{"a":1}}>` gives MyLink `data="{{"a":1}}"` to parse as it sees fit. Event handlers on it are kept on the parsed node for [renderRule](#optionsrenderrule) and `parser()`, and never reach MyLink or the page.
+- **JSX props are intelligently parsed** (v9.1+) on a capitalized tag that matches a key in `overrides`:
   - Arrays and objects: `data={[1, 2, 3]}` → parsed as `[1, 2, 3]`
   - Booleans: `enabled={true}` → parsed as `true`
   - Functions: `onClick={() => ...}` → kept as string for security (use [renderRule](#optionsrenderrule) for case-by-case handling, or see [evalUnserializableExpressions](#optionsevalunserializableexpressions))
   - Complex expressions: `value={someVar}` → kept as string
+- **A tag with no matching key is HTML**, whatever its casing: every attribute value stays as written, `{…}` included, and event handlers are removed. `<Table data={[1, 2, 3]} />` with no `Table` key gives `data="{[1, 2, 3]}"`. To receive parsed props, in a component or in [renderRule](#optionsrenderrule), list the tag in `overrides`.
 - Some props are preserved: `a` (`href`, `title`), `img` (`src`, `alt`, `title`), `input[type="checkbox"]` (`checked`, `readonly`), `ol` (`start`), `td`/`th` (`style`)
 - Element mappings: `span` for inline text, `code` for inline code, `pre > code` for code blocks
 
@@ -614,18 +619,22 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
 
 **⚠️ SECURITY WARNING: STRONGLY DISCOURAGED FOR USER INPUTS**
 
-When enabled, attempts to eval expressions in JSX props that cannot be serialized as JSON (functions, variables, complex expressions). This uses `eval()` which can execute arbitrary code.
+When enabled, attempts to eval expressions in JSX props that cannot be serialized as JSON (functions, variables, complex expressions), on a capitalized tag that matches a key in `overrides`. This uses `eval()` which can execute arbitrary code. Any other tag is HTML and is never evaluated.
 
 **By default (recommended)**, unserializable expressions are kept as strings for security:
 
 ```tsx
 import { parser } from 'markdown-to-jsx'
 
-const ast = parser('<Button onClick={() => alert("hi")} />')
+const ast = parser('<Button onClick={() => alert("hi")} />', {
+  overrides: { Button: 'button' },
+})
 // ast[0].attrs.onClick === "() => alert(\"hi\")" (string, safe)
 
 // Arrays and objects are automatically parsed (no eval needed):
-const ast2 = parser('<Table data={[1, 2, 3]} />')
+const ast2 = parser('<Table data={[1, 2, 3]} />', {
+  overrides: { Table: 'table' },
+})
 // ast2[0].attrs.data === [1, 2, 3] (parsed via JSON.parse)
 ```
 
@@ -648,22 +657,27 @@ const ast2 = parser('<Table data={[1, 2, 3]} />')
 const userMarkdown = '<Component onClick={() => fetch("/admin/delete-all")} />'
 
 // ❌ DANGEROUS - function will be executable
-parser(userMarkdown, { evalUnserializableExpressions: true })
+parser(userMarkdown, {
+  evalUnserializableExpressions: true,
+  overrides: { Component },
+})
 
 // ✅ SAFE - function kept as string
-parser(userMarkdown) // default behavior
+parser(userMarkdown, { overrides: { Component } }) // default behavior
 ```
 
 **Safe alternative: Use renderRule for case-by-case handling:**
 
 ```tsx
-// Instead of eval'ing arbitrary expressions, handle them selectively in renderRule:
+// Instead of eval'ing arbitrary expressions, handle them selectively in renderRule.
+// The tag needs a key in `overrides`: a tag with none is HTML and loses its handlers.
 const handlers = {
   handleClick: () => console.log('clicked'),
   handleSubmit: () => console.log('submitted'),
 }
 
 compiler(markdown, {
+  overrides: { TrustedComponent },
   renderRule(next, node) {
     if (
       node.type === RuleType.htmlBlock &&
@@ -786,10 +800,11 @@ Raw HTML in your markdown is sanitized automatically in every renderer (React, R
 Removed before rendering:
 
 - Inline event handlers: `onclick`, `onerror`, `onload`, and any other `on*` attribute.
-- URL attributes carrying a `javascript:`, `vbscript:`, or non-image `data:` scheme, in `href`, `src`, `action`, `formaction`, `poster`, `cite`, `background`, `data`, `longdesc`, and `xlink:href`. Schemes hidden behind HTML entities such as `java&#9;script:` or a semicolon-less `&#106avascript:` are decoded and caught too.
+- URL attributes carrying a `javascript:`, `vbscript:`, or non-image `data:` scheme, in `href`, `src`, `action`, `formaction`, `poster`, `cite`, `background`, `data`, `longdesc`, and `xlink:href` (or `xlinkHref`). Schemes hidden behind HTML entities such as `java&#9;script:` or a semicolon-less `&#106avascript:` are decoded and caught too.
 - The `iframe` `srcdoc` attribute.
+- Attributes that only mean something to a framework: `innerHTML`, `outerHTML`, `dangerouslySetInnerHTML`, `ref`, and `children` (kept on your own components), plus anything above behind a Solid `attr:`, `prop:`, or `bool:` prefix.
 
-Kept: safe attributes with their original formatting, `data:image` URLs, and event handlers you pass as expressions to your own components (`<MyButton onClick={fn} />`) along with bare boolean props on them (`<MyButton onClick />`). One caveat: `data:image/svg+xml` is allowed but can execute script when opened as a top-level navigation, so treat SVG data URLs from untrusted sources with care.
+Kept: safe attributes with their original formatting, `data:image` URLs, and event handlers you pass as expressions to your own components (`<MyButton onClick={fn} />`, where `MyButton` is an `overrides` key) along with bare boolean props on them (`<MyButton onClick />`). HTML and markdown output emit a component's expression handler as written, and a browser runs it, so do not render untrusted input that uses your component names to an HTML string you insert into a page. React does the same for a hyphenated tag whose override leaves it a string. One caveat: `data:image/svg+xml` is allowed but can execute script when opened as a top-level navigation, so treat SVG data URLs from untrusted sources with care.
 
 Dangerous tag names (`script`, `iframe`, `style`, and similar) are escaped separately by the [`tagfilter`](#all-options) option, which is on by default.
 
@@ -1085,7 +1100,7 @@ The AST consists of the following node types (use `RuleType` to check node types
 - `RuleType.footnote` - Footnote definition node (not rendered, stored in refCollection)
 - `RuleType.footnoteReference` - Footnote reference (`[^identifier]`)
   ```tsx
-  { type: RuleType.footnoteReference, target: "#fn-identifier", text: "1" }
+  { type: RuleType.footnoteReference, target: "#1", text: "1" }
   ```
 - `RuleType.frontmatter` - YAML frontmatter blocks
   ```tsx
@@ -1102,7 +1117,7 @@ The AST consists of the following node types (use `RuleType` to check node types
 
 **JSX Prop Parsing (v9.1+):**
 
-The parser intelligently parses JSX prop values:
+The parser intelligently parses JSX prop values on a capitalized tag that matches a key in `overrides`; every other tag keeps each value as written:
 
 - Arrays/objects are parsed via `JSON.parse()`: `rows={[["a", "b"]]}` → `attrs.rows = [["a", "b"]]`
 - Functions are kept as strings for security: `onClick={() => ...}` → `attrs.onClick = "() => ..."`
@@ -1188,7 +1203,7 @@ if (node.type === RuleType.heading) {
 
 ### Gotchas
 
-**JSX prop parsing (v9.1+):** Arrays and objects in JSX props are automatically parsed:
+**JSX prop parsing (v9.1+):** Arrays and objects in JSX props are automatically parsed on a capitalized tag listed in `overrides` (here `{ Table }`):
 
 <!-- biome-ignore format: keep example fences intact -->
 ```tsx
@@ -1216,7 +1231,7 @@ const Table = ({ columns, data, ...props }) => {
 }
 ```
 
-**Function props are kept as strings** for security. Use [renderRule](#optionsrenderrule) for case-by-case handling, or see [evalUnserializableExpressions](#optionsevalunserializableexpressions) for opt-in eval.
+**Function props are kept as strings** for security, on a capitalized tag listed in `overrides`; any other tag is HTML and loses its event handlers. Use [renderRule](#optionsrenderrule) for case-by-case handling, or see [evalUnserializableExpressions](#optionsevalunserializableexpressions) for opt-in eval.
 
 **HTML indentation:** Leading whitespace in HTML blocks is auto-trimmed based on the first line's indentation to avoid markdown syntax conflicts.
 

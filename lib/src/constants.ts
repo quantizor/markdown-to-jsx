@@ -58,5 +58,6 @@ export const CHAR_Z = 90
 export const CHAR_a = 97
 export const CHAR_z = 122
 export const CHAR_ASCII_BOUNDARY = 128
+export const CHAR_BYTE_ORDER_MARK = 65_279
 // Case conversion offset: difference between uppercase and lowercase ASCII letters
 export const CHAR_CASE_OFFSET = 32 // 'A' (65) to 'a' (97) = 32

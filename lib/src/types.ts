@@ -186,7 +186,8 @@ declare namespace MarkdownToJSX {
   }
 
   /**
-   * Footnote reference node
+   * Footnote reference node. The parser emits one only when the document
+   * defines the footnote, or while `optimizeForStreaming` is on.
    */
   export interface FootnoteReferenceNode {
     type: typeof RuleType.footnoteReference
@@ -382,6 +383,14 @@ declare namespace MarkdownToJSX {
     /** @internal Full span including own opener through closer; JSX/component re-parse only */
     _rawOuter?: string
     /**
+     * @internal The span the JSX renderers re-parse in place of `_rawOuter` (or
+     * `_rawBody` when it has none): the same screened text with the `children`
+     * attribute a registered tag keeps in `attrs` left in, so the re-parse reads
+     * that content too. Undefined when the screen cut no such attribute. Only the
+     * JSX renderers' re-parse reads it; no output writes it.
+     */
+    _reparseSource?: string
+    /**
      * @internal `_rawBody` embeds this node's own closing tag (plus any
      * trailing same-line siblings) as literal text; the HTML compiler slices
      * at that closing tag and always emits its own `</tag>` rather than
@@ -545,6 +554,10 @@ declare namespace MarkdownToJSX {
      *
      * Example unsafe input: `<Component onClick={() => fetch('/admin/delete-all')} />`
      *
+     * Only a tag that starts with an uppercase letter and that `overrides` matches
+     * (ignoring case) has its props parsed or evaluated; every other tag keeps each
+     * attribute value as written.
+     *
      * When disabled (default), unserializable expressions remain as strings that can be
      * safely inspected or handled on a case-by-case basis via custom renderRule logic.
      *
@@ -571,7 +584,10 @@ declare namespace MarkdownToJSX {
 
     /**
      * Selectively control the output of particular HTML tags as they would be
-     * emitted by the compiler.
+     * emitted by the compiler. A tag that starts with an uppercase letter matches
+     * a key ignoring case (exact key first, then the all-lowercase key, then the
+     * first key equal ignoring case); a lowercase tag matches its own key or its
+     * all-lowercase key. A capitalized tag with no match renders as an HTML tag.
      */
     overrides: Overrides
 
