@@ -53,7 +53,7 @@ export interface ParserInputOptions {
   forceInline?: boolean
   ignoreHTMLBlocks?: boolean
   optimizeForStreaming?: boolean
-  /** Registers a hyphenated tag, which keeps its `{...}` handler attributes as props */
+  /** A key matches a capitalized tag ignoring case, which then reads `{...}` values as JSX props; a hyphenated tag it lists keeps its `{...}` handler attributes, as written */
   overrides?: { [tag: string]: unknown }
   preserveFrontmatter?: boolean
   sanitizer?: (value: string, tag: string, attribute: string) => string | null
@@ -379,22 +379,11 @@ function decodeNumericEntities(value: string): string {
   })
 }
 
-/** How the attribute screen treats a tag: a capitalized or hyphenated tag `overrides` registers, a capitalized one it does not, a hyphenated one it does not, or anything else */
-const TAG_KIND = {
-  component: 2,
-  customElement: 1,
-  html: 0,
-  registeredComponent: 3,
-} as const
-type TagKind = (typeof TAG_KIND)[keyof typeof TAG_KIND]
-
 /**
- * Whether the parse in progress treats a capitalized or hyphenated tag as a real
- * component: its `overrides` registers the tag, or `evalUnserializableExpressions`
- * makes a brace value a function. Module state rather than a parameter since every
- * tag parse and raw-string screen reads it and most have no options to hand: a tag
- * parsed with none in reach counts as unregistered, the safe direction. Cleared
- * when a parse ends.
+ * The options of the parse in progress, for whether its `overrides` matches a tag.
+ * Module state rather than a parameter since every tag parse and raw-string screen
+ * reads it and most have no options to hand: a tag parsed with none in reach
+ * matches nothing, the safe direction. Cleared when a parse ends.
  */
 var _parseOptionsForTags: ParseOptions | undefined
 
@@ -402,27 +391,19 @@ function hasOverride(tag: string): boolean {
   return Boolean(util.get(_parseOptionsForTags?.overrides, tag, undefined))
 }
 
-function isRegisteredTag(tag: string): boolean {
-  return (
-    _parseOptionsForTags !== undefined &&
-    (_parseOptionsForTags.evalUnserializableExpressions === true ||
-      hasOverride(tag))
-  )
-}
-
 /**
  * Decide whether a raw HTML attribute must be stripped for safety. String-valued
  * event handlers (on* attributes) and srcdoc are removed; a bare boolean on* on a
- * component-like tag is a prop rather than a handler string, so it is kept.
+ * component is a prop rather than a handler string, so it is kept.
  * URL-bearing attributes are removed only when their value resolves to a
  * dangerous scheme.
  * The scheme check is intentionally independent of any caller-supplied
  * sanitizer so the raw HTML path is secure by default.
  *
- * A JSX brace-expression value ({...}) on a capitalized or registered tag is a
- * component prop resolved by the library (see processHTMLAttributes), not a
- * raw-HTML inline-handler string, so it is kept. A handler is kept only on a
- * registered tag: on any other, a browser runs it as a block statement.
+ * `isComponent` is a capitalized or hyphenated tag `overrides` matches. A JSX
+ * brace-expression value ({...}) on one is a component prop, not a raw-HTML
+ * inline-handler string, so it is kept, handlers included. On every other tag
+ * a browser runs a `{...}` handler as a block statement.
  *
  * A name is judged as what it reaches in a renderer rather than as written, and
  * the exemption above does not apply to one no prop value can make safe, or to a
@@ -431,43 +412,40 @@ function isRegisteredTag(tag: string): boolean {
 function isDangerousAttr(
   name: string,
   value: string,
-  tagKind: TagKind,
+  isComponent: boolean,
   /** Skips the sanitizer's DEV warning, for a screen that may judge a URL the tag parser already judged */
   quiet?: boolean
 ): boolean {
   // All three prefixes are four letters; the check spares every other name the regex
   if (name.charCodeAt(4) === $.CHAR_COLON && SOLID_TARGET_PREFIX_R.test(name)) {
-    return isDangerousAttr(name.slice(5), value, tagKind, quiet)
+    return isDangerousAttr(name.slice(5), value, isComponent, quiet)
   }
   var lower = name.toLowerCase()
   if (RENDERER_ONLY_ATTRS[lower] === 1) {
     return true
   }
-  var isPropBrace =
-    tagKind !== TAG_KIND.html && value.charCodeAt(0) === $.CHAR_BRACE_OPEN
+  var isPropBrace = isComponent && value.charCodeAt(0) === $.CHAR_BRACE_OPEN
   if (lower === 'attributename') {
     return !isPropBrace && animatesDangerousAttr(value)
   }
   var isHandler = isHandlerName(name)
-  // A JSX brace-expression value ({...}) on a component-like tag is a prop the
-  // renderer resolves, so it is kept, except a handler on a tag that is no
-  // registered component (a browser runs `{...}` as a block statement) and a
-  // brace string on a URL prop (it reaches a component as the URL itself, so the
-  // URL screen below reads it). On a standard HTML tag it is not a prop, and an
-  // on*/dangerous-URL brace value would still emit an executable handler in
-  // string output, so it is screened like any other value.
+  // A JSX brace-expression value ({...}) on a component is a prop the renderer
+  // resolves, so it is kept, except a brace string on a URL prop (it reaches a
+  // component as the URL itself, so the URL screen below reads it). On any other
+  // tag it is not a prop, and an on*/dangerous-URL brace value would still emit
+  // an executable handler in string output, so it is screened like any other value.
   if (
     isPropBrace &&
     (URL_BEARING_ATTRS[lower] !== 1 || BRACE_OBJECT_VALUE_R.test(value))
   ) {
-    return isHandler && tagKind !== TAG_KIND.registeredComponent
+    return false
   }
   // on* event handlers (case-insensitive), e.g. onclick, onerror, onload
   if (isHandler) {
-    // A bare boolean on* on a component-like tag (`<MyComponent onClick />`) is a
-    // prop set to true, not a string-valued inline handler, so keep it. A
-    // string-valued on*, and any on* on a standard HTML tag, is still stripped.
-    return !(tagKind !== TAG_KIND.html && value === '')
+    // A bare boolean on* on a component (`<MyComponent onClick />`) is a prop
+    // set to true, not a string-valued inline handler, so keep it. A
+    // string-valued on*, and any on* on another tag, is still stripped.
+    return !(isComponent && value === '')
   }
   if (lower === 'srcdoc') {
     return true
@@ -624,7 +602,7 @@ var _browserTagUnsafe = false
  * outside a quoted value, or the end of the string. Every attribute counts,
  * including names a tag parser rejects (`<img` inside `<div\n<img onerror=x>`
  * is an attribute of the div) and pieces of a brace value. `ownAttrs` is the
- * parsed attributes of a component-like tag, and null otherwise: a piece keeps
+ * parsed attributes of a component (see isDangerousAttr), and null otherwise: a piece keeps
  * the exemption for a `{`-leading value only when it starts the parsed value of
  * the same name. Sets `_browserTagUnsafe`.
  *
@@ -651,7 +629,6 @@ export function browserTagEnd(
     }
     i++
   }
-  var tagNameEnd = i
   while (i < len) {
     c = html.charCodeAt(i)
     if (c === $.CHAR_GT) {
@@ -713,16 +690,11 @@ export function browserTagEnd(
     if (!_browserTagUnsafe) {
       var ownValue =
         ownAttrs === null ? undefined : util.overrideValue(ownAttrs, name)
-      // A piece that starts an own value keeps the exemptions of a component-like
-      // tag; only a registered one's cover a handler
+      // A piece that starts an own value keeps the exemptions of a component
       _browserTagUnsafe = isDangerousAttr(
         name,
         value,
-        ownValue?.startsWith(value)
-          ? isRegisteredTag(html.slice(lt + 1, tagNameEnd))
-            ? TAG_KIND.registeredComponent
-            : TAG_KIND.component
-          : TAG_KIND.html,
+        ownValue?.startsWith(value) === true,
         true
       )
     }
@@ -767,7 +739,7 @@ function withBrowserReadSpans(
   // The opener is walked already; past it, a value a brace value's split opened
   // can run on, and capping that is what keeps a run of such tags linear
   var capped = source.slice(0, end + HIDDEN_TAG_READ_LIMIT)
-  // What goes from a component-like tag is gone for a browser too. Blanks keep
+  // What goes from a component is gone for a browser too. Blanks keep
   // every position, and a tag's own span keeps a run of such tags linear
   if (dangerSpans !== null && ownAttrs !== null) {
     var blanked = capped.slice(pos, dangerSpans[0])
@@ -837,9 +809,11 @@ function __parseHtmlTag(
    */
   _browserReadDiffers: boolean
   _hasSpaceBeforeSlash: boolean
-  /** PascalCase JSX component or hyphenated custom element. */
-  _isComponentTag: boolean
   _isClosing: boolean
+  /** A capitalized or hyphenated tag `overrides` matches, which the screen exempts as a component. */
+  _isComponent: boolean
+  /** PascalCase JSX component or hyphenated custom element, for block structure. */
+  _isComponentTag: boolean
   _rawAttrs: string
   /**
    * `_rawAttrs` with the `children` attribute kept in `attrs` left in, for the
@@ -894,19 +868,12 @@ function __parseHtmlTag(
     return null
   }
 
-  // Component-like tags (a capitalized JSX component or a hyphenated custom
-  // element) take brace-expression attributes as renderer-resolved props;
-  // standard HTML tags do not, so brace on*/URL values on them stay screened.
+  // A capitalized or hyphenated tag nests blank-line content (#870); only one
+  // `overrides` matches is a component the screen exempts (isDangerousAttr)
   const tagFirstChar = tag.charCodeAt(0)
   const isCapitalized = tagFirstChar >= $.CHAR_A && tagFirstChar <= $.CHAR_Z
   const isComponentTag = isCapitalized || tag.indexOf('-') !== -1
-  const tagKind: TagKind = isComponentTag
-    ? isRegisteredTag(tag)
-      ? TAG_KIND.registeredComponent
-      : isCapitalized
-        ? TAG_KIND.component
-        : TAG_KIND.customElement
-    : TAG_KIND.html
+  const isComponent = isComponentTag && hasOverride(tag)
 
   const wsStart = i
   while (
@@ -948,7 +915,7 @@ function __parseHtmlTag(
           source,
           pos,
           i + 1,
-          isComponentTag ? attrs : null,
+          isComponent ? attrs : null,
           dangerSpans,
           readSpans
         )
@@ -959,8 +926,9 @@ function __parseHtmlTag(
       return {
         _browserReadDiffers: readSpans !== null,
         _hasSpaceBeforeSlash: hasSpaceBeforeSlash,
-        _isComponentTag: isComponentTag,
         _isClosing: isClosing,
+        _isComponent: isComponent,
+        _isComponentTag: isComponentTag,
         _rawAttrs: rawAttrs,
         _rawAttrsKeepingChildren:
           keptChildrenStart === -1
@@ -996,7 +964,7 @@ function __parseHtmlTag(
           source,
           pos,
           i + 2,
-          isComponentTag ? attrs : null,
+          isComponent ? attrs : null,
           dangerSpans,
           readSpans
         )
@@ -1007,8 +975,9 @@ function __parseHtmlTag(
       return {
         _browserReadDiffers: readSpans !== null,
         _hasSpaceBeforeSlash: hasSpaceBeforeSlash,
-        _isComponentTag: isComponentTag,
         _isClosing: isClosing,
+        _isComponent: isComponent,
+        _isComponentTag: isComponentTag,
         _rawAttrs: rawAttrs,
         _rawAttrsKeepingChildren:
           keptChildrenStart === -1
@@ -1172,25 +1141,17 @@ function __parseHtmlTag(
       attrEnd = attrNameEnd
     }
 
-    if (isDangerousAttr(attrName, attrValue, tagKind, quiet)) {
+    if (isDangerousAttr(attrName, attrValue, isComponent, quiet)) {
       if (dangerSpans === null) {
         dangerSpans = []
       }
       dangerSpans.push(attrStart, attrEnd)
-      // Out of raw source, but still a prop: a `createElement` or `renderRule` can
-      // make the tag a component, and a JSX renderer writes no block statement.
-      // An override claims a lowercase tag too, and a child string is safe in any
+      // Out of raw source, but still a prop on a tag an override matches, a
+      // lowercase one too: a child string is safe in any
       if (
-        tagKind === TAG_KIND.component &&
-        attrValue.charCodeAt(0) === $.CHAR_BRACE_OPEN &&
-        isHandlerName(attrName)
-      ) {
-        attrs[attrName] = attrValue
-      } else if (
         attrName.toLowerCase() === 'children' &&
         !BRACE_OBJECT_VALUE_R.test(attrValue) &&
-        (tagKind === TAG_KIND.registeredComponent ||
-          (tagKind === TAG_KIND.html && hasOverride(tag)))
+        hasOverride(tag)
       ) {
         // One key for any casing, since renderers read a registered tag's
         // content from it
@@ -1325,9 +1286,9 @@ function screenRawTags(
     if (
       tagResult?._sanitized &&
       tagResult._browserReadDiffers &&
-      tagResult._isComponentTag
+      tagResult._isComponent
     ) {
-      // What goes from a component-like tag goes whatever a browser reads, and
+      // What goes from a component goes whatever a browser reads, and
       // what a browser reads of the rest decides the rest. A children attribute
       // goes here too: the rest is read again without it
       piece =
@@ -1368,7 +1329,7 @@ function screenRawTags(
       var tagEnd = browserTagEnd(
         html,
         tagResult?._isClosing ? lt + 1 : lt,
-        tagResult?._isComponentTag ? tagResult.attrs : null
+        tagResult?._isComponent ? tagResult.attrs : null
       )
       if (_browserTagUnsafe) {
         piece =
@@ -2372,7 +2333,7 @@ function scanFenced(
     var match: RegExpExecArray | null
     while ((match = FENCE_ATTR_R.exec(attrsStr)) != null) {
       var fenceAttrValue = match[2] === undefined ? match[3] : match[2]
-      if (isDangerousAttr(match[1], fenceAttrValue, TAG_KIND.html)) {
+      if (isDangerousAttr(match[1], fenceAttrValue, false)) {
         continue
       }
       if (!attrs) {
@@ -3621,13 +3582,23 @@ const BLOCK_TAGS = new Set([
   'ul',
 ])
 
-/** Process raw attributes object - convert names, parse styles, sanitize URLs */
+/**
+ * Process raw attributes object - convert names, parse styles, sanitize URLs.
+ * Only a capitalized tag `overrides` matches reads `{…}` values as JSX props
+ * (and evaluates them under `evalUnserializableExpressions`); every other tag,
+ * a lowercase one with an override included, keeps each value as written.
+ */
 function processHtmlAttributes(
   rawAttrs: Record<string, string>,
   tagName: string,
   opts: ParseOptions
 ): Record<string, any> {
   const attrs: Record<string, any> = {}
+  var first = tagName.charCodeAt(0)
+  var readsJsxProps =
+    first >= $.CHAR_A &&
+    first <= $.CHAR_Z &&
+    Boolean(util.get(opts.overrides, tagName, undefined))
 
   for (const [name, value] of Object.entries(rawAttrs)) {
     const nameLower = name.toLowerCase()
@@ -3696,6 +3667,7 @@ function processHtmlAttributes(
     } else {
       // Handle JSX interpolation: {expression} -> expression
       if (
+        readsJsxProps &&
         value.length >= 2 &&
         value.charCodeAt(0) === $.CHAR_BRACE_OPEN &&
         value.charCodeAt(value.length - 1) === $.CHAR_BRACE_CLOSE

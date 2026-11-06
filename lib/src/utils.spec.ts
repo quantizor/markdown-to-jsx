@@ -1012,6 +1012,67 @@ describe('get', () => {
     expect(u.get({ p: 'ok' }, 'DIV.props', {})).toEqual({})
     expect(u.get(undefined, 'input', 'fallback')).toBe('fallback')
   })
+
+  it.each([
+    ['CARD', { Card: 'found' }],
+    ['CaRd', { Card: 'found' }],
+    ['Card', { CARD: 'found' }],
+    ['CaRd', { CARD: 'found' }],
+    ['CARD', { cArD: 'found' }],
+    // The Kelvin sign lowercases to `k`
+    ['KEY', { '\u{212A}ey': 'found' }],
+  ])('matches %j to a key in any casing when the tag starts with an uppercase letter', (tag, source) => {
+    expect(u.get(source, tag, 'fallback')).toBe('found')
+    expect(
+      u.get(
+        { [Object.keys(source)[0]]: { props: { a: 1 } } },
+        `${tag}.props`,
+        {}
+      )
+    ).toEqual({ a: 1 })
+  })
+
+  it.each([
+    ['card', { Card: 'found' }],
+    ['cARD', { Card: 'found' }],
+    ['dIV', { Div: 'found' }],
+  ])('matches %j only to its own or its lowercase key when the tag starts with a lowercase letter', (tag, source) => {
+    expect(u.get(source, tag, 'fallback')).toBe('fallback')
+  })
+
+  it('matches a key ignoring case by the rule an exact key follows', () => {
+    expect(
+      u.get(Object.create({ CARD: 'inherited' }), 'Card', 'fallback')
+    ).toBe('inherited')
+
+    const proto = Object.prototype as Record<string, unknown>
+    proto.CARD = 'polluted'
+    try {
+      expect(u.get({}, 'Card', 'fallback')).toBe('fallback')
+      expect(u.get({}, 'Card.props', 'fallback')).toBe('fallback')
+    } finally {
+      delete proto.CARD
+    }
+  })
+
+  it('prefers the exact key, then the lowercase key, then the first key in order', () => {
+    expect(
+      u.get({ CARD: 'other', Card: 'exact', card: 'lower' }, 'Card', 'fallback')
+    ).toBe('exact')
+    expect(u.get({ CARD: 'other', card: 'lower' }, 'CaRd', 'fallback')).toBe(
+      'lower'
+    )
+    expect(u.get({ CARD: 'first', cARD: 'second' }, 'CaRd', 'fallback')).toBe(
+      'first'
+    )
+  })
+
+  it('sees a key added to the overrides object after an earlier lookup', () => {
+    const source: Record<string, string> = { Other: 'x' }
+    expect(u.get(source, 'CARD', 'fallback')).toBe('fallback')
+    source.Card = 'added'
+    expect(u.get(source, 'CARD', 'fallback')).toBe('added')
+  })
 })
 
 describe('text processing', () => {

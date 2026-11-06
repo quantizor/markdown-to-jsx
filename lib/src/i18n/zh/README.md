@@ -603,11 +603,14 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
 
 **重要说明：**
 
-- **JSX 属性会被智能解析** (v9.1+)：
+- **标签匹配哪个键：** 以大写字母开头的标签是组件，匹配其键时忽略大小写，因此 `<Card>`、`<CARD>` 和 `<CaRd>` 都能找到 `Card`、`card` 或 `CARD` 键。以小写字母开头的标签是 HTML，因此 `<card>` 永远找不到 `Card` 键。
+- **小写标签的覆盖接收的属性是原样书写的文本**，包括 `{…}`：使用 `{ a: MyLink }` 时，`<a data={{"a":1}}>` 会给 MyLink 传入 `data="{{"a":1}}"`，由它自行解析。该标签上的事件处理器会保留在已解析的节点上，供 [renderRule](#optionsrenderrule) 和 `parser()` 使用，但永远不会到达 MyLink 或页面。
+- **JSX 属性会被智能解析** (v9.1+)，前提是大写标签匹配 `overrides` 中的某个键：
   - 数组和对象：`data={[1, 2, 3]}` → 解析为 `[1, 2, 3]`
   - 布尔值：`enabled={true}` → 解析为 `true`
   - 函数：`onClick={() => ...}` → 出于安全考虑保持为字符串 (使用 [renderRule](#optionsrenderrule) 进行逐例处理，或参阅 [evalUnserializableExpressions](#optionsevalunserializableexpressions))
   - 复杂表达式：`value={someVar}` → 保持为字符串
+- **没有匹配键的标签就是 HTML**，无论大小写如何：每个属性值都保持原样书写，包括 `{…}`，并且事件处理器会被移除。没有 `Table` 键时，`<Table data={[1, 2, 3]} />` 得到 `data="{[1, 2, 3]}"`。若要接收已解析的属性，无论是在组件中还是在 [renderRule](#optionsrenderrule) 中，都请将该标签列入 `overrides`。
 - 某些属性会被保留：`a` (`href`, `title`)，`img` (`src`, `alt`, `title`)，`input[type="checkbox"]` (`checked`, `readonly`)，`ol` (`start`)，`td`/`th` (`style`)。
 - 元素映射：内联文本使用 `span`，内联代码使用 `code`，代码块使用 `pre > code`。
 
@@ -615,18 +618,22 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
 
 **⚠️ 安全警告：强烈建议不要用于用户输入的内容**
 
-启用后，尝试计算 JSX 属性中无法序列化为 JSON 的表达式 (函数、变量、复杂表达式)。这使用 `eval()`，可能会执行任意代码。
+启用后，尝试计算 JSX 属性中无法序列化为 JSON 的表达式 (函数、变量、复杂表达式)，前提是大写标签匹配 `overrides` 中的某个键。这使用 `eval()`，可能会执行任意代码。任何其他标签都是 HTML，永远不会被计算。
 
 **默认情况下 (推荐)**，为了安全起见，不可序列化的表达式保持为字符串：
 
 ```tsx
 import { parser } from 'markdown-to-jsx'
 
-const ast = parser('<Button onClick={() => alert("hi")} />')
+const ast = parser('<Button onClick={() => alert("hi")} />', {
+  overrides: { Button: 'button' },
+})
 // ast[0].attrs.onClick === "() => alert(\"hi\")" (字符串，安全)
 
 // 数组和对象会被自动解析 (无需 eval)：
-const ast2 = parser('<Table data={[1, 2, 3]} />')
+const ast2 = parser('<Table data={[1, 2, 3]} />', {
+  overrides: { Table: 'table' },
+})
 // ast2[0].attrs.data === [1, 2, 3] (通过 JSON.parse 解析)
 ```
 
@@ -643,22 +650,27 @@ const ast2 = parser('<Table data={[1, 2, 3]} />')
 const userMarkdown = '<Component onClick={() => fetch("/admin/delete-all")} />'
 
 // ❌ 危险 - 函数将可执行
-parser(userMarkdown, { evalUnserializableExpressions: true })
+parser(userMarkdown, {
+  evalUnserializableExpressions: true,
+  overrides: { Component },
+})
 
 // ✅ 安全 - 函数保持为字符串
-parser(userMarkdown) // 默认行为
+parser(userMarkdown, { overrides: { Component } }) // 默认行为
 ```
 
 **安全替代方案：使用 renderRule 进行逐例处理：**
 
 ```tsx
-// 与其 eval 任意表达式，不如在 renderRule 中选择性地处理它们：
+// 与其 eval 任意表达式，不如在 renderRule 中选择性地处理它们。
+// 该标签需要在 `overrides` 中有一个键：没有键的标签就是 HTML，会失去它的处理器。
 const handlers = {
   handleClick: () => console.log('clicked'),
   handleSubmit: () => console.log('submitted'),
 }
 
 compiler(markdown, {
+  overrides: { TrustedComponent },
   renderRule(next, node) {
     if (
       node.type === RuleType.htmlBlock &&
@@ -1098,7 +1110,7 @@ AST 由以下节点类型组成 (使用 `RuleType` 检查节点类型)：
 
 **JSX 属性解析 (v9.1+)：**
 
-解析器会智能解析 JSX 属性值：
+解析器会智能解析 JSX 属性值，前提是大写标签匹配 `overrides` 中的某个键；其他所有标签都保持每个值的原样书写：
 
 - 数组/对象通过 `JSON.parse()` 解析：`rows={[["a", "b"]]}` → `attrs.rows = [["a", "b"]]`
 - 出于安全考虑，函数保持为字符串：`onClick={() => ...}` → `attrs.onClick = "() => ..."`
@@ -1184,7 +1196,7 @@ if (node.type === RuleType.heading) {
 
 ### 注意事项 (Gotchas)
 
-**JSX 属性解析 (v9.1+)**：JSX 属性中的数组和对象会被自动解析：
+**JSX 属性解析 (v9.1+)**：JSX 属性中的数组和对象，在列入 `overrides` 的大写标签上 (此处为 `{ Table }`)，会被自动解析：
 
 <!-- biome-ignore format: keep example fences intact -->
 ```tsx
@@ -1212,7 +1224,7 @@ const Table = ({ columns, data, ...props }) => {
 }
 ```
 
-**函数属性保持为字符串**以确保安全。使用 [renderRule](#optionsrenderrule) 进行逐例处理，或参阅 [evalUnserializableExpressions](#optionsevalunserializableexpressions) 了解如何选择性启用 eval。
+**函数属性保持为字符串**以确保安全，前提是列入 `overrides` 的大写标签；任何其他标签都是 HTML，会失去其事件处理器。使用 [renderRule](#optionsrenderrule) 进行逐例处理，或参阅 [evalUnserializableExpressions](#optionsevalunserializableexpressions) 了解如何选择性启用 eval。
 
 **HTML 缩进**：HTML 块中的前导空格会根据第一行的缩进自动修剪，以避免 Markdown 语法冲突。
 

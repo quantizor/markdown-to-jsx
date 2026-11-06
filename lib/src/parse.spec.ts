@@ -2554,23 +2554,30 @@ describe('multi-line HTML attributes', () => {
 
   it('should parse JSX components with multi-line attributes', () => {
     expect(
-      p.parser(`<MyComponent
+      p.parser(
+        `<MyComponent
   className="wrapper"
   onClick={handleClick}
 >
   inner content
-</MyComponent>`)
+</MyComponent>`,
+        { overrides: { MyComponent: { props: {} } } }
+      )
     ).toMatchInlineSnapshot(`
       [
         {
           "_isClosingTag": false,
           "_rawAttrs": 
       "
-        className="wrapper""
+        className="wrapper"
+        onClick={handleClick}
+      "
       ,
           "_rawOuter": 
       "<MyComponent
-        className="wrapper">
+        className="wrapper"
+        onClick={handleClick}
+      >
         inner content
       </MyComponent>"
       ,
@@ -3315,13 +3322,16 @@ describe('multi-line HTML attributes', () => {
 
     it('should handle JSX curly brace attributes on separate lines', () => {
       expect(
-        p.parser(`<DataTable
+        p.parser(
+          `<DataTable
   data={myData}
   columns={columns}
   onRowClick={handleClick}
 >
   Loading...
-</DataTable>`)
+</DataTable>`,
+          { overrides: { DataTable: { props: {} } } }
+        )
       ).toMatchInlineSnapshot(`
         [
           {
@@ -3329,12 +3339,16 @@ describe('multi-line HTML attributes', () => {
             "_rawAttrs": 
         "
           data={myData}
-          columns={columns}"
+          columns={columns}
+          onRowClick={handleClick}
+        "
         ,
             "_rawOuter": 
         "<DataTable
           data={myData}
-          columns={columns}>
+          columns={columns}
+          onRowClick={handleClick}
+        >
           Loading...
         </DataTable>"
         ,
@@ -3365,14 +3379,17 @@ describe('multi-line HTML attributes', () => {
 
     it('should handle mixed HTML and JSX attributes on separate lines', () => {
       expect(
-        p.parser(`<Widget
+        p.parser(
+          `<Widget
   className="container"
   data-id="123"
   onClick={handleClick}
   disabled
 >
   content
-</Widget>`)
+</Widget>`,
+          { overrides: { Widget: { props: {} } } }
+        )
       ).toMatchInlineSnapshot(`
         [
           {
@@ -3380,12 +3397,18 @@ describe('multi-line HTML attributes', () => {
             "_rawAttrs": 
         "
           className="container"
-          data-id="123" disabled"
+          data-id="123"
+          onClick={handleClick}
+          disabled
+        "
         ,
             "_rawOuter": 
         "<Widget
           className="container"
-          data-id="123" disabled>
+          data-id="123"
+          onClick={handleClick}
+          disabled
+        >
           content
         </Widget>"
         ,
@@ -3553,12 +3576,15 @@ describe('multi-line HTML attributes', () => {
 
     it('should handle self-closing JSX with multi-line attributes', () => {
       expect(
-        p.parser(`<Icon
+        p.parser(
+          `<Icon
   name="star"
   size={24}
   color="gold"
   filled
-/>`)
+/>`,
+          { overrides: { Icon: { props: {} } } }
+        )
       ).toMatchInlineSnapshot(`
         [
           {
@@ -4575,16 +4601,20 @@ Final paragraph.`
 })
 
 describe('raw HTML on* attribute stripping', () => {
-  it('keeps a bare boolean on* on a component-like tag (a prop, not a handler)', () => {
+  const myComponent = { overrides: { MyComponent: { props: {} } } }
+
+  it('keeps a bare boolean on* on a component (a prop, not a handler)', () => {
     const result = p.parser(
-      '<MyComponent onClick />'
+      '<MyComponent onClick />',
+      myComponent
     ) as (MarkdownToJSX.HTMLSelfClosingNode & { endPos: number })[]
     expect(result[0].attrs?.onClick).toBe(true)
   })
 
-  it('strips a string-valued on* even on a component-like tag', () => {
+  it('strips a string-valued on* even on a component', () => {
     const result = p.parser(
-      '<MyComponent onclick="alert(1)" />'
+      '<MyComponent onclick="alert(1)" />',
+      myComponent
     ) as (MarkdownToJSX.HTMLSelfClosingNode & { endPos: number })[]
     expect(result[0].attrs?.onclick).toBeUndefined()
   })
@@ -4598,11 +4628,20 @@ describe('raw HTML on* attribute stripping', () => {
 })
 
 describe('Unserializable expression evaluation', () => {
+  const components = {
+    overrides: {
+      Button: { props: {} },
+      Component: { props: {} },
+      Input: { props: {} },
+    },
+  }
+
   describe('with evalUnserializableExpressions: false (default)', () => {
     it('should keep function expressions as strings', () => {
       const markdown = '<Button onClick={() => alert("test")} />'
       const result = p.parser(
-        markdown
+        markdown,
+        components
       ) as (MarkdownToJSX.HTMLSelfClosingNode & {
         endPos: number
       })[]
@@ -4614,7 +4653,8 @@ describe('Unserializable expression evaluation', () => {
     it('should keep arrow functions as strings', () => {
       const markdown = '<Input onChange={(e) => setValue(e.target.value)} />'
       const result = p.parser(
-        markdown
+        markdown,
+        components
       ) as (MarkdownToJSX.HTMLSelfClosingNode & {
         endPos: number
       })[]
@@ -4626,7 +4666,8 @@ describe('Unserializable expression evaluation', () => {
     it('should keep function declarations as strings', () => {
       const markdown = '<Component handler={function handleClick() { }} />'
       const result = p.parser(
-        markdown
+        markdown,
+        components
       ) as (MarkdownToJSX.HTMLSelfClosingNode & {
         endPos: number
       })[]
@@ -4637,7 +4678,8 @@ describe('Unserializable expression evaluation', () => {
     it('should keep complex expressions as strings', () => {
       const markdown = '<Component value={someVar + 10} />'
       const result = p.parser(
-        markdown
+        markdown,
+        components
       ) as (MarkdownToJSX.HTMLSelfClosingNode & {
         endPos: number
       })[]
@@ -4648,7 +4690,7 @@ describe('Unserializable expression evaluation', () => {
   })
 
   describe('with evalUnserializableExpressions: true', () => {
-    const options = { evalUnserializableExpressions: true }
+    const options = { ...components, evalUnserializableExpressions: true }
 
     it('should evaluate arrow functions', () => {
       const markdown = '<Button onClick={() => 42} />'
@@ -4726,7 +4768,8 @@ describe('Unserializable expression evaluation', () => {
       const maliciousMarkdown =
         '<Component onClick={() => fetch("/admin/delete")} />'
       const safeResult = p.parser(
-        maliciousMarkdown
+        maliciousMarkdown,
+        components
       ) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof safeResult[0].attrs?.onClick).toBe('string')
     })
@@ -4734,6 +4777,7 @@ describe('Unserializable expression evaluation', () => {
     it('should eval expressions when evalUnserializableExpressions is true', () => {
       const markdown = '<Component onClick={() => 42} />'
       const result = p.parser(markdown, {
+        ...components,
         evalUnserializableExpressions: true,
       }) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.onClick).toBe('function')
@@ -4742,7 +4786,10 @@ describe('Unserializable expression evaluation', () => {
     it('should keep functions as strings by default to prevent code execution', () => {
       const markdown =
         '<Button onClick={() => window.location.href = "https://evil.com"} />'
-      const result = p.parser(markdown) as MarkdownToJSX.HTMLSelfClosingNode[]
+      const result = p.parser(
+        markdown,
+        components
+      ) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.onClick).toBe('string')
       expect(() => {
         ;(result[0].attrs?.onClick as Function)()
@@ -4781,13 +4828,13 @@ describe('Unserializable expression evaluation', () => {
       expect(safe[0].attrs).toEqual({ alt: 'a', src: '/s?a=1&#38;b=2' })
     })
 
-    it('keeps brace-expression props on component-like tags but strips dangerous brace handlers on standard HTML elements', () => {
-      // A capitalized tag takes brace expressions as renderer-resolved props,
-      // so they are kept. A hyphenated tag keeps them too, except a handler,
-      // which a string output would write as a live attribute unless overrides
-      // registers the tag.
+    it('keeps brace-expression props on components but strips dangerous brace handlers on HTML tags', () => {
+      // A capitalized tag an override matches takes brace expressions as
+      // renderer-resolved props, so they are kept. A hyphenated tag an override
+      // lists keeps a brace handler too, as written; without one it is HTML.
       const jsx = p.parser(
-        '<MyComponent onClick={handler} onChange={fn} href={url} data={[1,2,3]} />'
+        '<MyComponent onClick={handler} onChange={fn} href={url} data={[1,2,3]} />',
+        { overrides: { MyComponent: { props: {} } } }
       ) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(jsx[0].attrs).toEqual({
         data: [1, 2, 3],
@@ -4798,19 +4845,19 @@ describe('Unserializable expression evaluation', () => {
       const custom = p.parser(
         '<my-el onClick={handleClick} items={x}>x</my-el>'
       ) as MarkdownToJSX.HTMLNode[]
-      expect(custom[0].attrs).toEqual({ items: 'x' })
+      expect(custom[0].attrs).toEqual({ items: '{x}' })
       const registered = p.parser('<my-el onClick={handleClick}>x</my-el>', {
         overrides: { 'my-el': { props: {} } },
       }) as MarkdownToJSX.HTMLNode[]
-      expect(registered[0].attrs).toEqual({ onClick: 'handleClick' })
+      expect(registered[0].attrs).toEqual({ onClick: '{handleClick}' })
       // A standard HTML element is not a component, so a brace-valued event
       // handler would still emit an executable handler in string output and is
-      // stripped; a non-dangerous brace attribute is kept.
+      // stripped; a non-dangerous brace attribute is kept as written.
       const div = p.parser(
         '<div onClick={alert(1)} title={t}>x</div>'
       ) as MarkdownToJSX.HTMLNode[]
       expect(div[0].attrs?.onClick).toBeUndefined()
-      expect(div[0].attrs?.title).toBe('t')
+      expect(div[0].attrs?.title).toBe('{t}')
     })
   })
 
@@ -4821,6 +4868,7 @@ describe('Unserializable expression evaluation', () => {
   return x + 1;
 }} />`
       const result = p.parser(markdown, {
+        ...components,
         evalUnserializableExpressions: true,
       }) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.handler).toBe('function')
@@ -4830,6 +4878,7 @@ describe('Unserializable expression evaluation', () => {
     it('should evaluate nested braces in functions', () => {
       const markdown = '<Component fn={() => { return { nested: true } }} />'
       const result = p.parser(markdown, {
+        ...components,
         evalUnserializableExpressions: true,
       }) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.fn).toBe('function')
@@ -4839,6 +4888,7 @@ describe('Unserializable expression evaluation', () => {
     it('should evaluate empty functions', () => {
       const markdown = '<Component noop={() => {}} />'
       const result = p.parser(markdown, {
+        ...components,
         evalUnserializableExpressions: true,
       }) as MarkdownToJSX.HTMLSelfClosingNode[]
       expect(typeof result[0].attrs?.noop).toBe('function')
@@ -8030,9 +8080,10 @@ describe('markup a browser reads differently from the parser', () => {
   }
 
   it.each([
-    ['<my-el onClick={go} items={x}>y</my-el>', undefined, { items: 'x' }],
-    ['<my-el onClick={go}>y</my-el>', registeredTags, { onClick: 'go' }],
-    ['<My-el onClick={go}>y</My-el>', undefined, { onClick: 'go' }],
+    ['<my-el onClick={go} items={x}>y</my-el>', undefined, { items: '{x}' }],
+    ['<my-el onClick={go}>y</my-el>', registeredTags, { onClick: '{go}' }],
+    ['<My-el onClick={go}>y</My-el>', undefined, {}],
+    ['<My-el onClick={go}>y</My-el>', registeredTags, { onClick: 'go' }],
     ['<Foo children="x">y</Foo>', registeredTags, { children: 'x' }],
     ['<Foo children={x}>y</Foo>', registeredTags, { children: 'x' }],
     ['<my-el children="x">y</my-el>', registeredTags, { children: 'x' }],
@@ -8059,5 +8110,124 @@ describe('markup a browser reads differently from the parser', () => {
     ['<?"><b onclick=alert(1)>b</b>', '<?"><b >b</b>'],
   ])('screens the raw string %j to %j', (input, expected) => {
     expect(p.stripDangerousHtml(input, true)).toBe(expected)
+  })
+})
+
+describe('a tag that matches an override is a component, and every other tag is HTML', () => {
+  /** The attributes of the first node with the tag, at any depth */
+  const attrsOfTag = (
+    source: string,
+    tag: string,
+    options?: Parameters<typeof p.parser>[1]
+  ) => {
+    const find = (nodes: unknown): unknown => {
+      if (!Array.isArray(nodes)) {
+        return
+      }
+      for (const node of nodes) {
+        if (node.tag === tag) {
+          return node.attrs
+        }
+        const inner = find(node.children)
+        if (inner !== undefined) {
+          return inner
+        }
+      }
+    }
+    return find(p.parser(source, options))
+  }
+
+  const keys = ['Card', 'card', 'CARD']
+
+  it.each(
+    ['Card', 'CARD', 'CaRd'].flatMap(tag => keys.map(key => [tag, key]))
+  )('reads <%s> as the component a %j key names', (tag, key) => {
+    const overrides = { [key]: { component: 'aside' } }
+    expect(
+      attrsOfTag(`a <${tag} data={[1]} children="z" />`, tag, { overrides })
+    ).toEqual({
+      children: 'z',
+      data: [1],
+    })
+  })
+
+  it('reads <card> as HTML against a `Card` key', () => {
+    const overrides = { Card: { component: 'aside' } }
+    expect(
+      attrsOfTag('a <card data={[1]} children="z" />', 'card', { overrides })
+    ).toEqual({ data: '{[1]}' })
+  })
+
+  it.each([
+    '<Card data={[1]} title="t" onClick={go} on={true}>x</Card>',
+    '<div>\n<Card data={[1]} title="t" onClick={go} on={true}>x</Card>\n</div>',
+    'a <Card data={[1]} title="t" onClick={go} on={true}>x</Card> b',
+  ])('keeps the attributes of an unmatched capitalized tag in %j as written, without its handlers', input => {
+    expect(attrsOfTag(input, 'Card')).toEqual({ data: '{[1]}', title: 't' })
+    expect(attrsOfTag(input, 'Card', { overrides: { Other: 'b' } })).toEqual({
+      data: '{[1]}',
+      title: 't',
+    })
+  })
+
+  it.each([
+    [
+      '<div data={[1]} hidden={true}>x</div>',
+      undefined,
+      { data: '{[1]}', hidden: '{true}' },
+    ],
+    [
+      '<div data={[1]} hidden={true}>x</div>',
+      { overrides: { div: { props: {} } } },
+      { data: '{[1]}', hidden: '{true}' },
+    ],
+    ['<my-el data={[1]} onclick={go}>x</my-el>', undefined, { data: '{[1]}' }],
+    // The screen keeps a registered hyphenated tag's handler, as written
+    [
+      '<my-el data={[1]} onclick={go}>x</my-el>',
+      { overrides: { 'my-el': { props: {} } } },
+      { data: '{[1]}', onclick: '{go}' },
+    ],
+    [
+      '<a data={{"a":1}}>x</a>',
+      { overrides: { a: { props: {} } } },
+      { data: '{{"a":1}}' },
+    ],
+    [
+      '<card children="z" />',
+      { overrides: { card: { props: {} } } },
+      { children: 'z' },
+    ],
+  ])('reads the lowercase tag %j with %j as HTML: %j', (input, options, attrs) => {
+    expect(
+      attrsOfTag(input, input.slice(1, input.indexOf(' ')), options)
+    ).toEqual(attrs)
+  })
+
+  it.each([
+    ['<Card onClick={() => 1} data={foo} />', { data: '{foo}' }],
+    ['<div data={foo}>x</div>', { data: '{foo}' }],
+  ])('evaluates no expression in %j when no override matches the tag', (input, attrs) => {
+    const withEval = { evalUnserializableExpressions: true }
+    expect(
+      attrsOfTag(input, input.slice(1, input.indexOf(' ')), withEval)
+    ).toEqual(attrs)
+  })
+
+  it('evaluates the expressions of a tag an override matches when the option is on', () => {
+    const attrs = attrsOfTag('<CARD onClick={() => 1} />', 'CARD', {
+      evalUnserializableExpressions: true,
+      overrides: { Card: { props: {} } },
+    }) as { onClick: () => number }
+    expect(typeof attrs.onClick).toBe('function')
+    expect(attrs.onClick()).toBe(1)
+  })
+
+  it('strips a brace handler from a lowercase tag an override restyles', () => {
+    expect(
+      attrsOfTag('x <a href="/" onclick={alert(1)}>y</a>', 'a', {
+        overrides: { a: { props: { class: 'x' } } },
+      })
+    ).toEqual({ href: '/' })
   })
 })

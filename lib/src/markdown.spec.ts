@@ -3266,27 +3266,25 @@ describe('markup a browser or downstream renderer reads differently from the par
     ['<Btn onClick={go}>x</Btn>', '<Btn >x</Btn>'],
     ['<Btn onClick={() => x > 1}>x</Btn>', '<Btn >x</Btn>'],
     ['<Img src=x onerror={steal()}>', '<Img src=x>'],
+    // An HTML tag a browser reads as holding a live handler is text in raw markup,
+    // and inline it loses each attribute a browser reads differently
     [
       '<Btn onClick={go} style={{ a: 1 }}>x</Btn>',
-      '<Btn style={{ a: 1 }}>x</Btn>',
+      '&lt;Btn onClick={go} style={{ a: 1 }}>x</Btn>',
     ],
     [
       '<div><Btn onClick={go} style={{ a: 1 }}>x</Btn></div>',
-      '<div><Btn style={{ a: 1 }}>x</Btn></div>',
+      '<div>&lt;Btn onClick={go} style={{ a: 1 }}>x</Btn></div>',
     ],
-    [
-      'a <Btn onClick={go} style={{ a: 1 }}>x</Btn>',
-      'a <Btn style={{ a: 1 }}>x</Btn>',
-    ],
-    // What is left of the opener reads as a live handler, so it is text
+    ['a <Btn onClick={go} style={{ a: 1 }}>x</Btn>', 'a <Btn>x</Btn>'],
     [
       '<Btn onclick={a} x={ onclick={b} }>y</Btn>',
-      '&lt;Btn x={ onclick={b} }>y</Btn>',
+      '&lt;Btn onclick={a} x={ onclick={b} }>y</Btn>',
     ],
-    // A bare name holds no script
-    ['<Btn onClick>x</Btn>', '<Btn onClick>x</Btn>'],
-    ['<Img onerror>', '<Img onerror>'],
-    ['<my-widget online>x</my-widget>', '<my-widget online>x</my-widget>'],
+    // A bare handler name goes from an HTML tag too
+    ['<Btn onClick>x</Btn>', '<Btn >x</Btn>'],
+    ['<Img onerror>', '<Img >'],
+    ['<my-widget online>x</my-widget>', '<my-widget >x</my-widget>'],
     ['<Btn onClick={[1]}>x</Btn>', '<Btn >x</Btn>'],
   ])('writes the brace handler in %j as %j when `overrides` does not register the tag', (input, expected) => {
     expect(compiler(input)).toBe(expected)
@@ -3297,6 +3295,52 @@ describe('markup a browser or downstream renderer reads differently from the par
     ['<Btn onClick={go} style={{ a: 1 }}>x</Btn>'],
   ])('keeps the brace handler in %j when `overrides` registers the tag', input => {
     expect(compiler(input, { overrides: { Btn: { props: {} } } })).toBe(input)
+  })
+
+  it.each(
+    ['Card', 'CARD', 'CaRd'].flatMap(tag =>
+      ['Card', 'card', 'CARD'].map(key => [tag, key])
+    )
+  )('writes <%s> as the component a %j key names', (tag, key) => {
+    expect(
+      compiler(`a <${tag} data={[1]}>x</${tag}>`, {
+        overrides: { [key]: { component: 'aside' } },
+      })
+    ).toBe('a <aside data={[1]}>x</aside>')
+  })
+
+  it('writes <card> as HTML against a `Card` key', () => {
+    expect(
+      compiler('a <card data={[1]}>x</card>', {
+        overrides: { Card: { component: 'aside' } },
+      })
+    ).toBe('a <card data={[1]}>x</card>')
+  })
+
+  it.each([
+    [
+      '<Card data={[1]} title="t" onClick={go}>x</Card>',
+      '<Card data={[1]} title="t">x</Card>',
+    ],
+    [
+      '<div><Card data={[1]} title="t" onClick={go}>x</Card></div>',
+      '<div><Card data={[1]} title="t">x</Card></div>',
+    ],
+    [
+      'a <Card data={[1]} title="t" onClick={go}>x</Card> b',
+      'a <Card data={[1]} title="t">x</Card> b',
+    ],
+  ])('writes the unmatched capitalized tag in %j as HTML: %j', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+    expect(compiler(input, { overrides: { Other: 'b' } })).toBe(expected)
+  })
+
+  it('strips a brace handler from a lowercase tag an override restyles', () => {
+    expect(
+      compiler('x <a href="/" onclick={alert(1)}>y</a>', {
+        overrides: { a: { props: { class: 'x' } } },
+      })
+    ).toBe('x <a href="/" class="x">y</a>')
   })
 
   it('neutralizes a tag hidden in a quoted value that runs past the read limit', () => {
@@ -3323,10 +3367,19 @@ describe('markup a browser or downstream renderer reads differently from the par
       { overrides: { 'my-widget': { props: {} } } },
       '<my-widget onclick={alert(1)}>x</my-widget>',
     ],
+    // A lowercase tag is HTML, which the option does not change
     [
       '<my-widget onclick={() => 1}>x</my-widget>',
       { evalUnserializableExpressions: true },
-      '<my-widget onclick={() => 1}>x</my-widget>',
+      '<my-widget >x</my-widget>',
+    ],
+    [
+      '<Img onclick={() => 1} />',
+      {
+        evalUnserializableExpressions: true,
+        overrides: { IMG: { props: {} } },
+      },
+      '<Img onclick={() => 1} >',
     ],
   ])('with its options keeps %j and %j as %j', (input, options, expected) => {
     expect(compiler(input, options)).toBe(expected)

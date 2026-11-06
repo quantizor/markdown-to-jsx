@@ -3315,19 +3315,16 @@ describe('markup a browser reads differently from the parser', () => {
   })
 
   it.each([
-    [
-      '<Img onclick={alert(1)} />',
-      undefined,
-      '<Image></Image>',
-      ['onclick=string'],
-    ],
+    // A tag no override matches is HTML, whose handlers go
+    ['<Img onclick={alert(1)} />', undefined, '<Image></Image>', []],
+    ['<Img onerror />', undefined, '<Image></Image>', []],
+    ['<my-widget online>x</my-widget>', undefined, '<Text>x</Text>', []],
     // React Native writes no attributes; what a component receives stays
-    ['<Img onerror />', undefined, '<Image></Image>', ['onerror=boolean']],
     [
-      '<my-widget online>x</my-widget>',
-      undefined,
-      '<Text>x</Text>',
-      ['online=boolean'],
+      '<Img onerror />',
+      { overrides: { Img: { props: {} } } },
+      '<Image></Image>',
+      ['onerror=boolean'],
     ],
     ['<constructor>hi</constructor>', { overrides: {} }, '<Text>hi</Text>', []],
     ['<Constructor>hi</Constructor>', { overrides: {} }, '<Text>hi</Text>', []],
@@ -3337,15 +3334,86 @@ describe('markup a browser reads differently from the parser', () => {
       '<Text>x</Text>',
       ['onclick=string'],
     ],
+    // A lowercase tag is HTML, so its value is never evaluated
     [
       '<my-widget onclick={() => 1}>x</my-widget>',
       { evalUnserializableExpressions: true },
       '<Text>x</Text>',
+      [],
+    ],
+    [
+      '<Img onclick={() => 1} />',
+      {
+        evalUnserializableExpressions: true,
+        overrides: { IMG: { props: {} } },
+      },
+      '<Image></Image>',
       ['onclick=function'],
     ],
   ])('with its options keeps %j and %j as %j with props %j', (input, options, expected, handlers) => {
     const result = compiler(input, options)
     expect(serialize(result)).toBe(expected)
     expect(handlerProps(result)).toEqual(handlers)
+  })
+})
+
+describe('a capitalized tag an override matches is a component, and every other tag is HTML', () => {
+  const ATTR_NAMES = ['class', 'data', 'href', 'onClick', 'onclick', 'title']
+  /** The written attribute props of every element, without what the renderer adds */
+  const attrProps = (el: React.ReactNode) =>
+    treeProps(el).filter(([name]) => ATTR_NAMES.includes(name))
+
+  const Aside = ({ children }: { children?: React.ReactNode }) => (
+    <View>{children}</View>
+  )
+
+  it.each(
+    ['Card', 'CARD', 'CaRd'].flatMap(tag =>
+      ['Card', 'card', 'CARD'].map(key => [tag, key])
+    )
+  )('renders <%s> with the component a %j key names', (tag, key) => {
+    const result = compiler(`a <${tag} data={[1]}>x</${tag}>`, {
+      overrides: { [key]: Aside },
+    })
+    expect(serialize(result)).toBe('<Text>a <Aside>x</Aside></Text>')
+    expect(attrProps(result)).toEqual([['data', [1]]])
+  })
+
+  it('renders <card> as HTML against a `Card` key', () => {
+    const result = compiler('a <card data={[1]}>x</card>', {
+      overrides: { Card: Aside },
+    })
+    expect(serialize(result)).toBe('<Text>a <Text>x</Text></Text>')
+    expect(attrProps(result)).toEqual([['data', '{[1]}']])
+  })
+
+  it.each([
+    ['<Card data={[1]} title="t" onClick={go}>x</Card>', '<Text>x</Text>'],
+    [
+      '<div>\n<Card data={[1]} title="t" onClick={go}>x</Card>\n</div>',
+      '<View><Text><Text>x</Text></Text></View>',
+    ],
+    [
+      'a <Card data={[1]} title="t" onClick={go}>x</Card> b',
+      '<Text>a <Text>x</Text> b</Text>',
+    ],
+  ])('renders the unmatched capitalized tag in %j as HTML: %j', (input, expected) => {
+    const result = compiler(input)
+    expect(serialize(result)).toBe(expected)
+    expect(attrProps(result)).toEqual([
+      ['data', '{[1]}'],
+      ['title', 't'],
+    ])
+  })
+
+  it('strips a brace handler from a lowercase tag an override restyles', () => {
+    const result = compiler('x <a href="/" onclick={alert(1)}>y</a>', {
+      overrides: { a: { props: { class: 'x' } } },
+    })
+    expect(handlerProps(result)).toEqual([])
+    expect(attrProps(result)).toEqual([
+      ['href', '/'],
+      ['class', 'x'],
+    ])
   })
 })

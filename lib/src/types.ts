@@ -554,6 +554,10 @@ declare namespace MarkdownToJSX {
      *
      * Example unsafe input: `<Component onClick={() => fetch('/admin/delete-all')} />`
      *
+     * Only a tag that starts with an uppercase letter and that `overrides` matches
+     * (ignoring case) has its props parsed or evaluated; every other tag keeps each
+     * attribute value as written.
+     *
      * When disabled (default), unserializable expressions remain as strings that can be
      * safely inspected or handled on a case-by-case basis via custom renderRule logic.
      *
@@ -580,7 +584,10 @@ declare namespace MarkdownToJSX {
 
     /**
      * Selectively control the output of particular HTML tags as they would be
-     * emitted by the compiler.
+     * emitted by the compiler. A tag that starts with an uppercase letter matches
+     * a key ignoring case (exact key first, then the all-lowercase key, then the
+     * first key equal ignoring case); a lowercase tag matches its own key or its
+     * all-lowercase key. A capitalized tag with no match renders as an HTML tag.
      */
     overrides: Overrides
 

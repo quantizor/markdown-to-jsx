@@ -3104,15 +3104,82 @@ describe('markup a browser reads differently from the parser', () => {
       '<my-widget>x</my-widget>',
       ['onclick=string'],
     ],
+    // A lowercase tag is HTML, so its value is never evaluated
     [
       '<my-widget onclick={() => 1}>x</my-widget>',
       { evalUnserializableExpressions: true },
       '<my-widget>x</my-widget>',
+      [],
+    ],
+    [
+      '<Img onclick={() => 1} />',
+      {
+        evalUnserializableExpressions: true,
+        overrides: { IMG: { props: {} } },
+      },
+      '<Img></Img>',
       ['onclick=function'],
     ],
   ])('with its options keeps %j and %j as %j with props %j', (input, options, expected, handlers) => {
     const result = compiler(input, options)
     expect(serialize(result)).toBe(expected)
     expect(handlerProps(result)).toEqual(handlers)
+  })
+})
+
+describe('a capitalized tag an override matches is a component, and every other tag is HTML', () => {
+  const ATTR_NAMES = ['class', 'data', 'href', 'onClick', 'onclick', 'title']
+  /** The written attribute props of every element, without what the renderer adds */
+  const attrProps = (el: unknown) =>
+    treeProps(el).filter(([name]) => ATTR_NAMES.includes(name))
+
+  it.each(
+    ['Card', 'CARD', 'CaRd'].flatMap(tag =>
+      ['Card', 'card', 'CARD'].map(key => [tag, key])
+    )
+  )('renders <%s> with the component a %j key names', (tag, key) => {
+    const result = compiler(`a <${tag} data={[1]}>x</${tag}>`, {
+      overrides: { [key]: { component: 'aside' } },
+    })
+    expect(serialize(result)).toBe('<span>a <aside>x</aside></span>')
+    expect(attrProps(result)).toEqual([['data', [1]]])
+  })
+
+  it('renders <card> as HTML against a `Card` key', () => {
+    const result = compiler('a <card data={[1]}>x</card>', {
+      overrides: { Card: { component: 'aside' } },
+    })
+    expect(serialize(result)).toBe('<span>a <card>x</card></span>')
+    expect(attrProps(result)).toEqual([['data', '{[1]}']])
+  })
+
+  it.each([
+    ['<Card data={[1]} title="t" onClick={go}>x</Card>', '<Card>x</Card>'],
+    [
+      '<div>\n<Card data={[1]} title="t" onClick={go}>x</Card>\n</div>',
+      '<div><Card>x</Card></div>',
+    ],
+    [
+      'a <Card data={[1]} title="t" onClick={go}>x</Card> b',
+      '<span>a <Card>x</Card> b</span>',
+    ],
+  ])('renders the unmatched capitalized tag in %j as HTML: %j', (input, expected) => {
+    const result = compiler(input)
+    expect(serialize(result)).toBe(expected)
+    expect(attrProps(result)).toEqual([
+      ['data', '{[1]}'],
+      ['title', 't'],
+    ])
+  })
+
+  it('strips a brace handler from a lowercase tag an override restyles', () => {
+    const result = compiler('x <a href="/" onclick={alert(1)}>y</a>', {
+      overrides: { a: { props: { class: 'x' } } },
+    })
+    expect(serialize(result)).toBe('<span>x <a>y</a></span>')
+    expect(attrProps(result)).toEqual([
+      ['href', '/'],
+      ['class', 'x'],
+    ])
   })
 })

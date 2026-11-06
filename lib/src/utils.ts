@@ -1287,51 +1287,61 @@ export function overrideValue(source: any, key: string): any {
 }
 
 /**
+ * The value for `key` once its own key misses: the all-lowercase key (HTML tags
+ * are case-insensitive, issue #248), then, for a key that starts with an
+ * uppercase letter, the first key in `for...in` order equal to it ignoring case.
+ */
+function valueIgnoringCase(source: any, key: string): any {
+  var lowered = lowerAsciiIfNeeded(key)
+  if (lowered === key) {
+    return
+  }
+  var lower = overrideValue(source, lowered)
+  var first = key.charCodeAt(0)
+  if (lower || first < $.CHAR_A || first > $.CHAR_Z) {
+    return lower
+  }
+  var firstLower = first + $.CHAR_CASE_OFFSET
+  // A scan rather than an index, so a key added to the same object later is seen
+  for (var name in source) {
+    var c = name.charCodeAt(0)
+    // A different ASCII first character settles it with no lowercased copy; any
+    // other takes the full compare (the Kelvin sign lowercases to `k`)
+    var mayMatch =
+      name.length === key.length &&
+      (c === first || c === firstLower || c >= $.CHAR_ASCII_BOUNDARY)
+    if (mayMatch && name.toLowerCase() === lowered) {
+      var found = overrideValue(source, name)
+      if (found) {
+        return found
+      }
+    }
+  }
+}
+
+/**
  * Get nested property from object using dot notation path, read through
- * overrideValue.
+ * overrideValue. A first segment that misses is matched by valueIgnoringCase.
  */
 export function get(source: any, path: string, fallback: any): any {
   // Fast path: single-segment paths (the common case for override lookups)
-  // skip the split allocation. HTML tags are case-insensitive, so a miss
-  // retries the lowercase key (issue #248).
+  // skip the split allocation
   if (path.indexOf('.') === -1) {
     var direct = overrideValue(source, path)
-    if (direct) {
-      return direct
+    if (direct || !source) {
+      return direct || fallback
     }
-    if (source) {
-      var lowered = lowerAsciiIfNeeded(path)
-      if (lowered !== path) {
-        var ci = overrideValue(source, lowered)
-        if (ci) {
-          return ci
-        }
-      }
-    }
-    return fallback
+    return valueIgnoringCase(source, path) || fallback
   }
-  var result = source
   var segments = path.split('.')
-  var i = 0
-  var firstMiss = false
-  while (i < segments.length) {
-    result = overrideValue(result, segments[i])
-    if (result === undefined) {
-      firstMiss = i === 0
-      break
-    }
-    i++
+  var result = overrideValue(source, segments[0])
+  if (result === undefined && source) {
+    result = valueIgnoringCase(source, segments[0])
   }
-  if (firstMiss && source) {
-    var firstLower = lowerAsciiIfNeeded(segments[0])
-    if (firstLower !== segments[0]) {
-      result = overrideValue(source, firstLower)
-      i = 1
-      while (result !== undefined && i < segments.length) {
-        result = overrideValue(result, segments[i])
-        i++
-      }
-    }
+  var i = 1
+  while (result !== undefined && i < segments.length) {
+    result = overrideValue(result, segments[i])
+    i++
   }
   return result || fallback
 }

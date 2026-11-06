@@ -137,7 +137,7 @@ React Native adds `styles`, `onLinkPress`, and `onLinkLongPress`.
 
 ## Overrides
 
-Keys are HTML tag names, and they fire for both parsed markdown and raw HTML. A capitalized key registers a custom component usable directly in the markdown source.
+Keys are HTML tag names, and they fire for both parsed markdown and raw HTML. A capitalized key registers a custom component usable directly in the markdown source. A tag that starts with an uppercase letter is a component and finds its key ignoring case (`<CARD>` finds `Card`); one that starts with a lowercase letter is HTML (`<card>` never finds `Card`). A capitalized tag with no key renders as a plain element with its attributes as written.
 
 ```tsx
 import DatePicker from './date-picker'
@@ -308,7 +308,7 @@ Node shapes worth knowing:
 - `gfmTask` `{ completed }`, `footnoteReference` `{ target, text }`, `frontmatter` `{ text }`
 - `breakLine`, `breakThematic`, `ref`, `footnote`
 
-JSX props on custom components are parsed for you: arrays and objects through `JSON.parse` (`data={[1, 2]}` arrives as an array), booleans as booleans, and functions or free variables kept as strings.
+JSX props on a capitalized tag listed in `overrides` are parsed for you: arrays and objects through `JSON.parse` (`data={[1, 2]}` arrives as an array), booleans as booleans, and functions or free variables kept as strings. Every other tag, an override on a lowercase tag included, gets its attributes as written text (`data={[1, 2]}` arrives as `"{[1, 2]}"`).
 
 ## Security
 

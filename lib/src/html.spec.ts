@@ -2265,31 +2265,29 @@ describe('a brace handler on a capitalized tag', () => {
     ['<Btn onClick={() => x > 1}>x</Btn>', '<Btn >x</Btn>'],
     ['<Img src=x onerror={steal()}>', '<Img src=x>'],
     ['<Btn attr:onclick={go}>x</Btn>', '<Btn >x</Btn>'],
+    // An HTML tag a browser reads as holding a live handler is text in raw markup,
+    // and inline it loses each attribute a browser reads differently
     [
       '<Btn onClick={go} style={{ a: 1 }}>x</Btn>',
-      '<Btn style={{ a: 1 }}>x</Btn>',
+      '&lt;Btn onClick={go} style={{ a: 1 }}>x</Btn>',
     ],
     [
       '<div><Btn onClick={go} style={{ a: 1 }}>x</Btn></div>',
-      '<div><Btn style={{ a: 1 }}>x</Btn></div>',
+      '<div>&lt;Btn onClick={go} style={{ a: 1 }}>x</Btn></div>',
     ],
-    [
-      'a <Btn onClick={go} style={{ a: 1 }}>x</Btn>',
-      '<p>a <Btn style={{ a: 1 }}>x</Btn></p>',
-    ],
-    // What is left of the opener reads as a live handler, so it is text
+    ['a <Btn onClick={go} style={{ a: 1 }}>x</Btn>', '<p>a <Btn>x</Btn></p>'],
     [
       '<Btn onclick={a} x={ onclick={b} }>y</Btn>',
-      '&lt;Btn x={ onclick={b} }>y</Btn>',
+      '&lt;Btn onclick={a} x={ onclick={b} }>y</Btn>',
     ],
     [
       '<div><Btn onclick={a} x={ onclick={b} }>y</Btn></div>',
-      '<div>&lt;Btn x={ onclick={b} }>y</Btn></div>',
+      '<div>&lt;Btn onclick={a} x={ onclick={b} }>y</Btn></div>',
     ],
-    // A bare name holds no script
-    ['<Btn onClick>x</Btn>', '<Btn onClick>x</Btn>'],
-    ['<Img onerror>', '<Img onerror>'],
-    ['<my-widget online>x</my-widget>', '<my-widget online>x</my-widget>'],
+    // A bare handler name goes from an HTML tag too
+    ['<Btn onClick>x</Btn>', '<Btn >x</Btn>'],
+    ['<Img onerror>', '<Img >'],
+    ['<my-widget online>x</my-widget>', '<my-widget >x</my-widget>'],
     ['<Btn onClick={[1]}>x</Btn>', '<Btn >x</Btn>'],
   ])('writes %j as %j when `overrides` does not register the tag', (input, expected) => {
     expect(compiler(input)).toBe(expected)
@@ -2300,6 +2298,54 @@ describe('a brace handler on a capitalized tag', () => {
     ['<Btn onClick={go} style={{ a: 1 }}>x</Btn>'],
   ])('keeps %j as written when `overrides` registers the tag', input => {
     expect(compiler(input, { overrides: { Btn: { props: {} } } })).toBe(input)
+  })
+})
+
+describe('a capitalized tag an override matches is a component, and every other tag is HTML', () => {
+  it.each(
+    ['Card', 'CARD', 'CaRd'].flatMap(tag =>
+      ['Card', 'card', 'CARD'].map(key => [tag, key])
+    )
+  )('renders <%s> with the component a %j key names', (tag, key) => {
+    expect(
+      compiler(`a <${tag} data={[1]}>x</${tag}>`, {
+        overrides: { [key]: { component: 'aside' } },
+      })
+    ).toBe('<p>a <aside data={[1]}>x</aside></p>')
+  })
+
+  it('renders <card> as HTML against a `Card` key', () => {
+    expect(
+      compiler('a <card data={[1]}>x</card>', {
+        overrides: { Card: { component: 'aside' } },
+      })
+    ).toBe('<p>a <card data={[1]}>x</card></p>')
+  })
+
+  it.each([
+    [
+      '<Card data={[1]} title="t" onClick={go}>x</Card>',
+      '<Card data={[1]} title="t">x</Card>',
+    ],
+    [
+      '<div><Card data={[1]} title="t" onClick={go}>x</Card></div>',
+      '<div><Card data={[1]} title="t">x</Card></div>',
+    ],
+    [
+      'a <Card data={[1]} title="t" onClick={go}>x</Card> b',
+      '<p>a <Card data={[1]} title="t">x</Card> b</p>',
+    ],
+  ])('writes the unmatched capitalized tag in %j as HTML: %j', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+    expect(compiler(input, { overrides: { Other: 'b' } })).toBe(expected)
+  })
+
+  it('strips a brace handler from a lowercase tag an override restyles', () => {
+    expect(
+      compiler('x <a href="/" onclick={alert(1)}>y</a>', {
+        overrides: { a: { props: { class: 'x' } } },
+      })
+    ).toBe('<p>x <a href="/" class="x">y</a></p>')
   })
 })
 
@@ -3373,10 +3419,19 @@ describe('markup a browser reads differently from the parser', () => {
       { overrides: { 'my-widget': { props: {} } } },
       '<my-widget onclick={alert(1)}>x</my-widget>',
     ],
+    // A lowercase tag is HTML, which the option does not change
     [
       '<my-widget onclick={() => 1}>x</my-widget>',
       { evalUnserializableExpressions: true },
-      '<my-widget onclick={() => 1}>x</my-widget>',
+      '<my-widget >x</my-widget>',
+    ],
+    [
+      '<Img onclick={() => 1} />',
+      {
+        evalUnserializableExpressions: true,
+        overrides: { IMG: { props: {} } },
+      },
+      '<Img onclick={() => 1} >',
     ],
   ])('with its options keeps %j and %j as %j', (input, options, expected) => {
     expect(compiler(input, options)).toBe(expected)

@@ -4486,7 +4486,7 @@ describe('attribute names a renderer acts on rather than writes', () => {
     // A prop value is escaped whole, so no tag starts inside it
     [
       '<div x={a><script>alert(1)</script>}>y</div>',
-      '<div x="a&gt;&lt;script&gt;alert(1)&lt;/script&gt;">y</div>',
+      '<div x="{a&gt;&lt;script&gt;alert(1)&lt;/script&gt;}">y</div>',
       ['x'],
     ],
   ])('renders %j as %j, with props %j', (input, expected, props) => {
@@ -4865,11 +4865,11 @@ describe('markup a browser reads differently from the parser', () => {
     ['<div onclick={alert(1)}<xmp>', '&lt;div onclick={alert(1)}&lt;xmp&gt;'],
     [
       '<div x={a><img src=x onerror=alert(1)>}>\nhi\n</div>',
-      '<div x="a&gt;&lt;img src=x onerror=alert(1)&gt;">hi</div>',
+      '<div x="{a&gt;&lt;img src=x onerror=alert(1)&gt;}">hi</div>',
     ],
     [
       'p <span x={a><img src=x onerror=alert(1)>}>hi</span>',
-      '<span>p <span x="a&gt;&lt;img src=x onerror=alert(1)&gt;">hi</span></span>',
+      '<span>p <span x="{a&gt;&lt;img src=x onerror=alert(1)&gt;}">hi</span></span>',
     ],
     [
       '<pre><Img onclick={alert(1)}',
@@ -5158,7 +5158,7 @@ describe('markup a browser reads differently from the parser', () => {
     ['<my-widget onclick={alert(1)}>x</my-widget>', '<my-widget>x</my-widget>'],
     [
       '<my-widget items={x}>y</my-widget>',
-      '<my-widget items="x">y</my-widget>',
+      '<my-widget items="{x}">y</my-widget>',
     ],
     [
       '<my-widget href={javascript:x}>z</my-widget>',
@@ -5334,19 +5334,21 @@ describe('markup a browser reads differently from the parser', () => {
   })
 
   it.each([
-    [
-      '<Img onclick={alert(1)} />',
-      undefined,
-      '<Img></Img>',
-      ['onclick=string'],
-    ],
-    // React writes no bare handler; what a component receives stays
-    ['<Img onerror />', undefined, '<Img></Img>', ['onerror=boolean']],
+    // A tag no override matches is HTML, whose handlers go
+    ['<Img onclick={alert(1)} />', undefined, '<Img></Img>', []],
+    ['<Img onerror />', undefined, '<Img></Img>', []],
     [
       '<my-widget online>x</my-widget>',
       undefined,
-      '<my-widget online="">x</my-widget>',
-      ['online=boolean'],
+      '<my-widget>x</my-widget>',
+      [],
+    ],
+    // React writes no bare handler; what a component receives stays
+    [
+      '<Img onerror />',
+      { overrides: { Img: { props: {} } } },
+      '<Img></Img>',
+      ['onerror=boolean'],
     ],
     [
       '<constructor>hi</constructor>',
@@ -5363,13 +5365,23 @@ describe('markup a browser reads differently from the parser', () => {
     [
       '<my-widget onclick={alert(1)}>x</my-widget>',
       { overrides: { 'my-widget': { props: {} } } },
-      '<my-widget onclick="alert(1)">x</my-widget>',
+      '<my-widget onclick="{alert(1)}">x</my-widget>',
       ['onclick=string'],
     ],
+    // A lowercase tag is HTML, so its value is never evaluated
     [
       '<my-widget onclick={() => 1}>x</my-widget>',
       { evalUnserializableExpressions: true },
       '<my-widget>x</my-widget>',
+      [],
+    ],
+    [
+      '<Img onclick={() => 1} />',
+      {
+        evalUnserializableExpressions: true,
+        overrides: { IMG: { props: {} } },
+      },
+      '<Img></Img>',
       ['onclick=function'],
     ],
   ])('with its options keeps %j and %j as %j with props %j', (input, options, expected, handlers) => {
@@ -5379,5 +5391,81 @@ describe('markup a browser reads differently from the parser', () => {
     render(result)
     expect(root.innerHTML).toBe(expected)
     expect(handlerProps(result)).toEqual(handlers)
+  })
+})
+
+describe('a capitalized tag an override matches is a component, and every other tag is HTML', () => {
+  const ATTR_NAMES = [
+    'className',
+    'data',
+    'href',
+    'onClick',
+    'onclick',
+    'title',
+  ]
+  /** The written attribute props of every element, without what the renderer adds (an override's merge sets an undefined className) */
+  const attrProps = (el: React.ReactNode) =>
+    treeProps(el).filter(
+      ([name, value]) => ATTR_NAMES.includes(name) && value !== undefined
+    )
+
+  it.each(
+    ['Card', 'CARD', 'CaRd'].flatMap(tag =>
+      ['Card', 'card', 'CARD'].map(key => [tag, key])
+    )
+  )('renders <%s> with the component a %j key names', (tag, key) => {
+    const result = compiler(`a <${tag} data={[1]}>x</${tag}>`, {
+      overrides: { [key]: { component: 'aside' } },
+    })
+    render(result)
+    expect(root.innerHTML).toBe('<span>a <aside data="1">x</aside></span>')
+    expect(attrProps(result)).toEqual([['data', [1]]])
+  })
+
+  it('renders <card> as HTML against a `Card` key', () => {
+    const result = compiler('a <card data={[1]}>x</card>', {
+      overrides: { Card: { component: 'aside' } },
+    })
+    render(result)
+    expect(root.innerHTML).toBe('<span>a <card data="{[1]}">x</card></span>')
+    expect(attrProps(result)).toEqual([['data', '{[1]}']])
+  })
+
+  it.each([
+    [
+      '<Card data={[1]} title="t" onClick={go}>x</Card>',
+      '<Card data="{[1]}" title="t">x</Card>',
+    ],
+    [
+      '<div>\n<Card data={[1]} title="t" onClick={go}>x</Card>\n</div>',
+      '<div><Card data="{[1]}" title="t">x</Card></div>',
+    ],
+    [
+      'a <Card data={[1]} title="t" onClick={go}>x</Card> b',
+      '<span>a <Card data="{[1]}" title="t">x</Card> b</span>',
+    ],
+  ])('renders the unmatched capitalized tag in %j as HTML: %j', (input, expected) => {
+    // React warns about the tag's casing, which is not the verdict here
+    spyOn(console, 'error').mockImplementation(() => {})
+    const result = compiler(input)
+    render(result)
+    expect(root.innerHTML).toBe(expected)
+    expect(attrProps(result)).toEqual([
+      ['data', '{[1]}'],
+      ['title', 't'],
+    ])
+  })
+
+  it('strips a brace handler from a lowercase tag an override restyles', () => {
+    // className rather than class, since React warns about class
+    const result = compiler('x <a href="/" onclick={alert(1)}>y</a>', {
+      overrides: { a: { props: { className: 'x' } } },
+    })
+    render(result)
+    expect(root.innerHTML).toBe('<span>x <a href="/" class="x">y</a></span>')
+    expect(attrProps(result)).toEqual([
+      ['href', '/'],
+      ['className', 'x'],
+    ])
   })
 })

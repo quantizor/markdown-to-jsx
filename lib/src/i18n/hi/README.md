@@ -603,11 +603,14 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
 
 **महत्वपूर्ण नोट्स:**
 
-- **JSX props को बुद्धिमानी से पार्स किया जाता है** (v9.1+):
+- **टैग किस key से मैच होता है:** बड़े अक्षर से शुरू होने वाला टैग कंपोनेंट होता है और अपनी key से अक्षरों का केस अनदेखा करके मैच होता है, इसलिए `<Card>`, `<CARD>` और `<CaRd>` सभी `Card`, `card` या `CARD` key ढूँढ लेते हैं। छोटे अक्षर से शुरू होने वाला टैग HTML होता है, इसलिए `<card>` को `Card` key कभी नहीं मिलती।
+- **छोटे अक्षर वाले टैग का ओवरराइड अपने एट्रिब्यूट जैसे लिखे गए हैं वैसे ही टेक्स्ट के रूप में पाता है**, `{…}` सहित: `{ a: MyLink }` के साथ `<a data={{"a":1}}>` MyLink को `data="{{"a":1}}"` देता है, जिसे वह अपनी इच्छा से पार्स कर सकता है। उस पर लगे इवेंट हैंडलर पार्स किए गए नोड पर [renderRule](#optionsrenderrule) और `parser()` के लिए रखे जाते हैं, और MyLink या पेज तक कभी नहीं पहुँचते।
+- **JSX props को बुद्धिमानी से पार्स किया जाता है** (v9.1+), उस बड़े अक्षर वाले टैग पर जो `overrides` की किसी key से मैच होता है:
   - Arrays और objects: `data={[1, 2, 3]}` → `[1, 2, 3]` के रूप में पार्स किया गया
   - Booleans: `enabled={true}` → `true` के रूप में पार्स किया गया
   - Functions: `onClick={() => ...}` → सुरक्षा के लिए स्ट्रिंग के रूप में रखा गया (केस-बाई-केस हैंडलिंग के लिए [renderRule](#optionsrenderrule) का उपयोग करें, या [evalUnserializableExpressions](#optionsevalunserializableexpressions) देखें)
   - जटिल expressions: `value={someVar}` → स्ट्रिंग के रूप में रखा गया
+- **जिस टैग की कोई मैचिंग key नहीं है वह HTML है**, उसका केस कुछ भी हो: हर एट्रिब्यूट मान जैसा लिखा गया है वैसा ही रहता है, `{…}` सहित, और इवेंट हैंडलर हटा दिए जाते हैं। `Table` key के बिना `<Table data={[1, 2, 3]} />` से `data="{[1, 2, 3]}"` मिलता है। पार्स किए गए props पाने के लिए, कंपोनेंट में या [renderRule](#optionsrenderrule) में, टैग को `overrides` में सूचीबद्ध करें।
 - कुछ props संरक्षित हैं: `a` (`href`, `title`), `img` (`src`, `alt`, `title`), `input[type="checkbox"]` (`checked`, `readonly`), `ol` (`start`), `td`/`th` (`style`)
 - एलिमेंट मैपिंग: इनलाइन टेक्स्ट के लिए `span`, इनलाइन कोड के लिए `code`, कोड ब्लॉक्स के लिए `pre > code`
 
@@ -615,18 +618,22 @@ const md = `<DatePicker timezone="UTC+5" startTime={1514579720511} />`
 
 **⚠️ सुरक्षा चेतावनी: उपयोगकर्ता इनपुट के लिए अत्यधिक हतोत्साहित**
 
-जब सक्षम किया जाता है, तो JSX props में expressions को eval करने का प्रयास करता है जिन्हें JSON के रूप में सीरियलाइज़ नहीं किया जा सकता है (फ़ंक्शन, वेरिएबल, जटिल expressions)। यह `eval()` का उपयोग करता है जो मनमाने कोड को निष्पादित कर सकता है।
+जब सक्षम किया जाता है, तो JSX props में expressions को eval करने का प्रयास करता है जिन्हें JSON के रूप में सीरियलाइज़ नहीं किया जा सकता है (फ़ंक्शन, वेरिएबल, जटिल expressions), ऐसे बड़े अक्षर वाले टैग पर जो `overrides` की किसी key से मैच होता है। यह `eval()` का उपयोग करता है जो मनमाने कोड को निष्पादित कर सकता है। कोई भी अन्य टैग HTML है और उसे कभी eval नहीं किया जाता।
 
 **डिफ़ॉल्ट रूप से (अनुशंसित)**, अनसीरियलाइज़ेबल expressions को सुरक्षा के लिए स्ट्रिंग्स के रूप में रखा जाता है:
 
 ```tsx
 import { parser } from 'markdown-to-jsx'
 
-const ast = parser('<Button onClick={() => alert("hi")} />')
+const ast = parser('<Button onClick={() => alert("hi")} />', {
+  overrides: { Button: 'button' },
+})
 // ast[0].attrs.onClick === "() => alert(\"hi\")" (स्ट्रिंग, सुरक्षित)
 
 // Arrays और objects स्वचालित रूप से पार्स किए जाते हैं (कोई eval की आवश्यकता नहीं):
-const ast2 = parser('<Table data={[1, 2, 3]} />')
+const ast2 = parser('<Table data={[1, 2, 3]} />', {
+  overrides: { Table: 'table' },
+})
 // ast2[0].attrs.data === [1, 2, 3] (JSON.parse के माध्यम से पार्स किया गया)
 ```
 
@@ -649,22 +656,27 @@ const ast2 = parser('<Table data={[1, 2, 3]} />')
 const userMarkdown = '<Component onClick={() => fetch("/admin/delete-all")} />'
 
 // ❌ खतरनाक - फ़ंक्शन निष्पादन योग्य होगा
-parser(userMarkdown, { evalUnserializableExpressions: true })
+parser(userMarkdown, {
+  evalUnserializableExpressions: true,
+  overrides: { Component },
+})
 
 // ✅ सुरक्षित - फ़ंक्शन स्ट्रिंग के रूप में रखा गया
-parser(userMarkdown) // डिफ़ॉल्ट व्यवहार
+parser(userMarkdown, { overrides: { Component } }) // डिफ़ॉल्ट व्यवहार
 ```
 
 **सुरक्षित विकल्प: केस-बाई-केस हैंडलिंग के लिए renderRule का उपयोग करें:**
 
 ```tsx
-// मनमाने expressions को eval करने के बजाय, उन्हें renderRule में चुनिंदा रूप से संभालें:
+// मनमाने expressions को eval करने के बजाय, उन्हें renderRule में चुनिंदा रूप से संभालें।
+// टैग की `overrides` में एक key होनी चाहिए: जिस टैग की कोई key नहीं है वह HTML है और अपने हैंडलर खो देता है।
 const handlers = {
   handleClick: () => console.log('clicked'),
   handleSubmit: () => console.log('submitted'),
 }
 
 compiler(markdown, {
+  overrides: { TrustedComponent },
   renderRule(next, node) {
     if (
       node.type === RuleType.htmlBlock &&
@@ -1109,7 +1121,7 @@ AST निम्नलिखित नोड प्रकारों से ब
 
 **JSX Prop Parsing (v9.1+):**
 
-पार्सर बुद्धिमानी से JSX prop values को पार्स करता है:
+पार्सर बुद्धिमानी से JSX prop values को पार्स करता है, उस बड़े अक्षर वाले टैग पर जो `overrides` की किसी key से मैच होता है; हर दूसरा टैग हर मान को जैसा लिखा गया है वैसा ही रखता है:
 
 - Arrays/objects को `JSON.parse()` के माध्यम से पार्स किया जाता है: `rows={[["a", "b"]]}` → `attrs.rows = [["a", "b"]]`
 - Functions को सुरक्षा के लिए स्ट्रिंग्स के रूप में रखा जाता है: `onClick={() => ...}` → `attrs.onClick = "() => ..."`
@@ -1195,7 +1207,7 @@ if (node.type === RuleType.heading) {
 
 <h3 id="gotchas">समस्याएं</h3>
 
-**JSX prop parsing (v9.1+):** JSX props में Arrays और objects स्वचालित रूप से पार्स किए जाते हैं:
+**JSX prop parsing (v9.1+):** JSX props में Arrays और objects, `overrides` में सूचीबद्ध बड़े अक्षर वाले टैग पर (यहाँ `{ Table }`), स्वचालित रूप से पार्स किए जाते हैं:
 
 <!-- biome-ignore format: keep example fences intact -->
 ```tsx
@@ -1223,7 +1235,7 @@ const Table = ({ columns, data, ...props }) => {
 }
 ```
 
-**Function props को स्ट्रिंग्स के रूप में रखा जाता है** सुरक्षा के लिए। केस-बाई-केस हैंडलिंग के लिए [renderRule](#optionsrenderrule) का उपयोग करें, या opt-in eval के लिए [evalUnserializableExpressions](#optionsevalunserializableexpressions) देखें।
+**Function props को स्ट्रिंग्स के रूप में रखा जाता है** सुरक्षा के लिए, `overrides` में सूचीबद्ध बड़े अक्षर वाले टैग पर; कोई भी अन्य टैग HTML है और अपने इवेंट हैंडलर खो देता है। केस-बाई-केस हैंडलिंग के लिए [renderRule](#optionsrenderrule) का उपयोग करें, या opt-in eval के लिए [evalUnserializableExpressions](#optionsevalunserializableexpressions) देखें।
 
 **HTML indentation:** markdown सिंटैक्स संघर्षों से बचने के लिए HTML ब्लॉक्स में अग्रणी व्हाइटस्पेस को पहली लाइन के इंडेंटेशन के आधार पर स्वतः-ट्रिम किया जाता है।
 

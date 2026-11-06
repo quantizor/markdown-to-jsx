@@ -44,6 +44,12 @@ const MAX_SIZE = 1 << 21
  */
 const RUNS = 7
 
+/** About as many components as a large `overrides` map holds */
+const OVERRIDE_KEY_COUNT = 50
+/** One width for every padded tag id, so a tag name's length never grows with n */
+const TAG_ID_WIDTH = 4
+const TAG_ID_RADIX = 36
+
 /** n units, each with its own tag name, so no two openers share a closer */
 const distinctTags =
   (unit: (tag: string) => string, suffix = '') =>
@@ -87,6 +93,26 @@ const shapes: Array<{
     name: 'html-tag-distinct-names-link-holds-tag',
   },
   { make: distinctTags(t => `<x${t}> `), name: 'html-tag-distinct-names' },
+  // A capitalized tag no override matches scans every key ignoring case. Tags and
+  // keys share one fixed length, so every key reaches the compare at every size,
+  // and each tag has its own paragraph, since distinct closed tags in one
+  // paragraph are their own cost
+  {
+    make: (n: number) =>
+      Array.from({ length: n }, (_, i) => {
+        const tag = `X${i.toString(TAG_ID_RADIX).padStart(TAG_ID_WIDTH, '0')}`
+        return `x <${tag} a={b}>y</${tag}>\n\n`
+      }).join(''),
+    name: 'override-lookup-unmatched-capitalized',
+    options: {
+      overrides: Object.fromEntries(
+        Array.from({ length: OVERRIDE_KEY_COUNT }, (_, i) => [
+          `Y${i.toString(TAG_ID_RADIX).padStart(TAG_ID_WIDTH, '0')}`,
+          'b',
+        ])
+      ),
+    },
+  },
   {
     make: distinctTags(t => `<x${t}> `, '</z>'),
     name: 'html-tag-distinct-names-other-closer',
