@@ -14,7 +14,7 @@ import Markdown, {
   sanitizer,
   slugify,
 } from './native.tsx'
-import { treeProps } from './test-tree.ts'
+import { storedAST, treeProps } from './test-tree.ts'
 
 /**
  * Structural view of the props these tests read off rendered elements. The
@@ -3328,11 +3328,12 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     ['<constructor>hi</constructor>', { overrides: {} }, '<Text>hi</Text>', []],
     ['<Constructor>hi</Constructor>', { overrides: {} }, '<Text>hi</Text>', []],
+    // A lowercase tag an override matches passes no handler on
     [
       '<my-widget onclick={alert(1)}>x</my-widget>',
       { overrides: { 'my-widget': { props: {} } } },
       '<Text>x</Text>',
-      ['onclick=string'],
+      [],
     ],
     // A lowercase tag is HTML, so its value is never evaluated
     [
@@ -3415,5 +3416,158 @@ describe('a capitalized tag an override matches is a component, and every other 
       ['href', '/'],
       ['class', 'x'],
     ])
+  })
+
+  /** Spreads every prop it receives onto its Text */
+  const MyLink = (props: TextProps) => <Text {...props} />
+  const widget = { 'my-widget': { props: {} } }
+
+  it.each([
+    [
+      'x <a href="/" onclick="alert(1)">y</a>',
+      { a: MyLink },
+      '<Text>x <MyLink>y</MyLink></Text>',
+    ],
+    [
+      'x <a href="/" onclick={alert(1)}>y</a>',
+      { a: MyLink },
+      '<Text>x <MyLink>y</MyLink></Text>',
+    ],
+    [
+      'x <a href="/" onclick>y</a>',
+      { a: MyLink },
+      '<Text>x <MyLink>y</MyLink></Text>',
+    ],
+    [
+      'x <a href="/" onclick="alert(1)">y</a>',
+      { a: { props: { class: 'x' } } },
+      '<Text>x <Text>y</Text></Text>',
+    ],
+    [
+      'x <a href="/" onclick={alert(1)}>y</a>',
+      { a: { component: 'span' } },
+      '<Text>x <Text>y</Text></Text>',
+    ],
+    [
+      'x <a href="/" onclick={alert(1)}>y</a>',
+      { a: 'span' },
+      '<Text>x <Text>y</Text></Text>',
+    ],
+    ['<my-widget onclick={alert(1)}>x</my-widget>', widget, '<Text>x</Text>'],
+    ['<my-widget onclick="alert(1)">x</my-widget>', widget, '<Text>x</Text>'],
+    [
+      'a <my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      '<Text>a <Text>x</Text></Text>',
+    ],
+    [
+      'a <my-widget onclick="alert(1)">x</my-widget>',
+      widget,
+      '<Text>a <Text>x</Text></Text>',
+    ],
+    [
+      '<div>\n<my-widget onclick={alert(1)}>x</my-widget>\n</div>',
+      widget,
+      '<View><Text><Text>x</Text></Text></View>',
+    ],
+    [
+      '<div>\n<my-widget onclick="alert(1)">x</my-widget>\n</div>',
+      widget,
+      '<View><Text><Text>x</Text></Text></View>',
+    ],
+    [
+      'x <a href="/" onclick={alert(1)}>y</a>',
+      undefined,
+      '<Text>x <Text>y</Text></Text>',
+    ],
+  ] as const)('renders %j with %j as %j, passing no handler on', (input, overrides, expected) => {
+    const result = compiler(input, { overrides })
+    expect(serialize(result)).toBe(expected)
+    expect(handlerProps(result)).toEqual([])
+  })
+
+  it('keeps the handler of a capitalized tag an override matches as a prop', () => {
+    const result = compiler('<Btn onClick={go}>x</Btn>', {
+      overrides: { Btn: Aside },
+    })
+    expect(serialize(result)).toBe('<Aside>x</Aside>')
+    expect(handlerProps(result)).toEqual(['onClick=string'])
+  })
+
+  it('gives renderRule the handler of a lowercase tag an override matches, as written', () => {
+    const seen: unknown[] = []
+    const result = compiler(
+      'x <a href="/" onclick={alert(1)}>y</a> <a onclick="go()">z</a>',
+      {
+        overrides: { a: MyLink },
+        renderRule(next, node) {
+          if (node.type === RuleType.htmlBlock && node.tag === 'a') {
+            seen.push(node.attrs?.onclick)
+          }
+          return next()
+        },
+      }
+    )
+    expect(seen).toEqual(['{alert(1)}', 'go()'])
+    expect(serialize(result)).toBe(
+      '<Text>x <MyLink>y</MyLink> <MyLink>z</MyLink></Text>'
+    )
+    expect(handlerProps(result)).toEqual([])
+  })
+
+  it.each([
+    ['an override component', { a: MyLink }, '<MyLink></MyLink>'],
+    ['no override', undefined, '<Text></Text>'],
+  ])('passes no handler string in a hand-built AST on, with %s', (_, overrides, expected) => {
+    const result = astToNative(
+      [
+        {
+          attrs: { href: '/', onclick: 'alert(1)' },
+          tag: 'a',
+          type: RuleType.htmlSelfClosing,
+        },
+      ],
+      { overrides }
+    )
+    expect(serialize(result)).toBe(expected)
+    expect(handlerProps(result)).toEqual([])
+  })
+
+  it('passes a capitalized tag its handler string only when an override matches the tag', () => {
+    const ast: MarkdownToJSX.ASTNode[] = [
+      { attrs: { onClick: 'go' }, tag: 'Btn', type: RuleType.htmlSelfClosing },
+    ]
+    expect(handlerProps(astToNative(ast))).toEqual([])
+    expect(
+      handlerProps(astToNative(ast, { overrides: { Btn: Aside } }))
+    ).toEqual(['onClick=string'])
+  })
+
+  it('writes no attribute of a hand-built code block', () => {
+    // A native code block takes only its style, so neither data-x nor the
+    // handler reaches it, and the drop the other outputs need does not apply
+    const ast = parser('```js\nx\n```')
+    Object.assign(ast[0], { attrs: { 'data-x': 'y', onclick: 'alert(1)' } })
+    const result = astToNative(ast)
+    expect(serialize(result)).toBe('<View><Text>x</Text></View>')
+    expect(propNames(result)).toEqual([])
+  })
+
+  it.each([
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      undefined,
+      '<Text>x</Text>',
+    ],
+    ['<my-widget onclick={alert(1)}>x</my-widget>', widget, '<Text>x</Text>'],
+    [
+      '<div><img src=x onerror="alert(1)"></div>',
+      undefined,
+      '<View><Text><Image></Image></Text></View>',
+    ],
+  ])('renders %j with %j, stored without its private fields, as %j', (input, overrides, expected) => {
+    const result = astToNative(storedAST(input, overrides), { overrides })
+    expect(serialize(result)).toBe(expected)
+    expect(handlerProps(result)).toEqual([])
   })
 })

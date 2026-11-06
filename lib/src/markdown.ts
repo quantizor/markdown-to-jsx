@@ -25,6 +25,7 @@ import {
   URL_VERDICT,
   urlNamesBlockedScheme,
   urlVerdict,
+  withoutHandlerSource,
 } from './utils.ts'
 
 export { parser } from './parse.ts'
@@ -1496,7 +1497,7 @@ function compileHtmlBlock(
   if (node._rawAttrs === undefined) {
     // `false` writes nothing, which keeps children from an attribute
     attrs = compileAttributes({
-      ...node.attrs,
+      ...withoutHandlerSource(defaultTag, node.attrs, state.overrides),
       children: false,
       ...overrideProps,
     })
@@ -1572,7 +1573,11 @@ function compileHtmlSelfClosing(
   const attrs = node._rawOpen
     ? rawOpenTagAttrs(node._rawOpen, defaultTag.length) +
       compileAttributes(overrideProps)
-    : compileAttributes({ ...node.attrs, children: false, ...overrideProps })
+    : compileAttributes({
+        ...withoutHandlerSource(defaultTag, node.attrs, state.overrides),
+        children: false,
+        ...overrideProps,
+      })
   if (attrText === undefined) {
     return `<${tag}${attrs} />`
   }

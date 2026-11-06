@@ -53,7 +53,7 @@ export interface ParserInputOptions {
   forceInline?: boolean
   ignoreHTMLBlocks?: boolean
   optimizeForStreaming?: boolean
-  /** A key matches a capitalized tag ignoring case, which then reads `{...}` values as JSX props; a hyphenated tag it lists keeps its `{...}` handler attributes, as written */
+  /** A key matches a capitalized tag ignoring case, which then reads `{...}` values as JSX props; a lowercase tag it lists keeps its handler attributes in `attrs`, as written, out of every raw span */
   overrides?: { [tag: string]: unknown }
   preserveFrontmatter?: boolean
   sanitizer?: (value: string, tag: string, attribute: string) => string | null
@@ -308,51 +308,8 @@ const RENDERER_ONLY_ATTRS: { [name: string]: 1 } = {
   ref: 1,
 }
 
-/** Prefixes Solid strips to reach the attribute or property named after them. */
-const SOLID_TARGET_PREFIX_R = /^(?:attr|bool|prop):/i
 const BRACE_OBJECT_VALUE_R = /^\{\s*[[{]/
 const BRACE_NAME_WRAPPER_R = /[{}"'`]/g
-
-/**
- * Whether an attribute name is an on* event handler (onclick, onError), including
- * behind a Solid target prefix.
- */
-function isHandlerName(name: string): boolean {
-  // All three prefixes are four letters; the check spares every other name the regex
-  var at =
-    name.charCodeAt(4) === $.CHAR_COLON && SOLID_TARGET_PREFIX_R.test(name)
-      ? 5
-      : 0
-  var c0 = name.charCodeAt(at)
-  var c1 = name.charCodeAt(at + 1)
-  return (
-    (c0 === $.CHAR_o || c0 === $.CHAR_O) && (c1 === $.CHAR_n || c1 === $.CHAR_N)
-  )
-}
-
-/**
- * Removes handler source from the props of a capitalized tag `overrides` does not
- * register. Vue and Solid write such a prop to a native element, where a browser
- * runs it or the renderer throws; a function from `evalUnserializableExpressions`
- * stays, and so does a bare name's `true`, which holds no script.
- */
-export function dropUnresolvedHandlers(
-  tag: string,
-  props: Record<string, unknown>,
-  overrides: unknown
-): void {
-  var first = tag.charCodeAt(0)
-  var isCapitalized = first >= $.CHAR_A && first <= $.CHAR_Z
-  if (!isCapitalized || util.get(overrides, tag, undefined)) {
-    return
-  }
-  for (var key in props) {
-    var value = props[key]
-    if (typeof value !== 'function' && value !== true && isHandlerName(key)) {
-      delete props[key]
-    }
-  }
-}
 
 /**
  * Numeric character references, tolerating a missing trailing semicolon. A
@@ -400,7 +357,7 @@ function hasOverride(tag: string): boolean {
  * The scheme check is intentionally independent of any caller-supplied
  * sanitizer so the raw HTML path is secure by default.
  *
- * `isComponent` is a capitalized or hyphenated tag `overrides` matches. A JSX
+ * `isComponent` is a capitalized tag `overrides` matches. A JSX
  * brace-expression value ({...}) on one is a component prop, not a raw-HTML
  * inline-handler string, so it is kept, handlers included. On every other tag
  * a browser runs a `{...}` handler as a block statement.
@@ -417,7 +374,10 @@ function isDangerousAttr(
   quiet?: boolean
 ): boolean {
   // All three prefixes are four letters; the check spares every other name the regex
-  if (name.charCodeAt(4) === $.CHAR_COLON && SOLID_TARGET_PREFIX_R.test(name)) {
+  if (
+    name.charCodeAt(4) === $.CHAR_COLON &&
+    util.SOLID_TARGET_PREFIX_R.test(name)
+  ) {
     return isDangerousAttr(name.slice(5), value, isComponent, quiet)
   }
   var lower = name.toLowerCase()
@@ -428,7 +388,7 @@ function isDangerousAttr(
   if (lower === 'attributename') {
     return !isPropBrace && animatesDangerousAttr(value)
   }
-  var isHandler = isHandlerName(name)
+  var isHandler = util.isHandlerName(name)
   // A JSX brace-expression value ({...}) on a component is a prop the renderer
   // resolves, so it is kept, except a brace string on a URL prop (it reaches a
   // component as the URL itself, so the URL screen below reads it). On any other
@@ -810,7 +770,7 @@ function __parseHtmlTag(
   _browserReadDiffers: boolean
   _hasSpaceBeforeSlash: boolean
   _isClosing: boolean
-  /** A capitalized or hyphenated tag `overrides` matches, which the screen exempts as a component. */
+  /** A capitalized tag `overrides` matches, which the screen exempts as a component. */
   _isComponent: boolean
   /** PascalCase JSX component or hyphenated custom element, for block structure. */
   _isComponentTag: boolean
@@ -868,12 +828,13 @@ function __parseHtmlTag(
     return null
   }
 
-  // A capitalized or hyphenated tag nests blank-line content (#870); only one
-  // `overrides` matches is a component the screen exempts (isDangerousAttr)
+  // A capitalized or hyphenated tag nests blank-line content (#870); only a
+  // capitalized one `overrides` matches is a component the screen exempts
+  // (isDangerousAttr)
   const tagFirstChar = tag.charCodeAt(0)
   const isCapitalized = tagFirstChar >= $.CHAR_A && tagFirstChar <= $.CHAR_Z
   const isComponentTag = isCapitalized || tag.indexOf('-') !== -1
-  const isComponent = isComponentTag && hasOverride(tag)
+  const isComponent = isCapitalized && hasOverride(tag)
 
   const wsStart = i
   while (
@@ -1146,9 +1107,13 @@ function __parseHtmlTag(
         dangerSpans = []
       }
       dangerSpans.push(attrStart, attrEnd)
-      // Out of raw source, but still a prop on a tag an override matches, a
-      // lowercase one too: a child string is safe in any
-      if (
+      // Out of raw source, but still in attrs on a tag an override matches, a
+      // lowercase one too: a handler as written text for renderRule and
+      // parser() users, which every renderer drops (util.withoutHandlerSource),
+      // and a child string, safe in any
+      if (!isCapitalized && util.isHandlerName(attrName) && hasOverride(tag)) {
+        attrs[attrName] = attrValue
+      } else if (
         attrName.toLowerCase() === 'children' &&
         !BRACE_OBJECT_VALUE_R.test(attrValue) &&
         hasOverride(tag)
@@ -4332,7 +4297,7 @@ function scanHtmlBlock(
         _rawOuter: type1RawOuter,
         // A Type 1 block is never re-parsed
         _reparseSource: undefined,
-        text: type1TextContent,
+        text: type1TextContent && stripDangerousHtml(type1TextContent),
         _verbatim: true,
         _isClosingTag: type1IsClosing,
       } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
@@ -4371,7 +4336,7 @@ function scanHtmlBlock(
             _rawClose: rawCloser(s, start, tagResult67.end, tagName67),
             _rawBody: afterTagBody67,
             _reparseSource: afterTagSink67.keepingChildren,
-            text: afterTag67,
+            text: afterTagBody67 || '',
             _verbatim: true,
             _isClosingTag: true,
           } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
@@ -4785,12 +4750,22 @@ function scanHtmlBlock(
         }
 
         var isOuter67 = rawOuter67 !== undefined
+        var raw67 = rawBody67 || ''
+        if (rawOuter67 !== undefined) {
+          raw67 = rawOuter67
+        }
         var sink67: KeepingChildrenSink = { keepingChildren: undefined }
-        var safeRaw67 = stripDangerousHtml(
-          rawOuter67 === undefined ? rawBody67 || '' : rawOuter67,
-          undefined,
-          sink67
-        )
+        var safeRaw67 = stripDangerousHtml(raw67, undefined, sink67)
+        // The public text field is the inner content, without the opening tag
+        // or the own closing tag either raw span can hold
+        var inner67 = rawContent67
+        if (closeIdx67 === -1) {
+          inner67 = blockContent67.slice(tagResult67.end - start)
+        }
+        var text67 = safeRaw67
+        if (inner67 !== raw67) {
+          text67 = stripDangerousHtml(inner67)
+        }
         var verbatimNode67 = {
           type: RuleType.htmlBlock,
           tag: tagName67,
@@ -4800,7 +4775,7 @@ function scanHtmlBlock(
           _rawBody: isOuter67 ? undefined : safeRaw67,
           _rawOuter: isOuter67 ? safeRaw67 : undefined,
           _reparseSource: sink67.keepingChildren,
-          text: safeRaw67,
+          text: text67,
           _verbatim: true,
           _isClosingTag: false,
         } as MarkdownToJSX.HTMLNode
@@ -4875,7 +4850,8 @@ function scanHtmlBlock(
         _rawClose: type67RawCloseF,
         _rawOuter: type67RawOuterF,
         _reparseSource: type67SinkF.keepingChildren,
-        text: type67IsClosingF ? type67TrailingF : type67RawOuterF,
+        // One of the two is set, by whether the tag closes
+        text: type67RawOuterF || type67RawBodyF || '',
         _verbatim: true,
         _isClosingTag: type67IsClosingF,
       } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
@@ -4969,7 +4945,9 @@ function scanHtmlBlock(
         children,
         _rawOuter: safeRawJsx,
         _reparseSource: sinkJsx.keepingChildren,
-        text: isJsx ? rawContent : rawTextJsx,
+        // The public text field is the screened inner content, as on every
+        // other path; a stored AST without the raw spans is written from it
+        text: stripDangerousHtml(rawContent),
         _verbatim: true,
         _isClosingTag: false,
       } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },
@@ -5012,7 +4990,7 @@ function scanHtmlBlock(
       children,
       _rawBody: safeRawFallback,
       _reparseSource: sinkFallback.keepingChildren,
-      text: contentFallback,
+      text: safeRawFallback,
       _verbatim: true,
       _isClosingTag: false,
     } as MarkdownToJSX.HTMLNode & { _isClosingTag: boolean },

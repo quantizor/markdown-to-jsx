@@ -1,3 +1,6 @@
+import { parser } from './parse.ts'
+import type { MarkdownToJSX } from './types.ts'
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object'
 }
@@ -45,4 +48,25 @@ export function treeProps(tree: unknown): [string, unknown][] {
   const out: [string, unknown][] = []
   walk(tree, out)
   return out
+}
+
+function withoutPrivateField(key: string, value: unknown): unknown {
+  if (key.startsWith('_')) {
+    return
+  }
+  return value
+}
+
+/**
+ * The `parser()` output for `input` as a caller stores it: through JSON, with
+ * every private `_` field dropped, so a compiler can only write it from the
+ * public fields.
+ */
+export function storedAST(
+  input: string,
+  overrides?: { [tag: string]: unknown }
+): MarkdownToJSX.ASTNode[] {
+  return JSON.parse(
+    JSON.stringify(parser(input, { overrides }), withoutPrivateField)
+  )
 }

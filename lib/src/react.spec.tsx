@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import * as fs from 'node:fs'
 import * as React from 'react'
-import { renderToString } from 'react-dom/server'
+import { renderToStaticMarkup, renderToString } from 'react-dom/server'
 import theredoc from 'theredoc'
 import Markdown, {
   astToJSX,
@@ -12,7 +12,7 @@ import Markdown, {
   RuleType,
   sanitizer,
 } from './react.tsx'
-import { treeProps } from './test-tree.ts'
+import { storedAST, treeProps } from './test-tree.ts'
 import type { MarkdownToJSX } from './types.ts'
 
 const root = { innerHTML: '' }
@@ -5362,11 +5362,12 @@ describe('markup a browser reads differently from the parser', () => {
       '<Constructor>hi</Constructor>',
       [],
     ],
+    // A lowercase tag an override matches passes no handler on
     [
       '<my-widget onclick={alert(1)}>x</my-widget>',
       { overrides: { 'my-widget': { props: {} } } },
-      '<my-widget onclick="{alert(1)}">x</my-widget>',
-      ['onclick=string'],
+      '<my-widget>x</my-widget>',
+      [],
     ],
     // A lowercase tag is HTML, so its value is never evaluated
     [
@@ -5467,5 +5468,157 @@ describe('a capitalized tag an override matches is a component, and every other 
       ['href', '/'],
       ['className', 'x'],
     ])
+  })
+
+  /** Spreads every prop it receives onto the page */
+  const MyLink = (props: React.ComponentProps<'a'>) => <a {...props} />
+  /** Renders its children only */
+  const Box = ({ children }: { children?: React.ReactNode }) => (
+    <b>{children}</b>
+  )
+  const widget = { 'my-widget': { props: {} } }
+  const link = '<span>x <a href="/">y</a></span>'
+
+  it.each([
+    ['x <a href="/" onclick="alert(1)">y</a>', { a: MyLink }, link],
+    ['x <a href="/" onclick={alert(1)}>y</a>', { a: MyLink }, link],
+    ['x <a href="/" onclick>y</a>', { a: MyLink }, link],
+    [
+      'x <a href="/" onclick="alert(1)">y</a>',
+      { a: { props: { className: 'x' } } },
+      '<span>x <a href="/" class="x">y</a></span>',
+    ],
+    [
+      'x <a href="/" onclick={alert(1)}>y</a>',
+      { a: { component: 'span' } },
+      '<span>x <span href="/">y</span></span>',
+    ],
+    // React reads a bare string override as no new component
+    ['x <a href="/" onclick={alert(1)}>y</a>', { a: 'span' }, link],
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      '<my-widget>x</my-widget>',
+    ],
+    [
+      '<my-widget onclick="alert(1)">x</my-widget>',
+      widget,
+      '<my-widget>x</my-widget>',
+    ],
+    [
+      'a <my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      '<span>a <my-widget>x</my-widget></span>',
+    ],
+    [
+      'a <my-widget onclick="alert(1)">x</my-widget>',
+      widget,
+      '<span>a <my-widget>x</my-widget></span>',
+    ],
+    [
+      '<div>\n<my-widget onclick={alert(1)}>x</my-widget>\n</div>',
+      widget,
+      '<div><my-widget>x</my-widget></div>',
+    ],
+    [
+      '<div>\n<my-widget onclick="alert(1)">x</my-widget>\n</div>',
+      widget,
+      '<div><my-widget>x</my-widget></div>',
+    ],
+    ['x <a href="/" onclick={alert(1)}>y</a>', undefined, link],
+  ] as const)('renders %j with %j as %j, passing no handler on', (input, overrides, expected) => {
+    const result = compiler(input, { overrides })
+    expect(renderToStaticMarkup(result)).toBe(expected)
+    expect(handlerProps(result)).toEqual([])
+  })
+
+  it('keeps the handler of a capitalized tag an override matches as a prop', () => {
+    const result = compiler('<Btn onClick={go}>x</Btn>', {
+      overrides: { Btn: Box },
+    })
+    expect(renderToStaticMarkup(result)).toBe('<b>x</b>')
+    expect(handlerProps(result)).toEqual(['onClick=string'])
+  })
+
+  it('gives renderRule the handler of a lowercase tag an override matches, as written', () => {
+    const seen: unknown[] = []
+    const result = compiler(
+      'x <a href="/" onclick={alert(1)}>y</a> <a onclick="go()">z</a>',
+      {
+        overrides: { a: MyLink },
+        renderRule(next, node) {
+          if (node.type === RuleType.htmlBlock && node.tag === 'a') {
+            seen.push(node.attrs?.onclick)
+          }
+          return next()
+        },
+      }
+    )
+    expect(seen).toEqual(['{alert(1)}', 'go()'])
+    expect(renderToStaticMarkup(result)).toBe(
+      '<span>x <a href="/">y</a> <a>z</a></span>'
+    )
+    expect(handlerProps(result)).toEqual([])
+  })
+
+  it.each([
+    ['an override component', { a: MyLink }],
+    ['no override', undefined],
+  ])('passes no handler string in a hand-built AST on, with %s', (_, overrides) => {
+    const result = astToJSX(
+      [
+        {
+          attrs: { href: '/', onclick: 'alert(1)' },
+          tag: 'a',
+          type: RuleType.htmlSelfClosing,
+        },
+      ],
+      { overrides }
+    )
+    expect(renderToStaticMarkup(result)).toBe('<a href="/"></a>')
+    expect(handlerProps(result)).toEqual([])
+  })
+
+  it('passes a capitalized tag its handler string only when an override matches the tag', () => {
+    const ast: MarkdownToJSX.ASTNode[] = [
+      { attrs: { onClick: 'go' }, tag: 'Btn', type: RuleType.htmlSelfClosing },
+    ]
+    expect(handlerProps(astToJSX(ast))).toEqual([])
+    expect(handlerProps(astToJSX(ast, { overrides: { Btn: Box } }))).toEqual([
+      'onClick=string',
+    ])
+  })
+
+  it('passes the attributes of a hand-built code block on without its handler', () => {
+    const ast = parser('```js\nx\n```')
+    Object.assign(ast[0], { attrs: { 'data-x': 'y', onclick: 'alert(1)' } })
+    const result = astToJSX(ast)
+    expect(renderToStaticMarkup(result)).toBe(
+      '<pre><code data-x="y" class="language-js lang-js">x</code></pre>'
+    )
+    expect(handlerProps(result)).toEqual([])
+  })
+
+  it.each([
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      undefined,
+      '<my-widget>x</my-widget>',
+    ],
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      '<my-widget>x</my-widget>',
+    ],
+    [
+      '<div><img src=x onerror="alert(1)"></div>',
+      undefined,
+      // React hoists a preload hint for the image ahead of the markup
+      '<link rel="preload" as="image" href="x"/><div><img src="x"/></div>',
+    ],
+  ])('renders %j with %j, stored without its private fields, as %j', (input, overrides, expected) => {
+    const result = astToJSX(storedAST(input, overrides), { overrides })
+    expect(renderToStaticMarkup(result)).toBe(expected)
+    expect(handlerProps(result)).toEqual([])
   })
 })

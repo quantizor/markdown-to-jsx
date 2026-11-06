@@ -1433,6 +1433,39 @@ describe('htmlAttrsToJSXProps', () => {
   })
 })
 
+describe('withoutHandlerSource', () => {
+  const fn = () => 1
+  const attrs = () => ({
+    'attr:onclick': 'b',
+    href: '/',
+    onClick: fn,
+    onclick: 'a',
+    onerror: true,
+  })
+  const kept = { href: '/', onClick: fn }
+
+  it.each([
+    ['a', undefined, kept],
+    ['a', { a: { props: {} } }, kept],
+    ['my-widget', { 'my-widget': { props: {} } }, kept],
+    ['Btn', undefined, kept],
+    ['Btn', { Other: { props: {} } }, kept],
+    ['Btn', { btn: { props: {} } }, attrs()],
+    ['BTN', { Btn: { props: {} } }, attrs()],
+  ])('gives the attributes of <%s> with %j as %j, leaving the node as written', (tag, overrides, expected) => {
+    const own = attrs()
+    expect(u.withoutHandlerSource(tag, own, overrides)).toEqual(expected)
+    expect(own).toEqual(attrs())
+  })
+
+  it.each([
+    ['no handler', { className: 'x', href: '/' }],
+    ['no attributes', undefined],
+  ])('gives back the same attributes with %s', (_, own) => {
+    expect(u.withoutHandlerSource('a', own, undefined)).toBe(own)
+  })
+})
+
 describe('no runtime remote fetching', () => {
   var NetworkApis = [
     'fetch(',

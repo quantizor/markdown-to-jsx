@@ -77,10 +77,10 @@ const renderers: Record<
       ? h('pre', { key: state.key }, node.text)
       : null,
 
-  [RuleType.codeBlock]: (node, { h, state }) => {
+  [RuleType.codeBlock]: (node, { h, state, options }) => {
     const decodedLang = node.lang ? util.decodeEntityReferences(node.lang) : ''
     const codeProps = {
-      ...(node.attrs || {}),
+      ...util.withoutHandlerSource('code', node.attrs, options.overrides),
       class: decodedLang ? `language-${decodedLang} lang-${decodedLang}` : '',
     } as Record<string, unknown>
     return h('pre', { key: state.key }, h('code', codeProps, node.text))
@@ -130,6 +130,11 @@ const renderers: Record<
       )
     }
 
+    const attrs = util.withoutHandlerSource(
+      node.tag,
+      node.attrs,
+      options.overrides
+    )
     const rawOuter = node._rawOuter
     const isRawOuter = rawOuter !== undefined
     const rawSource = isRawOuter
@@ -153,13 +158,13 @@ const renderers: Record<
         if (/<[a-z][^>]{0,100}>/i.test(rawSource)) {
           return h(node.tag, {
             key: state.key,
-            ...node.attrs,
+            ...attrs,
             innerHTML: textContent,
           })
         }
         return h(
           node.tag,
-          { key: state.key, ...node.attrs },
+          { key: state.key, ...attrs },
           util.verbatimText(node.tag, textContent)
         )
       }
@@ -172,7 +177,7 @@ const renderers: Record<
           : rawSource
         return h(node.tag, {
           key: state.key,
-          ...node.attrs,
+          ...attrs,
           innerHTML: innerHtml,
         })
       }
@@ -193,7 +198,7 @@ const renderers: Record<
         `^<${node.tag}(\\s[^>]*)?>(\\s*</${node.tag}>)?$`,
         'i'
       )
-      const props = { key: state.key, ...node.attrs }
+      const props = { key: state.key, ...attrs }
       if (selfTagRegex.test(cleanedText)) {
         return h(node.tag, props)
       }
@@ -246,11 +251,11 @@ const renderers: Record<
     }
 
     if (util.isVoidElement(node.tag)) {
-      return h(node.tag, { key: state.key, ...node.attrs })
+      return h(node.tag, { key: state.key, ...attrs })
     }
     return h(
       node.tag,
-      { key: state.key, ...node.attrs },
+      { key: state.key, ...attrs },
       ...normalizeChildren(node.children ? output(node.children, state) : null)
     )
   },
@@ -269,7 +274,10 @@ const renderers: Record<
           : filteredSc.open + (filteredSc.close || '')
       )
     }
-    return h(node.tag, { key: state.key, ...node.attrs })
+    return h(node.tag, {
+      key: state.key,
+      ...util.withoutHandlerSource(node.tag, node.attrs, options.overrides),
+    })
   },
 
   [RuleType.image]: (node, { h, state, sanitize }) => {
@@ -623,7 +631,6 @@ export function astToJSX(
 
     // Convert HTML content in props (early exit for non-HTML)
     if (vueProps) {
-      parse.dropUnresolvedHandlers(tagKey, vueProps, opts.overrides)
       // Vue writes a children prop as an attribute, so a children string is
       // the element's text (a vnode child, a component's default slot) when it
       // has no content of its own. A void tag takes none.

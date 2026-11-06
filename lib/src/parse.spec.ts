@@ -2433,12 +2433,10 @@ describe('multi-line HTML attributes', () => {
           ],
           "tag": "dl-custom",
           "text": 
-      "<dl-custom
-        data-variant='horizontalTable'
-      >
+      "
         <dt>title 1</dt>
         <dd>description 1</dd>
-      </dl-custom>"
+      "
       ,
           "type": "htmlBlock",
         },
@@ -2486,13 +2484,7 @@ describe('multi-line HTML attributes', () => {
             },
           ],
           "tag": "div",
-          "text": 
-      "<div
-        class="test"
-        id="main"
-        data-value="123"
-      >content</div>"
-      ,
+          "text": "content",
           "type": "htmlBlock",
         },
       ]
@@ -2539,13 +2531,7 @@ describe('multi-line HTML attributes', () => {
             },
           ],
           "tag": "div",
-          "text": 
-      "<div
-        class='test'
-        id='main'
-        data-value='123'
-      >content</div>"
-      ,
+          "text": "content",
           "type": "htmlBlock",
         },
       ]
@@ -2692,13 +2678,7 @@ describe('multi-line HTML attributes', () => {
             },
           ],
           "tag": "div",
-          "text": 
-      "<div
-        class="double-quoted"
-        id='single-quoted'
-        data-mixed="value"
-      >content</div>"
-      ,
+          "text": "content",
           "type": "htmlBlock",
         },
       ]
@@ -2859,12 +2839,10 @@ describe('multi-line HTML attributes', () => {
             ],
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>"
+        "
         ,
             "type": "htmlBlock",
           },
@@ -2938,12 +2916,9 @@ describe('multi-line HTML attributes', () => {
             ],
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>
         "
         ,
             "type": "htmlBlock",
@@ -3018,12 +2993,9 @@ describe('multi-line HTML attributes', () => {
             ],
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>
         "
         ,
             "type": "htmlBlock",
@@ -3097,12 +3069,10 @@ describe('multi-line HTML attributes', () => {
             ],
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>"
+        "
         ,
             "type": "htmlBlock",
           },
@@ -3176,12 +3146,9 @@ describe('multi-line HTML attributes', () => {
             ],
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>
         "
         ,
             "type": "htmlBlock",
@@ -3255,12 +3222,10 @@ describe('multi-line HTML attributes', () => {
             ],
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
+        "
           <dt>title 1</dt>
           <dd>description 1</dd>
-        </dl-custom>"
+        "
         ,
             "type": "htmlBlock",
           },
@@ -3653,12 +3618,7 @@ describe('multi-line HTML attributes', () => {
               },
             ],
             "tag": "div",
-            "text": 
-        "<div
-        	class="test"
-        	id="main"
-        >content</div>"
-        ,
+            "text": "content",
             "type": "htmlBlock",
           },
         ]
@@ -3701,12 +3661,7 @@ describe('multi-line HTML attributes', () => {
               },
             ],
             "tag": "div",
-            "text": 
-        "<div
-          	class="test"
-        	  id="main"
-        >content</div>"
-        ,
+            "text": "content",
             "type": "htmlBlock",
           },
         ]
@@ -3756,8 +3711,9 @@ describe('multi-line HTML attributes', () => {
             ],
             "tag": "dl-custom",
             "text": 
-        "  <dt>title</dt>
-        </dl-custom>"
+        "
+          <dt>title</dt>
+        "
         ,
             "type": "htmlBlock",
           },
@@ -3794,10 +3750,8 @@ describe('multi-line HTML attributes', () => {
             "children": [],
             "tag": "dl-custom",
             "text": 
-        "<dl-custom
-          data-variant='horizontalTable'
-        >
-        </dl-custom>"
+        "
+        "
         ,
             "type": "htmlBlock",
           },
@@ -4830,8 +4784,8 @@ describe('Unserializable expression evaluation', () => {
 
     it('keeps brace-expression props on components but strips dangerous brace handlers on HTML tags', () => {
       // A capitalized tag an override matches takes brace expressions as
-      // renderer-resolved props, so they are kept. A hyphenated tag an override
-      // lists keeps a brace handler too, as written; without one it is HTML.
+      // renderer-resolved props, so they are kept. A lowercase tag an override
+      // matches keeps a handler in attrs, as written; without one it is HTML.
       const jsx = p.parser(
         '<MyComponent onClick={handler} onChange={fn} href={url} data={[1,2,3]} />',
         { overrides: { MyComponent: { props: {} } } }
@@ -8182,7 +8136,7 @@ describe('a tag that matches an override is a component, and every other tag is 
       { data: '{[1]}', hidden: '{true}' },
     ],
     ['<my-el data={[1]} onclick={go}>x</my-el>', undefined, { data: '{[1]}' }],
-    // The screen keeps a registered hyphenated tag's handler, as written
+    // A lowercase tag an override matches keeps its handler in attrs, as written
     [
       '<my-el data={[1]} onclick={go}>x</my-el>',
       { overrides: { 'my-el': { props: {} } } },
@@ -8223,11 +8177,255 @@ describe('a tag that matches an override is a component, and every other tag is 
     expect(attrs.onClick()).toBe(1)
   })
 
-  it('strips a brace handler from a lowercase tag an override restyles', () => {
+  it('keeps a brace handler on a lowercase tag an override restyles, as written', () => {
     expect(
       attrsOfTag('x <a href="/" onclick={alert(1)}>y</a>', 'a', {
         overrides: { a: { props: { class: 'x' } } },
       })
-    ).toEqual({ href: '/' })
+    ).toEqual({ href: '/', onclick: '{alert(1)}' })
+  })
+
+  const RAW_SPANS = [
+    '_rawAttrs',
+    '_rawOpen',
+    '_rawOuter',
+    '_rawBody',
+    '_reparseSource',
+  ] as const
+
+  /** Every raw source span in a parsed tree, as `[field, value]` in tree order */
+  const rawSpans = (nodes: unknown) => {
+    const out: string[][] = []
+    const walk = (list: unknown) => {
+      if (!Array.isArray(list)) {
+        return
+      }
+      for (const node of list) {
+        for (const field of RAW_SPANS) {
+          if (typeof node[field] === 'string') {
+            out.push([field, node[field]])
+          }
+        }
+        walk(node.children)
+      }
+    }
+    walk(nodes)
+    return out
+  }
+
+  const link = { overrides: { a: { props: {} } } }
+  const widget = { overrides: { 'my-widget': { props: {} } } }
+  const widgetBlock = [
+    ['_rawAttrs', ' '],
+    ['_rawOuter', '<my-widget >x</my-widget>'],
+  ]
+  const widgetNested = [
+    ['_rawAttrs', ''],
+    ['_rawBody', '<my-widget >x</my-widget>\n</div>'],
+    ['_rawAttrs', ' '],
+    ['_rawOuter', '<my-widget >x</my-widget>\n'],
+  ]
+
+  it.each([
+    [
+      'x <a href="/" onclick="alert(1)">y</a>',
+      link,
+      { href: '/', onclick: 'alert(1)' },
+      [['_rawAttrs', 'href="/"']],
+    ],
+    [
+      'x <a href="/" onclick={alert(1)}>y</a>',
+      link,
+      { href: '/', onclick: '{alert(1)}' },
+      [['_rawAttrs', 'href="/"']],
+    ],
+    [
+      'x <a href="/" onclick>y</a>',
+      link,
+      { href: '/', onclick: true },
+      [['_rawAttrs', 'href="/"']],
+    ],
+    [
+      'x <img src="/x.png" onerror="alert(1)"> y',
+      { overrides: { img: { props: {} } } },
+      { onerror: 'alert(1)', src: '/x.png' },
+      [['_rawOpen', '<img src="/x.png">']],
+    ],
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      { onclick: '{alert(1)}' },
+      widgetBlock,
+    ],
+    [
+      '<my-widget onclick="alert(1)">x</my-widget>',
+      widget,
+      { onclick: 'alert(1)' },
+      widgetBlock,
+    ],
+    [
+      'a <my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      { onclick: '{alert(1)}' },
+      [['_rawAttrs', '']],
+    ],
+    [
+      'a <my-widget onclick="alert(1)">x</my-widget>',
+      widget,
+      { onclick: 'alert(1)' },
+      [['_rawAttrs', '']],
+    ],
+    [
+      '<div>\n<my-widget onclick={alert(1)}>x</my-widget>\n</div>',
+      widget,
+      { onclick: '{alert(1)}' },
+      widgetNested,
+    ],
+    [
+      '<div>\n<my-widget onclick="alert(1)">x</my-widget>\n</div>',
+      widget,
+      { onclick: 'alert(1)' },
+      widgetNested,
+    ],
+    // A tag no override matches is HTML, whose handlers go
+    [
+      'x <a href="/" onclick={alert(1)}>y</a>',
+      undefined,
+      { href: '/' },
+      [['_rawAttrs', 'href="/"']],
+    ],
+    ['<my-widget onclick={alert(1)}>x</my-widget>', undefined, {}, widgetBlock],
+    // A capitalized tag an override matches is a component, which keeps its handler in raw source too
+    [
+      '<Btn onClick={go}>x</Btn>',
+      { overrides: { Btn: { props: {} } } },
+      { onClick: 'go' },
+      [
+        ['_rawAttrs', ' onClick={go}'],
+        ['_rawOuter', '<Btn onClick={go}>x</Btn>'],
+      ],
+    ],
+  ])('keeps the handlers of %j with %j in attrs as %j, with raw source %j', (input, options, attrs, spans) => {
+    // The tag holding the handler
+    const opener = input.slice(input.lastIndexOf('<', input.indexOf(' on')) + 1)
+    const tag = opener.slice(0, opener.indexOf(' '))
+    const tree = p.parser(input, options)
+    expect(attrsOfTag(input, tag, options)).toEqual(attrs)
+    expect(rawSpans(tree)).toEqual(spans)
+  })
+
+  const widgetX = (
+    attrs: Record<string, string>,
+    rawOuter: string
+  ): MarkdownToJSX.HTMLNode => ({
+    _isClosingTag: false,
+    _rawAttrs: ' ',
+    _rawOuter: rawOuter,
+    _verbatim: true,
+    attrs,
+    children: [{ text: 'x', type: RuleType.text }],
+    tag: 'my-widget',
+    text: 'x',
+    type: RuleType.htmlBlock,
+  })
+
+  it.each([
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      undefined,
+      [widgetX({}, '<my-widget >x</my-widget>')],
+    ],
+    [
+      '<my-widget onclick="alert(1)">x</my-widget>',
+      widget,
+      [widgetX({ onclick: 'alert(1)' }, '<my-widget >x</my-widget>')],
+    ],
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      [widgetX({ onclick: '{alert(1)}' }, '<my-widget >x</my-widget>')],
+    ],
+    [
+      '<div>\n<my-widget onclick="alert(1)">x</my-widget>\n</div>',
+      undefined,
+      [
+        {
+          _isClosingTag: false,
+          _rawAttrs: '',
+          _rawBody: '<my-widget >x</my-widget>\n</div>',
+          _verbatim: true,
+          attrs: {},
+          children: [widgetX({}, '<my-widget >x</my-widget>\n')],
+          tag: 'div',
+          text: '\n<my-widget >x</my-widget>\n',
+          type: RuleType.htmlBlock,
+        },
+      ],
+    ],
+    [
+      '<div><img src=x onerror="alert(1)"></div>',
+      undefined,
+      [
+        {
+          _isClosingTag: false,
+          _rawAttrs: '',
+          _rawBody: '<img src=x></div>',
+          _verbatim: true,
+          attrs: {},
+          children: [
+            {
+              _isClosingTag: false,
+              _rawAttrs: ' src=x',
+              _verbatim: false,
+              attrs: { src: 'x' },
+              children: [],
+              tag: 'img',
+              text: '',
+              type: RuleType.htmlBlock,
+            },
+          ],
+          tag: 'div',
+          text: '<img src=x>',
+          type: RuleType.htmlBlock,
+        },
+      ],
+    ],
+    [
+      '<pre>\n<img src=x onerror="alert(1)">\n</pre>',
+      undefined,
+      [
+        {
+          _isClosingTag: false,
+          _rawAttrs: '',
+          _rawBody: '<img src=x>',
+          _rawClose: '</pre>',
+          _verbatim: true,
+          attrs: {},
+          children: [],
+          tag: 'pre',
+          text: '<img src=x>',
+          type: RuleType.htmlBlock,
+        },
+      ],
+    ],
+    [
+      '</div><img src=x onerror="alert(1)">',
+      undefined,
+      [
+        {
+          _isClosingTag: true,
+          _rawBody: '<img src=x>',
+          _rawClose: '</div>',
+          _verbatim: true,
+          attrs: {},
+          children: [],
+          tag: 'div',
+          text: '<img src=x>',
+          type: RuleType.htmlBlock,
+        },
+      ],
+    ],
+  ])('stores the screened inner content of %j with %j as text', (input, options, expected) => {
+    expect(p.parser(input, options)).toEqual(expected)
   })
 })

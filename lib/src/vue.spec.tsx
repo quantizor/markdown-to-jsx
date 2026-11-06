@@ -1,9 +1,9 @@
 /** @jsxImportSource vue */
 
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
-import { createSSRApp, h, type Slots, type VNode } from 'vue'
+import { createSSRApp, defineComponent, h, type Slots, type VNode } from 'vue'
 import { renderToString } from 'vue/server-renderer'
-import { treeProps } from './test-tree.ts'
+import { storedAST, treeProps } from './test-tree.ts'
 import type { MarkdownToJSX } from './types.ts'
 import Markdown, {
   astToJSX,
@@ -2561,11 +2561,12 @@ describe('markup a browser reads differently from the parser', () => {
       '<Constructor>hi</Constructor>',
       [],
     ],
+    // A lowercase tag an override matches passes no handler on
     [
       '<my-widget onclick={alert(1)}>x</my-widget>',
       { overrides: { 'my-widget': { props: {} } } },
       '<my-widget>x</my-widget>',
-      ['onclick=string'],
+      [],
     ],
     // A lowercase tag is HTML, so its value is never evaluated
     [
@@ -2644,5 +2645,159 @@ describe('a capitalized tag an override matches is a component, and every other 
       ['href', '/'],
       ['class', 'x'],
     ])
+  })
+
+  /** Declares no props, so Vue writes every attribute it receives onto its `<a>` */
+  const MyLink = defineComponent(
+    (_, { slots }) =>
+      () =>
+        h('a', null, slots.default?.())
+  )
+  /** Renders its default slot only */
+  const Box = (_: unknown, { slots }: { slots: Slots }) =>
+    h('b', null, slots.default?.())
+  const widget = { 'my-widget': { props: {} } }
+  const link = '<span>x <a href="/">y</a></span>'
+  const page = (tree: unknown) =>
+    renderToString(createSSRApp({ render: () => tree }))
+
+  it.each([
+    ['x <a href="/" onclick="alert(1)">y</a>', { a: MyLink }, link],
+    ['x <a href="/" onclick={alert(1)}>y</a>', { a: MyLink }, link],
+    ['x <a href="/" onclick>y</a>', { a: MyLink }, link],
+    [
+      'x <a href="/" onclick="alert(1)">y</a>',
+      { a: { props: { class: 'x' } } },
+      '<span>x <a href="/" class="x">y</a></span>',
+    ],
+    [
+      'x <a href="/" onclick={alert(1)}>y</a>',
+      { a: { component: 'span' } },
+      '<span>x <span href="/">y</span></span>',
+    ],
+    // Vue reads a bare string override as no new component
+    ['x <a href="/" onclick={alert(1)}>y</a>', { a: 'span' }, link],
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      '<my-widget>x</my-widget>',
+    ],
+    [
+      '<my-widget onclick="alert(1)">x</my-widget>',
+      widget,
+      '<my-widget>x</my-widget>',
+    ],
+    [
+      'a <my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      '<span>a <my-widget>x</my-widget></span>',
+    ],
+    [
+      'a <my-widget onclick="alert(1)">x</my-widget>',
+      widget,
+      '<span>a <my-widget>x</my-widget></span>',
+    ],
+    [
+      '<div>\n<my-widget onclick={alert(1)}>x</my-widget>\n</div>',
+      widget,
+      '<div><my-widget>x</my-widget></div>',
+    ],
+    [
+      '<div>\n<my-widget onclick="alert(1)">x</my-widget>\n</div>',
+      widget,
+      '<div><my-widget>x</my-widget></div>',
+    ],
+    ['x <a href="/" onclick={alert(1)}>y</a>', undefined, link],
+  ])('renders %j with %j as %j, passing no handler on', async (input, overrides, expected) => {
+    const result = compiler(input, { overrides })
+    expect(await page(result)).toBe(expected)
+    expect(handlerProps(result)).toEqual([])
+  })
+
+  it('keeps the handler of a capitalized tag an override matches as a prop', async () => {
+    const result = compiler('<Btn onClick={go}>x</Btn>', {
+      overrides: { Btn: Box },
+    })
+    expect(await page(result)).toBe('<b>x</b>')
+    expect(handlerProps(result)).toEqual(['onClick=string'])
+  })
+
+  it('gives renderRule the handler of a lowercase tag an override matches, as written', async () => {
+    const seen: unknown[] = []
+    const result = compiler(
+      'x <a href="/" onclick={alert(1)}>y</a> <a onclick="go()">z</a>',
+      {
+        overrides: { a: MyLink },
+        renderRule(next, node) {
+          if (node.type === RuleType.htmlBlock && node.tag === 'a') {
+            seen.push(node.attrs?.onclick)
+          }
+          return next()
+        },
+      }
+    )
+    expect(seen).toEqual(['{alert(1)}', 'go()'])
+    expect(await page(result)).toBe('<span>x <a href="/">y</a> <a>z</a></span>')
+    expect(handlerProps(result)).toEqual([])
+  })
+
+  it.each([
+    ['an override component', { a: MyLink }],
+    ['no override', undefined],
+  ])('passes no handler string in a hand-built AST on, with %s', async (_, overrides) => {
+    const result = astToJSX(
+      [
+        {
+          attrs: { href: '/', onclick: 'alert(1)' },
+          tag: 'a',
+          type: RuleType.htmlSelfClosing,
+        },
+      ],
+      { overrides }
+    )
+    expect(await page(result)).toBe('<a href="/"></a>')
+    expect(handlerProps(result)).toEqual([])
+  })
+
+  it('passes a capitalized tag its handler string only when an override matches the tag', () => {
+    const ast: MarkdownToJSX.ASTNode[] = [
+      { attrs: { onClick: 'go' }, tag: 'Btn', type: RuleType.htmlSelfClosing },
+    ]
+    expect(handlerProps(astToJSX(ast))).toEqual([])
+    expect(handlerProps(astToJSX(ast, { overrides: { Btn: Box } }))).toEqual([
+      'onClick=string',
+    ])
+  })
+
+  it('passes the attributes of a hand-built code block on without its handler', async () => {
+    const ast = parser('```js\nx\n```')
+    Object.assign(ast[0], { attrs: { 'data-x': 'y', onclick: 'alert(1)' } })
+    const result = astToJSX(ast)
+    expect(await page(result)).toBe(
+      '<pre><code data-x="y" class="language-js lang-js">x</code></pre>'
+    )
+    expect(handlerProps(result)).toEqual([])
+  })
+
+  it.each([
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      undefined,
+      '<my-widget>x</my-widget>',
+    ],
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      '<my-widget>x</my-widget>',
+    ],
+    [
+      '<div><img src=x onerror="alert(1)"></div>',
+      undefined,
+      '<div><img src="x"></div>',
+    ],
+  ])('renders %j with %j, stored without its private fields, as %j', async (input, overrides, expected) => {
+    const result = astToJSX(storedAST(input, overrides), { overrides })
+    expect(await page(result)).toBe(expected)
+    expect(handlerProps(result)).toEqual([])
   })
 })

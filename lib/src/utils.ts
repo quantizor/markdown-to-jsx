@@ -1346,6 +1346,62 @@ export function get(source: any, path: string, fallback: any): any {
   return result || fallback
 }
 
+/** Prefixes Solid strips to reach the attribute or property named after them. */
+export const SOLID_TARGET_PREFIX_R: RegExp = /^(?:attr|bool|prop):/i
+
+/**
+ * Whether an attribute name is an on* event handler (onclick, onError), including
+ * behind a Solid target prefix.
+ */
+export function isHandlerName(name: string): boolean {
+  // All three prefixes are four letters; the check spares every other name the regex
+  var at =
+    name.charCodeAt(4) === $.CHAR_COLON && SOLID_TARGET_PREFIX_R.test(name)
+      ? 5
+      : 0
+  var c0 = name.charCodeAt(at)
+  var c1 = name.charCodeAt(at + 1)
+  return (
+    (c0 === $.CHAR_o || c0 === $.CHAR_O) && (c1 === $.CHAR_n || c1 === $.CHAR_N)
+  )
+}
+
+/**
+ * An HTML node's attributes without any on* value that is not a function, for
+ * a JSX renderer to build the tag's props from, unless the tag is a component:
+ * it starts with an uppercase letter and an `overrides` key matches it. The
+ * parser keeps a lowercase tag's handler in `attrs` as written text for
+ * `renderRule` and `parser()` users, and a hand-built AST can hold one, but no
+ * output passes it on. A function is the caller's own code (or
+ * `evalUnserializableExpressions` output on a component), not text from the
+ * document, so it stays. Returns `attrs` itself when nothing goes.
+ */
+export function withoutHandlerSource(
+  tag: string,
+  attrs: Record<string, any> | undefined,
+  overrides: unknown
+): Record<string, any> | undefined {
+  var kept: Record<string, any> | undefined
+  for (var key in attrs) {
+    if (isHandlerName(key) && typeof attrs[key] !== 'function') {
+      // Settled once, and only for a tag that holds handler source
+      if (kept === undefined) {
+        var first = tag.charCodeAt(0)
+        if (
+          first >= $.CHAR_A &&
+          first <= $.CHAR_Z &&
+          get(overrides, tag, undefined)
+        ) {
+          return attrs
+        }
+        kept = { ...attrs }
+      }
+      delete kept[key]
+    }
+  }
+  return kept || attrs
+}
+
 /**
  * Encode special characters in URL targets for safe rendering.
  * Preserves existing percent-encoded sequences, encodes backslash/backtick,

@@ -864,7 +864,7 @@ function render(
           // its literal shape, as a pre or code block reads.
           return h(
             htmlNode.tag,
-            { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs) },
+            htmlNodeProps(htmlNode, state.key, ctx.overrides),
             h(
               Text,
               { style: styled.codeText },
@@ -887,10 +887,7 @@ function render(
         const cleanedText = util.normalizeJsxReparseText(
           htmlNode._reparseSource || rawSource
         )
-        const props: Record<string, unknown> = {
-          key: state.key,
-          ...util.htmlAttrsToJSXProps(htmlNode.attrs),
-        }
+        const props = htmlNodeProps(htmlNode, state.key, ctx.overrides)
         const selfTagRegex = new RegExp(
           `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,
           'i'
@@ -982,10 +979,7 @@ function render(
         )
       }
 
-      const blockProps: Record<string, unknown> = {
-        key: state.key,
-        ...util.htmlAttrsToJSXProps(htmlNode.attrs),
-      }
+      const blockProps = htmlNodeProps(htmlNode, state.key, ctx.overrides)
       if (util.isVoidElement(htmlNode.tag)) {
         delete blockProps.children
         return h(htmlNode.tag, blockProps)
@@ -1017,10 +1011,7 @@ function render(
             : filteredSc.open + (filteredSc.close || '')
         )
       }
-      const selfClosingProps: Record<string, unknown> = {
-        key: state.key,
-        ...util.htmlAttrsToJSXProps(htmlNode.attrs),
-      }
+      const selfClosingProps = htmlNodeProps(htmlNode, state.key, ctx.overrides)
       return typeof selfClosingProps.children === 'string'
         ? emitHtmlElement(
             htmlNode.tag,
@@ -1472,6 +1463,18 @@ const mapHtmlTagToNativeComponent = (tag: string): React.ElementType => {
   }
   return cached
 }
+
+/** An HTML node's attributes as props under `key`, without handler source (util.withoutHandlerSource) */
+const htmlNodeProps = (
+  htmlNode: MarkdownToJSX.HTMLNode | MarkdownToJSX.HTMLSelfClosingNode,
+  key: MarkdownToJSX.State['key'],
+  overrides: CompileContext['overrides']
+): Record<string, unknown> => ({
+  key,
+  ...util.htmlAttrsToJSXProps(
+    util.withoutHandlerSource(htmlNode.tag, htmlNode.attrs, overrides)
+  ),
+})
 
 /**
  * Emit an HTML element, routing by whether its tag maps to a native View. A

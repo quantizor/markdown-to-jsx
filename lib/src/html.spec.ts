@@ -2,6 +2,8 @@ import { describe, expect, it } from 'bun:test'
 
 import { astToHTML, compiler, RuleType } from './html.ts'
 import { parser } from './parse.ts'
+import { storedAST } from './test-tree.ts'
+import type { MarkdownToJSX } from './types.ts'
 
 describe('html compiler', () => {
   describe('footnotes', () => {
@@ -2347,6 +2349,186 @@ describe('a capitalized tag an override matches is a component, and every other 
       })
     ).toBe('<p>x <a href="/" class="x">y</a></p>')
   })
+
+  const widget = { 'my-widget': { props: {} } }
+  const renamed = '<p>x <b href="/">y</b></p>'
+  const handBuiltLink: MarkdownToJSX.ASTNode[] = [
+    {
+      attrs: { href: '/', onclick: 'alert(1)' },
+      tag: 'a',
+      type: RuleType.htmlSelfClosing,
+    },
+  ]
+  const handBuiltText: MarkdownToJSX.ASTNode[] = [
+    {
+      attrs: { children: 't', onclick: 'alert(1)' },
+      tag: 'span',
+      type: RuleType.htmlSelfClosing,
+    },
+  ]
+  const handBuiltBlock = (tag: string): MarkdownToJSX.ASTNode[] => [
+    {
+      attrs: { onclick: 'alert(1)' },
+      children: [{ text: 'x', type: RuleType.text }],
+      tag,
+      type: RuleType.htmlBlock,
+    },
+  ]
+
+  it.each([
+    [
+      'x <a href="/" onclick="alert(1)">y</a>',
+      { a: { component: 'b' } },
+      renamed,
+    ],
+    [
+      'x <a href="/" onclick={alert(1)}>y</a>',
+      { a: { component: 'b' } },
+      renamed,
+    ],
+    ['x <a href="/" onclick>y</a>', { a: { component: 'b' } }, renamed],
+    [
+      'x <a href="/" onclick="alert(1)">y</a>',
+      { a: { props: { class: 'x' } } },
+      '<p>x <a href="/" class="x">y</a></p>',
+    ],
+    [
+      'x <a href="/" onclick={alert(1)}>y</a>',
+      { a: 'span' },
+      '<p>x <span href="/">y</span></p>',
+    ],
+    [
+      'x <img src="/x.png" onerror="alert(1)"> y',
+      { img: { props: {} } },
+      '<p>x <img src="/x.png"> y</p>',
+    ],
+    [
+      '<my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      '<my-widget >x</my-widget>',
+    ],
+    [
+      '<my-widget onclick="alert(1)">x</my-widget>',
+      widget,
+      '<my-widget >x</my-widget>',
+    ],
+    [
+      'a <my-widget onclick={alert(1)}>x</my-widget>',
+      widget,
+      '<p>a <my-widget>x</my-widget></p>',
+    ],
+    [
+      'a <my-widget onclick="alert(1)">x</my-widget>',
+      widget,
+      '<p>a <my-widget>x</my-widget></p>',
+    ],
+    [
+      '<div>\n<my-widget onclick={alert(1)}>x</my-widget>\n</div>',
+      widget,
+      '<div><my-widget >x</my-widget>\n</div>',
+    ],
+    [
+      '<div>\n<my-widget onclick="alert(1)">x</my-widget>\n</div>',
+      widget,
+      '<div><my-widget >x</my-widget>\n</div>',
+    ],
+    [
+      'x <a href="/" onclick={alert(1)}>y</a>',
+      undefined,
+      '<p>x <a href="/">y</a></p>',
+    ],
+    // A capitalized tag an override matches is a component, whose handler stays
+    [
+      '<Btn onClick={go}>x</Btn>',
+      { Btn: { props: {} } },
+      '<Btn onClick={go}>x</Btn>',
+    ],
+    // With no raw source, the output writes the tag from its attrs
+    [handBuiltLink, undefined, '<a href="/" />'],
+    [handBuiltLink, { a: { component: 'b' } }, '<b href="/" />'],
+    [handBuiltText, undefined, '<span>t</span>'],
+    [handBuiltBlock('div'), undefined, '<div>x</div>'],
+    [handBuiltBlock('my-widget'), widget, '<my-widget>x</my-widget>'],
+    [
+      storedAST('x <a href="/" onclick="alert(1)">y</a>', { a: { props: {} } }),
+      { a: { props: {} } },
+      '<p>x <a href="/">y</a></p>',
+    ],
+    [
+      storedAST('x <a href="/" onclick={alert(1)}>y</a>', {
+        a: { component: 'b' },
+      }),
+      { a: { component: 'b' } },
+      renamed,
+    ],
+    [
+      storedAST('a <my-widget onclick="alert(1)">x</my-widget>', widget),
+      widget,
+      '<p>a <my-widget>x</my-widget></p>',
+    ],
+    [
+      storedAST('<my-widget onclick={alert(1)}>x</my-widget>', widget),
+      widget,
+      '<my-widget>x</my-widget>',
+    ],
+    [
+      storedAST('<my-widget onclick={alert(1)}>x</my-widget>'),
+      undefined,
+      '<my-widget>x</my-widget>',
+    ],
+    [
+      storedAST('<div>\n<my-widget onclick="alert(1)">x</my-widget>\n</div>'),
+      undefined,
+      '<div><my-widget>x</my-widget></div>',
+    ],
+    [
+      storedAST('<div><img src=x onerror="alert(1)"></div>'),
+      undefined,
+      '<div><img src="x"></div>',
+    ],
+    [
+      storedAST('x <a href="/" onclick="alert(1)">y</a>'),
+      undefined,
+      '<p>x <a href="/">y</a></p>',
+    ],
+    [
+      storedAST('<Btn onClick={go}>x</Btn>', { Btn: { props: {} } }),
+      { Btn: { props: {} } },
+      '<Btn onClick="go">x</Btn>',
+    ],
+  ])('writes %j with %j as %j', (input, overrides, expected) => {
+    if (typeof input === 'string') {
+      expect(compiler(input, { overrides })).toBe(expected)
+      return
+    }
+    expect(astToHTML(input, { overrides })).toBe(expected)
+  })
+
+  it('writes the attributes of a hand-built code block without its handler', () => {
+    const ast = parser('```js\nx\n```')
+    Object.assign(ast[0], { attrs: { 'data-x': 'y', onclick: 'alert(1)' } })
+    expect(astToHTML(ast)).toBe(
+      '<pre><code data-x="y" class="language-js">x</code></pre>'
+    )
+  })
+
+  it('gives renderRule the handler of a lowercase tag an override matches, as written', () => {
+    const seen: unknown[] = []
+    const html = compiler(
+      'x <a href="/" onclick={alert(1)}>y</a> <a onclick="go()">z</a>',
+      {
+        overrides: { a: { component: 'b' } },
+        renderRule(next, node) {
+          if (node.type === RuleType.htmlBlock && node.tag === 'a') {
+            seen.push(node.attrs?.onclick)
+          }
+          return next()
+        },
+      }
+    )
+    expect(seen).toEqual(['{alert(1)}', 'go()'])
+    expect(html).toBe('<p>x <b href="/">y</b> <b>z</b></p>')
+  })
 })
 
 describe('a filtered tag after raw markup', () => {
@@ -2719,6 +2901,18 @@ describe('a children attribute on a tag with an override', () => {
       '<my-el children="z" />',
       { 'my-el': { component: 'i' } },
       '<i >z</i>',
+    ],
+    [
+      'a hyphenated empty pair',
+      '<my-el children="z"></my-el>',
+      { 'my-el': { component: 'i' } },
+      '<i >z</i>',
+    ],
+    [
+      'a hyphenated empty pair kept as written',
+      '<my-el children="z"></my-el>',
+      { 'my-el': { props: {} } },
+      '<my-el >z</my-el>',
     ],
     [
       'a lowercase empty pair',
@@ -3414,10 +3608,11 @@ describe('markup a browser reads differently from the parser', () => {
       { overrides: {} },
       '<Constructor>hi</Constructor>',
     ],
+    // A lowercase tag an override matches writes no handler
     [
       '<my-widget onclick={alert(1)}>x</my-widget>',
       { overrides: { 'my-widget': { props: {} } } },
-      '<my-widget onclick={alert(1)}>x</my-widget>',
+      '<my-widget >x</my-widget>',
     ],
     // A lowercase tag is HTML, which the option does not change
     [

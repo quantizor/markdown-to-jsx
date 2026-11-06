@@ -84,7 +84,7 @@ function render(
         ? util.decodeEntityReferences(node.lang)
         : ''
       const codeProps = {
-        ...(node.attrs || {}),
+        ...util.withoutHandlerSource('code', node.attrs, options.overrides),
         class: decodedLang ? `language-${decodedLang} lang-${decodedLang}` : '',
       } as Record<string, unknown>
       return h('pre', {}, h('code', codeProps, node.text))
@@ -137,6 +137,11 @@ function render(
         )
       }
 
+      const attrs = util.withoutHandlerSource(
+        node.tag,
+        node.attrs,
+        options.overrides
+      )
       const rawOuter = htmlNode._rawOuter
       const isRawOuter = rawOuter !== undefined
       const rawSource = isRawOuter
@@ -159,13 +164,13 @@ function render(
             : type1Body
           if (/<[a-z][^>]{0,100}>/i.test(rawSource)) {
             return h(node.tag, {
-              ...node.attrs,
+              ...attrs,
               innerHTML: textContent,
             })
           }
           return h(
             node.tag,
-            { ...node.attrs },
+            { ...attrs },
             util.verbatimText(node.tag, textContent)
           )
         }
@@ -176,7 +181,7 @@ function render(
             ? util.applyTagFilterToText(rawSource)
             : rawSource
           return h(node.tag, {
-            ...node.attrs,
+            ...attrs,
             innerHTML: innerHtml,
           })
         }
@@ -199,7 +204,7 @@ function render(
           'i'
         )
         if (selfTagRegex.test(cleanedText)) {
-          return h(node.tag, { ...node.attrs })
+          return h(node.tag, { ...attrs })
         }
 
         const astNodes = parse.parseMarkdown(
@@ -224,7 +229,7 @@ function render(
           return [
             h(
               node.tag,
-              { ...node.attrs },
+              { ...attrs },
               ...toArray(
                 output(
                   split.beforeClose.flatMap(util.processVerbatimNode),
@@ -242,14 +247,14 @@ function render(
           astNodes.flatMap(util.processVerbatimNode),
           state
         )
-        return h(node.tag, { ...node.attrs }, ...toArray(processedChildren))
+        return h(node.tag, { ...attrs }, ...toArray(processedChildren))
       }
       if (util.isVoidElement(node.tag)) {
-        return h(node.tag, { ...node.attrs })
+        return h(node.tag, { ...attrs })
       }
       return h(
         node.tag,
-        { ...node.attrs },
+        { ...attrs },
         ...(node.children ? toArray(output(node.children, state)) : [])
       )
     }
@@ -272,7 +277,13 @@ function render(
         )
       }
 
-      return h(htmlNode.tag, { ...htmlNode.attrs })
+      return h(htmlNode.tag, {
+        ...util.withoutHandlerSource(
+          htmlNode.tag,
+          htmlNode.attrs,
+          options.overrides
+        ),
+      })
     }
 
     case RuleType.image: {
@@ -572,7 +583,6 @@ export function astToJSX(
 
     // Compile any HTML content in props
     const jsxProps = (props || {}) as Record<string, unknown>
-    parse.dropUnresolvedHandlers(tag, jsxProps, opts.overrides)
     const finalTag = getTag(tag, opts.overrides)
     // A children string is the element's text when it has no content of its
     // own, which also keeps it from being compiled as markup below. A void tag

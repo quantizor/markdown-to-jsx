@@ -149,7 +149,9 @@ function render(
         ? util.decodeEntityReferences(node.lang)
         : ''
       var codeProps: Record<string, any> = node.attrs
-        ? util.htmlAttrsToJSXProps(node.attrs)
+        ? util.htmlAttrsToJSXProps(
+            util.withoutHandlerSource('code', node.attrs, options.overrides)
+          )
         : {}
       codeProps.className = decodedLang
         ? `language-${decodedLang} lang-${decodedLang}`
@@ -721,9 +723,12 @@ export function astToJSX(
     return customCreateElement(resolvedTag, finalProps, ...children)
   }
 
-  // Variant that runs the embedded-JSX compile loop on props before
-  // delegating to h. Used only by HTML block / self-closing render cases.
-  function hJsx(tag: any, props: any, ...children: any[]): any {
+  // Variant that drops handler source and runs the embedded-JSX compile loop
+  // on props before delegating to h. Used only by HTML block / self-closing
+  // render cases.
+  function hJsx(tag: any, attrProps: any, ...children: any[]): any {
+    var props =
+      attrProps && util.withoutHandlerSource(tag, attrProps, opts.overrides)
     if (props) {
       // A children string is the element's text when it has no content of its
       // own; as a prop it would be parsed as markup, and an empty child array

@@ -208,7 +208,12 @@ function _selfClosingWithChildren(
         : '')
   } else {
     attrsStr = formatAttributes(
-      _mergeAttrs(_withoutChildren(attrs), overrideProps)
+      _mergeAttrs(
+        _withoutChildren(
+          util.withoutHandlerSource(defaultTag, attrs, ctx.overrides)
+        ),
+        overrideProps
+      )
     )
   }
   if (text === undefined) {
@@ -429,7 +434,8 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
     }
 
     case RuleType.codeBlock: {
-      var codeAttrs: Record<string, any> = node.attrs || {}
+      var codeAttrs: Record<string, any> =
+        util.withoutHandlerSource('code', node.attrs, ctx.overrides) || {}
       if (node.lang) {
         codeAttrs = { ...codeAttrs }
         var decodedLang = util.decodeEntityReferences(node.lang)
@@ -505,7 +511,16 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
       var attrsStr: string
       if (htmlNode._rawAttrs === undefined) {
         attrsStr = formatAttributes(
-          _mergeAttrs(_withoutChildren(htmlNode.attrs), overrideProps)
+          _mergeAttrs(
+            _withoutChildren(
+              util.withoutHandlerSource(
+                defaultTag,
+                htmlNode.attrs,
+                ctx.overrides
+              )
+            ),
+            overrideProps
+          )
         )
       } else {
         // Filtered in values too, since what comes earlier in the output can end
@@ -693,7 +708,10 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
       var scOverrideProps = ctx.hasOverrides
         ? util.getOverrideProps(scDefaultTag, ctx.overrides)
         : _emptyObj
-      var scMergedAttrs = _mergeAttrs(scNode.attrs, scOverrideProps)
+      var scMergedAttrs = _mergeAttrs(
+        util.withoutHandlerSource(scDefaultTag, scNode.attrs, ctx.overrides),
+        scOverrideProps
+      )
       var scAttrsStr = formatAttributes(scMergedAttrs)
       return `<${scTag}${scAttrsStr} />`
     }
