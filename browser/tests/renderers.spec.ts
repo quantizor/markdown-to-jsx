@@ -86,7 +86,10 @@ for (const renderer of RENDERERS) {
     var root = page.locator(`#${renderer}-root`)
 
     // Every case mounted its card before any assertion runs.
-    await expect(root.locator('[data-out]')).toHaveCount(BROWSER_CASES.length)
+    await expect(
+      root.locator('[data-out]'),
+      'cards mounted vs fixtures/cases.ts; a short count in production means the harness bundle predates the corpus: run `bun test:browser` to rebuild it'
+    ).toHaveCount(BROWSER_CASES.length)
 
     for (const c of BROWSER_CASES) {
       await test.step(c.id, async () => {
