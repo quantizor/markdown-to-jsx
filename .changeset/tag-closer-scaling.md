@@ -2,4 +2,6 @@
 "markdown-to-jsx": patch
 ---
 
-Parsing stays fast on text with many unclosed HTML tags, such as `<x1> <x2> <x3> …` or `[<b>] [<b>] …`. A crafted 64 kB document could previously take over a second to parse, and the time grew with the square of the input size. If you render untrusted markdown, please upgrade.
+Parsing stays fast on text with many unclosed HTML tags, such as `<x1> <x2> <x3> …` or `[<b>] [<b>] …`, where a crafted document could take over a second. If you render markdown written by someone else, please upgrade.
+
+On such text, past a limit far above what real documents reach, a `]` inside a tag's attribute can end link text.
