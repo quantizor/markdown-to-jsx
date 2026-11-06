@@ -70,3 +70,15 @@ export function storedAST(
     JSON.stringify(parser(input, { overrides }), withoutPrivateField)
   )
 }
+
+/**
+ * `text` as an HTML serializer writes a text node (`&`, `<`, `>` escaped), so
+ * a serializer snapshot tells a text child from an element or raw markup.
+ */
+export function escapeText(text: string): string {
+  // `&` goes first so the entities written for `<` and `>` stay whole
+  return text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+}

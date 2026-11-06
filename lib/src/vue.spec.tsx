@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import { createSSRApp, defineComponent, h, type Slots, type VNode } from 'vue'
 import { renderToString } from 'vue/server-renderer'
-import { storedAST, treeProps } from './test-tree.ts'
+import { escapeText, storedAST, treeProps } from './test-tree.ts'
 import type { MarkdownToJSX } from './types.ts'
 import Markdown, {
   astToJSX,
@@ -81,13 +81,15 @@ function extractTextContent(
 }
 
 // Serialize a Vue VNode tree to an HTML-like string so nesting and sibling
-// order (not just text presence) are asserted.
+// order (not just text presence) are asserted. A text child is escaped like an
+// HTML text node; innerHTML is a markup sink, so it prints raw inside an
+// `innerHTML` marker on the tag (`<div innerHTML>raw</div>`).
 function serialize(el: unknown): string {
   if (el === null || typeof el === 'boolean') {
     return ''
   }
   if (typeof el === 'string' || typeof el === 'number') {
-    return String(el)
+    return escapeText(String(el))
   }
   if (Array.isArray(el)) {
     return el.map(serialize).join('')
@@ -104,9 +106,16 @@ function serialize(el: unknown): string {
     kids = (kids as { default: () => unknown }).default()
   }
   if (props.innerHTML !== undefined) {
-    kids = props.innerHTML
+    const raw = String(props.innerHTML)
+
+    if (typeof vnode.type !== 'string') {
+      return `<innerHTML>${raw}</innerHTML>`
+    }
+
+    return `<${vnode.type} innerHTML>${raw}</${vnode.type}>`
   }
-  const inner = typeof kids === 'string' ? kids : serialize(kids)
+
+  const inner = serialize(kids)
   return typeof vnode.type === 'string'
     ? `<${vnode.type}>${inner}</${vnode.type}>`
     : inner
@@ -1531,26 +1540,26 @@ describe('tagfilter escapes dangerous tags by default', () => {
   // Both compiler() and astToJSX must escape.
   it('escapes script with default options via compiler()', () => {
     expect(serialize(compiler('<script>alert(1)</script>'))).toBe(
-      '<span><script>alert(1)</script></span>'
+      '<span>&lt;script&gt;alert(1)&lt;/script&gt;</span>'
     )
   })
 
   it('escapes iframe with default options via compiler()', () => {
     expect(serialize(compiler('<iframe src="evil.com"></iframe>'))).toBe(
-      '<span><iframe src="evil.com"></iframe></span>'
+      '<span>&lt;iframe src="evil.com"&gt;&lt;/iframe&gt;</span>'
     )
   })
 
   it('escapes dangerous tags by default via astToJSX()', () => {
     expect(serialize(astToJSX(parser('<script>alert(1)</script>')))).toBe(
-      '<span><script>alert(1)</script></span>'
+      '<span>&lt;script&gt;alert(1)&lt;/script&gt;</span>'
     )
   })
 
   it('keeps allowed nested tags live inside a filtered parent', () => {
     expect(
       serialize(compiler('<iframe>hi <em>x</em></iframe>', { tagfilter: true }))
-    ).toBe('<span><iframe>hi <em>x</em></iframe></span>')
+    ).toBe('<span>&lt;iframe&gt;hi <em>x</em>&lt;/iframe&gt;</span>')
   })
 
   it('passes dangerous tags through only when tagfilter is explicitly disabled', () => {
@@ -1636,7 +1645,7 @@ describe('optimizeForStreaming preserves literal less-than', () => {
     // Single-line input auto-inlines, so serialize sees a bare text node.
     expect(
       serialize(compiler('5 < 3 is false', { optimizeForStreaming: true }))
-    ).toBe('5 < 3 is false')
+    ).toBe('5 &lt; 3 is false')
     expect(
       serialize(compiler('Hello <Citation', { optimizeForStreaming: true }))
     ).toBe('Hello ')
@@ -1644,7 +1653,7 @@ describe('optimizeForStreaming preserves literal less-than', () => {
       serialize(
         compiler('x < y\n\nsecond para', { optimizeForStreaming: true })
       )
-    ).toBe('<div><p>x < y</p><p>second para</p></div>')
+    ).toBe('<div><p>x &lt; y</p><p>second para</p></div>')
   })
 })
 
@@ -1712,6 +1721,10 @@ describe('attribute names a renderer acts on rather than writes', () => {
 
     expect(serialize(result)).toBe('<Foo>y</Foo>')
     expect(propNames(result)).toEqual([])
+    // The walker behind propNames skips `children`, and Vue keeps a markdown
+    // `children` attribute in vnode.props, so check the key directly
+    expect(isSingleVNode(result)).toBe(true)
+    expect(getProp(result, 'children')).toBeUndefined()
   })
 
   it.each([
@@ -1734,9 +1747,9 @@ describe('attribute names a renderer acts on rather than writes', () => {
       '<div></div>',
     ],
     // A VNode in innerHTML would reach the page as [object Object]
-    ['<pre><b>x</b></pre>', '<pre><b>x</b></pre>'],
+    ['<pre><b>x</b></pre>', '<pre innerHTML><b>x</b></pre>'],
     // The raw body keeps its stray closer, which a browser ignores
-    ['<div><pre>a</pre></div>', '<div><pre>a</pre></div>\n</div>'],
+    ['<div><pre>a</pre></div>', '<div innerHTML><pre>a</pre></div>\n</div>'],
   ])('renders %j with no prop, as %j', (input, expected) => {
     const result = compiler(input)
     expect(serialize(result)).toBe(expected)
@@ -1771,16 +1784,16 @@ describe('attribute names a renderer acts on rather than writes', () => {
     ],
     ['<Btn action={javascript:alert(1)}>x</Btn>', '<Btn>x</Btn>', []],
     ['<Btn href={link}>x</Btn>', '<Btn>x</Btn>', ['href']],
-    // A filtered tag is a text node, which the serializer writes as is
+    // A filtered tag is a text node, which the serializer writes escaped
     [
       '<!-- c --> <script>alert(1)</script>',
-      '<span> <span><script>alert(1)</script></span></span>',
+      '<span> <span>&lt;script&gt;alert(1)&lt;/script&gt;</span></span>',
       [],
     ],
     // A filtered tag in a list item is text too
     [
       '- a <!-- c --> <script>alert(1)</script>',
-      '<ul><li>a  <span><script>alert(1)</script></span></li></ul>',
+      '<ul><li>a  <span>&lt;script&gt;alert(1)&lt;/script&gt;</span></li></ul>',
       [],
     ],
     ['<!-- <script> -->', '', []],
@@ -1957,7 +1970,7 @@ describe('a children attribute on a tag with an override', () => {
       'a value read as text, with its entity and markup as written',
       '<Card children="a &amp; <b>" />',
       card,
-      '<i>a &amp; <b></i>',
+      '<i>a &amp;amp; &lt;b&gt;</i>',
     ],
     ['a brace value', '<Card children={x} />', card, '<i>x</i>'],
     ['a quoted brace value', '<Card children={"q"} />', card, '<i>"q"</i>'],
@@ -2044,7 +2057,7 @@ describe('a children attribute on a tag with an override', () => {
       serialize(
         compiler('<pre>\n<Card children="z" />\n</pre>', { overrides: card })
       )
-    ).toBe('<pre><Card  /></pre>')
+    ).toBe('<pre innerHTML><Card  /></pre>')
   })
 })
 
@@ -2054,7 +2067,7 @@ describe('code naming a filtered tag', () => {
     [{ disableParsingRawHTML: true }],
   ])('stays code with %j, as only the markdown output writes it differently', options => {
     expect(serialize(compiler('`<script>`', options))).toBe(
-      '<code><script></code>'
+      '<code>&lt;script&gt;</code>'
     )
   })
 })
@@ -2092,22 +2105,22 @@ describe('markup a browser reads differently from the parser', () => {
 
   it.each([
     ['<!--><svg onload=alert(1)>', '<svg></svg>'],
-    ['<?"><b onclick=alert(1)>b</b>', '<span><?"><b>b</b></span>'],
+    ['<?"><b onclick=alert(1)>b</b>', '<span>&lt;?"&gt;<b>b</b></span>'],
     [
       '<div>\n<!-- x\n\n<a title="--><img src=x onerror=alert(1)>">',
       '<div><div></div><a></a></div>',
     ],
     [
       '<!---><noscript><a title="</noscript><img src=x onerror=alert(1)>">',
-      '<span><noscript><a title="</noscript><img></img>"></span>',
+      '<span><noscript>&lt;a title="</noscript><img></img>"&gt;</span>',
     ],
     [
       '<!-- x\n\n<a title="--><b y=\'">\n\n\' onclick=alert(1)>',
-      "<p>' onclick=alert(1)></p>",
+      "<p>' onclick=alert(1)&gt;</p>",
     ],
     ['<a x="<b" y=z>', '<a></a>'],
-    ["<div onclick='alert(1)'--!>", "<div onclick='alert(1)'--!>"],
-    ['<div onclick={alert(1)}<xmp>', '<div onclick={alert(1)}<xmp>'],
+    ["<div onclick='alert(1)'--!>", "&lt;div onclick='alert(1)'--!&gt;"],
+    ['<div onclick={alert(1)}<xmp>', '&lt;div onclick={alert(1)}&lt;xmp&gt;'],
     ['<div x={a><img src=x onerror=alert(1)>}>\nhi\n</div>', '<div>hi</div>'],
     [
       'p <span x={a><img src=x onerror=alert(1)>}>hi</span>',
@@ -2115,16 +2128,19 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<pre><Img onclick={alert(1)}',
-      '<pre><pre>&lt;Img onclick={alert(1)}</pre>',
+      '<pre innerHTML><pre>&lt;Img onclick={alert(1)}</pre>',
     ],
-    ['<div>\n<b onclick=alert(1)', '<div><b onclick=alert(1)</div>'],
+    ['<div>\n<b onclick=alert(1)', '<div>&lt;b onclick=alert(1)</div>'],
     ['```x onmouseover="alert(1)"\ny\n```', '<pre><code>y</code></pre>'],
     [
       '<iframe><img src=x onerror=alert(1)',
-      '<span><span><iframe></span><img src=x onerror=alert(1)</span>',
+      '<span><span>&lt;iframe&gt;</span>&lt;img src=x onerror=alert(1)</span>',
     ],
-    ['\\<svg onload=alert(1)>', '<svg onload=alert(1)>'],
-    ['&lt;img src=x onerror=alert(1)&gt;', '<img src=x onerror=alert(1)>'],
+    ['\\<svg onload=alert(1)>', '&lt;svg onload=alert(1)&gt;'],
+    [
+      '&lt;img src=x onerror=alert(1)&gt;',
+      '&lt;img src=x onerror=alert(1)&gt;',
+    ],
     [
       'a[^1]\n\n[^1]: javascript:alert(1)',
       '<div><p>a<a><sup>1</sup></a></p><footer><div>1: javascript:alert(1)</div></footer></div>',
@@ -2152,11 +2168,11 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       'x <span><JavaScript:alert&#40;1&#41;\u{2003}x></span>',
-      '<span>x <span><a>JavaScript:alert&#40;1&#41;\u{2003}x</a></span></span>',
+      '<span>x <span><a>JavaScript:alert&amp;#40;1&amp;#41;\u{2003}x</a></span></span>',
     ],
     [
       'x <span><a:b\xa0<javascript:alert(1)\u{2028}x></span>',
-      '<span>x <span><a:b\xa0<a>javascript:alert(1)\u{2028}x</a></span></span>',
+      '<span>x <span>&lt;a:b\xa0<a>javascript:alert(1)\u{2028}x</a></span></span>',
     ],
     [
       'x <span>[y <https:a\xa0](javascript:alert(1))></span>',
@@ -2164,32 +2180,32 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       'x <span><javascript:a](<javascript:alert(1)>)></span>',
-      '<span>x <span><javascript:a](<a>javascript:alert(1)</a>)></span></span>',
+      '<span>x <span>&lt;javascript:a](<a>javascript:alert(1)</a>)&gt;</span></span>',
     ],
     ['[l](&amp;amp;#106;avascript:alert(1))', '<a>l</a>'],
     ['[l](&#106avascript:alert(1))', '<a>l</a>'],
     ['a\nb\n=', '<h1>a\nb</h1>'],
     [
       '- [^1]: a )\n[^1]:&#106avascript:alert(1)',
-      '<div><ul><li><a><sup>1</sup></a>:&#106avascript:alert(1)</li></ul><footer><div>1: a )</div></footer></div>',
+      '<div><ul><li><a><sup>1</sup></a>:&amp;#106avascript:alert(1)</li></ul><footer><div>1: a )</div></footer></div>',
     ],
     ['<q> <b>x</b>', '<span><q></q> <b>x</b></span>'],
-    ['&amp;copy; a &amp; b', '&copy; a & b'],
+    ['&amp;copy; a &amp; b', '&amp;copy; a &amp; b'],
     [
       '\n﻿[^1]:javascript:alert(1)\n[^1]',
       '<p>﻿[^1]:javascript:alert(1)\n[^1]</p>',
     ],
     [
       '<title>a\n\n<!--</title>\n\n```\n<b>\n```',
-      '<div><span><title><p>a</p></title></span><pre><code><b></code></pre></div>',
+      '<div><span>&lt;title&gt;<p>a</p>&lt;/title&gt;</span><pre><code>&lt;b&gt;</code></pre></div>',
     ],
     [
       '1. # [^1]\n[^1]:&#106avascript:alert(1)',
-      '<ol><li><h1>[^1]</h1>[^1]:&#106avascript:alert(1)</li></ol>',
+      '<ol><li><h1>[^1]</h1>[^1]:&amp;#106avascript:alert(1)</li></ol>',
     ],
     [
       '1. <!-- c --> x\n[^1]:&#106avascript:alert(1)\n\n[^1]',
-      '<div><ol><li></li></ol><p><a><sup>1</sup></a></p><footer><div>1: &#106avascript:alert(1)</div></footer></div>',
+      '<div><ol><li></li></ol><p><a><sup>1</sup></a></p><footer><div>1: &amp;#106avascript:alert(1)</div></footer></div>',
     ],
     ['- <pre>x\ny</pre>', '<ul><li><pre>x\ny</pre></li></ul>'],
     ['- <!-- x\ny -->', '<ul><li></li></ul>'],
@@ -2213,7 +2229,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     ['[r]: a\\\nb\n\n[r]', '<div><p>b</p><p><a>r</a></p></div>'],
     ['[r]: a\\ "t"\n\n[r]', '<p><a>r</a></p>'],
-    ['[r]: <a\\\nb>', '<p>[r]: <a<br></br>b></p>'],
+    ['[r]: <a\\\nb>', '<p>[r]: &lt;a<br></br>b&gt;</p>'],
     ['[x](a\\\\)', '<a>x</a>'],
     [
       '- a | b\n  --- | ---\nc | d',
@@ -2225,17 +2241,18 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     // A paragraph's lazy line stays out of block parsing, so no heading
     ['- <b>x</b>\ny\n===', '<ul><li><b>x</b>\ny\n===</li></ul>'],
+    // The innerHTML is the screened raw block, which the React output drops
     [
       '<div <b c="d"/>\n<![CDATA[</pre>\n\n```\n<b>\n```',
-      '<div><div><div <b c="d"/>\n<![CDATA[</pre>\n</div><pre><code><b></code></pre></div>',
+      '<div><div innerHTML><div <b c="d"/>\n<![CDATA[</pre>\n</div><pre><code>&lt;b&gt;</code></pre></div>',
     ],
     [
       '<p><!--\n\n<a e="--><b e=">">\n<div>"onclick=alert(1)>',
-      '<div><p></p><p><a></a>"></p><div>"onclick=alert(1)></div></div>',
+      '<div><p></p><p><a></a>"&gt;</p><div>"onclick=alert(1)&gt;</div></div>',
     ],
     [
       '<textarea>```\n```\n</script>\n    [x](&#106avascript:alert(1))',
-      '<div><span><textarea>```\n```\n</script></span><pre><code>[x](&#106avascript:alert(1))</code></pre></div>',
+      '<div><span>&lt;textarea&gt;```\n```\n&lt;/script&gt;</span><pre><code>[x](&amp;#106avascript:alert(1))</code></pre></div>',
     ],
     [
       '<details>\n<summary>x</summary>\n\n```js\ncode\n```\n\n</details>',
@@ -2243,11 +2260,11 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<div>\n\n```\n``` \n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
-      '<div><div><pre><code>``` \n</code></pre></div><pre><code><img src=x onerror=alert(1)>\n</code></pre></div>',
+      '<div><div><pre><code>``` \n</code></pre></div><pre><code>&lt;img src=x onerror=alert(1)&gt;\n</code></pre></div>',
     ],
     [
       '<![CDATA[a]]]>\n\n```\n<img src=x onerror=alert(1)>\n```',
-      '<pre><code><img src=x onerror=alert(1)></code></pre>',
+      '<pre><code>&lt;img src=x onerror=alert(1)&gt;</code></pre>',
     ],
     [
       '- <?p ?> <?q ?>[x](\njavascript:alert(1))',
@@ -2255,11 +2272,11 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<div>\n\n```\n```\t\n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
-      '<div><div><pre><code></code></pre></div><pre><code><img src=x onerror=alert(1)>\n</code></pre></div>',
+      '<div><div><pre><code></code></pre></div><pre><code>&lt;img src=x onerror=alert(1)&gt;\n</code></pre></div>',
     ],
     [
       '<div>\n\n```\n```~\n```\n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
-      '<div><div><pre><code>```~</code></pre></div><pre><code><img src=x onerror=alert(1)>\n</code></pre></div>',
+      '<div><div><pre><code>```~</code></pre></div><pre><code>&lt;img src=x onerror=alert(1)&gt;\n</code></pre></div>',
     ],
     [
       '<details>\n\n```\n```js\n```\n\n</details>',
@@ -2267,7 +2284,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<script></textarea></script >\n\n```\n<img src=x onerror=alert(1)>\n```',
-      '<div><span><script></textarea></script ></span><pre><code><img src=x onerror=alert(1)></code></pre></div>',
+      '<div><span>&lt;script&gt;&lt;/textarea&gt;&lt;/script &gt;</span><pre><code>&lt;img src=x onerror=alert(1)&gt;</code></pre></div>',
     ],
     ['[^a](javascript:alert(1))', '<a>^a</a>'],
     [
@@ -2276,7 +2293,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       'y [^a<img src=x onerror=alert(1)>]\n\n[^a<img src=x onerror=alert(1)>]: a',
-      '<div><p>y <a><sup>a<img src=x onerror=alert(1)></sup></a></p><footer><div>a<img src=x onerror=alert(1)>: a</div></footer></div>',
+      '<div><p>y <a><sup>a&lt;img src=x onerror=alert(1)&gt;</sup></a></p><footer><div>a&lt;img src=x onerror=alert(1)&gt;: a</div></footer></div>',
     ],
     [
       '[^1]: a [\n[r]: a "](javascript:alert(1))"',
@@ -2289,21 +2306,21 @@ describe('markup a browser reads differently from the parser', () => {
     ['[\\[a\\](javascript:alert(1))](/u)', '<a>[a](javascript:alert(1))</a>'],
     [
       '\\\n[^1]:&#106avascript:alert(1)\n[^1]',
-      '<p><br></br>[^1]:&#106avascript:alert(1)\n[^1]</p>',
+      '<p><br></br>[^1]:&amp;#106avascript:alert(1)\n[^1]</p>',
     ],
     [
       'x&#60;~~~~javascript:alert(1)>',
-      '<span>x<<del></del>javascript:alert(1)></span>',
+      '<span>x&lt;<del></del>javascript:alert(1)&gt;</span>',
     ],
-    ["<C><?><a e='?>'> onclick/", "<span><C></C>'> onclick/</span>"],
+    ["<C><?><a e='?>'> onclick/", "<span><C></C>'&gt; onclick/</span>"],
     ['<![CDATA[<?><a e="?>"\n<!--"onclick>]', ''],
     [
       '<?e><a e="?>">\n<style>"onclick=alert(1)>',
-      '<span><style>"onclick=alert(1)></span>',
+      '<span>&lt;style&gt;"onclick=alert(1)&gt;</span>',
     ],
     [
       '[x][^1]\n\n[^1]: &amp;#106;avascript:alert(1)',
-      '<div><p>[x]<a><sup>1</sup></a></p><footer><div>1: &#106;avascript:alert(1)</div></footer></div>',
+      '<div><p>[x]<a><sup>1</sup></a></p><footer><div>1: &amp;#106;avascript:alert(1)</div></footer></div>',
     ],
     ['[x][^1]', '[x][^1]'],
     [
@@ -2316,7 +2333,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<?p ?><!DOCTYPE html>```\n```\n<svg onload=alert(1)>',
-      '<pre><code><svg onload=alert(1)>\n</code></pre>',
+      '<pre><code>&lt;svg onload=alert(1)&gt;\n</code></pre>',
     ],
     ['[l](/u "--><img src=x onerror=alert(1)>")', '<a>l</a>'],
     ['![a"--><img src=x onerror=alert(1)>](/x)', '<img></img>'],
@@ -2342,26 +2359,26 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<foreignObject>~~~~```x onmouseover="alert(1)"\n<svg onload=alert(1)>```\n',
-      '<p><foreignObject></foreignObject><del></del><code>x onmouseover="alert(1)" <svg onload=alert(1)></code></p>',
+      '<p><foreignObject></foreignObject><del></del><code>x onmouseover="alert(1)" &lt;svg onload=alert(1)&gt;</code></p>',
     ],
     [
       '[^1]: <iframe srcdoc="x"></iframe>[r][^1]',
-      '<span>[^1]: <span><iframe></iframe></span>[r][^1]</span>',
+      '<span>[^1]: <span>&lt;iframe&gt;&lt;/iframe&gt;</span>[r][^1]</span>',
     ],
     [
       '<annotation-xml>[^1]: ](javascript:alert(1)',
       '<span><annotation-xml></annotation-xml>[^1]: ](javascript:alert(1)</span>',
     ],
-    ['<pre>a', '<pre><pre>a</pre>'],
-    ['<div><pre>a', '<div><pre>a\n</div>'],
-    ["<div </div>'", "<div </div>'"],
+    ['<pre>a', '<pre innerHTML><pre>a</pre>'],
+    ['<div><pre>a', '<div innerHTML><pre>a\n</div>'],
+    ["<div </div>'", "&lt;div &lt;/div&gt;'"],
     ['<?php echo 1 ?>', ''],
     ['<!DOCTYPE html>', ''],
     ['<![CDATA[x]]>', ''],
     // The string outputs' quote re-pairing has no reading here: these are elements and text
     [
       '<![CDATA[<a title="</style><a title="</textarea><a href="javascript:alert(1)">l</a> x" onclick=alert(1)>',
-      '<span><![CDATA[<a title="<span></style></span><a title="<span></textarea></span><a>l</a> x" onclick=alert(1)></span>',
+      '<span>&lt;![CDATA[&lt;a title="<span>&lt;/style&gt;</span>&lt;a title="<span>&lt;/textarea&gt;</span><a>l</a> x" onclick=alert(1)&gt;</span>',
     ],
     ['a <?b?> c', '<span>a  c</span>'],
     ['a <!B c> d', '<span>a  d</span>'],
@@ -2378,15 +2395,15 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<a title="?><!--[^1]: ![a](javascript:alert(1))\n</div\n-->',
-      '<p><a title="?></p>',
+      '<p>&lt;a title="?&gt;</p>',
     ],
     [
       '1. </div x={a ><img src=x onerror=alert(1)>}>    innerHTML="x<img src=x onerror=alert(1)>"',
-      '<span>1. </div x={a ><img></img>}>    innerHTML="x<img></img>"</span>',
+      '<span>1. &lt;/div x={a &gt;<img></img>}&gt;    innerHTML="x<img></img>"</span>',
     ],
     [
       '- </div x={a ><img src=x onerror=alert(1)>}>    <b onclick=alert(1)>b</b>',
-      '<ul><li><div></div><pre><code><b onclick=alert(1)>b</b></code></pre></li></ul>',
+      '<ul><li><div></div><pre><code>&lt;b onclick=alert(1)&gt;b&lt;/b&gt;</code></pre></li></ul>',
     ],
     [
       '<div x={a><a title="</textarea>[^1]: ![a](javascript:alert(1))\nprop:innerHTML="x<img src=x onerror=alert(1)>"](onclick={alert(1)}',
@@ -2400,44 +2417,44 @@ describe('markup a browser reads differently from the parser', () => {
     // Shapes only the markdown output screens
     [
       `> <div a=1${String.fromCharCode(0x20_28)}>  onclick=alert(1) b>y</div>`,
-      '<blockquote><div>onclick=alert(1) b>y</div></blockquote>',
+      '<blockquote><div>onclick=alert(1) b&gt;y</div></blockquote>',
     ],
-    ['<pre>a &lt; b &amp; c</pre>', '<pre>a < b & c</pre>'],
+    ['<pre>a &lt; b &amp; c</pre>', '<pre>a &lt; b &amp; c</pre>'],
     [
       `> <div </div${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
       '<blockquote><div></div></blockquote>',
     ],
     [
       '/\n    <pre>\n```\n<img src=x onerror=alert(1)>\n```',
-      '<div><p>/\n<pre></pre></p><pre><code><img src=x onerror=alert(1)></code></pre></div>',
+      '<div><p>/\n<pre></pre></p><pre><code>&lt;img src=x onerror=alert(1)&gt;</code></pre></div>',
     ],
     [
       '- <div/>`<img src=x onerror=alert(1)>`',
-      '<ul><li><div></div><code><img src=x onerror=alert(1)></code></li></ul>',
+      '<ul><li><div></div><code>&lt;img src=x onerror=alert(1)&gt;</code></li></ul>',
     ],
     [
       '- z\n  <b/>\n  `<img src=x onerror=alert(1)>`',
-      '<ul><li>z\n<b></b>\n<code><img src=x onerror=alert(1)></code></li></ul>',
+      '<ul><li>z\n<b></b>\n<code>&lt;img src=x onerror=alert(1)&gt;</code></li></ul>',
     ],
     [
       '- <br>\n  `<img src=x onerror=alert(1)>`',
-      '<ul><li><br></br><code><img src=x onerror=alert(1)></code></li></ul>',
+      '<ul><li><br></br><code>&lt;img src=x onerror=alert(1)&gt;</code></li></ul>',
     ],
     [
       '- a\n  - <div/>\n  `<img src=x onerror=alert(1)>`',
-      '<ul><li>a<ul><li><div></div></li></ul><code><img src=x onerror=alert(1)></code></li></ul>',
+      '<ul><li>a<ul><li><div></div></li></ul><code>&lt;img src=x onerror=alert(1)&gt;</code></li></ul>',
     ],
     [
       '- a\n\n- z\n  <b/>\n  `<img src=x onerror=alert(1)>`',
-      '<ul><li><p>a</p></li><li><p>z\n<b></b>\n<code><img src=x onerror=alert(1)></code></p></li></ul>',
+      '<ul><li><p>a</p></li><li><p>z\n<b></b>\n<code>&lt;img src=x onerror=alert(1)&gt;</code></p></li></ul>',
     ],
     [
       '<b>`</b>x`<img src=x onerror=alert(1)>`',
-      '<span><b>`</b>x<code><img src=x onerror=alert(1)></code></span>',
+      '<span><b>`</b>x<code>&lt;img src=x onerror=alert(1)&gt;</code></span>',
     ],
     [
       'z\n    <div>`<img src=x onerror=alert(1)>`',
-      '<p>z\n<div></div><code><img src=x onerror=alert(1)></code></p>',
+      '<p>z\n<div></div><code>&lt;img src=x onerror=alert(1)&gt;</code></p>',
     ],
     ['~~~<a href="javascript:alert(1)">\nq\n~~~', '<pre><code>q</code></pre>'],
     ['`[x](javascript:alert(1))`', '<code>[x](javascript:alert(1))</code>'],
@@ -2451,22 +2468,22 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     ['1. ```\n   foo\n   ```', '<ol><li><pre><code>foo</code></pre></li></ol>'],
     ['a #\n=', '<h1>a #</h1>'],
-    ['`<script> https://a.b/c`', '<code><script> https://a.b/c</code>'],
+    ['`<script> https://a.b/c`', '<code>&lt;script&gt; https://a.b/c</code>'],
     [
       `> <div </div ${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
       '<blockquote><div></div></blockquote>',
     ],
     [
       '<pre/>\n\n```\n<img src=x onerror=alert(1)>\n```',
-      '<div><pre>\n</pre><pre><code><img src=x onerror=alert(1)></code></pre></div>',
+      '<div><pre>\n</pre><pre><code>&lt;img src=x onerror=alert(1)&gt;</code></pre></div>',
     ],
     [
       '<pre/>y\n\n```\n<img src=x onerror=alert(1)>\n```',
-      '<div><pre>y\n</pre><pre><code><img src=x onerror=alert(1)></code></pre></div>',
+      '<div><pre>y\n</pre><pre><code>&lt;img src=x onerror=alert(1)&gt;</code></pre></div>',
     ],
     [
       '<![CDATA[\n<![CDATA[]]]>\n\n```\n<img src=x onerror=alert(1)>\n```',
-      '<pre><code><img src=x onerror=alert(1)></code></pre>',
+      '<pre><code>&lt;img src=x onerror=alert(1)&gt;</code></pre>',
     ],
   ])('renders %j as %j with no handler prop', (input, expected) => {
     const result = compiler(input)
@@ -2477,43 +2494,43 @@ describe('markup a browser reads differently from the parser', () => {
   it.each([
     [
       '<br>\n\n```\n<img src=x onerror=alert(1)>\n```',
-      '<div><pre></pre><pre><code><img src=x onerror=alert(1)></code></pre></div>',
+      '<div><pre></pre><pre><code>&lt;img src=x onerror=alert(1)&gt;</code></pre></div>',
       'br',
       'pre',
     ],
     [
       '<div>\nx\n\n```\n<img src=x onerror=alert(1)>\n```',
-      '<div><pre>x</pre><pre><code><img src=x onerror=alert(1)></code></pre></div>',
+      '<div><pre>x</pre><pre><code>&lt;img src=x onerror=alert(1)&gt;</code></pre></div>',
       'div',
       'pre',
     ],
     [
       '<b/>\n\n```\n<img src=x onerror=alert(1)>\n```',
-      '<div><script></script><pre><code><img src=x onerror=alert(1)></code></pre></div>',
+      '<div><script></script><pre><code>&lt;img src=x onerror=alert(1)&gt;</code></pre></div>',
       'b',
       'script',
     ],
     [
       '<span>y</span>`<img src=x onerror=alert(1)>`',
-      '<span><div>y</div><code><img src=x onerror=alert(1)></code></span>',
+      '<span><div>y</div><code>&lt;img src=x onerror=alert(1)&gt;</code></span>',
       'span',
       'div',
     ],
     [
       '<pre/>`<img src=x onerror=alert(1)>`',
-      '<script>`<img src=x>`\n</script>',
+      '<script innerHTML>`<img src=x>`\n</script>',
       'pre',
       'script',
     ],
     [
       '<div>\n<a title="></textarea>\nplain "text"\n<div>"onclick=alert(1)>',
-      '<pre><a title="> plain "text" <pre></pre>"onclick=alert(1)></pre>',
+      '<pre>&lt;a title="&gt; plain "text" <pre></pre>"onclick=alert(1)&gt;</pre>',
       'div',
       'pre',
     ],
     [
       '<pre>\n<a title=">\n\nplain "text"\n\n<div>"onclick=alert(1)>\n</pre>',
-      '<div><a title=">\n\nplain "text"\n\n<div>"onclick=alert(1)></div>',
+      '<div innerHTML><a title=">\n\nplain "text"\n\n<div>"onclick=alert(1)></div>',
       'pre',
       'div',
     ],
@@ -2527,7 +2544,7 @@ describe('markup a browser reads differently from the parser', () => {
     const long = 'x'.repeat(1100)
     expect(
       serialize(compiler(`<div>\n<a title="<b ${long}">y</a>\n</div>`))
-    ).toBe(`<div><a title="<b ${long}">y</div>`)
+    ).toBe(`<div>&lt;a title="&lt;b ${long}"&gt;y</div>`)
   })
 
   it.each([

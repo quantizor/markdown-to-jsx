@@ -16,7 +16,7 @@ These attributes are now removed, because they can run script:
 Output that changes in every format:
 
 - A `children` attribute becomes the element's text content, the way React reads it, on a tag `overrides` lists. With `card` renamed to `i`, `<Card children="z" />` renders `<i>z</i>` in every output. The element's own content wins, so `<Card children="z">own</Card>` renders `<i>own</i>`. A void element such as `<img>` takes none, an object or array value is removed, and no output writes `children` as an attribute. Vue and the HTML and markdown output used to write it as an attribute, which shows nothing. Inside a block of raw HTML, the HTML and markdown output keep such a tag as written, without the attribute, as they do for any renamed tag there.
-- If you build the parsed tree yourself, or store the result of `parser()` and render it later, the HTML and markdown output no longer write an event handler from it, and no output writes one on a code block.
+- If you build the parsed tree yourself, or store the result of `parser()` and render it later, the HTML and markdown output no longer write an event handler from it, except on a capitalized tag `overrides` lists, as above, and no output writes one on a code block.
 - For a block of raw HTML, the `text` that `parser()` returns is the block's content with unsafe markup removed, for every tag. A custom element such as `<my-widget>` held the whole tag as written, handlers included, so markdown written from a stored tree repeated the tag.
 - A footnote reference with no definition, such as `[^1]`, stays as text, as GitHub shows it, rather than a superscript linking to nothing. If you render part of a document on its own, a reference whose definition is in another part shows as text. With `optimizeForStreaming`, a reference stays one while its definition may still arrive, and one at the very end of the text so far shows as `^1`.
 - With a definition for `[^1]`, `[x][^1]` renders as `[x]` followed by the footnote reference, not as a link.
@@ -28,7 +28,7 @@ Output that changes in every format:
 - `<pre><b>x</b></pre>` renders its markup in Solid and Vue rather than `[object Object]`.
 - `<?php … ?>`, `<!DOCTYPE html>`, and `<![CDATA[…]]>` render nothing in React, React Native, Solid, and Vue, as in a browser. React crashed on them.
 
-The markdown output is held to the same bar, because another renderer reads it. The rendered result stays the same, but the written text can change:
+The markdown output is held to the same bar, because another renderer reads it. Read back through this library, the result stays the same; another renderer can show a difference only where a bullet says so:
 
 - Code that another renderer could read as a tag or link is written as `<code>` or `<pre><code>` HTML with entities rather than backticks or a fence. An unfinished tag counts, so a loop condition like `i<n` is written this way. A browser shows the same characters, and a language name stays as `class="language-html"`. Code that only names a tag such as `<script>` or `<style>` keeps its fence, unless `disableParsingRawHTML` is on.
 - Text that looks like a tag, such as `\<b>` or `&lt;b>`, is written with `&lt;`. Quotes and brackets in image alt text, an empty `~~~~`, and characters such as `<` and `[` in footnote names, reference names, and link titles are escaped or written as entities.
