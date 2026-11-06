@@ -156,6 +156,69 @@ function formatAttributes(attrs: Record<string, any>): string {
   return result
 }
 
+/** The attributes of a node the parser did not read, without `children`, which is written as content and never as an attribute; the same object when it has none. */
+function _withoutChildren(
+  attrs: Record<string, any> | undefined
+): Record<string, any> | undefined {
+  if (attrs === undefined || attrs.children === undefined) {
+    return attrs
+  }
+  var rest: Record<string, any> = {}
+  for (var key in attrs) {
+    if (key !== 'children') {
+      rest[key] = attrs[key]
+    }
+  }
+  return rest
+}
+
+/**
+ * Writes a self-closing tag whose attributes hold `children`: the string
+ * becomes the content of the element written for the tag, escaped as text, and
+ * a void tag takes none. The attribute is never written.
+ */
+function _selfClosingWithChildren(
+  node: MarkdownToJSX.HTMLSelfClosingNode,
+  attrs: Record<string, any>,
+  defaultTag: string,
+  tag: string,
+  ctx: _Ctx
+): string {
+  var text = util.childrenAttrContent(attrs.children, null)
+  var open = node._rawOpen
+  if (open && text === undefined) {
+    return ctx.tagfilter ? util.applyTagFilterToText(open) : open
+  }
+  var overrideProps = ctx.hasOverrides
+    ? util.getOverrideProps(defaultTag, ctx.overrides)
+    : _emptyObj
+  var attrsStr: string
+  if (open) {
+    // The parser wrote the attributes between the tag name and its ending
+    // (` />`, `/>`, or `>`), screened and without `children`
+    var raw = util.rawOpenTagAttrs(open, defaultTag.length)
+    if (ctx.tagfilter) {
+      raw = util.applyTagFilterToText(raw)
+    }
+    attrsStr =
+      (raw.length > 0 && raw.charCodeAt(0) > $.CHAR_SPACE ? ' ' : '') +
+      raw +
+      (hasKeys(overrideProps)
+        ? ` ${formatAttributes(overrideProps).trim()}`
+        : '')
+  } else {
+    attrsStr = formatAttributes(
+      _mergeAttrs(_withoutChildren(attrs), overrideProps)
+    )
+  }
+  if (text === undefined) {
+    return `<${tag}${attrsStr} />`
+  }
+  return util.isVoidElement(tag)
+    ? `<${tag}${attrsStr}>`
+    : `<${tag}${attrsStr}>${escapeHtml(text)}</${tag}>`
+}
+
 /**
  * Override configuration for HTML tags or custom components in HTML output
  */
@@ -441,7 +504,9 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
         : _emptyObj
       var attrsStr: string
       if (htmlNode._rawAttrs === undefined) {
-        attrsStr = formatAttributes(_mergeAttrs(htmlNode.attrs, overrideProps))
+        attrsStr = formatAttributes(
+          _mergeAttrs(_withoutChildren(htmlNode.attrs), overrideProps)
+        )
       } else {
         // Filtered in values too, since what comes earlier in the output can end
         // a value early. `&lt;` decodes back to `<`, so the value holds
@@ -478,7 +543,22 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
       if (htmlNode._verbatim && rawOuter !== undefined) {
         // Parser-verified full outer span (own opening tag through own
         // closing tag, or through end of input when none exists); emit
-        // as-is, no synthesized wrapper needed.
+        // as-is, no synthesized wrapper needed, except that an empty pair
+        // takes a children attribute as its content.
+        if (
+          htmlNode.attrs !== undefined &&
+          htmlNode.attrs.children !== undefined
+        ) {
+          var outerAttrText = util.childrenAttrContent(
+            htmlNode.attrs.children,
+            [htmlNode.children, htmlNode.text]
+          )
+          if (outerAttrText !== undefined) {
+            return util.isVoidElement(tag)
+              ? `<${tag}${attrsStr}>`
+              : `<${tag}${attrsStr}>${escapeHtml(outerAttrText)}</${tag}>`
+          }
+        }
         return ctx.tagfilter ? util.applyTagFilterToText(rawOuter) : rawOuter
       }
       if (htmlNode._verbatim && !htmlNode._isClosingTag) {
@@ -547,6 +627,18 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
       if (htmlNode._isClosingTag) {
         return `</${tag}>${children}`
       }
+      if (
+        htmlNode.attrs !== undefined &&
+        htmlNode.attrs.children !== undefined
+      ) {
+        var attrChildren = util.childrenAttrContent(
+          htmlNode.attrs.children,
+          children
+        )
+        if (attrChildren !== undefined) {
+          children = escapeHtml(attrChildren)
+        }
+      }
       // Structurally-closed elements always emit </tag>, even when empty.
       // _verbatim is raw source pass-through (e.g. unclosed <div>); only then
       // do we suppress the close, and only when children is whitespace-only.
@@ -583,6 +675,15 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
       }
       if (scNode._isClosingTag) {
         return scNode._rawClose || `</${scTag}>`
+      }
+      if (scNode.attrs !== undefined && scNode.attrs.children !== undefined) {
+        return _selfClosingWithChildren(
+          scNode,
+          scNode.attrs,
+          scDefaultTag,
+          scTag,
+          ctx
+        )
       }
       if (scNode._rawOpen) {
         return ctx.tagfilter

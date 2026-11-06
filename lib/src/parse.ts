@@ -295,8 +295,10 @@ const URL_BEARING_ATTRS: { [name: string]: 1 } = {
 /**
  * Names a renderer acts on rather than writes, read in lowercase. Solid and Vue
  * put innerHTML and outerHTML into the page as markup, and a string or object
- * value of the rest throws while React, Solid, or Vue renders. children is a
- * real prop on a component, so isDangerousAttr keeps it there.
+ * value of the rest throws while React, Solid, or Vue renders. children is never
+ * in raw source: on a tag `overrides` registers, a string value stays in `attrs`
+ * (a renderer writes it as the element's content), and an object value, which no
+ * component can render as a child, is gone.
  */
 const RENDERER_ONLY_ATTRS: { [name: string]: 1 } = {
   children: 1,
@@ -439,12 +441,7 @@ function isDangerousAttr(
   }
   var lower = name.toLowerCase()
   if (RENDERER_ONLY_ATTRS[lower] === 1) {
-    // No component can render an object as a child: React throws on the whole tree
-    return !(
-      lower === 'children' &&
-      tagKind === TAG_KIND.registeredComponent &&
-      !BRACE_OBJECT_VALUE_R.test(value)
-    )
+    return true
   }
   var isPropBrace =
     tagKind !== TAG_KIND.html && value.charCodeAt(0) === $.CHAR_BRACE_OPEN
@@ -1142,15 +1139,20 @@ function __parseHtmlTag(
       // make the tag a component, and a JSX renderer writes no block statement.
       // An override claims a lowercase tag too, and a child string is safe in any
       if (
-        (tagKind === TAG_KIND.component &&
-          attrValue.charCodeAt(0) === $.CHAR_BRACE_OPEN &&
-          isHandlerName(attrName)) ||
-        (tagKind === TAG_KIND.html &&
-          attrName.toLowerCase() === 'children' &&
-          !BRACE_OBJECT_VALUE_R.test(attrValue) &&
-          hasOverride(tag))
+        tagKind === TAG_KIND.component &&
+        attrValue.charCodeAt(0) === $.CHAR_BRACE_OPEN &&
+        isHandlerName(attrName)
       ) {
         attrs[attrName] = attrValue
+      } else if (
+        attrName.toLowerCase() === 'children' &&
+        !BRACE_OBJECT_VALUE_R.test(attrValue) &&
+        (tagKind === TAG_KIND.registeredComponent ||
+          (tagKind === TAG_KIND.html && hasOverride(tag)))
+      ) {
+        // One key for any casing, since renderers read a registered tag's
+        // content from it
+        attrs.children = attrValue
       }
       // Style XSS is screened here so string compilers cannot re-emit it via
       // _rawAttrs; keep the same DEV warn processHtmlAttributes used to emit.

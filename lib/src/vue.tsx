@@ -616,10 +616,24 @@ export function astToJSX(
         >)
       : null
     const vueProps = props ? (props as Record<string, unknown>) : null
+    const finalTag = hasOverrides ? getTag(tag, opts.overrides) : tag
 
     // Convert HTML content in props (early exit for non-HTML)
     if (vueProps) {
       parse.dropUnresolvedHandlers(tagKey, vueProps, opts.overrides)
+      // Vue writes a children prop as an attribute, so a children string is
+      // the element's text (a vnode child, a component's default slot) when it
+      // has no content of its own. A void tag takes none.
+      if (typeof vueProps.children === 'string') {
+        const attrText = util.childrenAttrContent(vueProps.children, children)
+        delete vueProps.children
+        if (
+          attrText !== undefined &&
+          !(typeof finalTag === 'string' && util.isVoidElement(finalTag))
+        ) {
+          children = [attrText]
+        }
+      }
       for (const key in vueProps) {
         const value = vueProps[key]
         // innerHTML is the compiler's own screened markup, and only a string reaches the page
@@ -637,7 +651,6 @@ export function astToJSX(
       }
     }
 
-    const finalTag = hasOverrides ? getTag(tag, opts.overrides) : tag
     const vueClass = vueProps?.class as string
     const overrideClass = overrideProps?.class as string
     const mergedClass =

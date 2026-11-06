@@ -2619,25 +2619,159 @@ describe('inline markup with no terminator', () => {
   })
 })
 
-describe('a children attribute on a lowercase tag with an override', () => {
+describe('a children attribute on a tag with an override', () => {
+  const card = { card: { component: 'i' } }
+
+  // An element with no content of its own takes the value as text; the
+  // attribute is never written. A tag alone on a line or inside blocks is read
+  // as a block, so each shape is its own row.
   it.each([
     [
-      'stays out of the written tag',
-      '<card children="z" />',
-      { card: { component: 'i' } },
-      '<i ></i>',
+      'a capitalized self-closing tag',
+      '<Card children="z" />',
+      card,
+      '<i >z</i>',
     ],
     [
-      'stays out of the written tag when the override is inherited',
-      '<card children="z" />',
-      Object.create({ card: { component: 'i' } }),
-      '<i ></i>',
+      'a self-closing tag with a trailing newline',
+      '<Card children="z" />\n',
+      card,
+      '<i >z</i>',
     ],
     [
-      'stays an unknown attribute on a capitalized tag, like any other prop there',
+      'a self-closing tag between blocks',
+      'a\n\n<Card children="z" />\n\nb',
+      card,
+      '<div><p>a</p><i >z</i><p>b</p></div>',
+    ],
+    [
+      'a self-closing tag inside a paragraph',
+      'x <Card children="z" /> y',
+      card,
+      '<p>x <i >z</i> y</p>',
+    ],
+    [
+      'a lowercase self-closing tag',
+      '<card children="z" />',
+      card,
+      '<i >z</i>',
+    ],
+    [
+      'a lowercase self-closing tag when the override is inherited',
+      '<card children="z" />',
+      Object.create(card),
+      '<i >z</i>',
+    ],
+    [
+      'an uppercase self-closing tag',
       '<CARD children="z" />',
-      { card: { component: 'i' } },
-      '<i children="z" ></i>',
+      card,
+      '<i >z</i>',
+    ],
+    [
+      'a hyphenated self-closing tag',
+      '<my-el children="z" />',
+      { 'my-el': { component: 'i' } },
+      '<i >z</i>',
+    ],
+    [
+      'a lowercase empty pair',
+      '<card children="z"></card>',
+      card,
+      '<p><i>z</i></p>',
+    ],
+    [
+      'a lowercase empty pair between blocks',
+      'a\n\n<card children="z"></card>\n\nb',
+      card,
+      '<div><p>a</p><p><i>z</i></p><p>b</p></div>',
+    ],
+    [
+      'a capitalized empty pair',
+      '<Card children="z"></Card>',
+      card,
+      '<i >z</i>',
+    ],
+    [
+      'a capitalized empty pair inside a paragraph',
+      'x <Card children="z"></Card> y',
+      card,
+      '<p>x <i>z</i> y</p>',
+    ],
+    [
+      'a registered tag kept as written',
+      '<Card children="z" />',
+      { Card: { props: {} } },
+      '<Card >z</Card>',
+    ],
+    [
+      'another attribute beside it',
+      '<Card children="z" title="t" />',
+      card,
+      '<i title="t">z</i>',
+    ],
+    [
+      'an attribute name in uppercase',
+      '<Card CHILDREN="z" />',
+      card,
+      '<i >z</i>',
+    ],
+    [
+      'a value read as text, with its entity and markup escaped',
+      '<Card children="a &amp; <b>" />',
+      card,
+      '<i >a &amp;amp; &lt;b&gt;</i>',
+    ],
+    ['a brace value', '<Card children={x} />', card, '<i >x</i>'],
+    [
+      'a quoted brace value',
+      '<Card children={"q"} />',
+      card,
+      '<i >&quot;q&quot;</i>',
+    ],
+    ['a bare name, which holds no text', '<Card children />', card, '<i ></i>'],
+    [
+      'an object value, which no element can hold',
+      '<Card children={{"a":1}} />',
+      card,
+      '<i ></i>',
+    ],
+    [
+      'a Solid-prefixed name, which is not children',
+      '<Card attr:children="z" />',
+      card,
+      '<i ></i>',
+    ],
+    [
+      'a void override',
+      '<Card children="z" />',
+      { card: { component: 'img' } },
+      '<img >',
+    ],
+    [
+      'a pair with content of its own',
+      '<card children="z">inner</card>',
+      card,
+      '<p><i>inner</i></p>',
+    ],
+    [
+      'a capitalized pair with content of its own, which the output passes through as written',
+      '<Card children="z">inner</Card>',
+      card,
+      '<Card >inner</Card>',
+    ],
+    ['an unregistered tag', '<Card children="z" />', {}, '<Card ></Card>'],
+    [
+      'a lowercase tag no override names',
+      '<card children="z" />',
+      {},
+      '<card ></card>',
+    ],
+    [
+      'a registered tag inside a raw block, which the output passes through without the attribute',
+      '<div>\n<Card children="z" />\n</div>',
+      card,
+      '<div><Card  />\n</div>',
     ],
     [
       'does not take a built-in object property for an override',

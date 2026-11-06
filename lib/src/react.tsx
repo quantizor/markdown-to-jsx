@@ -722,6 +722,19 @@ export function astToJSX(
   // delegating to h. Used only by HTML block / self-closing render cases.
   function hJsx(tag: any, props: any, ...children: any[]): any {
     if (props) {
+      // A children string is the element's text when it has no content of its
+      // own; as a prop it would be parsed as markup, and an empty child array
+      // would override it
+      if (typeof props.children === 'string') {
+        var attrText =
+          props.dangerouslySetInnerHTML === undefined
+            ? util.childrenAttrContent(props.children, children)
+            : undefined
+        delete props.children
+        if (attrText !== undefined) {
+          children = [attrText]
+        }
+      }
       _compilePropsJsx(props)
     }
     return h(tag, props, ...children)

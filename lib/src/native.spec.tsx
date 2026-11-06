@@ -2537,7 +2537,7 @@ describe('attribute names a renderer acts on rather than writes', () => {
 
 // A native view has no markup for a browser to read, so these assert what it
 // renders from each input: the same screened attributes, with text as text.
-describe('a children attribute on a lowercase tag with an override', () => {
+describe('a children attribute on a tag with an override', () => {
   // Native maps a tag it has no element for to Text
   it.each([
     ['<card children="z" />', { card: { component: 'i' } }],
@@ -2567,6 +2567,152 @@ describe('a children attribute on a lowercase tag with an override', () => {
     ['<Foo children="z" />', { Foo: { component: 'img' } }, '<Image></Image>'],
     ['<card>x</card>', { card: { component: 'img' } }, '<Image></Image>'],
   ])('renders %j with void override %j as %j, as an Image cannot hold children', (input, overrides, expected) => {
+    expect(serialize(compiler(input, { overrides }))).toBe(expected)
+  })
+
+  const card = { card: { component: 'i', props: {} } } as const
+
+  // An element with no content of its own takes the value as text, in any
+  // document shape. Same inputs as the html suite; the serializer writes no
+  // attributes, so the row for another attribute lives there.
+  it.each<[string, string, MarkdownToJSX.Overrides, string]>([
+    [
+      'a capitalized self-closing tag',
+      '<Card children="z" />',
+      card,
+      '<Text>z</Text>',
+    ],
+    [
+      'a self-closing tag with a trailing newline',
+      '<Card children="z" />\n',
+      card,
+      '<Text>z</Text>',
+    ],
+    [
+      'a self-closing tag between blocks',
+      'a\n\n<Card children="z" />\n\nb',
+      card,
+      '<View><Text>a</Text><Text>z</Text><Text>b</Text></View>',
+    ],
+    [
+      'a self-closing tag inside a paragraph',
+      'x <Card children="z" /> y',
+      card,
+      '<Text>x <Text>z</Text> y</Text>',
+    ],
+    [
+      'a lowercase self-closing tag',
+      '<card children="z" />',
+      card,
+      '<Text>z</Text>',
+    ],
+    [
+      'an uppercase self-closing tag',
+      '<CARD children="z" />',
+      card,
+      '<Text>z</Text>',
+    ],
+    [
+      'a hyphenated self-closing tag',
+      '<my-el children="z" />',
+      { 'my-el': { component: 'i', props: {} } },
+      '<Text>z</Text>',
+    ],
+    [
+      'a lowercase empty pair',
+      '<card children="z"></card>',
+      card,
+      '<Text>z</Text>',
+    ],
+    [
+      'a lowercase empty pair between blocks',
+      'a\n\n<card children="z"></card>\n\nb',
+      card,
+      '<View><Text>a</Text><Text><Text>z</Text></Text><Text>b</Text></View>',
+    ],
+    [
+      'a capitalized empty pair',
+      '<Card children="z"></Card>',
+      card,
+      '<Text>z</Text>',
+    ],
+    [
+      'a capitalized empty pair inside a paragraph',
+      'x <Card children="z"></Card> y',
+      card,
+      '<Text>x <Text>z</Text> y</Text>',
+    ],
+    [
+      'a registered tag kept as written',
+      '<Card children="z" />',
+      { Card: { props: {} } },
+      '<Text>z</Text>',
+    ],
+    [
+      'an attribute name in uppercase',
+      '<Card CHILDREN="z" />',
+      card,
+      '<Text>z</Text>',
+    ],
+    [
+      'a value read as text, with its entity and markup as written',
+      '<Card children="a &amp; <b>" />',
+      card,
+      '<Text>a &amp; <b></Text>',
+    ],
+    ['a brace value', '<Card children={x} />', card, '<Text>x</Text>'],
+    [
+      'a quoted brace value',
+      '<Card children={"q"} />',
+      card,
+      '<Text>"q"</Text>',
+    ],
+    [
+      'a bare name, which holds no text',
+      '<Card children />',
+      card,
+      '<Text></Text>',
+    ],
+    [
+      'an object value, which no element can hold',
+      '<Card children={{"a":1}} />',
+      card,
+      '<Text></Text>',
+    ],
+    [
+      'a Solid-prefixed name, which is not children',
+      '<Card attr:children="z" />',
+      card,
+      '<Text></Text>',
+    ],
+    [
+      'a pair with content of its own',
+      '<card children="z">inner</card>',
+      card,
+      '<Text>inner</Text>',
+    ],
+    [
+      'a capitalized pair with content of its own',
+      '<Card children="z">inner</Card>',
+      card,
+      '<Text>inner</Text>',
+    ],
+    ['an unregistered tag', '<Card children="z" />', {}, '<Text></Text>'],
+    [
+      'a lowercase tag no override names',
+      '<card children="z" />',
+      {},
+      '<Text></Text>',
+    ],
+    // Gap: the raw body is read again without the attribute, so the content is
+    // gone; a follow-up in this PR changes this value
+    [
+      'a registered tag inside a raw block',
+      '<div>\n<Card children="z" />\n</div>',
+      card,
+      '<View><Text><Text></Text></Text></View>',
+    ],
+  ])('renders %s as its content', (_title, input, overrides, expected) => {
     expect(serialize(compiler(input, { overrides }))).toBe(expected)
   })
 })

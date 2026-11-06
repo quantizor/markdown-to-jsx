@@ -8,13 +8,14 @@ Markup that a browser reads differently from this library could reach the HTML o
 
 These attributes are now removed, because they can run script:
 
-- `ref`, `innerHTML`, `outerHTML`, and `dangerouslySetInnerHTML` written in markdown, on every tag. `children` too, unless its value is not an object or array and either `overrides` lists the tag or `evalUnserializableExpressions` is on for a capitalized or hyphenated tag.
+- `ref`, `innerHTML`, `outerHTML`, and `dangerouslySetInnerHTML` written in markdown, on every tag. `children` too, unless it becomes the element's content (see below).
 - A `{…}` event handler on a hyphenated tag, such as `<my-widget onclick={…}>`, unless `overrides` lists the tag or `evalUnserializableExpressions` is on.
 - A `{…}` event handler on a capitalized tag, such as `<Btn onClick={go}>`, in the HTML and markdown output and on the elements Solid and Vue create for it, with the same two exceptions. React, React Native, and `parser()` keep it as a prop, so a component you supply through `createElement` or `renderRule` still receives it.
 - The `attributeName` of an SVG `<animate>` or `<set>` that changes a link or an event handler, so it stops animating. Animating any other attribute works as before.
 
 Output that changes in every format:
 
+- A `children` attribute becomes the element's text content, the way React reads it, on a tag `overrides` lists (or on a capitalized or hyphenated tag with `evalUnserializableExpressions` on). With `card` renamed to `i`, `<Card children="z" />` renders `<i>z</i>` in every output and every casing. The element's own content wins, so `<Card children="z">own</Card>` renders `<i>own</i>`. A void element such as `<img>` takes none, an object or array value is removed, and no output writes `children` as an attribute. Vue and the HTML and markdown output used to write it as an attribute, which shows nothing.
 - A footnote reference with no definition, such as `[^1]`, stays as text, as GitHub shows it, rather than a superscript linking to nothing. If you render part of a document on its own, a reference whose definition is in another part shows as text. With `optimizeForStreaming`, a reference stays one while its definition may still arrive, and one at the very end of the text so far shows as `^1`.
 - With a definition for `[^1]`, `[x][^1]` renders as `[x]` followed by the footnote reference, not as a link.
 - A URL that mentions a dangerous scheme after its first `/`, `?`, or `#`, such as `https://en.wikipedia.org/wiki/Javascript:_The_Good_Parts`, is kept, and `sanitizer()` returns it where it returned `null`. `sanitizer()` now rejects a scheme split by a tab or line break.

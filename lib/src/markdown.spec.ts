@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import { marked } from 'marked'
+import { micromark } from 'micromark'
 
 import { astToHTML } from './html.ts'
 import {
@@ -3342,27 +3344,235 @@ describe('markup a browser or downstream renderer reads differently from the par
   })
 })
 
-describe('a children attribute on a lowercase tag with an override', () => {
+describe('a children attribute on a tag with an override', () => {
+  const card = { card: { component: 'i' } }
+
+  // An element with no content of its own takes the value as text; the
+  // attribute is never written. Same inputs as the html suite.
   it.each([
-    ['<card children="z" />', { card: { component: 'i' } }],
-    ['<card children="z" />', Object.create({ card: { component: 'i' } })],
-    ['<CARD children="z" />', { card: { component: 'i' } }],
-  ])('stays out of the written tag for %j, inherited or keyed in lowercase', (input, overrides) => {
-    expect(compiler(input, { overrides })).toBe('<i></i>')
+    [
+      'a capitalized self-closing tag',
+      '<Card children="z" />',
+      card,
+      '<i>z</i>',
+    ],
+    [
+      'a self-closing tag with a trailing newline',
+      '<Card children="z" />\n',
+      card,
+      '<i>z</i>',
+    ],
+    [
+      'a self-closing tag between blocks',
+      'a\n\n<Card children="z" />\n\nb',
+      card,
+      'a\n\n<i>z</i>\n\nb',
+    ],
+    [
+      'a self-closing tag inside a paragraph',
+      'x <Card children="z" /> y',
+      card,
+      'x <i>z</i> y',
+    ],
+    ['a lowercase self-closing tag', '<card children="z" />', card, '<i>z</i>'],
+    [
+      'a lowercase self-closing tag when the override is inherited',
+      '<card children="z" />',
+      Object.create(card),
+      '<i>z</i>',
+    ],
+    [
+      'an uppercase self-closing tag',
+      '<CARD children="z" />',
+      card,
+      '<i>z</i>',
+    ],
+    [
+      'a hyphenated self-closing tag',
+      '<my-el children="z" />',
+      { 'my-el': { component: 'i' } },
+      '<i>z</i>',
+    ],
+    ['a lowercase empty pair', '<card children="z"></card>', card, '<i>z</i>'],
+    [
+      'a lowercase empty pair between blocks',
+      'a\n\n<card children="z"></card>\n\nb',
+      card,
+      'a\n\n<i>z</i>\n\nb',
+    ],
+    [
+      'a capitalized empty pair',
+      '<Card children="z"></Card>',
+      card,
+      '<i>z</i>',
+    ],
+    [
+      'a capitalized empty pair inside a paragraph',
+      'x <Card children="z"></Card> y',
+      card,
+      'x <i>z</i> y',
+    ],
+    [
+      'a registered tag kept as written',
+      '<Card children="z" />',
+      { Card: { props: {} } },
+      '<Card >z</Card>',
+    ],
+    [
+      'another attribute beside it',
+      '<Card children="z" title="t" />',
+      card,
+      '<i title="t">z</i>',
+    ],
+    [
+      'an attribute name in uppercase',
+      '<Card CHILDREN="z" />',
+      card,
+      '<i>z</i>',
+    ],
+    [
+      'a value read as text, with its entity and markup escaped',
+      '<Card children="a &amp; <b>" />',
+      card,
+      '<i>a &amp;amp; &lt;b></i>',
+    ],
+    ['a brace value', '<Card children={x} />', card, '<i>x</i>'],
+    ['a quoted brace value', '<Card children={"q"} />', card, '<i>"q"</i>'],
+    ['a bare name, which holds no text', '<Card children />', card, '<i></i>'],
+    [
+      'an object value, which no element can hold',
+      '<Card children={{"a":1}} />',
+      card,
+      '<i></i>',
+    ],
+    [
+      'a Solid-prefixed name, which is not children',
+      '<Card attr:children="z" />',
+      card,
+      '<i></i>',
+    ],
+    [
+      'a void override',
+      '<Card children="z" />',
+      { card: { component: 'img' } },
+      '<img >',
+    ],
+    [
+      'a pair with content of its own',
+      '<card children="z">inner</card>',
+      card,
+      '<i>inner</i>',
+    ],
+    [
+      'a capitalized pair with content of its own, which the output passes through as written',
+      '<Card children="z">inner</Card>',
+      card,
+      '<Card >inner</Card>',
+    ],
+    ['an unregistered tag', '<Card children="z" />', {}, '<Card ></Card>'],
+    [
+      'a lowercase tag no override names',
+      '<card children="z" />',
+      {},
+      '<card ></card>',
+    ],
+    [
+      'a registered tag inside a raw block, which the output passes through without the attribute',
+      '<div>\n<Card children="z" />\n</div>',
+      card,
+      '<div><Card  />\n</div>',
+    ],
+    [
+      'does not take a built-in object property for an override',
+      '<constructor children="z" />',
+      {},
+      '<constructor ></constructor>',
+    ],
+    [
+      'writes a void override with no children',
+      '<img children="z" src="/x">',
+      { img: { props: { title: 't' } } },
+      '<img src="/x" title="t">',
+    ],
+  ])('%s', (_title, input, overrides, expected) => {
+    expect(compiler(input, { overrides })).toBe(expected)
   })
 
-  it('does not take a built-in object property for an override', () => {
-    expect(compiler('<constructor children="z" />', { overrides: {} })).toBe(
-      '<constructor ></constructor>'
+  // The value is written with entities only: a block-level tag alone on its line
+  // opens a raw HTML block, where a backslash shows as text, and an inline
+  // position is read as markdown again, so only an entity is inert in both.
+  // Each reader must show exactly the value as the element's visible text.
+  const visibleText = (html: string, tag: string) => {
+    const match = new RegExp(`<${tag}[^>]*>(.*?)</${tag}>`, 's').exec(html)
+
+    if (match === null) {
+      throw new Error(`no <${tag}> element in ${html}`)
+    }
+
+    return match[1]
+      .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+  }
+
+  it.each<[string, 'i' | 'div', string, string]>([
+    ['<b>', 'i', '<i>&lt;b></i>', 'Before <i>&lt;b></i> after.'],
+    [
+      '[x](javascript:y)',
+      'i',
+      '<i>&#91;x&#93;&#40;javascript:y)</i>',
+      'Before <i>&#91;x&#93;&#40;javascript:y)</i> after.',
+    ],
+    ['*a*', 'i', '<i>&#42;a&#42;</i>', 'Before <i>&#42;a&#42;</i> after.'],
+    [
+      '&amp;copy;',
+      'i',
+      '<i>&amp;amp;copy;</i>',
+      'Before <i>&amp;amp;copy;</i> after.',
+    ],
+    ['<b>', 'div', '<div >&lt;b></div>', 'Before <div>&lt;b></div> after.'],
+    [
+      '[x](javascript:y)',
+      'div',
+      '<div >&#91;x&#93;&#40;javascript:y)</div>',
+      'Before <div>&#91;x&#93;&#40;javascript:y)</div> after.',
+    ],
+    [
+      '*a*',
+      'div',
+      '<div >&#42;a&#42;</div>',
+      'Before <div>&#42;a&#42;</div> after.',
+    ],
+    [
+      '&amp;copy;',
+      'div',
+      '<div >&amp;amp;copy;</div>',
+      'Before <div>&amp;amp;copy;</div> after.',
+    ],
+  ])('writes the value %j in a %s tag as text that marked and micromark show as written', (value, tag, alone, inline) => {
+    const overrides = { Card: { component: tag, props: {} } }
+    const aloneOutput = compiler(`<Card children="${value}" />`, { overrides })
+    const inlineOutput = compiler(
+      `Before <Card children="${value}" /> after.`,
+      {
+        overrides,
+      }
     )
-  })
 
-  it('writes a void override with no children', () => {
-    expect(
-      compiler('<img children="z" src="/x">', {
-        overrides: { img: { props: { title: 't' } } },
+    expect(aloneOutput).toBe(alone)
+    expect(inlineOutput).toBe(inline)
+
+    for (const output of [aloneOutput, inlineOutput]) {
+      const markedHtml = marked.parse(output, { async: false })
+      const micromarkHtml = micromark(output, {
+        allowDangerousHtml: true,
+        allowDangerousProtocol: true,
       })
-    ).toBe('<img src="/x" title="t">')
+
+      expect(visibleText(markedHtml, tag)).toBe(value)
+      expect(visibleText(micromarkHtml, tag)).toBe(value)
+    }
   })
 })
 

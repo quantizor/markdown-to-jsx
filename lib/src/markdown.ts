@@ -13,6 +13,7 @@ import {
 } from './parse.ts'
 import { type MarkdownToJSX, RuleType } from './types.ts'
 import {
+  childrenAttrContent,
   containsTagfilterTag,
   decodeEntityReferences,
   encodeUrlTarget,
@@ -20,6 +21,7 @@ import {
   getTag,
   isAlnumCode,
   isVoidElement,
+  rawOpenTagAttrs,
   URL_VERDICT,
   urlNamesBlockedScheme,
   urlVerdict,
@@ -467,6 +469,44 @@ function escapeTextMatch(
     return `${lineStart + indent}\\${blockChar}`
   }
   return `${lineStart + indent + digits}\\${marker}`
+}
+
+/**
+ * Text written as the content of an element the output tag opens. That element
+ * can open a raw HTML block (a block-level tag alone on its line), where a
+ * backslash shows as text, or sit inside a paragraph, where markdown is read
+ * again. Only an entity is inert in both, so every character compileText would
+ * escape is written as one.
+ */
+function compileElementText(text: string): string {
+  return text.replace(ESCAPE_ALL_R, entityTextMatch)
+}
+
+function entityTextMatch(
+  match: string,
+  lineStart: string | undefined,
+  indent: string,
+  blockChar: string | undefined,
+  digits: string,
+  marker: string
+): string {
+  if (lineStart === undefined) {
+    if (match === '<') {
+      return '&lt;'
+    }
+    if (match === '&') {
+      return '&amp;'
+    }
+    var out = ''
+    for (var i = 0; i < match.length; i++) {
+      out += `&#${match.charCodeAt(i)};`
+    }
+    return out
+  }
+  if (blockChar !== undefined) {
+    return `${lineStart + indent}&#${blockChar.charCodeAt(0)};`
+  }
+  return `${lineStart + indent + digits}&#${marker.charCodeAt(0)};`
 }
 
 function compileParagraph(
@@ -1425,9 +1465,25 @@ function compileHtmlBlock(
     return `</${tag}>${screenRawLinks(node._rawBody || '')}`
   }
 
+  // A children attribute is the element's content when it has none of its own
+  // (an empty pair or a self-closing tag), and is never written as an attribute
+  const attrText =
+    node.attrs !== undefined && node.attrs.children !== undefined
+      ? childrenAttrContent(node.attrs.children, [
+          node.children,
+          node.text,
+          node._rawBody,
+        ])
+      : undefined
+
   // _rawOuter is the full span (own opener through closer, or through end of
-  // input) and is emitted without an added wrapper.
-  if (node._verbatim && node._rawOuter !== undefined) {
+  // input) and is emitted without an added wrapper, except for an empty pair
+  // that takes content.
+  if (
+    node._verbatim &&
+    node._rawOuter !== undefined &&
+    attrText === undefined
+  ) {
     return screenRawLinks(node._rawOuter)
   }
 
@@ -1438,7 +1494,12 @@ function compileHtmlBlock(
   // appended after the raw attributes so they win.
   let attrs: string
   if (node._rawAttrs === undefined) {
-    attrs = compileAttributes({ ...(node.attrs || {}), ...overrideProps })
+    // `false` writes nothing, which keeps children from an attribute
+    attrs = compileAttributes({
+      ...node.attrs,
+      children: false,
+      ...overrideProps,
+    })
   } else {
     const raw = node._rawAttrs
     const needsLeadingSpace = raw.length > 0 && raw.charCodeAt(0) > $.CHAR_SPACE
@@ -1476,7 +1537,9 @@ function compileHtmlBlock(
   const content =
     node.children && node.children.length > 0
       ? `\n${node.children.map(child => state.renderChild(child, _emptyState)).join('\n')}\n`
-      : ''
+      : attrText === undefined || isVoid
+        ? ''
+        : compileElementText(attrText)
   const closingTag = isVoid ? '' : `</${tag}>`
   return `${screenRawLinks(`<${tag}${attrs}>`)}${content}${closingTag}`
 }
@@ -1494,15 +1557,28 @@ function compileHtmlSelfClosing(
   if (node._isClosingTag) {
     return node._rawClose || `</${node.tag}>`
   }
-  if (node._rawOpen) {
+  // A children attribute is the element's content and never an attribute
+  const attrText =
+    node.attrs !== undefined && node.attrs.children !== undefined
+      ? childrenAttrContent(node.attrs.children, null)
+      : undefined
+  if (node._rawOpen && attrText === undefined) {
     return screenRawLinks(node._rawOpen)
   }
   const defaultTag = node.tag || 'div'
   const tag = getTag(defaultTag, state.overrides)
   const overrideProps = getOverrideProps(defaultTag, state.overrides)
-  const mergedAttrs = { ...(node.attrs || {}), ...overrideProps }
-  const attrs = compileAttributes(mergedAttrs)
-  return `<${tag}${attrs} />`
+  // `false` writes nothing, which keeps children from an attribute
+  const attrs = node._rawOpen
+    ? rawOpenTagAttrs(node._rawOpen, defaultTag.length) +
+      compileAttributes(overrideProps)
+    : compileAttributes({ ...node.attrs, children: false, ...overrideProps })
+  if (attrText === undefined) {
+    return `<${tag}${attrs} />`
+  }
+  return `${screenRawLinks(`<${tag}${attrs}>`)}${
+    isVoidElement(tag) ? '' : `${compileElementText(attrText)}</${tag}>`
+  }`
 }
 
 function compileHtmlComment(node: MarkdownToJSX.HTMLCommentNode): string {

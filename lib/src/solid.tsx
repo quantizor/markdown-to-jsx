@@ -571,6 +571,19 @@ export function astToJSX(
     const jsxProps = (props || {}) as Record<string, unknown>
     parse.dropUnresolvedHandlers(tag, jsxProps, opts.overrides)
     const finalTag = getTag(tag, opts.overrides)
+    // A children string is the element's text when it has no content of its
+    // own, which also keeps it from being compiled as markup below. A void tag
+    // takes none.
+    if (typeof jsxProps.children === 'string') {
+      const attrText = util.childrenAttrContent(jsxProps.children, children)
+      delete jsxProps.children
+      if (
+        attrText !== undefined &&
+        !(typeof finalTag === 'string' && util.isVoidElement(finalTag))
+      ) {
+        children = [attrText]
+      }
+    }
     // Only check props that might contain HTML (avoid iterating all props)
     for (const key in jsxProps) {
       const value = jsxProps[key]

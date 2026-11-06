@@ -884,7 +884,7 @@ function render(
         // line, then split at this element's own closing tag so any trailing
         // content renders as siblings (issue #881).
         const cleanedText = util.normalizeJsxReparseText(rawSource)
-        const props = {
+        const props: Record<string, unknown> = {
           key: state.key,
           ...util.htmlAttrsToJSXProps(htmlNode.attrs),
         }
@@ -893,7 +893,9 @@ function render(
           'i'
         )
         if (selfTagRegex.test(cleanedText)) {
-          return h(htmlNode.tag, props)
+          return typeof props.children === 'string'
+            ? emitHtmlElement(htmlNode.tag, props, [], output, state, ctx)
+            : h(htmlNode.tag, props)
         }
 
         const parseOptions = parse.toParseOptions({
@@ -977,25 +979,24 @@ function render(
         )
       }
 
+      const blockProps: Record<string, unknown> = {
+        key: state.key,
+        ...util.htmlAttrsToJSXProps(htmlNode.attrs),
+      }
       if (util.isVoidElement(htmlNode.tag)) {
-        return h(htmlNode.tag, {
-          key: state.key,
-          ...util.htmlAttrsToJSXProps(htmlNode.attrs),
-        })
+        delete blockProps.children
+        return h(htmlNode.tag, blockProps)
       }
       return htmlNode.children
         ? emitHtmlElement(
             htmlNode.tag,
-            { key: state.key, ...util.htmlAttrsToJSXProps(htmlNode.attrs) },
+            blockProps,
             htmlNode.children,
             output,
             state,
             ctx
           )
-        : h(htmlNode.tag, {
-            key: state.key,
-            ...util.htmlAttrsToJSXProps(htmlNode.attrs),
-          })
+        : h(htmlNode.tag, blockProps)
     }
 
     case RuleType.htmlSelfClosing: {
@@ -1013,10 +1014,20 @@ function render(
             : filteredSc.open + (filteredSc.close || '')
         )
       }
-      return h(htmlNode.tag, {
+      const selfClosingProps: Record<string, unknown> = {
         key: state.key,
         ...util.htmlAttrsToJSXProps(htmlNode.attrs),
-      })
+      }
+      return typeof selfClosingProps.children === 'string'
+        ? emitHtmlElement(
+            htmlNode.tag,
+            selfClosingProps,
+            [],
+            output,
+            state,
+            ctx
+          )
+        : h(htmlNode.tag, selfClosingProps)
     }
 
     case RuleType.image: {
@@ -1469,12 +1480,13 @@ const mapHtmlTagToNativeComponent = (tag: string): React.ElementType => {
 const emitHtmlElement = (
   tag: string,
   props: Record<string, unknown> & { style?: StyleProp<TextStyle> },
-  childNodes: MarkdownToJSX.ASTNode[],
+  ownNodes: MarkdownToJSX.ASTNode[],
   output: MarkdownToJSX.ASTRender,
   state: MarkdownToJSX.State,
   ctx: CompileContext
-): React.ReactNode =>
-  mapsToNativeView(tag)
+): React.ReactNode => {
+  const childNodes = withChildrenAttr(props, ownNodes)
+  return mapsToNativeView(tag)
     ? ctx.h(
         tag,
         props,
@@ -1491,6 +1503,25 @@ const emitHtmlElement = (
         state,
         ctx
       )
+}
+
+/**
+ * The child nodes of an HTML element whose props may hold a `children` string:
+ * its own nodes, or the string as one text node when it has none, so a View-mapped
+ * tag groups it into a Text like any other text. The prop leaves props either way,
+ * and a text node is plain text, never parsed as markdown or HTML.
+ */
+const withChildrenAttr = (
+  props: Record<string, unknown>,
+  ownNodes: MarkdownToJSX.ASTNode[]
+): MarkdownToJSX.ASTNode[] => {
+  if (typeof props.children !== 'string') {
+    return ownNodes
+  }
+  const text = util.childrenAttrContent(props.children, ownNodes)
+  delete props.children
+  return text === undefined ? ownNodes : [{ type: RuleType.text, text }]
+}
 
 /**
  * Convert AST nodes to React Native elements

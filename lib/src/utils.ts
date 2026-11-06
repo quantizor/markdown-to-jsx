@@ -192,6 +192,61 @@ export function htmlAttrsToJSXProps(
 }
 
 /**
+ * Whether rendered children hold anything: a non-empty string, a number, or an
+ * element, at any depth of nested arrays. Booleans, null, undefined, '' and
+ * empty arrays hold nothing, as React renders them.
+ */
+export function hasContent(children: unknown): boolean {
+  if (Array.isArray(children)) {
+    for (var i = 0; i < children.length; i++) {
+      if (hasContent(children[i])) {
+        return true
+      }
+    }
+    return false
+  }
+  return (
+    children !== undefined &&
+    children !== null &&
+    typeof children !== 'boolean' &&
+    children !== ''
+  )
+}
+
+/**
+ * The text a registered tag's `children` attribute supplies as the element's
+ * content, or undefined. The element's own content wins, as in React, and only
+ * a string value is text: a bare `children` or `{true}` is `true`, and
+ * parse.ts drops an object value. The caller passes the text as a plain child
+ * (never parsed as markdown or HTML) and drops `children` from the props. A
+ * caller reads it once the tag it writes is known, since a void tag takes none.
+ */
+export function childrenAttrContent(
+  value: unknown,
+  ownChildren: unknown
+): string | undefined {
+  return typeof value === 'string' && !hasContent(ownChildren)
+    ? value
+    : undefined
+}
+
+/**
+ * The attribute text of a self-closing tag's raw opening tag (`_rawOpen`): what
+ * lies between the tag name, `tagLength` long, and its ending (` />`, `/>`, or
+ * `>`), leading gap included.
+ */
+export function rawOpenTagAttrs(openTag: string, tagLength: number): string {
+  var last = openTag.length - 1
+  var endingLength =
+    openTag.charCodeAt(last - 1) === $.CHAR_SLASH
+      ? openTag.charCodeAt(last - 2) === $.CHAR_SPACE
+        ? 3
+        : 2
+      : 1
+  return openTag.slice(1 + tagLength, openTag.length - endingLength)
+}
+
+/**
  * Regex for determining if markdown content should be rendered as block-level
  * Matches: newlines, list items, headings, indented content, thematic breaks, blockquotes
  */
