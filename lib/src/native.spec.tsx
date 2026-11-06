@@ -2538,16 +2538,9 @@ describe('attribute names a renderer acts on rather than writes', () => {
 // A native view has no markup for a browser to read, so these assert what it
 // renders from each input: the same screened attributes, with text as text.
 describe('a children attribute on a lowercase tag with an override', () => {
-  it('reaches the override', () => {
-    const result = compiler('<card children="z" />', {
-      overrides: { card: { component: 'i' } },
-    })
-
-    // Native maps a tag it has no element for to Text
-    expect(serialize(result)).toBe('<Text>z</Text>')
-  })
-
+  // Native maps a tag it has no element for to Text
   it.each([
+    ['<card children="z" />', { card: { component: 'i' } }],
     ['<card children="z" />', Object.create({ card: { component: 'i' } })],
     ['<CARD children="z" />', { card: { component: 'i' } }],
   ])('reaches the override for %j, inherited or keyed in lowercase, as the renderer finds it', (input, overrides) => {
@@ -2614,7 +2607,9 @@ describe('a URL that names a dangerous scheme', () => {
   // Raw HTML has no press handler in React Native, so the prop is what it produces
   it('keeps the href of a raw link', () => {
     const link = compiler('<a href="/docs/javascript:intro">x</a>')
-    expect(JSON.stringify(link)).toContain('"href":"/docs/javascript:intro"')
+    expect(treeProps(link).filter(([name]) => name === 'href')).toEqual([
+      ['href', '/docs/javascript:intro'],
+    ])
   })
 
   it.each([
@@ -2990,13 +2985,7 @@ describe('markup a browser reads differently from the parser', () => {
       '<Image></Image>',
     ],
     ['![a\\\\\\](javascript:alert(1))b](/x)', '<Image></Image>'],
-  ])('renders %j as %j with no handler prop', (input, expected) => {
-    const result = compiler(input)
-    expect(serialize(result)).toBe(expected)
-    expect(handlerProps(result)).toEqual([])
-  })
-
-  it.each([
+    // Shapes only the markdown output screens
     [
       `> <div a=1${String.fromCharCode(0x20_28)}>  onclick=alert(1) b>y</div>`,
       '<View><View><Text>onclick=alert(1) b>y</Text></View></View>',
@@ -3073,7 +3062,7 @@ describe('markup a browser reads differently from the parser', () => {
       '<![CDATA[\n<![CDATA[]]]>\n\n```\n<img src=x onerror=alert(1)>\n```',
       '<View><Text><img src=x onerror=alert(1)></Text></View>',
     ],
-  ])('renders %j as %j, a shape only the markdown output screens', (input, expected) => {
+  ])('renders %j as %j with no handler prop', (input, expected) => {
     const result = compiler(input)
     expect(serialize(result)).toBe(expected)
     expect(handlerProps(result)).toEqual([])

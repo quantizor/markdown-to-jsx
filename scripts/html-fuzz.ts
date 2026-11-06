@@ -520,7 +520,32 @@ function componentTagsIn(source: string, registered?: string): Set<string> {
   return names
 }
 
-function findDanger(
+/** Pre-order walk of a parsed tree (template contents included); the first finding `check` returns on a node wins. */
+function findInTree(
+  node: TreeNode,
+  check: (node: TreeNode) => string | undefined
+): string | undefined {
+  const own = check(node)
+  if (own) {
+    return own
+  }
+  if ('content' in node) {
+    const inTemplate = findInTree(node.content, check)
+    if (inTemplate) {
+      return inTemplate
+    }
+  }
+  if ('childNodes' in node) {
+    for (const child of node.childNodes) {
+      const inChild = findInTree(child, check)
+      if (inChild) {
+        return inChild
+      }
+    }
+  }
+}
+
+function dangerOf(
   node: TreeNode,
   exemptTags: Set<string>,
   registered: string | undefined
@@ -558,20 +583,20 @@ function findDanger(
       }
     }
   }
-  if ('content' in node) {
-    const inTemplate = findDanger(node.content, exemptTags, registered)
-    if (inTemplate) {
-      return inTemplate
-    }
-  }
-  if ('childNodes' in node) {
-    for (const child of node.childNodes) {
-      const inChild = findDanger(child, exemptTags, registered)
-      if (inChild) {
-        return inChild
-      }
-    }
-  }
+}
+
+// scriptingEnabled matches a live page, where <noscript> is raw text
+function parseAsBrowser(html: string) {
+  return parseFragment(html, { scriptingEnabled: true })
+}
+
+function readTree(
+  tree: TreeNode,
+  source: string,
+  registered?: string
+): string | undefined {
+  const exemptTags = componentTagsIn(source, registered)
+  return findInTree(tree, node => dangerOf(node, exemptTags, registered))
 }
 
 function readAsBrowser(
@@ -579,12 +604,7 @@ function readAsBrowser(
   source: string,
   registered?: string
 ): string | undefined {
-  // scriptingEnabled matches a live page, where <noscript> is raw text
-  return findDanger(
-    parseFragment(html, { scriptingEnabled: true }),
-    componentTagsIn(source, registered),
-    registered
-  )
+  return readTree(parseAsBrowser(html), source, registered)
 }
 
 function isDangerousUrl(value: string): boolean {
@@ -604,24 +624,20 @@ function animatesDangerousAttr(value: string): boolean {
   )
 }
 
-function findFilteredTag(node: TreeNode): string | undefined {
+function filteredTagOf(node: TreeNode): string | undefined {
   if ('tagName' in node && TAGFILTER_TAGS.has(node.tagName.toLowerCase())) {
     return `live <${node.tagName}>`
   }
-  if ('content' in node) {
-    const inTemplate = findFilteredTag(node.content)
-    if (inTemplate) {
-      return inTemplate
-    }
-  }
-  if ('childNodes' in node) {
-    for (const child of node.childNodes) {
-      const inChild = findFilteredTag(child)
-      if (inChild) {
-        return inChild
-      }
-    }
-  }
+}
+
+/** Reads one compiled html string as a browser would: a dangerous attribute, then a tag the output should have filtered. */
+function readHtmlOutput(
+  output: string,
+  source: string,
+  registered?: string
+): string | undefined {
+  const tree = parseAsBrowser(output)
+  return readTree(tree, source, registered) ?? findInTree(tree, filteredTagOf)
 }
 
 /** Reads a React, Solid, or Vue element tree, each of which keeps its props on a different field. */
@@ -733,20 +749,13 @@ function readDownstream(
 }
 
 const SINKS = {
-  html: source => {
-    const output = htmlCompiler(source)
-    return (
-      readAsBrowser(output, source) ??
-      findFilteredTag(parseFragment(output, { scriptingEnabled: true }))
-    )
-  },
-  'html-registered': source => {
-    const output = htmlCompiler(source, { overrides: REGISTERED_OVERRIDES })
-    return (
-      readAsBrowser(output, source, REGISTERED_TAG) ??
-      findFilteredTag(parseFragment(output, { scriptingEnabled: true }))
-    )
-  },
+  html: source => readHtmlOutput(htmlCompiler(source), source),
+  'html-registered': source =>
+    readHtmlOutput(
+      htmlCompiler(source, { overrides: REGISTERED_OVERRIDES }),
+      source,
+      REGISTERED_TAG
+    ),
   markdown: source => readDownstream(astToMarkdown(parser(source)), source),
   'markdown-registered': source =>
     readDownstream(

@@ -3343,15 +3343,8 @@ describe('markup a browser or downstream renderer reads differently from the par
 })
 
 describe('a children attribute on a lowercase tag with an override', () => {
-  it('stays out of the written tag', () => {
-    expect(
-      compiler('<card children="z" />', {
-        overrides: { card: { component: 'i' } },
-      })
-    ).toBe('<i></i>')
-  })
-
   it.each([
+    ['<card children="z" />', { card: { component: 'i' } }],
     ['<card children="z" />', Object.create({ card: { component: 'i' } })],
     ['<CARD children="z" />', { card: { component: 'i' } }],
   ])('stays out of the written tag for %j, inherited or keyed in lowercase', (input, overrides) => {
@@ -3398,7 +3391,8 @@ describe('a URL that names a dangerous scheme', () => {
 })
 
 describe('the character rules of the raw string screens', () => {
-  const longScheme = (length: number) => 'a'.repeat(length)
+  const screen = (text: string) =>
+    astToMarkdown({ raw: true, text, type: RuleType.htmlComment })
 
   const hex = (code: number) => code.toString(16).toUpperCase().padStart(4, '0')
 
@@ -3414,38 +3408,21 @@ describe('the character rules of the raw string screens', () => {
 
   it.each(
     ECMASCRIPT_SPACE_CODES.map(code => [hex(code), String.fromCharCode(code)])
-  )('U+%s separates `](` from its destination', (_, space) => {
-    expect(
-      astToMarkdown({
-        raw: true,
-        text: `](${space}javascript:x)`,
-        type: RuleType.htmlComment,
-      })
-    ).toBe(`&#93;(${space}javascript:x)`)
-  })
-
-  it.each(
-    ECMASCRIPT_SPACE_CODES.map(code => [hex(code), String.fromCharCode(code)])
-  )('U+%s ends a destination', (_, space) => {
-    expect(
-      astToMarkdown({
-        raw: true,
-        text: `](a${space}<javascript:x>`,
-        type: RuleType.htmlComment,
-      })
-    ).toBe(`](a${space}&lt;javascript:x>`)
+  )('U+%s separates `](` from its destination and ends a destination', (_, space) => {
+    expect(screen(`](${space}javascript:x)`)).toBe(
+      `&#93;(${space}javascript:x)`
+    )
+    expect(screen(`](a${space}<javascript:x>`)).toBe(
+      `](a${space}&lt;javascript:x>`
+    )
   })
 
   it.each(
     NON_SPACE_CODES.map(code => [hex(code), String.fromCharCode(code)])
   )('U+%s is part of a destination', (_, character) => {
-    expect(
-      astToMarkdown({
-        raw: true,
-        text: `](a${character}<javascript:x>`,
-        type: RuleType.htmlComment,
-      })
-    ).toBe(`&#93;(a${character}&lt;javascript:x>`)
+    expect(screen(`](a${character}<javascript:x>`)).toBe(
+      `&#93;(a${character}&lt;javascript:x>`
+    )
   })
 
   it.each([
@@ -3475,12 +3452,12 @@ describe('the character rules of the raw string screens', () => {
     ['[x <jj:a](javascript:x)>', '[x &lt;jj:a&#93;(javascript:x)>'],
     ['[x <jj:a\xa0](javascript:x)>', '[x &lt;jj:a\xa0&#93;(javascript:x)>'],
     [
-      `<${longScheme(32)}:](javascript:x>`,
-      `&lt;${longScheme(32)}:&#93;(javascript:x>`,
+      `<${'a'.repeat(32)}:](javascript:x>`,
+      `&lt;${'a'.repeat(32)}:&#93;(javascript:x>`,
     ],
     [
-      `<${longScheme(33)}:](javascript:x>`,
-      `<${longScheme(33)}:&#93;(javascript:x>`,
+      `<${'a'.repeat(33)}:](javascript:x>`,
+      `<${'a'.repeat(33)}:&#93;(javascript:x>`,
     ],
     ['<1j:](javascript:x>', '<1j:&#93;(javascript:x>'],
     ['<j_j:](javascript:x>', '<j_j:&#93;(javascript:x>'],
@@ -3523,8 +3500,6 @@ describe('the character rules of the raw string screens', () => {
     ['![a"![b"]', '!&#91;a"!&#91;b"]'],
     ['![a\n\n![b"]', '![a\n\n!&#91;b"]'],
   ])('screens the raw markup %j as %j', (text, expected) => {
-    expect(astToMarkdown({ raw: true, text, type: RuleType.htmlComment })).toBe(
-      expected
-    )
+    expect(screen(text)).toBe(expected)
   })
 })

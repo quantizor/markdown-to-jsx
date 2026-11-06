@@ -7,8 +7,8 @@
  * growth exponent between two input sizes instead, so the shape of the work
  * is what fails the gate, not the size someone happened to pick.
  *
- * Per shape: double the input from BASE until the faster of two timed parses
- * takes TARGET_MS (or the input reaches MAX_SIZE), call that size `large`,
+ * Per shape: double the input from BASE until the faster of two timed runs
+ * (the parser, or the markdown compiler for a `compile` shape) takes TARGET_MS (or the input reaches MAX_SIZE), call that size `large`,
  * then time `large` and `large / 4` alternately RUNS times each and keep each
  * size's fastest run.
  * The exponent is log4 of the ratio. A quadratic term with a small constant
@@ -44,6 +44,12 @@ const MAX_SIZE = 1 << 21
  */
 const RUNS = 7
 
+/** n units, each with its own tag name, so no two openers share a closer */
+const distinctTags =
+  (unit: (tag: string) => string, suffix = '') =>
+  (n: number) =>
+    Array.from({ length: n }, (_, i) => unit(i.toString(36))).join('') + suffix
+
 const shapes: Array<{
   /** Run through the markdown compiler rather than only the parser */
   compile?: boolean
@@ -75,26 +81,14 @@ const shapes: Array<{
   { make: n => '<a '.repeat(n), name: 'html-partial-tag' },
   { make: n => '[<b>] '.repeat(n), name: 'link-tag-no-closer' },
   { make: n => `${'[<b>] '.repeat(n)}</b>`, name: 'link-tag-one-closer' },
+  { make: distinctTags(t => `[<x${t}>] `), name: 'link-tag-distinct-names' },
   {
-    make: n =>
-      Array.from({ length: n }, (_, i) => `[<x${i.toString(36)}>] `).join(''),
-    name: 'link-tag-distinct-names',
-  },
-  {
-    make: n =>
-      Array.from({ length: n }, (_, i) => `<x${i.toString(36)}>[<y>](/u)`).join(
-        ''
-      ),
+    make: distinctTags(t => `<x${t}>[<y>](/u)`),
     name: 'html-tag-distinct-names-link-holds-tag',
   },
+  { make: distinctTags(t => `<x${t}> `), name: 'html-tag-distinct-names' },
   {
-    make: n =>
-      Array.from({ length: n }, (_, i) => `<x${i.toString(36)}> `).join(''),
-    name: 'html-tag-distinct-names',
-  },
-  {
-    make: n =>
-      `${Array.from({ length: n }, (_, i) => `<x${i.toString(36)}> `).join('')}</z>`,
+    make: distinctTags(t => `<x${t}> `, '</z>'),
     name: 'html-tag-distinct-names-other-closer',
   },
   { make: n => `<i>${'</a'.repeat(n)}`, name: 'html-closers-unended' },

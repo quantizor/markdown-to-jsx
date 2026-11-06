@@ -2364,35 +2364,18 @@ describe('attribute names a renderer acts on rather than writes', () => {
     ],
     // A prop value is written whole, so no tag starts inside it
     ['<div x={a><script>alert(1)</script>}>y</div>', '<div>y</div>', ['x']],
+    ['<img children="z" src="/x">', '<img></img>', ['src']],
+    ['![" onclick=alert(1)>](/x)', '<img></img>', ['alt', 'title', 'src']],
   ])('renders %j as %j, with props %j', (input, expected, props) => {
     const result = compiler(input)
     expect(serialize(result)).toBe(expected)
     expect(propNames(result)).toEqual(props)
   })
-
-  it('renders a void element given a children attribute', () => {
-    const result = compiler('<img children="z" src="/x">')
-    expect(serialize(result)).toBe('<img></img>')
-    expect(propNames(result)).toEqual(['src'])
-  })
-
-  it('renders image alt text holding a quote as one image', () => {
-    const result = compiler('![" onclick=alert(1)>](/x)')
-    expect(serialize(result)).toBe('<img></img>')
-    expect(propNames(result)).toEqual(['alt', 'title', 'src'])
-  })
 })
 
 describe('a children attribute on a lowercase tag with an override', () => {
-  it('reaches the override', () => {
-    const result = compiler('<card children="z" />', {
-      overrides: { card: { component: 'i' } },
-    })
-
-    expect(serialize(result)).toBe('<i>z</i>')
-  })
-
   it.each([
+    ['<card children="z" />', { card: { component: 'i' } }],
     ['<card children="z" />', Object.create({ card: { component: 'i' } })],
     ['<CARD children="z" />', { card: { component: 'i' } }],
   ])('reaches the override for %j, inherited or keyed in lowercase, as the renderer finds it', (input, overrides) => {
@@ -2766,13 +2749,7 @@ describe('markup a browser reads differently from the parser', () => {
       '<img></img>',
     ],
     ['![a\\\\\\](javascript:alert(1))b](/x)', '<img></img>'],
-  ])('renders %j as %j with no handler prop', (input, expected) => {
-    const result = compiler(input)
-    expect(serialize(result)).toBe(expected)
-    expect(handlerProps(result)).toEqual([])
-  })
-
-  it.each([
+    // Shapes only the markdown output screens
     [
       `> <div a=1${String.fromCharCode(0x20_28)}>  onclick=alert(1) b>y</div>`,
       '<blockquote><div>onclick=alert(1) b>y</div></blockquote>',
@@ -2843,7 +2820,7 @@ describe('markup a browser reads differently from the parser', () => {
       '<![CDATA[\n<![CDATA[]]]>\n\n```\n<img src=x onerror=alert(1)>\n```',
       '<pre><code><img src=x onerror=alert(1)></code></pre>',
     ],
-  ])('renders %j as %j, a shape only the markdown output screens', (input, expected) => {
+  ])('renders %j as %j with no handler prop', (input, expected) => {
     const result = compiler(input)
     expect(serialize(result)).toBe(expected)
     expect(handlerProps(result)).toEqual([])

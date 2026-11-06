@@ -2620,42 +2620,39 @@ describe('inline markup with no terminator', () => {
 })
 
 describe('a children attribute on a lowercase tag with an override', () => {
-  it('stays out of the written tag', () => {
-    expect(
-      compiler('<card children="z" />', {
-        overrides: { card: { component: 'i' } },
-      })
-    ).toBe('<i ></i>')
-  })
-
-  it('stays out of the written tag when the override is inherited', () => {
-    expect(
-      compiler('<card children="z" />', {
-        overrides: Object.create({ card: { component: 'i' } }),
-      })
-    ).toBe('<i ></i>')
-  })
-
-  it('stays an unknown attribute on a capitalized tag, like any other prop there', () => {
-    expect(
-      compiler('<CARD children="z" />', {
-        overrides: { card: { component: 'i' } },
-      })
-    ).toBe('<i children="z" ></i>')
-  })
-
-  it('does not take a built-in object property for an override', () => {
-    expect(compiler('<constructor children="z" />', { overrides: {} })).toBe(
-      '<constructor ></constructor>'
-    )
-  })
-
-  it('writes a void override with no children', () => {
-    expect(
-      compiler('<img children="z" src="/x">', {
-        overrides: { img: { props: { title: 't' } } },
-      })
-    ).toBe('<img src="/x" title="t">')
+  it.each([
+    [
+      'stays out of the written tag',
+      '<card children="z" />',
+      { card: { component: 'i' } },
+      '<i ></i>',
+    ],
+    [
+      'stays out of the written tag when the override is inherited',
+      '<card children="z" />',
+      Object.create({ card: { component: 'i' } }),
+      '<i ></i>',
+    ],
+    [
+      'stays an unknown attribute on a capitalized tag, like any other prop there',
+      '<CARD children="z" />',
+      { card: { component: 'i' } },
+      '<i children="z" ></i>',
+    ],
+    [
+      'does not take a built-in object property for an override',
+      '<constructor children="z" />',
+      {},
+      '<constructor ></constructor>',
+    ],
+    [
+      'writes a void override with no children',
+      '<img children="z" src="/x">',
+      { img: { props: { title: 't' } } },
+      '<img src="/x" title="t">',
+    ],
+  ])('%s', (_title, input, overrides, expected) => {
+    expect(compiler(input, { overrides })).toBe(expected)
   })
 })
 
@@ -3041,11 +3038,7 @@ describe('markup a browser reads differently from the parser', () => {
       '![a\\\\\\](javascript:alert(1))b](/x)',
       '<p><img src="/x" alt="a\\](javascript:alert(1))b" /></p>',
     ],
-  ])('renders %j as %j', (input, expected) => {
-    expect(compiler(input)).toBe(expected)
-  })
-
-  it.each([
+    // Shapes only the markdown output screens
     [
       `> <div a=1${String.fromCharCode(0x20_28)}>  onclick=alert(1) b>y</div>`,
       `<blockquote><div a=1${String.fromCharCode(0x20_28)}>  onclick=alert(1) b>y</div></blockquote>`,
@@ -3125,7 +3118,7 @@ describe('markup a browser reads differently from the parser', () => {
       '<![CDATA[\n<![CDATA[]]]>\n\n```\n<img src=x onerror=alert(1)>\n```',
       '<div><![CDATA[\n<![CDATA[]]]>\n<pre><code>&lt;img src=x onerror=alert(1)&gt;</code></pre></div>',
     ],
-  ])('renders %j as %j, a shape only the markdown output screens', (input, expected) => {
+  ])('renders %j as %j', (input, expected) => {
     expect(compiler(input)).toBe(expected)
   })
 

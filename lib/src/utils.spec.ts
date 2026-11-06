@@ -339,17 +339,6 @@ describe('sanitizer', () => {
     console.warn = originalWarn
   })
 
-  it.each([
-    'java\tscript:alert(1)',
-    'java\nscript:alert(1)',
-    'java\rscript:alert(1)',
-    'ja\tva\nscr\ript:alert(1)',
-    'java%09script:alert(1)',
-    'da\tta:text/html,x',
-  ])('rejects the scheme split by a tab or line break in %j', url => {
-    expect(u.sanitizer(url)).toBeNull()
-  })
-
   it('should return input unchanged for safe URLs', () => {
     expect(u.sanitizer('https://example.com')).toBe('https://example.com')
     expect(u.sanitizer('mailto:test@example.com')).toBe(
@@ -379,10 +368,6 @@ describe('sanitizer', () => {
     ).toBe(
       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
     )
-  })
-
-  it('should decode and check percent-encoded dangerous content', () => {
-    expect(u.sanitizer('%6a%61%76%61%73%63%72%69%70%74:alert(1)')).toBeNull()
   })
 
   it('should return null for malformed URLs that cannot be decoded', () => {
@@ -482,7 +467,13 @@ describe('sanitizer', () => {
     `${String.fromCharCode(1)}javascript:x`,
     '\\javascript:x',
     'java\tscript:x',
+    'java\tscript:alert(1)',
     'java\nscript:x/y',
+    'java\nscript:alert(1)',
+    'java\rscript:alert(1)',
+    'ja\tva\nscr\ript:alert(1)',
+    'java%09script:alert(1)',
+    'da\tta:text/html,x',
     'java%0Ascript:x',
     '%6A%61vascript:x',
     'javascript%3Ax',

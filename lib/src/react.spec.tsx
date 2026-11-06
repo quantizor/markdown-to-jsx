@@ -4564,32 +4564,16 @@ describe('attribute names a renderer acts on rather than writes', () => {
 })
 
 describe('a children attribute on a lowercase tag with an override', () => {
-  it('reaches the override', () => {
-    const Card = (props: { children?: React.ReactNode }) => (
-      <i>{props.children}</i>
-    )
+  const Card = (props: { children?: React.ReactNode }) => (
+    <i>{props.children}</i>
+  )
 
-    render(compiler('<card children="z" />', { overrides: { card: Card } }))
-
-    expect(root.innerHTML).toBe('<i>z</i>')
-  })
-
-  it.each([
-    ['<card children="z" />', 'inherited'],
-    ['<CARD children="z" />', 'keyed in lowercase'],
-  ])('reaches the override for %j when it is %s, as the renderer finds it', input => {
-    const Card = (props: { children?: React.ReactNode }) => (
-      <i>{props.children}</i>
-    )
-
-    render(
-      compiler(input, {
-        overrides:
-          input === '<CARD children="z" />'
-            ? { card: Card }
-            : Object.create({ card: Card }),
-      })
-    )
+  it.each<[string, string, MarkdownToJSX.Overrides]>([
+    ['<card children="z" />', 'keyed in lowercase', { card: Card }],
+    ['<card children="z" />', 'inherited', Object.create({ card: Card })],
+    ['<CARD children="z" />', 'keyed in lowercase', { card: Card }],
+  ])('reaches the override for %j when it is %s, as the renderer finds it', (input, _keying, overrides) => {
+    render(compiler(input, { overrides }))
 
     expect(root.innerHTML).toBe('<i>z</i>')
   })
@@ -5012,16 +4996,7 @@ describe('markup a browser reads differently from the parser', () => {
       '![a\\\\\\](javascript:alert(1))b](/x)',
       '<link rel="preload" as="image" href="/x"/><img alt="a\\](javascript:alert(1))b" src="/x"/>',
     ],
-  ])('renders %j as %j with no handler prop', (input, expected) => {
-    // React warns about a tag's casing and a lowercase handler prop; neither is a verdict here
-    spyOn(console, 'error').mockImplementation(() => {})
-    const result = compiler(input)
-    render(result)
-    expect(root.innerHTML).toBe(expected)
-    expect(handlerProps(result)).toEqual([])
-  })
-
-  it.each([
+    // Shapes only the markdown output screens
     [
       `> <div a=1${String.fromCharCode(0x20_28)}>  onclick=alert(1) b>y</div>`,
       `<blockquote><div a="1${String.fromCharCode(0x20_28)}">onclick=alert(1) b&gt;y</div></blockquote>`,
@@ -5098,7 +5073,8 @@ describe('markup a browser reads differently from the parser', () => {
       '<![CDATA[\n<![CDATA[]]]>\n\n```\n<img src=x onerror=alert(1)>\n```',
       '<pre><code class="">&lt;img src=x onerror=alert(1)&gt;</code></pre>',
     ],
-  ])('renders %j as %j, a shape only the markdown output screens', (input, expected) => {
+  ])('renders %j as %j with no handler prop', (input, expected) => {
+    // React warns about a tag's casing and a lowercase handler prop; neither is a verdict here
     spyOn(console, 'error').mockImplementation(() => {})
     const result = compiler(input)
     render(result)

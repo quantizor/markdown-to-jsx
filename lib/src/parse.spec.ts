@@ -490,6 +490,20 @@ describe('parseMarkdown', () => {
     ])
   })
 
+  const countReferences = (value: unknown): number => {
+    if (Array.isArray(value)) {
+      return value.reduce((sum, item) => sum + countReferences(item), 0)
+    }
+    if (!value || typeof value !== 'object') {
+      return 0
+    }
+
+    return Object.values(value).reduce(
+      (sum: number, item) => sum + countReferences(item),
+      'type' in value && value.type === RuleType.footnoteReference ? 1 : 0
+    )
+  }
+
   it.each([
     ['blockquote', '> R'],
     ['component body', '<Foo>R</Foo>'],
@@ -504,19 +518,6 @@ describe('parseMarkdown', () => {
     ['table cell', '| h |\n|---|\n| R |'],
     ['table header', '| R |\n|---|\n| c |'],
   ])('finds a definition after a footnote reference in a %s', (_name, shape) => {
-    const countReferences = (value: unknown): number => {
-      if (Array.isArray(value)) {
-        return value.reduce((sum, item) => sum + countReferences(item), 0)
-      }
-      if (!value || typeof value !== 'object') {
-        return 0
-      }
-
-      return Object.values(value).reduce(
-        (sum: number, item) => sum + countReferences(item),
-        'type' in value && value.type === RuleType.footnoteReference ? 1 : 0
-      )
-    }
     const body = shape.replace('R', '[^1]')
 
     expect(countReferences(p.parser(`${body}\n\n[^1]: y`))).toBe(1)
@@ -7851,62 +7852,60 @@ describe('enforceAtxHeadings (#903)', () => {
   })
 })
 
+const attrsOf = (source: string, options?: Parameters<typeof p.parser>[1]) =>
+  (p.parser(source, options)[0] as MarkdownToJSX.HTMLNode).attrs
+
 describe('table cell pipe escapes', () => {
   it.each([
-    ['a\\|b', 'a|b'],
-    ['a\\\\\\|b', 'a\\|b'],
-    ['a\\\\b', 'a\\b'],
-  ])('reads the cell %j as the text %j', (cell, expected) => {
+    ['a\\|b', ['a|b', 'z']],
+    ['a\\\\\\|b', ['a\\|b', 'z']],
+    ['a\\\\b', ['a\\b', 'z']],
+    // An even backslash run before a pipe is a column split; two header
+    // columns keep the first two of the row's three cells
+    ['a\\\\|b', ['a\\', 'b']],
+  ])('reads the row cell %j as the cell texts %j', (cell, expected) => {
     const table = p.parser(
       `| h | i |\n|---|---|\n| ${cell} | z |`
     )[0] as MarkdownToJSX.TableNode
-    expect(table.cells[0].length).toBe(2)
     expect(
-      table.cells[0][0]
-        .map(node => (node.type === RuleType.text ? node.text : ''))
-        .join('')
-    ).toBe(expected)
-  })
-
-  it('still reads an even backslash run before a pipe as a column split', () => {
-    const table = p.parser(
-      '| h | i |\n|---|---|\n| a\\\\|b | z |'
-    )[0] as MarkdownToJSX.TableNode
-    // Two header columns keep the first two of the row's three cells
-    expect(
-      table.cells[0].map(cell =>
-        cell
+      table.cells[0].map(nodes =>
+        nodes
           .map(node => (node.type === RuleType.text ? node.text : ''))
           .join('')
       )
-    ).toEqual(['a\\', 'b'])
+    ).toEqual(expected)
   })
 })
 
 describe('attribute names a renderer acts on rather than writes', () => {
-  const attrsOf = (source: string, options?: Parameters<typeof p.parser>[1]) =>
-    (p.parser(source, options)[0] as MarkdownToJSX.HTMLNode).attrs
-
   it.each([
-    ['innerHTML="x"'],
-    ['INNERHTML="x"'],
-    ['outerHTML="x"'],
-    ['dangerouslySetInnerHTML="x"'],
-    ['dangerouslySetInnerHTML={{"__html":"x"}}'],
-    ['ref="x"'],
-    ['ref={x}'],
-    ['children="x"'],
-    ['prop:innerHTML="x"'],
-    ['attr:onclick="x"'],
-    ['bool:onclick="x"'],
-    ['prop:onclick="x"'],
-    ['attr:srcdoc="x"'],
-    ['attr:href="javascript:x"'],
-    ['prop:href="javascript:x"'],
-    ['xlinkHref="javascript:x"'],
-    ['attr:xlink:href="javascript:x"'],
-  ])('removes %s from an element', attribute => {
-    expect(attrsOf(`<div ${attribute}>y</div>`)).toEqual({})
+    '<div innerHTML="x">y</div>',
+    '<div INNERHTML="x">y</div>',
+    '<div outerHTML="x">y</div>',
+    '<div dangerouslySetInnerHTML="x">y</div>',
+    '<div dangerouslySetInnerHTML={{"__html":"x"}}>y</div>',
+    '<div ref="x">y</div>',
+    '<div ref={x}>y</div>',
+    '<div children="x">y</div>',
+    '<div prop:innerHTML="x">y</div>',
+    '<div attr:onclick="x">y</div>',
+    '<div bool:onclick="x">y</div>',
+    '<div prop:onclick="x">y</div>',
+    '<div attr:srcdoc="x">y</div>',
+    '<div attr:href="javascript:x">y</div>',
+    '<div prop:href="javascript:x">y</div>',
+    '<div xlinkHref="javascript:x">y</div>',
+    '<div attr:xlink:href="javascript:x">y</div>',
+    '<Foo innerHTML={x}>y</Foo>',
+    '<Foo outerHTML={x}>y</Foo>',
+    '<Foo dangerouslySetInnerHTML={{"__html":"x"}}>y</Foo>',
+    '<Foo ref={x}>y</Foo>',
+    '<Foo children="x">y</Foo>',
+    '<Foo children={x}>y</Foo>',
+    '<Foo children={{"a":1}}>y</Foo>',
+    '<my-el children="x">y</my-el>',
+  ])('removes the attribute from %j', source => {
+    expect(attrsOf(source)).toEqual({})
   })
 
   it.each([
@@ -7921,40 +7920,13 @@ describe('attribute names a renderer acts on rather than writes', () => {
   })
 
   it.each([
-    ['innerHTML={x}', {}],
-    ['outerHTML={x}', {}],
-    ['dangerouslySetInnerHTML={{"__html":"x"}}', {}],
-    ['ref={x}', {}],
-    ['children="x"', {}],
-    ['children={x}', {}],
-    ['children={{"a":1}}', {}],
-  ])('reads %s on a capitalized tag as %j', (attribute, attrs) => {
-    expect(attrsOf(`<Foo ${attribute}>y</Foo>`)).toEqual(attrs)
-  })
-
-  it.each([
-    ['<Foo children="x">y</Foo>', { children: 'x' }],
-    ['<Foo children={x}>y</Foo>', { children: 'x' }],
-    ['<my-el children="x">y</my-el>', { children: 'x' }],
-    ['<Foo children={{"a":1}}>y</Foo>', {}],
-    ['<Foo children={ {"a":1} }>y</Foo>', {}],
-    ['<Foo children={[{"a":1}]}>y</Foo>', {}],
-  ])('reads children on registered %s as %j', (source, attrs) => {
-    expect(
-      attrsOf(source, {
-        overrides: { Foo: { props: {} }, 'my-el': { props: {} } },
-      })
-    ).toEqual(attrs)
-  })
-
-  it('removes children from a custom element', () => {
-    expect(attrsOf('<my-el children="x">y</my-el>')).toEqual({})
-  })
-
-  it.each([
     ['<div innerHTML="x">y</div>', '<div >y</div>'],
     ['<div attr:onclick="x">y</div>', '<div >y</div>'],
     ['<b ref="x" title="y">z</b>', '<b title="y">z</b>'],
+    [
+      '<img src=x onerror="y"><b title="z">w</b>',
+      '<img src=x><b title="z">w</b>',
+    ],
   ])('removes it from the raw string %j', (raw, screened) => {
     expect(p.stripDangerousHtml(raw)).toBe(screened)
   })
@@ -7981,12 +7953,6 @@ describe('markup a browser reads differently from the parser', () => {
     expect(p.stripDangerousHtml(raw)).toBe(screened)
   })
 
-  it('keeps the rest of a string whose rewrite a second read leaves alone', () => {
-    expect(
-      p.stripDangerousHtml('<img src=x onerror="y"><b title="z">w</b>')
-    ).toBe('<img src=x><b title="z">w</b>')
-  })
-
   it.each([
     ['<?php echo 1 ?>', '<?php echo 1 ?>'],
     ['<!DOCTYPE html>', '<!DOCTYPE html>'],
@@ -8010,25 +7976,27 @@ describe('markup a browser reads differently from the parser', () => {
     expect(Object.keys(code.attrs ?? {})).toEqual(['title'])
   })
 
+  const registeredTags = {
+    overrides: { Foo: { props: {} }, 'my-el': { props: {} } },
+  }
+
   it.each([
     ['<my-el onClick={go} items={x}>y</my-el>', undefined, { items: 'x' }],
-    [
-      '<my-el onClick={go}>y</my-el>',
-      { overrides: { 'my-el': { props: {} } } },
-      { onClick: 'go' },
-    ],
+    ['<my-el onClick={go}>y</my-el>', registeredTags, { onClick: 'go' }],
     ['<My-el onClick={go}>y</My-el>', undefined, { onClick: 'go' }],
+    ['<Foo children="x">y</Foo>', registeredTags, { children: 'x' }],
+    ['<Foo children={x}>y</Foo>', registeredTags, { children: 'x' }],
+    ['<my-el children="x">y</my-el>', registeredTags, { children: 'x' }],
+    ['<Foo children={{"a":1}}>y</Foo>', registeredTags, {}],
+    ['<Foo children={ {"a":1} }>y</Foo>', registeredTags, {}],
+    ['<Foo children={[{"a":1}]}>y</Foo>', registeredTags, {}],
   ])('keeps the attributes of %j with %j as %j', (input, options, attrs) => {
-    const node = p.parser(input, options)[0] as MarkdownToJSX.HTMLNode
-    expect(node.attrs).toEqual(attrs)
+    expect(attrsOf(input, options)).toEqual(attrs)
   })
 
   it('reads no registered tag from a parse that ended', () => {
     p.parser('x', { overrides: { 'my-el': { props: {} } } })
-    const node = p.parser(
-      '<my-el onClick={go}>y</my-el>'
-    )[0] as MarkdownToJSX.HTMLNode
-    expect(node.attrs).toEqual({})
+    expect(attrsOf('<my-el onClick={go}>y</my-el>')).toEqual({})
   })
 
   it.each([
