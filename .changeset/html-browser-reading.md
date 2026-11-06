@@ -26,9 +26,10 @@ Output that changes in every format:
 - A link reference definition's URL ends at whitespace even after a backslash, as CommonMark says: `[r]: a\` with `b` on the next line keeps `b` as text.
 - An entity in `<pre>` text, such as `<pre>a &lt; b</pre>`, shows as `a < b` in React, React Native, Solid, and Vue.
 - `<pre><b>x</b></pre>` renders its markup in Solid and Vue rather than `[object Object]`.
+- An unfinished `<pre>`, such as `<pre>a` with no closing tag, renders as `<pre>a</pre>` in React, React Native, Solid, and Vue. React showed a second `<pre>` inside it, React Native showed `<pre>` as text, and Solid and Vue crashed.
 - `<?php … ?>`, `<!DOCTYPE html>`, and `<![CDATA[…]]>` render nothing in React, React Native, Solid, and Vue, as in a browser. React crashed on them.
 
-The markdown output is held to the same bar, because another renderer reads it. Read back through this library, the result stays the same; another renderer can show a difference only where a bullet says so:
+The markdown output is held to the same bar, because another renderer reads it. Rendering the input through this library is unchanged; the written text, read back by this library or another renderer, can show a difference only where a bullet says so:
 
 - Code that another renderer could read as a tag or link is written as `<code>` or `<pre><code>` HTML with entities rather than backticks or a fence. An unfinished tag counts, so a loop condition like `i<n` is written this way. A browser shows the same characters, and a language name stays as `class="language-html"`. Code that only names a tag such as `<script>` or `<style>` keeps its fence, unless `disableParsingRawHTML` is on.
 - Text that looks like a tag, such as `\<b>` or `&lt;b>`, is written with `&lt;`. Quotes and brackets in image alt text, an empty `~~~~`, and characters such as `<` and `[` in footnote names, reference names, and link titles are escaped or written as entities.

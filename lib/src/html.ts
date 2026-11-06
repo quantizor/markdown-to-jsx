@@ -555,25 +555,31 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
           : htmlNode._rawBody
         return `</${tag}>${closerTrailing}`
       }
+      // A raw span with no content of its own (an empty pair, or a tag left
+      // open) takes a children attribute as its content, and closes, as the
+      // markdown output writes it
+      var hasRawContent =
+        rawOuter === undefined && (htmlNode._rawBody || htmlNode._rawClose)
+      if (
+        htmlNode._verbatim &&
+        !hasRawContent &&
+        htmlNode.attrs !== undefined &&
+        htmlNode.attrs.children !== undefined
+      ) {
+        var verbatimAttrText = util.childrenAttrContent(
+          htmlNode.attrs.children,
+          [htmlNode.children, htmlNode.text]
+        )
+        if (verbatimAttrText !== undefined) {
+          return util.isVoidElement(tag)
+            ? `<${tag}${attrsStr}>`
+            : `<${tag}${attrsStr}>${escapeHtml(verbatimAttrText)}</${tag}>`
+        }
+      }
       if (htmlNode._verbatim && rawOuter !== undefined) {
         // Parser-verified full outer span (own opening tag through own
         // closing tag, or through end of input when none exists); emit
-        // as-is, no synthesized wrapper needed, except that an empty pair
-        // takes a children attribute as its content.
-        if (
-          htmlNode.attrs !== undefined &&
-          htmlNode.attrs.children !== undefined
-        ) {
-          var outerAttrText = util.childrenAttrContent(
-            htmlNode.attrs.children,
-            [htmlNode.children, htmlNode.text]
-          )
-          if (outerAttrText !== undefined) {
-            return util.isVoidElement(tag)
-              ? `<${tag}${attrsStr}>`
-              : `<${tag}${attrsStr}>${escapeHtml(outerAttrText)}</${tag}>`
-          }
-        }
+        // as-is, no synthesized wrapper needed.
         return ctx.tagfilter ? util.applyTagFilterToText(rawOuter) : rawOuter
       }
       if (htmlNode._verbatim && !htmlNode._isClosingTag) {

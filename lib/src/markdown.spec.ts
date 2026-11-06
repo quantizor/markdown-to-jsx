@@ -3125,6 +3125,7 @@ describe('markup a browser or downstream renderer reads differently from the par
     ['[x](javascript:alert(1) "t")', '[x]()'],
     ['<pre>a', '<pre>a'],
     ['<div><pre>a', '<div><pre>a'],
+    ['<div>\n\n', '<div></div>'],
     ["<div </div>'", "<div </div>'"],
     ['<?php echo 1 ?>', '<?php echo 1 ?>'],
     ['<!DOCTYPE html>', '<!DOCTYPE html>'],
@@ -3474,7 +3475,7 @@ describe('markup a browser or downstream renderer reads differently from the par
     [
       storedAST('<div>\n<my-widget onclick="alert(1)">x</my-widget>\n</div>'),
       undefined,
-      '<div>\n<my-widget >x</my-widget>\n</div>',
+      '<div><my-widget >x</my-widget>\n</div>',
     ],
     [
       storedAST('<div><img src=x onerror="alert(1)"></div>'),
@@ -3733,6 +3734,49 @@ describe('a children attribute on a tag with an override', () => {
       {},
       '<card ></card>',
     ],
+    ['an unclosed tag', '<Card children="z">', card, '<i>z</i>'],
+    [
+      'an unclosed tag with a trailing newline',
+      '<Card children="z">\n',
+      card,
+      '<i>z</i>',
+    ],
+    [
+      'an unclosed tag between blocks, which closes before the next block',
+      'a\n\n<Card children="z">\n\nb',
+      card,
+      'a\n\n<i>z</i>\n\nb',
+    ],
+    [
+      'an unclosed tag with a void override',
+      '<Card children="z">',
+      { card: { component: 'img' } },
+      '<img >',
+    ],
+    [
+      'an unclosed pre block with content of its own',
+      '<pre children="z">a',
+      { pre: { props: {} } },
+      '<pre >a',
+    ],
+    [
+      'a value with markup characters and a run of spaces',
+      '<Card children="a >  < b" />',
+      card,
+      '<i>a >  < b</i>',
+    ],
+    [
+      'a value with a line break',
+      '<Card children="a\nb" />',
+      card,
+      '<i>a\nb</i>',
+    ],
+    [
+      'a value with a CRLF line break, read as a line feed',
+      '<Card children="a\r\nb" />',
+      card,
+      '<i>a\nb</i>',
+    ],
     // A tag nested in a raw block keeps its written name here, which the JSX
     // outputs rename; whether this output should rename it is an open question
     [
@@ -3774,6 +3818,26 @@ describe('a children attribute on a tag with an override', () => {
     [
       'a markup value inside a raw block, which the output passes through without the attribute',
       '<div>\n<Card children="<img src=x onerror=alert(1)>" />\n</div>',
+      card,
+      '<div><Card  />\n</div>',
+    ],
+    // The value goes with the attribute here, as in the rows above; the JSX
+    // outputs keep it byte for byte
+    [
+      'a value with markup characters and a run of spaces inside a raw block, which the output passes through without the attribute',
+      '<div>\n<Card children="a >  < b" />\n</div>',
+      card,
+      '<div><Card  />\n</div>',
+    ],
+    [
+      'a value with a line break inside a raw block, which the output passes through without the attribute',
+      '<div>\n<Card children="a\nb" />\n</div>',
+      card,
+      '<div><Card  />\n</div>',
+    ],
+    [
+      'a value with a CRLF line break inside a raw block, which the output passes through without the attribute',
+      '<div>\r\n<Card children="a\r\nb" />\r\n</div>',
       card,
       '<div><Card  />\n</div>',
     ],

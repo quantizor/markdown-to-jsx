@@ -228,15 +228,16 @@ function render(
         const hasChildren = htmlChildren != null && htmlChildren.length > 0
 
         // Type 1 blocks (pre, script, style, textarea) always render verbatim.
-        // The element wrapper below supplies its own closing tag, so the body
-        // excludes _rawClose; the full outer span is used as-is only when no
-        // closing tag was found (rare, matches the tag-filter sniff below).
+        // The element wrapper below supplies its own tags, so the body is the
+        // inner content: the text field when no closing tag was found, since
+        // the outer span holds this element's own opening tag
         if (isType1Block) {
-          const type1Body = isRawOuter ? rawOuter : htmlNode._rawBody || ''
+          const type1Body =
+            (isRawOuter ? htmlNode.text : htmlNode._rawBody) || ''
           const textContent = util.tagfilterEnabled(options)
             ? util.applyTagFilterToText(type1Body)
             : type1Body
-          if (/<[a-z][^>]{0,100}>/i.test(rawSource)) {
+          if (/<[a-z][^>]{0,100}>/i.test(type1Body)) {
             var t1Props = keyedJsxProps(state.key, node.attrs)
             t1Props.dangerouslySetInnerHTML = { __html: textContent }
             return hJsx(node.tag, t1Props)

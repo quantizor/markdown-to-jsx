@@ -3711,8 +3711,7 @@ describe('multi-line HTML attributes', () => {
             ],
             "tag": "dl-custom",
             "text": 
-        "
-          <dt>title</dt>
+        "  <dt>title</dt>
         "
         ,
             "type": "htmlBlock",
@@ -8357,7 +8356,7 @@ describe('a tag that matches an override is a component, and every other tag is 
           attrs: {},
           children: [widgetX({}, '<my-widget >x</my-widget>\n')],
           tag: 'div',
-          text: '\n<my-widget >x</my-widget>\n',
+          text: '<my-widget >x</my-widget>\n',
           type: RuleType.htmlBlock,
         },
       ],
@@ -8420,6 +8419,58 @@ describe('a tag that matches an override is a component, and every other tag is 
           attrs: {},
           children: [],
           tag: 'div',
+          text: '<img src=x>',
+          type: RuleType.htmlBlock,
+        },
+      ],
+    ],
+    // The line break ending the opening tag's line is not content, as in the raw body
+    [
+      '<Card children="z">\n',
+      { overrides: { card: { component: 'i' } } },
+      [
+        {
+          _isClosingTag: false,
+          _rawAttrs: ' ',
+          _rawBody: '',
+          _verbatim: true,
+          attrs: { children: 'z' },
+          children: [],
+          tag: 'Card',
+          text: '',
+          type: RuleType.htmlBlock,
+        },
+      ],
+    ],
+    [
+      '<div>\n\n',
+      undefined,
+      [
+        {
+          _isClosingTag: false,
+          _rawAttrs: '',
+          _rawBody: '',
+          _verbatim: true,
+          attrs: {},
+          children: [],
+          tag: 'div',
+          text: '',
+          type: RuleType.htmlBlock,
+        },
+      ],
+    ],
+    [
+      '<pre>\n<img src=x onerror="alert(1)">\n',
+      undefined,
+      [
+        {
+          _isClosingTag: false,
+          _rawAttrs: '',
+          _rawOuter: '<pre>\n<img src=x>',
+          _verbatim: true,
+          attrs: {},
+          children: [],
+          tag: 'pre',
           text: '<img src=x>',
           type: RuleType.htmlBlock,
         },

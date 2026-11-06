@@ -853,10 +853,12 @@ function render(
         // Type 1 blocks (pre, script, style, textarea) always render verbatim.
         // These tags map to a native View, so the verbatim text is wrapped in a
         // Text rather than placed directly inside the View (issue #884). The
-        // View's own closing tag is implicit, so the text excludes _rawClose;
-        // the full outer span is used as-is only when no closing tag was found.
+        // View's own tags are implicit, so the text is the inner content: the
+        // text field when no closing tag was found, since the outer span holds
+        // this element's own opening tag.
         if (isType1Block) {
-          const type1Body = isRawOuter ? rawOuter : htmlNode._rawBody || ''
+          const type1Body =
+            (isRawOuter ? htmlNode.text : htmlNode._rawBody) || ''
           const textContent = util.tagfilterEnabled(options)
             ? util.applyTagFilterToText(type1Body)
             : type1Body

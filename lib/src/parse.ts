@@ -4245,6 +4245,13 @@ function scanHtmlBlock(
           type1Outer = type1Outer.slice(0, -1)
         }
         type1RawOuter = stripDangerousHtml(type1Outer)
+        // The inner content, for the text field and the JSX outputs, which
+        // write the element themselves
+        var type1InnerStart = type1ContentStart
+        if (rawText.charCodeAt(type1InnerStart) === $.CHAR_NEWLINE) {
+          type1InnerStart += 1
+        }
+        type1TextContent = type1Outer.slice(type1InnerStart)
       } else {
         // Has closing tag: split into body (before) and closer (from the
         // closing tag's own source through the end of the block).
@@ -4757,10 +4764,18 @@ function scanHtmlBlock(
         var sink67: KeepingChildrenSink = { keepingChildren: undefined }
         var safeRaw67 = stripDangerousHtml(raw67, undefined, sink67)
         // The public text field is the inner content, without the opening tag
-        // or the own closing tag either raw span can hold
+        // or the own closing tag either raw span can hold, and without the line
+        // break ending the opening tag's line, as the raw body drops it (only
+        // the span between an enclosing block's bounds keeps it)
         var inner67 = rawContent67
         if (closeIdx67 === -1) {
           inner67 = blockContent67.slice(tagResult67.end - start)
+        }
+        if (
+          !(closeIdx67 !== -1 && useInHtmlBounds) &&
+          inner67.charCodeAt(0) === $.CHAR_NEWLINE
+        ) {
+          inner67 = inner67.slice(1)
         }
         var text67 = safeRaw67
         if (inner67 !== raw67) {

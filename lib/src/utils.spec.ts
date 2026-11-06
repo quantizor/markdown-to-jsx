@@ -1466,6 +1466,23 @@ describe('withoutHandlerSource', () => {
   })
 })
 
+describe('normalizeJsxReparseText', () => {
+  it.each([
+    ['<div>\n  <b>x</b>\n</div>\n', '<div><b>x</b></div>'],
+    ['a\n\nb', 'a b'],
+    ['<i title="a >  < b"></i>', '<i title="a >  < b"></i>'],
+    ["<i title='a\nb'>\nx\n</i>", "<i title='a\nb'> x </i>"],
+    ['<i title = "a\nb">x</i>', '<i title = "a\nb">x</i>'],
+    ['<i title="a\nb', '<i title="a\nb'],
+    // A quote that follows no `=` opens no value, so what follows is markup
+    ['<a title="x"\nb"c\nd">\ne', '<a title="x" b"c d"> e'],
+    ["<p>don't\n<b>x</b></p>", "<p>don't <b>x</b></p>"],
+    ['</i title="a\nb">', '</i title="a b">'],
+  ])('writes %j as %j', (text, expected) => {
+    expect(u.normalizeJsxReparseText(text)).toBe(expected)
+  })
+})
+
 describe('no runtime remote fetching', () => {
   var NetworkApis = [
     'fetch(',

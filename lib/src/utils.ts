@@ -742,12 +742,62 @@ export function normalizeInput(text: string): string {
   return crlfParts.join('')
 }
 
+var MARKUP_GAP_R = />\s+</g
+var LINE_BREAKS_R = /\n+/g
+
+function collapseMarkupWhitespace(text: string): string {
+  return text.replace(MARKUP_GAP_R, '><').replace(LINE_BREAKS_R, ' ')
+}
+
 /**
  * Collapse inter-tag whitespace and newlines before re-parsing raw HTML as
- * JSX in the react/native/solid/vue compilers.
+ * JSX in the react/native/solid/vue compilers. A quoted attribute value is
+ * kept byte for byte: it is the element's data (a children value is its
+ * text), so it renders as it does outside a raw block.
  */
 export function normalizeJsxReparseText(text: string): string {
-  return text.replace(/>\s+</g, '><').replace(/\n+/g, ' ').trim()
+  var out = ''
+  var segStart = 0
+  var inTag = false
+  // The last character inside a tag that is not whitespace: a quote opens a
+  // value only after `=`, as a browser reads it
+  var prev = 0
+  for (var i = 0; i < text.length; i += 1) {
+    var code = text.charCodeAt(i)
+    if (code === $.CHAR_LT) {
+      var next = text.charCodeAt(i + 1)
+      inTag =
+        (next >= $.CHAR_a && next <= $.CHAR_z) ||
+        (next >= $.CHAR_A && next <= $.CHAR_Z)
+      prev = code
+    } else if (code === $.CHAR_GT) {
+      inTag = false
+    } else if (
+      inTag &&
+      prev === $.CHAR_EQ &&
+      (code === $.CHAR_DOUBLE_QUOTE || code === $.CHAR_SINGLE_QUOTE)
+    ) {
+      // An unclosed value runs to the end of the text
+      var close = text.indexOf(text[i], i + 1)
+      if (close === -1) {
+        close = text.length
+      }
+      out +=
+        collapseMarkupWhitespace(text.slice(segStart, i + 1)) +
+        text.slice(i + 1, close)
+      segStart = close
+      i = close
+      prev = code
+    } else if (
+      code !== $.CHAR_SPACE &&
+      code !== $.CHAR_TAB &&
+      code !== $.CHAR_NEWLINE &&
+      code !== $.CHAR_CR
+    ) {
+      prev = code
+    }
+  }
+  return (out + collapseMarkupWhitespace(text.slice(segStart))).trim()
 }
 
 /**

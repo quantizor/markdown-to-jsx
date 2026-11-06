@@ -155,14 +155,15 @@ function render(
         const isType1Block = parse.isType1Block(tagLower)
 
         if (isType1Block) {
-          // The element wrapper below supplies its own closing tag, so the
-          // body excludes _rawClose; the full outer span is used as-is only
-          // when no closing tag was found (rare, matches the sniff below).
-          const type1Body = isRawOuter ? rawOuter : htmlNode._rawBody || ''
+          // The element wrapper below supplies its own tags, so the body is
+          // the inner content: the text field when no closing tag was found,
+          // since the outer span holds this element's own opening tag
+          const type1Body =
+            (isRawOuter ? htmlNode.text : htmlNode._rawBody) || ''
           const textContent = util.tagfilterEnabled(options)
             ? util.applyTagFilterToText(type1Body)
             : type1Body
-          if (/<[a-z][^>]{0,100}>/i.test(rawSource)) {
+          if (/<[a-z][^>]{0,100}>/i.test(type1Body)) {
             return h(node.tag, {
               ...attrs,
               innerHTML: textContent,
