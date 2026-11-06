@@ -14,6 +14,7 @@ import Markdown, {
   sanitizer,
   slugify,
 } from './native.tsx'
+import { treeProps } from './test-tree.ts'
 
 /**
  * Structural view of the props these tests read off rendered elements. The
@@ -2403,37 +2404,18 @@ describe('enforceAtxHeadings (#903)', () => {
  * The type of every `on*` prop in an element tree, serialize showing no props.
  * onPress is what the renderer builds for a link.
  */
-function handlerProps(el: React.ReactNode): string[] {
-  if (Array.isArray(el)) {
-    return el.flatMap(handlerProps)
-  }
-  if (!isTestElement(el)) {
-    return []
-  }
-  const props = el.props
-  return [
-    ...Object.keys(props)
-      .filter(name => name.toLowerCase().startsWith('on') && name !== 'onPress')
-      .map(name => `${name}=${typeof props[name]}`),
-    ...handlerProps(props.children),
-  ]
-}
+const handlerProps = (el: React.ReactNode) =>
+  treeProps(el)
+    .filter(
+      ([name]) => name.toLowerCase().startsWith('on') && name !== 'onPress'
+    )
+    .map(([name, value]) => `${name}=${typeof value}`)
 
 /** Every prop name in an element tree but children, style, and what the renderer builds. */
-function propNames(el: React.ReactNode): string[] {
-  if (Array.isArray(el)) {
-    return el.flatMap(propNames)
-  }
-  if (!isTestElement(el)) {
-    return []
-  }
-  return [
-    ...Object.keys(el.props).filter(
-      name => name !== 'children' && name !== 'style' && name !== 'onPress'
-    ),
-    ...propNames(el.props.children),
-  ]
-}
+const propNames = (el: React.ReactNode) =>
+  treeProps(el)
+    .map(([name]) => name)
+    .filter(name => name !== 'style' && name !== 'onPress')
 
 // A native view has no innerHTML or DOM attributes, so these assert that the
 // names leave the props: a ref string throws here as it does on the web.

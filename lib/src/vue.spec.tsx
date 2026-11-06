@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import { h, type VNode } from 'vue'
+import { treeProps } from './test-tree.ts'
 import type { MarkdownToJSX } from './types.ts'
 import Markdown, {
   astToJSX,
@@ -1685,48 +1686,22 @@ describe('enforceAtxHeadings (#903)', () => {
 })
 
 /** The type of every `on*` prop in a VNode tree, serialize showing no props. */
-function handlerProps(el: unknown): string[] {
-  if (Array.isArray(el)) {
-    return el.flatMap(handlerProps)
-  }
-  if (el === null || typeof el !== 'object') {
-    return []
-  }
-  const vnode = el as VNode
-  const props = (vnode.props as Record<string, unknown>) || {}
-  let kids: unknown = vnode.children
-  if (
-    kids &&
-    typeof kids === 'object' &&
-    !Array.isArray(kids) &&
-    typeof (kids as Record<string, unknown>).default === 'function'
-  ) {
-    kids = (kids as { default: () => unknown }).default()
-  }
-  return [
-    ...Object.keys(props)
-      .filter(name => name.toLowerCase().startsWith('on'))
-      .map(name => `${name}=${typeof props[name]}`),
-    ...handlerProps(kids),
-  ]
-}
+const handlerProps = (el: unknown) =>
+  treeProps(el)
+    .filter(([name]) => name.toLowerCase().startsWith('on'))
+    .map(([name, value]) => `${name}=${typeof value}`)
 
 /** Every prop name in a VNode tree but key and the compiler's own innerHTML. */
-function propNames(el: unknown): string[] {
-  if (Array.isArray(el)) {
-    return el.flatMap(propNames)
-  }
-  if (el === null || typeof el !== 'object') {
-    return []
-  }
-  const vnode = el as VNode
-  return [
-    ...Object.keys(vnode.props ?? {}).filter(
-      name => name !== 'key' && name !== 'innerHTML'
-    ),
-    ...propNames(vnode.children),
-  ]
-}
+const propNames = (el: unknown) =>
+  treeProps(el)
+    .map(([name]) => name)
+    .filter(name => name !== 'key' && name !== 'innerHTML')
+
+/** The first href in a VNode tree. */
+const firstHref = (el: unknown) =>
+  treeProps(el).find(
+    ([name, value]) => name === 'href' && value !== undefined
+  )?.[1]
 
 describe('attribute names a renderer acts on rather than writes', () => {
   it('removes an object children value from a registered tag', () => {
@@ -1891,20 +1866,6 @@ describe('code naming a filtered tag', () => {
 })
 
 describe('a URL that names a dangerous scheme', () => {
-  const firstHref = (el: unknown): unknown => {
-    if (Array.isArray(el)) {
-      return el.map(firstHref).find(href => href !== undefined)
-    }
-    if (el === null || typeof el !== 'object') {
-      return
-    }
-    const { children, props } = el as {
-      children?: unknown
-      props?: Record<string, unknown> | null
-    }
-    return props && 'href' in props ? props.href : firstHref(children)
-  }
-
   it.each([
     [
       '[a](https://en.wikipedia.org/wiki/Javascript:_The_Good_Parts)',

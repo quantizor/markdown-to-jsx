@@ -10,6 +10,7 @@ import {
   RuleType,
   type SolidOptions,
 } from './solid.tsx'
+import { treeProps } from './test-tree.ts'
 import type { MarkdownToJSX } from './types.ts'
 
 afterEach(() => {
@@ -2079,29 +2080,6 @@ describe('unique heading IDs (#857)', () => {
 })
 
 describe('destination entity decode before sanitize', () => {
-  function firstHref(el: unknown): unknown {
-    if (el === null || typeof el !== 'object') {
-      return
-    }
-    if (Array.isArray(el)) {
-      for (const child of el) {
-        const found = firstHref(child)
-        if (found !== undefined) {
-          return found
-        }
-      }
-      return
-    }
-    const props = (el as { p?: Record<string, unknown> }).p
-    if (props && 'href' in props) {
-      return props.href
-    }
-    if (props && 'src' in props) {
-      return props.src
-    }
-    return firstHref(props?.children)
-  }
-
   it('drops entity-obfuscated javascript: href and src', () => {
     expect(firstHref(compiler('[x](&#106;avascript:alert(1))'))).toBeUndefined()
     expect(
@@ -2274,38 +2252,23 @@ describe('enforceAtxHeadings (#903)', () => {
 })
 
 /** The type of every `on*` prop in a Solid element tree, serialize showing no props. */
-function handlerProps(el: unknown): string[] {
-  if (Array.isArray(el)) {
-    return el.flatMap(handlerProps)
-  }
-  if (el === null || typeof el !== 'object') {
-    return []
-  }
-  const props = (el as { p?: Record<string, unknown> }).p || {}
-  return [
-    ...Object.keys(props)
-      .filter(name => name.toLowerCase().startsWith('on'))
-      .map(name => `${name}=${typeof props[name]}`),
-    ...handlerProps(props.children),
-  ]
-}
+const handlerProps = (el: unknown) =>
+  treeProps(el)
+    .filter(([name]) => name.toLowerCase().startsWith('on'))
+    .map(([name, value]) => `${name}=${typeof value}`)
+
+/** The first defined href or src in a Solid element tree. */
+const firstHref = (el: unknown) =>
+  treeProps(el).find(
+    ([name, value]) =>
+      (name === 'href' || name === 'src') && value !== undefined
+  )?.[1]
 
 /** Every prop name in a Solid element tree but children and the compiler's own innerHTML. */
-function propNames(el: unknown): string[] {
-  if (Array.isArray(el)) {
-    return el.flatMap(propNames)
-  }
-  if (el === null || typeof el !== 'object') {
-    return []
-  }
-  const props = (el as { p?: Record<string, unknown> }).p || {}
-  return [
-    ...Object.keys(props).filter(
-      name => name !== 'children' && name !== 'innerHTML'
-    ),
-    ...propNames(props.children),
-  ]
-}
+const propNames = (el: unknown) =>
+  treeProps(el)
+    .map(([name]) => name)
+    .filter(name => name !== 'innerHTML')
 
 describe('attribute names a renderer acts on rather than writes', () => {
   it('removes an object children value from a registered tag', () => {
@@ -2466,17 +2429,6 @@ describe('code naming a filtered tag', () => {
 })
 
 describe('a URL that names a dangerous scheme', () => {
-  const firstHref = (el: unknown): unknown => {
-    if (Array.isArray(el)) {
-      return el.map(firstHref).find(href => href !== undefined)
-    }
-    if (el === null || typeof el !== 'object') {
-      return
-    }
-    const props = (el as { p?: Record<string, unknown> }).p || {}
-    return 'href' in props ? props.href : firstHref(props.children)
-  }
-
   it.each([
     [
       '[a](https://en.wikipedia.org/wiki/Javascript:_The_Good_Parts)',

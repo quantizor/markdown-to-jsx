@@ -12,6 +12,7 @@ import Markdown, {
   RuleType,
   sanitizer,
 } from './react.tsx'
+import { treeProps } from './test-tree.ts'
 import type { MarkdownToJSX } from './types.ts'
 
 const root = { innerHTML: '' }
@@ -4396,35 +4397,13 @@ describe('enforceAtxHeadings (#903)', () => {
 })
 
 /** The type of every `on*` prop in an element tree, which server rendering drops from its string. */
-function handlerProps(el: React.ReactNode): string[] {
-  if (Array.isArray(el)) {
-    return el.flatMap(handlerProps)
-  }
-  if (!React.isValidElement<Record<string, React.ReactNode>>(el)) {
-    return []
-  }
-  const props = el.props
-  return [
-    ...Object.keys(props)
-      .filter(name => name.toLowerCase().startsWith('on'))
-      .map(name => `${name}=${typeof props[name]}`),
-    ...handlerProps(props.children),
-  ]
-}
+const handlerProps = (el: React.ReactNode) =>
+  treeProps(el)
+    .filter(([name]) => name.toLowerCase().startsWith('on'))
+    .map(([name, value]) => `${name}=${typeof value}`)
 
 /** Every prop name in an element tree but children, which server rendering hides for a ref. */
-function propNames(el: React.ReactNode): string[] {
-  if (Array.isArray(el)) {
-    return el.flatMap(propNames)
-  }
-  if (!React.isValidElement<Record<string, React.ReactNode>>(el)) {
-    return []
-  }
-  return [
-    ...Object.keys(el.props).filter(name => name !== 'children'),
-    ...propNames(el.props.children),
-  ]
-}
+const propNames = (el: React.ReactNode) => treeProps(el).map(([name]) => name)
 
 describe('attribute names a renderer acts on rather than writes', () => {
   it.each([
