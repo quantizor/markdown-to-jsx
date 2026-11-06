@@ -883,7 +883,10 @@ function render(
         // Re-parse rawSource so a nested element does not absorb a following text
         // line, then split at this element's own closing tag so any trailing
         // content renders as siblings (issue #881).
-        const cleanedText = util.normalizeJsxReparseText(rawSource)
+        // The parser's re-parse span holds the children attribute rawSource cut
+        const cleanedText = util.normalizeJsxReparseText(
+          htmlNode._reparseSource || rawSource
+        )
         const props: Record<string, unknown> = {
           key: state.key,
           ...util.htmlAttrsToJSXProps(htmlNode.attrs),

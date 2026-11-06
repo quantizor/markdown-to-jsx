@@ -514,20 +514,24 @@ function isUnsafeUrl(url: string, quiet: boolean | undefined): boolean {
  * the original source; only called when the tag actually had a dangerous
  * attribute, so safe tags keep their verbatim bytes elsewhere.
  */
-function reconstructOpenTag(tagResult: {
-  _hasSpaceBeforeSlash: boolean
-  _isClosing: boolean
-  _rawAttrs: string
-  _selfClosing: boolean
-  _whitespaceBeforeAttrs: string
-  tag: string
-}): string {
+function reconstructOpenTag(
+  tagResult: {
+    _hasSpaceBeforeSlash: boolean
+    _isClosing: boolean
+    _rawAttrs: string
+    _selfClosing: boolean
+    _whitespaceBeforeAttrs: string
+    tag: string
+  },
+  /** In place of `_rawAttrs` */
+  rawAttrs?: string
+): string {
   return (
     '<' +
     (tagResult._isClosing ? '/' : '') +
     tagResult.tag +
     tagResult._whitespaceBeforeAttrs +
-    tagResult._rawAttrs +
+    (rawAttrs === undefined ? tagResult._rawAttrs : rawAttrs) +
     (tagResult._selfClosing
       ? tagResult._hasSpaceBeforeSlash
         ? ' />'
@@ -566,6 +570,19 @@ function buildSafeRawAttrs(
     }
   }
   return parts.join(' ')
+}
+
+/** The [start, end] pairs of `spans` other than the one starting at `start`. */
+function spansWithout(spans: number[] | null, start: number): number[] {
+  var rest: number[] = []
+  if (spans !== null) {
+    for (var k = 0; k < spans.length; k += 2) {
+      if (spans[k] !== start) {
+        rest.push(spans[k], spans[k + 1])
+      }
+    }
+  }
+  return rest
 }
 
 /**
@@ -824,6 +841,11 @@ function __parseHtmlTag(
   _isComponentTag: boolean
   _isClosing: boolean
   _rawAttrs: string
+  /**
+   * `_rawAttrs` with the `children` attribute kept in `attrs` left in, for the
+   * span the JSX renderers re-parse; undefined when no such attribute was cut.
+   */
+  _rawAttrsKeepingChildren: string | undefined
   /** True when one or more dangerous attributes were stripped from this tag. */
   _sanitized: boolean
   _selfClosing: boolean
@@ -914,6 +936,8 @@ function __parseHtmlTag(
   /** Source spans of attributes a browser can read differently; null on the common path. */
   var readSpans: number[] | null = null
   var valueReadsDifferently = false
+  /** Start of the `children` attribute kept as a prop, whose span is also in dangerSpans; -1 on the common path. */
+  var keptChildrenStart = -1
 
   while (i < len) {
     const c = source.charCodeAt(i)
@@ -938,6 +962,15 @@ function __parseHtmlTag(
         _isComponentTag: isComponentTag,
         _isClosing: isClosing,
         _rawAttrs: rawAttrs,
+        _rawAttrsKeepingChildren:
+          keptChildrenStart === -1
+            ? undefined
+            : buildSafeRawAttrs(
+                source,
+                attrStartPos,
+                i,
+                spansWithout(dangerSpans, keptChildrenStart)
+              ),
         _sanitized: dangerSpans != null,
         _selfClosing: false,
         _whitespaceBeforeAttrs: whitespaceBeforeAttrs,
@@ -977,6 +1010,15 @@ function __parseHtmlTag(
         _isComponentTag: isComponentTag,
         _isClosing: isClosing,
         _rawAttrs: rawAttrs,
+        _rawAttrsKeepingChildren:
+          keptChildrenStart === -1
+            ? undefined
+            : buildSafeRawAttrs(
+                source,
+                attrStartPos,
+                i,
+                spansWithout(dangerSpans, keptChildrenStart)
+              ),
         _sanitized: dangerSpans != null,
         _selfClosing: true,
         _whitespaceBeforeAttrs: whitespaceBeforeAttrs,
@@ -1153,6 +1195,7 @@ function __parseHtmlTag(
         // One key for any casing, since renderers read a registered tag's
         // content from it
         attrs.children = attrValue
+        keptChildrenStart = attrStart
       }
       // Style XSS is screened here so string compilers cannot re-emit it via
       // _rawAttrs; keep the same DEV warn processHtmlAttributes used to emit.
@@ -1184,6 +1227,15 @@ function __parseHtmlTag(
 var LT_R = /</g
 
 /**
+ * Where stripDangerousHtml writes its result with the `children` attribute of
+ * each tag that keeps it as a prop left in, or undefined when it cut none. Only
+ * the span a JSX renderer re-parses (`_reparseSource`) takes it.
+ */
+interface KeepingChildrenSink {
+  keepingChildren: string | undefined
+}
+
+/**
  * Strip dangerous attributes from every tag in a raw HTML string, reusing
  * __parseHTMLTag as the single tag scanner so nested tags are covered too.
  * Tag boundaries follow a browser's reading wherever the parser's could differ
@@ -1192,10 +1244,15 @@ var LT_R = /</g
  * reference) when nothing is stripped, so safe content stays byte-identical and
  * allocation-free. Guards the raw-HTML output paths (html string compiler,
  * solid/vue innerHTML) that emit raw source verbatim and so bypass the sanitized
- * attrs map. `quiet` as in __parseHtmlTag.
+ * attrs map. `quiet` as in __parseHtmlTag. A `sink` takes the same result with
+ * a kept children attribute left in.
  */
-export function stripDangerousHtml(html: string, quiet?: boolean): string {
-  var once = screenRawTags(html, quiet)
+export function stripDangerousHtml(
+  html: string,
+  quiet?: boolean,
+  sink?: KeepingChildrenSink
+): string {
+  var once = screenRawTags(html, quiet, sink)
   if (once === html) {
     return html
   }
@@ -1203,7 +1260,14 @@ export function stripDangerousHtml(html: string, quiet?: boolean): string {
   // open earlier in the string, so a rewrite is not settled until it reads the
   // same. A string that a second read changes too keeps no tag, which keeps
   // this to two passes
-  return screenRawTags(once, true) === once ? once : once.replace(LT_R, '&lt;')
+  if (screenRawTags(once, true) === once) {
+    return once
+  }
+  if (sink !== undefined) {
+    // No tag is left to hold a children attribute
+    sink.keepingChildren = undefined
+  }
+  return once.replace(LT_R, '&lt;')
 }
 
 /**
@@ -1230,13 +1294,24 @@ function bareTagEnd(html: string, lt: number): number {
   return code === $.CHAR_GT ? i + 1 : -1
 }
 
-/** One read of a raw string for stripDangerousHtml; the same reference when nothing changes. */
-function screenRawTags(html: string, quiet: boolean | undefined): string {
+/**
+ * One read of a raw string for stripDangerousHtml; the same reference when
+ * nothing changes. A `sink` takes the result of the same decisions with a kept
+ * children attribute left in.
+ */
+function screenRawTags(
+  html: string,
+  quiet: boolean | undefined,
+  sink?: KeepingChildrenSink
+): string {
   var lt = html.indexOf('<')
   if (lt === -1) {
     return html
   }
   var out = ''
+  // Starts as a copy of `out` at the first tag that keeps a children attribute,
+  // then takes every piece `out` takes, with that attribute left in
+  var keeping: string | undefined
   var cursor = 0
   var changed = false
   while (lt !== -1) {
@@ -1246,22 +1321,40 @@ function screenRawTags(html: string, quiet: boolean | undefined): string {
       continue
     }
     var tagResult = __parseHtmlTag(html, lt, quiet, true)
+    var piece: string
     if (
       tagResult?._sanitized &&
       tagResult._browserReadDiffers &&
       tagResult._isComponentTag
     ) {
       // What goes from a component-like tag goes whatever a browser reads, and
-      // what a browser reads of the rest decides the rest
-      out +=
+      // what a browser reads of the rest decides the rest. A children attribute
+      // goes here too: the rest is read again without it
+      piece =
         html.slice(cursor, lt) +
         screenRawTags(reconstructOpenTag(tagResult), quiet)
+      out += piece
+      if (keeping !== undefined) {
+        keeping += piece
+      }
       cursor = tagResult.end
       changed = true
       lt = html.indexOf('<', tagResult.end)
     } else if (tagResult && !tagResult._browserReadDiffers) {
       if (tagResult._sanitized) {
-        out += html.slice(cursor, lt) + reconstructOpenTag(tagResult)
+        var gap = html.slice(cursor, lt)
+        var keptAttrs = tagResult._rawAttrsKeepingChildren
+        if (
+          keeping === undefined &&
+          keptAttrs !== undefined &&
+          sink !== undefined
+        ) {
+          keeping = out
+        }
+        out += gap + reconstructOpenTag(tagResult)
+        if (keeping !== undefined) {
+          keeping += gap + reconstructOpenTag(tagResult, keptAttrs)
+        }
         cursor = tagResult.end
         changed = true
       }
@@ -1278,8 +1371,12 @@ function screenRawTags(html: string, quiet: boolean | undefined): string {
         tagResult?._isComponentTag ? tagResult.attrs : null
       )
       if (_browserTagUnsafe) {
-        out +=
+        piece =
           html.slice(cursor, lt) + html.slice(lt, tagEnd).replace(LT_R, '&lt;')
+        out += piece
+        if (keeping !== undefined) {
+          keeping += piece
+        }
         cursor = tagEnd
         changed = true
       }
@@ -1294,7 +1391,11 @@ function screenRawTags(html: string, quiet: boolean | undefined): string {
   if (!changed) {
     return html
   }
-  return out + html.slice(cursor)
+  var rest = html.slice(cursor)
+  if (keeping !== undefined && sink !== undefined) {
+    sink.keepingChildren = keeping + rest
+  }
+  return out + rest
 }
 
 // Collect reference definitions in first pass
@@ -4257,6 +4358,8 @@ function scanHtmlBlock(
         _rawBody: type1RawBody,
         _rawClose: type1RawClose,
         _rawOuter: type1RawOuter,
+        // A Type 1 block is never re-parsed
+        _reparseSource: undefined,
         text: type1TextContent,
         _verbatim: true,
         _isClosingTag: type1IsClosing,
@@ -4283,6 +4386,10 @@ function scanHtmlBlock(
       // Closing tag path
       if (type67IsClosing) {
         var afterTag67 = s.slice(tagResult67.end, rawEnd6)
+        var afterTagSink67: KeepingChildrenSink = { keepingChildren: undefined }
+        var afterTagBody67 = afterTag67
+          ? stripDangerousHtml(afterTag67, undefined, afterTagSink67)
+          : undefined
         return {
           node: {
             type: RuleType.htmlBlock,
@@ -4290,7 +4397,8 @@ function scanHtmlBlock(
             attrs: {},
             children: [],
             _rawClose: rawCloser(s, start, tagResult67.end, tagName67),
-            _rawBody: afterTag67 ? stripDangerousHtml(afterTag67) : undefined,
+            _rawBody: afterTagBody67,
+            _reparseSource: afterTagSink67.keepingChildren,
             text: afterTag67,
             _verbatim: true,
             _isClosingTag: true,
@@ -4309,6 +4417,7 @@ function scanHtmlBlock(
             _rawAttrs:
               tagResult67._whitespaceBeforeAttrs + tagResult67._rawAttrs,
             children: [],
+            _reparseSource: undefined,
             text: '',
             _verbatim: false,
             _isClosingTag: false,
@@ -4704,8 +4813,11 @@ function scanHtmlBlock(
         }
 
         var isOuter67 = rawOuter67 !== undefined
+        var sink67: KeepingChildrenSink = { keepingChildren: undefined }
         var safeRaw67 = stripDangerousHtml(
-          rawOuter67 === undefined ? rawBody67 || '' : rawOuter67
+          rawOuter67 === undefined ? rawBody67 || '' : rawOuter67,
+          undefined,
+          sink67
         )
         var verbatimNode67 = {
           type: RuleType.htmlBlock,
@@ -4715,6 +4827,7 @@ function scanHtmlBlock(
           children: children67,
           _rawBody: isOuter67 ? undefined : safeRaw67,
           _rawOuter: isOuter67 ? safeRaw67 : undefined,
+          _reparseSource: sink67.keepingChildren,
           text: safeRaw67,
           _verbatim: true,
           _isClosingTag: false,
@@ -4742,6 +4855,8 @@ function scanHtmlBlock(
           _rawAttrs: tagResult67._whitespaceBeforeAttrs + tagResult67._rawAttrs,
           children: children67,
           _rawBody: blockWasExtended67 ? undefined : safeRawContent67,
+          // Not verbatim, so never re-parsed
+          _reparseSource: undefined,
           text: safeRawContent67,
           _verbatim: false,
           _isClosingTag: false,
@@ -4757,6 +4872,7 @@ function scanHtmlBlock(
     var type67RawCloseF: string | undefined
     var type67RawBodyF: string | undefined
     var type67RawOuterF: string | undefined
+    var type67SinkF: KeepingChildrenSink = { keepingChildren: undefined }
     var type67TrailingF = ''
     if (type67IsClosingF) {
       var closeAngle67 = rawText6.indexOf('>')
@@ -4766,11 +4882,15 @@ function scanHtmlBlock(
         type67RawCloseF = rawText6.slice(0, closeAngle67 + 1)
         type67TrailingF = rawText6.slice(closeAngle67 + 1)
         if (type67TrailingF) {
-          type67RawBodyF = stripDangerousHtml(type67TrailingF)
+          type67RawBodyF = stripDangerousHtml(
+            type67TrailingF,
+            undefined,
+            type67SinkF
+          )
         }
       }
     } else {
-      type67RawOuterF = stripDangerousHtml(rawText6)
+      type67RawOuterF = stripDangerousHtml(rawText6, undefined, type67SinkF)
     }
 
     return {
@@ -4782,6 +4902,7 @@ function scanHtmlBlock(
         _rawBody: type67RawBodyF,
         _rawClose: type67RawCloseF,
         _rawOuter: type67RawOuterF,
+        _reparseSource: type67SinkF.keepingChildren,
         text: type67IsClosingF ? type67TrailingF : type67RawOuterF,
         _verbatim: true,
         _isClosingTag: type67IsClosingF,
@@ -4864,6 +4985,8 @@ function scanHtmlBlock(
     // _rawOuter: full block from start (including opening tag) for React compiler's re-parse logic
     var rawTextJsx = isJsx ? s.slice(start, closeEnd) : s.slice(start, endPos)
     var _nodeEndPos = isJsx ? closeEnd : endPos
+    var sinkJsx: KeepingChildrenSink = { keepingChildren: undefined }
+    var safeRawJsx = stripDangerousHtml(rawTextJsx, undefined, sinkJsx)
 
     return {
       node: {
@@ -4872,7 +4995,8 @@ function scanHtmlBlock(
         attrs: processHtmlAttributes(tagResult.attrs, tagName, opts),
         _rawAttrs: tagResult._whitespaceBeforeAttrs + tagResult._rawAttrs,
         children,
-        _rawOuter: stripDangerousHtml(rawTextJsx),
+        _rawOuter: safeRawJsx,
+        _reparseSource: sinkJsx.keepingChildren,
         text: isJsx ? rawContent : rawTextJsx,
         _verbatim: true,
         _isClosingTag: false,
@@ -4900,7 +5024,12 @@ function scanHtmlBlock(
     state._htmlDepth = sHdF
   }
 
-  var rawTextFallback = s.slice(tagResult.end, blankLineEnd)
+  var sinkFallback: KeepingChildrenSink = { keepingChildren: undefined }
+  var safeRawFallback = stripDangerousHtml(
+    s.slice(tagResult.end, blankLineEnd),
+    undefined,
+    sinkFallback
+  )
 
   return {
     node: {
@@ -4909,7 +5038,8 @@ function scanHtmlBlock(
       attrs: processHtmlAttributes(tagResult.attrs, tagName, opts),
       _rawAttrs: tagResult._whitespaceBeforeAttrs + tagResult._rawAttrs,
       children,
-      _rawBody: stripDangerousHtml(rawTextFallback),
+      _rawBody: safeRawFallback,
+      _reparseSource: sinkFallback.keepingChildren,
       text: contentFallback,
       _verbatim: true,
       _isClosingTag: false,
@@ -7921,6 +8051,8 @@ function scanInlineHtml(
         children: [],
         _rawBody: type1Body || undefined,
         _rawClose: rawCloser(s, closeTagStart, closeEnd, tagName),
+        // A Type 1 block is never re-parsed
+        _reparseSource: undefined,
         text: type1Body,
         _verbatim: true,
         _isClosingTag: false,
@@ -7966,6 +8098,8 @@ function scanInlineHtml(
       attrs: processHtmlAttributes(tagResult.attrs, tagName, opts),
       _rawAttrs: tagResult._rawAttrs,
       children,
+      // Not verbatim, so never re-parsed
+      _reparseSource: undefined,
       // The deprecated text field carries the raw inner source, so strip
       // dangerous attributes from it as every other raw-source path does;
       // the markdown compiler emits this field verbatim.

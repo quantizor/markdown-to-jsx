@@ -787,6 +787,7 @@ export function alertHeaderNode(alert: string): MarkdownToJSX.HTMLNode {
   return {
     attrs: {},
     children: [{ type: RuleType.text, text: alert }],
+    _reparseSource: undefined,
     _verbatim: true,
     type: RuleType.htmlBlock,
     tag: 'header',
@@ -908,12 +909,15 @@ export function reparsedToItself(
   source: string
 ): boolean {
   const last = nodes.at(-1)
-  return (
-    last !== undefined &&
-    last.type === RuleType.htmlBlock &&
-    (last as MarkdownToJSX.HTMLNode)._verbatim === true &&
-    (last as MarkdownToJSX.HTMLNode)._rawOuter === source
-  )
+  if (
+    last === undefined ||
+    last.type !== RuleType.htmlBlock ||
+    last._verbatim !== true
+  ) {
+    return false
+  }
+  // The span the next re-parse would read; a set _reparseSource holds a tag
+  return (last._reparseSource || last._rawOuter) === source
 }
 
 /**

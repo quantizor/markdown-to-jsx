@@ -2704,16 +2704,60 @@ describe('a children attribute on a tag with an override', () => {
       {},
       '<Text></Text>',
     ],
-    // Gap: the raw body is read again without the attribute, so the content is
-    // gone; a follow-up in this PR changes this value
     [
       'a registered tag inside a raw block',
       '<div>\n<Card children="z" />\n</div>',
       card,
-      '<View><Text><Text></Text></Text></View>',
+      '<View><Text><Text>z</Text></Text></View>',
+    ],
+    [
+      'a lowercase pair inside a raw block',
+      '<div>\n<card children="z"></card>\n</div>',
+      card,
+      '<View><Text><Text>z</Text></Text></View>',
+    ],
+    [
+      'a capitalized pair inside a raw block',
+      '<div>\n<Card children="z"></Card>\n</div>',
+      card,
+      '<View><Text><Text>z</Text></Text></View>',
+    ],
+    [
+      'a registered tag two raw blocks deep',
+      '<div>\n<section>\n<Card children="z" />\n</section>\n</div>',
+      card,
+      '<View><View><Text><Text>z</Text></Text></View></View>',
+    ],
+    [
+      'a registered tag inside a raw block with a line after its closer',
+      '<div>\n<card children="z"></card>\n</div>\ntail',
+      card,
+      '<View><Text><Text>z</Text></Text></View><Text> tail</Text>',
+    ],
+    [
+      'a pair with content of its own inside a raw block',
+      '<div>\n<Card children="z">inner</Card>\n</div>',
+      card,
+      '<View><Text><Text>inner</Text></Text></View>',
+    ],
+    // The serializer writes a string child as is and an element as a bare tag,
+    // so the value here is text: an element would show as `<img></img>`
+    [
+      'a markup value inside a raw block, read as text',
+      '<div>\n<Card children="<img src=x onerror=alert(1)>" />\n</div>',
+      card,
+      '<View><Text><Text><img src=x onerror=alert(1)></Text></Text></View>',
     ],
   ])('renders %s as its content', (_title, input, overrides, expected) => {
     expect(serialize(compiler(input, { overrides }))).toBe(expected)
+  })
+
+  it('keeps a registered tag inside a pre block as written, without the attribute', () => {
+    expect(
+      serialize(
+        compiler('<pre>\n<Card children="z" />\n</pre>', { overrides: card })
+      )
+    ).toBe('<View><Text><Card  /></Text></View>')
   })
 })
 

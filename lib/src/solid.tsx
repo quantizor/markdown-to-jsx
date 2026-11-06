@@ -189,7 +189,10 @@ function render(
           sanitizer: sanitize,
           tagfilter: true,
         })
-        const cleanedText = util.normalizeJsxReparseText(rawSource)
+        // The parser's re-parse span holds the children attribute rawSource cut
+        const cleanedText = util.normalizeJsxReparseText(
+          htmlNode._reparseSource || rawSource
+        )
 
         const selfTagRegex = new RegExp(
           `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,

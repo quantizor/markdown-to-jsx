@@ -2386,6 +2386,7 @@ describe('multi-line HTML attributes', () => {
         <dd>description 1</dd>
       </dl-custom>"
       ,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {
             "data-variant": "horizontalTable",
@@ -2397,6 +2398,7 @@ describe('multi-line HTML attributes', () => {
               "_rawAttrs": "",
               "_rawBody": "title 1",
               "_rawOuter": undefined,
+              "_reparseSource": undefined,
               "_verbatim": true,
               "attrs": {},
               "children": [
@@ -2415,6 +2417,7 @@ describe('multi-line HTML attributes', () => {
               "_rawAttrs": "",
               "_rawBody": "description 1",
               "_rawOuter": undefined,
+              "_reparseSource": undefined,
               "_verbatim": true,
               "attrs": {},
               "children": [
@@ -2469,6 +2472,7 @@ describe('multi-line HTML attributes', () => {
         data-value="123"
       >content</div>"
       ,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {
             "class": "test",
@@ -2521,6 +2525,7 @@ describe('multi-line HTML attributes', () => {
         data-value='123'
       >content</div>"
       ,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {
             "class": "test",
@@ -2569,6 +2574,7 @@ describe('multi-line HTML attributes', () => {
         inner content
       </MyComponent>"
       ,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {
             "className": "wrapper",
@@ -2665,6 +2671,7 @@ describe('multi-line HTML attributes', () => {
         data-mixed="value"
       >content</div>"
       ,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {
             "class": "double-quoted",
@@ -2751,6 +2758,7 @@ describe('multi-line HTML attributes', () => {
             data-c="3"
       >inner</CustomElement>"
       ,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {
             "data-a": "1",
@@ -2797,6 +2805,7 @@ describe('multi-line HTML attributes', () => {
           <dd>description 1</dd>
         </dl-custom>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -2808,6 +2817,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "title 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2826,6 +2836,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "description 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2873,6 +2884,7 @@ describe('multi-line HTML attributes', () => {
         </dl-custom>
         "
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -2884,6 +2896,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "title 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2902,6 +2915,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "description 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2950,6 +2964,7 @@ describe('multi-line HTML attributes', () => {
         </dl-custom>
         "
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -2961,6 +2976,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "title 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -2979,6 +2995,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "description 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3026,6 +3043,7 @@ describe('multi-line HTML attributes', () => {
           <dd>description 1</dd>
         </dl-custom>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -3037,6 +3055,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "title 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3055,6 +3074,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "description 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3102,6 +3122,7 @@ describe('multi-line HTML attributes', () => {
         </dl-custom>
         "
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -3113,6 +3134,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "title 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3131,6 +3153,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "description 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3178,6 +3201,7 @@ describe('multi-line HTML attributes', () => {
           <dd>description 1</dd>
         </dl-custom>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -3189,6 +3213,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "title 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3207,6 +3232,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "description 1",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3263,6 +3289,7 @@ describe('multi-line HTML attributes', () => {
           content
         </MyCustomComponent>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "propA": "value1",
@@ -3311,6 +3338,7 @@ describe('multi-line HTML attributes', () => {
           Loading...
         </DataTable>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "columns": "columns",
@@ -3361,6 +3389,7 @@ describe('multi-line HTML attributes', () => {
           content
         </Widget>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "className": "container",
@@ -3425,6 +3454,7 @@ describe('multi-line HTML attributes', () => {
           </Middle>
         </Outer>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "level": "1",
@@ -3448,6 +3478,7 @@ describe('multi-line HTML attributes', () => {
             </Inner>
           </Middle>"
         ,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {
                   "level": "2",
@@ -3467,6 +3498,7 @@ describe('multi-line HTML attributes', () => {
               content
             </Inner>"
         ,
+                    "_reparseSource": undefined,
                     "_verbatim": true,
                     "attrs": {
                       "level": "3",
@@ -3540,6 +3572,7 @@ describe('multi-line HTML attributes', () => {
         "
         ,
             "_rawBody": "",
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "color": "gold",
@@ -3581,6 +3614,7 @@ describe('multi-line HTML attributes', () => {
         	id="main"
         >content</div>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "class": "test",
@@ -3628,6 +3662,7 @@ describe('multi-line HTML attributes', () => {
         	  id="main"
         >content</div>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "class": "test",
@@ -3667,6 +3702,7 @@ describe('multi-line HTML attributes', () => {
         </dl-custom>"
         ,
             "_rawOuter": undefined,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -3678,6 +3714,7 @@ describe('multi-line HTML attributes', () => {
                 "_rawAttrs": "",
                 "_rawBody": "title",
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -3723,6 +3760,7 @@ describe('multi-line HTML attributes', () => {
         >
         </dl-custom>"
         ,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "data-variant": "horizontalTable",
@@ -3865,6 +3903,7 @@ This is paragraph after the unordered nested list.`
         {
           "_isClosingTag": false,
           "_rawAttrs": "",
+          "_reparseSource": undefined,
           "_verbatim": false,
           "attrs": {},
           "children": [],
@@ -4821,6 +4860,7 @@ describe('Unserializable expression evaluation', () => {
           "_rawBody": "Hello **world**",
           "_rawClose": "</script>",
           "_rawOuter": undefined,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {},
           "children": [],
@@ -4847,6 +4887,7 @@ describe('Unserializable expression evaluation', () => {
           "_rawBody": "<code>const x = 1;</code>",
           "_rawClose": "</pre>",
           "_rawOuter": undefined,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {},
           "children": [],
@@ -4875,6 +4916,7 @@ describe('Unserializable expression evaluation', () => {
         ,
           "_rawClose": "</style>",
           "_rawOuter": undefined,
+          "_reparseSource": undefined,
           "_verbatim": true,
           "attrs": {},
           "children": [],
@@ -4903,6 +4945,7 @@ describe('Unserializable expression evaluation', () => {
           "_isClosingTag": false,
           "_rawAttrs": "",
           "_rawBody": undefined,
+          "_reparseSource": undefined,
           "_verbatim": false,
           "attrs": {},
           "children": [
@@ -4946,6 +4989,7 @@ describe('Unserializable expression evaluation', () => {
             "_isClosingTag": false,
             "_rawAttrs": "",
             "_rawBody": undefined,
+            "_reparseSource": undefined,
             "_verbatim": false,
             "attrs": {},
             "children": [
@@ -4959,6 +5003,7 @@ describe('Unserializable expression evaluation', () => {
         "
         ,
                 "_rawOuter": undefined,
+                "_reparseSource": undefined,
                 "_verbatim": true,
                 "attrs": {},
                 "children": [
@@ -5288,6 +5333,7 @@ describe('text normalization edge cases', () => {
             "_rawAttrs": " att1=tok1 att2=tok2",
             "_rawBody": "",
             "_rawOuter": undefined,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {
               "att1": "tok1",
@@ -6360,6 +6406,7 @@ describe('text normalization edge cases', () => {
                   "_rawBody": undefined,
                   "_rawClose": undefined,
                   "_rawOuter": "<script>",
+                  "_reparseSource": undefined,
                   "_verbatim": true,
                   "attrs": {},
                   "children": [],
@@ -6487,6 +6534,7 @@ describe('text normalization edge cases', () => {
         ,
             "_rawClose": "</textarea>",
             "_rawOuter": undefined,
+            "_reparseSource": undefined,
             "_verbatim": true,
             "attrs": {},
             "children": [],
@@ -7525,6 +7573,7 @@ Some paragraph
           "_isClosingTag": false,
           "_rawAttrs": "",
           "_rawBody": undefined,
+          "_reparseSource": undefined,
           "_verbatim": false,
           "attrs": {},
           "children": [

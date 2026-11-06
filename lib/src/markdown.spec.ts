@@ -3476,11 +3476,55 @@ describe('a children attribute on a tag with an override', () => {
       {},
       '<card ></card>',
     ],
+    // A tag nested in a raw block keeps its written name here, which the JSX
+    // outputs rename; whether this output should rename it is an open question
     [
       'a registered tag inside a raw block, which the output passes through without the attribute',
       '<div>\n<Card children="z" />\n</div>',
       card,
       '<div><Card  />\n</div>',
+    ],
+    [
+      'a lowercase pair inside a raw block, which the output passes through without the attribute',
+      '<div>\n<card children="z"></card>\n</div>',
+      card,
+      '<div><card ></card>\n</div>',
+    ],
+    [
+      'a capitalized pair inside a raw block, which the output passes through without the attribute',
+      '<div>\n<Card children="z"></Card>\n</div>',
+      card,
+      '<div><Card ></Card>\n</div>',
+    ],
+    [
+      'a registered tag two raw blocks deep, which the output passes through without the attribute',
+      '<div>\n<section>\n<Card children="z" />\n</section>\n</div>',
+      card,
+      '<div><section>\n<Card  />\n</section>\n</div>',
+    ],
+    [
+      'a registered tag inside a raw block with a line after its closer, which the output passes through without the attribute',
+      '<div>\n<card children="z"></card>\n</div>\ntail',
+      card,
+      '<div><card ></card>\n</div>\ntail',
+    ],
+    [
+      'a pair with content of its own inside a raw block, which the output passes through without the attribute',
+      '<div>\n<Card children="z">inner</Card>\n</div>',
+      card,
+      '<div><Card >inner</Card>\n</div>',
+    ],
+    [
+      'a markup value inside a raw block, which the output passes through without the attribute',
+      '<div>\n<Card children="<img src=x onerror=alert(1)>" />\n</div>',
+      card,
+      '<div><Card  />\n</div>',
+    ],
+    [
+      'a registered tag inside a pre block, which the output passes through without the attribute',
+      '<pre>\n<Card children="z" />\n</pre>',
+      card,
+      '<pre><Card  /></pre>',
     ],
     [
       'does not take a built-in object property for an override',

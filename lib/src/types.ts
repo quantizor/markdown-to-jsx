@@ -383,6 +383,14 @@ declare namespace MarkdownToJSX {
     /** @internal Full span including own opener through closer; JSX/component re-parse only */
     _rawOuter?: string
     /**
+     * @internal The span the JSX renderers re-parse in place of `_rawOuter` (or
+     * `_rawBody` when it has none): the same screened text with the `children`
+     * attribute a registered tag keeps in `attrs` left in, so the re-parse reads
+     * that content too. Undefined when the screen cut no such attribute. Only the
+     * JSX renderers' re-parse reads it; no output writes it.
+     */
+    _reparseSource?: string
+    /**
      * @internal `_rawBody` embeds this node's own closing tag (plus any
      * trailing same-line siblings) as literal text; the HTML compiler slices
      * at that closing tag and always emits its own `</tag>` rather than

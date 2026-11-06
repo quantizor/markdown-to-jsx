@@ -2519,16 +2519,60 @@ describe('a children attribute on a tag with an override', () => {
       {},
       '<card></card>',
     ],
-    // Gap: the raw body is read again without the attribute, so the content is
-    // gone; a follow-up in this PR changes this value
     [
       'a registered tag inside a raw block',
       '<div>\n<Card children="z" />\n</div>',
       card,
-      '<div><i></i></div>',
+      '<div><i>z</i></div>',
+    ],
+    [
+      'a lowercase pair inside a raw block',
+      '<div>\n<card children="z"></card>\n</div>',
+      card,
+      '<div><i>z</i></div>',
+    ],
+    [
+      'a capitalized pair inside a raw block',
+      '<div>\n<Card children="z"></Card>\n</div>',
+      card,
+      '<div><i>z</i></div>',
+    ],
+    [
+      'a registered tag two raw blocks deep',
+      '<div>\n<section>\n<Card children="z" />\n</section>\n</div>',
+      card,
+      '<div><section><i>z</i></section></div>',
+    ],
+    [
+      'a registered tag inside a raw block with a line after its closer',
+      '<div>\n<card children="z"></card>\n</div>\ntail',
+      card,
+      '<div><div><i>z</i></div> tail</div>',
+    ],
+    [
+      'a pair with content of its own inside a raw block',
+      '<div>\n<Card children="z">inner</Card>\n</div>',
+      card,
+      '<div><i>inner</i></div>',
+    ],
+    // The serializer writes a string child as is and an element as a bare tag,
+    // so the value here is text: an element would show as `<img></img>`
+    [
+      'a markup value inside a raw block, read as text',
+      '<div>\n<Card children="<img src=x onerror=alert(1)>" />\n</div>',
+      card,
+      '<div><i><img src=x onerror=alert(1)></i></div>',
     ],
   ])('renders %s as its content', (_title, input, overrides, expected) => {
     expect(serialize(compiler(input, { overrides }))).toBe(expected)
+  })
+
+  it('keeps a registered tag inside a pre block as written, without the attribute', () => {
+    expect(
+      serialize(
+        compiler('<pre>\n<Card children="z" />\n</pre>', { overrides: card })
+      )
+    ).toBe('<pre><Card  /></pre>')
   })
 })
 

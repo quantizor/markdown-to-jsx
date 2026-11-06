@@ -280,7 +280,10 @@ function render(
           sanitizer: sanitize,
           tagfilter: true,
         })
-        const cleanedText = util.normalizeJsxReparseText(rawSource)
+        // The parser's re-parse span holds the children attribute rawSource cut
+        const cleanedText = util.normalizeJsxReparseText(
+          htmlNode._reparseSource || rawSource
+        )
         // Avoid infinite recursion: if cleanedText is just the same HTML tag we're processing,
         // render as an empty element
         const selfTagRegex = new RegExp(
