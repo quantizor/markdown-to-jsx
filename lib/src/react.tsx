@@ -35,50 +35,72 @@ declare namespace h {
  * narrows structurally instead of asserting.
  */
 var REACT_ELEMENT_TYPE: symbol
+var SUPPORTS_RAW_ELEMENTS = false
 try {
   var probeElement: unknown = React.createElement('div')
-  REACT_ELEMENT_TYPE =
-    probeElement != null &&
-    typeof probeElement === 'object' &&
-    '$$typeof' in probeElement &&
-    typeof probeElement.$$typeof === 'symbol'
-      ? probeElement.$$typeof
-      : Symbol.for('react.transitional.element')
+  var probe = probeElement as {
+    $$typeof?: symbol
+    __k?: unknown
+    __b?: unknown
+  } | null
+  if (
+    probe != null &&
+    typeof probe === 'object' &&
+    typeof probe.$$typeof === 'symbol' &&
+    // preact/compat mimes React's element marker (its vnodes carry
+    // $$typeof: Symbol.for('react.element')), so the marker alone cannot
+    // prove the runtime is React. Preact vnodes additionally carry their
+    // own __k/__b bookkeeping fields; only trust the raw element shape
+    // when those are absent.
+    !('__k' in probe) &&
+    !('__b' in probe)
+  ) {
+    REACT_ELEMENT_TYPE = probe.$$typeof
+    SUPPORTS_RAW_ELEMENTS = true
+  } else {
+    REACT_ELEMENT_TYPE = Symbol.for('react.transitional.element')
+  }
 } catch {
   REACT_ELEMENT_TYPE = Symbol.for('react.transitional.element')
 }
 
 /**
- * Create a React element without calling React.createElement.
+ * Create an element without going through the runtime's createElement
+ * whenever the runtime represents elements in React's internal shape.
  * This avoids type validation, key/ref extraction, defaultProps merging,
  * and dev-mode freezing that React.createElement performs.
  * Inspired by Bun's JSReactElement approach.
+ *
+ * When the runtime does not use React's element shape (e.g. Preact behind
+ * a `react` -> `preact/compat` alias), a hand-built object is meaningless to
+ * its renderer, so we delegate to the runtime's own createElement instead.
  */
 function createRawElement(type: any, props: any, key: any): any {
-  // These internal properties must be included unconditionally because the
-  // library build replaces process.env.NODE_ENV, which strips dev-only branches.
-  // _store: React's dev reconciler writes _store.validated; without _store it throws.
-  // _debugStack/_debugTask: React's RSC Flight server (used by Next.js) warns
-  // "Attempted to render without development properties" when these are undefined.
-  // null (not undefined) satisfies the !== undefined check.
-  return {
-    $$typeof: REACT_ELEMENT_TYPE,
-    type,
-    key: key == null ? null : String(key),
-    ref: null,
-    props,
-    _owner: null,
-    _store: {},
-    _debugStack: null,
-    _debugTask: null,
+  if (SUPPORTS_RAW_ELEMENTS) {
+    // These internal properties must be included unconditionally because the
+    // library build replaces process.env.NODE_ENV, which strips dev-only branches.
+    // _store: React's dev reconciler writes _store.validated; without _store it throws.
+    // _debugStack/_debugTask: React's RSC Flight server (used by Next.js) warns
+    // "Attempted to render without development properties" when these are undefined.
+    // null (not undefined) satisfies the !== undefined check.
+    return {
+      $$typeof: REACT_ELEMENT_TYPE,
+      type,
+      key: key == null ? null : String(key),
+      ref: null,
+      props,
+      _owner: null,
+      _store: {},
+      _debugStack: null,
+      _debugTask: null,
+    }
   }
+  // Non-React runtime (e.g. Preact behind a `react` -> `preact/compat`
+  // alias): build the element with the runtime's own factory so its
+  // renderer recognizes the result.
+  return React.createElement(type, key == null ? props : { ...props, key })
 }
 
-/**
- * Build a props object of { key, ...jsx-mapped attrs } without the object
- * spread: the spread helper (cloneObject) runs even when attrs is undefined,
- * and HTML nodes without attributes are the common case in real documents.
- */
 function keyedJsxProps(
   key: any,
   attrs: Record<string, any> | null | undefined
