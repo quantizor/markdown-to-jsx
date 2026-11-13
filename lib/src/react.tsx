@@ -34,28 +34,32 @@ declare namespace h {
  * React's public element type does not expose `$$typeof`, so the probe
  * narrows structurally instead of asserting.
  */
+/**
+ * Decide whether the runtime renders React's internal element shape.
+ *
+ * Both React.createElement and React's jsx() stamp `_owner` on every
+ * element. Preact vnodes never do — even though preact/compat vnodes
+ * mimic React's `$$typeof` marker, so that marker alone cannot prove
+ * the runtime is React. If a future React drops `_owner` we degrade to
+ * the (slower but correct) createElement path rather than emitting
+ * elements the runtime cannot render.
+ */
+export function supportsRawElements(probeElement: unknown): boolean {
+  var probe = probeElement as { $$typeof?: symbol; _owner?: unknown } | null
+  return (
+    probe != null &&
+    typeof probe === 'object' &&
+    typeof probe.$$typeof === 'symbol' &&
+    '_owner' in probe
+  )
+}
+
 var REACT_ELEMENT_TYPE: symbol
 var SUPPORTS_RAW_ELEMENTS = false
 try {
   var probeElement: unknown = React.createElement('div')
-  var probe = probeElement as {
-    $$typeof?: symbol
-    __k?: unknown
-    __b?: unknown
-  } | null
-  if (
-    probe != null &&
-    typeof probe === 'object' &&
-    typeof probe.$$typeof === 'symbol' &&
-    // preact/compat mimes React's element marker (its vnodes carry
-    // $$typeof: Symbol.for('react.element')), so the marker alone cannot
-    // prove the runtime is React. Preact vnodes additionally carry their
-    // own __k/__b bookkeeping fields; only trust the raw element shape
-    // when those are absent.
-    !('__k' in probe) &&
-    !('__b' in probe)
-  ) {
-    REACT_ELEMENT_TYPE = probe.$$typeof
+  if (supportsRawElements(probeElement)) {
+    REACT_ELEMENT_TYPE = (probeElement as { $$typeof: symbol }).$$typeof
     SUPPORTS_RAW_ELEMENTS = true
   } else {
     REACT_ELEMENT_TYPE = Symbol.for('react.transitional.element')
@@ -101,6 +105,11 @@ function createRawElement(type: any, props: any, key: any): any {
   return React.createElement(type, key == null ? props : { ...props, key })
 }
 
+/**
+ * Build a props object of { key, ...jsx-mapped attrs } without the object
+ * spread: the spread helper (cloneObject) runs even when attrs is undefined,
+ * and HTML nodes without attributes are the common case in real documents.
+ */
 function keyedJsxProps(
   key: any,
   attrs: Record<string, any> | null | undefined
