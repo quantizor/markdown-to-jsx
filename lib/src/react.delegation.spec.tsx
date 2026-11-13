@@ -6,13 +6,15 @@
  * The predicate is exercised directly with synthetic vnodes rather than
  * by mocking the 'react' module: Bun shares the module cache across test
  * files, so a module mock cannot reliably swap the runtime seen by
- * react.tsx's load-time probe. End-to-end coverage of the delegation
- * path itself lives in the Preact browser fixture.
+ * react.tsx's load-time probe. Rendering under Preact itself is verified
+ * separately with an out-of-repo browser harness (preact/compat aliased
+ * as react); this spec pins the predicate contract that routes that
+ * runtime onto the createElement delegation path.
  */
 
 import { describe, expect, it } from 'bun:test'
 import { createElement } from 'react'
-import { supportsRawElements } from './react.tsx'
+import { supportsRawElements } from './runtime-probe.ts'
 
 describe('runtime element-shape detection (supportsRawElements)', () => {
   it('accepts real React elements', () => {

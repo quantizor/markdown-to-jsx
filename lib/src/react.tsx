@@ -4,6 +4,7 @@
 import * as React from 'react'
 import * as $ from './constants.ts'
 import * as parse from './parse.ts'
+import { supportsRawElements } from './runtime-probe.ts'
 import { type MarkdownToJSX, RuleType } from './types.ts'
 import * as util from './utils.ts'
 
@@ -34,26 +35,6 @@ declare namespace h {
  * React's public element type does not expose `$$typeof`, so the probe
  * narrows structurally instead of asserting.
  */
-/**
- * Decide whether the runtime renders React's internal element shape.
- *
- * Both React.createElement and React's jsx() stamp `_owner` on every
- * element. Preact vnodes never do — even though preact/compat vnodes
- * mimic React's `$$typeof` marker, so that marker alone cannot prove
- * the runtime is React. If a future React drops `_owner` we degrade to
- * the (slower but correct) createElement path rather than emitting
- * elements the runtime cannot render.
- */
-export function supportsRawElements(probeElement: unknown): boolean {
-  var probe = probeElement as { $$typeof?: symbol; _owner?: unknown } | null
-  return (
-    probe != null &&
-    typeof probe === 'object' &&
-    typeof probe.$$typeof === 'symbol' &&
-    '_owner' in probe
-  )
-}
-
 var REACT_ELEMENT_TYPE: symbol
 var SUPPORTS_RAW_ELEMENTS = false
 try {
