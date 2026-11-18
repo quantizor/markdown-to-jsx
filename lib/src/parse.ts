@@ -145,7 +145,7 @@ function blockSyntaxFor(opts: ParseOptions): RegExp {
 var HTML_OPEN_TAG_R = /^<([a-z][^ >/\n\r]*) ?([^>]*?)>/im
 
 // Inline special character lookup — true for chars that need processing in parseInline
-// ` * _ ~ = [ ! < \ & \n h w f (and alphanumeric for email near @)
+// ` * _ ~ = [ ] ! < \ & \n h w f (and alphanumeric for email near @)
 // Newline stops the fast-skip so the fused line-break branch can evaluate it.
 // & stops it so the entity-reference dispatch can decode in place.
 var INLINE_SPECIAL = new Uint8Array(128)
@@ -158,6 +158,7 @@ var INLINE_SPECIAL = new Uint8Array(128)
     $.CHAR_TILDE,
     $.CHAR_EQ,
     $.CHAR_BRACKET_OPEN,
+    $.CHAR_BRACKET_CLOSE,
     $.CHAR_EXCLAMATION,
     $.CHAR_LT,
     $.CHAR_BACKSLASH,
@@ -7242,7 +7243,8 @@ function scanBareUrl(
   s: string,
   p: number,
   e: number,
-  opts: ParseOptions
+  opts: ParseOptions,
+  inBracket: boolean
 ): ScanResult {
   if (opts.disableBareUrls) {
     return null
@@ -7306,6 +7308,9 @@ function scanBareUrl(
 
   // Find end of URL (stop at whitespace or common punctuation at end)
   let i = p + prefix.length
+  // Inside literal [ text, the ] that closes it ends the URL; a [ ] pair
+  // within the URL itself stays part of it
+  var urlBrackets = 0
   while (i < e) {
     const c = s.charCodeAt(i)
     // Stop at whitespace
@@ -7320,6 +7325,16 @@ function scanBareUrl(
     // Stop at certain characters that are unlikely to be part of URL
     if (c === $.CHAR_LT || c === $.CHAR_GT) {
       break // < >
+    }
+    if (inBracket) {
+      if (c === $.CHAR_BRACKET_OPEN) {
+        urlBrackets++
+      } else if (c === $.CHAR_BRACKET_CLOSE) {
+        if (urlBrackets === 0) {
+          break
+        }
+        urlBrackets--
+      }
     }
     i++
   }
@@ -8307,6 +8322,8 @@ function parseInline(
   // the kept newline must merge with adjacent text into one node, so the carry is
   // prepended at the next flush. Empty in the common path (one truthiness check).
   var pending = ''
+  // Literal [ not yet closed by a ], so a bare URL can stop at the ]
+  var openBrackets = 0
   // Pre-scan for @ position to avoid calling scanBareEmail on positions far before any @
   // Skip scan entirely when autolinks are disabled or when in anchor context
   var nextAtPos =
@@ -8417,6 +8434,9 @@ function parseInline(
       }
       if (!result) {
         result = scanLink(s, p, e, childState, opts)
+        if (!result) {
+          openBrackets++
+        }
       }
     } else if (
       c === $.CHAR_EXCLAMATION &&
@@ -8425,6 +8445,11 @@ function parseInline(
     ) {
       // ![
       result = scanLink(s, p, e, childState, opts)
+    } else if (c === $.CHAR_BRACKET_CLOSE) {
+      // ]
+      if (openBrackets > 0) {
+        openBrackets--
+      }
     } else if (c === $.CHAR_LT) {
       // < - autolink or HTML
       // Try angle-bracket autolinks first (per CommonMark spec, autolinks take priority)
@@ -8464,7 +8489,7 @@ function parseInline(
           (c === $.CHAR_f && nextAfterPrefix === $.CHAR_t) ||
           (c === $.CHAR_W && nextAfterPrefix === $.CHAR_W)
         ) {
-          result = scanBareUrl(s, p, e, opts)
+          result = scanBareUrl(s, p, e, opts, openBrackets > 0)
         }
       }
     }

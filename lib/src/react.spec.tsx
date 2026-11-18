@@ -5681,3 +5681,55 @@ describe('a capitalized tag an override matches is a component, and every other 
     expect(handlerProps(result)).toEqual([])
   })
 })
+
+describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
+  it.each([
+    [
+      '[GitHub repo][https://github.com/litejs/natural-compare-lite]',
+      '<p>[GitHub repo][<a href="https://github.com/litejs/natural-compare-lite">https://github.com/litejs/natural-compare-lite</a>]</p>',
+    ],
+    [
+      '[see https://example.com/a]',
+      '<p>[see <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '[see www.example.com/a]',
+      '<p>[see <a href="http://www.example.com/a">www.example.com/a</a>]</p>',
+    ],
+    [
+      '[see **https://example.com/a**]',
+      '<p>[see <strong><a href="https://example.com/a">https://example.com/a</a></strong>]</p>',
+    ],
+    [
+      '[see https://example.com/?a[0]=1]',
+      '<p>[see <a href="https://example.com/?a%5B0%5D=1">https://example.com/?a[0]=1</a>]</p>',
+    ],
+    // A ] with no unclosed [ before it stays part of the URL
+    [
+      'see https://example.com/a]',
+      '<p>see <a href="https://example.com/a%5D">https://example.com/a]</a></p>',
+    ],
+    [
+      '[a] https://example.com/a]',
+      '<p>[a] <a href="https://example.com/a%5D">https://example.com/a]</a></p>',
+    ],
+    [
+      '\\[see https://example.com/a]',
+      '<p>[see <a href="https://example.com/a%5D">https://example.com/a]</a></p>',
+    ],
+  ])('renders %j as %j', (input, expected) => {
+    render(compiler(input, { forceBlock: true }))
+    expect(root.innerHTML.replaceAll('<!-- -->', '')).toBe(expected)
+  })
+
+  it('ends it there with optimizeForStreaming too', () => {
+    const input = '[see https://example.com/a] after'
+    const expected =
+      '<p>[see <a href="https://example.com/a">https://example.com/a</a>] after</p>'
+    render(compiler(input, { forceBlock: true }))
+    expect(root.innerHTML.replaceAll('<!-- -->', '')).toBe(expected)
+
+    render(compiler(input, { forceBlock: true, optimizeForStreaming: true }))
+    expect(root.innerHTML.replaceAll('<!-- -->', '')).toBe(expected)
+  })
+})

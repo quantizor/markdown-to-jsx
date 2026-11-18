@@ -4078,3 +4078,51 @@ describe('the character rules of the raw string screens', () => {
     expect(screen(text)).toBe(expected)
   })
 })
+
+describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
+  it.each([
+    [
+      '[GitHub repo][https://github.com/litejs/natural-compare-lite]',
+      '\\[GitHub repo\\]\\[[https://github.com/litejs/natural-compare-lite](https://github.com/litejs/natural-compare-lite)\\]',
+    ],
+    [
+      '[see https://example.com/a]',
+      '\\[see [https://example.com/a](https://example.com/a)\\]',
+    ],
+    [
+      '[see www.example.com/a]',
+      '\\[see [www.example.com/a](http://www.example.com/a)\\]',
+    ],
+    [
+      '[see **https://example.com/a**]',
+      '\\[see **[https://example.com/a](https://example.com/a)**\\]',
+    ],
+    [
+      '[see https://example.com/?a[0]=1]',
+      '\\[see [https://example.com/?a\\[0\\]=1](https://example.com/?a[0]=1)\\]',
+    ],
+    // A ] with no unclosed [ before it stays part of the URL
+    [
+      'see https://example.com/a]',
+      'see [https://example.com/a\\]](https://example.com/a])',
+    ],
+    [
+      '[a] https://example.com/a]',
+      '\\[a\\] [https://example.com/a\\]](https://example.com/a])',
+    ],
+    [
+      '\\[see https://example.com/a]',
+      '\\[see [https://example.com/a\\]](https://example.com/a])',
+    ],
+  ])('renders %j as %j', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+  })
+
+  it('ends it there with optimizeForStreaming too', () => {
+    const input = '[see https://example.com/a] after'
+    const expected =
+      '\\[see [https://example.com/a](https://example.com/a)\\] after'
+    expect(compiler(input)).toBe(expected)
+    expect(compiler(input, { optimizeForStreaming: true })).toBe(expected)
+  })
+})

@@ -3642,3 +3642,55 @@ describe('a capitalized tag an override matches is a component, and every other 
     expect(handlerProps(result)).toEqual([])
   })
 })
+
+describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
+  it.each([
+    [
+      '[GitHub repo][https://github.com/litejs/natural-compare-lite]',
+      '<Text>[GitHub repo][<Text>https://github.com/litejs/natural-compare-lite</Text>]</Text>',
+    ],
+    [
+      '[see https://example.com/a]',
+      '<Text>[see <Text>https://example.com/a</Text>]</Text>',
+    ],
+    [
+      '[see www.example.com/a]',
+      '<Text>[see <Text>www.example.com/a</Text>]</Text>',
+    ],
+    [
+      '[see **https://example.com/a**]',
+      '<Text>[see <Text><Text>https://example.com/a</Text></Text>]</Text>',
+    ],
+    [
+      '[see https://example.com/?a[0]=1]',
+      '<Text>[see <Text>https://example.com/?a[0]=1</Text>]</Text>',
+    ],
+    // A ] with no unclosed [ before it stays part of the URL
+    [
+      'see https://example.com/a]',
+      '<Text>see <Text>https://example.com/a]</Text></Text>',
+    ],
+    [
+      '[a] https://example.com/a]',
+      '<Text>[a] <Text>https://example.com/a]</Text></Text>',
+    ],
+    [
+      '\\[see https://example.com/a]',
+      '<Text>[see <Text>https://example.com/a]</Text></Text>',
+    ],
+  ])('renders %j as %j', (input, expected) => {
+    expect(serialize(compiler(input, { forceBlock: true }))).toBe(expected)
+  })
+
+  it('ends it there with optimizeForStreaming too', () => {
+    const input = '[see https://example.com/a] after'
+    const expected =
+      '<Text>[see <Text>https://example.com/a</Text>] after</Text>'
+    expect(serialize(compiler(input, { forceBlock: true }))).toBe(expected)
+    expect(
+      serialize(
+        compiler(input, { forceBlock: true, optimizeForStreaming: true })
+      )
+    ).toBe(expected)
+  })
+})
