@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import * as React from 'react'
 import { renderToStaticMarkup, renderToString } from 'react-dom/server'
 import theredoc from 'theredoc'
@@ -12,6 +13,7 @@ import Markdown, {
   RuleType,
   sanitizer,
 } from './react.tsx'
+import { supportsRawElements } from './runtime-probe.ts'
 import { storedAST, treeProps } from './test-tree.ts'
 import type { MarkdownToJSX } from './types.ts'
 
@@ -5679,5 +5681,73 @@ describe('a capitalized tag an override matches is a component, and every other 
     const result = astToJSX(storedAST(input, overrides), { overrides })
     expect(renderToStaticMarkup(result)).toBe(expected)
     expect(handlerProps(result)).toEqual([])
+  })
+})
+
+describe('raw element detection', () => {
+  // React's exports map hides the cjs builds, so they load by file path; each build
+  // checks NODE_ENV once at load and exports nothing when it does not match
+  function loadReactBuild(build: 'development' | 'production') {
+    const priorEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = build
+    try {
+      return require(
+        `${path.dirname(require.resolve('react'))}/cjs/react.${build}.js`
+      )
+    } finally {
+      if (priorEnv === undefined) {
+        delete process.env.NODE_ENV
+      } else {
+        process.env.NODE_ENV = priorEnv
+      }
+    }
+  }
+
+  it.each([
+    ['react.development.js', loadReactBuild('development')],
+    ['react.production.js', loadReactBuild('production')],
+  ])('accepts elements from %s', (_build, runtime) => {
+    expect(supportsRawElements(runtime.createElement('div'))).toBe(true)
+  })
+
+  it.each([
+    ['Preact 10', undefined],
+    ['Preact 11', Symbol.for('pv')],
+  ])('rejects a %s vnode that carries React’s element marker', (_runtime, ownConstructor) => {
+    expect(
+      supportsRawElements({
+        $$typeof: Symbol.for('react.element'),
+        __b: 0,
+        __k: null,
+        constructor: ownConstructor,
+        key: null,
+        props: {},
+        ref: null,
+        type: 'div',
+      })
+    ).toBe(false)
+  })
+
+  it.each([
+    ['null', null],
+    ['undefined', undefined],
+    ['an empty object', {}],
+    ['an object with a string $$typeof', { $$typeof: 'react.element' }],
+  ])('rejects %s', (_shape, probe) => {
+    expect(supportsRawElements(probe)).toBe(false)
+  })
+
+  it('builds the elements compiler() returns in the raw element shape', () => {
+    expect(Object.keys(compiler('# hi') as object)).toEqual([
+      '$$typeof',
+      'type',
+      'key',
+      'ref',
+      'props',
+      '_owner',
+      '_store',
+      '_debugStack',
+      '_debugTask',
+    ])
   })
 })

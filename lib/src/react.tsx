@@ -4,6 +4,7 @@
 import * as React from 'react'
 import * as $ from './constants.ts'
 import * as parse from './parse.ts'
+import { supportsRawElements } from './runtime-probe.ts'
 import { type MarkdownToJSX, RuleType } from './types.ts'
 import * as util from './utils.ts'
 
@@ -28,50 +29,63 @@ declare namespace h {
 }
 
 /**
- * Symbol used by React to identify valid elements, auto-detected from the
- * installed React version. React 18 uses react.element, React 19+ uses
- * react.transitional.element, future versions may use something else.
+ * Symbol that marks a valid element, read from the installed runtime's own
+ * elements (React 18 uses react.element, React 19+ uses
+ * react.transitional.element, future versions may use something else).
+ * Null when the runtime does not build React-shaped elements, so
+ * createRawElement delegates to its createElement.
  * React's public element type does not expose `$$typeof`, so the probe
  * narrows structurally instead of asserting.
  */
-var REACT_ELEMENT_TYPE: symbol
+var REACT_ELEMENT_TYPE: symbol | null = null
 try {
   var probeElement: unknown = React.createElement('div')
-  REACT_ELEMENT_TYPE =
-    probeElement != null &&
-    typeof probeElement === 'object' &&
-    '$$typeof' in probeElement &&
-    typeof probeElement.$$typeof === 'symbol'
-      ? probeElement.$$typeof
-      : Symbol.for('react.transitional.element')
+  if (supportsRawElements(probeElement)) {
+    REACT_ELEMENT_TYPE = probeElement.$$typeof
+  }
 } catch {
-  REACT_ELEMENT_TYPE = Symbol.for('react.transitional.element')
+  // A probe that throws leaves REACT_ELEMENT_TYPE null, so elements delegate
 }
 
 /**
- * Create a React element without calling React.createElement.
+ * Create an element without going through the runtime's createElement
+ * whenever the runtime represents elements in React's internal shape.
  * This avoids type validation, key/ref extraction, defaultProps merging,
  * and dev-mode freezing that React.createElement performs.
  * Inspired by Bun's JSReactElement approach.
+ *
+ * When the runtime does not use React's element shape (Preact behind a
+ * `react` -> `preact/compat` alias), a hand-built object is meaningless to
+ * its renderer, so we delegate to the runtime's own createElement instead.
+ * Every caller passes a props object it owns, which the delegated path may
+ * add `key` to.
  */
 function createRawElement(type: any, props: any, key: any): any {
-  // These internal properties must be included unconditionally because the
-  // library build replaces process.env.NODE_ENV, which strips dev-only branches.
-  // _store: React's dev reconciler writes _store.validated; without _store it throws.
-  // _debugStack/_debugTask: React's RSC Flight server (used by Next.js) warns
-  // "Attempted to render without development properties" when these are undefined.
-  // null (not undefined) satisfies the !== undefined check.
-  return {
-    $$typeof: REACT_ELEMENT_TYPE,
-    type,
-    key: key == null ? null : String(key),
-    ref: null,
-    props,
-    _owner: null,
-    _store: {},
-    _debugStack: null,
-    _debugTask: null,
+  if (REACT_ELEMENT_TYPE !== null) {
+    // These internal properties must be included unconditionally because the
+    // library build replaces process.env.NODE_ENV, which strips dev-only branches.
+    // _store: React's dev reconciler writes _store.validated; without _store it throws.
+    // _debugStack/_debugTask: React's RSC Flight server (used by Next.js) warns
+    // "Attempted to render without development properties" when these are undefined.
+    // null (not undefined) satisfies the !== undefined check.
+    return {
+      $$typeof: REACT_ELEMENT_TYPE,
+      type,
+      key: key == null ? null : String(key),
+      ref: null,
+      props,
+      _owner: null,
+      _store: {},
+      _debugStack: null,
+      _debugTask: null,
+    }
   }
+  // Preact behind a `react` -> `preact/compat` alias: build the element with
+  // the runtime's own factory so its renderer recognizes the result.
+  if (key != null) {
+    props.key = key
+  }
+  return React.createElement(type, props)
 }
 
 /**
