@@ -277,6 +277,12 @@ describe('markdown compiler', () => {
       expect(markdown(ast)).toBe('**bold text**')
     })
 
+    it('strikes through only tilde runs of exactly two', () => {
+      expect(compiler('a ~~~c~~~ b ~~~~ ~~d~~~e~~')).toMatchInlineSnapshot(
+        `"a \\~\\~\\~c\\~\\~\\~ b \\~\\~\\~\\~ ~~d\\~\\~\\~e~~"`
+      )
+    })
+
     it('should compile strikethrough', () => {
       const ast: MarkdownToJSX.FormattedTextNode = {
         type: RuleType.textFormatted,

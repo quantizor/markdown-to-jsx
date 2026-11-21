@@ -278,6 +278,12 @@ describe('inline textual elements', () => {
     expect(text).toBe('Hello.')
   })
 
+  it('strikes through only tilde runs of exactly two', () => {
+    expect(
+      serialize(compiler('a ~~~c~~~ b ~~~~ ~~d~~~e~~'))
+    ).toMatchInlineSnapshot(`"<span>a ~~~c~~~ b ~~~~ <del>d~~~e</del></span>"`)
+  })
+
   it('should handle escaped text', () => {
     const result = compiler('Hello.\\_\\_foo\\_\\_')
     const text = extractTextContent(result)
@@ -2366,10 +2372,7 @@ describe('markup a browser reads differently from the parser', () => {
       '\\\n[^1]:&#106avascript:alert(1)\n[^1]',
       '<p><br></br>[^1]:&amp;#106avascript:alert(1)\n[^1]</p>',
     ],
-    [
-      'x&#60;~~~~javascript:alert(1)>',
-      '<span>x&lt;<del></del>javascript:alert(1)&gt;</span>',
-    ],
+    ['x&#60;~~~~javascript:alert(1)>', 'x&lt;~~~~javascript:alert(1)&gt;'],
     ["<C><?><a e='?>'> onclick/", "<span><C></C>'&gt; onclick/</span>"],
     ['<![CDATA[<?><a e="?>"\n<!--"onclick>]', ''],
     [
@@ -2417,7 +2420,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<foreignObject>~~~~```x onmouseover="alert(1)"\n<svg onload=alert(1)>```\n',
-      '<p><foreignObject></foreignObject><del></del><code>x onmouseover="alert(1)" &lt;svg onload=alert(1)&gt;</code></p>',
+      '<p><foreignObject></foreignObject>~~~~<code>x onmouseover="alert(1)" &lt;svg onload=alert(1)&gt;</code></p>',
     ],
     [
       '[^1]: <iframe srcdoc="x"></iframe>[r][^1]',

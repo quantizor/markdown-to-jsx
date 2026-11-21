@@ -81,6 +81,7 @@ const shapes: Array<{
   { make: n => '_'.repeat(n), name: 'emphasis-underscore' },
   { make: n => '*a'.repeat(n), name: 'emphasis-alternating' },
   { make: n => '~~'.repeat(n), name: 'strikethrough' },
+  { make: n => '~~a~~~'.repeat(n), name: 'strikethrough-long-runs' },
   { make: n => '=='.repeat(n), name: 'marked' },
   { make: n => '`'.repeat(n), name: 'code-backticks' },
   { make: n => '<'.repeat(n), name: 'html-angle' },

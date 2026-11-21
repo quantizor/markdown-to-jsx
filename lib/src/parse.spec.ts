@@ -7334,6 +7334,32 @@ describe('text normalization edge cases', () => {
       `)
     })
 
+    it('GFM: tilde runs longer than two do not strike through', () => {
+      expect(p.parser('a ~~~c~~~ b ~~~~ ~~d~~~e~~')).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "a ~~~c~~~ b ~~~~ ",
+                "type": "text",
+              },
+              {
+                "children": [
+                  {
+                    "text": "d~~~e",
+                    "type": "text",
+                  },
+                ],
+                "tag": "del",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
     // Issue 248: Heading with tab after #
     it('md4c#248: ATX heading with tab after #', () => {
       const result = p.parser('#\tFoo')

@@ -936,6 +936,14 @@ describe('AST node rendering', () => {
     expect(style.textDecorationLine).toBe('line-through')
   })
 
+  it('strikes through only tilde runs of exactly two', () => {
+    expect(
+      serialize(compiler('a ~~~c~~~ b ~~~~ ~~d~~~e~~'))
+    ).toMatchInlineSnapshot(
+      `"<Text>a ~~~c~~~ b ~~~~ <Text>d~~~e</Text></Text>"`
+    )
+  })
+
   it('should render thematic break as View component', () => {
     const result = compiler('---\n')
     const element = getFirstElement(result)
@@ -3141,7 +3149,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       'x&#60;~~~~javascript:alert(1)>',
-      '<Text>x&lt;<Text></Text>javascript:alert(1)&gt;</Text>',
+      '<Text>x&lt;~~~~javascript:alert(1)&gt;</Text>',
     ],
     ["<C><?><a e='?>'> onclick/", "<Text><Text></Text>'&gt; onclick/</Text>"],
     ['<![CDATA[<?><a e="?>"\n<!--"onclick>]', ''],
@@ -3190,7 +3198,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<foreignObject>~~~~```x onmouseover="alert(1)"\n<svg onload=alert(1)>```\n',
-      '<Text><Text></Text><Text></Text><Text>x onmouseover="alert(1)" &lt;svg onload=alert(1)&gt;</Text></Text>',
+      '<Text><Text></Text>~~~~<Text>x onmouseover="alert(1)" &lt;svg onload=alert(1)&gt;</Text></Text>',
     ],
     [
       '[^1]: <iframe srcdoc="x"></iframe>[r][^1]',
