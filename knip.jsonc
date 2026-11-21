@@ -33,8 +33,10 @@
     "browser": {
       "entry": [
         "src/index.ts",
+        "preact/main.ts",
         "tests/**/*.{ts,tsx}",
         "vite.config.ts",
+        "vite.preact.config.ts",
         "playwright.config.ts"
       ]
     },

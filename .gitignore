@@ -12,6 +12,7 @@ yarn.lock
 
 # ephemeral files
 dist/
+dist-preact/
 .cursor/plans
 
 # Per-machine dev server registrations (devctl); each machine keeps its own.

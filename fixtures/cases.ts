@@ -1,7 +1,7 @@
 /**
  * Canonical harness case list, consumed by both live harnesses:
- * - browser/ mounts every case once per browser compiler (React, Solid, Vue)
- *   and the Playwright suite asserts each case's `dom` expectations per root.
+ * - browser/ mounts every case once per browser renderer (browser/tests/renderers.spec.ts
+ *   lists them) and the Playwright suite asserts each case's `dom` expectations per root.
  * - native/ renders every case in the Expo showcase and the jest smoke suite.
  *
  * One fact, one home: a markdown feature or issue regression lives here once.
