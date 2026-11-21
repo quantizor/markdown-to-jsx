@@ -2897,12 +2897,55 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '[see https://example.com/?a[0]=1]',
       '<p>[see <a>https://example.com/?a[0]=1</a>]</p>',
     ],
-    // A ] with no unclosed [ before it stays part of the URL
-    ['see https://example.com/a]', '<p>see <a>https://example.com/a]</a></p>'],
-    ['[a] https://example.com/a]', '<p>[a] <a>https://example.com/a]</a></p>'],
+    // A trailing ] is trimmed to text while the URL holds more ] than [, so a ]
+    // with no matching [ ends the URL wherever its [ sits
+    ['see https://example.com/a]', '<p>see <a>https://example.com/a</a>]</p>'],
+    ['[a] https://example.com/a]', '<p>[a] <a>https://example.com/a</a>]</p>'],
     [
       '\\[see https://example.com/a]',
-      '<p>[see <a>https://example.com/a]</a></p>',
+      '<p>[see <a>https://example.com/a</a>]</p>',
+    ],
+    [
+      '[see ~~https://example.com/a]~~',
+      '<p>[see <del><a>https://example.com/a</a>]</del></p>',
+    ],
+    [
+      '[see ==https://example.com/a]==',
+      '<p>[see <mark><a>https://example.com/a</a>]</mark></p>',
+    ],
+    [
+      '[see <span>https://example.com/a]</span>',
+      '<p>[see <span><a>https://example.com/a</a>]</span></p>',
+    ],
+    // The URL ends before \] and the escape renders as a literal ]
+    [
+      '[see https://example.com/a\\]]',
+      '<p>[see <a>https://example.com/a</a>]]</p>',
+    ],
+    [
+      '![see https://example.com/a]',
+      '<p>![see <a>https://example.com/a</a>]</p>',
+    ],
+    [
+      '[^see https://example.com/a]',
+      '<p>[^see <a>https://example.com/a</a>]</p>',
+    ],
+    [
+      '[see `]` https://example.com/a]',
+      '<p>[see <code>]</code> <a>https://example.com/a</a>]</p>',
+    ],
+    [
+      '[[see https://example.com/a]]',
+      '<p>[[see <a>https://example.com/a</a>]]</p>',
+    ],
+    [
+      '[see https://example.com/a.]',
+      '<p>[see <a>https://example.com/a</a>.]</p>',
+    ],
+    // An unclosed [ inside the URL balances the final ], so it stays
+    [
+      '[see https://example.com/?a[0=1]',
+      '<p>[see <a>https://example.com/?a[0=1]</a></p>',
     ],
   ])('renders %j as %j', (input, expected) => {
     expect(serialize(compiler(input, { forceBlock: true }))).toBe(expected)
@@ -2917,5 +2960,13 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
         compiler(input, { forceBlock: true, optimizeForStreaming: true })
       )
     ).toBe(expected)
+  })
+
+  // serialize drops props, so the href is read from the vnode tree
+  it.each([
+    ['[see https://example.com/a]', 'https://example.com/a'],
+    ['[see https://example.com/?a[0]=1]', 'https://example.com/?a%5B0%5D=1'],
+  ])('links %j to %j', (input, expected) => {
+    expect(firstHref(compiler(input, { forceBlock: true }))).toBe(expected)
   })
 })

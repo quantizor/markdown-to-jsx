@@ -3665,18 +3665,61 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '[see https://example.com/?a[0]=1]',
       '<Text>[see <Text>https://example.com/?a[0]=1</Text>]</Text>',
     ],
-    // A ] with no unclosed [ before it stays part of the URL
+    // A trailing ] is trimmed to text while the URL holds more ] than [, so a ]
+    // with no matching [ ends the URL wherever its [ sits
     [
       'see https://example.com/a]',
-      '<Text>see <Text>https://example.com/a]</Text></Text>',
+      '<Text>see <Text>https://example.com/a</Text>]</Text>',
     ],
     [
       '[a] https://example.com/a]',
-      '<Text>[a] <Text>https://example.com/a]</Text></Text>',
+      '<Text>[a] <Text>https://example.com/a</Text>]</Text>',
     ],
     [
       '\\[see https://example.com/a]',
-      '<Text>[see <Text>https://example.com/a]</Text></Text>',
+      '<Text>[see <Text>https://example.com/a</Text>]</Text>',
+    ],
+    [
+      '[see ~~https://example.com/a]~~',
+      '<Text>[see <Text><Text>https://example.com/a</Text>]</Text></Text>',
+    ],
+    [
+      '[see ==https://example.com/a]==',
+      '<Text>[see <Text><Text>https://example.com/a</Text>]</Text></Text>',
+    ],
+    [
+      '[see <span>https://example.com/a]</span>',
+      '<Text>[see <Text><Text>https://example.com/a</Text>]</Text></Text>',
+    ],
+    // The URL ends before \] and the escape renders as a literal ]
+    [
+      '[see https://example.com/a\\]]',
+      '<Text>[see <Text>https://example.com/a</Text>]]</Text>',
+    ],
+    [
+      '![see https://example.com/a]',
+      '<Text>![see <Text>https://example.com/a</Text>]</Text>',
+    ],
+    [
+      '[^see https://example.com/a]',
+      '<Text>[^see <Text>https://example.com/a</Text>]</Text>',
+    ],
+    [
+      '[see `]` https://example.com/a]',
+      '<Text>[see <Text>]</Text> <Text>https://example.com/a</Text>]</Text>',
+    ],
+    [
+      '[[see https://example.com/a]]',
+      '<Text>[[see <Text>https://example.com/a</Text>]]</Text>',
+    ],
+    [
+      '[see https://example.com/a.]',
+      '<Text>[see <Text>https://example.com/a</Text>.]</Text>',
+    ],
+    // An unclosed [ inside the URL balances the final ], so it stays
+    [
+      '[see https://example.com/?a[0=1]',
+      '<Text>[see <Text>https://example.com/?a[0=1]</Text></Text>',
     ],
   ])('renders %j as %j', (input, expected) => {
     expect(serialize(compiler(input, { forceBlock: true }))).toBe(expected)
@@ -3692,5 +3735,23 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
         compiler(input, { forceBlock: true, optimizeForStreaming: true })
       )
     ).toBe(expected)
+  })
+
+  // serialize drops props, so the target a press opens is read from the handler
+  it.each([
+    ['[see https://example.com/a]', 'https://example.com/a'],
+    ['[see https://example.com/?a[0]=1]', 'https://example.com/?a%5B0%5D=1'],
+  ])('opens %j at %j when pressed', (input, expected) => {
+    const onLinkPress = mock((_url: string) => {})
+    const link = findLinkElement(
+      compiler(input, { forceBlock: true, onLinkPress })
+    )
+    const onPress = link.props.onPress
+    if (typeof onPress !== 'function') {
+      throw new Error('Expected link onPress handler')
+    }
+    onPress()
+
+    expect(onLinkPress).toHaveBeenCalledWith(expected, undefined)
   })
 })
