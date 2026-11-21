@@ -7,16 +7,28 @@ import { CASES, type DomExpect, type HarnessCase } from '../../fixtures/cases'
  * fixtures/cases.ts against that renderer's isolated card. Error listeners
  * attach before navigation so a throw during module evaluation or any case
  * mount is captured at the end. The development project is what surfaces
- * React/Solid/Vue DEV warnings; production alone cannot.
+ * React/Solid/Vue/Preact DEV warnings; production alone cannot.
  *
  * Expectations are renderer-agnostic by design: a failure in exactly one
- * renderer is compiler drift, a failure in all three is a parser bug.
+ * renderer is compiler drift, a failure in all four is a parser bug. The
+ * title "preact renders ..." runs in the preact-* projects only (its own
+ * build, see playwright.config.ts); its mode is the project name's suffix.
  */
-var RENDERERS = ['react', 'solid', 'vue'] as const
+var RENDERERS = ['react', 'solid', 'vue', 'preact'] as const
 
 var BROWSER_CASES: HarnessCase[] = CASES.filter(
   c => !c.skip || c.skip.indexOf('browser') === -1
 )
+
+/**
+ * Preact creates unknown elements with their case preserved (localName
+ * `MyComponent`), so the shared lowercase type selectors (`mycomponent h2`)
+ * cannot match, while the rendered output is correct.
+ */
+var PREACT_SKIPPED_CASES = [
+  'jsx-blank-line-nesting',
+  'nested-same-component-thrice',
+]
 
 /**
  * React DEV warns about unknown custom tags (MyComponent, tag1) that the
@@ -76,8 +88,9 @@ for (const renderer of RENDERERS) {
     var errors = collectErrors(page)
     await page.goto('/')
 
-    var expectedMode =
-      testInfo.project.name === 'development' ? 'development' : 'production'
+    var expectedMode = testInfo.project.name.endsWith('development')
+      ? 'development'
+      : 'production'
     await expect(page.locator('html')).toHaveAttribute(
       'data-vite-mode',
       expectedMode
@@ -92,6 +105,9 @@ for (const renderer of RENDERERS) {
     ).toHaveCount(BROWSER_CASES.length)
 
     for (const c of BROWSER_CASES) {
+      if (renderer === 'preact' && PREACT_SKIPPED_CASES.indexOf(c.id) !== -1) {
+        continue
+      }
       await test.step(c.id, async () => {
         var out = root.locator(`[data-case="${c.id}"] [data-out]`)
         for (const e of c.dom) {

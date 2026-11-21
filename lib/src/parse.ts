@@ -7244,17 +7244,17 @@ function scanFootnoteRef(
  * One per parseInline call; every position is in that call's string.
  */
 interface BareUrlRun {
-  /** Per entry of `closers`, last to first: the URL-ending `_` witness when the URL ends just past that `)`; null until a `)` is recorded */
-  closerUnderscore: number[] | null
-  /** `)` positions in the run's trailing punctuation, nearest the run end first; null until a `)` is recorded */
-  closers: number[] | null
-  /** `)` count minus `(` count over `[from, end)` */
-  depth: number
+  /** `]` positions in the run's trailing punctuation, nearest the run end first; null until a `]` is recorded */
+  bracketClosers: number[] | null
+  /** `]` count minus `[` count over `[from, end)` */
+  bracketDepth: number
+  /** Per entry of `bracketClosers`, last to first: the URL-ending `_` witness when the URL ends just past that `]`; null until one is recorded */
+  bracketWitnesses: number[] | null
   /** Last `.` in the run, or -1 */
   dot: number
-  /** Run end: the first whitespace, `<`, `>`, or the scan end; -1 before the first run */
+  /** Run end: the first whitespace, `<`, `>`, `\` before `]`, or the scan end; -1 before the first run */
   end: number
-  /** Start of the span `depth` counts */
+  /** Start of the span `parenDepth` and `bracketDepth` count */
   from: number
   /** Domain end `groupUnderscore` describes: a `/`, or `end` for the slash-free tail; -1 for none */
   group: number
@@ -7262,23 +7262,32 @@ interface BareUrlRun {
   groupUnderscore: number
   /** Last `/` in the run, or -1 */
   lastSlash: number
+  /** `)` positions in the run's trailing punctuation, nearest the run end first; null until a `)` is recorded */
+  parenClosers: number[] | null
+  /** `)` count minus `(` count over `[from, end)` */
+  parenDepth: number
+  /** Per entry of `parenClosers`, last to first: the URL-ending `_` witness when the URL ends just past that `)`; null until one is recorded */
+  parenWitnesses: number[] | null
   /** Most recently found `/`, or -1 */
   slash: number
-  /** URL end when every trailing `)` is trimmed; -1 until computed */
+  /** URL end when every trailing `)` and `]` is trimmed; -1 until computed */
   trimEnd: number
 }
 
 function newBareUrlRun(): BareUrlRun {
   return {
-    closerUnderscore: null,
-    closers: null,
-    depth: 0,
+    bracketClosers: null,
+    bracketDepth: 0,
+    bracketWitnesses: null,
     dot: -1,
     end: -1,
     from: 0,
     group: -1,
     groupUnderscore: -1,
     lastSlash: -1,
+    parenClosers: null,
+    parenDepth: 0,
+    parenWitnesses: null,
     slash: -1,
     trimEnd: -1,
   }
@@ -7288,7 +7297,7 @@ function newBareUrlRun(): BareUrlRun {
  * Walks `[lo, hi)` once, tracking the last `_` after the second-to-last `.`: the witness
  * that the GFM underscore rule rejects a domain ending at that position. Returns the
  * witness for a domain ending at `mark` and pushes one for a domain ending just past each
- * `)` at or after `mark` onto `run.closerUnderscore`.
+ * `)` or `]` at or after `mark` onto `run.parenWitnesses` or `run.bracketWitnesses`.
  */
 function sweepDomainUnderscore(
   s: string,
@@ -7314,11 +7323,15 @@ function sweepDomainUnderscore(
     } else if (c === $.CHAR_UNDERSCORE) {
       under = x
     } else if (c === $.CHAR_PAREN_CLOSE && x >= mark) {
-      var witnesses = run.closerUnderscore
-      if (witnesses === null) {
-        witnesses = run.closerUnderscore = []
+      if (run.parenWitnesses === null) {
+        run.parenWitnesses = []
       }
-      witnesses.push(under)
+      run.parenWitnesses.push(under)
+    } else if (c === $.CHAR_BRACKET_CLOSE && x >= mark) {
+      if (run.bracketWitnesses === null) {
+        run.bracketWitnesses = []
+      }
+      run.bracketWitnesses.push(under)
     }
   }
   return mark >= hi ? under : atMark
@@ -7395,10 +7408,12 @@ function scanBareUrl(
   // The domain starts past the prefix and runs to the first `/`, or to the trimmed end
   var dStart = p + prefix.length
 
-  // A later candidate's run ends at `run.end` too: no prefix holds a stop character, and prefixes never overlap.
+  // A later candidate's run ends at `run.end` too: each stop reads only its own characters,
+  // no prefix holds a stop character (not even a `\`), and prefixes never overlap.
   if (p >= run.end) {
-    // One pass to the run end (whitespace, `<`, `>`) gathers everything the verdict reads
-    var depth = 0
+    // One pass to the run end gathers everything the verdict reads
+    var parenDepth = 0
+    var bracketDepth = 0
     var dot = -1
     var firstSlash = -1
     var lastSlash = -1
@@ -7416,9 +7431,20 @@ function scanBareUrl(
         break
       }
       if (rc === $.CHAR_PAREN_OPEN) {
-        depth--
+        parenDepth--
       } else if (rc === $.CHAR_PAREN_CLOSE) {
-        depth++
+        parenDepth++
+      } else if (rc === $.CHAR_BRACKET_OPEN) {
+        bracketDepth--
+      } else if (rc === $.CHAR_BRACKET_CLOSE) {
+        bracketDepth++
+      } else if (
+        rc === $.CHAR_BACKSLASH &&
+        i + 1 < e &&
+        s.charCodeAt(i + 1) === $.CHAR_BRACKET_CLOSE
+      ) {
+        // \] is an escaped literal ], so the URL ends before its backslash
+        break
       } else if (rc === $.CHAR_PERIOD) {
         dot = i
       } else if (rc === $.CHAR_SLASH) {
@@ -7429,21 +7455,27 @@ function scanBareUrl(
       }
       i++
     }
-    run.depth = depth
+    run.bracketDepth = bracketDepth
     run.dot = dot
     run.end = i
     run.from = p
     run.lastSlash = lastSlash
+    run.parenDepth = parenDepth
     run.slash = firstSlash
     run.trimEnd = -1
   } else {
-    // No prefix holds a paren, so `depth` over `[p, end)` is the run's less the parens before p
+    // No prefix holds a paren or bracket, so each depth over `[p, end)` is the run's less
+    // the openers and closers before p
     for (var fi = run.from; fi < p; fi++) {
       var fc = s.charCodeAt(fi)
       if (fc === $.CHAR_PAREN_OPEN) {
-        run.depth++
+        run.parenDepth++
       } else if (fc === $.CHAR_PAREN_CLOSE) {
-        run.depth--
+        run.parenDepth--
+      } else if (fc === $.CHAR_BRACKET_OPEN) {
+        run.bracketDepth++
+      } else if (fc === $.CHAR_BRACKET_CLOSE) {
+        run.bracketDepth--
       }
     }
     run.from = p
@@ -7472,12 +7504,14 @@ function scanBareUrl(
     }
   }
 
-  // Trim trailing punctuation that's not part of URL, once per run with every `)` trimmed,
-  // recording each `)` met: the depth then picks the end without walking again
-  var closers = run.closers
+  // Trim trailing punctuation that's not part of URL, once per run with every `)` and `]`
+  // trimmed, recording each one met: the two depths then pick the end without walking again
   if (run.trimEnd < 0) {
-    if (closers !== null) {
-      closers.length = 0
+    if (run.parenClosers !== null) {
+      run.parenClosers.length = 0
+    }
+    if (run.bracketClosers !== null) {
+      run.bracketClosers.length = 0
     }
     var end = run.end
     while (end > dStart) {
@@ -7489,16 +7523,22 @@ function scanBareUrl(
         c === $.CHAR_EXCLAMATION ||
         c === $.CHAR_QUESTION ||
         c === $.CHAR_PAREN_CLOSE || // ! ? )
+        c === $.CHAR_BRACKET_CLOSE || // ]
         c === $.CHAR_ASTERISK ||
         c === $.CHAR_UNDERSCORE ||
         c === $.CHAR_TILDE
       ) {
         // * _ ~ (emphasis/strikethrough delimiters)
         if (c === $.CHAR_PAREN_CLOSE) {
-          if (closers === null) {
-            closers = run.closers = []
+          if (run.parenClosers === null) {
+            run.parenClosers = []
           }
-          closers.push(end - 1)
+          run.parenClosers.push(end - 1)
+        } else if (c === $.CHAR_BRACKET_CLOSE) {
+          if (run.bracketClosers === null) {
+            run.bracketClosers = []
+          }
+          run.bracketClosers.push(end - 1)
         }
         end--
       } else if (c === $.CHAR_SEMICOLON) {
@@ -7529,21 +7569,31 @@ function scanBareUrl(
     run.trimEnd = end
   }
 
-  // A `)` trims only while the URL holds more `)` than `(`, so `depth` of them trim and the
-  // walk stops at the next one; the trimmed tail holds no `/`, so a domain at a `/` ends first
-  var closerCount = closers === null ? 0 : closers.length
-  var trimmed = run.depth > 0 ? run.depth : 0
-  var urlEnd =
-    closers !== null && trimmed < closerCount
-      ? closers[trimmed] + 1
-      : run.trimEnd
+  // A `)` trims only while the URL holds more `)` than `(`, and a `]` likewise with `[`, on
+  // separate counts: the walk keeps the nearer of the two kept closers and trims the rest.
+  // The trimmed tail holds no `/`, so a domain at a `/` ends first
+  var parenTrim = run.parenDepth > 0 ? run.parenDepth : 0
+  var bracketTrim = run.bracketDepth > 0 ? run.bracketDepth : 0
+  var parens = run.parenClosers
+  var brackets = run.bracketClosers
+  var keptParen =
+    parens !== null && parenTrim < parens.length ? parens[parenTrim] : -1
+  var keptBracket =
+    brackets !== null && bracketTrim < brackets.length
+      ? brackets[bracketTrim]
+      : -1
+  var kept = keptParen > keptBracket ? keptParen : keptBracket
+  var urlEnd = kept >= 0 ? kept + 1 : run.trimEnd
   if (slash < 0) {
     // The slash-free tail is judged once per run, by the candidate that trimmed it: a later
     // candidate's domain ends where its depth puts it and holds that end's last two segments,
     // or fewer when it starts past one
     if (run.group !== run.end) {
-      if (run.closerUnderscore !== null) {
-        run.closerUnderscore.length = 0
+      if (run.parenWitnesses !== null) {
+        run.parenWitnesses.length = 0
+      }
+      if (run.bracketWitnesses !== null) {
+        run.bracketWitnesses.length = 0
       }
       run.groupUnderscore = sweepDomainUnderscore(
         s,
@@ -7559,11 +7609,13 @@ function scanBareUrl(
     if (urlEnd <= dStart) {
       return null
     }
-    var witnesses = run.closerUnderscore
-    var underscore =
-      witnesses !== null && trimmed < closerCount
-        ? witnesses[closerCount - 1 - trimmed]
-        : run.groupUnderscore
+    // Witnesses run first to last and closers last to first, so the kept closer's index flips
+    var underscore = run.groupUnderscore
+    if (keptParen > keptBracket && parens !== null && run.parenWitnesses) {
+      underscore = run.parenWitnesses[parens.length - 1 - parenTrim]
+    } else if (keptBracket >= 0 && brackets !== null && run.bracketWitnesses) {
+      underscore = run.bracketWitnesses[brackets.length - 1 - bracketTrim]
+    }
     if (underscore >= dStart) {
       return null // underscore in last two segments (GFM rule)
     }

@@ -11,5 +11,12 @@
     "target": "ESNext",
     "types": ["node", "vite/client"]
   },
-  "include": ["src", "tests", "playwright.config.ts", "vite.config.ts"]
+  "include": [
+    "src",
+    "preact",
+    "tests",
+    "playwright.config.ts",
+    "vite.config.ts",
+    "vite.preact.config.ts"
+  ]
 }

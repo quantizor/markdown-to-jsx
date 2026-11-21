@@ -133,6 +133,11 @@ const shapes: Array<{
     make: n => 'www._)www._('.repeat(n) + ').'.repeat(n),
     name: 'bare-url-www-rejected-run-paren-tail',
   },
+  // Paren and bracket balances both differ per candidate over a mixed `)` and `]` tail
+  {
+    make: n => 'www._)www._[www._(www._]'.repeat(n) + ').].'.repeat(n),
+    name: 'bare-url-www-rejected-run-bracket-tail',
+  },
   { make: n => 'a@'.repeat(n), name: 'bare-email' },
   { make: n => 'a'.repeat(n), name: 'plain-text' },
   {

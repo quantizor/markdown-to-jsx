@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import * as React from 'react'
 import { renderToStaticMarkup, renderToString } from 'react-dom/server'
 import theredoc from 'theredoc'
@@ -12,6 +13,7 @@ import Markdown, {
   RuleType,
   sanitizer,
 } from './react.tsx'
+import { supportsRawElements } from './runtime-probe.ts'
 import { storedAST, treeProps } from './test-tree.ts'
 import type { MarkdownToJSX } from './types.ts'
 
@@ -5740,6 +5742,18 @@ describe('bare URLs in a run without spaces', () => {
     )
   })
 
+  it('keeps a ] inside the domain and trims the unmatched trailing ) and ]', () => {
+    expect(renderToStaticMarkup(compiler('www._]www.a.b)].'))).toBe(
+      '<span><a href="http://www._%5Dwww.a.b">www._]www.a.b</a>)].</span>'
+    )
+  })
+
+  it('keeps a trailing ] its [ opened while trimming the unmatched one', () => {
+    expect(renderToStaticMarkup(compiler('www._[www.a.b)]].'))).toBe(
+      '<span><a href="http://www._%5Bwww.a.b)%5D">www._[www.a.b)]</a>].</span>'
+    )
+  })
+
   // A lone text node renders without a wrapper element
   it('stays text when a scheme URL has an empty domain', () => {
     expect(renderToStaticMarkup(compiler('http://.'))).toBe('http://.')
@@ -5747,5 +5761,168 @@ describe('bare URLs in a run without spaces', () => {
 
   it('stays text when a www. address trims away to nothing', () => {
     expect(renderToStaticMarkup(compiler('www._www..'))).toBe('www._www..')
+  })
+})
+
+describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
+  it.each([
+    [
+      '[GitHub repo][https://github.com/litejs/natural-compare-lite]',
+      '<p>[GitHub repo][<a href="https://github.com/litejs/natural-compare-lite">https://github.com/litejs/natural-compare-lite</a>]</p>',
+    ],
+    [
+      '[see https://example.com/a]',
+      '<p>[see <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '[see www.example.com/a]',
+      '<p>[see <a href="http://www.example.com/a">www.example.com/a</a>]</p>',
+    ],
+    [
+      '[see **https://example.com/a**]',
+      '<p>[see <strong><a href="https://example.com/a">https://example.com/a</a></strong>]</p>',
+    ],
+    [
+      '[see https://example.com/?a[0]=1]',
+      '<p>[see <a href="https://example.com/?a%5B0%5D=1">https://example.com/?a[0]=1</a>]</p>',
+    ],
+    // A trailing ] is trimmed to text while the URL holds more ] than [, so a ]
+    // with no matching [ ends the URL wherever its [ sits
+    [
+      'see https://example.com/a]',
+      '<p>see <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '[a] https://example.com/a]',
+      '<p>[a] <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '\\[see https://example.com/a]',
+      '<p>[see <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '[see ~~https://example.com/a]~~',
+      '<p>[see <del><a href="https://example.com/a">https://example.com/a</a>]</del></p>',
+    ],
+    [
+      '[see ==https://example.com/a]==',
+      '<p>[see <mark><a href="https://example.com/a">https://example.com/a</a>]</mark></p>',
+    ],
+    [
+      '[see <span>https://example.com/a]</span>',
+      '<p>[see <span><a href="https://example.com/a">https://example.com/a</a>]</span></p>',
+    ],
+    // The URL ends before \] and the escape renders as a literal ]
+    [
+      '[see https://example.com/a\\]]',
+      '<p>[see <a href="https://example.com/a">https://example.com/a</a>]]</p>',
+    ],
+    [
+      '![see https://example.com/a]',
+      '<p>![see <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '[^see https://example.com/a]',
+      '<p>[^see <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '[see `]` https://example.com/a]',
+      '<p>[see <code>]</code> <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '[[see https://example.com/a]]',
+      '<p>[[see <a href="https://example.com/a">https://example.com/a</a>]]</p>',
+    ],
+    [
+      '[see https://example.com/a.]',
+      '<p>[see <a href="https://example.com/a">https://example.com/a</a>.]</p>',
+    ],
+    // An unclosed [ inside the URL balances the final ], so it stays
+    [
+      '[see https://example.com/?a[0=1]',
+      '<p>[see <a href="https://example.com/?a%5B0=1%5D">https://example.com/?a[0=1]</a></p>',
+    ],
+  ])('renders %j as %j', (input, expected) => {
+    render(compiler(input, { forceBlock: true }))
+    expect(root.innerHTML.replaceAll('<!-- -->', '')).toBe(expected)
+  })
+
+  it('ends it there with optimizeForStreaming too', () => {
+    const input = '[see https://example.com/a] after'
+    const expected =
+      '<p>[see <a href="https://example.com/a">https://example.com/a</a>] after</p>'
+    render(compiler(input, { forceBlock: true }))
+    expect(root.innerHTML.replaceAll('<!-- -->', '')).toBe(expected)
+
+    render(compiler(input, { forceBlock: true, optimizeForStreaming: true }))
+    expect(root.innerHTML.replaceAll('<!-- -->', '')).toBe(expected)
+  })
+})
+
+describe('raw element detection', () => {
+  // React's exports map hides the cjs builds, so they load by file path; each build
+  // checks NODE_ENV once at load and exports nothing when it does not match
+  function loadReactBuild(build: 'development' | 'production') {
+    const priorEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = build
+    try {
+      return require(
+        `${path.dirname(require.resolve('react'))}/cjs/react.${build}.js`
+      )
+    } finally {
+      if (priorEnv === undefined) {
+        delete process.env.NODE_ENV
+      } else {
+        process.env.NODE_ENV = priorEnv
+      }
+    }
+  }
+
+  it.each([
+    ['react.development.js', loadReactBuild('development')],
+    ['react.production.js', loadReactBuild('production')],
+  ])('accepts elements from %s', (_build, runtime) => {
+    expect(supportsRawElements(runtime.createElement('div'))).toBe(true)
+  })
+
+  it.each([
+    ['Preact 10', undefined],
+    ['Preact 11', Symbol.for('pv')],
+  ])('rejects a %s vnode that carries React’s element marker', (_runtime, ownConstructor) => {
+    expect(
+      supportsRawElements({
+        $$typeof: Symbol.for('react.element'),
+        __b: 0,
+        __k: null,
+        constructor: ownConstructor,
+        key: null,
+        props: {},
+        ref: null,
+        type: 'div',
+      })
+    ).toBe(false)
+  })
+
+  it.each([
+    ['null', null],
+    ['undefined', undefined],
+    ['an empty object', {}],
+    ['an object with a string $$typeof', { $$typeof: 'react.element' }],
+  ])('rejects %s', (_shape, probe) => {
+    expect(supportsRawElements(probe)).toBe(false)
+  })
+
+  it('builds the elements compiler() returns in the raw element shape', () => {
+    expect(Object.keys(compiler('# hi') as object)).toEqual([
+      '$$typeof',
+      'type',
+      'key',
+      'ref',
+      'props',
+      '_owner',
+      '_store',
+      '_debugStack',
+      '_debugTask',
+    ])
   })
 })

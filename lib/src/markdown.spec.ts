@@ -4135,11 +4135,115 @@ describe('bare URLs in a run without spaces', () => {
     )
   })
 
+  it('keeps a ] inside the domain and trims the unmatched trailing ) and ]', () => {
+    expect(compiler('www._]www.a.b)].')).toBe(
+      '[www.\\_\\]www.a.b](http://www._]www.a.b))\\].'
+    )
+  })
+
+  it('keeps a trailing ] its [ opened while trimming the unmatched one', () => {
+    expect(compiler('www._[www.a.b)]].')).toBe(
+      '[www.\\_\\[www.a.b)\\]](<http://www._[www.a.b)]>)\\].'
+    )
+  })
+
   it('stays text when a scheme URL has an empty domain', () => {
     expect(compiler('http://.')).toBe('http://.')
   })
 
   it('stays text when a www. address trims away to nothing', () => {
     expect(compiler('www._www..')).toBe('www.\\_www..')
+  })
+})
+
+describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
+  it.each([
+    [
+      '[GitHub repo][https://github.com/litejs/natural-compare-lite]',
+      '\\[GitHub repo\\]\\[[https://github.com/litejs/natural-compare-lite](https://github.com/litejs/natural-compare-lite)\\]',
+    ],
+    [
+      '[see https://example.com/a]',
+      '\\[see [https://example.com/a](https://example.com/a)\\]',
+    ],
+    [
+      '[see www.example.com/a]',
+      '\\[see [www.example.com/a](http://www.example.com/a)\\]',
+    ],
+    [
+      '[see **https://example.com/a**]',
+      '\\[see **[https://example.com/a](https://example.com/a)**\\]',
+    ],
+    [
+      '[see https://example.com/?a[0]=1]',
+      '\\[see [https://example.com/?a\\[0\\]=1](https://example.com/?a[0]=1)\\]',
+    ],
+    // A trailing ] is trimmed to text while the URL holds more ] than [, so a ]
+    // with no matching [ ends the URL wherever its [ sits
+    [
+      'see https://example.com/a]',
+      'see [https://example.com/a](https://example.com/a)\\]',
+    ],
+    [
+      '[a] https://example.com/a]',
+      '\\[a\\] [https://example.com/a](https://example.com/a)\\]',
+    ],
+    [
+      '\\[see https://example.com/a]',
+      '\\[see [https://example.com/a](https://example.com/a)\\]',
+    ],
+    [
+      '[see ~~https://example.com/a]~~',
+      '\\[see ~~[https://example.com/a](https://example.com/a)\\]~~',
+    ],
+    [
+      '[see ==https://example.com/a]==',
+      '\\[see ==[https://example.com/a](https://example.com/a)\\]==',
+    ],
+    // The markdown compiler writes a raw HTML element back as its source, so no link shows
+    [
+      '[see <span>https://example.com/a]</span>',
+      '\\[see <span>https://example.com/a]</span>',
+    ],
+    // The URL ends before \] and the escape renders as a literal ]
+    [
+      '[see https://example.com/a\\]]',
+      '\\[see [https://example.com/a](https://example.com/a)\\]\\]',
+    ],
+    [
+      '![see https://example.com/a]',
+      '!\\[see [https://example.com/a](https://example.com/a)\\]',
+    ],
+    [
+      '[^see https://example.com/a]',
+      '\\[^see [https://example.com/a](https://example.com/a)\\]',
+    ],
+    [
+      '[see `]` https://example.com/a]',
+      '\\[see `]` [https://example.com/a](https://example.com/a)\\]',
+    ],
+    [
+      '[[see https://example.com/a]]',
+      '\\[\\[see [https://example.com/a](https://example.com/a)\\]\\]',
+    ],
+    [
+      '[see https://example.com/a.]',
+      '\\[see [https://example.com/a](https://example.com/a).\\]',
+    ],
+    // An unclosed [ inside the URL balances the final ], so it stays
+    [
+      '[see https://example.com/?a[0=1]',
+      '\\[see [https://example.com/?a\\[0=1\\]](https://example.com/?a[0=1])',
+    ],
+  ])('renders %j as %j', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+  })
+
+  it('ends it there with optimizeForStreaming too', () => {
+    const input = '[see https://example.com/a] after'
+    const expected =
+      '\\[see [https://example.com/a](https://example.com/a)\\] after'
+    expect(compiler(input)).toBe(expected)
+    expect(compiler(input, { optimizeForStreaming: true })).toBe(expected)
   })
 })

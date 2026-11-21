@@ -756,6 +756,64 @@ describe('parseMarkdown', () => {
     `)
   })
 
+  it('keeps a ] inside a bare URL run and trims the unmatched trailing ) and ]', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'www._]www.a.b)].',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            {
+              "text": "www._]www.a.b",
+              "type": "text",
+            },
+          ],
+          "target": "http://www._]www.a.b",
+          "title": undefined,
+          "type": "link",
+        },
+        {
+          "text": ")].",
+          "type": "text",
+        },
+      ]
+    `)
+  })
+
+  it('keeps a trailing ] its [ opened while trimming the unmatched one in a bare URL run', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'www._[www.a.b)]].',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            {
+              "text": "www._[www.a.b)]",
+              "type": "text",
+            },
+          ],
+          "target": "http://www._[www.a.b)]",
+          "title": undefined,
+          "type": "link",
+        },
+        {
+          "text": "].",
+          "type": "text",
+        },
+      ]
+    `)
+  })
+
   it('allows underscores outside final domain segments', () => {
     const state = createInlineState()
     const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
@@ -967,6 +1025,70 @@ describe('parseMarkdown', () => {
             },
             {
               "text": " for more.",
+              "type": "text",
+            },
+          ],
+          "type": "paragraph",
+        },
+      ]
+    `)
+  })
+
+  it('leaves a closing ] that the bare URL did not open out of the link', () => {
+    const result = p.parser('[see https://example.com/a]')
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            {
+              "text": "[see ",
+              "type": "text",
+            },
+            {
+              "children": [
+                {
+                  "text": "https://example.com/a",
+                  "type": "text",
+                },
+              ],
+              "target": "https://example.com/a",
+              "title": undefined,
+              "type": "link",
+            },
+            {
+              "text": "]",
+              "type": "text",
+            },
+          ],
+          "type": "paragraph",
+        },
+      ]
+    `)
+  })
+
+  it('keeps a ] that closes a [ inside the bare URL', () => {
+    const result = p.parser('[see https://example.com/?a[0]=1]')
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            {
+              "text": "[see ",
+              "type": "text",
+            },
+            {
+              "children": [
+                {
+                  "text": "https://example.com/?a[0]=1",
+                  "type": "text",
+                },
+              ],
+              "target": "https://example.com/?a[0]=1",
+              "title": undefined,
+              "type": "link",
+            },
+            {
+              "text": "]",
               "type": "text",
             },
           ],

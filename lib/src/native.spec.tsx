@@ -3728,6 +3728,22 @@ describe('bare URLs in a run without spaces', () => {
     expect(pressedUrls('www.x_www.y/a.b')).toEqual(['http://www.y/a.b'])
   })
 
+  it('keeps a ] inside the domain and trims the unmatched trailing ) and ]', () => {
+    expect(serialize(compiler('www._]www.a.b)].'))).toBe(
+      '<Text><Text>www._]www.a.b</Text>)].</Text>'
+    )
+    expect(pressedUrls('www._]www.a.b)].')).toEqual(['http://www._%5Dwww.a.b'])
+  })
+
+  it('keeps a trailing ] its [ opened while trimming the unmatched one', () => {
+    expect(serialize(compiler('www._[www.a.b)]].'))).toBe(
+      '<Text><Text>www._[www.a.b)]</Text>].</Text>'
+    )
+    expect(pressedUrls('www._[www.a.b)]].')).toEqual([
+      'http://www._%5Bwww.a.b)%5D',
+    ])
+  })
+
   it('stays text when a scheme URL has an empty domain', () => {
     expect(serialize(compiler('http://.'))).toBe('<Text>http://.</Text>')
     expect(pressedUrls('http://.')).toEqual([])
@@ -3736,5 +3752,118 @@ describe('bare URLs in a run without spaces', () => {
   it('stays text when a www. address trims away to nothing', () => {
     expect(serialize(compiler('www._www..'))).toBe('<Text>www._www..</Text>')
     expect(pressedUrls('www._www..')).toEqual([])
+  })
+})
+
+describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
+  it.each([
+    [
+      '[GitHub repo][https://github.com/litejs/natural-compare-lite]',
+      '<Text>[GitHub repo][<Text>https://github.com/litejs/natural-compare-lite</Text>]</Text>',
+    ],
+    [
+      '[see https://example.com/a]',
+      '<Text>[see <Text>https://example.com/a</Text>]</Text>',
+    ],
+    [
+      '[see www.example.com/a]',
+      '<Text>[see <Text>www.example.com/a</Text>]</Text>',
+    ],
+    [
+      '[see **https://example.com/a**]',
+      '<Text>[see <Text><Text>https://example.com/a</Text></Text>]</Text>',
+    ],
+    [
+      '[see https://example.com/?a[0]=1]',
+      '<Text>[see <Text>https://example.com/?a[0]=1</Text>]</Text>',
+    ],
+    // A trailing ] is trimmed to text while the URL holds more ] than [, so a ]
+    // with no matching [ ends the URL wherever its [ sits
+    [
+      'see https://example.com/a]',
+      '<Text>see <Text>https://example.com/a</Text>]</Text>',
+    ],
+    [
+      '[a] https://example.com/a]',
+      '<Text>[a] <Text>https://example.com/a</Text>]</Text>',
+    ],
+    [
+      '\\[see https://example.com/a]',
+      '<Text>[see <Text>https://example.com/a</Text>]</Text>',
+    ],
+    [
+      '[see ~~https://example.com/a]~~',
+      '<Text>[see <Text><Text>https://example.com/a</Text>]</Text></Text>',
+    ],
+    [
+      '[see ==https://example.com/a]==',
+      '<Text>[see <Text><Text>https://example.com/a</Text>]</Text></Text>',
+    ],
+    [
+      '[see <span>https://example.com/a]</span>',
+      '<Text>[see <Text><Text>https://example.com/a</Text>]</Text></Text>',
+    ],
+    // The URL ends before \] and the escape renders as a literal ]
+    [
+      '[see https://example.com/a\\]]',
+      '<Text>[see <Text>https://example.com/a</Text>]]</Text>',
+    ],
+    [
+      '![see https://example.com/a]',
+      '<Text>![see <Text>https://example.com/a</Text>]</Text>',
+    ],
+    [
+      '[^see https://example.com/a]',
+      '<Text>[^see <Text>https://example.com/a</Text>]</Text>',
+    ],
+    [
+      '[see `]` https://example.com/a]',
+      '<Text>[see <Text>]</Text> <Text>https://example.com/a</Text>]</Text>',
+    ],
+    [
+      '[[see https://example.com/a]]',
+      '<Text>[[see <Text>https://example.com/a</Text>]]</Text>',
+    ],
+    [
+      '[see https://example.com/a.]',
+      '<Text>[see <Text>https://example.com/a</Text>.]</Text>',
+    ],
+    // An unclosed [ inside the URL balances the final ], so it stays
+    [
+      '[see https://example.com/?a[0=1]',
+      '<Text>[see <Text>https://example.com/?a[0=1]</Text></Text>',
+    ],
+  ])('renders %j as %j', (input, expected) => {
+    expect(serialize(compiler(input, { forceBlock: true }))).toBe(expected)
+  })
+
+  it('ends it there with optimizeForStreaming too', () => {
+    const input = '[see https://example.com/a] after'
+    const expected =
+      '<Text>[see <Text>https://example.com/a</Text>] after</Text>'
+    expect(serialize(compiler(input, { forceBlock: true }))).toBe(expected)
+    expect(
+      serialize(
+        compiler(input, { forceBlock: true, optimizeForStreaming: true })
+      )
+    ).toBe(expected)
+  })
+
+  // serialize drops props, so the target a press opens is read from the handler
+  it.each([
+    ['[see https://example.com/a]', 'https://example.com/a'],
+    ['[see https://example.com/?a[0]=1]', 'https://example.com/?a%5B0%5D=1'],
+  ])('opens %j at %j when pressed', (input, expected) => {
+    const onLinkPress = mock((_url: string) => {})
+    const link = findLinkElement(
+      compiler(input, { forceBlock: true, onLinkPress })
+    )
+    const onPress = link.props.onPress
+    if (typeof onPress !== 'function') {
+      throw new Error('Expected link onPress handler')
+    }
+    onPress()
+
+    expect(onLinkPress).toHaveBeenCalledWith(expected, undefined)
   })
 })
