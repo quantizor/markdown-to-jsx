@@ -5684,6 +5684,101 @@ describe('a capitalized tag an override matches is a component, and every other 
   })
 })
 
+describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
+  it.each([
+    [
+      '[GitHub repo][https://github.com/litejs/natural-compare-lite]',
+      '<p>[GitHub repo][<a href="https://github.com/litejs/natural-compare-lite">https://github.com/litejs/natural-compare-lite</a>]</p>',
+    ],
+    [
+      '[see https://example.com/a]',
+      '<p>[see <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '[see www.example.com/a]',
+      '<p>[see <a href="http://www.example.com/a">www.example.com/a</a>]</p>',
+    ],
+    [
+      '[see **https://example.com/a**]',
+      '<p>[see <strong><a href="https://example.com/a">https://example.com/a</a></strong>]</p>',
+    ],
+    [
+      '[see https://example.com/?a[0]=1]',
+      '<p>[see <a href="https://example.com/?a%5B0%5D=1">https://example.com/?a[0]=1</a>]</p>',
+    ],
+    // A trailing ] is trimmed to text while the URL holds more ] than [, so a ]
+    // with no matching [ ends the URL wherever its [ sits
+    [
+      'see https://example.com/a]',
+      '<p>see <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '[a] https://example.com/a]',
+      '<p>[a] <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '\\[see https://example.com/a]',
+      '<p>[see <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '[see ~~https://example.com/a]~~',
+      '<p>[see <del><a href="https://example.com/a">https://example.com/a</a>]</del></p>',
+    ],
+    [
+      '[see ==https://example.com/a]==',
+      '<p>[see <mark><a href="https://example.com/a">https://example.com/a</a>]</mark></p>',
+    ],
+    [
+      '[see <span>https://example.com/a]</span>',
+      '<p>[see <span><a href="https://example.com/a">https://example.com/a</a>]</span></p>',
+    ],
+    // The URL ends before \] and the escape renders as a literal ]
+    [
+      '[see https://example.com/a\\]]',
+      '<p>[see <a href="https://example.com/a">https://example.com/a</a>]]</p>',
+    ],
+    [
+      '![see https://example.com/a]',
+      '<p>![see <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '[^see https://example.com/a]',
+      '<p>[^see <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '[see `]` https://example.com/a]',
+      '<p>[see <code>]</code> <a href="https://example.com/a">https://example.com/a</a>]</p>',
+    ],
+    [
+      '[[see https://example.com/a]]',
+      '<p>[[see <a href="https://example.com/a">https://example.com/a</a>]]</p>',
+    ],
+    [
+      '[see https://example.com/a.]',
+      '<p>[see <a href="https://example.com/a">https://example.com/a</a>.]</p>',
+    ],
+    // An unclosed [ inside the URL balances the final ], so it stays
+    [
+      '[see https://example.com/?a[0=1]',
+      '<p>[see <a href="https://example.com/?a%5B0=1%5D">https://example.com/?a[0=1]</a></p>',
+    ],
+  ])('renders %j as %j', (input, expected) => {
+    render(compiler(input, { forceBlock: true }))
+    expect(root.innerHTML.replaceAll('<!-- -->', '')).toBe(expected)
+  })
+
+  it('ends it there with optimizeForStreaming too', () => {
+    const input = '[see https://example.com/a] after'
+    const expected =
+      '<p>[see <a href="https://example.com/a">https://example.com/a</a>] after</p>'
+    render(compiler(input, { forceBlock: true }))
+    expect(root.innerHTML.replaceAll('<!-- -->', '')).toBe(expected)
+
+    render(compiler(input, { forceBlock: true, optimizeForStreaming: true }))
+    expect(root.innerHTML.replaceAll('<!-- -->', '')).toBe(expected)
+  })
+})
+
 describe('raw element detection', () => {
   // React's exports map hides the cjs builds, so they load by file path; each build
   // checks NODE_ENV once at load and exports nothing when it does not match

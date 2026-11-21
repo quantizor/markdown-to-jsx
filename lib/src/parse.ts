@@ -7321,18 +7321,32 @@ function scanBareUrl(
     if (c === $.CHAR_LT || c === $.CHAR_GT) {
       break // < >
     }
+    // \] is an escaped literal ], so the URL ends before its backslash
+    if (
+      c === $.CHAR_BACKSLASH &&
+      i + 1 < e &&
+      s.charCodeAt(i + 1) === $.CHAR_BRACKET_CLOSE
+    ) {
+      break
+    }
     i++
   }
 
-  // Pre-count parens to avoid O(n²) slice+match in trimming loop
+  // Pre-count parens and brackets to avoid O(n²) slice+match in trimming loop
   var openParens = 0
   var closeParens = 0
+  var openBrackets = 0
+  var closeBrackets = 0
   for (var pi = p; pi < i; pi++) {
     var pc = s.charCodeAt(pi)
     if (pc === $.CHAR_PAREN_OPEN) {
       openParens++
     } else if (pc === $.CHAR_PAREN_CLOSE) {
       closeParens++
+    } else if (pc === $.CHAR_BRACKET_OPEN) {
+      openBrackets++
+    } else if (pc === $.CHAR_BRACKET_CLOSE) {
+      closeBrackets++
     }
   }
 
@@ -7347,17 +7361,23 @@ function scanBareUrl(
       c === $.CHAR_EXCLAMATION ||
       c === $.CHAR_QUESTION ||
       c === $.CHAR_PAREN_CLOSE || // ! ? )
+      c === $.CHAR_BRACKET_CLOSE || // ]
       c === $.CHAR_ASTERISK ||
       c === $.CHAR_UNDERSCORE ||
       c === $.CHAR_TILDE
     ) {
       // * _ ~ (emphasis/strikethrough delimiters)
-      // But keep ) if there's a matching (
+      // But keep ) if there's a matching (, and ] if there's a matching [
       if (c === $.CHAR_PAREN_CLOSE) {
         if (openParens >= closeParens) {
           break
         }
         closeParens--
+      } else if (c === $.CHAR_BRACKET_CLOSE) {
+        if (openBrackets >= closeBrackets) {
+          break
+        }
+        closeBrackets--
       }
       end--
     } else if (c === $.CHAR_SEMICOLON) {

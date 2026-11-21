@@ -830,6 +830,70 @@ describe('parseMarkdown', () => {
       ]
     `)
   })
+
+  it('leaves a closing ] that the bare URL did not open out of the link', () => {
+    const result = p.parser('[see https://example.com/a]')
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            {
+              "text": "[see ",
+              "type": "text",
+            },
+            {
+              "children": [
+                {
+                  "text": "https://example.com/a",
+                  "type": "text",
+                },
+              ],
+              "target": "https://example.com/a",
+              "title": undefined,
+              "type": "link",
+            },
+            {
+              "text": "]",
+              "type": "text",
+            },
+          ],
+          "type": "paragraph",
+        },
+      ]
+    `)
+  })
+
+  it('keeps a ] that closes a [ inside the bare URL', () => {
+    const result = p.parser('[see https://example.com/?a[0]=1]')
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            {
+              "text": "[see ",
+              "type": "text",
+            },
+            {
+              "children": [
+                {
+                  "text": "https://example.com/?a[0]=1",
+                  "type": "text",
+                },
+              ],
+              "target": "https://example.com/?a[0]=1",
+              "title": undefined,
+              "type": "link",
+            },
+            {
+              "text": "]",
+              "type": "text",
+            },
+          ],
+          "type": "paragraph",
+        },
+      ]
+    `)
+  })
 })
 
 describe('collectReferenceDefinitions', () => {
