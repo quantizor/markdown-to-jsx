@@ -6215,11 +6215,6 @@ function skipInlineHtmlElement(s: string, i: number, e: number): number {
   return j
 }
 
-function tildeRunEnd(s: string, p: number, e: number): number {
-  while (p < e && s.charCodeAt(p) === $.CHAR_TILDE) p++
-  return p
-}
-
 /** Scan strikethrough ~~text~~ */
 function scanStrikethrough(
   s: string,
@@ -6228,7 +6223,7 @@ function scanStrikethrough(
   state: MarkdownToJSX.State,
   opts: ParseOptions
 ): ScanResult {
-  if (tildeRunEnd(s, p, e) - p !== 2) {
+  if (countChar(s, p, e, $.CHAR_TILDE) !== 2) {
     return null // ~~
   }
 
@@ -6245,9 +6240,9 @@ function scanStrikethrough(
       }
     }
     if (c === $.CHAR_TILDE) {
-      const runEnd = tildeRunEnd(s, i, e)
-      if (runEnd - i !== 2) {
-        i = runEnd
+      const runLen = countChar(s, i, e, $.CHAR_TILDE)
+      if (runLen !== 2) {
+        i += runLen
         continue
       }
       const content = s.slice(p + 2, i)
@@ -8415,19 +8410,19 @@ function parseInline(
       // Fall through to regular text handling
     } else if (c === $.CHAR_TILDE) {
       // ~
-      var tildeLen = tildeRunEnd(s, p, e) - p
       result = scanStrikethrough(s, p, e, childState, opts)
-      if (!result && streamEdge && tildeLen === 2) {
-        // An unclosed `~~` at the streaming edge: drop the marker
-        if (pending || p > textStart) {
-          nodes.push(textNode(pending + s.slice(textStart, p)))
-          pending = ''
-        }
-        p += 2
-        textStart = p
-        continue
-      }
       if (!result) {
+        var tildeLen = countChar(s, p, e, $.CHAR_TILDE)
+        if (streamEdge && tildeLen === 2) {
+          // An unclosed `~~` at the streaming edge: drop the marker
+          if (pending || p > textStart) {
+            nodes.push(textNode(pending + s.slice(textStart, p)))
+            pending = ''
+          }
+          p += 2
+          textStart = p
+          continue
+        }
         p += tildeLen - 1
       }
     } else if (c === $.CHAR_EQ) {
