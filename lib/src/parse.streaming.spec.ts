@@ -397,6 +397,10 @@ describe('Streaming optimization - bold/italic markers', () => {
     ['leftover closer at the end', '*a**'],
     ['opener inside a complete link', '[**a](u) x'],
     ['raw HTML comment', 'a <!-- *x --> b'],
+    ['tilde run of three', 'a ~~~ b'],
+    ['tilde run of four', 'a ~~~~ b'],
+    ['trailing tilde run of three', 'a ~~~'],
+    ['trailing tilde run of four', 'a ~~~~'],
   ])('keeps literal delimiters: %s', (_name, input) => {
     expect(htmlCompiler(input, { optimizeForStreaming: true })).toBe(
       htmlCompiler(input)

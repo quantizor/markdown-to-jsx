@@ -6,6 +6,12 @@ import { storedAST } from './test-tree.ts'
 import type { MarkdownToJSX } from './types.ts'
 
 describe('html compiler', () => {
+  it('strikes through only tilde runs of exactly two', () => {
+    expect(compiler('a ~~~c~~~ b ~~~~ ~~d~~~e~~')).toMatchInlineSnapshot(
+      `"<p>a ~~~c~~~ b ~~~~ <del>d~~~e</del></p>"`
+    )
+  })
+
   describe('footnotes', () => {
     it('should handle conversion of references into links', () => {
       const result = compiler(
@@ -3397,7 +3403,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       'x&#60;~~~~javascript:alert(1)>',
-      '<p>x&lt;<del></del>javascript:alert(1)&gt;</p>',
+      '<p>x&lt;~~~~javascript:alert(1)&gt;</p>',
     ],
     ["<C><?><a e='?>'> onclick/", "<C><?><a e='?>'> onclick/"],
     [
@@ -3455,7 +3461,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<foreignObject>~~~~```x onmouseover="alert(1)"\n<svg onload=alert(1)>```\n',
-      '<p><foreignObject><del></del><code>x onmouseover=&quot;alert(1)&quot; &lt;svg onload=alert(1)&gt;</code></p>',
+      '<p><foreignObject>~~~~<code>x onmouseover=&quot;alert(1)&quot; &lt;svg onload=alert(1)&gt;</code></p>',
     ],
     [
       '[^1]: <iframe srcdoc="x"></iframe>[r][^1]',
