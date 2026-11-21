@@ -2878,6 +2878,142 @@ describe('a capitalized tag an override matches is a component, and every other 
   })
 })
 
+describe('a www. bare URL needs a dot inside its own span', () => {
+  const page = (input: string) => {
+    const tree = compiler(input)
+    return renderToString(createSSRApp({ render: () => tree }))
+  }
+
+  it('ignores a dot in the text after the URL', async () => {
+    // Text with no element in it renders as a bare string, with no wrapper
+    expect(await page('www.foo bar.com')).toBe('www.foo bar.com')
+  })
+
+  it('links a URL whose own span holds a dot', async () => {
+    expect(await page('www.foo.com bar')).toBe(
+      '<span><a href="http://www.foo.com">www.foo.com</a> bar</span>'
+    )
+  })
+
+  it('counts a trailing dot that ends the sentence', async () => {
+    expect(await page('www.foo. bar')).toBe(
+      '<span><a href="http://www.foo">www.foo</a>. bar</span>'
+    )
+  })
+})
+
+describe('bare URLs in a run without spaces', () => {
+  const page = (input: string) => {
+    const tree = compiler(input)
+    return renderToString(createSSRApp({ render: () => tree }))
+  }
+
+  const hrefs = (input: string) =>
+    treeProps(compiler(input))
+      .filter(([name]) => name === 'href')
+      .map(([, value]) => value)
+
+  it('links a later www. address whose own paren balance trims differently', async () => {
+    expect(await page('www.(www.ab_.))')).toBe(
+      '<span>www.(<a href="http://www.ab">www.ab</a>_.))</span>'
+    )
+    expect(hrefs('www.(www.ab_.))')).toEqual(['http://www.ab'])
+  })
+
+  it('links the earliest candidate whose trailing parens leave a clean domain', async () => {
+    expect(await page('www._)www._(www.c).).')).toBe(
+      '<span>www.<em>)www.</em>(<a href="http://www.c">www.c</a>).).</span>'
+    )
+    expect(hrefs('www._)www._(www.c).).')).toEqual(['http://www.c'])
+  })
+
+  it('links the whole run once its last two segments are clean', async () => {
+    expect(await page('www._)www._(www.c.d).).')).toBe(
+      '<span><a href="http://www._)www._(www.c.d">www._)www._(www.c.d</a>).).</span>'
+    )
+    expect(hrefs('www._)www._(www.c.d).).')).toEqual([
+      'http://www._)www._(www.c.d',
+    ])
+  })
+
+  it('links a scheme URL after a rejected one', async () => {
+    expect(await page('http://a_b.c_dhttp://x.y')).toBe(
+      '<span>http://a_b.c_d<a href="http://x.y">http://x.y</a></span>'
+    )
+    expect(hrefs('http://a_b.c_dhttp://x.y')).toEqual(['http://x.y'])
+  })
+
+  it('links a www. address past a slash that ended a rejected domain', async () => {
+    expect(await page('www.a_/www.b.c')).toBe(
+      '<span>www.a_/<a href="http://www.b.c">www.b.c</a></span>'
+    )
+    expect(hrefs('www.a_/www.b.c')).toEqual(['http://www.b.c'])
+  })
+
+  it('links a later candidate past a slash that reuses the rejected domain verdict', async () => {
+    expect(await page('www.x_www.y/a.b')).toBe(
+      '<span>www.x_<a href="http://www.y/a.b">www.y/a.b</a></span>'
+    )
+    expect(hrefs('www.x_www.y/a.b')).toEqual(['http://www.y/a.b'])
+  })
+
+  it('keeps a ] inside the domain and trims the unmatched trailing ) and ]', async () => {
+    expect(await page('www._]www.a.b)].')).toBe(
+      '<span><a href="http://www._%5Dwww.a.b">www._]www.a.b</a>)].</span>'
+    )
+    expect(hrefs('www._]www.a.b)].')).toEqual(['http://www._%5Dwww.a.b'])
+  })
+
+  it('keeps a trailing ] its [ opened while trimming the unmatched one', async () => {
+    expect(await page('www._[www.a.b)]].')).toBe(
+      '<span><a href="http://www._%5Bwww.a.b)%5D">www._[www.a.b)]</a>].</span>'
+    )
+    expect(hrefs('www._[www.a.b)]].')).toEqual(['http://www._%5Bwww.a.b)%5D'])
+  })
+
+  it('links a later www. address past a [ that the first candidate never closes', async () => {
+    expect(await page('www.[www.a.b_]')).toBe(
+      '<span>www.[<a href="http://www.a.b">www.a.b</a>_]</span>'
+    )
+    expect(hrefs('www.[www.a.b_]')).toEqual(['http://www.a.b'])
+  })
+
+  it('keeps a trailing ] a later candidate shares with a [ inside its own run', async () => {
+    expect(await page('www._[www.a.b])')).toBe(
+      '<span><a href="http://www._%5Bwww.a.b%5D">www._[www.a.b]</a>)</span>'
+    )
+    expect(hrefs('www._[www.a.b])')).toEqual(['http://www._%5Bwww.a.b%5D'])
+  })
+
+  // A lone text node renders without a wrapper element
+  it('stays text when a ] before a later candidate leaves it no clean domain', async () => {
+    expect(await page('www.]www.a.b_[]')).toBe('www.]www.a.b_[]')
+    expect(hrefs('www.]www.a.b_[]')).toEqual([])
+  })
+
+  it('stays text when a nested [ pair closes after an underscore in the last segment', async () => {
+    expect(await page('www.[[a.b]_]')).toBe('www.[[a.b]_]')
+    expect(hrefs('www.[[a.b]_]')).toEqual([])
+  })
+
+  it('ends the link at the last closer when a kept ) and a kept ] both remain', async () => {
+    expect(await page('www.[.()]')).toBe(
+      '<a href="http://www.%5B.()%5D">www.[.()]</a>'
+    )
+    expect(hrefs('www.[.()]')).toEqual(['http://www.%5B.()%5D'])
+  })
+
+  it('stays text when a scheme URL has an empty domain', async () => {
+    expect(await page('http://.')).toBe('http://.')
+    expect(hrefs('http://.')).toEqual([])
+  })
+
+  it('stays text when a www. address trims away to nothing', async () => {
+    expect(await page('www._www..')).toBe('www._www..')
+    expect(hrefs('www._www..')).toEqual([])
+  })
+})
+
 describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
   it.each([
     [

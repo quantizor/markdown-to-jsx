@@ -4079,6 +4079,107 @@ describe('the character rules of the raw string screens', () => {
   })
 })
 
+describe('a www. bare URL needs a dot inside its own span', () => {
+  it('ignores a dot in the text after the URL', () => {
+    // The markdown compiler writes an unlinked URL back as the same text
+    expect(compiler('www.foo bar.com')).toBe('www.foo bar.com')
+  })
+
+  it('links a URL whose own span holds a dot', () => {
+    expect(compiler('www.foo.com bar')).toBe(
+      '[www.foo.com](http://www.foo.com) bar'
+    )
+  })
+
+  it('counts a trailing dot that ends the sentence', () => {
+    expect(compiler('www.foo. bar')).toBe('[www.foo](http://www.foo). bar')
+  })
+})
+
+describe('bare URLs in a run without spaces', () => {
+  // The markdown compiler writes each link as `[text](url)`, escapes `_` and
+  // `(` in text, and wraps a destination with unbalanced parens in `<...>`.
+  it('links a later www. address whose own paren balance trims differently', () => {
+    expect(compiler('www.(www.ab_.))')).toBe(
+      'www.([www.ab](http://www.ab)\\_.))'
+    )
+  })
+
+  it('links the earliest candidate whose trailing parens leave a clean domain', () => {
+    expect(compiler('www._)www._(www.c).).')).toBe(
+      'www.*)www.*\\([www.c](http://www.c)).).'
+    )
+  })
+
+  it('links the whole run once its last two segments are clean', () => {
+    expect(compiler('www._)www._(www.c.d).).')).toBe(
+      '[www.\\_)www.\\_(www.c.d](<http://www._)www._(www.c.d>)).).'
+    )
+  })
+
+  it('links a scheme URL after a rejected one', () => {
+    expect(compiler('http://a_b.c_dhttp://x.y')).toBe(
+      'http://a\\_b.c\\_d[http://x.y](http://x.y)'
+    )
+  })
+
+  it('links a www. address past a slash that ended a rejected domain', () => {
+    expect(compiler('www.a_/www.b.c')).toBe(
+      'www.a\\_/[www.b.c](http://www.b.c)'
+    )
+  })
+
+  it('links a later candidate past a slash that reuses the rejected domain verdict', () => {
+    expect(compiler('www.x_www.y/a.b')).toBe(
+      'www.x\\_[www.y/a.b](http://www.y/a.b)'
+    )
+  })
+
+  it('keeps a ] inside the domain and trims the unmatched trailing ) and ]', () => {
+    expect(compiler('www._]www.a.b)].')).toBe(
+      '[www.\\_\\]www.a.b](http://www._]www.a.b))\\].'
+    )
+  })
+
+  it('keeps a trailing ] its [ opened while trimming the unmatched one', () => {
+    expect(compiler('www._[www.a.b)]].')).toBe(
+      '[www.\\_\\[www.a.b)\\]](<http://www._[www.a.b)]>)\\].'
+    )
+  })
+
+  it('links a later www. address past a [ that the first candidate never closes', () => {
+    expect(compiler('www.[www.a.b_]')).toBe(
+      'www.\\[[www.a.b](http://www.a.b)\\_\\]'
+    )
+  })
+
+  it('keeps a trailing ] a later candidate shares with a [ inside its own run', () => {
+    expect(compiler('www._[www.a.b])')).toBe(
+      '[www.\\_\\[www.a.b\\]](http://www._[www.a.b]))'
+    )
+  })
+
+  it('stays text when a ] before a later candidate leaves it no clean domain', () => {
+    expect(compiler('www.]www.a.b_[]')).toBe('www.\\]www.a.b\\_\\[\\]')
+  })
+
+  it('stays text when a nested [ pair closes after an underscore in the last segment', () => {
+    expect(compiler('www.[[a.b]_]')).toBe('www.\\[\\[a.b\\]\\_\\]')
+  })
+
+  it('ends the link at the last closer when a kept ) and a kept ] both remain', () => {
+    expect(compiler('www.[.()]')).toBe('[www.\\[.()\\]](http://www.[.()])')
+  })
+
+  it('stays text when a scheme URL has an empty domain', () => {
+    expect(compiler('http://.')).toBe('http://.')
+  })
+
+  it('stays text when a www. address trims away to nothing', () => {
+    expect(compiler('www._www..')).toBe('www.\\_www..')
+  })
+})
+
 describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
   it.each([
     [
