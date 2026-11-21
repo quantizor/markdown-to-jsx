@@ -4,9 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && vite build --config vite.preact.config.ts",
     "dev": "vite dev --port 4174 --strictPort",
+    "dev:preact": "vite dev --config vite.preact.config.ts --port 4176 --strictPort",
     "preview": "vite preview --port 4173 --strictPort",
+    "preview:preact": "vite preview --config vite.preact.config.ts --port 4175 --strictPort",
     "test": "playwright test",
     "typecheck": "tsc --noEmit"
   },
@@ -22,6 +24,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
+    "preact": "^11.2.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.5"
   }
