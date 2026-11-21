@@ -29,24 +29,22 @@ declare namespace h {
 }
 
 /**
- * Symbol used by React to identify valid elements, auto-detected from the
- * installed React version. React 18 uses react.element, React 19+ uses
- * react.transitional.element, future versions may use something else.
+ * Symbol that marks a valid element, read from the installed runtime's own
+ * elements (React 18 uses react.element, React 19+ uses
+ * react.transitional.element, future versions may use something else).
+ * Null when the runtime does not build React-shaped elements, so
+ * createRawElement delegates to its createElement.
  * React's public element type does not expose `$$typeof`, so the probe
  * narrows structurally instead of asserting.
  */
-var REACT_ELEMENT_TYPE: symbol
-var SUPPORTS_RAW_ELEMENTS = false
+var REACT_ELEMENT_TYPE: symbol | null = null
 try {
   var probeElement: unknown = React.createElement('div')
   if (supportsRawElements(probeElement)) {
-    REACT_ELEMENT_TYPE = (probeElement as { $$typeof: symbol }).$$typeof
-    SUPPORTS_RAW_ELEMENTS = true
-  } else {
-    REACT_ELEMENT_TYPE = Symbol.for('react.transitional.element')
+    REACT_ELEMENT_TYPE = probeElement.$$typeof
   }
 } catch {
-  REACT_ELEMENT_TYPE = Symbol.for('react.transitional.element')
+  // A probe that throws leaves REACT_ELEMENT_TYPE null, so elements delegate
 }
 
 /**
@@ -56,12 +54,14 @@ try {
  * and dev-mode freezing that React.createElement performs.
  * Inspired by Bun's JSReactElement approach.
  *
- * When the runtime does not use React's element shape (e.g. Preact behind
- * a `react` -> `preact/compat` alias), a hand-built object is meaningless to
+ * When the runtime does not use React's element shape (Preact behind a
+ * `react` -> `preact/compat` alias), a hand-built object is meaningless to
  * its renderer, so we delegate to the runtime's own createElement instead.
+ * Every caller passes a props object it owns, which the delegated path may
+ * add `key` to.
  */
 function createRawElement(type: any, props: any, key: any): any {
-  if (SUPPORTS_RAW_ELEMENTS) {
+  if (REACT_ELEMENT_TYPE !== null) {
     // These internal properties must be included unconditionally because the
     // library build replaces process.env.NODE_ENV, which strips dev-only branches.
     // _store: React's dev reconciler writes _store.validated; without _store it throws.
@@ -80,10 +80,12 @@ function createRawElement(type: any, props: any, key: any): any {
       _debugTask: null,
     }
   }
-  // Non-React runtime (e.g. Preact behind a `react` -> `preact/compat`
-  // alias): build the element with the runtime's own factory so its
-  // renderer recognizes the result.
-  return React.createElement(type, key == null ? props : { ...props, key })
+  // Preact behind a `react` -> `preact/compat` alias: build the element with
+  // the runtime's own factory so its renderer recognizes the result.
+  if (key != null) {
+    props.key = key
+  }
+  return React.createElement(type, props)
 }
 
 /**

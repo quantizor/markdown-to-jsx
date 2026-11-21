@@ -1,23 +1,26 @@
 /**
- * Decide whether the runtime renders React's internal element shape.
+ * Accepts an element the runtime built with React's own element shape: an
+ * object whose `$$typeof` is a symbol and that has no own `constructor`.
+ * Rejects anything else, so such runtimes get elements from their own
+ * createElement instead of a hand-built object.
  *
- * Both React.createElement and React's jsx() stamp `_owner` on every
- * element. Preact vnodes never do — even though preact/compat vnodes
- * mimic React's `$$typeof` marker, so that marker alone cannot prove
- * the runtime is React. If a future React drops `_owner` we degrade to
- * the (slower but correct) createElement path rather than emitting
- * elements the runtime cannot render.
+ * The own `constructor` decides because Preact (including preact/compat)
+ * stamps every vnode with one (`undefined` in Preact 10, `Symbol.for('pv')`
+ * in Preact 11) to reject plain objects, and preact/compat also copies React's
+ * `$$typeof` marker onto its vnodes, so the marker alone cannot tell the two
+ * apart. React elements have no own `constructor`, in development or production builds.
  *
- * Kept in its own module so it can be unit-tested without pulling
- * react.tsx (the `markdown-to-jsx/react` entry) into the test's module
- * graph, and so it does not become part of the entry's public surface.
+ * Lives outside react.tsx so the spec can call it without widening the
+ * `markdown-to-jsx/react` entry's exports.
  */
-export function supportsRawElements(probeElement: unknown): boolean {
-  var probe = probeElement as { $$typeof?: symbol; _owner?: unknown } | null
+export function supportsRawElements(
+  probe: unknown
+): probe is { $$typeof: symbol } {
   return (
-    probe != null &&
     typeof probe === 'object' &&
+    probe !== null &&
+    '$$typeof' in probe &&
     typeof probe.$$typeof === 'symbol' &&
-    '_owner' in probe
+    !Object.hasOwn(probe, 'constructor')
   )
 }
