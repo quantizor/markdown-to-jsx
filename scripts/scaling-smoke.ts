@@ -125,6 +125,20 @@ const shapes: Array<{
   { make: n => '<http://'.repeat(n), name: 'autolink-partial' },
   { make: n => '&am'.repeat(n), name: 'entity-partial' },
   { make: n => 'http://'.repeat(n), name: 'bare-url' },
+  { make: n => 'www.x.y '.repeat(n), name: 'bare-url-www-no-slash' },
+  // A run without spaces where every candidate is rejected
+  { make: n => 'www._'.repeat(n), name: 'bare-url-www-rejected-run' },
+  { make: n => 'http://a_b.c_d'.repeat(n), name: 'bare-url-http-rejected-run' },
+  // Each candidate's `(`/`)` balance differs, so each trims the trailing `)` run differently
+  {
+    make: n => 'www._)www._('.repeat(n) + ').'.repeat(n),
+    name: 'bare-url-www-rejected-run-paren-tail',
+  },
+  // Paren and bracket balances both differ per candidate over a mixed `)` and `]` tail
+  {
+    make: n => 'www._)www._[www._(www._]'.repeat(n) + ').].'.repeat(n),
+    name: 'bare-url-www-rejected-run-bracket-tail',
+  },
   { make: n => 'a@'.repeat(n), name: 'bare-email' },
   { make: n => 'a'.repeat(n), name: 'plain-text' },
   {
