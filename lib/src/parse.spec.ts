@@ -597,6 +597,71 @@ describe('parseMarkdown', () => {
     ])
   })
 
+  it('keeps an empty domain as text', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'http://.',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "text": "http://.",
+          "type": "text",
+        },
+      ]
+    `)
+  })
+
+  it('keeps a www. address that trims away to nothing as text', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'www._www..',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "text": "www._www..",
+          "type": "text",
+        },
+      ]
+    `)
+  })
+
+  it('judges a later candidate past a slash by its own domain, not the rejected earlier one', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'www.x_www.y/a.b',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "text": "www.x_",
+          "type": "text",
+        },
+        {
+          "children": [
+            {
+              "text": "www.y/a.b",
+              "type": "text",
+            },
+          ],
+          "target": "http://www.y/a.b",
+          "title": undefined,
+          "type": "link",
+        },
+      ]
+    `)
+  })
+
   it('rejects bare autolinks when the penultimate domain segment has underscores', () => {
     const state = createInlineState()
     const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
@@ -609,6 +674,86 @@ describe('parseMarkdown', () => {
     expect(result).toEqual([
       { type: RuleType.text, text: 'https://example_.com' },
     ])
+  })
+
+  it('does not link a www. address whose own text holds no further dot', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'www.foo bar.com',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "text": "www.foo bar.com",
+          "type": "text",
+        },
+      ]
+    `)
+  })
+
+  it('links a www. address that holds its own dot before later text', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'www.foo.com bar',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            {
+              "text": "www.foo.com",
+              "type": "text",
+            },
+          ],
+          "target": "http://www.foo.com",
+          "title": undefined,
+          "type": "link",
+        },
+        {
+          "text": " bar",
+          "type": "text",
+        },
+      ]
+    `)
+  })
+
+  it('links a later www. address in a rejected run when its own paren balance trims differently', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'www.(www.ab_.))',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "text": "www.(",
+          "type": "text",
+        },
+        {
+          "children": [
+            {
+              "text": "www.ab",
+              "type": "text",
+            },
+          ],
+          "target": "http://www.ab",
+          "title": undefined,
+          "type": "link",
+        },
+        {
+          "text": "_.))",
+          "type": "text",
+        },
+      ]
+    `)
   })
 
   it('allows underscores outside final domain segments', () => {

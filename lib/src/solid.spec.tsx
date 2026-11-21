@@ -3403,3 +3403,91 @@ describe('a capitalized tag an override matches is a component, and every other 
     ).toEqual(props)
   })
 })
+
+describe('a www. bare URL needs a dot inside its own span', () => {
+  const hrefs = (input: string) =>
+    treeProps(compiler(input))
+      .filter(([name]) => name === 'href')
+      .map(([, value]) => value)
+
+  it('ignores a dot in the text after the URL', () => {
+    const result = compiler('www.foo bar.com')
+    // Text with no element in it compiles to a bare string, with no wrapper
+    expect(serialize(result)).toBe('www.foo bar.com')
+    expect(hrefs('www.foo bar.com')).toEqual([])
+  })
+
+  it('links a URL whose own span holds a dot', () => {
+    const result = compiler('www.foo.com bar')
+    expect(serialize(result)).toBe('<span><a>www.foo.com</a> bar</span>')
+    expect(hrefs('www.foo.com bar')).toEqual(['http://www.foo.com'])
+  })
+
+  it('counts a trailing dot that ends the sentence', () => {
+    const result = compiler('www.foo. bar')
+    expect(serialize(result)).toBe('<span><a>www.foo</a>. bar</span>')
+    expect(hrefs('www.foo. bar')).toEqual(['http://www.foo'])
+  })
+})
+
+describe('bare URLs in a run without spaces', () => {
+  const hrefs = (input: string) =>
+    treeProps(compiler(input))
+      .filter(([name]) => name === 'href')
+      .map(([, value]) => value)
+
+  it('links a later www. address whose own paren balance trims differently', () => {
+    expect(serialize(compiler('www.(www.ab_.))'))).toBe(
+      '<span>www.(<a>www.ab</a>_.))</span>'
+    )
+    expect(hrefs('www.(www.ab_.))')).toEqual(['http://www.ab'])
+  })
+
+  it('links the earliest candidate whose trailing parens leave a clean domain', () => {
+    expect(serialize(compiler('www._)www._(www.c).).'))).toBe(
+      '<span>www.<em>)www.</em>(<a>www.c</a>).).</span>'
+    )
+    expect(hrefs('www._)www._(www.c).).')).toEqual(['http://www.c'])
+  })
+
+  it('links the whole run once its last two segments are clean', () => {
+    expect(serialize(compiler('www._)www._(www.c.d).).'))).toBe(
+      '<span><a>www._)www._(www.c.d</a>).).</span>'
+    )
+    expect(hrefs('www._)www._(www.c.d).).')).toEqual([
+      'http://www._)www._(www.c.d',
+    ])
+  })
+
+  it('links a scheme URL after a rejected one', () => {
+    expect(serialize(compiler('http://a_b.c_dhttp://x.y'))).toBe(
+      '<span>http://a_b.c_d<a>http://x.y</a></span>'
+    )
+    expect(hrefs('http://a_b.c_dhttp://x.y')).toEqual(['http://x.y'])
+  })
+
+  it('links a www. address past a slash that ended a rejected domain', () => {
+    expect(serialize(compiler('www.a_/www.b.c'))).toBe(
+      '<span>www.a_/<a>www.b.c</a></span>'
+    )
+    expect(hrefs('www.a_/www.b.c')).toEqual(['http://www.b.c'])
+  })
+
+  it('links a later candidate past a slash that reuses the rejected domain verdict', () => {
+    expect(serialize(compiler('www.x_www.y/a.b'))).toBe(
+      '<span>www.x_<a>www.y/a.b</a></span>'
+    )
+    expect(hrefs('www.x_www.y/a.b')).toEqual(['http://www.y/a.b'])
+  })
+
+  // A lone text node renders without a wrapper element
+  it('stays text when a scheme URL has an empty domain', () => {
+    expect(serialize(compiler('http://.'))).toBe('http://.')
+    expect(hrefs('http://.')).toEqual([])
+  })
+
+  it('stays text when a www. address trims away to nothing', () => {
+    expect(serialize(compiler('www._www..'))).toBe('www._www..')
+    expect(hrefs('www._www..')).toEqual([])
+  })
+})

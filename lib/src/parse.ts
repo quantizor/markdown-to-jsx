@@ -7237,12 +7237,100 @@ function scanFootnoteRef(
   }
 }
 
+/**
+ * What scanBareUrl learned about the whitespace-free run a candidate starts in, so each
+ * later candidate in the same run is judged in amortized O(1) instead of rescanning the
+ * run (a run of rejected `www._www._…` would otherwise cost the square of its length).
+ * One per parseInline call; every position is in that call's string.
+ */
+interface BareUrlRun {
+  /** Per entry of `closers`, last to first: the URL-ending `_` witness when the URL ends just past that `)`; null until a `)` is recorded */
+  closerUnderscore: number[] | null
+  /** `)` positions in the run's trailing punctuation, nearest the run end first; null until a `)` is recorded */
+  closers: number[] | null
+  /** `)` count minus `(` count over `[from, end)` */
+  depth: number
+  /** Last `.` in the run, or -1 */
+  dot: number
+  /** Run end: the first whitespace, `<`, `>`, or the scan end; -1 before the first run */
+  end: number
+  /** Start of the span `depth` counts */
+  from: number
+  /** Domain end `groupUnderscore` describes: a `/`, or `end` for the slash-free tail; -1 for none */
+  group: number
+  /** Last `_` after the second-to-last `.` of the domain ending at `group` (for the tail, at `trimEnd`), or -1 */
+  groupUnderscore: number
+  /** Last `/` in the run, or -1 */
+  lastSlash: number
+  /** Most recently found `/`, or -1 */
+  slash: number
+  /** URL end when every trailing `)` is trimmed; -1 until computed */
+  trimEnd: number
+}
+
+function newBareUrlRun(): BareUrlRun {
+  return {
+    closerUnderscore: null,
+    closers: null,
+    depth: 0,
+    dot: -1,
+    end: -1,
+    from: 0,
+    group: -1,
+    groupUnderscore: -1,
+    lastSlash: -1,
+    slash: -1,
+    trimEnd: -1,
+  }
+}
+
+/**
+ * Walks `[lo, hi)` once, tracking the last `_` after the second-to-last `.`: the witness
+ * that the GFM underscore rule rejects a domain ending at that position. Returns the
+ * witness for a domain ending at `mark` and pushes one for a domain ending just past each
+ * `)` at or after `mark` onto `run.closerUnderscore`.
+ */
+function sweepDomainUnderscore(
+  s: string,
+  lo: number,
+  hi: number,
+  mark: number,
+  run: BareUrlRun
+): number {
+  var lastDot = -1
+  var under = -1
+  var atMark = -1
+  for (var x = lo; x < hi; x++) {
+    if (x === mark) {
+      atMark = under
+    }
+    var c = s.charCodeAt(x)
+    if (c === $.CHAR_PERIOD) {
+      // The previous last dot becomes the second-to-last: a `_` before it leaves the last two segments
+      if (under < lastDot) {
+        under = -1
+      }
+      lastDot = x
+    } else if (c === $.CHAR_UNDERSCORE) {
+      under = x
+    } else if (c === $.CHAR_PAREN_CLOSE && x >= mark) {
+      var witnesses = run.closerUnderscore
+      if (witnesses === null) {
+        witnesses = run.closerUnderscore = []
+      }
+      witnesses.push(under)
+    }
+  }
+  return mark >= hi ? under : atMark
+}
+
 /** Scan bare URL (https://..., http://..., or www.) */
 function scanBareUrl(
   s: string,
   p: number,
   e: number,
-  opts: ParseOptions
+  opts: ParseOptions,
+  run: BareUrlRun
 ): ScanResult {
   if (opts.disableBareUrls) {
     return null
@@ -7304,125 +7392,184 @@ function scanBareUrl(
     return null
   }
 
-  // Find end of URL (stop at whitespace or common punctuation at end)
-  let i = p + prefix.length
-  while (i < e) {
-    const c = s.charCodeAt(i)
-    // Stop at whitespace
-    if (
-      c === $.CHAR_SPACE ||
-      c === $.CHAR_NEWLINE ||
-      c === $.CHAR_TAB ||
-      c === $.CHAR_CR
-    ) {
-      break
-    }
-    // Stop at certain characters that are unlikely to be part of URL
-    if (c === $.CHAR_LT || c === $.CHAR_GT) {
-      break // < >
-    }
-    i++
-  }
+  // The domain starts past the prefix and runs to the first `/`, or to the trimmed end
+  var dStart = p + prefix.length
 
-  // Pre-count parens to avoid O(n²) slice+match in trimming loop
-  var openParens = 0
-  var closeParens = 0
-  for (var pi = p; pi < i; pi++) {
-    var pc = s.charCodeAt(pi)
-    if (pc === $.CHAR_PAREN_OPEN) {
-      openParens++
-    } else if (pc === $.CHAR_PAREN_CLOSE) {
-      closeParens++
-    }
-  }
-
-  // Trim trailing punctuation that's not part of URL
-  let end = i
-  while (end > p + prefix.length) {
-    const c = s.charCodeAt(end - 1)
-    if (
-      c === $.CHAR_PERIOD ||
-      c === $.CHAR_COMMA ||
-      c === $.CHAR_COLON || // . , :
-      c === $.CHAR_EXCLAMATION ||
-      c === $.CHAR_QUESTION ||
-      c === $.CHAR_PAREN_CLOSE || // ! ? )
-      c === $.CHAR_ASTERISK ||
-      c === $.CHAR_UNDERSCORE ||
-      c === $.CHAR_TILDE
-    ) {
-      // * _ ~ (emphasis/strikethrough delimiters)
-      // But keep ) if there's a matching (
-      if (c === $.CHAR_PAREN_CLOSE) {
-        if (openParens >= closeParens) {
-          break
-        }
-        closeParens--
-      }
-      end--
-    } else if (c === $.CHAR_SEMICOLON) {
-      // ; — check for entity reference &word;
-      var ampPos = end - 2
-      while (
-        ampPos > p &&
-        ((s.charCodeAt(ampPos) >= $.CHAR_A &&
-          s.charCodeAt(ampPos) <= $.CHAR_Z) ||
-          (s.charCodeAt(ampPos) >= $.CHAR_a &&
-            s.charCodeAt(ampPos) <= $.CHAR_z) ||
-          (s.charCodeAt(ampPos) >= $.CHAR_DIGIT_0 &&
-            s.charCodeAt(ampPos) <= $.CHAR_DIGIT_9))
+  // A later candidate's run ends at `run.end` too: no prefix holds a stop character, and prefixes never overlap.
+  if (p >= run.end) {
+    // One pass to the run end (whitespace, `<`, `>`) gathers everything the verdict reads
+    var depth = 0
+    var dot = -1
+    var firstSlash = -1
+    var lastSlash = -1
+    var i = dStart
+    while (i < e) {
+      var rc = s.charCodeAt(i)
+      if (
+        rc === $.CHAR_SPACE ||
+        rc === $.CHAR_NEWLINE ||
+        rc === $.CHAR_TAB ||
+        rc === $.CHAR_CR ||
+        rc === $.CHAR_LT ||
+        rc === $.CHAR_GT
       ) {
-        ampPos--
+        break
       }
-      if (ampPos >= p && s.charCodeAt(ampPos) === $.CHAR_AMPERSAND) {
-        // &
-        end = ampPos // exclude &entity;
-      } else {
-        end-- // regular trailing ;
+      if (rc === $.CHAR_PAREN_OPEN) {
+        depth--
+      } else if (rc === $.CHAR_PAREN_CLOSE) {
+        depth++
+      } else if (rc === $.CHAR_PERIOD) {
+        dot = i
+      } else if (rc === $.CHAR_SLASH) {
+        if (firstSlash < 0) {
+          firstSlash = i
+        }
+        lastSlash = i
       }
-    } else {
-      break
+      i++
+    }
+    run.depth = depth
+    run.dot = dot
+    run.end = i
+    run.from = p
+    run.lastSlash = lastSlash
+    run.slash = firstSlash
+    run.trimEnd = -1
+  } else {
+    // No prefix holds a paren, so `depth` over `[p, end)` is the run's less the parens before p
+    for (var fi = run.from; fi < p; fi++) {
+      var fc = s.charCodeAt(fi)
+      if (fc === $.CHAR_PAREN_OPEN) {
+        run.depth++
+      } else if (fc === $.CHAR_PAREN_CLOSE) {
+        run.depth--
+      }
+    }
+    run.from = p
+  }
+
+  // A www. link's untrimmed text past `www.` must hold a dot (`www.a.` keeps the trimmed one)
+  if (isWww && run.dot < dStart) {
+    return null
+  }
+
+  var slash = -1
+  if (run.lastSlash >= dStart) {
+    // Bounded: a `/` sits at or before run.lastSlash, and each search starts past the last one found
+    if (run.slash < dStart) {
+      run.slash = s.indexOf('/', dStart)
+    }
+    slash = run.slash
+    // A domain ending at a `/` is judged once per `/`: a later candidate's domain is a
+    // suffix of the first one's, so it holds the same last two segments or fewer
+    if (run.group !== slash) {
+      run.groupUnderscore = sweepDomainUnderscore(s, dStart, slash, slash, run)
+      run.group = slash
+    }
+    if (run.groupUnderscore >= dStart) {
+      return null // underscore in last two segments (GFM rule)
     }
   }
 
-  if (end <= p + prefix.length) {
-    return null
-  }
-
-  // Validate domain using charCode scan on original string (avoid slice/split)
-  // Domain runs from p+prefixLen to the first / or end
-  var dStart = p + (isWww ? 4 : prefix.length)
-  var dEnd = s.indexOf('/', dStart)
-  if (dEnd < 0 || dEnd > end) {
-    dEnd = end
-  }
-  // For www. links, need at least one dot in domain
-  if (isWww && s.indexOf('.', dStart) === -1) {
-    return null
-  }
-  // Check last two segments for underscores (GFM rule)
-  // Find last two dot positions by scanning backwards
-  var lastDotU = -1
-  var prevDotU = -1
-  for (var di = dEnd - 1; di >= dStart; di--) {
-    if (s.charCodeAt(di) === $.CHAR_PERIOD) {
-      if (lastDotU < 0) {
-        lastDotU = di
+  // Trim trailing punctuation that's not part of URL, once per run with every `)` trimmed,
+  // recording each `)` met: the depth then picks the end without walking again
+  var closers = run.closers
+  if (run.trimEnd < 0) {
+    if (closers !== null) {
+      closers.length = 0
+    }
+    var end = run.end
+    while (end > dStart) {
+      var c = s.charCodeAt(end - 1)
+      if (
+        c === $.CHAR_PERIOD ||
+        c === $.CHAR_COMMA ||
+        c === $.CHAR_COLON || // . , :
+        c === $.CHAR_EXCLAMATION ||
+        c === $.CHAR_QUESTION ||
+        c === $.CHAR_PAREN_CLOSE || // ! ? )
+        c === $.CHAR_ASTERISK ||
+        c === $.CHAR_UNDERSCORE ||
+        c === $.CHAR_TILDE
+      ) {
+        // * _ ~ (emphasis/strikethrough delimiters)
+        if (c === $.CHAR_PAREN_CLOSE) {
+          if (closers === null) {
+            closers = run.closers = []
+          }
+          closers.push(end - 1)
+        }
+        end--
+      } else if (c === $.CHAR_SEMICOLON) {
+        // `;`: check for entity reference &word; (the walk stops at any prefix's `.` or `/`,
+        // so this candidate's bound serves every later one)
+        var ampPos = end - 2
+        while (
+          ampPos > p &&
+          ((s.charCodeAt(ampPos) >= $.CHAR_A &&
+            s.charCodeAt(ampPos) <= $.CHAR_Z) ||
+            (s.charCodeAt(ampPos) >= $.CHAR_a &&
+              s.charCodeAt(ampPos) <= $.CHAR_z) ||
+            (s.charCodeAt(ampPos) >= $.CHAR_DIGIT_0 &&
+              s.charCodeAt(ampPos) <= $.CHAR_DIGIT_9))
+        ) {
+          ampPos--
+        }
+        if (ampPos >= p && s.charCodeAt(ampPos) === $.CHAR_AMPERSAND) {
+          // &
+          end = ampPos // exclude &entity;
+        } else {
+          end-- // regular trailing ;
+        }
       } else {
-        prevDotU = di
         break
       }
     }
+    run.trimEnd = end
   }
-  // segCheckStart = start of second-to-last segment (or domain start if <2 dots)
-  var segCheckStart = prevDotU >= 0 ? prevDotU + 1 : dStart
-  for (var di = segCheckStart; di < dEnd; di++) {
-    if (s.charCodeAt(di) === $.CHAR_UNDERSCORE) {
-      return null // underscore in last two segments
+
+  // A `)` trims only while the URL holds more `)` than `(`, so `depth` of them trim and the
+  // walk stops at the next one; the trimmed tail holds no `/`, so a domain at a `/` ends first
+  var closerCount = closers === null ? 0 : closers.length
+  var trimmed = run.depth > 0 ? run.depth : 0
+  var urlEnd =
+    closers !== null && trimmed < closerCount
+      ? closers[trimmed] + 1
+      : run.trimEnd
+  if (slash < 0) {
+    // The slash-free tail is judged once per run, by the candidate that trimmed it: a later
+    // candidate's domain ends where its depth puts it and holds that end's last two segments,
+    // or fewer when it starts past one
+    if (run.group !== run.end) {
+      if (run.closerUnderscore !== null) {
+        run.closerUnderscore.length = 0
+      }
+      run.groupUnderscore = sweepDomainUnderscore(
+        s,
+        dStart,
+        run.end,
+        run.trimEnd,
+        run
+      )
+      run.group = run.end
+    }
+    // Trimmed into the prefix: the walk used the first candidate's bound, and a trim of this
+    // candidate reaching its own bound would end here too
+    if (urlEnd <= dStart) {
+      return null
+    }
+    var witnesses = run.closerUnderscore
+    var underscore =
+      witnesses !== null && trimmed < closerCount
+        ? witnesses[closerCount - 1 - trimmed]
+        : run.groupUnderscore
+    if (underscore >= dStart) {
+      return null // underscore in last two segments (GFM rule)
     }
   }
 
-  var url = s.slice(p, end)
+  var url = s.slice(p, urlEnd)
   // For www. links, prepend http:// for the target URL
   var target = isWww ? `http://${url}` : url
 
@@ -7433,7 +7580,7 @@ function scanBareUrl(
       title: undefined,
       children: [{ type: RuleType.text, text: url } as MarkdownToJSX.TextNode],
     } as MarkdownToJSX.LinkNode,
-    end,
+    end: urlEnd,
   }
 }
 
@@ -8316,6 +8463,8 @@ function parseInline(
   if (nextAtPos >= e) {
     nextAtPos = -1
   }
+  // Allocated at the first bare-URL candidate; local to this call, since its positions are in `s`
+  var urlRun: BareUrlRun | null = null
 
   while (p < e) {
     const c = s.charCodeAt(p)
@@ -8464,7 +8613,10 @@ function parseInline(
           (c === $.CHAR_f && nextAfterPrefix === $.CHAR_t) ||
           (c === $.CHAR_W && nextAfterPrefix === $.CHAR_W)
         ) {
-          result = scanBareUrl(s, p, e, opts)
+          if (urlRun === null) {
+            urlRun = newBareUrlRun()
+          }
+          result = scanBareUrl(s, p, e, opts, urlRun)
         }
       }
     }

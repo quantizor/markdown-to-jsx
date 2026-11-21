@@ -5681,3 +5681,71 @@ describe('a capitalized tag an override matches is a component, and every other 
     expect(handlerProps(result)).toEqual([])
   })
 })
+
+describe('a www. bare URL needs a dot inside its own span', () => {
+  it('ignores a dot in the text after the URL', () => {
+    // Text with no element in it renders as a bare string, with no wrapper
+    expect(renderToStaticMarkup(compiler('www.foo bar.com'))).toBe(
+      'www.foo bar.com'
+    )
+  })
+
+  it('links a URL whose own span holds a dot', () => {
+    expect(renderToStaticMarkup(compiler('www.foo.com bar'))).toBe(
+      '<span><a href="http://www.foo.com">www.foo.com</a> bar</span>'
+    )
+  })
+
+  it('counts a trailing dot that ends the sentence', () => {
+    expect(renderToStaticMarkup(compiler('www.foo. bar'))).toBe(
+      '<span><a href="http://www.foo">www.foo</a>. bar</span>'
+    )
+  })
+})
+
+describe('bare URLs in a run without spaces', () => {
+  it('links a later www. address whose own paren balance trims differently', () => {
+    expect(renderToStaticMarkup(compiler('www.(www.ab_.))'))).toBe(
+      '<span>www.(<a href="http://www.ab">www.ab</a>_.))</span>'
+    )
+  })
+
+  it('links the earliest candidate whose trailing parens leave a clean domain', () => {
+    expect(renderToStaticMarkup(compiler('www._)www._(www.c).).'))).toBe(
+      '<span>www.<em>)www.</em>(<a href="http://www.c">www.c</a>).).</span>'
+    )
+  })
+
+  it('links the whole run once its last two segments are clean', () => {
+    expect(renderToStaticMarkup(compiler('www._)www._(www.c.d).).'))).toBe(
+      '<span><a href="http://www._)www._(www.c.d">www._)www._(www.c.d</a>).).</span>'
+    )
+  })
+
+  it('links a scheme URL after a rejected one', () => {
+    expect(renderToStaticMarkup(compiler('http://a_b.c_dhttp://x.y'))).toBe(
+      '<span>http://a_b.c_d<a href="http://x.y">http://x.y</a></span>'
+    )
+  })
+
+  it('links a www. address past a slash that ended a rejected domain', () => {
+    expect(renderToStaticMarkup(compiler('www.a_/www.b.c'))).toBe(
+      '<span>www.a_/<a href="http://www.b.c">www.b.c</a></span>'
+    )
+  })
+
+  it('links a later candidate past a slash that reuses the rejected domain verdict', () => {
+    expect(renderToStaticMarkup(compiler('www.x_www.y/a.b'))).toBe(
+      '<span>www.x_<a href="http://www.y/a.b">www.y/a.b</a></span>'
+    )
+  })
+
+  // A lone text node renders without a wrapper element
+  it('stays text when a scheme URL has an empty domain', () => {
+    expect(renderToStaticMarkup(compiler('http://.'))).toBe('http://.')
+  })
+
+  it('stays text when a www. address trims away to nothing', () => {
+    expect(renderToStaticMarkup(compiler('www._www..'))).toBe('www._www..')
+  })
+})

@@ -3642,3 +3642,99 @@ describe('a capitalized tag an override matches is a component, and every other 
     expect(handlerProps(result)).toEqual([])
   })
 })
+
+describe('a www. bare URL needs a dot inside its own span', () => {
+  // A native link is a nested Text carrying a press handler, not an anchor
+  const pressHandlers = (input: string) =>
+    treeProps(compiler(input))
+      .filter(([name]) => name === 'onPress')
+      .map(([name, value]) => `${name}=${typeof value}`)
+
+  it('ignores a dot in the text after the URL', () => {
+    expect(serialize(compiler('www.foo bar.com'))).toBe(
+      '<Text>www.foo bar.com</Text>'
+    )
+    expect(pressHandlers('www.foo bar.com')).toEqual([])
+  })
+
+  it('links a URL whose own span holds a dot', () => {
+    expect(serialize(compiler('www.foo.com bar'))).toBe(
+      '<Text><Text>www.foo.com</Text> bar</Text>'
+    )
+    expect(pressHandlers('www.foo.com bar')).toEqual(['onPress=function'])
+  })
+
+  it('counts a trailing dot that ends the sentence', () => {
+    expect(serialize(compiler('www.foo. bar'))).toBe(
+      '<Text><Text>www.foo</Text>. bar</Text>'
+    )
+    expect(pressHandlers('www.foo. bar')).toEqual(['onPress=function'])
+  })
+})
+
+describe('bare URLs in a run without spaces', () => {
+  // A native link is a nested Text carrying a press handler, so each handler is pressed to read its URL
+  const pressedUrls = (input: string) => {
+    const onLinkPress = mock((_url: string, _title?: string) => {})
+    for (const [name, value] of treeProps(compiler(input, { onLinkPress }))) {
+      if (name === 'onPress' && typeof value === 'function') {
+        value()
+      }
+    }
+    return onLinkPress.mock.calls.map(([url]) => url)
+  }
+
+  it('links a later www. address whose own paren balance trims differently', () => {
+    expect(serialize(compiler('www.(www.ab_.))'))).toBe(
+      '<Text>www.(<Text>www.ab</Text>_.))</Text>'
+    )
+    expect(pressedUrls('www.(www.ab_.))')).toEqual(['http://www.ab'])
+  })
+
+  it('links the earliest candidate whose trailing parens leave a clean domain', () => {
+    expect(serialize(compiler('www._)www._(www.c).).'))).toBe(
+      '<Text>www.<Text>)www.</Text>(<Text>www.c</Text>).).</Text>'
+    )
+    expect(pressedUrls('www._)www._(www.c).).')).toEqual(['http://www.c'])
+  })
+
+  it('links the whole run once its last two segments are clean', () => {
+    expect(serialize(compiler('www._)www._(www.c.d).).'))).toBe(
+      '<Text><Text>www._)www._(www.c.d</Text>).).</Text>'
+    )
+    expect(pressedUrls('www._)www._(www.c.d).).')).toEqual([
+      'http://www._)www._(www.c.d',
+    ])
+  })
+
+  it('links a scheme URL after a rejected one', () => {
+    expect(serialize(compiler('http://a_b.c_dhttp://x.y'))).toBe(
+      '<Text>http://a_b.c_d<Text>http://x.y</Text></Text>'
+    )
+    expect(pressedUrls('http://a_b.c_dhttp://x.y')).toEqual(['http://x.y'])
+  })
+
+  it('links a www. address past a slash that ended a rejected domain', () => {
+    expect(serialize(compiler('www.a_/www.b.c'))).toBe(
+      '<Text>www.a_/<Text>www.b.c</Text></Text>'
+    )
+    expect(pressedUrls('www.a_/www.b.c')).toEqual(['http://www.b.c'])
+  })
+
+  it('links a later candidate past a slash that reuses the rejected domain verdict', () => {
+    expect(serialize(compiler('www.x_www.y/a.b'))).toBe(
+      '<Text>www.x_<Text>www.y/a.b</Text></Text>'
+    )
+    expect(pressedUrls('www.x_www.y/a.b')).toEqual(['http://www.y/a.b'])
+  })
+
+  it('stays text when a scheme URL has an empty domain', () => {
+    expect(serialize(compiler('http://.'))).toBe('<Text>http://.</Text>')
+    expect(pressedUrls('http://.')).toEqual([])
+  })
+
+  it('stays text when a www. address trims away to nothing', () => {
+    expect(serialize(compiler('www._www..'))).toBe('<Text>www._www..</Text>')
+    expect(pressedUrls('www._www..')).toEqual([])
+  })
+})
