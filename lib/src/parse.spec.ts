@@ -814,6 +814,129 @@ describe('parseMarkdown', () => {
     `)
   })
 
+  it('links a later www. address past a [ that the first candidate never closes', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'www.[www.a.b_]',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "text": "www.[",
+          "type": "text",
+        },
+        {
+          "children": [
+            {
+              "text": "www.a.b",
+              "type": "text",
+            },
+          ],
+          "target": "http://www.a.b",
+          "title": undefined,
+          "type": "link",
+        },
+        {
+          "text": "_]",
+          "type": "text",
+        },
+      ]
+    `)
+  })
+
+  it('keeps a trailing ] a later candidate shares with a [ inside its own run', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'www._[www.a.b])',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            {
+              "text": "www._[www.a.b]",
+              "type": "text",
+            },
+          ],
+          "target": "http://www._[www.a.b]",
+          "title": undefined,
+          "type": "link",
+        },
+        {
+          "text": ")",
+          "type": "text",
+        },
+      ]
+    `)
+  })
+
+  it('keeps a bare URL run as text when a ] before a later candidate leaves it no clean domain', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'www.]www.a.b_[]',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "text": "www.]www.a.b_[]",
+          "type": "text",
+        },
+      ]
+    `)
+  })
+
+  it('keeps a bare URL run as text when a nested [ pair closes after an underscore in the last segment', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'www.[[a.b]_]',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "text": "www.[[a.b]_]",
+          "type": "text",
+        },
+      ]
+    `)
+  })
+
+  it('ends a bare URL at the last closer when a kept ) and a kept ] both remain', () => {
+    const state = createInlineState()
+    const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
+    const result = p.parseMarkdown(
+      'www.[.()]',
+      state,
+      options
+    ) as MarkdownToJSX.ASTNode[]
+    expect(result).toMatchInlineSnapshot(`
+      [
+        {
+          "children": [
+            {
+              "text": "www.[.()]",
+              "type": "text",
+            },
+          ],
+          "target": "http://www.[.()]",
+          "title": undefined,
+          "type": "link",
+        },
+      ]
+    `)
+  })
+
   it('allows underscores outside final domain segments', () => {
     const state = createInlineState()
     const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }

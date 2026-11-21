@@ -4147,6 +4147,30 @@ describe('bare URLs in a run without spaces', () => {
     )
   })
 
+  it('links a later www. address past a [ that the first candidate never closes', () => {
+    expect(compiler('www.[www.a.b_]')).toBe(
+      'www.\\[[www.a.b](http://www.a.b)\\_\\]'
+    )
+  })
+
+  it('keeps a trailing ] a later candidate shares with a [ inside its own run', () => {
+    expect(compiler('www._[www.a.b])')).toBe(
+      '[www.\\_\\[www.a.b\\]](http://www._[www.a.b]))'
+    )
+  })
+
+  it('stays text when a ] before a later candidate leaves it no clean domain', () => {
+    expect(compiler('www.]www.a.b_[]')).toBe('www.\\]www.a.b\\_\\[\\]')
+  })
+
+  it('stays text when a nested [ pair closes after an underscore in the last segment', () => {
+    expect(compiler('www.[[a.b]_]')).toBe('www.\\[\\[a.b\\]\\_\\]')
+  })
+
+  it('ends the link at the last closer when a kept ) and a kept ] both remain', () => {
+    expect(compiler('www.[.()]')).toBe('[www.\\[.()\\]](http://www.[.()])')
+  })
+
   it('stays text when a scheme URL has an empty domain', () => {
     expect(compiler('http://.')).toBe('http://.')
   })

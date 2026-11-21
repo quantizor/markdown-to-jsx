@@ -2971,7 +2971,38 @@ describe('bare URLs in a run without spaces', () => {
     expect(hrefs('www._[www.a.b)]].')).toEqual(['http://www._%5Bwww.a.b)%5D'])
   })
 
+  it('links a later www. address past a [ that the first candidate never closes', async () => {
+    expect(await page('www.[www.a.b_]')).toBe(
+      '<span>www.[<a href="http://www.a.b">www.a.b</a>_]</span>'
+    )
+    expect(hrefs('www.[www.a.b_]')).toEqual(['http://www.a.b'])
+  })
+
+  it('keeps a trailing ] a later candidate shares with a [ inside its own run', async () => {
+    expect(await page('www._[www.a.b])')).toBe(
+      '<span><a href="http://www._%5Bwww.a.b%5D">www._[www.a.b]</a>)</span>'
+    )
+    expect(hrefs('www._[www.a.b])')).toEqual(['http://www._%5Bwww.a.b%5D'])
+  })
+
   // A lone text node renders without a wrapper element
+  it('stays text when a ] before a later candidate leaves it no clean domain', async () => {
+    expect(await page('www.]www.a.b_[]')).toBe('www.]www.a.b_[]')
+    expect(hrefs('www.]www.a.b_[]')).toEqual([])
+  })
+
+  it('stays text when a nested [ pair closes after an underscore in the last segment', async () => {
+    expect(await page('www.[[a.b]_]')).toBe('www.[[a.b]_]')
+    expect(hrefs('www.[[a.b]_]')).toEqual([])
+  })
+
+  it('ends the link at the last closer when a kept ) and a kept ] both remain', async () => {
+    expect(await page('www.[.()]')).toBe(
+      '<a href="http://www.%5B.()%5D">www.[.()]</a>'
+    )
+    expect(hrefs('www.[.()]')).toEqual(['http://www.%5B.()%5D'])
+  })
+
   it('stays text when a scheme URL has an empty domain', async () => {
     expect(await page('http://.')).toBe('http://.')
     expect(hrefs('http://.')).toEqual([])

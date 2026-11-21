@@ -3744,6 +3744,42 @@ describe('bare URLs in a run without spaces', () => {
     ])
   })
 
+  it('links a later www. address past a [ that the first candidate never closes', () => {
+    expect(serialize(compiler('www.[www.a.b_]'))).toBe(
+      '<Text>www.[<Text>www.a.b</Text>_]</Text>'
+    )
+    expect(pressedUrls('www.[www.a.b_]')).toEqual(['http://www.a.b'])
+  })
+
+  it('keeps a trailing ] a later candidate shares with a [ inside its own run', () => {
+    expect(serialize(compiler('www._[www.a.b])'))).toBe(
+      '<Text><Text>www._[www.a.b]</Text>)</Text>'
+    )
+    expect(pressedUrls('www._[www.a.b])')).toEqual([
+      'http://www._%5Bwww.a.b%5D',
+    ])
+  })
+
+  it('stays text when a ] before a later candidate leaves it no clean domain', () => {
+    expect(serialize(compiler('www.]www.a.b_[]'))).toBe(
+      '<Text>www.]www.a.b_[]</Text>'
+    )
+    expect(pressedUrls('www.]www.a.b_[]')).toEqual([])
+  })
+
+  it('stays text when a nested [ pair closes after an underscore in the last segment', () => {
+    expect(serialize(compiler('www.[[a.b]_]'))).toBe(
+      '<Text>www.[[a.b]_]</Text>'
+    )
+    expect(pressedUrls('www.[[a.b]_]')).toEqual([])
+  })
+
+  it('ends the link at the last closer when a kept ) and a kept ] both remain', () => {
+    // A lone link is the paragraph's only Text
+    expect(serialize(compiler('www.[.()]'))).toBe('<Text>www.[.()]</Text>')
+    expect(pressedUrls('www.[.()]')).toEqual(['http://www.%5B.()%5D'])
+  })
+
   it('stays text when a scheme URL has an empty domain', () => {
     expect(serialize(compiler('http://.'))).toBe('<Text>http://.</Text>')
     expect(pressedUrls('http://.')).toEqual([])
