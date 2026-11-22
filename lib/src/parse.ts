@@ -3378,8 +3378,8 @@ function scanList(
       if (
         (tm === ' ' || tm === 'x' || tm === 'X') &&
         itemContent.charCodeAt(2) === $.CHAR_BRACKET_CLOSE &&
-        (itemContent.length === 3 ||
-          util.isASCIIWhitespace(itemContent.charCodeAt(3)))
+        itemContent.length > 3 &&
+        util.isASCIIWhitespace(itemContent.charCodeAt(3))
       ) {
         // ]
         taskNode = {

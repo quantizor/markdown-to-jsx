@@ -7399,6 +7399,80 @@ describe('text normalization edge cases', () => {
       `)
     })
 
+    it('GFM: a task marker ending the item is text', () => {
+      expect(p.parser('- [x]')).toMatchInlineSnapshot(`
+        [
+          {
+            "items": [
+              [
+                {
+                  "text": "[x]",
+                  "type": "text",
+                },
+              ],
+            ],
+            "start": undefined,
+            "type": "unorderedList",
+          },
+        ]
+      `)
+      expect(p.parser('- [ ]\n')).toMatchInlineSnapshot(`
+        [
+          {
+            "items": [
+              [
+                {
+                  "text": "[ ]",
+                  "type": "text",
+                },
+              ],
+            ],
+            "start": undefined,
+            "type": "unorderedList",
+          },
+        ]
+      `)
+    })
+
+    it('GFM: a task marker followed by a colon is a link reference definition', () => {
+      expect(p.parser('- [x]: /url\n\n[x]')).toMatchInlineSnapshot(`
+        [
+          {
+            "refs": {
+              "x": {
+                "target": "/url",
+                "title": undefined,
+              },
+            },
+            "type": "refCollection",
+          },
+          {
+            "items": [
+              [],
+            ],
+            "start": undefined,
+            "type": "unorderedList",
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "x",
+                    "type": "text",
+                  },
+                ],
+                "target": "/url",
+                "title": undefined,
+                "type": "link",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
     // Issue 248: Heading with tab after #
     it('md4c#248: ATX heading with tab after #', () => {
       const result = p.parser('#\tFoo')
