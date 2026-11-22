@@ -192,6 +192,14 @@ describe('inline textual elements', () => {
     ).toMatchInlineSnapshot(`"<span>a ~~~c~~~ b ~~~~ <del>d~~~e</del></span>"`)
   })
 
+  it('treats a task marker without following whitespace as text', () => {
+    expect(
+      serialize(compiler('- [x]foo\n- [ ]bar\n- [x] baz'))
+    ).toMatchInlineSnapshot(
+      `"<ul><li>[x]foo</li><li>[ ]bar</li><li><input></input> baz</li></ul>"`
+    )
+  })
+
   it('should handle escaped text', () => {
     const result = compiler('Hello.\\_\\_foo\\_\\_')
     const text = extractTextContent(result)

@@ -164,6 +164,14 @@ describe('inline textual elements', () => {
     )
   })
 
+  it('treats a task marker without following whitespace as text', () => {
+    render(compiler('- [x]foo\n- [ ]bar\n- [x] baz'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li>[x]foo</li><li>[ ]bar</li><li><input readOnly="" type="checkbox" checked=""/> baz</li></ul>"`
+    )
+  })
+
   it('ignore similar syntax inside inline syntax', () => {
     render(
       compiler(

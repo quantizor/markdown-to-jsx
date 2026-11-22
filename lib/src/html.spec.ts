@@ -12,6 +12,12 @@ describe('html compiler', () => {
     )
   })
 
+  it('treats a task marker without following whitespace as text', () => {
+    expect(compiler('- [x]foo\n- [ ]bar\n- [x] baz')).toMatchInlineSnapshot(
+      `"<ul><li>[x]foo</li><li>[ ]bar</li><li><input checked="" disabled="" type="checkbox"> baz</li></ul>"`
+    )
+  })
+
   describe('footnotes', () => {
     it('should handle conversion of references into links', () => {
       const result = compiler(

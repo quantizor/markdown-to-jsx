@@ -944,6 +944,14 @@ describe('AST node rendering', () => {
     )
   })
 
+  it('treats a task marker without following whitespace as text', () => {
+    expect(
+      serialize(compiler('- [x]foo\n- [ ]bar\n- [x] baz'))
+    ).toMatchInlineSnapshot(
+      `"<View><View><Text>• </Text><View><Text>[x]foo</Text></View></View><View><Text>• </Text><View><Text>[ ]bar</Text></View></View><View><View><View><Text>✓</Text></View><Text>baz</Text></View></View></View>"`
+    )
+  })
+
   it('should render thematic break as View component', () => {
     const result = compiler('---\n')
     const element = getFirstElement(result)

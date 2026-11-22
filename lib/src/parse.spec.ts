@@ -7360,6 +7360,45 @@ describe('text normalization edge cases', () => {
       `)
     })
 
+    it('GFM: a task marker without following whitespace is text', () => {
+      expect(p.parser('- [x]foo\n- [ ]bar\n- [x] baz')).toMatchInlineSnapshot(`
+        [
+          {
+            "items": [
+              [
+                {
+                  "text": "[x]foo",
+                  "type": "text",
+                },
+              ],
+              [
+                {
+                  "text": "[ ]bar",
+                  "type": "text",
+                },
+              ],
+              [
+                {
+                  "completed": true,
+                  "type": "gfmTask",
+                },
+                {
+                  "text": " ",
+                  "type": "text",
+                },
+                {
+                  "text": "baz",
+                  "type": "text",
+                },
+              ],
+            ],
+            "start": undefined,
+            "type": "unorderedList",
+          },
+        ]
+      `)
+    })
+
     // Issue 248: Heading with tab after #
     it('md4c#248: ATX heading with tab after #', () => {
       const result = p.parser('#\tFoo')

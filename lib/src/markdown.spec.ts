@@ -283,6 +283,14 @@ describe('markdown compiler', () => {
       )
     })
 
+    it('treats a task marker without following whitespace as text', () => {
+      expect(compiler('- [x]foo\n- [ ]bar\n- [x] baz')).toMatchInlineSnapshot(`
+        "- \\[x\\]foo
+        - \\[ \\]bar
+        - [x] baz"
+      `)
+    })
+
     it('should compile strikethrough', () => {
       const ast: MarkdownToJSX.FormattedTextNode = {
         type: RuleType.textFormatted,
