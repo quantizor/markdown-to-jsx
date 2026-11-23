@@ -1169,6 +1169,24 @@ describe('edge cases', () => {
     )
   })
 
+  it('keeps a content tab inside a quote or list item, and drops a code span continuation line indent', () => {
+    expect(
+      serialize(compiler('> ```\n> a\tb\n> ```\n\n- `a\tb`\n\n``a\n b``'))
+    ).toBe(
+      '<div><blockquote><pre><code>a\tb</code></pre></blockquote><ul><li><code>a\tb</code></li></ul><p><code>a b</code></p></div>'
+    )
+  })
+
+  it('reads a tab in a quote or list item as whitespace around a link title, a closing heading sequence, and a soft break, and as content in indented code', () => {
+    expect(
+      serialize(
+        compiler('> [a](/u\t"t")\n\n- # x #\t\n\n> a\t\n> b\n\n>     -\tfoo')
+      )
+    ).toBe(
+      '<div><blockquote><p><a>a</a></p></blockquote><ul><li><h1>x</h1></li></ul><blockquote><p>a\nb</p></blockquote><blockquote><pre><code>-\tfoo</code></pre></blockquote></div>'
+    )
+  })
+
   it('keeps the rest of a task marker line as text, never a block', () => {
     expect(serialize(compiler('- [x] # heading\n- [x] > quote'))).toBe(
       '<ul><li><input></input> # heading</li><li><input></input> &gt; quote</li></ul>'
@@ -2161,7 +2179,7 @@ describe('destination entity decode before sanitize', () => {
   })
 
   it.each([
-    ['tab', '![x](java\tscript:alert(1))'],
+    ['tab in an angle-bracket destination', '![x](<java\tscript:alert(1)>)'],
     ['tab entity', '![x](java&#9;script:alert(1))'],
     ['newline entity', '![x](java&#10;script:alert(1))'],
     ['percent tab, mixed case', '![x](JaVa%09ScRiPt:alert(1))'],

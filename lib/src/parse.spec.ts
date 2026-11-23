@@ -7129,7 +7129,73 @@ describe('text normalization edge cases', () => {
                 "type": "text",
               },
               {
-                "text": "    bar    ",
+                "text": "bar",
+                "type": "codeInline",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('expands a container line tab only in its marker and indent prefix, stopping at content or four columns of indent', () => {
+      expect(
+        [
+          '> 1.\t\tfoo',
+          '> 12.\t\tfoo',
+          '>\t>\t\tfoo',
+          '> --\tx\ty',
+          '>     -\tfoo',
+          '>\t\t>\tb',
+          '-\t\t-\tfoo',
+          '``a\n\tb``',
+        ].map(s => astToHTML(p.parser(s)))
+      ).toEqual([
+        '<blockquote><ol><li><pre><code>   foo</code></pre></li></ol></blockquote>',
+        '<blockquote><ol start="12"><li><pre><code>  foo</code></pre></li></ol></blockquote>',
+        '<blockquote><blockquote><pre><code>  foo</code></pre></blockquote></blockquote>',
+        '<blockquote><p>--\tx\ty</p></blockquote>',
+        '<blockquote><pre><code>-\tfoo</code></pre></blockquote>',
+        '<blockquote><pre><code>  &gt;\tb</code></pre></blockquote>',
+        '<ul><li><pre><code>  -\tfoo</code></pre></li></ul>',
+        '<p><code>a b</code></p>',
+      ])
+    })
+
+    it('keeps a content tab inside a quote or list item, and drops a code span continuation line indent', () => {
+      expect(
+        p.parser('> ```\n> a\tb\n> ```\n\n- `a\tb`\n\n``a\n b``')
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "alert": undefined,
+            "children": [
+              {
+                "attrs": undefined,
+                "infoString": undefined,
+                "lang": undefined,
+                "text": "a	b",
+                "type": "codeBlock",
+              },
+            ],
+            "type": "blockQuote",
+          },
+          {
+            "items": [
+              [
+                {
+                  "text": "a	b",
+                  "type": "codeInline",
+                },
+              ],
+            ],
+            "type": "unorderedList",
+          },
+          {
+            "children": [
+              {
+                "text": "a b",
                 "type": "codeInline",
               },
             ],
@@ -7972,7 +8038,7 @@ describe('text normalization edge cases', () => {
             "children": [
               {
                 "text": 
-        "foo  	
+        "foo
         bar"
         ,
                 "type": "text",
@@ -7991,7 +8057,7 @@ describe('text normalization edge cases', () => {
           {
             "children": [
               {
-                "text": "foo	",
+                "text": "foo",
                 "type": "text",
               },
               {

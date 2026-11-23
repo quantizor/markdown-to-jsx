@@ -523,18 +523,51 @@ function expandTabs(
   var out = leadSpaces > 0 ? ' '.repeat(leadSpaces) : ''
   var col = absCol
   var seg = p
-  for (var i = p; i < e; i++) {
-    if (s.charCodeAt(i) === $.CHAR_TAB) {
+  var i = p
+  var indentCols = leadSpaces
+  while (i < e) {
+    var c = s.charCodeAt(i)
+    if (c === $.CHAR_TAB) {
       if (i > seg) {
         out += s.slice(seg, i)
       }
       var tw = 4 - (col % 4)
       out += ' '.repeat(tw)
       col += tw
-      seg = i + 1
-    } else {
-      col++
+      indentCols += tw
+      seg = ++i
+      continue
     }
+    if (c === $.CHAR_SPACE) {
+      col++
+      indentCols++
+      i++
+      continue
+    }
+    if (indentCols > 3) {
+      break
+    }
+    var next = i + 1
+    if (c !== $.CHAR_GT) {
+      if (c !== $.CHAR_DASH && c !== $.CHAR_PLUS && c !== $.CHAR_ASTERISK) {
+        next = skipMask(s, i, Math.min(e, i + 9), F.DIGIT)
+        var delim = next < e ? s.charCodeAt(next) : 0
+        if (
+          next === i ||
+          (delim !== $.CHAR_PERIOD && delim !== $.CHAR_PAREN_CLOSE)
+        ) {
+          break
+        }
+        next++
+      }
+      var after = next < e ? s.charCodeAt(next) : $.CHAR_SPACE
+      if (after !== $.CHAR_SPACE && after !== $.CHAR_TAB) {
+        break
+      }
+    }
+    indentCols = 0
+    col += next - i
+    i = next
   }
   return seg < e ? out + s.slice(seg, e) : out
 }
@@ -1330,7 +1363,7 @@ function scanLinkDest(
     } else if (
       c2 === $.CHAR_SPACE ||
       c2 === $.CHAR_NEWLINE ||
-      (isRefDef && c2 === $.CHAR_TAB)
+      c2 === $.CHAR_TAB
     ) {
       break
     }
@@ -2067,7 +2100,7 @@ function scanHeading(
   }
   i = skipMask(s, i + level, e, F.WS)
   var contentEnd = e
-  while (contentEnd > i && s.charCodeAt(contentEnd - 1) === $.CHAR_SPACE) {
+  while (contentEnd > i && isCF(s.charCodeAt(contentEnd - 1), F.WS)) {
     contentEnd--
   }
   var beforeHash = contentEnd
@@ -2075,8 +2108,8 @@ function scanHeading(
     contentEnd--
   }
   if (contentEnd < beforeHash) {
-    if (contentEnd === i || s.charCodeAt(contentEnd - 1) === $.CHAR_SPACE) {
-      while (contentEnd > i && s.charCodeAt(contentEnd - 1) === $.CHAR_SPACE) {
+    if (contentEnd === i || isCF(s.charCodeAt(contentEnd - 1), F.WS)) {
+      while (contentEnd > i && isCF(s.charCodeAt(contentEnd - 1), F.WS)) {
         contentEnd--
       }
     } else {
@@ -4342,7 +4375,7 @@ function scanCodeSpan(
   }
   var content = s.slice(p + openLen, closeEnd - openLen)
   if (content.indexOf('\n') !== -1) {
-    content = content.replace(/\n/g, ' ')
+    content = content.replace(/\n[ \t]*/g, ' ')
   }
   if (
     content.length > 0 &&
@@ -4734,11 +4767,11 @@ function scanLink(
   var endPos = i
 
   if (nextChar === $.CHAR_PAREN_OPEN) {
-    var k = skipMask(s, i + 1, e, F.SPNL)
+    var k = skipMask(s, i + 1, e, F.WSNL)
     var destEnd = scanLinkDest(s, k, e, false, true)
     if (destEnd >= 0) {
       var candUrl = _scannedDest
-      k = skipMask(s, destEnd, e, F.SPNL)
+      k = skipMask(s, destEnd, e, F.WSNL)
       var candTitle: string | undefined
       var ok = true
       var tc = k < e ? s.charCodeAt(k) : 0
@@ -4752,7 +4785,7 @@ function scanLink(
           ok = false
         } else {
           candTitle = _scannedTitle
-          k = skipMask(s, tEnd, e, F.SPNL)
+          k = skipMask(s, tEnd, e, F.WSNL)
         }
       }
       if (ok && k < e && s.charCodeAt(k) === $.CHAR_PAREN_CLOSE) {
@@ -5851,27 +5884,27 @@ function parseInline(
           trimEnd--
         }
         var spCount = p - trimEnd
-        var trimBack =
+        while (trimEnd > textStart && isCF(s.charCodeAt(trimEnd - 1), F.WS)) {
+          trimEnd--
+        }
+        var hardEnd =
           p > textStart && s.charCodeAt(p - 1) === $.CHAR_BACKSLASH
-            ? 1
+            ? p - 1
             : spCount >= 2
-              ? spCount
-              : 0
+              ? trimEnd
+              : -1
         if (
-          trimBack > 0 ||
-          spCount > 0 ||
-          (p + 1 < e && s.charCodeAt(p + 1) === $.CHAR_SPACE)
+          hardEnd >= 0 ||
+          trimEnd < p ||
+          (p + 1 < e && isCF(s.charCodeAt(p + 1), F.WS))
         ) {
-          if (trimBack > 0) {
-            pending = pushText(nodes, pending, s, textStart, p - trimBack)
+          if (hardEnd >= 0) {
+            pending = pushText(nodes, pending, s, textStart, hardEnd)
             nodes.push({ type: RuleType.breakLine })
           } else {
             pending += `${s.slice(textStart, trimEnd)}\n`
           }
-          p++
-          while (p < e && s.charCodeAt(p) === $.CHAR_SPACE) {
-            p++
-          }
+          p = skipMask(s, p + 1, e, F.WS)
           textStart = p
           continue
         }

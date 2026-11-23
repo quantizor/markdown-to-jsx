@@ -1387,6 +1387,24 @@ describe('GFM task lists', () => {
     )
   })
 
+  it('keeps a content tab inside a quote or list item, and drops a code span continuation line indent', () => {
+    render(compiler('> ```\n> a\tb\n> ```\n\n- `a\tb`\n\n``a\n b``'))
+
+    expect(root.innerHTML).toBe(
+      '<div><blockquote><pre><code class="">a\tb</code></pre></blockquote><ul><li><code>a\tb</code></li></ul><p><code>a b</code></p></div>'
+    )
+  })
+
+  it('reads a tab in a quote or list item as whitespace around a link title, a closing heading sequence, and a soft break, and as content in indented code', () => {
+    render(
+      compiler('> [a](/u\t"t")\n\n- # x #\t\n\n> a\t\n> b\n\n>     -\tfoo')
+    )
+
+    expect(root.innerHTML).toBe(
+      '<div><blockquote><p><a href="/u" title="t">a</a></p></blockquote><ul><li><h1 id="x">x</h1></li></ul><blockquote><p>a\nb</p></blockquote><blockquote><pre><code class="">-\tfoo</code></pre></blockquote></div>'
+    )
+  })
+
   it('keeps the rest of a marker line as text, never a block', () => {
     render(compiler('- [x] # heading\n- [x] > quote'))
 
@@ -4493,7 +4511,7 @@ describe('destination entity decode before sanitize', () => {
   })
 
   it.each([
-    ['tab', '![x](java\tscript:alert(1))'],
+    ['tab in an angle-bracket destination', '![x](<java\tscript:alert(1)>)'],
     ['tab entity', '![x](java&#9;script:alert(1))'],
     ['newline entity', '![x](java&#10;script:alert(1))'],
     ['percent tab, mixed case', '![x](JaVa%09ScRiPt:alert(1))'],
