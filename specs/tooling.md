@@ -80,6 +80,24 @@ When `dangerOf` judges an attribute whose value starts with `{`, the attribute i
 - on a hyphenated or standard tag: judged like any other value
 - unless the handler attribute is empty: no finding, since it holds no script
 
+## Differential
+
+Purpose: list the inputs on which two markdown renderers disagree, so a question about what the references do, or what an option or a commit changed, is answered by a run (`scripts/differential.ts`). A developer tool, outside verify.
+
+- Run: `bun differential --a <renderer> --b <renderer> [--corpus spec|fuzz] [--count N] [--seed N] [--option <name>] [--limit N]`.
+- A renderer is a base name with any number of `+<option>` suffixes (`ours+breaks`). `RENDERERS`: `ours` (this checkout), `ours@<rev>` (that commit, extracted by `extractLib`), `markdown-it`, `marked`, `micromark`. Each runs its GFM configuration: ours is `parser` with empty heading slugs, then `astToHTML`; markdown-it has `html` and `linkify`; marked keeps its defaults; micromark has `gfm` and `gfmHtml` and allows raw HTML and every protocol.
+- `OPTIONS` maps an option name to the base renderers that take it under the same key (`breaks`: ours, markdown-it, marked); naming the option on any other renderer ends the run with an error. An `ours@<rev>` older than the option ignores it.
+- Corpus `spec` is every example in lib/src/commonmark-spec.json, the GFM extension sections included; `fuzz` builds `--count` documents from `FUZZ_TOKENS` with `createRandom(--seed)` (scripts/random.ts), so a seed reproduces its documents. `--seed` is at most 2^32 - 1, the generator's state width.
+- `normalize` makes the outputs comparable: it removes whitespace beside a block tag (`BLOCK_TAG_R`) and at either end, which no browser draws and which the html compiler omits (BACKLOG.md, "Known spec deviations"); then parse5 parses and reserializes it, so a serializer difference (`<br />` against `<br>`, attribute quoting, entity spelling) is no disagreement; then a code block's final newline goes (`CODE_FINAL_NEWLINE_R`), which ours omits on purpose (same backlog section). Whitespace between inline tags and inside text still counts, and `<pre>` is no block tag here, since whitespace inside it draws. The whitespace goes before parse5 parses, because parse5 reopens an unclosed inline element (`<a>`) around whitespace that follows its block.
+- Every flag and renderer name is checked before either side loads, so a typo costs no extraction; a failure prints the problem and the usage and exits 2.
+- A renderer that throws yields `threw: <message>` as its output, so the input is listed instead of ending the run. An `ours@<rev>` whose html.ts lacks `parser` or `astToHTML` ends the run with an error naming the rev. `console.warn` is silenced, since the library's dev warnings fire on purpose-built bad input.
+
+When a run ends, it prints:
+
+- without `--option`: the agree and differ counts, then the first `--limit` differing inputs with each renderer's raw output
+- with `--option`: the differ counts without and with the option on both sides, then the first `--limit` inputs on which the two agree without it and disagree with it, raw outputs with it
+- `--a ours --b ours+<option>` lists every input the option changes at one commit
+
 ## Scaling smoke
 
 Purpose: fail any adversarial input shape whose work grows faster than near-linear (`scripts/scaling-smoke.ts`). redos-smoke asks whether one payload is fast at one size, which a quadratic passes whenever that size is cheap; scaling-smoke measures the growth exponent, so the shape of the work fails, not the chosen size.
@@ -121,7 +139,7 @@ Purpose: catch a speed regression against the merge base before a PR. Method, sc
 - `verdictOf` applies the verdict rules (standards/performance.md, "Paired gate against the merge base").
 - `pairedRow` and `tinyCase` validate every value (`isRatio`: finite and positive), since `jsonLines` only types rows. `GateError` ends a run with a measurement the gate cannot score. `import.meta.main` guards the entry so scripts/metrics-gate.spec.ts can import the scoring functions.
 - scripts/metrics-gate.spec.ts `BINARY_EXACT_LIMITS` uses powers of two so percent arithmetic is exact and a value on a limit is exactly on it; `eightSamplesAtQuartileRanks` places its values on ranks 1, 3, and 5, the lower quartile, median, and upper quartile of eight samples under `quantile`.
-- scripts/checkout-ref.ts: `mergeBase` runs `git merge-base <ref> HEAD` and throws with a fetch hint for an unknown ref; `extractLib` extracts the ref's `lib/` into a temporary directory whose `lib/node_modules` links to this checkout's, removed by `cleanup` and on process exit. The SIGINT and SIGTERM handlers exit with 128 plus the signal number so the exit listeners still run.
+- scripts/checkout-ref.ts: `mergeBase` runs `git merge-base <ref> HEAD` and throws with a fetch hint for an unknown ref; `extractLib` extracts the ref's `lib/` into a temporary directory whose `lib/node_modules` links to this checkout's, removed by `cleanup` and on process exit. The SIGINT and SIGTERM handlers exit with 128 plus the signal number so the exit listeners still run. `extractLib` resolves the rev with `git rev-parse --verify --end-of-options` first and archives the resolved sha, so a rev that names no commit, or one shaped like an option, throws before `git archive` runs. Run directly (`bun scripts/checkout-ref.ts <rev>`), it extracts `<rev>`'s `lib/` the same way, keeps the directory, prints its path, and prints the command that removes it on stderr, so an older build imports by hand (`<path>/lib/src/html.ts`).
 
 ## Profiling
 

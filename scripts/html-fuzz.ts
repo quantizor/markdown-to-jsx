@@ -12,6 +12,7 @@ import {
 import { compiler as reactCompiler } from '../lib/src/react.tsx'
 import { compiler as solidCompiler } from '../lib/src/solid.tsx'
 import { compiler as vueCompiler } from '../lib/src/vue.tsx'
+import { createRandom } from './random.ts'
 
 const SPACE_CODES = [
   0x09, 0x0b, 0x0c, 0x0d, 0xa0, 0x16_80, 0x20_00, 0x20_01, 0x20_02, 0x20_03,
@@ -438,17 +439,6 @@ interface Finding {
 type TreeNode =
   | DefaultTreeAdapterTypes.ChildNode
   | DefaultTreeAdapterTypes.DocumentFragment
-
-function createRandom(seed: number) {
-  let state = seed >>> 0
-  return () => {
-    state = (state + 0x6d_2b_79_f5) >>> 0
-    let t = state
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296
-  }
-}
 
 function componentTagsIn(source: string, registered?: string): Set<string> {
   const names = new Set<string>(registered ? [registered] : [])
