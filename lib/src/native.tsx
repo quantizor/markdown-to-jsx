@@ -8,8 +8,9 @@ import type {
   ViewStyle,
 } from 'react-native'
 import { Image, Linking, Platform, Pressable, Text, View } from 'react-native'
-import * as $ from './constants.ts'
+import { $ } from './constants.ts'
 import * as parse from './parse.ts'
+import { useShallowStable } from './shallow-stable.ts'
 import { type MarkdownToJSX, RuleType } from './types.ts'
 import * as util from './utils.ts'
 
@@ -19,22 +20,12 @@ export { type MarkdownToJSX, RuleType } from './types.ts'
 export { sanitizer, slugify } from './utils.ts'
 
 const LIST_ITEM_ROW_STYLE: ViewStyle = { flexDirection: 'row' }
-// The content sits in a row beside the bullet/number, so it must flex to fill the
-// remaining width: text then wraps instead of overflowing, and a block child (a
-// table with flex columns) gets a bounded width to lay out within.
 const LIST_ITEM_CONTENT_STYLE: ViewStyle = { flex: 1 }
-// Top-align so the checkbox sits with the first line of a multi-line label; the
-// checkbox's own marginTop then centers it against that line's text.
 const GFM_TASK_ITEM_ROW_STYLE: ViewStyle = {
   alignItems: 'flex-start',
   flex: 1,
   flexDirection: 'row',
 }
-// Default drawn checkbox for a GFM task item, since React Native has no checkbox
-// primitive: an outlined box that fills with an accent and a checkmark when done.
-// The box is symmetric, so its centroid is its geometric center; the label's ink
-// centroid sits ~4pt below the line's geometric center (measured on-device at DPR 3),
-// so marginTop drops the box by that much to center it against the first line's text.
 const CHECKBOX_STYLE: ViewStyle = {
   alignItems: 'center',
   borderColor: '#8c959f',
@@ -46,26 +37,13 @@ const CHECKBOX_STYLE: ViewStyle = {
   marginTop: 6,
   width: 16,
 }
-// Base table row layout. The checked-box accent, the checkmark glyph, the table
-// grid dividers, and the bold header run are overridable DEFAULT_STYLES keys
-// (gfmTaskChecked, checkmark, tableCellDivider, tableRowDivider, tableHeaderText);
-// the per-compile StyledCache precombines the row-plus-divider array.
 const TABLE_ROW_FLEX: ViewStyle = { flexDirection: 'row' }
-// Platform monospace family for code, since React Native has no generic 'monospace' on iOS.
 const MONOSPACE_FONT = Platform.select({
   android: 'monospace',
   ios: 'Menlo',
   default: 'monospace',
 })
 
-/**
- * Base stylesheet applied to rendered markdown so the default output has a
- * readable visual hierarchy (heading size cascade, monospace code, block
- * spacing, blockquote rule) without any configuration. Every key merges under
- * the caller's `styles`, so a consumer overrides individual properties or a whole
- * element, and layout-only defaults (list/task rows) stay separate. See the
- * React Native section of the README for a fully-overridden example.
- */
 const DEFAULT_STYLES: NativeStyles = {
   blockquote: {
     borderLeftColor: '#d1d9e0',
@@ -73,9 +51,6 @@ const DEFAULT_STYLES: NativeStyles = {
     marginBottom: 16,
     paddingLeft: 16,
   },
-  // translateY lifts the glyph off the box's optical center: the check reads a
-  // touch low in the box otherwise. A transform shifts the rendered glyph without
-  // disturbing the flex centering (unlike a margin, which the centering absorbs).
   checkmark: {
     color: '#ffffff',
     fontSize: 12,
@@ -90,8 +65,6 @@ const DEFAULT_STYLES: NativeStyles = {
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  // Inline code reads as code by its monospace face alone; a background renders
-  // as a blocky inline rectangle in React Native, which the clean default avoids.
   codeInline: { fontFamily: MONOSPACE_FONT, fontSize: 15 },
   gfmTaskChecked: { backgroundColor: '#0969da', borderColor: '#0969da' },
   heading1: {
@@ -147,10 +120,6 @@ const DEFAULT_STYLES: NativeStyles = {
   tableHeaderCell: { flex: 1, paddingHorizontal: 10, paddingVertical: 8 },
   tableHeaderText: { fontWeight: 'bold' },
   tableRowDivider: { borderBottomColor: '#d1d9e0', borderBottomWidth: 1 },
-  // Base applied under all text so body copy has one consistent size and line
-  // height everywhere (list runs, bullets, table cells), matching paragraphs
-  // instead of falling back to React Native's smaller default. This keeps a list
-  // bullet the same size as its label, so it sits on the line rather than riding high.
   text: { fontSize: 16, lineHeight: 24 },
   thematicBreak: { backgroundColor: '#d8dee4', height: 1, marginVertical: 16 },
 }
@@ -167,14 +136,6 @@ const SUPERSCRIPT_DIGITS: Record<string, string> = {
   '8': '⁸',
   '9': '⁹',
 }
-/**
- * Convert digits to their Unicode superscript glyphs so a numeric footnote
- * marker renders as a real raised superscript, matching the <sup> the web
- * renderers emit. React Native cannot raise or relatively size inline text
- * through styles (verticalAlign and transforms are ignored on inline text), but
- * the superscript glyph is drawn small and raised by the font and scales with the
- * surrounding text on its own. Non-digit identifiers pass through unchanged.
- */
 const toSuperscript = (text: string): string =>
   text.replace(/[0-9]/g, digit => SUPERSCRIPT_DIGITS[digit])
 const TEXT_FORMAT_STYLES: Record<string, TextStyle> = {
@@ -183,20 +144,11 @@ const TEXT_FORMAT_STYLES: Record<string, TextStyle> = {
   del: { textDecorationLine: 'line-through' },
 }
 
-// Merge a default style with a user-supplied one. RN accepts a style array, so
-// we return [default, user] when both exist; otherwise return whichever is set.
 const mergeStyle = <T,>(
   d: T | undefined,
   u: T | undefined
 ): T | T[] | undefined => (u ? (d ? [d, u] : u) : d)
 
-/**
- * Prepend the universal `styles.text` base under a Text element's own style so a
- * single consumer-supplied base (font, color, size) reaches every rendered Text
- * while element-specific styles still win on conflict. Returns the style
- * unchanged when no base is set, so the default output is untouched. Keeps the
- * result a flat one-level array so a downstream style read need not recurse.
- */
 const withTextBase = (
   base: StyleProp<TextStyle> | undefined,
   style: StyleProp<TextStyle>
@@ -204,13 +156,6 @@ const withTextBase = (
   base ? (Array.isArray(style) ? [base, ...style] : [base, style]) : style
 
 const ZERO_MARGIN_BOTTOM: ViewStyle = { marginBottom: 0 }
-/**
- * Zero the trailing block child's bottom margin so a bordered container (a
- * blockquote) ends flush instead of carrying that child's marginBottom as
- * apparent bottom padding. React Native does not drop a last-child margin the
- * way CSS does, so the last paragraph's block spacing otherwise sits inside the
- * container's border box.
- */
 const withoutTrailingMargin = (rendered: React.ReactNode): React.ReactNode => {
   if (Array.isArray(rendered)) {
     for (let i = rendered.length - 1; i >= 0; i--) {
@@ -232,16 +177,10 @@ const withoutTrailingMargin = (rendered: React.ReactNode): React.ReactNode => {
     : rendered
 }
 
-// Shared alignment styles so a table with many cells reuses three constants
-// instead of allocating one object per cell.
 const ALIGN_CENTER: ViewStyle = { alignItems: 'center' }
 const ALIGN_LEFT: ViewStyle = { alignItems: 'flex-start' }
 const ALIGN_RIGHT: ViewStyle = { alignItems: 'flex-end' }
 
-/**
- * Map a column's markdown alignment to the React Native `alignItems` value that
- * positions its cell content, or null when the column has no explicit alignment.
- */
 const alignItemsFor = (
   align: 'center' | 'left' | 'right' | null | undefined
 ): ViewStyle | null =>
@@ -253,13 +192,8 @@ const alignItemsFor = (
         ? ALIGN_RIGHT
         : ALIGN_LEFT
 
-/**
- * Merge the base stylesheet under the caller's styles: each element keeps its
- * default with the caller's properties winning on conflict, and a caller key with
- * no default passes through. The result feeds every `styles.<key>` lookup.
- */
 const resolveStyles = (user?: NativeStyles): NativeStyles => {
-  if (!user) {
+  if (!util.hasKeys(user)) {
     return DEFAULT_STYLES
   }
   const resolved = { ...DEFAULT_STYLES } as Record<string, unknown>
@@ -271,63 +205,33 @@ const resolveStyles = (user?: NativeStyles): NativeStyles => {
   return resolved as NativeStyles
 }
 
-/**
- * Per-compile bundle of the resolved stylesheet plus every style value derived
- * from it (text-base merges, list row layouts, checkbox variants). All fields
- * are pure functions of the resolved styles, so computing them once per compile
- * replaces a per-node allocation on each hot render path with a lookup.
- */
 interface StyledCache {
-  /** Bullet Text style for unordered list items: text base under listItemBullet. */
   bulletText: StyleProp<TextStyle>
-  /** Inline/block code text: text base under codeInline. */
   codeText: StyleProp<TextStyle>
-  /** Footnote reference marker: text base under footnote. */
   footnoteText: StyleProp<TextStyle>
-  /**
-   * Lazy per-tag cache for textFormatted (em/strong/del/...): the merged host
-   * style and its text-base variant, filled on first render of each tag.
-   */
   formatted: Record<
     string,
     { host: StyleProp<TextStyle>; inline: StyleProp<TextStyle> }
   >
-  /** Text-base merges for heading hosts, indexed by heading level (1-6). */
   headingInline: StyleProp<TextStyle>[]
-  /** List item row: LIST_ITEM_ROW_STYLE under styles.li. */
   li: StyleProp<ViewStyle>
-  /** Inline link host: text base under styles.link. */
   linkInline: StyleProp<TextStyle>
-  /** List item content column: LIST_ITEM_CONTENT_STYLE under styles.listItem. */
   listContent: StyleProp<ViewStyle>
-  /** Number Text style for ordered list items: text base under listItemNumber. */
   numberText: StyleProp<TextStyle>
-  /** Inline paragraph host: text base under styles.paragraph. */
   paragraphInline: StyleProp<TextStyle>
-  /** Verbatim pre-bearing HTML text: text base under styles.codeBlock. */
   preText: StyleProp<TextStyle>
-  /** Table row layout plus the horizontal divider (styles.tableRowDivider). */
   rowFlexDivider: StyleProp<ViewStyle>
-  /** The resolved per-key stylesheet feeding every `styles.<key>` lookup. */
   styles: NativeStyles
-  /** Checked GFM task box: checkbox + checked accent under styles.gfmTask. */
   taskChecked: StyleProp<ViewStyle>
-  /** GFM task item row: GFM_TASK_ITEM_ROW_STYLE under styles.listItem. */
   taskRow: StyleProp<ViewStyle>
-  /** Unchecked GFM task box: checkbox outline under styles.gfmTask. */
   taskUnchecked: StyleProp<ViewStyle>
-  /** Bare text base as applied by withTextBase (matches its output shape). */
   textOnly: StyleProp<TextStyle>
 }
 
-/**
- * Lazily built singleton for the zero-config case, so a compile without user
- * styles (the common Markdown-component path) skips rebuilding the cache.
- */
 let DefaultStyledCache: StyledCache | undefined
 
 const buildStyledCache = (user?: NativeStyles): StyledCache => {
-  if (!user) {
+  if (!util.hasKeys(user)) {
     if (!DefaultStyledCache) {
       DefaultStyledCache = createStyledCache(user)
     }
@@ -374,15 +278,6 @@ const createStyledCache = (user?: NativeStyles): StyledCache => {
   }
 }
 
-/**
- * Whether a node renders entirely within React Native text layout: a string, or
- * a Text-host element whose descendants are all inline-safe too. A node that
- * resolves to an Image or a View (an image, a block element, a View-mapped HTML
- * tag) is not inline-safe: React Native forbids nesting a view under a text node
- * on Android, so such a node must render as its own child of a View rather than
- * inside a Text. The check recurses through inline containers (links, emphasis)
- * so a link or emphasis wrapping an image is itself treated as a block.
- */
 const isInlineSafe = (node: MarkdownToJSX.ASTNode): boolean => {
   switch (node.type) {
     case RuleType.breakLine:
@@ -399,28 +294,15 @@ const isInlineSafe = (node: MarkdownToJSX.ASTNode): boolean => {
     case RuleType.htmlSelfClosing:
       return node.tag.toLowerCase() !== 'img' && !mapsToNativeView(node.tag)
     case RuleType.htmlBlock:
-      // Classify by the tag's native mapping so inline HTML (a <span> or <em>
-      // within text) keeps flowing in a Text, while a View-mapped tag (div,
-      // blockquote) stays a block. Recurse so a Text-mapped tag wrapping an
-      // image is treated as a block.
       if (mapsToNativeView(node.tag)) {
         return false
       }
       return !node.children || node.children.every(isInlineSafe)
     default:
-      // Everything else is block-level (paragraph, heading, list, table, code
-      // block, thematic break) or an image: not inline-safe.
       return false
   }
 }
 
-/**
- * The text of a sole plain-text child, or null when the fast path does not
- * apply. A single text node renders to exactly its string, so the caller can
- * skip the renderer round trip (array wrap, key save/restore, result
- * collection) that would produce the same value. Gated off when a user
- * renderRule is present, since that contract passes every node through it.
- */
 const singleTextChild = (
   nodes: MarkdownToJSX.ASTNode[],
   ctx: CompileContext
@@ -431,17 +313,6 @@ const singleTextChild = (
     ? (nodes[0] as MarkdownToJSX.TextNode).text
     : null
 
-/**
- * Render children for placement inside a React Native View. Consecutive
- * inline-safe nodes (text, emphasis, links, inline code) group into a single
- * Text so they lay out on one line; nodes that are not inline-safe (images,
- * paragraphs, nested lists, code blocks, task checkboxes) render as their own
- * child. React Native forbids bare strings directly inside a View, so ungrouped
- * text would otherwise throw "Text strings must be rendered within a <Text>
- * component" (issue #884). An optional runStyle styles the grouped Text runs so
- * a container's text style survives when it degrades from a Text to a View; the
- * universal text base (styled.styles.text) merges under those runs.
- */
 const renderViewChildren = (
   nodes: MarkdownToJSX.ASTNode[],
   output: MarkdownToJSX.ASTRender,
@@ -454,8 +325,6 @@ const renderViewChildren = (
   const children: React.ReactNode[] = []
   let run: MarkdownToJSX.ASTNode[] = []
   let key = 0
-  // Every run in this call shares one merged style, so compute it once here
-  // rather than per flushed run; the bare-base case reuses the per-compile value.
   const runTextStyle =
     runStyle === undefined
       ? styled.textOnly
@@ -468,8 +337,6 @@ const renderViewChildren = (
         run = []
         return
       }
-      // A run holds only inline-safe nodes, so mark the subtree inline-safe while
-      // rendering it and restore, letting nested inline containers skip re-checking.
       const prev = state.inlineSafe
       state.inlineSafe = true
       children.push(
@@ -485,8 +352,6 @@ const renderViewChildren = (
       run.push(node)
     } else {
       flushRun()
-      // Wrap in a Fragment to carry the list key: output([node]) may return an
-      // array, and the key belongs on a single sibling in the View's children.
       children.push(
         React.createElement(
           React.Fragment,
@@ -500,14 +365,6 @@ const renderViewChildren = (
   return children
 }
 
-/**
- * Render an inline container (paragraph, heading, emphasis, or a Text-mapped HTML
- * tag) whose host element type is chosen from its content. When every child is
- * inline-safe it renders as the given Text-host tag using text layout. When a
- * child is a hard block (an image or a nested view), it renders as a View that
- * groups inline runs into Text and lays blocks out as siblings, carrying the
- * container's text style onto those runs so styling survives the switch.
- */
 const renderInlineHost = (
   tag: string,
   props: Record<string, unknown> & { style?: StyleProp<TextStyle> },
@@ -519,21 +376,10 @@ const renderInlineHost = (
 ): React.ReactNode => {
   const h = ctx.h
   const overrides = ctx.overrides
-  // The nesting constraint only binds native Text: a custom override component
-  // can hold any child, so an overridden tag is emitted as-is rather than
-  // degraded to a View (which would discard the override).
   const overridden =
     Boolean(overrides) && Boolean(util.get(overrides, tag, undefined))
-  // A subtree already known inline-safe (this container sits inside one) needs no
-  // re-derivation; otherwise decide it here. Deciding once at the top and
-  // threading the result down turns O(depth) redundant subtree walks into one.
   const safe = state.inlineSafe === true || childNodes.every(isInlineSafe)
   if (overridden || safe) {
-    // The caller precomputed inlineStyle (the text base under the host's own
-    // style, usually once per compile), so swap it in place of the host style
-    // rather than re-deriving and re-allocating props per node. props is a
-    // per-node literal owned by this render, so the mutation is contained; the
-    // identity guard keeps a style key from appearing when nothing merges.
     if (inlineStyle !== props.style) {
       props.style = inlineStyle
     }
@@ -541,19 +387,12 @@ const renderInlineHost = (
     if (text != null) {
       return h(tag, props, text)
     }
-    // Mark the subtree inline-safe around the recursive render so nested inline
-    // containers skip their own check, then restore, matching how the renderer
-    // saves and restores state.key.
     const prev = state.inlineSafe
     state.inlineSafe = safe
     const out = h(tag, props, output(childNodes, state))
     state.inlineSafe = prev
     return out
   }
-  // Forward the full props (which already carry key and style) so a Text-mapped
-  // HTML tag's attributes survive the switch to a View, matching the inline path.
-  // The text style also styles the grouped runs so it survives the degrade, with
-  // the universal text base merged under them.
   return h(
     View,
     props,
@@ -569,7 +408,7 @@ export const MarkdownContext: React.Context<NativeOptions | undefined> =
 
 /**
  * Per-key style map for React Native rendering. Each key is narrowed to the
- * style type accepted by the component it targets — Text styles for inline /
+ * style type accepted by the component it targets: Text styles for inline and
  * text content, View styles for block containers, ImageStyle for images.
  */
 export interface NativeStyles {
@@ -614,7 +453,6 @@ export interface NativeStyles {
   gfmTaskChecked?: StyleProp<ViewStyle>
   /** Checkmark glyph drawn inside a completed GFM task box. */
   checkmark?: StyleProp<TextStyle>
-  // HTML semantic block elements (rendered as View by default)
   div?: StyleProp<ViewStyle>
   section?: StyleProp<ViewStyle>
   article?: StyleProp<ViewStyle>
@@ -651,19 +489,9 @@ export type NativeOptions = Omit<MarkdownToJSX.Options, 'wrapperProps'> & {
   wrapperProps?: ViewProps | TextProps
 }
 
-/**
- * Everything a compile pass shares across every rendered node: the element
- * factory, resolved options, sanitizers, reference definitions, and the
- * per-compile style cache. Built once in astToNative so the per-node render
- * call carries one pointer instead of re-deriving any of it.
- */
 interface CompileContext {
   h: (tag: any, props: any, ...children: any[]) => any
   options: NativeOptions
-  /**
-   * User overrides, or undefined when none are set, so per-node override
-   * lookups short-circuit on the empty case.
-   */
   overrides: MarkdownToJSX.Overrides | undefined
   refs: { [key: string]: { target: string; title: string | undefined } }
   sanitize: (value: string, tag: string, attribute: string) => string | null
@@ -709,16 +537,17 @@ function render(
     case RuleType.frontmatter:
       if (options.preserveFrontmatter) {
         const frontmatterNode = node as MarkdownToJSX.FrontmatterNode
-        // In inline mode the wrapper is Text and View cannot nest inside it.
-        // 'pre' maps to View (safe in block, takes ViewStyle);
-        // 'code' maps to Text (safe inline, takes TextStyle).
+        if (state.inline) {
+          return h(
+            'code',
+            { key: state.key, style: styles.codeInline },
+            frontmatterNode.text
+          )
+        }
         return h(
-          state.inline ? 'code' : 'pre',
-          {
-            key: state.key,
-            style: state.inline ? styles.codeInline : styles.codeBlock,
-          },
-          frontmatterNode.text
+          'pre',
+          { key: state.key, style: styles.codeBlock },
+          h('code', { style: styled.codeText }, frontmatterNode.text)
         )
       }
       return null
@@ -766,10 +595,6 @@ function render(
 
     case RuleType.gfmTask: {
       const taskNode = node as MarkdownToJSX.GFMTaskNode
-      // An overridden 'input' owns the visual, so pass the DOM-only props
-      // (type/checked/readOnly) plus a text marker child it can fall back to.
-      // Without an override, attaching those props to the RN View fallback would
-      // log unknown-prop warnings, so the default instead draws a checkbox.
       const hasInputOverride = Boolean(overrides?.input)
       if (hasInputOverride) {
         return h(
@@ -850,20 +675,12 @@ function render(
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
 
-        // Type 1 blocks (pre, script, style, textarea) always render verbatim.
-        // These tags map to a native View, so the verbatim text is wrapped in a
-        // Text rather than placed directly inside the View (issue #884). The
-        // View's own tags are implicit, so the text is the inner content: the
-        // text field when no closing tag was found, since the outer span holds
-        // this element's own opening tag.
         if (isType1Block) {
           const type1Body =
             (isRawOuter ? htmlNode.text : htmlNode._rawBody) || ''
           const textContent = util.tagfilterEnabled(options)
             ? util.applyTagFilterToText(type1Body)
             : type1Body
-          // Verbatim text renders monospaced (codeInline) so raw markup keeps
-          // its literal shape, as a pre or code block reads.
           return h(
             htmlNode.tag,
             htmlNodeProps(htmlNode, state.key, ctx.overrides),
@@ -882,10 +699,6 @@ function render(
           return h(Text, { key: state.key, style: styled.preText }, innerHtml)
         }
 
-        // Re-parse rawSource so a nested element does not absorb a following text
-        // line, then split at this element's own closing tag so any trailing
-        // content renders as siblings (issue #881).
-        // The parser's re-parse span holds the children attribute rawSource cut
         const cleanedText = util.normalizeJsxReparseText(
           htmlNode._reparseSource || rawSource
         )
@@ -916,13 +729,6 @@ function render(
           return cleanedText
         }
 
-        // _rawOuter means the parser already determined this span is the FULL
-        // outer block, so emit the parsed nodes directly instead of nesting
-        // them in another copy of the tag. Their own render pass keys them
-        // from 0, ignoring this block's index, so the first re-parsed node
-        // (key 0) would collide with the first sibling of this block. Re-key
-        // a single result to this node's index; carry multiple on a Fragment
-        // so their 0-based keys stay scoped under one keyed sibling.
         if (isRawOuter) {
           const rendered = output(
             astNodes.flatMap(util.processVerbatimNode),
@@ -942,9 +748,6 @@ function render(
 
         const split = util.findOwnCloseInAST(astNodes, tagLower)
         if (split.found && split.afterClose.length > 0) {
-          // The element (keyed state.key) and the trailing siblings (renderViewChildren
-          // keys its children from 0) share one Fragment, so re-key the trailing
-          // siblings into a disjoint namespace to keep the Fragment's keys unique.
           const trailing = renderViewChildren(
             split.afterClose.flatMap(util.processVerbatimNode),
             output,
@@ -1031,7 +834,12 @@ function render(
       const src =
         imageNode.target === null
           ? null
-          : sanitize(imageNode.target, 'img', 'src')
+          : util.sanitizeAndEncodeUrlTarget(
+              imageNode.target,
+              sanitize,
+              'img',
+              'src'
+            )
       if (!src) {
         return null
       }
@@ -1046,11 +854,6 @@ function render(
     case RuleType.link: {
       const linkNode = node as MarkdownToJSX.LinkNode
       const linkStyle = styles.link
-      // A link whose content is inline stays a Text (with text-layout press
-      // handling). When it wraps an image or other block, a Text cannot hold it,
-      // so it becomes a Pressable View that keeps the same press handlers.
-      // Deciding first lets one props literal carry the right (precomputed)
-      // style instead of re-merging the text base per link.
       const safe =
         state.inlineSafe === true || linkNode.children.every(isInlineSafe)
       const props: Record<string, unknown> = {
@@ -1059,7 +862,6 @@ function render(
       }
 
       if (linkNode.target != null) {
-        // Re-sanitize at emit so direct astToNative(dangerous) cannot skip the gate.
         const href = util.sanitizeAndEncodeUrlTarget(
           linkNode.target,
           sanitize,
@@ -1107,10 +909,6 @@ function render(
         h(
           View,
           { style: styles.tableHeader },
-          // The header row carries the separator under it (borderBottom); each
-          // cell but the last carries a vertical divider (borderRight). Header
-          // runs render bold. Together with flex:1 cells the columns line up as a
-          // grid without doubling the outer border.
           h(
             View,
             { style: styled.rowFlexDivider },
@@ -1146,8 +944,6 @@ function render(
                   View,
                   {
                     key: i,
-                    // Each body row but the last carries a separator under it, so
-                    // no line doubles the header separator or the outer border.
                     style:
                       i < rowsLast ? styled.rowFlexDivider : TABLE_ROW_FLEX,
                   },
@@ -1185,8 +981,6 @@ function render(
 
     case RuleType.textFormatted: {
       const formattedNode = node as MarkdownToJSX.FormattedTextNode
-      // The tag set is small (em/strong/del/...), so the merged host style and
-      // its text-base variant are cached per compile on first use.
       var formatted = styled.formatted[formattedNode.tag]
       if (formatted === undefined) {
         var host = mergeStyle(
@@ -1216,8 +1010,6 @@ function render(
         | MarkdownToJSX.UnorderedListNode
       const isOrdered = node.type === RuleType.orderedList
       const liStyle = styled.li
-      // One shared props object serves every bullet Text in this list;
-      // createElement never mutates the config it is handed.
       const bulletProps = {
         style: isOrdered ? styled.numberText : styled.bulletText,
       }
@@ -1235,20 +1027,12 @@ function render(
               : i + 1
           const bullet = isOrdered ? `${number}.` : '•'
 
-          // When an item begins with a GFM task marker, the marker and label
-          // are sibling AST nodes. The inner wrapper opts into a row that
-          // top-aligns the checkbox with the first line of the label by default;
-          // styles.listItem (when provided) still wins on collision via
-          // mergeStyle's [default, user] ordering.
           const itemIsTask =
             item.length > 0 && item[0].type === RuleType.gfmTask
           const innerItemStyle = itemIsTask
             ? styled.taskRow
             : styled.listContent
 
-          // The task marker is followed by a whitespace-only text node (the space
-          // after `[ ]`). Drop it so the checkbox's marginRight is the sole gap to
-          // the label, matching a bullet's spacing instead of doubling it.
           const renderNodes =
             itemIsTask &&
             item.length > 1 &&
@@ -1260,8 +1044,6 @@ function render(
           return h(
             'li',
             { key: i, style: liStyle },
-            // A task item's checkbox stands in for the bullet, so the bullet is
-            // suppressed to avoid a redundant marker beside the checkbox.
             itemIsTask ? null : h(Text, bulletProps, `${bullet} `),
             h(
               View,
@@ -1302,7 +1084,7 @@ const createRenderer = (ctx: CompileContext) => {
   ) => {
     const nodes = Array.isArray(ast) ? ast : [ast]
     const depth = (state.renderDepth || 0) + 1
-    if (depth > 2500) {
+    if (depth > $.MAX_RENDER_DEPTH) {
       return handleStackOverflow(nodes)
     }
     state.renderDepth = depth
@@ -1310,19 +1092,21 @@ const createRenderer = (ctx: CompileContext) => {
     const oldKey = state.key
     const result: React.ReactNode[] = []
     let lastWasString = false
+    const renderChildren = userRender
+      ? (
+          children: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
+          childState?: MarkdownToJSX.State
+        ) => renderer(children, childState || state)
+      : renderer
     for (let i = 0; i < nodes.length; i++) {
       state.key = i
       let nodeOut: React.ReactNode
-      // The renderer itself satisfies the ASTRender contract render() consumes
-      // (single node or list, explicit state), so the no-renderRule hot path
-      // calls render directly with no per-node closures; the closure form only
-      // exists to hand a user renderRule its deferred defaultRender.
       if (userRender) {
         const currentNode = nodes[i]
         nodeOut = userRender(
           () => render(currentNode, renderer, state, ctx),
           currentNode,
-          renderer,
+          renderChildren,
           state
         )
       } else {
@@ -1351,11 +1135,6 @@ const createRenderer = (ctx: CompileContext) => {
   return renderer
 }
 
-/**
- * Resolve a tag through user overrides. Returns the override component when
- * one applies, otherwise the tag string unchanged; arbitrary HTML tag strings
- * flow through and are mapped to native components by the caller.
- */
 const getTag = (
   tag: string,
   overrides?: MarkdownToJSX.Overrides
@@ -1376,18 +1155,6 @@ const getTag = (
   return util.get(overrides, `${tag}.component`, tag) as React.ElementType
 }
 
-// HTML tags that map to View on native. Set for O(1) lookups (matches
-// utils.VOID_ELEMENTS precedent).
-/**
- * HTML tags that render as a native View (block layout) rather than a Text.
- * This is a React Native rendering concern, deliberately separate from the
- * CommonMark HTML-block tag list in parse.ts (BLOCK_TAGS): that list drives
- * block parsing and includes document/metadata tags (head, html, title, base,
- * col, ...) that must never become Views, plus paragraph and heading tags
- * handled here as semantic nodes. This list instead names the block containers
- * that need View layout and adds `input`, so the two overlap but neither is
- * derivable from the other.
- */
 const VIEW_TAGS: Set<string> = new Set([
   'address',
   'article',
@@ -1428,32 +1195,13 @@ const VIEW_TAGS: Set<string> = new Set([
   'ul',
 ])
 
-/**
- * Whether an HTML tag renders as a native View. A View cannot hold bare strings,
- * so its inline children must be grouped into a Text (see renderViewChildren).
- * Type 1 blocks (pre, script, style, textarea) map to a View as well.
- */
 const mapsToNativeView = (tag: string): boolean => {
   const tagLower = tag.toLowerCase()
   return VIEW_TAGS.has(tagLower) || parse.isType1Block(tagLower)
 }
 
-/**
- * Memo for mapHTMLTagToNativeComponent, keyed by the raw tag string. The
- * mapping is a pure function of the tag, so one process-wide cache serves every
- * compile; the size cap bounds memory against pathological input that mints
- * unique tag spellings, falling back to recomputation once full.
- */
 const NATIVE_COMPONENT_CACHE: Map<string, React.ElementType> = new Map()
 
-/**
- * Map an HTML tag to its React Native component. React Native has no arbitrary
- * HTML tags, so img becomes an Image, a View-mapped tag becomes a View, and
- * every other tag becomes a Text. Derives its View decision from mapsToNativeView
- * so the two stay a single source of truth. Every rendered element passes
- * through this on the h() hot path, hence the memo over the repeated
- * lowercase-and-lookup work.
- */
 const mapHtmlTagToNativeComponent = (tag: string): React.ElementType => {
   var cached = NATIVE_COMPONENT_CACHE.get(tag)
   if (cached === undefined) {
@@ -1466,7 +1214,6 @@ const mapHtmlTagToNativeComponent = (tag: string): React.ElementType => {
   return cached
 }
 
-/** An HTML node's attributes as props under `key`, without handler source (util.withoutHandlerSource) */
 const htmlNodeProps = (
   htmlNode: MarkdownToJSX.HTMLNode | MarkdownToJSX.HTMLSelfClosingNode,
   key: MarkdownToJSX.State['key'],
@@ -1474,17 +1221,10 @@ const htmlNodeProps = (
 ): Record<string, unknown> => ({
   key,
   ...util.htmlAttrsToJSXProps(
-    util.withoutHandlerSource(htmlNode.tag, htmlNode.attrs, overrides)
+    util.withoutHandlerSource(htmlNode.tag, htmlNode.attrs, overrides, getTag)
   ),
 })
 
-/**
- * Emit an HTML element, routing by whether its tag maps to a native View. A
- * View-mapped tag groups its inline children into a Text so no bare string sits
- * directly inside the View; a Text-mapped tag (span, em, ...) goes through
- * renderInlineHost, receiving children unchanged since strings are valid there.
- * See issue #884.
- */
 const emitHtmlElement = (
   tag: string,
   props: Record<string, unknown> & { style?: StyleProp<TextStyle> },
@@ -1503,8 +1243,6 @@ const emitHtmlElement = (
     : renderInlineHost(
         tag,
         props,
-        // HTML attrs rarely carry a style, so the text-base merge happens here
-        // per element rather than from the per-compile cache.
         withTextBase(ctx.styled.styles.text, props.style),
         childNodes,
         output,
@@ -1513,12 +1251,6 @@ const emitHtmlElement = (
       )
 }
 
-/**
- * The child nodes of an HTML element whose props may hold a `children` string:
- * its own nodes, or the string as one text node when it has none, so a View-mapped
- * tag groups it into a Text like any other text. The prop leaves props either way,
- * and a text node is plain text, never parsed as markdown or HTML.
- */
 const withChildrenAttr = (
   props: Record<string, unknown>,
   ownNodes: MarkdownToJSX.ASTNode[]
@@ -1569,10 +1301,6 @@ export function astToNative(
         style?: StyleProp<ViewStyle | TextStyle | ImageStyle>
       }
       Component = getTag(tag, opts.overrides)
-      // Merge so override.props.style and renderer-supplied style both apply.
-      // Later entries in an RN style array win, so override-level styling has
-      // precedence over the renderer's default — matches user intent for the
-      // more-specific override entry.
       finalProps = {
         ...props,
         ...overrideProps,
@@ -1583,7 +1311,6 @@ export function astToNative(
     if (typeof Component !== 'string') {
       return createElement(Component, finalProps, ...children)
     }
-    // An override can keep a tag void or make it one, and an Image can't hold children
     if (hasOverrides && util.isVoidElement(Component)) {
       delete finalProps.children
       children.length = 0
@@ -1595,7 +1322,7 @@ export function astToNative(
     )
   }
 
-  const parseOptions = parse.toParseOptions(opts, opts.forceInline)
+  const parseOptions = parse.toParseOptions(opts)
 
   const refs =
     ast[0] && ast[0].type === RuleType.refCollection
@@ -1624,8 +1351,6 @@ export function astToNative(
   const footnoteEntries = util.extractFootnoteEntries(refs)
 
   if (footnoteEntries.length > 0) {
-    // The universal text base (styles.text) also reaches the footnote footer, so
-    // its identifier prefix and block-fallback runs match the rest of the output.
     const footnoteTextBase = ctx.styled.styles.text
     arr.push(
       createElement(
@@ -1641,15 +1366,9 @@ export function astToNative(
             { inline: true, refs },
             parseOptions
           )
-          // parseMarkdown prepends a non-rendering refCollection node; drop it so
-          // the inline check reflects only the visible content.
           const renderable = footnoteAstNodes.filter(
             node => node.type !== RuleType.refCollection
           )
-          // The identifier and the note read as one line, so when the note is all
-          // inline it flows inside a single Text after the identifier. A note that
-          // holds a block (an image) falls back to stacking the identifier above
-          // grouped children, since a Text cannot nest a view (issue #884).
           if (renderable.every(isInlineSafe)) {
             return createElement(
               Text,
@@ -1689,9 +1408,6 @@ export function astToNative(
   let jsx: React.ReactNode
 
   if (arr.length > 1 || opts.forceWrapper) {
-    // A View wrapper cannot hold bare strings; wrap any stray top-level string
-    // so a node that emitted raw text (e.g. a full verbatim HTML block) does not
-    // crash React Native (issue #884). A Text wrapper accepts strings as-is.
     jsx =
       wrapper === View
         ? arr.map((child, i) =>
@@ -1702,7 +1418,6 @@ export function astToNative(
         : arr
   } else if (arr.length === 1) {
     const single = arr[0]
-    // In React Native, raw strings must be wrapped in Text
     if (typeof single === 'string') {
       return createElement(Text, { key: 'outer', ...opts.wrapperProps }, single)
     }
@@ -1739,7 +1454,7 @@ export function compiler(
     const inline =
       opts.forceInline ||
       !(opts.forceBlock || util.SHOULD_RENDER_AS_BLOCK_R.test(input))
-    const parseOptions = parse.toParseOptions(opts, inline)
+    const parseOptions = parse.toParseOptions(opts)
 
     const processedInput = inline ? input : util.prepareBlockInput(input)
 
@@ -1777,39 +1492,6 @@ export const MarkdownProvider: React.FC<{
   children: React.ReactNode
 }> = ({ options, children }) =>
   React.createElement(MarkdownContext.Provider, { value: options }, children)
-
-/**
- * Return the previous object identity when the new one is shallow-equal.
- * The JSX rest-props object is freshly allocated on every render; without
- * stabilization it invalidates the compile memo below even when nothing
- * changed, forcing a full re-parse per parent re-render.
- */
-function useShallowStable<T extends Record<string, any>>(value: T): T {
-  const ref = React.useRef(value)
-  const prev = ref.current
-  if (prev !== value) {
-    var same = true
-    var count = 0
-    for (var key in value) {
-      count++
-      if (!Object.is(prev[key], value[key])) {
-        same = false
-        break
-      }
-    }
-    if (same) {
-      var prevCount = 0
-      for (var _prevKey in prev) {
-        prevCount++
-      }
-      same = prevCount === count
-    }
-    if (!same) {
-      ref.current = value
-    }
-  }
-  return ref.current
-}
 
 /**
  * A React Native component for easy markdown rendering. Feed the markdown content as a direct child

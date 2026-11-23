@@ -1,13 +1,4 @@
 #!/usr/bin/env bun
-
-/**
- * Post-build verification script that ensures all TypeScript declaration
- * files referenced in package.json exports actually exist on disk.
- *
- * Runs independently of bunup's plugin system as a safety net against
- * silent DTS generation failures.
- */
-
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import process from 'node:process'

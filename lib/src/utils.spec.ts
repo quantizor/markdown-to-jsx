@@ -10,8 +10,8 @@ describe('parseFrontmatterBounds', () => {
     expect(u.parseFrontmatterBounds('no frontmatter')).toBeNull()
     expect(u.parseFrontmatterBounds('---')).toBeNull()
     expect(u.parseFrontmatterBounds('---content')).toBeNull()
-    expect(u.parseFrontmatterBounds('--\ncontent\n---\n')).toBeNull() // too few dashes
-    expect(u.parseFrontmatterBounds('----\ncontent\n---\n')).toBeNull() // too many dashes
+    expect(u.parseFrontmatterBounds('--\ncontent\n---\n')).toBeNull()
+    expect(u.parseFrontmatterBounds('----\ncontent\n---\n')).toBeNull()
   })
 
   it('should return null for unclosed frontmatter', () => {
@@ -26,23 +26,19 @@ describe('parseFrontmatterBounds', () => {
     expect(
       u.parseFrontmatterBounds('---\nkey1: value1\nkey2: value2\n---\n')
     ).toEqual({ endPos: 34, hasValidYaml: true })
-    // content after closing delimiter is allowed
     expect(
       u.parseFrontmatterBounds('---\nkey: value\n---\nextra')?.hasValidYaml
     ).toBe(true)
   })
 
   it('should accept whitespace variations in opening marker and keys', () => {
-    // trailing whitespace after opening ---
     expect(u.parseFrontmatterBounds('---   \nkey: value\n---\n')).toEqual({
       endPos: 22,
       hasValidYaml: true,
     })
-    // tab in opening, tab-indented key
     expect(
       u.parseFrontmatterBounds('---\t \n\tkey: value\n---\n')?.hasValidYaml
     ).toBe(true)
-    // space-indented key
     expect(
       u.parseFrontmatterBounds('---\n  indented: value\n---\n')?.hasValidYaml
     ).toBe(true)
@@ -102,12 +98,10 @@ describe('parseFrontmatterBounds', () => {
     ).toBe(true)
   })
 
-  it('should handle binary/null characters', () => {
-    // null in value is fine
+  it('should accept a null character in a value but reject a control character in a key', () => {
     expect(
       u.parseFrontmatterBounds('---\nkey: val\x00ue\n---\n')?.hasValidYaml
     ).toBe(true)
-    // control char in key breaks key validation
     expect(
       u.parseFrontmatterBounds('---\nkey\x01: value\n---\n')?.hasValidYaml
     ).toBe(false)
@@ -127,19 +121,15 @@ describe('parseFrontmatterBounds', () => {
   })
 
   it('should reject malformed YAML keys', () => {
-    // bare colon without key
     expect(u.parseFrontmatterBounds('---\n:invalid\n---\n')?.hasValidYaml).toBe(
       false
     )
-    // key:value with no space after colon
     expect(
       u.parseFrontmatterBounds('---\nkey:value\n---\n')?.hasValidYaml
     ).toBe(false)
-    // whitespace-only before colon
     expect(
       u.parseFrontmatterBounds('---\n   : value\n---\n')?.hasValidYaml
     ).toBe(false)
-    // keys starting with special chars
     expect(
       u.parseFrontmatterBounds('---\n...: value\n---\n')?.hasValidYaml
     ).toBe(false)
@@ -158,29 +148,23 @@ describe('parseFrontmatterBounds', () => {
   })
 
   it('should reject markdown content with colons (false positives)', () => {
-    // bold text with colon
     expect(
       u.parseFrontmatterBounds('---\n**Subject: Hello**\n---\n')?.hasValidYaml
     ).toBe(false)
-    // prose with colon
     expect(
       u.parseFrontmatterBounds('---\nSome text with: colons\n---\n')
         ?.hasValidYaml
     ).toBe(false)
-    // list items
     expect(
       u.parseFrontmatterBounds('---\n- list: item\n---\n')?.hasValidYaml
     ).toBe(false)
-    // markdown link with URL
     expect(
       u.parseFrontmatterBounds('---\n[link](http://example.com)\n---\n')
         ?.hasValidYaml
     ).toBe(false)
-    // hash comment
     expect(
       u.parseFrontmatterBounds('---\n# comment: not yaml\n---\n')?.hasValidYaml
     ).toBe(false)
-    // table alignment syntax
     expect(
       u.parseFrontmatterBounds('---\n| Name | Value |\n|:---|:---|\n---\n')
         ?.hasValidYaml
@@ -254,7 +238,7 @@ describe('decodeEntityReferences', () => {
     expect(u.decodeEntityReferences('&')).toBe('&')
     expect(u.decodeEntityReferences('&;')).toBe('&;')
     expect(u.decodeEntityReferences('&invalid')).toBe('&invalid')
-    expect(u.decodeEntityReferences('&amp')).toBe('&amp') // missing semicolon
+    expect(u.decodeEntityReferences('&amp')).toBe('&amp')
   })
 
   it('should handle entities with unusual characters', () => {
@@ -287,45 +271,43 @@ describe('decodeEntityReferences', () => {
     expect(u.decodeEntityReferences('&#Xa1;')).toBe('¡')
   })
 
-  it('should handle entities with maximum allowed lengths', () => {
-    expect(u.decodeEntityReferences('&#999999999;')).toBe('&#999999999;') // too long
-    expect(u.decodeEntityReferences('&#xFFFFFF;')).toBe('\uFFFD') // becomes replacement char
+  it('should leave a nine-digit decimal entity as text and decode an out-of-range hex entity to the replacement character', () => {
+    expect(u.decodeEntityReferences('&#999999999;')).toBe('&#999999999;')
+    expect(u.decodeEntityReferences('&#xFFFFFF;')).toBe('\uFFFD')
   })
 
-  it('should handle combining characters in entities', () => {
-    // This tests that entities are decoded before any further processing
-    expect(u.decodeEntityReferences('&amp;&#x301;')).toBe('&́') // & + combining acute
+  it('should decode an entity before any further processing, leaving a combining acute accent after the ampersand', () => {
+    expect(u.decodeEntityReferences('&amp;&#x301;')).toBe('&́')
   })
 
-  it('should reject invalid entity formats', () => {
-    expect(u.decodeEntityReferences('&;')).toBe('&;') // empty entity
-    expect(u.decodeEntityReferences('&amp')).toBe('&amp') // missing semicolon
-    expect(u.decodeEntityReferences('&123;')).toBe('&123;') // numeric without #
-    expect(u.decodeEntityReferences('&#;')).toBe('&#;') // empty numeric
-    expect(u.decodeEntityReferences('&#x;')).toBe('&#x;') // empty hex
+  it('should reject an empty entity, a missing semicolon, a numeric entity without a hash, and an empty numeric or hex entity', () => {
+    expect(u.decodeEntityReferences('&;')).toBe('&;')
+    expect(u.decodeEntityReferences('&amp')).toBe('&amp')
+    expect(u.decodeEntityReferences('&123;')).toBe('&123;')
+    expect(u.decodeEntityReferences('&#;')).toBe('&#;')
+    expect(u.decodeEntityReferences('&#x;')).toBe('&#x;')
   })
 
-  it('should reject malformed numeric entities', () => {
-    expect(u.decodeEntityReferences('&#-1;')).toBe('&#-1;') // negative numbers
-    expect(u.decodeEntityReferences('&#abc;')).toBe('&#abc;') // invalid decimal
-    expect(u.decodeEntityReferences('&#xZZ;')).toBe('&#xZZ;') // invalid hex
-    expect(u.decodeEntityReferences('&#999999999999;')).toBe('&#999999999999;') // too large
+  it('should reject negative, non-digit, non-hex, and too-large numeric entities', () => {
+    expect(u.decodeEntityReferences('&#-1;')).toBe('&#-1;')
+    expect(u.decodeEntityReferences('&#abc;')).toBe('&#abc;')
+    expect(u.decodeEntityReferences('&#xZZ;')).toBe('&#xZZ;')
+    expect(u.decodeEntityReferences('&#999999999999;')).toBe('&#999999999999;')
   })
 
-  it('should reject entities with invalid characters', () => {
-    expect(u.decodeEntityReferences('&amp ;')).toBe('&amp ;') // space in entity
-    expect(u.decodeEntityReferences('&amp\n;')).toBe('&amp\n;') // newline in entity
-    expect(u.decodeEntityReferences('&amp\x00;')).toBe('&amp\x00;') // null byte in entity
+  it('should reject entities containing a space, a newline, or a null byte', () => {
+    expect(u.decodeEntityReferences('&amp ;')).toBe('&amp ;')
+    expect(u.decodeEntityReferences('&amp\n;')).toBe('&amp\n;')
+    expect(u.decodeEntityReferences('&amp\x00;')).toBe('&amp\x00;')
   })
 
-  it('should not decode nested entities', () => {
-    expect(u.decodeEntityReferences('&amp;lt;')).toBe('&lt;') // &amp; becomes &, then &lt; becomes <
-    // This is actually correct behavior - entities are processed left to right
+  it('should decode &amp;lt; once, to &lt;, because entities are processed left to right and never decoded twice', () => {
+    expect(u.decodeEntityReferences('&amp;lt;')).toBe('&lt;')
   })
 
-  it('should handle entities at string boundaries correctly', () => {
-    expect(u.decodeEntityReferences('&amp')).toBe('&amp') // incomplete at end
-    expect(u.decodeEntityReferences('&amp;')).toBe('&') // complete entity
+  it('should leave an incomplete entity at the end of the string and decode a complete one', () => {
+    expect(u.decodeEntityReferences('&amp')).toBe('&amp')
+    expect(u.decodeEntityReferences('&amp;')).toBe('&')
   })
 })
 
@@ -416,17 +398,60 @@ describe('sanitizer', () => {
     )
   })
 
-  it('should handle URLs with nested percent encoding', () => {
+  it('should allow URLs with nested percent encoding', () => {
     expect(u.sanitizer('https://example.com/%2561%2564%2565%2572%2574')).toBe(
       'https://example.com/%2561%2564%2565%2572%2574'
-    ) // nested encoding is allowed
+    )
   })
 
-  it('should handle data URLs with unusual MIME types', () => {
-    expect(u.sanitizer('data:text/plain;base64,SGVsbG8=')).toBeNull() // data:text should be blocked
+  it('should block data:text URLs and allow data:image URLs', () => {
+    expect(u.sanitizer('data:text/plain;base64,SGVsbG8=')).toBeNull()
     expect(u.sanitizer('data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=')).toBe(
       'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4='
     )
+  })
+
+  it.each([
+    ['data:image/svg+xml;base64,PHN2Zz4=', 'a', 'href'],
+    ['data:image/svg+xml,<svg onload=alert(1)>', 'a', 'href'],
+    ['DATA:Image/SVG+XML;base64,PHN2Zz4=', 'a', 'href'],
+    [' data:image/svg+xml ;base64,PHN2Zz4=', 'a', 'href'],
+    ['data:image/svg%2Bxml;base64,PHN2Zz4=', 'a', 'href'],
+    ['data:image/s\tvg+xml;base64,PHN2Zz4=', 'a', 'href'],
+    ['data:image/svg+xml;charset=utf-8,<svg/>', 'iframe', 'src'],
+    ['data:image/svg+xml,<svg/>', 'object', 'data'],
+    ['data:image/svg+xml,<svg/>', 'embed', 'src'],
+    ['data:image/svg+xml,<svg/>', 'form', 'action'],
+    ['data:image/svg+xml,<svg/>', 'use', 'href'],
+  ])('rejects the SVG data URL %j in a %s %s', (url, tag, attribute) => {
+    expect(u.sanitizer(url, tag, attribute)).toBeNull()
+  })
+
+  it.each([
+    ['img', 'src'],
+    ['img', 'srcset'],
+    ['IMG', 'SRC'],
+    ['source', 'src'],
+    ['source', 'srcset'],
+    ['video', 'poster'],
+    ['input', 'src'],
+    ['image', 'href'],
+    ['image', 'src'],
+    ['image', 'srcset'],
+    ['image', 'xlink:href'],
+  ])('keeps an SVG data URL in a %s %s', (tag, attribute) => {
+    expect(
+      u.sanitizer('data:image/svg+xml;base64,PHN2Zz4=', tag, attribute)
+    ).toBe('data:image/svg+xml;base64,PHN2Zz4=')
+  })
+
+  it.each([
+    ['data:image/png;base64,iVBOR', 'a', 'href'],
+    ['data:image/svgz;base64,iVBOR', 'a', 'href'],
+    ['https://example.com/a.svg', 'a', 'href'],
+    ['data:image/svg+xml;base64,PHN2Zz4=', undefined, undefined],
+  ])('keeps %j in a %s %s', (url, tag, attribute) => {
+    expect(u.sanitizer(url, tag, attribute)).toBe(url)
   })
 
   it('should handle URLs with unusual characters', () => {
@@ -436,7 +461,7 @@ describe('sanitizer', () => {
   })
 
   it('should handle URLs that look like protocols but are not', () => {
-    expect(u.sanitizer('notjavascript:alert(1)')).toBeNull() // sanitizer is more aggressive
+    expect(u.sanitizer('notjavascript:alert(1)')).toBeNull()
   })
 
   it.each([
@@ -488,8 +513,8 @@ describe('sanitizer', () => {
   })
 
   it('should handle URLs with unusual encoding patterns', () => {
-    expect(u.sanitizer('https://example.com/%')).toBeNull() // malformed encoding
-    expect(u.sanitizer('https://example.com/%FF')).toBeNull() // malformed encoding
+    expect(u.sanitizer('https://example.com/%')).toBeNull()
+    expect(u.sanitizer('https://example.com/%FF')).toBeNull()
   })
 
   it('should reject dangerous JavaScript protocols', () => {
@@ -508,40 +533,39 @@ describe('sanitizer', () => {
   })
 
   it('should handle URLs with unusual protocols gracefully', () => {
-    expect(u.sanitizer('livescript:code')).toBe('livescript:code') // unknown protocols are allowed
-    expect(u.sanitizer('mocha:code')).toBe('mocha:code') // unknown protocols are allowed
-    expect(u.sanitizer('mocha:')).toBe('mocha:') // empty protocol content is allowed
+    expect(u.sanitizer('livescript:code')).toBe('livescript:code')
+    expect(u.sanitizer('mocha:code')).toBe('mocha:code')
+    expect(u.sanitizer('mocha:')).toBe('mocha:')
   })
 
   it('should handle malformed URLs gracefully', () => {
-    expect(u.sanitizer('http://')).toBe('http://') // empty host is allowed
-    expect(u.sanitizer('https://')).toBe('https://') // empty host is allowed
-    expect(u.sanitizer('://example.com')).toBe('://example.com') // missing protocol is allowed
-    expect(u.sanitizer('http:///path')).toBe('http:///path') // empty host with path is allowed
+    expect(u.sanitizer('http://')).toBe('http://')
+    expect(u.sanitizer('https://')).toBe('https://')
+    expect(u.sanitizer('://example.com')).toBe('://example.com')
+    expect(u.sanitizer('http:///path')).toBe('http:///path')
   })
 
   it('should handle URLs with unusual characters in protocol gracefully', () => {
-    expect(u.sanitizer('http s://example.com')).toBe('http s://example.com') // space in protocol is allowed
-    expect(u.sanitizer('http\t://example.com')).toBe('http\t://example.com') // tab in protocol is allowed
-    expect(u.sanitizer('http\n://example.com')).toBe('http\n://example.com') // newline in protocol is allowed
+    expect(u.sanitizer('http s://example.com')).toBe('http s://example.com')
+    expect(u.sanitizer('http\t://example.com')).toBe('http\t://example.com')
+    expect(u.sanitizer('http\n://example.com')).toBe('http\n://example.com')
   })
 
-  it('should handle extremely long URLs', () => {
-    // Long URLs are allowed - sanitizer only checks for dangerous protocols
+  it('should allow extremely long URLs because the sanitizer only checks for dangerous protocols', () => {
     const longUrl = `https://example.com/${'a'.repeat(100_000)}`
     expect(u.sanitizer(longUrl)).toBe(longUrl)
   })
 
-  it('should handle URLs with null bytes or control characters gracefully', () => {
+  it('should allow null bytes and control characters in a path, and null bytes in a domain', () => {
     expect(u.sanitizer('https://example.com/\x00path')).toBe(
       'https://example.com/\x00path'
-    ) // null bytes are allowed
+    )
     expect(u.sanitizer('https://example.com/\x01path')).toBe(
       'https://example.com/\x01path'
-    ) // control chars are allowed
+    )
     expect(u.sanitizer('https://example\x00.com')).toBe(
       'https://example\x00.com'
-    ) // null bytes in domain are allowed
+    )
   })
 })
 
@@ -566,143 +590,157 @@ describe('encodeUrlTarget', () => {
       'https://example.com/\uDC00'
     )
   })
+
+  it.each([
+    ['https://example.com/a?b=c&d=e#f~', 'https://example.com/a?b=c&d=e#f~'],
+    ['%25', '%25'],
+    ['a b', 'a%20b'],
+    ['a"b', 'a%22b'],
+    ['a<b', 'a%3Cb'],
+    ['a>b', 'a%3Eb'],
+    ['a[b', 'a%5Bb'],
+    ['a\\b', 'a%5Cb'],
+    ['a]b', 'a%5Db'],
+    ['a^b', 'a%5Eb'],
+    ['a`b', 'a%60b'],
+    ['a{b', 'a%7Bb'],
+    ['a|b', 'a%7Cb'],
+    ['a}b', 'a%7Db'],
+    ['a~ b', 'a~%20b'],
+    ['a\x7fb', 'a%7Fb'],
+    ['a\x01b', 'a%01b'],
+    ['a\tb', 'a%09b'],
+    ['é b', '%C3%A9%20b'],
+    ['%41 b', '%41%20b'],
+    ['%4a b', '%4a%20b'],
+    ['%zz b', '%25zz%20b'],
+    ['%4 b', '%254%20b'],
+    ['a b%', 'a%20b%25'],
+    ['a b%4', 'a%20b%254'],
+    ['a b%41', 'a%20b%41'],
+    ['100%', '100%25'],
+    ['🚀 b', '%F0%9F%9A%80%20b'],
+    ['\uD800x y', '\uD800x%20y'],
+    ['a b\uD800', 'a%20b\uD800'],
+    ['\uDC00 🚀', '\uDC00%20%F0%9F%9A%80'],
+  ])('encodes %j as %j', (input, expected) => {
+    expect(u.encodeUrlTarget(input)).toBe(expected)
+  })
 })
 
 describe('slugify', () => {
-  it('should convert text to URL-safe slugs', () => {
-    expect(u.slugify('Hello World')).toBe('hello-world')
-    expect(u.slugify('Hello-World')).toBe('hello-world')
+  it.each([
+    ['Hello World', 'hello-world'],
+    ['Hello-World', 'hello-world'],
+    ['Hello   World', 'hello---world'],
+    ['-hello-', '-hello-'],
+    [' - hello - ', '---hello---'],
+    ['abc123', 'abc123'],
+    ['ABC123', 'abc123'],
+    ['Hello!@#$%^&*()', 'hello'],
+    ['test_file.txt', 'testfiletxt'],
+    ['', ''],
+    ['   ', '---'],
+    ['-_-', '--'],
+    ['!@#$%^&*()', ''],
+    ['café', 'cafe'],
+    ['café', 'cafe'],
+    ['naïve', 'naive'],
+    ['résumé', 'resume'],
+    ['ÁÉÍÓÚ', 'aeiou'],
+    ['Ññ', 'nn'],
+    ['Öl Straße öÖß', 'ol-strasse-ooss'],
+    ['Čech Łódź Đặng', 'cech-lodz-dang'],
+    ['Œuvre ĳ', 'ouvre-'],
+    ['× ÷', '-'],
+    ['hello​world', 'helloworld'],
+    ['​‌‍', ''],
+    ['hello\nworld', 'helloworld'],
+    ['hello\tworld', 'helloworld'],
+    ['hello\rworld', 'helloworld'],
+    ['hello\x00world', 'helloworld'],
+    ['hello\x01world', 'helloworld'],
+    ['hello�world', 'helloworld'],
+    ['∑∆∏', ''],
+    ['hello \u{1F600} world', 'hello--world'],
+    ['ᚠᛇᚻ', ''],
+    ['あいうえお', ''],
+  ])('slugifies %j as %j', (input, expected) => {
+    expect(u.slugify(input)).toBe(expected)
   })
 
-  it('should preserve multiple spaces as multiple hyphens', () => {
-    expect(u.slugify('Hello   World')).toBe('hello---world')
-  })
-
-  it('should handle Unicode characters', () => {
-    expect(u.slugify('café')).toBe('cafe')
-    expect(u.slugify('naïve')).toBe('naive')
-    expect(u.slugify('résumé')).toBe('resume')
-  })
-
-  it('should preserve alphanumeric characters', () => {
-    expect(u.slugify('abc123')).toBe('abc123')
-    expect(u.slugify('ABC123')).toBe('abc123')
-  })
-
-  it('should handle special characters', () => {
-    expect(u.slugify('Hello!@#$%^&*()')).toBe('hello')
-    expect(u.slugify('test_file.txt')).toBe('testfiletxt')
-  })
-
-  it('should handle empty and edge cases', () => {
-    expect(u.slugify('')).toBe('')
-    expect(u.slugify('   ')).toBe('---')
-    expect(u.slugify('-_-')).toBe('--') // underscores are filtered out
-  })
-
-  it('should handle complex Unicode combinations', () => {
-    expect(u.slugify('ÁÉÍÓÚ')).toBe('aeiou')
-    expect(u.slugify('Ññ')).toBe('nn')
-  })
-
-  it('should handle extremely long strings', () => {
-    const longString = 'a'.repeat(100_000)
-    expect(u.slugify(longString)).toBe(longString)
-  })
-
-  it('should handle strings with every ASCII character', () => {
+  it('should keep every ASCII letter and digit, lowercase letters, and turn only the space and dash into hyphens', () => {
     const allChars = Array.from({ length: 128 }, (_, i) =>
       String.fromCharCode(i)
     ).join('')
-    const result = u.slugify(allChars)
-    expect(result).toMatch(/^[a-z0-9-]*$/)
+    expect(u.slugify(allChars)).toBe(
+      '--0123456789abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz'
+    )
   })
 
-  it('should handle strings with combining characters', () => {
-    expect(u.slugify('café')).toBe('cafe') // combining acute
-    expect(u.slugify('ñ')).toBe('n') // combining tilde
+  it('should return the input for a very long letter-only string and an empty slug for a very long punctuation-only string', () => {
+    const longString = 'a'.repeat(100_000)
+    expect(u.slugify(longString)).toBe(longString)
+    expect(u.slugify('!'.repeat(10_000))).toBe('')
   })
 
-  it('should handle strings with zero-width characters', () => {
-    expect(u.slugify('hello\u200Bworld')).toBe('helloworld') // zero-width space
+  it('folds every Latin letter from U+00C0 to U+024F and U+1E00 to U+1EFF to the ASCII letter its decomposition starts with', () => {
+    const noDecomposition: Record<number, string> = {
+      198: 'a',
+      208: 'd',
+      216: 'o',
+      223: 'ss',
+      230: 'a',
+      240: 'd',
+      248: 'o',
+      272: 'd',
+      273: 'd',
+      294: 'h',
+      295: 'h',
+      305: 'i',
+      319: 'l',
+      320: 'l',
+      321: 'l',
+      322: 'l',
+      330: 'n',
+      331: 'n',
+      338: 'o',
+      339: 'o',
+      358: 't',
+      359: 't',
+      383: 's',
+    }
+    const codes = [
+      ...Array.from({ length: 0x2_50 - 0xc0 }, (_, i) => 0xc0 + i),
+      ...Array.from({ length: 0x1_00 }, (_, i) => 0x1e_00 + i),
+    ]
+    const fold = (code: number) => {
+      const base = String.fromCharCode(code).normalize('NFD').charAt(0)
+      return (
+        noDecomposition[code] ?? (/[a-z]/i.test(base) ? base.toLowerCase() : '')
+      )
+    }
+    expect(codes.map(code => u.slugify(String.fromCharCode(code)))).toEqual(
+      codes.map(fold)
+    )
   })
 
-  it('should handle strings with control characters', () => {
-    expect(u.slugify('hello\nworld')).toBe('helloworld') // control chars are filtered out
-    expect(u.slugify('hello\tworld')).toBe('helloworld') // control chars are filtered out
-    expect(u.slugify('hello\rworld')).toBe('helloworld') // control chars are filtered out
-  })
-
-  it('should handle strings with mathematical symbols', () => {
-    expect(u.slugify('∑∆∏')).toBe('') // these are filtered out
-  })
-
-  it('should handle strings with emoji', () => {
-    expect(u.slugify('hello 😀 world')).toBe('hello--world') // emoji creates multiple spaces
-  })
-
-  it('should handle strings with unusual Unicode ranges', () => {
-    expect(u.slugify('ᚠᛇᚻ')).toBe('') // runic characters
-    expect(u.slugify('あいうえお')).toBe('') // hiragana
-  })
-
-  it('should reject strings that result in empty slugs', () => {
-    expect(u.slugify('!@#$%^&*()')).toBe('') // only punctuation
-    expect(u.slugify('∑∆∏')).toBe('') // only mathematical symbols
-    expect(u.slugify('')).toBe('') // empty string
-    expect(u.slugify('   ')).toBe('---') // only whitespace becomes hyphens
-  })
-
-  it('should handle strings with invalid characters', () => {
-    expect(u.slugify('hello\x00world')).toBe('helloworld') // null bytes are filtered
-    expect(u.slugify('hello\x01world')).toBe('helloworld') // control chars are filtered
-    expect(u.slugify('hello\uFFFDworld')).toBe('helloworld') // replacement chars are filtered
-  })
-
-  it('should reject strings that could cause issues', () => {
-    // Very long strings with only punctuation
-    const longPunct = '!'.repeat(10_000)
-    expect(u.slugify(longPunct)).toBe('')
-
-    // Strings that normalize to nothing
-    expect(u.slugify('\u200B\u200C\u200D')).toBe('') // zero-width characters
-  })
-
-  it('should not produce slugs that start or end with hyphens inappropriately', () => {
-    expect(u.slugify('-hello-')).toBe('-hello-') // preserves existing hyphens
-    expect(u.slugify(' - hello - ')).toBe('---hello---') // spaces become hyphens
-  })
-
-  it('should handle malformed input gracefully', () => {
-    expect(() => u.slugify(null as any)).toThrow() // null input should throw
-    expect(() => u.slugify(undefined as any)).toThrow() // undefined input should throw
+  it('should strip a combining tilde', () => {
+    expect(u.slugify('ñ')).toBe('n')
   })
 })
 
-describe('string utilities', () => {
-  describe('startsWith', () => {
-    it('should check if string starts with prefix', () => {
-      expect(u.startsWith('hello world', 'hello')).toBe(true)
-      expect(u.startsWith('hello world', 'world')).toBe(false)
-      expect(u.startsWith('hello', 'hello world')).toBe(false)
-    })
-
-    it('should handle position parameter', () => {
-      expect(u.startsWith('hello world', 'world', 6)).toBe(true)
-      expect(u.startsWith('hello world', 'hello', 1)).toBe(false)
-    })
-  })
-
-  describe('endsWith', () => {
-    it('should check if string ends with suffix', () => {
-      expect(u.endsWith('hello world', 'world')).toBe(true)
-      expect(u.endsWith('hello world', 'hello')).toBe(false)
-    })
-
-    it('should handle position parameter', () => {
-      expect(u.endsWith('hello world', 'hello', 5)).toBe(true)
-      expect(u.endsWith('hello world', 'world', 5)).toBe(false)
-    })
+describe('headingId', () => {
+  it.each([
+    ['hello-world', 'hello-world'],
+    ['a b', 'a b'],
+    [' x ', ' x '],
+    ['', undefined],
+    [undefined, undefined],
+    [' ', undefined],
+    ['\t\n ', undefined],
+  ])('returns %j as %j', (id, expected) => {
+    expect(u.headingId(id)).toBe(expected)
   })
 })
 
@@ -718,131 +756,7 @@ describe('character classification', () => {
     it('should return false for non-alphanumeric characters', () => {
       expect(u.isAlnumCode('!'.charCodeAt(0))).toBe(false)
       expect(u.isAlnumCode(' '.charCodeAt(0))).toBe(false)
-      expect(u.isAlnumCode(128)).toBe(false) // Non-ASCII
-    })
-  })
-
-  describe('isASCIIPunctuation', () => {
-    it('should return true for ASCII punctuation characters', () => {
-      const punctuation = '!@#$%^&*()-_=+[]{}|;:,.<>?/~`'
-      for (const char of punctuation) {
-        expect(u.isASCIIPunctuation(char.charCodeAt(0))).toBe(true)
-      }
-    })
-
-    it('should return false for non-punctuation characters', () => {
-      expect(u.isASCIIPunctuation('a'.charCodeAt(0))).toBe(false)
-      expect(u.isASCIIPunctuation(' '.charCodeAt(0))).toBe(false)
-      expect(u.isASCIIPunctuation(128)).toBe(false) // Non-ASCII
-    })
-  })
-
-  describe('isASCIIWhitespace', () => {
-    it('should return true for ASCII whitespace characters', () => {
-      expect(u.isASCIIWhitespace('\t'.charCodeAt(0))).toBe(true)
-      expect(u.isASCIIWhitespace('\n'.charCodeAt(0))).toBe(true)
-      expect(u.isASCIIWhitespace('\r'.charCodeAt(0))).toBe(true)
-      expect(u.isASCIIWhitespace(' '.charCodeAt(0))).toBe(true)
-      expect(u.isASCIIWhitespace('\f'.charCodeAt(0))).toBe(true)
-    })
-
-    it('should return false for non-whitespace characters', () => {
-      expect(u.isASCIIWhitespace('a'.charCodeAt(0))).toBe(false)
-      expect(u.isASCIIWhitespace('!'.charCodeAt(0))).toBe(false)
-      expect(u.isASCIIWhitespace(128)).toBe(false) // Non-ASCII
-    })
-  })
-
-  describe('isUnicodeWhitespace', () => {
-    it('should return true for Unicode whitespace characters', () => {
-      expect(u.isUnicodeWhitespace(' ')).toBe(true)
-      expect(u.isUnicodeWhitespace('\t')).toBe(true)
-      expect(u.isUnicodeWhitespace('\n')).toBe(true)
-      expect(u.isUnicodeWhitespace('\u00A0')).toBe(true) // Non-breaking space
-      expect(u.isUnicodeWhitespace('\u2000')).toBe(true) // Various Unicode spaces
-    })
-
-    it('should return true for empty string', () => {
-      expect(u.isUnicodeWhitespace('')).toBe(true)
-    })
-
-    it('should return false for non-whitespace characters', () => {
-      expect(u.isUnicodeWhitespace('a')).toBe(false)
-      expect(u.isUnicodeWhitespace('!')).toBe(false)
-    })
-  })
-
-  describe('isUnicodePunctuation', () => {
-    it('should return true for Unicode punctuation characters', () => {
-      expect(u.isUnicodePunctuation('!')).toBe(true)
-      expect(u.isUnicodePunctuation('.')).toBe(true)
-      expect(u.isUnicodePunctuation('?')).toBe(true)
-      expect(u.isUnicodePunctuation('¿')).toBe(true) // Unicode punctuation
-      expect(u.isUnicodePunctuation('¡')).toBe(true)
-    })
-
-    it('should return false for non-punctuation characters', () => {
-      expect(u.isUnicodePunctuation('a')).toBe(false)
-      expect(u.isUnicodePunctuation(' ')).toBe(false)
-      expect(u.isUnicodePunctuation('')).toBe(false)
-    })
-
-    it('should handle numeric code parameter', () => {
-      expect(u.isUnicodePunctuation('.'.charCodeAt(0))).toBe(true)
-      expect(u.isUnicodePunctuation('a'.charCodeAt(0))).toBe(false)
-    })
-
-    it('should handle edge cases with high Unicode codepoints', () => {
-      expect(u.isUnicodePunctuation(0x10_ff_ff)).toBe(false) // maximum valid Unicode
-      expect(u.isUnicodePunctuation(0x11_00_00)).toBe(false) // beyond maximum
-    })
-
-    it('should handle combining characters', () => {
-      expect(u.isUnicodePunctuation('\u0300')).toBe(false) // combining grave accent
-      expect(u.isUnicodePunctuation('\u0301')).toBe(false) // combining acute accent
-    })
-
-    it('should handle control characters', () => {
-      expect(u.isUnicodePunctuation('\u0000')).toBe(false) // null
-      expect(u.isUnicodePunctuation('\u0001')).toBe(false) // start of heading
-      expect(u.isUnicodePunctuation('\u007F')).toBe(false) // delete
-    })
-
-    it('should handle mathematical operators', () => {
-      expect(u.isUnicodePunctuation('+')).toBe(true)
-      expect(u.isUnicodePunctuation('=')).toBe(true)
-      expect(u.isUnicodePunctuation('±')).toBe(true) // plus-minus sign
-    })
-
-    it('should handle currency symbols', () => {
-      expect(u.isUnicodePunctuation('$')).toBe(true)
-      expect(u.isUnicodePunctuation('€')).toBe(true)
-      expect(u.isUnicodePunctuation('£')).toBe(true)
-    })
-
-    it('should handle dingbats and symbols', () => {
-      expect(u.isUnicodePunctuation('✓')).toBe(true) // check mark
-      expect(u.isUnicodePunctuation('✗')).toBe(true) // ballot x
-    })
-
-    it('should handle various Unicode punctuation categories', () => {
-      // Pc (connector punctuation)
-      expect(u.isUnicodePunctuation('_')).toBe(true)
-      // Pd (dash punctuation)
-      expect(u.isUnicodePunctuation('—')).toBe(true) // em dash
-      // Pe (close punctuation)
-      expect(u.isUnicodePunctuation(')')).toBe(true)
-      expect(u.isUnicodePunctuation('}')).toBe(true)
-      // Pf (final punctuation)
-      expect(u.isUnicodePunctuation('»')).toBe(true)
-      // Pi (initial punctuation)
-      expect(u.isUnicodePunctuation('«')).toBe(true)
-      // Po (other punctuation)
-      expect(u.isUnicodePunctuation('!')).toBe(true)
-      expect(u.isUnicodePunctuation('?')).toBe(true)
-      // Ps (open punctuation)
-      expect(u.isUnicodePunctuation('(')).toBe(true)
-      expect(u.isUnicodePunctuation('{')).toBe(true)
+      expect(u.isAlnumCode(128)).toBe(false)
     })
   })
 })
@@ -871,7 +785,7 @@ describe('isVoidElement', () => {
     }
   })
 
-  it('should return true for SVG void elements', () => {
+  it('should return true for SVG void elements and false for animateTransform', () => {
     const svgVoidElements = [
       'circle',
       'ellipse',
@@ -888,7 +802,6 @@ describe('isVoidElement', () => {
     for (const tag of svgVoidElements) {
       expect(u.isVoidElement(tag)).toBe(true)
     }
-    // animateTransform is not a void element
     expect(u.isVoidElement('animateTransform')).toBe(false)
   })
 
@@ -921,22 +834,22 @@ describe('isVoidElement', () => {
     expect(u.isVoidElement('\t')).toBe(false)
   })
 
-  it('should handle case sensitivity correctly', () => {
-    expect(u.isVoidElement('BR')).toBe(true) // case insensitive
+  it('should match void element names case-insensitively', () => {
+    expect(u.isVoidElement('BR')).toBe(true)
     expect(u.isVoidElement('br')).toBe(true)
     expect(u.isVoidElement('Br')).toBe(true)
   })
 
-  it('should handle SVG namespace edge cases', () => {
-    expect(u.isVoidElement('svg:')).toBe(false) // empty after colon
-    expect(u.isVoidElement(':circle')).toBe(true) // :circle matches circle (empty before colon is ignored)
-    expect(u.isVoidElement('circle:svg')).toBe(false) // wrong order
+  it('should return false for an empty name after the colon or a void name before it, and true for an empty prefix before a void name', () => {
+    expect(u.isVoidElement('svg:')).toBe(false)
+    expect(u.isVoidElement(':circle')).toBe(true)
+    expect(u.isVoidElement('circle:svg')).toBe(false)
   })
 
-  it('should handle malformed tag names', () => {
-    expect(u.isVoidElement('<br>')).toBe(false) // includes brackets
-    expect(u.isVoidElement('br>')).toBe(false) // includes bracket
-    expect(u.isVoidElement('<br')).toBe(false) // includes bracket
+  it('should return false for a tag name that includes angle brackets', () => {
+    expect(u.isVoidElement('<br>')).toBe(false)
+    expect(u.isVoidElement('br>')).toBe(false)
+    expect(u.isVoidElement('<br')).toBe(false)
   })
 
   it('should handle Unicode in tag names', () => {
@@ -1019,9 +932,8 @@ describe('get', () => {
     ['Card', { CARD: 'found' }],
     ['CaRd', { CARD: 'found' }],
     ['CARD', { cArD: 'found' }],
-    // The Kelvin sign lowercases to `k`
     ['KEY', { '\u{212A}ey': 'found' }],
-  ])('matches %j to a key in any casing when the tag starts with an uppercase letter', (tag, source) => {
+  ])('matches %j to a key in any casing, with the Kelvin sign matching k, when the tag starts with an uppercase letter', (tag, source) => {
     expect(u.get(source, tag, 'fallback')).toBe('found')
     expect(
       u.get(
@@ -1076,41 +988,6 @@ describe('get', () => {
 })
 
 describe('text processing', () => {
-  describe('findLineEnd', () => {
-    it('should find the end of the current line', () => {
-      expect(u.findLineEnd('hello\nworld', 0)).toBe(5)
-      expect(u.findLineEnd('hello\r\nworld', 0)).toBe(5) // CRLF: returns position before \r
-      expect(u.findLineEnd('hello', 0)).toBe(5)
-      expect(u.findLineEnd('hello\nworld', 6)).toBe(11)
-    })
-
-    it('should return string length when no newline found', () => {
-      expect(u.findLineEnd('no newline', 0)).toBe(10)
-    })
-
-    it('should handle extremely long strings', () => {
-      const longString = `${'a'.repeat(100_000)}\n`
-      expect(u.findLineEnd(longString, 0)).toBe(100_000)
-    })
-
-    it('should handle strings with unusual newline combinations', () => {
-      expect(u.findLineEnd('hello\r\nworld', 0)).toBe(5) // CRLF - returns position before \r
-      expect(u.findLineEnd('hello\rworld', 0)).toBe(11) // CR only (not treated as newline)
-      expect(u.findLineEnd('hello\n\rworld', 0)).toBe(5) // LF then CR
-    })
-
-    it('should handle empty strings and edge positions', () => {
-      expect(u.findLineEnd('', 0)).toBe(0)
-      expect(u.findLineEnd('a', 0)).toBe(1)
-      expect(u.findLineEnd('a', 1)).toBe(1) // position beyond string
-    })
-
-    it('should handle strings with multiple consecutive newlines', () => {
-      expect(u.findLineEnd('hello\n\nworld', 0)).toBe(5)
-      expect(u.findLineEnd('hello\n\nworld', 6)).toBe(6) // at the second newline
-    })
-  })
-
   describe('normalizeInput', () => {
     it('should normalize CRLF to LF', () => {
       expect(u.normalizeInput('hello\r\nworld')).toBe('hello\nworld')
@@ -1141,44 +1018,6 @@ describe('text processing', () => {
       expect(u.normalizeInput('\n\n')).toBe('\n\n')
     })
   })
-
-  describe('skipWhitespace', () => {
-    it('should skip spaces and tabs', () => {
-      expect(u.skipWhitespace('  \t hello', 0)).toBe(4)
-      expect(u.skipWhitespace('hello', 0)).toBe(0)
-      expect(u.skipWhitespace('   ', 0)).toBe(3)
-    })
-
-    it('should respect maxPos parameter', () => {
-      expect(u.skipWhitespace('  \t hello', 0, 3)).toBe(3)
-      expect(u.skipWhitespace('  \t hello', 0, 2)).toBe(2)
-    })
-
-    it('should handle extremely long whitespace sequences', () => {
-      const longWhitespace = `${' '.repeat(100_000)}text`
-      expect(u.skipWhitespace(longWhitespace, 0)).toBe(100_000)
-    })
-
-    it('should handle mixed whitespace characters', () => {
-      expect(u.skipWhitespace(' \t \n \r \f hello', 0)).toBe(3) // only space and tab are considered whitespace here
-    })
-
-    it('should handle Unicode whitespace characters', () => {
-      expect(u.skipWhitespace(' \u00A0\u2000\u2001hello', 0)).toBe(1) // only space is considered whitespace here
-    })
-
-    it('should handle edge positions', () => {
-      expect(u.skipWhitespace('', 0)).toBe(0) // empty string
-      expect(u.skipWhitespace('   ', 3)).toBe(3) // position at end
-      expect(u.skipWhitespace('   ', 10)).toBe(10) // position beyond string
-    })
-
-    it('should handle strings starting with non-whitespace', () => {
-      expect(u.skipWhitespace('hello world', 0)).toBe(0)
-      expect(u.skipWhitespace('hello world', 5)).toBe(6) // at space, skips to next non-whitespace
-      expect(u.skipWhitespace('hello   world', 6)).toBe(8) // skip multiple spaces
-    })
-  })
 })
 
 describe('hasKeys', () => {
@@ -1187,9 +1026,9 @@ describe('hasKeys', () => {
     expect(u.hasKeys({ a: 1, b: 2 })).toBe(true)
   })
 
-  it('should return false for objects without enumerable properties', () => {
+  it('should return false for objects without enumerable properties, including Sets', () => {
     expect(u.hasKeys({})).toBe(false)
-    expect(u.hasKeys(new Set([1, 2, 3]))).toBe(false) // Sets don't have enumerable string keys
+    expect(u.hasKeys(new Set([1, 2, 3]))).toBe(false)
     expect(u.hasKeys(new Set())).toBe(false)
   })
 
@@ -1198,28 +1037,28 @@ describe('hasKeys', () => {
     expect(u.hasKeys(undefined)).toBe(false)
   })
 
-  it('should handle objects with non-enumerable properties', () => {
+  it('should return false for an object whose only property is non-enumerable', () => {
     const obj = {}
     Object.defineProperty(obj, 'hidden', { enumerable: false, value: 'value' })
-    expect(u.hasKeys(obj)).toBe(false) // only enumerable properties count
+    expect(u.hasKeys(obj)).toBe(false)
   })
 
-  it('should handle objects with symbol properties', () => {
+  it('should return false for an object whose only property is a symbol key', () => {
     const sym = Symbol('test')
     const obj = { [sym]: 'value' }
-    expect(u.hasKeys(obj)).toBe(false) // symbols are not string keys
+    expect(u.hasKeys(obj)).toBe(false)
   })
 
-  it('should handle prototype chain properties', () => {
+  it('should return true for an object with an own enumerable property and an inherited one', () => {
     const obj = Object.create({ inherited: 'value' })
     obj.own = 'ownValue'
-    expect(u.hasKeys(obj)).toBe(true) // own enumerable properties
+    expect(u.hasKeys(obj)).toBe(true)
   })
 
-  it('should handle arrays with properties', () => {
+  it('should return true for an array with an extra enumerable property', () => {
     const arr = [1, 2, 3] as number[] & { customProp: string }
     arr.customProp = 'value'
-    expect(u.hasKeys(arr)).toBe(true) // has length and customProp
+    expect(u.hasKeys(arr)).toBe(true)
   })
 
   it('should handle functions with properties', () => {
@@ -1228,12 +1067,12 @@ describe('hasKeys', () => {
     expect(u.hasKeys(fn)).toBe(true)
   })
 
-  it('should handle primitive wrappers', () => {
+  it('should return true for a String wrapper (indexed characters) and false for Number and Boolean wrappers (no enumerable properties)', () => {
     const asRecord = (value: object): Record<string, unknown> =>
       value as Record<string, unknown>
-    expect(u.hasKeys(asRecord(new Object(String('hello'))))).toBe(true) // has length and other properties
-    expect(u.hasKeys(asRecord(new Object(Number(42))))).toBe(false) // Number wrapper has no enumerable properties
-    expect(u.hasKeys(asRecord(new Object(Boolean(true))))).toBe(false) // Boolean wrapper has no enumerable properties
+    expect(u.hasKeys(asRecord(new Object(String('hello'))))).toBe(true)
+    expect(u.hasKeys(asRecord(new Object(Number(42))))).toBe(false)
+    expect(u.hasKeys(asRecord(new Object(Boolean(true))))).toBe(false)
   })
 
   it('should handle frozen/sealed objects', () => {
@@ -1243,9 +1082,7 @@ describe('hasKeys', () => {
 })
 
 describe('getFilteredTagEmit', () => {
-  // GFM tagfilter keeps body and closer; only each matching leading '<' is
-  // escaped at the HTML sink. This helper derives the inert source parts.
-  it('emits opener+body+closer for Type 1 verbatim nodes', () => {
+  it('emits opener+body+closer for Type 1 verbatim nodes, because the GFM tagfilter keeps body and closer and escapes only each matching leading < at the HTML sink', () => {
     expect(
       u.getFilteredTagEmit({
         type: RuleType.htmlBlock,
@@ -1400,6 +1237,17 @@ describe('htmlAttrsToJSXProps', () => {
     `)
   })
 
+  it('keeps a name outside the XML namespaces as written', () => {
+    expect(
+      u.htmlAttrsToJSXProps({
+        'a:': '1',
+        'b:c': '2',
+        'h:ref': '3',
+        'xlink:': '4',
+      })
+    ).toEqual({ 'a:': '1', 'b:c': '2', 'h:ref': '3', 'xlink:': '4' })
+  })
+
   it('should handle case-insensitive lookup for known attrs', () => {
     expect(
       u.htmlAttrsToJSXProps({ CLASS: 'foo', For: 'bar', TABINDEX: '0' })
@@ -1443,19 +1291,39 @@ describe('withoutHandlerSource', () => {
     onerror: true,
   })
   const kept = { href: '/', onClick: fn }
+  function Card() {
+    return null
+  }
+  const resolveTag = (tag: string, overrides: any): unknown => {
+    const override = u.get(overrides, tag, undefined)
+    if (typeof override === 'function' || typeof override === 'string') {
+      return override
+    }
+    return override?.component || tag
+  }
 
   it.each([
     ['a', undefined, kept],
     ['a', { a: { props: {} } }, kept],
-    ['my-widget', { 'my-widget': { props: {} } }, kept],
+    ['my-widget', { 'my-widget': Card }, kept],
     ['Btn', undefined, kept],
-    ['Btn', { Other: { props: {} } }, kept],
-    ['Btn', { btn: { props: {} } }, attrs()],
-    ['BTN', { Btn: { props: {} } }, attrs()],
-  ])('gives the attributes of <%s> with %j as %j, leaving the node as written', (tag, overrides, expected) => {
+    ['Btn', { Other: Card }, kept],
+    ['Btn', { Btn: 'a' }, kept],
+    ['Btn', { Btn: { component: 'a' } }, kept],
+    ['Btn', { Btn: { props: {} } }, kept],
+    ['Btn', { Btn: Card }, attrs()],
+    ['Btn', { btn: { component: Card } }, attrs()],
+    ['BTN', { Btn: Card }, attrs()],
+  ])('gives the attributes of <%s> with %j as %j when the renderer resolves tags, leaving the node as written', (tag, overrides, expected) => {
     const own = attrs()
-    expect(u.withoutHandlerSource(tag, own, overrides)).toEqual(expected)
+    expect(u.withoutHandlerSource(tag, own, overrides, resolveTag)).toEqual(
+      expected
+    )
     expect(own).toEqual(attrs())
+  })
+
+  it('strips string handlers from a component tag when the renderer only writes elements', () => {
+    expect(u.withoutHandlerSource('Btn', attrs(), { Btn: Card })).toEqual(kept)
   })
 
   it.each([
@@ -1474,7 +1342,6 @@ describe('normalizeJsxReparseText', () => {
     ["<i title='a\nb'>\nx\n</i>", "<i title='a\nb'> x </i>"],
     ['<i title = "a\nb">x</i>', '<i title = "a\nb">x</i>'],
     ['<i title="a\nb', '<i title="a\nb'],
-    // A quote that follows no `=` opens no value, so what follows is markup
     ['<a title="x"\nb"c\nd">\ne', '<a title="x" b"c d"> e'],
     ["<p>don't\n<b>x</b></p>", "<p>don't <b>x</b></p>"],
     ['</i title="a\nb">', '</i title="a b">'],
@@ -1530,7 +1397,6 @@ describe('no runtime remote fetching', () => {
       var content = fs.readFileSync(file, 'utf8')
       var relPath = path.relative(path.join(import.meta.dirname, '..'), file)
       for (var api of NetworkApis) {
-        // skip comments — only match actual code usage
         var lines = content.split('\n')
         for (var i = 0; i < lines.length; i++) {
           var line = lines[i].trim()

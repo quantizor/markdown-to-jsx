@@ -3,15 +3,6 @@ import { Component, type ReactNode } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { CASES, MARKDOWN_OPTIONS } from './fixture'
 
-/**
- * Showcase app for the live native harness. Each fixture case renders inside
- * its own error boundary so a crashing case logs a CASE_THREW sentinel to the
- * Metro console and shows a THREW marker on screen instead of taking down the
- * whole page. The footer END sentinel confirms every case mounted.
- *
- * Consumes the library from source (see metro.config.js), so edits under
- * lib/src hot-reload here. Requires Watchman for that loop to work.
- */
 interface BoundaryProps {
   children: ReactNode
   index: number

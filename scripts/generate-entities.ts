@@ -1,11 +1,4 @@
 #!/usr/bin/env node
-
-/**
- * Build script to generate HTML entity constants
- * Reads vendored data/entities.json (sourced from https://html.spec.whatwg.org/entities.json)
- * for CommonMark compliance
- */
-
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -13,34 +6,6 @@ import { fileURLToPath } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-
-// Entities required for CommonMark spec compliance
-// These match the entities used in CommonMark spec examples
-const _REQUIRED_ENTITIES = [
-  // Basic ASCII entities (required for HTML escaping)
-  'amp',
-  'apos',
-  'gt',
-  'lt',
-  'quot',
-  'nbsp',
-  // CommonMark spec test entities
-  'copy',
-  'AElig',
-  'aelig',
-  'frac34',
-  'HilbertSpace',
-  'DifferentialD',
-  'ClockwiseContourIntegral',
-  'ouml',
-  'Ouml',
-  'auml',
-  'Auml',
-  'Dcaron',
-  'dcaron',
-  'ngE',
-  'nge',
-]
 
 function loadEntitiesFromVendoredFile(): Array<{
   name: string
@@ -62,15 +27,11 @@ function loadEntitiesFromVendoredFile(): Array<{
     }
   }
 
-  // Sort by name for binary search
   entities.sort((a, b) => a.name.localeCompare(b.name))
 
   return entities
 }
 
-/**
- * Convert code point(s) to Unicode string
- */
 function decodeCodepoints(codepoints: number[]): string {
   let result = ''
   for (let i = 0; i < codepoints.length; i++) {
@@ -91,37 +52,28 @@ function decodeCodepoints(codepoints: number[]): string {
 function generateEntityConstants(
   entities: Array<{ name: string; codepoints: number[] }>
 ): string {
-  // Build simple object mapping entity names to Unicode strings
-  // Store only lowercase versions when case variants map to the same Unicode (saves ~8.8 KB)
   const entityMap: Record<string, string> = {}
   const unicodeByLowercase: Record<string, string> = {}
 
-  // First pass: collect all entities and group by lowercase name
   for (const { name, codepoints } of entities) {
     const unicode = decodeCodepoints(codepoints)
     const lowerName = name.toLowerCase()
 
-    // If we've seen this lowercase name before, check if Unicode matches
     if (unicodeByLowercase[lowerName]) {
       if (unicodeByLowercase[lowerName] === unicode) {
       } else {
-        // Different Unicode - keep both (case matters for this entity)
         entityMap[name] = unicode
       }
     } else {
-      // First time seeing this lowercase name
       unicodeByLowercase[lowerName] = unicode
-      // Store lowercase version (will be overridden if case matters)
       entityMap[lowerName] = unicode
     }
   }
 
-  // Second pass: for entities where case matters (different Unicode), store the uppercase version
   for (const { name, codepoints } of entities) {
     const unicode = decodeCodepoints(codepoints)
     const lowerName = name.toLowerCase()
 
-    // If the lowercase version exists but maps to different Unicode, store the uppercase too
     if (
       lowerName !== name &&
       entityMap[lowerName] &&
@@ -131,19 +83,14 @@ function generateEntityConstants(
     }
   }
 
-  // Third pass: special case handling for backward compatibility
-  // Some lowercase entities (like aelig) should prefer the "first two uppercase" variant (AElig)
-  // This preserves old behavior where &aelig; decoded to Æ instead of æ
   for (const { name, codepoints } of entities) {
     const unicode = decodeCodepoints(codepoints)
     const lowerName = name.toLowerCase()
 
     if (lowerName === name && name.length >= 2) {
-      // This is a lowercase entity - check if there's a "first two uppercase" variant
       const upperFirstTwo = name.slice(0, 2).toUpperCase() + name.slice(2)
       const upperFirst = name.charAt(0).toUpperCase() + name.slice(1)
 
-      // If upperFirstTwo exists and maps to different Unicode, prefer it (e.g., aelig -> AElig)
       if (
         upperFirstTwo !== name &&
         entityMap[upperFirstTwo] &&
@@ -155,45 +102,80 @@ function generateEntityConstants(
     }
   }
 
-  // Generate object literal string
-  // Sort by Unicode value first (for better gzip compression), then by name
-  // This groups entities with the same Unicode character together, creating more repetition
-  const entries = Object.entries(entityMap)
-    .sort((a, b) => {
-      const unicodeCompare = a[1].localeCompare(b[1])
-      if (unicodeCompare !== 0) {
-        return unicodeCompare
-      }
-      return a[0].localeCompare(b[0])
+  const groups = new Map<string, string[]>()
+  for (const [name, unicode] of Object.entries(entityMap)) {
+    const names = groups.get(unicode)
+    if (names) {
+      names.push(name)
+    } else {
+      groups.set(unicode, [name])
+    }
+  }
+
+  const single: [number, string[]][] = []
+  const multi: [string, string[]][] = []
+  for (const [unicode, names] of groups) {
+    names.sort()
+    const cp = unicode.codePointAt(0) ?? 0
+    if (String.fromCodePoint(cp) === unicode) {
+      single.push([cp, names])
+    } else if (/[ ,]/.test(unicode)) {
+      throw new Error(
+        `Entity value ${JSON.stringify(unicode)} holds a packing separator (space or comma); widen the multi-character packing in scripts/generate-entities.ts`
+      )
+    } else {
+      multi.push([unicode, names])
+    }
+  }
+  single.sort((a, b) => a[0] - b[0])
+  multi.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+
+  let previous = 0
+  const packedSingle = single
+    .map(([cp, names]) => {
+      const delta = cp - previous
+      previous = cp
+      return (delta === 1 ? '' : String(delta)) + names.join(' ')
     })
-    .map(([name, unicode]) => {
-      // Escape quotes and backslashes in entity name
-      const escapedName = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-      // Escape quotes, backslashes, and newlines in Unicode string
-      const escapedUnicode = unicode
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"')
-        .replace(/\n/g, '\\n')
-        .replace(/\r/g, '\\r')
-      return `  "${escapedName}":"${escapedUnicode}"`
-    })
-    .join(',\n')
+    .join(',')
+  const packedMulti = multi
+    .map(([unicode, names]) => `${unicode} ${names.join(' ')}`)
+    .join(',')
 
   return (
-    '/**\n' +
-    ' * Auto-generated HTML entity mappings for CommonMark compliance\n' +
-    ' * Source: data/entities.json (vendored from https://html.spec.whatwg.org/entities.json)\n' +
-    ' * Generated by scripts/generate-entities.ts\n' +
-    ' * \n' +
-    ' * Simple object mapping entity names to Unicode characters.\n' +
-    ' * Stores only lowercase versions when case variants map to the same Unicode (saves ~8.8 KB).\n' +
-    ' * Case-sensitive entities (where uppercase/lowercase differ) are stored with both keys.\n' +
-    ' */\n' +
-    '\n' +
-    'export const NAMED_CODES_TO_UNICODE: Record<string, string> = {\n' +
-    entries +
-    '\n}\n' +
-    '\n' +
+    `/**
+ * Auto-generated HTML entity mappings for CommonMark compliance
+ * Source: data/entities.json (vendored from https://html.spec.whatwg.org/entities.json)
+ * Generated by scripts/generate-entities.ts
+ *
+ * Packed strings, unpacked once at import (layout: specs/tooling.md, "Entity table generator").
+ */
+
+var SINGLE = ${JSON.stringify(packedSingle)}
+var MULTI = ${JSON.stringify(packedMulti)}
+
+export const NAMED_CODES_TO_UNICODE: Record<string, string> = {}
+
+var codePoint = 0
+SINGLE.split(',').forEach(function (group) {
+  var i = 0
+  var delta = 0
+  while (group.charCodeAt(i) < 58) delta = delta * 10 + group.charCodeAt(i++) - 48
+  codePoint += delta || 1
+  var value = String.fromCodePoint(codePoint)
+  group
+    .slice(i)
+    .split(' ')
+    .forEach(function (name) {
+      NAMED_CODES_TO_UNICODE[name] = value
+    })
+})
+MULTI.split(',').forEach(function (group) {
+  var parts = group.split(' ')
+  for (var i = 1; i < parts.length; i++) NAMED_CODES_TO_UNICODE[parts[i]] = parts[0]
+})
+
+` +
     '/**\n' +
     ' * Decode a named entity using the lookup table.\n' +
     ' * Returns the decoded character or undefined if not found.\n' +

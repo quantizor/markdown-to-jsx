@@ -1,11 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { scorePaired, scoreTiny, type Verdict } from './metrics-gate.ts'
-import { quantile } from './metrics-targets.ts'
+import { quantile } from './metrics-sample.ts'
 
-// Limits and ratios below are powers of two (25, 12.5, 1.0625, ...), so the
-// percent arithmetic is exact in floating point and a value sitting on a limit
-// is exactly on it.
-const LIMITS = { limitPct: 25, spreadLimitPct: 12.5 }
+const BINARY_EXACT_LIMITS = { limitPct: 25, spreadLimitPct: 12.5 }
 
 const ratios = (ratioP25: number, ratio: number, ratioP75: number) => ({
   ratio,
@@ -115,23 +112,16 @@ describe('scorePaired', () => {
   ]
 
   test.each(rows)('%s', (_name, first, second, expected) => {
-    expect(scorePaired(first, second, LIMITS)).toEqual(expected)
+    expect(scorePaired(first, second, BINARY_EXACT_LIMITS)).toEqual(expected)
   })
 })
 
 describe('scoreTiny', () => {
-  // Eight samples sort to a quartile rank of 1, median rank of 3, and upper
-  // quartile rank of 5, so these three values land on those ranks.
-  const samples = (low: number, mid: number, high: number) => [
-    low,
-    low,
-    mid,
-    mid,
-    high,
-    high,
-    high,
-    high,
-  ]
+  const eightSamplesAtQuartileRanks = (
+    low: number,
+    mid: number,
+    high: number
+  ) => [low, low, mid, mid, high, high, high, high]
 
   const rows: [
     name: string,
@@ -141,86 +131,86 @@ describe('scoreTiny', () => {
   ][] = [
     [
       'passes a candidate within the limit',
-      samples(1, 1, 1),
-      samples(1, 1.0625, 1.0625),
+      eightSamplesAtQuartileRanks(1, 1, 1),
+      eightSamplesAtQuartileRanks(1, 1.0625, 1.0625),
       { ratio: 1.0625, verdict: 'ok' },
     ],
     [
       'passes a candidate faster than the baseline',
-      samples(1, 1, 1),
-      samples(0.5, 0.5, 0.5),
+      eightSamplesAtQuartileRanks(1, 1, 1),
+      eightSamplesAtQuartileRanks(0.5, 0.5, 0.5),
       { ratio: 0.5, verdict: 'ok' },
     ],
     [
       'fails a tight candidate over the limit',
-      samples(1, 1, 1),
-      samples(1.4375, 1.5, 1.5),
+      eightSamplesAtQuartileRanks(1, 1, 1),
+      eightSamplesAtQuartileRanks(1.4375, 1.5, 1.5),
       { ratio: 1.5, verdict: 'FAIL' },
     ],
     [
       'reports NOISY when the candidate spread is wide and the median is under the limit',
-      samples(1, 1, 1),
-      samples(1, 1.1875, 1.375),
+      eightSamplesAtQuartileRanks(1, 1, 1),
+      eightSamplesAtQuartileRanks(1, 1.1875, 1.375),
       { ratio: 1.1875, verdict: 'NOISY' },
     ],
     [
       'reports NOISY, not FAIL, when the median is over but the lower quartile is not',
-      samples(1, 1, 1),
-      samples(1.125, 1.5, 1.875),
+      eightSamplesAtQuartileRanks(1, 1, 1),
+      eightSamplesAtQuartileRanks(1.125, 1.5, 1.875),
       { ratio: 1.5, verdict: 'NOISY' },
     ],
     [
       'fails despite a wide spread when the candidate lower quartile clears the limit',
-      samples(1, 1, 1),
-      samples(1.3125, 1.5, 1.875),
+      eightSamplesAtQuartileRanks(1, 1, 1),
+      eightSamplesAtQuartileRanks(1.3125, 1.5, 1.875),
       { ratio: 1.5, verdict: 'FAIL' },
     ],
     [
       'reports NOISY when only the baseline spread is wide',
-      samples(0.875, 1, 1.125),
-      samples(1, 1, 1),
+      eightSamplesAtQuartileRanks(0.875, 1, 1.125),
+      eightSamplesAtQuartileRanks(1, 1, 1),
       { ratio: 1, verdict: 'NOISY' },
     ],
     [
       'fails despite a wide baseline spread when the candidate lower quartile clears the baseline upper quartile by the limit',
-      samples(0.875, 1, 1.125),
-      samples(1.5, 1.5, 1.5),
+      eightSamplesAtQuartileRanks(0.875, 1, 1.125),
+      eightSamplesAtQuartileRanks(1.5, 1.5, 1.5),
       { ratio: 1.5, verdict: 'FAIL' },
     ],
     [
       'measures the favorable bound against the baseline upper quartile, not its median',
-      samples(0.875, 1, 1.125),
-      samples(1.375, 1.5, 1.5),
+      eightSamplesAtQuartileRanks(0.875, 1, 1.125),
+      eightSamplesAtQuartileRanks(1.375, 1.5, 1.5),
       { ratio: 1.5, verdict: 'NOISY' },
     ],
     [
       'passes a ratio exactly at the limit',
-      samples(1, 1, 1),
-      samples(1.25, 1.25, 1.25),
+      eightSamplesAtQuartileRanks(1, 1, 1),
+      eightSamplesAtQuartileRanks(1.25, 1.25, 1.25),
       { ratio: 1.25, verdict: 'ok' },
     ],
     [
       'fails a ratio just above the limit',
-      samples(1, 1, 1),
-      samples(1.3125, 1.3125, 1.3125),
+      eightSamplesAtQuartileRanks(1, 1, 1),
+      eightSamplesAtQuartileRanks(1.3125, 1.3125, 1.3125),
       { ratio: 1.3125, verdict: 'FAIL' },
     ],
     [
       'passes a spread exactly at the spread limit',
-      samples(1, 1, 1),
-      samples(1, 1, 1.125),
+      eightSamplesAtQuartileRanks(1, 1, 1),
+      eightSamplesAtQuartileRanks(1, 1, 1.125),
       { ratio: 1, verdict: 'ok' },
     ],
     [
       'reports NOISY for a spread just above the spread limit',
-      samples(1, 1, 1),
-      samples(1, 1, 1.156_25),
+      eightSamplesAtQuartileRanks(1, 1, 1),
+      eightSamplesAtQuartileRanks(1, 1, 1.156_25),
       { ratio: 1, verdict: 'NOISY' },
     ],
   ]
 
   test.each(rows)('%s', (_name, baseline, candidate, expected) => {
-    const score = scoreTiny(baseline, candidate, LIMITS)
+    const score = scoreTiny(baseline, candidate, BINARY_EXACT_LIMITS)
 
     expect({ ratio: score.ratio, verdict: score.verdict }).toEqual(expected)
   })
@@ -229,7 +219,7 @@ describe('scoreTiny', () => {
     const score = scoreTiny(
       [5, 1, 8, 3, 7, 2, 6, 4],
       [10, 30, 20, 80, 40, 70, 50, 60],
-      LIMITS
+      BINARY_EXACT_LIMITS
     )
 
     expect(score.baseline).toEqual({ high: 6, low: 2, mid: 4 })

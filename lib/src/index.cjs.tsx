@@ -1,9 +1,3 @@
-/**
- * CommonJS entry point for markdown-to-jsx
- *
- * @deprecated Use ES modules import instead. For React usage, use `markdown-to-jsx/react`.
- */
-
 import Markdown, { compiler, RuleType } from './index.tsx'
 import { parser } from './parse.ts'
 

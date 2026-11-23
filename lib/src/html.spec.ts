@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 
+import { $ } from './constants.ts'
 import { astToHTML, compiler, RuleType } from './html.ts'
 import { parser } from './parse.ts'
-import { storedAST } from './test-tree.ts'
+import { quotesDeep, storedAST } from './test-tree.ts'
 import type { MarkdownToJSX } from './types.ts'
 
 describe('html compiler', () => {
@@ -10,6 +11,41 @@ describe('html compiler', () => {
     expect(compiler('a ~~~c~~~ b ~~~~ ~~d~~~e~~')).toMatchInlineSnapshot(
       `"<p>a ~~~c~~~ b ~~~~ <del>d~~~e</del></p>"`
     )
+  })
+
+  it('keeps a task marker as text unless whitespace and content follow it', () => {
+    expect(compiler('- [x]foo\n- [ ] \n- [x] baz')).toMatchInlineSnapshot(
+      `"<ul><li>[x]foo</li><li>[ ]</li><li><input checked="" disabled="" type="checkbox"> baz</li></ul>"`
+    )
+  })
+
+  it('keeps the rest of a task marker line as text, never a block', () => {
+    expect(compiler('- [x] # heading\n- [x] > quote')).toMatchInlineSnapshot(
+      `"<ul><li><input checked="" disabled="" type="checkbox"> # heading</li><li><input checked="" disabled="" type="checkbox"> &gt; quote</li></ul>"`
+    )
+  })
+
+  it.each([
+    ['==``==b==`', '<p>==``<mark>b</mark>`</p>'],
+    ['~~``~~b~~`', '<p>~~``<del>b</del>`</p>'],
+    ['[a ``b](/u) `c', '<p><a href="/u">a ``b</a> `c</p>'],
+    ['~~a ~~', '<p>~~a ~~</p>'],
+    ['~~ a~~', '<p>~~ a~~</p>'],
+    ['~~a~~~\n~~<', '<p>~~a~~~\n~~&lt;</p>'],
+    ['a ===c=== b', '<p>a ===c=== b</p>'],
+    ['==a===b==', '<p><mark>a===b</mark></p>'],
+    ['==x==', '<p><mark>x</mark></p>'],
+    ['== x==', '<p>== x==</p>'],
+    ['a \\==b==', '<p>a ==b==</p>'],
+    ['~~foo ~~bar baz~~', '<p>~~foo <del>bar baz</del></p>'],
+    ['~~a ~~b~~ c~~', '<p><del>a <del>b</del> c</del></p>'],
+    ['==a ==b== c==', '<p><mark>a <mark>b</mark> c</mark></p>'],
+    ['~~**a**~~', '<p><del><strong>a</strong></del></p>'],
+    ['**~~a~~**', '<p><strong><del>a</del></strong></p>'],
+    ['*~~a*~~', '<p><em>~~a</em>~~</p>'],
+    ['~~*a~~*', '<p><del>*a</del>*</p>'],
+  ])('pairs strikethrough and mark runs like emphasis: %j', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
   })
 
   describe('footnotes', () => {
@@ -155,7 +191,6 @@ describe('html compiler', () => {
 
       const result = astToHTML(ast, {})
 
-      // The refs should contain '^abc' as the key
       expect(result).toContain('<div id="abc">abc: Baz baz</div>')
       expect(result).toContain('foo<a href="#abc"><sup>abc</sup></a> bar')
     })
@@ -199,8 +234,7 @@ describe('html compiler', () => {
       )
     })
 
-    it('should handle HTML in footnote content', () => {
-      // With tagfilter enabled (default), dangerous tags should be escaped
+    it('should escape script tags in footnote content under the default-on tagfilter and render the footer exactly once', () => {
       const result = compiler(
         `foo[^abc] bar
 
@@ -208,19 +242,14 @@ describe('html compiler', () => {
         { tagfilter: true }
       )
 
-      // Verify footer appears exactly once
       const footerMatches = result.match(/<footer>.*?<\/footer>/g)
       expect(footerMatches).toBeTruthy()
       expect(footerMatches?.length).toBe(1)
 
-      // Check that footnote content is present
       expect(result).toContain('Content with')
 
-      // Verify script tags are escaped for XSS protection when tagfilter is enabled
-      // The opening tag should be escaped, preventing script execution
       expect(result).toContain('&lt;script')
       expect(result).not.toContain('<script>')
-      // The closing tag may be handled differently by HTML block parsing
       expect(result).not.toMatch(/<\/script>/)
     })
 
@@ -250,6 +279,28 @@ describe('html compiler', () => {
     it('should render links', () => {
       const result = compiler('[text](https://example.com)')
       expect(result).toContain('<a href="https://example.com">text</a>')
+    })
+
+    it('ends link text at a bracket inside a raw HTML element, and hides only a bracket inside the tag itself', () => {
+      expect(compiler('[see <b>this]</b> note](/docs)')).toBe(
+        '<p>[see <b>this]</b> note](/docs)</p>'
+      )
+      expect(compiler('[a <b title="]">x</b>](/u)')).toBe(
+        '<p><a href="/u">a <b title="]">x</b></a></p>'
+      )
+    })
+
+    it.each([
+      ['`a| b |\n|---|', '<p>`a| b |\n|---|</p>'],
+      ['`|]\n-', '<h2>`|]</h2>'],
+      ['-\n  _\n\n  )', '<ul><li><p>_</p><p>)</p></li></ul>'],
+      ['-\n\n  -', '<ul><li></li><li></li></ul>'],
+      [
+        '>a\n-',
+        '<div><blockquote><p>a</p></blockquote><ul><li></li></ul></div>',
+      ],
+    ])('renders the table and list edge case %j as %j', (input, expected) => {
+      expect(compiler(input)).toBe(expected)
     })
   })
 
@@ -352,7 +403,6 @@ describe('html compiler', () => {
         },
         forceWrapper: true,
       })
-      // Should sanitize dangerous attributes
       expect(result).not.toContain('onclick')
       expect(result).not.toContain('javascript:')
     })
@@ -1050,7 +1100,7 @@ describe('html compiler', () => {
       expect(result).toContain('<div class="para">')
     })
 
-    it('node id takes precedence over override id for headings', () => {
+    it('node id takes precedence over override id for headings because the node id is set after the override props', () => {
       const result = astToHTML(
         [
           {
@@ -1071,7 +1121,6 @@ describe('html compiler', () => {
           },
         }
       )
-      // Node id is set after override props, so it takes precedence
       expect(result).toContain('class="new-class"')
       expect(result).toContain('id="original-id"')
       expect(result).not.toContain('id="override-id"')
@@ -1126,6 +1175,54 @@ describe('html compiler', () => {
       expect(result).not.toContain('background-color')
       expect(result).not.toContain('font-size')
     })
+
+    it('writes nothing for an override prop set to false', () => {
+      expect(
+        compiler('# hi', {
+          overrides: { h1: { props: { 'data-a': false, 'data-d': 'k' } } },
+        })
+      ).toBe('<h1 data-d="k" id="hi">hi</h1>')
+    })
+
+    it('writes nothing for an attribute that is a function, a non-style object, or an empty style object', () => {
+      expect(
+        astToHTML(
+          [
+            {
+              type: RuleType.htmlBlock,
+              tag: 'div',
+              attrs: {
+                'data-a': false,
+                'data-b': () => {},
+                'data-c': { x: 1 },
+                'data-d': 'k',
+                style: {},
+              },
+              _verbatim: false,
+              children: [],
+            },
+          ],
+          {}
+        )
+      ).toBe('<div data-d="k"></div>')
+    })
+
+    it.each([
+      ['<div class="z">x</div>', '<div class="z">x</div>'],
+      ['<div>x</div>', '<div>x</div>'],
+      ['<br class="z">', '<br class="z">'],
+      ['<Foo a="b"/>', '<Foo a="b"></Foo>'],
+    ])('writes no space after the raw tag in %j when every override prop is false', (markdown, html) => {
+      expect(
+        compiler(markdown, {
+          overrides: {
+            br: { props: { 'data-a': false } },
+            div: { props: { 'data-a': false } },
+            Foo: { props: { 'data-a': false } },
+          },
+        })
+      ).toBe(html)
+    })
   })
 
   describe('URL reencoding after sanitization', () => {
@@ -1138,7 +1235,6 @@ describe('html compiler', () => {
     })
 
     it('should reencode backslashes and backticks after sanitization', () => {
-      // Create a URL that gets sanitized and contains backslashes/backticks
       const result = astToHTML(
         [
           {
@@ -1148,19 +1244,14 @@ describe('html compiler', () => {
           },
         ],
         {
-          sanitizer: (url: string) => {
-            // Simulate sanitizer that modifies the URL
-            return url.replace(/https:/, 'http:')
-          },
+          sanitizer: (url: string) => url.replace(/https:/, 'http:'),
         }
       )
-      // Should contain reencoded characters
-      expect(result).toContain('%5C') // backslash
-      expect(result).toContain('%60') // backtick
+      expect(result).toContain('%5C')
+      expect(result).toContain('%60')
     })
 
     it('should return sanitized URL without reencoding when no special chars', () => {
-      // When sanitizer modifies URL but no backslashes/backticks, should return sanitized directly
       const result = astToHTML(
         [
           {
@@ -1170,13 +1261,9 @@ describe('html compiler', () => {
           },
         ],
         {
-          sanitizer: (url: string) => {
-            // Sanitizer modifies URL but no special chars to reencode
-            return url.replace(/https:/, 'http:')
-          },
+          sanitizer: (url: string) => url.replace(/https:/, 'http:'),
         }
       )
-      // Should use sanitized URL directly (no reencoding needed)
       expect(result).toContain('http://example.com/path')
       expect(result).not.toContain('%5C')
       expect(result).not.toContain('%60')
@@ -1224,10 +1311,129 @@ describe('html compiler', () => {
       expect(result).toContain('markdown-alert-warning')
       expect(result).toContain('<header>WARNING!</header>')
     })
+
+    it.each([
+      ['a space', ' '],
+      ['a no-break space', ' '],
+      ['an ideographic space', '　'],
+      ['a form feed', '\f'],
+      ['a vertical tab', '\v'],
+    ])('stays an alert when the marker is followed by %s', (_name, ws) => {
+      expect(compiler(`> [!NOTE]${ws}\n> body`)).toBe(
+        '<blockquote class="markdown-alert-note"><header>NOTE</header><p>body</p></blockquote>'
+      )
+    })
+
+    it('stays a quote when the marker is followed by text', () => {
+      expect(compiler('> [!NOTE]　x\n> body')).toBe(
+        '<blockquote><p>[!NOTE]　x\nbody</p></blockquote>'
+      )
+    })
+  })
+
+  describe('lazy continuation of a blockquote or list item', () => {
+    it.each([
+      [
+        '>     code\n> para\nlazy',
+        '<blockquote><pre><code>code</code></pre><p>para\nlazy</p></blockquote>',
+      ],
+      [
+        '> para\n>     code\nlazy',
+        '<blockquote><p>para\ncode\nlazy</p></blockquote>',
+      ],
+      [
+        '> # h\nlazy',
+        '<div><blockquote><h1 id="h">h</h1></blockquote><p>lazy</p></div>',
+      ],
+      [
+        '- # h\nlazy',
+        '<div><ul><li><h1 id="h">h</h1></li></ul><p>lazy</p></div>',
+      ],
+      ['> ---\nlazy', '<div><blockquote><hr /></blockquote><p>lazy</p></div>'],
+      [
+        '> ```\n> a\nlazy',
+        '<div><blockquote><pre><code>a</code></pre></blockquote><p>lazy</p></div>',
+      ],
+      [
+        '- | a | b |\n  | - | - |\nlazy',
+        '<div><ul><li><table><thead><tr><th>a</th><th>b</th></tr></thead></table></li></ul><p>lazy</p></div>',
+      ],
+      ['> <pre>\nlazy', '<div><blockquote><pre></blockquote><p>lazy</p></div>'],
+      ['- <pre>\nlazy', '<div><ul><li><pre></li></ul><p>lazy</p></div>'],
+      ['> <div>\nlazy', '<div><blockquote><div></blockquote><p>lazy</p></div>'],
+      ['- <div>\nlazy', '<div><ul><li><div></li></ul><p>lazy</p></div>'],
+      ['- </pre>\nm', '<div><ul><li></pre></li></ul><p>m</p></div>'],
+      ['> </pre>\nm', '<div><blockquote></pre></blockquote><p>m</p></div>'],
+      ['> - a\nlazy', '<blockquote><ul><li>a\nlazy</li></ul></blockquote>'],
+      [
+        '> > a\nlazy',
+        '<blockquote><blockquote><p>a\nlazy</p></blockquote></blockquote>',
+      ],
+      [
+        '> f\nbar\n> # x',
+        '<blockquote><p>f\nbar</p><h1 id="x">x</h1></blockquote>',
+      ],
+      [
+        '- 10. a\n\n      b\nlazy',
+        '<ul><li><ol start="10"><li><p>a</p><p>b\nlazy</p></li></ol></li></ul>',
+      ],
+      [
+        '> 1.  one\n>\n>     two\nthree',
+        '<blockquote><ol><li><p>one</p><p>two\nthree</p></li></ol></blockquote>',
+      ],
+      [
+        '> [x]: /u\n[y]: /v\n\n[y]',
+        '<div><blockquote></blockquote><p><a href="/v">y</a></p></div>',
+      ],
+    ])('ends or extends a container for %j as %j', (input, expected) => {
+      expect(compiler(input)).toBe(expected)
+    })
+  })
+
+  describe('list looseness around HTML blocks', () => {
+    it.each([
+      [
+        'a block that ends at the blank line before a paragraph',
+        '- <div>x</div>\n\n  i\n- b',
+        '<ul><li><div>x</div><p>i</p></li><li><p>b</p></li></ul>',
+      ],
+      [
+        'a nested block that ends at a blank line',
+        '- <details>\n  <summary>S</summary>\n\n  body\n\n  </details>\n- next',
+        '<ul><li><details><summary>S</summary><p>body</p></details></li><li><p>next</p></li></ul>',
+      ],
+      [
+        'an unclosed block that ends at a blank line',
+        '- <div>a\n\n  b',
+        '<ul><li><div>a\n<p>b</p></li></ul>',
+      ],
+      [
+        'an opener whose block ends at a blank line',
+        '1. <p align="center">\n\n   para\n2. x',
+        '<ol><li><p align="center"><p>para</p></li><li><p>x</p></li></ol>',
+      ],
+      [
+        'a void tag followed by a line remainder',
+        '- <img src="a.png"> \n  caption\n- b',
+        '<ul><li><img src="a.png">caption</li><li>b</li></ul>',
+      ],
+      [
+        'a self-closing component followed by a line remainder',
+        '- <MyComponent /> \n  text\n- two',
+        '<ul><li><MyComponent ></MyComponent>text</li><li>two</li></ul>',
+      ],
+      [
+        'a closing tag followed by text',
+        '- </pre>\n  x\n- y',
+        '<ul><li></pre>x</li><li>y</li></ul>',
+      ],
+    ])('keeps the list right with %s', (_name, source, expected) => {
+      expect(compiler(source)).toBe(expected)
+    })
   })
 
   describe('HTML block with closing tag in text', () => {
-    it('should handle script block with closing tag already in text', () => {
+    it('should reconstruct the closing tag on a raw script block with tagfilter off, since the default-on escaping has its own security test', () => {
       const result = astToHTML(
         [
           {
@@ -1240,8 +1446,6 @@ describe('html compiler', () => {
             children: [],
           },
         ],
-        // tagfilter off to exercise the closing-tag reconstruction on raw script
-        // output; the default-on escaping is covered by its own security test.
         { tagfilter: false }
       )
       expect(result).toMatchInlineSnapshot(
@@ -1267,7 +1471,7 @@ describe('html compiler', () => {
       expect(result).toMatchInlineSnapshot(`"<pre><code>test</code></pre>"`)
     })
 
-    it('should add closing tag when not present in text (Type 1 block)', () => {
+    it('should add the closing tag on a Type 1 raw script block that has none, with tagfilter off', () => {
       const result = astToHTML(
         [
           {
@@ -1275,23 +1479,40 @@ describe('html compiler', () => {
             tag: 'script',
             attrs: {},
             _verbatim: true,
-            _rawBody: 'console.log("test");', // No closing tag
+            _rawBody: 'console.log("test");',
             children: [],
           },
         ],
-        // tagfilter off to exercise closing-tag insertion on raw script output.
         { tagfilter: false }
       )
       expect(result).toMatchInlineSnapshot(
         `"<script>console.log("test");</script>"`
       )
     })
+
+    it.each([
+      ['x<span></span></span', '<p>x<span></span>&lt;/span</p>'],
+      ['x<div></div></div', '<p>x<div></div>&lt;/div</p>'],
+      ['x<Foo></Foo></Foo', '<p>x<Foo></Foo>&lt;/Foo</p>'],
+    ])('leaves the second closer of %j as text', (input, expected) => {
+      expect(compiler(input)).toBe(expected)
+    })
+
+    it.each([
+      '<!--@/>',
+      '<!A[@e>',
+    ])('passes %j through as a raw block', markup => {
+      expect(compiler(markup)).toBe(markup)
+    })
+
+    it('renders the children of a stored block with its private fields dropped', () => {
+      expect(
+        astToHTML(storedAST('<div>\n  <div/>\n  <span>content</span>\n</div>'))
+      ).toBe('<div><div></div><p><span>content</span></p></div>')
+    })
   })
 
-  describe('tagfilter escapes dangerous tags by default', () => {
-    // Regression: the render-time tag filter defaulted OFF, so the html compiler
-    // emitted live <script>/<iframe>/<style> despite the documented default-on
-    // protection. Both the compiler() entry and astToHTML must escape by default.
+  describe('tagfilter escapes dangerous tags by default, in both the compiler() entry and astToHTML', () => {
     it('escapes script/iframe/style with default options via compiler()', () => {
       expect(compiler('<script>alert(1)</script>')).toBe(
         '&lt;script>alert(1)&lt;/script>'
@@ -1315,10 +1536,7 @@ describe('html compiler', () => {
     })
   })
 
-  describe('strips dangerous attributes from raw HTML', () => {
-    // Event handlers and dangerous-scheme URLs in raw HTML must never reach
-    // output; the html string compiler emits attributes verbatim, so it is the
-    // strictest test of the parser-level attribute stripping.
+  describe('strips dangerous attributes from raw HTML, which the html string compiler emits verbatim, making it the strictest test of the parser-level stripping', () => {
     it('strips on* event handlers regardless of quoting or case', () => {
       expect(compiler('<img src=x onerror=alert(1)>')).toBe('<img src=x>')
       expect(compiler('<div onclick="alert(1)">hi</div>')).toBe(
@@ -1361,6 +1579,41 @@ describe('html compiler', () => {
       ).toBe('<blockquote >q</blockquote>')
     })
 
+    it.each([
+      ['0;url=javascript:alert(1)'],
+      ['0;URL=javascript:alert(1)'],
+      ["0; url = 'javascript:alert(1)'"],
+      ['0;url=JaVaScRiPt:alert(1)'],
+      ['0;url=&#106;avascript:alert(1)'],
+      ['0;url=jav&#x61;script:alert(1)'],
+      ['0;url=java%73cript:alert(1)'],
+      ['0;url=java&#9;script:alert(1)'],
+      ['0;url=data:text/html,x'],
+      ['0;url=vbscript:msgbox(1)'],
+      ['0;javascript:alert(1)'],
+      ['  5 , url=javascript:alert(1)'],
+    ])('strips a meta refresh content whose URL is dangerous: %s', content => {
+      expect(compiler(`<meta http-equiv="refresh" content="${content}">`)).toBe(
+        '<meta http-equiv="refresh">'
+      )
+    })
+
+    it('keeps a meta refresh content whose URL is safe', () => {
+      expect(
+        compiler('<meta http-equiv="refresh" content="0;url=https://x.y">')
+      ).toBe('<meta http-equiv="refresh" content="0;url=https://x.y">')
+      expect(
+        compiler(
+          '<meta http-equiv="refresh" content="5; URL=/next?a=javascript:x">'
+        )
+      ).toBe(
+        '<meta http-equiv="refresh" content="5; URL=/next?a=javascript:x">'
+      )
+      expect(
+        compiler('<meta name="description" content="data: files and url=x">')
+      ).toBe('<meta name="description" content="data: files and url=x">')
+    })
+
     it('strips schemes hidden behind HTML entities (tab/newline)', () => {
       expect(compiler('<a href="java&#9;script:alert(1)">x</a>')).toBe(
         '<p><a>x</a></p>'
@@ -1379,8 +1632,7 @@ describe('html compiler', () => {
       )
     })
 
-    it('strips srcdoc entirely', () => {
-      // iframe is tagfiltered by default; srcdoc must be gone before that.
+    it('strips srcdoc entirely, before the default tagfilter escapes the iframe', () => {
       expect(
         compiler('<iframe srcdoc="<img src=x onerror=alert(1)>"></iframe>')
       ).toBe('&lt;iframe >&lt;/iframe>')
@@ -1395,10 +1647,7 @@ describe('html compiler', () => {
       )
     })
 
-    it('strips handlers nested in a container that also holds block-level markdown', () => {
-      // A container whose inner content mixes a block-level markdown line with
-      // raw HTML takes the non-verbatim raw-source emit path; its inner tags
-      // must still be sanitized.
+    it('strips handlers nested in a container that also holds block-level markdown, where the non-verbatim raw-source emit path must still sanitize inner tags', () => {
       expect(
         compiler(
           '<div>\n# Heading\n<a href="javascript:alert(1)">y</a>\n</div>'
@@ -1411,16 +1660,13 @@ describe('html compiler', () => {
       ).toBe('<div>\n# Heading\n<a href="/ok">y</a>\n</div>')
     })
 
-    it('strips numeric-character-reference schemes without a trailing semicolon', () => {
-      // Browsers resolve a semicolon-less numeric reference (&#106avascript:
-      // becomes javascript:), so the scheme check must decode it too.
+    it('strips numeric-character-reference schemes without a trailing semicolon, which browsers resolve to the scheme', () => {
       expect(compiler('<a href="&#106avascript:alert(1)">x</a>')).toBe(
         '<p><a>x</a></p>'
       )
       expect(compiler('<a href="j&#x61vascript:alert(1)">x</a>')).toBe(
         '<p><a>x</a></p>'
       )
-      // A safe numeric entity in a URL is preserved.
       expect(compiler('<a href="/s?a=1&#38;b=2">ok</a>')).toBe(
         '<p><a href="/s?a=1&#38;b=2">ok</a></p>'
       )
@@ -1491,7 +1737,6 @@ describe('html compiler', () => {
       expect(out).toContain('<td>Bar 1</td>')
       expect(out).toContain('<td>Foo 2</td>')
       expect(out).toContain('<ul><li>one</li><li>two</li><li>three</li></ul>')
-      // No duplicated row openings and all rows close.
       expect(out.match(/<tr>/g)?.length).toBe(2)
       expect(out.match(/<\/tr>/g)?.length).toBe(2)
       expect(out.match(/<td>/g)?.length).toBe(4)
@@ -1560,7 +1805,7 @@ describe('html compiler', () => {
   })
 
   describe('HTML block with text content and tagfilter', () => {
-    it('should apply tagfilter to text content in HTML blocks', () => {
+    it('should apply tagfilter to text content in HTML blocks, reconstructing the non-filtered parent opener without a trailing </div> when the direct AST _rawBody has no own closer', () => {
       const result = astToHTML(
         [
           {
@@ -1574,8 +1819,6 @@ describe('html compiler', () => {
         ],
         { tagfilter: true }
       )
-      // Direct AST: _rawBody has no own closer, so the non-filtered parent
-      // opener is reconstructed without a trailing </div>.
       expect(result).toMatchInlineSnapshot(
         `"<div>Content with &lt;script>alert("xss")&lt;/script>"`
       )
@@ -1836,7 +2079,7 @@ describe('html compiler', () => {
       })
 
       expect(result).toBe(
-        '<pre>---\ntitle: Test\n---</pre><h1 id="content">Content</h1>'
+        '<div><pre>---\ntitle: Test\n---</pre><h1 id="content">Content</h1></div>'
       )
     })
 
@@ -1855,7 +2098,7 @@ tags:
       })
 
       expect(result).toBe(
-        '<pre>---\ntitle: My Document\nauthor: John Doe\ndate: 2023-11-22\ntags:\n  - test\n  - example\n---</pre><h1 id="content">Content</h1>'
+        '<div><pre>---\ntitle: My Document\nauthor: John Doe\ndate: 2023-11-22\ntags:\n  - test\n  - example\n---</pre><h1 id="content">Content</h1></div>'
       )
     })
 
@@ -1872,9 +2115,7 @@ tags:
 })
 
 describe('optimizeForStreaming keeps literal delimiters', () => {
-  it('removes only unclosed emphasis openers', () => {
-    // Literal `_` and `*` in finished text survive; only the genuinely
-    // unclosed opener on the last line is held back (issue #905)
+  it('removes only the unclosed emphasis opener on the last line and keeps literal underscores and asterisks in finished text (issue #905)', () => {
     expect(
       compiler(
         'pass *args and **kwargs\n\ncustomer_id and `customer_id`\n\nSELECT * FROM t WHERE 2*3=6\n\nhttps://example.com/a_b and <https://example.com/c_d>\n\n**held',
@@ -1885,10 +2126,7 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
     )
   })
 
-  it('hides a never-closed opener until the final render (issue #909)', () => {
-    // The parser cannot tell a streaming edge from finished text, so an
-    // opener with no closer stays hidden while the option is on; the
-    // documented final render with the option off shows it as written
+  it('hides a never-closed opener while the option is on, since the parser cannot tell a streaming edge from finished text, and shows it as written in the final render with the option off (issue #909)', () => {
     const md = 'Use _trace and *args'
     expect(compiler(md, { optimizeForStreaming: true })).toMatchInlineSnapshot(
       `"<p>Use trace and args</p>"`
@@ -1898,9 +2136,7 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
     )
   })
 
-  it('keeps complete HTML and earlier blocks unchanged', () => {
-    // Complete raw HTML, and incomplete-looking links and code in a block
-    // that is no longer the last one, render exactly as without the option
+  it('renders complete raw HTML, and incomplete-looking links and code in a block that is no longer the last one, exactly as without the option', () => {
     const md = 'a <span>z</span> <br> b\n\nsee [a](b and `code\n\nlast'
     const streamed = compiler(md, { optimizeForStreaming: true })
     expect(streamed).toBe(compiler(md))
@@ -1920,8 +2156,7 @@ describe('optimizeForStreaming option', () => {
     expect(result).not.toContain('<div>')
   })
 
-  it('should render incomplete fenced code blocks normally (content visible as it streams)', () => {
-    // Fenced code blocks should render as they stream - users want to see the code
+  it('should render incomplete fenced code blocks normally so users see the code as it streams', () => {
     const result = compiler('```js\nconst x = 1;', {
       optimizeForStreaming: true,
     })
@@ -1980,6 +2215,12 @@ describe('optimizeForStreaming option', () => {
     expect(
       compiler('Hello <div>a</div> and 1 < 2', { optimizeForStreaming: true })
     ).toBe('<p>Hello <div>a</div> and 1 &lt; 2</p>')
+  })
+
+  it('reads a closing tag after an unfinished opener the way a full parse does', () => {
+    expect(compiler('x <Comp </b>y', { optimizeForStreaming: true })).toBe(
+      '<p>x &lt;Comp </b>y</p>'
+    )
   })
 })
 
@@ -2042,6 +2283,45 @@ describe('unique heading IDs (#857)', () => {
       '<h2 id="text"><a href="https://e.com">text</a></h2>'
     )
   })
+
+  it('folds accented Latin letters and ß into the heading id', () => {
+    expect(compiler('# Öl Straße')).toBe('<h1 id="ol-strasse">Öl Straße</h1>')
+    expect(compiler('# Łódź')).toBe('<h1 id="lodz">Łódź</h1>')
+  })
+
+  it.each([
+    ['# !!!', '<h1>!!!</h1>'],
+    ['# `]`', '<h1><code>]</code></h1>'],
+  ])('omits the id attribute of %j, a heading with an empty slug', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+  })
+
+  it('omits the id attribute of a heading whose slug is only whitespace', () => {
+    expect(compiler('# Hi', { slugify: () => ' ' })).toBe('<h1>Hi</h1>')
+  })
+})
+
+describe('entity text in image alt and link or image title', () => {
+  it.each([
+    ['![&amp;copy;](x)', '<p><img src="x" alt="&amp;copy;" /></p>'],
+    ['[a](x "&amp;copy;")', '<p><a href="x" title="&amp;copy;">a</a></p>'],
+    [
+      '![a](x "t&amp;amp;")',
+      '<p><img src="x" alt="a" title="t&amp;amp;" /></p>',
+    ],
+    [
+      '[a][r]\n\n[r]: /u "t&amp;copy;"',
+      '<p><a href="/u" title="t&amp;copy;">a</a></p>',
+    ],
+    [
+      '![a][r]\n\n[r]: /u "t&amp;copy;"',
+      '<p><img src="/u" alt="a" title="t&amp;copy;" /></p>',
+    ],
+    ['![&copy;](x)', '<p><img src="x" alt="©" /></p>'],
+    ['[a](x "&copy;")', '<p><a href="x" title="©">a</a></p>'],
+  ])('writes the text of %j once-decoded and escaped', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+  })
 })
 
 describe('destination entity decode before sanitize', () => {
@@ -2049,6 +2329,38 @@ describe('destination entity decode before sanitize', () => {
     expect(compiler('[x](&#106;avascript:alert(1))')).toBe('<p><a>x</a></p>')
     expect(compiler('![x](&#106;avascript:alert(1))')).toBe(
       '<p><img src="" alt="x" /></p>'
+    )
+  })
+
+  it('percent-encodes a control character in an image src as in a link href', () => {
+    expect(compiler('![x](java\u0001script:alert(1))')).toBe(
+      '<p><img src="java%01script:alert(1)" alt="x" /></p>'
+    )
+    expect(compiler('![x](java&#1;script:alert(1))')).toBe(
+      '<p><img src="java%01script:alert(1)" alt="x" /></p>'
+    )
+    expect(compiler('[x](java\u0001script:alert(1))')).toBe(
+      '<p><a href="java%01script:alert(1)">x</a></p>'
+    )
+  })
+
+  it.each([
+    ['tab', '![x](java\tscript:alert(1))'],
+    ['tab entity', '![x](java&#9;script:alert(1))'],
+    ['newline entity', '![x](java&#10;script:alert(1))'],
+    ['percent tab, mixed case', '![x](JaVa%09ScRiPt:alert(1))'],
+    ['percent control character', '![x](java%01script:alert(1))'],
+    ['percent letter', '![x](java%73cript:alert(1))'],
+  ])('drops an image src whose stripped form is a dangerous scheme: %s', (_, input) => {
+    expect(compiler(input)).toBe('<p><img src="" alt="x" /></p>')
+  })
+
+  it('keeps and encodes a safe image src', () => {
+    expect(compiler('![x](https://a.b/c.png)')).toBe(
+      '<p><img src="https://a.b/c.png" alt="x" /></p>'
+    )
+    expect(compiler('![x](<a b.png>)')).toBe(
+      '<p><img src="a%20b.png" alt="x" /></p>'
     )
   })
 
@@ -2066,15 +2378,25 @@ describe('destination entity decode before sanitize', () => {
 })
 
 describe('inline Type 1 content with tagfilter off', () => {
-  it('preserves single-line script content including forceInline', () => {
+  it('preserves single-line script content, including under forceInline, which wraps the document in a span without dropping the script body', () => {
     expect(compiler('<script>x</script>', { tagfilter: false })).toBe(
       '<script>x</script>'
     )
-    // forceInline wraps the document in a span; the script body must still
-    // survive (the bug dropped it to an empty <script></script>).
     expect(
       compiler('<script>x</script>', { tagfilter: false, forceInline: true })
     ).toBe('<span><script>x</script></span>')
+  })
+
+  it('writes a textarea body, markup and references included, as written, which a browser shows as text', () => {
+    expect(
+      compiler('<textarea><b>x</b> &amp;</textarea>', { tagfilter: false })
+    ).toBe('<textarea><b>x</b> &amp;</textarea>')
+  })
+
+  it('writes the body of a textarea written in capitals', () => {
+    expect(
+      compiler('<TEXTAREA>a &lt; b</TEXTAREA>', { tagfilter: false })
+    ).toBe('<TEXTAREA>a &lt; b</TEXTAREA>')
   })
 })
 
@@ -2135,8 +2457,6 @@ describe('enforceAtxHeadings (#903)', () => {
     [false, '#######x', '<p>#######x</p>'],
     [undefined, 'a<span>#</span>b', '<p>a<span>#</span>b</p>'],
     [false, 'a<span>#</span>b', '<p>a<span>#</span>b</p>'],
-    // The html compiler re-emits a block HTML element's source text, so the
-    // heading the parser reads inside <div> under false does not show here.
     [undefined, '<div>\n#x\n</div>', '<div>\n#x\n</div>'],
     [false, '<div>\n#x\n</div>', '<div>\n#x\n</div>'],
   ])('with enforceAtxHeadings %j renders %j as %j', (enforceAtxHeadings, input, expected) => {
@@ -2145,6 +2465,12 @@ describe('enforceAtxHeadings (#903)', () => {
 })
 
 describe('attribute names a renderer acts on rather than writes', () => {
+  it('writes a name that ends in a colon as written', () => {
+    expect(compiler('<span a:="1">b</span>')).toBe(
+      '<p><span a:="1">b</span></p>'
+    )
+  })
+
   it('removes an object children value from a registered tag', () => {
     expect(
       compiler('<Foo children={{"a":1}}>y</Foo>', {
@@ -2186,6 +2512,15 @@ describe('attribute names a renderer acts on rather than writes', () => {
   ])('renders %j as %j', (input, expected) => {
     expect(compiler(input)).toBe(expected)
   })
+
+  it('drops a brace value holding markup from a self-closing tag while streaming', () => {
+    expect(
+      compiler(
+        '<A dangerouslySetInnerHTML={{__html: "<img src=x onerror=alert(1)>"}} />',
+        { optimizeForStreaming: true }
+      )
+    ).toBe('<A ></A>')
+  })
 })
 
 describe('an SVG animation aimed at a URL or handler attribute', () => {
@@ -2226,7 +2561,6 @@ describe('an SVG animation aimed at a URL or handler attribute', () => {
       '<svg><Set attr:attributeName="href" to="javascript:alert(1)"/></svg>',
       '<p><svg><Set to="javascript:alert(1)"/></svg></p>',
     ],
-    // The JSX outputs resolve a brace value to the bare name
     [
       '<svg><a><set attributeName={href} to="javascript:alert(1)"/></a></svg>',
       '<p><svg><a><set to="javascript:alert(1)"/></a></svg></p>',
@@ -2235,7 +2569,6 @@ describe('an SVG animation aimed at a URL or handler attribute', () => {
       '<svg><a><set attributeName={"href"} to="javascript:alert(1)"/></a></svg>',
       '<p><svg><a><set to="javascript:alert(1)"/></a></svg></p>',
     ],
-    // A brace value on a capitalized tag stays on 9.x
     [
       '<svg><Set attributeName={x} to="y"/></svg>',
       '<p><svg><Set attributeName={x} to="y"/></svg></p>',
@@ -2257,6 +2590,12 @@ describe('a brace value on a URL attribute of a component-like tag', () => {
     ['<Btn href={java&#115;cript:alert(1)}>x</Btn>', '<Btn >x</Btn>'],
     ['<Btn src={ javascript:alert(1)}>x</Btn>', '<Btn >x</Btn>'],
     ['<my-btn action={javascript:alert(1)}>x</my-btn>', '<my-btn >x</my-btn>'],
+    ['<Btn srcDoc={"<script>alert(1)</script>"}>x</Btn>', '<Btn >x</Btn>'],
+    ['<Btn attributeName={href}>x</Btn>', '<Btn >x</Btn>'],
+    [
+      '<Btn attributeName={opacity}>x</Btn>',
+      '<Btn attributeName={opacity}>x</Btn>',
+    ],
     ['<Btn href={link}>x</Btn>', '<Btn href={link}>x</Btn>'],
     ['<Btn data={{"a":1}}>x</Btn>', '<Btn data={{"a":1}}>x</Btn>'],
     ['<Btn src={["a"]}>x</Btn>', '<Btn src={["a"]}>x</Btn>'],
@@ -2273,8 +2612,6 @@ describe('a brace handler on a capitalized tag', () => {
     ['<Btn onClick={() => x > 1}>x</Btn>', '<Btn >x</Btn>'],
     ['<Img src=x onerror={steal()}>', '<Img src=x>'],
     ['<Btn attr:onclick={go}>x</Btn>', '<Btn >x</Btn>'],
-    // An HTML tag a browser reads as holding a live handler is text in raw markup,
-    // and inline it loses each attribute a browser reads differently
     [
       '<Btn onClick={go} style={{ a: 1 }}>x</Btn>',
       '&lt;Btn onClick={go} style={{ a: 1 }}>x</Btn>',
@@ -2292,7 +2629,6 @@ describe('a brace handler on a capitalized tag', () => {
       '<div><Btn onclick={a} x={ onclick={b} }>y</Btn></div>',
       '<div>&lt;Btn onclick={a} x={ onclick={b} }>y</Btn></div>',
     ],
-    // A bare handler name goes from an HTML tag too
     ['<Btn onClick>x</Btn>', '<Btn >x</Btn>'],
     ['<Img onerror>', '<Img >'],
     ['<my-widget online>x</my-widget>', '<my-widget >x</my-widget>'],
@@ -2302,10 +2638,15 @@ describe('a brace handler on a capitalized tag', () => {
   })
 
   it.each([
-    ['<Btn onClick={go}>x</Btn>'],
-    ['<Btn onClick={go} style={{ a: 1 }}>x</Btn>'],
-  ])('keeps %j as written when `overrides` registers the tag', input => {
-    expect(compiler(input, { overrides: { Btn: { props: {} } } })).toBe(input)
+    ['<Btn onClick={go}>x</Btn>', '<Btn >x</Btn>'],
+    [
+      '<Btn onClick={go} style={{ a: 1 }}>x</Btn>',
+      '<Btn style={{ a: 1 }}>x</Btn>',
+    ],
+  ])('writes %j as %j when `overrides` registers the tag, since a browser runs the handler', (input, expected) => {
+    expect(compiler(input, { overrides: { Btn: { props: {} } } })).toBe(
+      expected
+    )
   })
 })
 
@@ -2443,13 +2784,7 @@ describe('a capitalized tag an override matches is a component, and every other 
       undefined,
       '<p>x <a href="/">y</a></p>',
     ],
-    // A capitalized tag an override matches is a component, whose handler stays
-    [
-      '<Btn onClick={go}>x</Btn>',
-      { Btn: { props: {} } },
-      '<Btn onClick={go}>x</Btn>',
-    ],
-    // With no raw source, the output writes the tag from its attrs
+    ['<Btn onClick={go}>x</Btn>', { Btn: { props: {} } }, '<Btn >x</Btn>'],
     [handBuiltLink, undefined, '<a href="/" />'],
     [handBuiltLink, { a: { component: 'b' } }, '<b href="/" />'],
     [handBuiltText, undefined, '<span>t</span>'],
@@ -2500,7 +2835,7 @@ describe('a capitalized tag an override matches is a component, and every other 
     [
       storedAST('<Btn onClick={go}>x</Btn>', { Btn: { props: {} } }),
       { Btn: { props: {} } },
-      '<Btn onClick="go">x</Btn>',
+      '<Btn>x</Btn>',
     ],
   ])('writes %j with %j as %j', (input, overrides, expected) => {
     if (typeof input === 'string') {
@@ -2559,7 +2894,6 @@ describe('a filtered tag after raw markup', () => {
   })
 
   it.each([
-    // Where a browser ends each kind, which can be ahead of where the parser does
     ['<!--> <xmp>', '<!--> &lt;xmp>'],
     ['<!---> <xmp>', '<!---> &lt;xmp>'],
     ['<!-- a --!> <xmp> -->', '<!-- a --!> &lt;xmp> -->'],
@@ -2568,7 +2902,6 @@ describe('a filtered tag after raw markup', () => {
     ['<!X a> <xmp>', '<!X a> &lt;xmp>'],
     ['<![CDATA[ > <xmp> ]]>', '<![CDATA[ > &lt;xmp> ]]>'],
     ['a <?x > <xmp> ?>', '<p>a <?x > &lt;xmp> ?></p>'],
-    // Inside the markup too: an earlier block can leave a browser reading it as something else
     ['<!-- <script> -->', '<!-- &lt;script> -->'],
     ['<!-- <script>', '<!-- &lt;script>'],
     ['a <!-- <xmp> --> b', '<p>a <!-- &lt;xmp> --> b</p>'],
@@ -2667,7 +3000,6 @@ describe('a filtered tag past where a browser ends an open tag', () => {
     ],
     ['p <span x={a><iframe>}/>', '<p>p <span x={a>&lt;iframe>}/></p>'],
     ['<Foo x={a><script>}>', '<Foo x={a>&lt;script>}>'],
-    // Inside a quoted value too: `&lt;` decodes back to `<`, so the value holds
     ['<div x="<script>">y</div>', '<div x="&lt;script>">y</div>'],
     ['<div x={"<script>"}>y</div>', '<div x={"&lt;script>"}>y</div>'],
     [
@@ -2682,7 +3014,6 @@ describe('a filtered tag past where a browser ends an open tag', () => {
 
 describe('deeply nested same-tag openers', () => {
   it.each([
-    // A blank line then the own closer extends the block; any other tag splits it
     ['<div>\n\n</div>', '<div></div>'],
     ['<div>\n\n</DIV >', '<div></div>'],
     ['<div>\n \n\t</div>\nb', '<div><div></div><p>b</p></div>'],
@@ -2715,7 +3046,6 @@ describe('a closer search with a Type 1 tag ahead', () => {
     ],
     ['<div>\nx\n\n</pre></div>', '<div><p>x</p></pre></div>'],
     ['<div>\nx\n\n<prefix></div>', '<div><p>x</p><prefix></div>'],
-    // A tag crossing the Type 1 text hides the closer in its attribute
     [
       '<div>\nx\n\n<div title="</div><pre>">\ny\n',
       '<div><div>x\n<div title="</div><pre>">y\n</div>',
@@ -2728,12 +3058,10 @@ describe('a closer search with a Type 1 tag ahead', () => {
       '<Foo>\nx\n\n<Foo a={</Foo><pre>}>\ny\n\nz',
       '<div><Foo>x\n<Foo a={</Foo><pre>}>y\n<p>z</p></div>',
     ],
-    // A tag the search does not look for leaves the closer before the Type 1 text
     [
       '<Foo>\nx\n\n<Bar a="</Foo><style>">\ny\n\nz',
       '<div><Foo><p>x</p><p>&lt;Bar a=&quot;</p></Foo>&lt;style>">\ny\n\nz</div>',
     ],
-    // A closer reads past the Type 1 text for its own end and name
     [
       '<div>\nx\n\ny</div <pre>\nz',
       '<div><div><p>x</p><p>y</p></div><p>z</p></div>',
@@ -2763,7 +3091,6 @@ describe('a closer search after a failed one', () => {
     ],
     ['x <b>a<b>c</b>d', '<p>x <b>a<b>c</b>d</p>'],
     ['x <b>a</b><b>c', '<p>x <b>a</b><b>c</p>'],
-    // A nested opener whose own search would succeed is not a recorded failure
     ['*<div><div>*</div>', '<p>*<div><div>*</div></p>'],
     [
       '<div><div>\n\n<div>\n\nx</div>',
@@ -2772,7 +3099,6 @@ describe('a closer search after a failed one', () => {
     ['<div>x\n\n<div>\n\n</div></section>', '<div><div>x\n<div></div></div>'],
     ['*<b>a* <b>c</b>', '<p><em><b>a</em> <b>c</b></p>'],
     ['<b>a <b>c</b>', '<p><b>a <b>c</b></p>'],
-    // A failure under one bound says nothing about a search under a later one
     [
       '<div>\nx\n\n<pre>\n</pre>\n\n<div>\ny\n\nz\n</div>',
       '<div><div>x\n<pre></pre><div><p>y</p><p>z</p></div></div>',
@@ -2785,13 +3111,11 @@ describe('a closer search after a failed one', () => {
       '<div>\nx\n\n<div a="</div><pre>">\ny\n\nz\n</div>\n<pre>',
       '<div><div>x\n<div a="</div><pre>"><p>y</p><p>z</p></div><pre></div>',
     ],
-    // An inline bound ends a tag's quoted value too
     ['*<b a="</b>* c', '<p><em>&lt;b a=&quot;</b></em> c</p>'],
     [
       '<section>\nx\n\n<p>\ny\n\n</section>\n\n<section>\nz\n\nw\n</section>',
       '<div><section><p>x</p><p>y\n</section><section><p>z</p><p>w</p></section></div>',
     ],
-    // Only space and tab count as blank between an opener and the next tag; form feed and vertical tab do not
     [
       '<div>\n \n<span>x</span>\n\n</div>',
       '<div><div><p><span>x</span></p></div></div>',
@@ -2841,7 +3165,6 @@ describe('inline markup with no terminator', () => {
     ['x <? a <? b', '<p>x &lt;? a &lt;? b</p>'],
     ['x <![CDATA[ a <![CDATA[ b', '<p>x &lt;![CDATA[ a &lt;![CDATA[ b</p>'],
     ['x <!A a <!B b', '<p>x &lt;!A a &lt;!B b</p>'],
-    // A failed search in one inline run says nothing about the next run
     [
       'x <!-- a\n\ny <!-- b -->',
       '<div><p>x &lt;!-- a</p><p>y <!-- b --></p></div>',
@@ -2853,12 +3176,9 @@ describe('inline markup with no terminator', () => {
   })
 })
 
-describe('a children attribute on a tag with an override', () => {
+describe('a children attribute on a tag with an override, where an element with no content of its own takes the value as text and the attribute is never written', () => {
   const card = { card: { component: 'i' } }
 
-  // An element with no content of its own takes the value as text; the
-  // attribute is never written. A tag alone on a line or inside blocks is read
-  // as a block, so each shape is its own row.
   it.each([
     [
       'a capitalized self-closing tag',
@@ -3056,8 +3376,6 @@ describe('a children attribute on a tag with an override', () => {
       card,
       '<i >a\nb</i>',
     ],
-    // A tag nested in a raw block keeps its written name here, which the JSX
-    // outputs rename; whether this output should rename it is an open question
     [
       'a registered tag inside a raw block, which the output passes through without the attribute',
       '<div>\n<Card children="z" />\n</div>',
@@ -3100,8 +3418,6 @@ describe('a children attribute on a tag with an override', () => {
       card,
       '<div><Card  />\n</div>',
     ],
-    // The value goes with the attribute here, as in the rows above; the JSX
-    // outputs keep it byte for byte
     [
       'a value with markup characters and a run of spaces inside a raw block, which the output passes through without the attribute',
       '<div>\n<Card children="a >  < b" />\n</div>',
@@ -3213,6 +3529,10 @@ describe('markup a browser reads differently from the parser', () => {
       '<pre><code class="language-x">y</code></pre>',
     ],
     [
+      '```x style="color:red"\ny\n```',
+      '<pre><code style="color: red" class="language-x">y</code></pre>',
+    ],
+    [
       '<iframe><img src=x onerror=alert(1)',
       '&lt;iframe>&lt;img src=x onerror=alert(1)',
     ],
@@ -3237,8 +3557,6 @@ describe('markup a browser reads differently from the parser', () => {
     ['<!-- x -->İİİİİİİİİİ</pre><pre>', '<!-- x -->İİİİİİİİİİ</pre><pre>'],
     ['<span>[l](javascript:alert(1))</span>', '<p><span><a>l</a></span></p>'],
     ['x <javascript:alert(1)> y', '<p>x <a>javascript:alert(1)</a> y</p>'],
-    // The markdown output ends an autolink at an ASCII space or control only, so a
-    // Unicode space in one is the same link here
     [
       'x <span><javascript:alert(1)//\xa0></span>',
       '<p>x <span><a>javascript:alert(1)//\xa0</a></span></p>',
@@ -3289,18 +3607,29 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '1. # [^1]\n[^1]:&#106avascript:alert(1)',
-      '<ol><li><h1 id="1">[^1]</h1>[^1]:&amp;#106avascript:alert(1)</li></ol>',
+      '<ol><li><h1 id="1"><a href="#1"><sup>1</sup></a></h1></li></ol><footer><div id="1">1: &amp;#106avascript:alert(1)</div></footer>',
+    ],
+    [
+      '1. a [^1]\n[^1]:&#106avascript:alert(1)',
+      '<ol><li>a [^1]\n[^1]:&amp;#106avascript:alert(1)</li></ol>',
     ],
     [
       '1. <!-- c --> x\n[^1]:&#106avascript:alert(1)\n\n[^1]',
-      '<div><ol><li><!-- c --> x\n</li></ol><p><a href="#1"><sup>1</sup></a></p><footer><div id="1">1: &amp;#106avascript:alert(1)</div></footer></div>',
+      '<div><ol><li><!-- c --> x</li></ol><p><a href="#1"><sup>1</sup></a></p><footer><div id="1">1: &amp;#106avascript:alert(1)</div></footer></div>',
     ],
-    ['- <pre>x\ny</pre>', '<ul><li><pre>x\ny</pre></li></ul>'],
-    ['- <!-- x\ny -->', '<ul><li><!-- x\ny --></li></ul>'],
-    ['- <div\nonclick=alert(1)>x</div>', '<ul><li><div\n>x</div></li></ul>'],
+    ['- <pre>x\ny</pre>', '<div><ul><li><pre>x</li></ul><p>y</pre></p></div>'],
+    ['- <!-- x\ny -->', '<div><ul><li><!-- x</li></ul><p>y --&gt;</p></div>'],
+    [
+      '- <div\nonclick=alert(1)>x</div>',
+      '<div><ul><li>&lt;div</li></ul><p>onclick=alert(1)&gt;x</div></p></div>',
+    ],
+    ['- a <div\nonclick=alert(1)>x</div>', '<ul><li>a <div>x</div></li></ul>'],
     ['- <x-y\nonclick=alert(1)>y</x-y>', '<ul><li><x-y>y</x-y></li></ul>'],
     ['- <Foo x="1\n2">y</Foo>', '<ul><li><Foo x="1\n2">y</Foo></li></ul>'],
-    ['- ```\ny', '<ul><li><pre><code>y</code></pre></li></ul>'],
+    [
+      '- ```\ny',
+      '<div><ul><li><pre><code></code></pre></li></ul><p>y</p></div>',
+    ],
     ['1. <x-y>x\ny', '<ol><li><x-y>x\ny</li></ol>'],
     [
       '1. [r]:\n/u "a\nb"\n\n   [r]',
@@ -3312,7 +3641,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '- # h\na | b\n  --- | ---',
-      '<ul><li><h1 id="h">h</h1><table><thead><tr><th>a</th><th>b</th></tr></thead></table></li></ul>',
+      '<div><ul><li><h1 id="h">h</h1></li></ul><table><thead><tr><th>a</th><th>b</th></tr></thead></table></div>',
     ],
     [
       '- - [^1]:\nz\n\n  [^1]',
@@ -3324,13 +3653,12 @@ describe('markup a browser reads differently from the parser', () => {
     ['[x](a\\\\)', '<p><a href="a%5C">x</a></p>'],
     [
       '- a | b\n  --- | ---\nc | d',
-      '<ul><li><table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>c</td><td>d</td></tr></tbody></table></li></ul>',
+      '<div><ul><li><table><thead><tr><th>a</th><th>b</th></tr></thead></table></li></ul><p>c | d</p></div>',
     ],
     [
       '1. [^1]:\nb\n\n   [^1]',
       '<ol><li><p><a href="#1"><sup>1</sup></a></p></li></ol><footer><div id="1">1: b</div></footer>',
     ],
-    // A paragraph's lazy line stays out of block parsing, so no heading
     ['- <b>x</b>\ny\n===', '<ul><li><b>x</b>\ny\n===</li></ul>'],
     [
       '<div <b c="d"/>\n<![CDATA[</pre>\n\n```\n<b>\n```',
@@ -3358,7 +3686,11 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '- <?p ?> <?q ?>[x](\njavascript:alert(1))',
-      '<ul><li><?p ?> <?q ?>[x](\njavascript:alert(1))</li></ul>',
+      '<div><ul><li><?p ?> <?q ?>[x](</li></ul><p>javascript:alert(1))</p></div>',
+    ],
+    [
+      '- a <?p ?> <?q ?>[x](\njavascript:alert(1))',
+      '<ul><li>a <?p ?> <?q ?><a>x</a></li></ul>',
     ],
     [
       '<div>\n\n```\n```\t\n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
@@ -3477,14 +3809,15 @@ describe('markup a browser reads differently from the parser', () => {
     ["<div </div>'", "<div </div>'"],
     ['<?php echo 1 ?>', '<?php echo 1 ?>'],
     ['<!DOCTYPE html>', '<!DOCTYPE html>'],
+    ['<!doctype html>', '<!doctype html>'],
     ['<![CDATA[x]]>', '<![CDATA[x]]>'],
-    // Removing the href re-pairs the open quote before it
     [
       '<![CDATA[<a title="</style><a title="</textarea><a href="javascript:alert(1)">l</a> x" onclick=alert(1)>',
       '<![CDATA[&lt;a title="&lt;/style>&lt;a title="&lt;/textarea><a >l</a> x" onclick=alert(1)>',
     ],
     ['a <?b?> c', '<p>a <?b?> c</p>'],
     ['a <!B c> d', '<p>a <!B c> d</p>'],
+    ['x <!a b> y', '<p>x <!a b> y</p>'],
     ['a <![CDATA[b]]> c', '<p>a <![CDATA[b]]> c</p>'],
     ['a <!-- b --> c', '<p>a <!-- b --> c</p>'],
     ['[l](java&Tab;script:alert(1))', '<p><a>l</a></p>'],
@@ -3526,7 +3859,6 @@ describe('markup a browser reads differently from the parser', () => {
       '![a\\\\\\](javascript:alert(1))b](/x)',
       '<p><img src="/x" alt="a\\](javascript:alert(1))b" /></p>',
     ],
-    // Shapes only the markdown output screens
     [
       `> <div a=1${String.fromCharCode(0x20_28)}>  onclick=alert(1) b>y</div>`,
       `<blockquote><div a=1${String.fromCharCode(0x20_28)}>  onclick=alert(1) b>y</div></blockquote>`,
@@ -3534,7 +3866,11 @@ describe('markup a browser reads differently from the parser', () => {
     ['<pre>a &lt; b &amp; c</pre>', '<pre>a &lt; b &amp; c</pre>'],
     [
       `> <div </div${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
-      `<blockquote><div </div${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'\n</blockquote>`,
+      `<div><blockquote><div </div${String.fromCharCode(0x20_28)}>\n</blockquote><p>onclick='alert(1)'</p></div>`,
+    ],
+    [
+      `> a <div </div${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
+      `<blockquote><p>a &lt;div &lt;/div${String.fromCharCode(0x20_28)}&gt;\nonclick='alert(1)'</p></blockquote>`,
     ],
     [
       '/\n    <pre>\n```\n<img src=x onerror=alert(1)>\n```',
@@ -3588,7 +3924,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       `> <div </div ${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
-      `<blockquote><div </div ${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'\n</blockquote>`,
+      `<div><blockquote><div </div ${String.fromCharCode(0x20_28)}>\n</blockquote><p>onclick='alert(1)'</p></div>`,
     ],
     [
       '`[x](javascript:alert(1))`',
@@ -3678,13 +4014,11 @@ describe('markup a browser reads differently from the parser', () => {
       { overrides: {} },
       '<Constructor>hi</Constructor>',
     ],
-    // A lowercase tag an override matches writes no handler
     [
       '<my-widget onclick={alert(1)}>x</my-widget>',
       { overrides: { 'my-widget': { props: {} } } },
       '<my-widget >x</my-widget>',
     ],
-    // A lowercase tag is HTML, which the option does not change
     [
       '<my-widget onclick={() => 1}>x</my-widget>',
       { evalUnserializableExpressions: true },
@@ -3696,10 +4030,28 @@ describe('markup a browser reads differently from the parser', () => {
         evalUnserializableExpressions: true,
         overrides: { IMG: { props: {} } },
       },
-      '<Img onclick={() => 1} >',
+      '<Img >',
     ],
   ])('with its options keeps %j and %j as %j', (input, options, expected) => {
     expect(compiler(input, options)).toBe(expected)
+  })
+})
+
+describe('emphasis that follows emphasis', () => {
+  it('renders as two elements', () => {
+    expect(compiler('_a_*b*')).toBe('<p><em>a</em><em>b</em></p>')
+  })
+
+  it('renders as three elements across a chain of alternating delimiters', () => {
+    expect(compiler('*a*_b_*c*')).toBe('<p><em>a</em><em>b</em><em>c</em></p>')
+  })
+})
+
+describe('emphasis nested past the inline depth limit', () => {
+  it('leaves the delimiters outside the 199th level as literal text', () => {
+    expect(compiler(`${'*'.repeat(6000)}a${'*'.repeat(6000)}`)).toBe(
+      `<p>${'*'.repeat(5602)}${'<strong>'.repeat(199)}a${'</strong>'.repeat(199)}${'*'.repeat(5602)}</p>`
+    )
   })
 })
 
@@ -3827,8 +4179,6 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '[see https://example.com/?a[0]=1]',
       '<p>[see <a href="https://example.com/?a%5B0%5D=1">https://example.com/?a[0]=1</a>]</p>',
     ],
-    // A trailing ] is trimmed to text while the URL holds more ] than [, so a ]
-    // with no matching [ ends the URL wherever its [ sits
     [
       'see https://example.com/a]',
       '<p>see <a href="https://example.com/a">https://example.com/a</a>]</p>',
@@ -3850,10 +4200,29 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '<p>[see <mark><a href="https://example.com/a">https://example.com/a</a>]</mark></p>',
     ],
     [
+      '==https://example.com/a==',
+      '<p><mark><a href="https://example.com/a">https://example.com/a</a></mark></p>',
+    ],
+    [
+      '==https://x.y/?t=YQ== b',
+      '<p><mark><a href="https://x.y/?t=YQ">https://x.y/?t=YQ</a></mark> b</p>',
+    ],
+    [
+      'https://x.y/?t=YQ== b',
+      '<p><a href="https://x.y/?t=YQ==">https://x.y/?t=YQ==</a> b</p>',
+    ],
+    [
+      '~~a https://x.y/?t=YQ== b~~',
+      '<p><del>a <a href="https://x.y/?t=YQ==">https://x.y/?t=YQ==</a> b</del></p>',
+    ],
+    [
+      "~~https://example.com/a~~'",
+      '<p><del><a href="https://example.com/a">https://example.com/a</a></del>\'</p>',
+    ],
+    [
       '[see <span>https://example.com/a]</span>',
       '<p>[see <span><a href="https://example.com/a">https://example.com/a</a>]</span></p>',
     ],
-    // The URL ends before \] and the escape renders as a literal ]
     [
       '[see https://example.com/a\\]]',
       '<p>[see <a href="https://example.com/a">https://example.com/a</a>]]</p>',
@@ -3878,7 +4247,6 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '[see https://example.com/a.]',
       '<p>[see <a href="https://example.com/a">https://example.com/a</a>.]</p>',
     ],
-    // An unclosed [ inside the URL balances the final ], so it stays
     [
       '[see https://example.com/?a[0=1]',
       '<p>[see <a href="https://example.com/?a%5B0=1%5D">https://example.com/?a[0=1]</a></p>',
@@ -3893,5 +4261,115 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '<p>[see <a href="https://example.com/a">https://example.com/a</a>] after</p>'
     expect(compiler(input)).toBe(expected)
     expect(compiler(input, { optimizeForStreaming: true })).toBe(expected)
+  })
+})
+
+describe('render depth limit', () => {
+  it.each([
+    [$.MAX_RENDER_DEPTH - 1, $.MAX_RENDER_DEPTH - 1, 'x'],
+    [$.MAX_RENDER_DEPTH, $.MAX_RENDER_DEPTH, 'x'],
+    [$.MAX_RENDER_DEPTH + 1, $.MAX_RENDER_DEPTH, ''],
+    [$.MAX_RENDER_DEPTH * 2, $.MAX_RENDER_DEPTH, ''],
+    [20_000, $.MAX_RENDER_DEPTH, ''],
+  ])('renders %i nested block quotes %i levels deep', (count, levels, text) => {
+    expect(astToHTML(quotesDeep(count))).toBe(
+      '<blockquote>'.repeat(levels) + text + '</blockquote>'.repeat(levels)
+    )
+  })
+
+  it.each([
+    [$.MAX_RENDER_DEPTH, 'x'],
+    [$.MAX_RENDER_DEPTH + 1, ''],
+    [$.MAX_RENDER_DEPTH * 2, ''],
+    [20_000, ''],
+  ])('continues the depth through renderChildren in a renderRule for %i nested block quotes', (count, expected) => {
+    expect(
+      astToHTML(quotesDeep(count), {
+        renderRule: (next, node, renderChildren) =>
+          node.type === RuleType.blockQuote
+            ? renderChildren(node.children)
+            : next(),
+      })
+    ).toBe(expected)
+  })
+
+  it('writes the overflow text escaped', () => {
+    let node: MarkdownToJSX.ASTNode = {
+      type: RuleType.text,
+      text: '<b>&</b>',
+    }
+    for (let i = 0; i < $.MAX_RENDER_DEPTH; i++) {
+      node = { type: RuleType.blockQuote, children: [node] }
+    }
+    expect(astToHTML([node])).toBe(
+      '<blockquote>'.repeat($.MAX_RENDER_DEPTH) +
+        '&lt;b&gt;&amp;&lt;/b&gt;' +
+        '</blockquote>'.repeat($.MAX_RENDER_DEPTH)
+    )
+  })
+})
+
+describe('a setext underline after a lazy line in a block quote', () => {
+  it.each([
+    ['> a\nb\n> ---', '<blockquote><h2 id="ab">a\nb</h2></blockquote>'],
+    [
+      '> a\nb\n>\n> c\n> ===',
+      '<blockquote><p>a\nb</p><h1 id="c">c</h1></blockquote>',
+    ],
+    ['> a\nb\n===', '<blockquote><p>a\nb\n===</p></blockquote>'],
+  ])('renders %j as %j', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+  })
+})
+
+describe('code span edge spaces', () => {
+  it.each([
+    ['` a `', '<p><code>a</code></p>'],
+    ['` \t `', '<p><code>\t</code></p>'],
+    ['`   `', '<p><code> </code></p>'],
+  ])('renders %j as %j', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+  })
+})
+
+describe('code spans at the streaming edge', () => {
+  it.each([
+    ['x `` a ` b `` y', '<p>x <code>a ` b</code> y</p>'],
+    ['x \\` y', '<p>x ` y</p>'],
+  ])('renders %j as %j with optimizeForStreaming, as without it', (input, expected) => {
+    expect(compiler(input, { optimizeForStreaming: true })).toBe(expected)
+    expect(compiler(input)).toBe(expected)
+  })
+})
+
+describe('a bare email address with an underscore', () => {
+  it.each([
+    ['foo@a_b.c', '<p><a href="mailto:foo@a_b.c">foo@a_b.c</a></p>'],
+    ['foo@a.b_c.d', '<p><a href="mailto:foo@a.b_c.d">foo@a.b_c.d</a></p>'],
+    ['a.b-c_d@a.b_', '<p>a.b-c_d@a.b_</p>'],
+  ])('renders %j as %j', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+  })
+})
+
+describe('frontmatter above a reference definition', () => {
+  const input = '---\ntitle: x\n---\n\n# H\n\n[a]\n\n[a]: /u'
+
+  it('drops the frontmatter and links the reference', () => {
+    expect(compiler(input)).toBe(
+      '<div><h1 id="h">H</h1><p><a href="/u">a</a></p></div>'
+    )
+  })
+
+  it('keeps the frontmatter with preserveFrontmatter and links the reference', () => {
+    expect(compiler(input, { preserveFrontmatter: true })).toBe(
+      '<div><pre>---\ntitle: x\n---</pre><h1 id="h">H</h1><p><a href="/u">a</a></p></div>'
+    )
+  })
+
+  it('keeps a document that is only frontmatter, closed at the end of input, as frontmatter', () => {
+    expect(
+      compiler('---\ntitle: Draft\n---', { preserveFrontmatter: true })
+    ).toBe('<pre>---\ntitle: Draft\n---</pre>')
   })
 })

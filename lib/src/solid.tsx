@@ -11,6 +11,7 @@ import {
   useContext,
 } from 'solid-js'
 import solidH from 'solid-js/h'
+import { $ } from './constants.ts'
 import * as parse from './parse.ts'
 import { parser } from './parse.ts'
 import {
@@ -35,11 +36,9 @@ type HTag = string | Component<Record<string, unknown>>
 type HProps = Record<string, unknown>
 type HChildren = JSX.Element | JSX.Element[] | string | null
 
-// Normalize children to array format
 const toArray = <T,>(value: T | T[]): T[] =>
   Array.isArray(value) ? value : [value]
 
-// Check if value is a SolidJS component
 const isComponent = (
   value: unknown
 ): value is Component<Record<string, unknown>> =>
@@ -110,14 +109,13 @@ function render(
     case RuleType.heading:
       return h(
         `h${node.level}`,
-        { id: node.id },
+        { id: util.headingId(node.id) },
         ...toArray(output(node.children, state))
       )
 
     case RuleType.htmlBlock: {
       const htmlNode = node as MarkdownToJSX.HTMLNode
 
-      // Apply options.tagfilter: escape dangerous tags
       if (
         util.tagfilterEnabled(options) &&
         util.shouldFilterTag(htmlNode.tag)
@@ -140,7 +138,8 @@ function render(
       const attrs = util.withoutHandlerSource(
         node.tag,
         node.attrs,
-        options.overrides
+        options.overrides,
+        getTag
       )
       const rawOuter = htmlNode._rawOuter
       const isRawOuter = rawOuter !== undefined
@@ -150,14 +149,10 @@ function render(
           ? htmlNode._rawBody || ''
           : (htmlNode._rawBody || '') + (htmlNode._rawClose || '')
       if (rawSource && htmlNode._verbatim) {
-        // Type 1 blocks (script, style, pre, textarea) always render verbatim
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
 
         if (isType1Block) {
-          // The element wrapper below supplies its own tags, so the body is
-          // the inner content: the text field when no closing tag was found,
-          // since the outer span holds this element's own opening tag
           const type1Body =
             (isRawOuter ? htmlNode.text : htmlNode._rawBody) || ''
           const textContent = util.tagfilterEnabled(options)
@@ -186,16 +181,12 @@ function render(
             innerHTML: innerHtml,
           })
         }
-        // Re-parse rawSource so a nested element does not absorb a following text
-        // line, then split at this element's own closing tag so any trailing
-        // content renders as siblings (issue #881).
         const parseOptions = parse.toParseOptions({
           overrides: options.overrides,
           slugify: options.slugify,
           sanitizer: sanitize,
           tagfilter: true,
         })
-        // The parser's re-parse span holds the children attribute rawSource cut
         const cleanedText = util.normalizeJsxReparseText(
           htmlNode._reparseSource || rawSource
         )
@@ -218,9 +209,6 @@ function render(
           return cleanedText
         }
 
-        // _rawOuter means the parser already determined this span is the FULL
-        // outer block, so emit the parsed nodes directly instead of nesting
-        // them in another copy of the tag.
         if (isRawOuter) {
           return output(astNodes.flatMap(util.processVerbatimNode), state)
         }
@@ -263,7 +251,6 @@ function render(
     case RuleType.htmlSelfClosing: {
       const htmlNode = node as MarkdownToJSX.HTMLSelfClosingNode
 
-      // Apply options.tagfilter: escape dangerous self-closing tags
       if (
         util.tagfilterEnabled(options) &&
         util.shouldFilterTag(htmlNode.tag)
@@ -282,14 +269,17 @@ function render(
         ...util.withoutHandlerSource(
           htmlNode.tag,
           htmlNode.attrs,
-          options.overrides
+          options.overrides,
+          getTag
         ),
       })
     }
 
     case RuleType.image: {
       const src =
-        node.target === null ? null : sanitize(node.target, 'img', 'src')
+        node.target === null
+          ? null
+          : util.sanitizeAndEncodeUrlTarget(node.target, sanitize, 'img', 'src')
       return h('img', {
         alt: node.alt && node.alt.length > 0 ? node.alt : undefined,
         title: node.title || undefined,
@@ -300,7 +290,6 @@ function render(
     case RuleType.link: {
       const props: Record<string, unknown> = {}
       if (node.target != null) {
-        // Re-sanitize at emit so direct astToJSX(dangerous) cannot skip the gate.
         const href = util.sanitizeAndEncodeUrlTarget(
           node.target,
           sanitize,
@@ -398,7 +387,6 @@ function render(
       return h('p', {}, ...toArray(output(node.children, state)))
 
     case RuleType.ref:
-      // Reference definitions should not be rendered (they're consumed during parsing)
       return null
 
     default:
@@ -424,14 +412,15 @@ const createRenderer = (
   const renderRule = (
     node: MarkdownToJSX.ASTNode,
     renderChildren: (
-      children: MarkdownToJSX.ASTNode[]
+      children: MarkdownToJSX.ASTNode[],
+      state?: Omit<MarkdownToJSX.State, 'key'>
     ) => JSX.Element | JSX.Element[],
     state: Omit<MarkdownToJSX.State, 'key'>
   ) => {
     const defaultRender = () =>
       render(
         node,
-        ast => renderChildren(toArray(ast)),
+        (ast, childState) => renderChildren(toArray(ast), childState),
         state,
         h,
         sanitize,
@@ -440,7 +429,12 @@ const createRenderer = (
         options
       )
     return userRender
-      ? userRender(defaultRender, node, renderChildren, state)
+      ? userRender(
+          defaultRender,
+          node,
+          children => renderChildren(children, state),
+          state
+        )
       : defaultRender()
   }
   const handleStackOverflow = (ast: MarkdownToJSX.ASTNode[]) =>
@@ -450,24 +444,20 @@ const createRenderer = (
     state: Omit<MarkdownToJSX.State, 'key'> = {}
   ) => {
     const depth = (state.renderDepth || 0) + 1
-    if (depth > 2500) {
+    if (depth > $.MAX_RENDER_DEPTH) {
       return handleStackOverflow(ast)
     }
 
+    const childState = { ...state, renderDepth: depth }
     const result: (JSX.Element | string)[] = []
     let lastWasString = false
     for (let i = 0; i < ast.length; i++) {
-      const nodeOut = renderRule(ast[i], renderer, {
-        ...state,
-        renderDepth: depth,
-      })
+      const nodeOut = renderRule(ast[i], renderer, childState)
       const isString = typeof nodeOut === 'string'
       if (isString && lastWasString) {
-        // Concatenate consecutive strings
         result[result.length - 1] += nodeOut
       } else if (nodeOut != null) {
         if (Array.isArray(nodeOut)) {
-          // Use loop instead of spread for better performance
           for (let j = 0; j < nodeOut.length; j++) {
             result.push(nodeOut[j])
           }
@@ -562,11 +552,9 @@ export function astToJSX(
   const slug = opts.slugify || util.slugify
   const sanitize = opts.sanitizer || util.sanitizer
 
-  // Recursive compile function for HTML content
   const compileHtml = (input: string) =>
     compiler(input, { ...opts, wrapper: null })
 
-  // JSX helper function - this is what @jsx pragma uses
   function h(
     tag: MarkdownToJSX.HTMLTags | string,
     props: Record<string, unknown> & {
@@ -582,12 +570,8 @@ export function astToJSX(
       {}
     ) as Record<string, unknown>
 
-    // Compile any HTML content in props
     const jsxProps = (props || {}) as Record<string, unknown>
     const finalTag = getTag(tag, opts.overrides)
-    // A children string is the element's text when it has no content of its
-    // own, which also keeps it from being compiled as markup below. A void tag
-    // takes none.
     if (typeof jsxProps.children === 'string') {
       const attrText = util.childrenAttrContent(jsxProps.children, children)
       delete jsxProps.children
@@ -598,10 +582,8 @@ export function astToJSX(
         children = [attrText]
       }
     }
-    // Only check props that might contain HTML (avoid iterating all props)
     for (const key in jsxProps) {
       const value = jsxProps[key]
-      // Solid hands an on* prop to addEventListener, which throws on a bare name's `true`
       if (
         value === true &&
         typeof finalTag === 'string' &&
@@ -609,7 +591,6 @@ export function astToJSX(
       ) {
         delete jsxProps[key]
       }
-      // innerHTML is the compiler's own screened markup, and only a string reaches the page
       if (
         key !== 'innerHTML' &&
         typeof value === 'string' &&
@@ -629,7 +610,6 @@ export function astToJSX(
         (overrideProps.class as string | undefined) || undefined
       ) || undefined
 
-    // Build finalProps efficiently
     const finalProps: Record<string, unknown> = {
       ...jsxProps,
       ...overrideProps,
@@ -637,8 +617,6 @@ export function astToJSX(
     if (mergedClassName) {
       finalProps.class = mergedClassName
     }
-    // Handle innerHTML for SolidJS (move from jsxProps to finalProps)
-    // Only set innerHTML from jsxProps if user didn't provide it in overrides
     if (jsxProps.innerHTML && overrideProps.innerHTML === undefined) {
       finalProps.innerHTML = jsxProps.innerHTML
       jsxProps.innerHTML = undefined
@@ -647,13 +625,12 @@ export function astToJSX(
     return createSolidElement(finalTag, finalProps, ...children)
   }
 
-  // SolidJS createElement helper - uses createSolidElement
   const createElement =
     opts.createElement ||
     ((tag: HTag, props: HProps, ...children: HChildren[]): JSX.Element =>
       createSolidElement(tag, props || {}, ...children))
 
-  const parseOptions = parse.toParseOptions(opts, opts.forceInline)
+  const parseOptions = parse.toParseOptions(opts)
 
   const refs =
     ast[0] && ast[0].type === RuleType.refCollection
@@ -691,7 +668,6 @@ export function astToJSX(
         'footer',
         {},
         ...footnoteEntries.map(function createFootnote(def) {
-          // We know identifier starts with '^' from the filter above
           const identifierWithoutCaret = def.identifier.slice(1)
           const footnoteAstNodes = parse.parseMarkdown(
             def.footnote,
@@ -760,7 +736,7 @@ export function compiler(
     const inline =
       opts.forceInline ||
       !(opts.forceBlock || util.SHOULD_RENDER_AS_BLOCK_R.test(input))
-    const parseOptions = parse.toParseOptions(opts, inline)
+    const parseOptions = parse.toParseOptions(opts)
 
     const processedInput = inline ? input : util.prepareBlockInput(input)
 
@@ -793,15 +769,12 @@ export const MarkdownContext: Context<SolidOptions | undefined> = createContext<
   SolidOptions | undefined
 >(undefined)
 
-// Module-level h function for components that use JSX
-// This is used by the @jsx pragma for JSX in MarkdownProvider and Markdown components
 function createSolidElement(
   tag: string | Component<Record<string, unknown>>,
   props: Record<string, unknown>,
   ...children: HChildren[]
 ): JSX.Element {
   if (!hasDom) {
-    // Non-DOM environments (tests/SSR) get a structural representation or component output
     const childValue =
       children.length === 0
         ? undefined
@@ -830,7 +803,6 @@ function createSolidElement(
     : (elementFactory as JSX.Element)
 }
 
-// JSX pragma helper; shares createSolidElement with the compiler internals
 function h(
   tag: string | Component<Record<string, unknown>>,
   props: Record<string, unknown>,

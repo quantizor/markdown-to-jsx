@@ -1,75 +1,53 @@
 #!/usr/bin/env bun
-/**
- * Scaling smoke: every adversarial shape must stay near-linear in input size.
- *
- * redos-smoke.ts answers "is this one payload fast enough right now", which a
- * quadratic passes whenever the chosen size is still cheap. This measures the
- * growth exponent between two input sizes instead, so the shape of the work
- * is what fails the gate, not the size someone happened to pick.
- *
- * Per shape: double the input from BASE until the faster of two timed runs
- * (the parser, or the markdown compiler for a `compile` shape) takes TARGET_MS (or the input reaches MAX_SIZE), call that size `large`,
- * then time `large` and `large / 4` alternately RUNS times each and keep each
- * size's fastest run.
- * The exponent is log4 of the ratio. A quadratic term with a small constant
- * hides under the linear cost at a small size and dominates at a large one,
- * so growing to a fixed time rather than to a bare noise floor is what makes
- * a weak quadratic visible. Alternating the two sizes means a stretch of CPU
- * contention slows both rather than only one. A shape still under
- * MIN_JUDGE_MS at MAX_SIZE is reported SKIP and passes: any quadratic term
- * that small is negligible at every document size the library meets.
- *
- * Add a case for every scanner reachable from the inline dispatch. A scanner
- * with no case here is a scanner nobody is watching.
- */
-import { performance } from 'node:perf_hooks'
 import process from 'node:process'
+import { $ } from '../lib/src/constants.ts'
 import { compiler as markdownCompiler } from '../lib/src/markdown.ts'
 import { type ParserInputOptions, parser } from '../lib/src/parse.ts'
 
-/**
- * Linear work lands near 1.0. The ceiling sits well above that so ordinary
- * variance cannot fail the gate, and well under the 2.0 a quadratic produces.
- */
 const MAX_EXPONENT = 1.4
+const MAX_NESTED_EXPONENT = 2.4
 const TARGET_MS = 12
 const MIN_JUDGE_MS = 2
-/** Floor on the small-size time, so a timer reading of zero cannot divide the ratio. */
 const MIN_SMALL_MS = 0.001
 const BASE = 4000
 const MAX_SIZE = 1 << 21
-/**
- * Noise (a GC pause, a CPU frequency dip) only ever adds time, so the fastest
- * of several runs is the steadiest estimate of a shape's intrinsic cost.
- */
 const RUNS = 7
 
-/** About as many components as a large `overrides` map holds */
 const OVERRIDE_KEY_COUNT = 50
-/** One width for every padded tag id, so a tag name's length never grows with n */
 const TAG_ID_WIDTH = 4
 const TAG_ID_RADIX = 36
 
-/** n units, each with its own tag name, so no two openers share a closer */
 const distinctTags =
   (unit: (tag: string) => string, suffix = '') =>
   (n: number) =>
     Array.from({ length: n }, (_, i) => unit(i.toString(36))).join('') + suffix
 
+const nestedOneLine = (unit: string) => (n: number) =>
+  `${unit.repeat(Math.min(n >> 13, $.MAX_PARSE_DEPTH))}x`
+
+const nestedMultiLineList = (n: number) =>
+  Array.from(
+    { length: Math.min(Math.floor(Math.sqrt(n)), $.MAX_PARSE_DEPTH) },
+    (_, i) => `${'  '.repeat(i)}- x`
+  ).join('\n')
+
 const shapes: Array<{
-  /** Run through the markdown compiler rather than only the parser */
   compile?: boolean
   make: (n: number) => string
+  maxExponent?: number
   name: string
   options?: ParserInputOptions
 }> = [
   { make: n => '['.repeat(n) + ']'.repeat(n), name: 'link-balanced' },
   { make: n => `${'['.repeat(n)}]`, name: 'link-openers-one-close' },
   { make: n => '['.repeat(n), name: 'link-openers-no-close' },
+  {
+    make: n => `${'[*'.repeat(n)}x${'*](u)'.repeat(n)}`,
+    name: 'link-candidates-holding-a-link',
+  },
   { make: n => '['.repeat(n) + '\\]'.repeat(n), name: 'link-escaped-close' },
   { make: n => '!['.repeat(n) + ']'.repeat(n), name: 'image-openers' },
   { make: n => `[a](${'('.repeat(n)}`, name: 'link-dest-unclosed-paren' },
-  // Issue #874: each `[](` once retried the bare-URL scan to end of input
   { make: n => '[]('.repeat(n), name: 'link-empty-dest-openers' },
   { make: n => '[^'.repeat(n), name: 'footnote-openers' },
   { make: n => '[^a]'.repeat(n), name: 'footnote-undefined-refs' },
@@ -80,10 +58,41 @@ const shapes: Array<{
   { make: n => '*'.repeat(n), name: 'emphasis-star' },
   { make: n => '_'.repeat(n), name: 'emphasis-underscore' },
   { make: n => '*a'.repeat(n), name: 'emphasis-alternating' },
+  {
+    make: n => `${'*a '.repeat(n)}b${' a*'.repeat(n)}`,
+    name: 'emphasis-nested-pairs',
+  },
   { make: n => '~~'.repeat(n), name: 'strikethrough' },
   { make: n => '~~a~~~'.repeat(n), name: 'strikethrough-long-runs' },
+  { make: n => '~~a '.repeat(n), name: 'strikethrough-openers-no-close' },
+  { make: n => 'a~~ '.repeat(n), name: 'strikethrough-closers-no-open' },
+  { make: n => '~~a ~~'.repeat(n), name: 'strikethrough-unflanked' },
   { make: n => '=='.repeat(n), name: 'marked' },
+  { make: n => '==a==='.repeat(n), name: 'marked-long-runs' },
+  {
+    make: n => `==http://a.b/${'=a'.repeat(n)}`,
+    name: 'marked-open-url-equals',
+  },
+  {
+    make: nestedOneLine('- '),
+    maxExponent: MAX_NESTED_EXPONENT,
+    name: 'nested-one-line-list',
+  },
+  {
+    make: nestedOneLine('> '),
+    maxExponent: MAX_NESTED_EXPONENT,
+    name: 'nested-one-line-quote',
+  },
+  {
+    make: nestedMultiLineList,
+    name: 'nested-multi-line-list',
+  },
   { make: n => '`'.repeat(n), name: 'code-backticks' },
+  {
+    make: n =>
+      `${Array.from({ length: Math.floor(Math.sqrt(n)) }, (_, i) => `${'`'.repeat(i + 1)}a`).join(' ')} ${'`'.repeat(n)}`,
+    name: 'code-distinct-length-openers',
+  },
   { make: n => '<'.repeat(n), name: 'html-angle' },
   { make: n => '<a '.repeat(n), name: 'html-partial-tag' },
   { make: n => '[<b>] '.repeat(n), name: 'link-tag-no-closer' },
@@ -94,10 +103,10 @@ const shapes: Array<{
     name: 'html-tag-distinct-names-link-holds-tag',
   },
   { make: distinctTags(t => `<x${t}> `), name: 'html-tag-distinct-names' },
-  // A capitalized tag no override matches scans every key ignoring case. Tags and
-  // keys share one fixed length, so every key reaches the compare at every size,
-  // and each tag has its own paragraph, since distinct closed tags in one
-  // paragraph are their own cost
+  {
+    make: distinctTags(t => `<x${t}>a</x${t}> `),
+    name: 'html-tag-distinct-names-closed',
+  },
   {
     make: (n: number) =>
       Array.from({ length: n }, (_, i) => {
@@ -126,15 +135,12 @@ const shapes: Array<{
   { make: n => '&am'.repeat(n), name: 'entity-partial' },
   { make: n => 'http://'.repeat(n), name: 'bare-url' },
   { make: n => 'www.x.y '.repeat(n), name: 'bare-url-www-no-slash' },
-  // A run without spaces where every candidate is rejected
   { make: n => 'www._'.repeat(n), name: 'bare-url-www-rejected-run' },
   { make: n => 'http://a_b.c_d'.repeat(n), name: 'bare-url-http-rejected-run' },
-  // Each candidate's `(`/`)` balance differs, so each trims the trailing `)` run differently
   {
     make: n => 'www._)www._('.repeat(n) + ').'.repeat(n),
     name: 'bare-url-www-rejected-run-paren-tail',
   },
-  // Paren and bracket balances both differ per candidate over a mixed `)` and `]` tail
   {
     make: n => 'www._)www._[www._(www._]'.repeat(n) + ').].'.repeat(n),
     name: 'bare-url-www-rejected-run-bracket-tail',
@@ -145,20 +151,16 @@ const shapes: Array<{
     make: n => `|${'a|'.repeat(n)}\n|${'-|'.repeat(n)}`,
     name: 'table-pipes',
   },
-  // Streaming: incomplete-link stripping over unmatched openers
   {
     make: n => '[a '.repeat(n),
     name: 'streaming-link-openers',
     options: { optimizeForStreaming: true },
   },
-  // Streaming: per-block edge marking plus held openers in every block
   {
     make: n => 'p *a _b\n\n'.repeat(n),
     name: 'streaming-held-openers',
     options: { optimizeForStreaming: true },
   },
-  // The raw HTML screen: a browser's read of a tag the parser rejects or reads
-  // differently, first at block level, where the screen sees one long string
   { make: n => `<div>\n${'<a x="'.repeat(n)}`, name: 'screen-quote-run' },
   {
     make: n => `<div>\n${'<a x="'.repeat(n)}>`,
@@ -188,9 +190,6 @@ const shapes: Array<{
   { make: n => `<!-- ${'<a x="'.repeat(n)} -->`, name: 'screen-in-comment' },
   { make: n => `<?${'<a x="'.repeat(n)}?>`, name: 'screen-in-instruction' },
   { make: n => `<iframe>${'<a x="'.repeat(n)}`, name: 'screen-filtered-body' },
-  // A parsed tag that a browser reads differently, inline, where each tag is
-  // parsed on its own. Each is closed, since a run of unclosed inline tags is
-  // its own cost, whatever the tag holds
   { make: n => `x ${'<a b={c d}>y</a>'.repeat(n)}`, name: 'screen-brace-tags' },
   {
     make: n => `x ${'<a b={c>d}>y</a>'.repeat(n)}`,
@@ -221,6 +220,25 @@ const shapes: Array<{
     name: 'fence-attrs',
   },
   {
+    make: n => `<div ${'a="b" '.repeat(n)}>x</div>`,
+    name: 'html-block-quoted-attrs',
+  },
+  {
+    make: n => `x <span ${'a="b" '.repeat(n)}>y</span>`,
+    name: 'html-inline-quoted-attrs',
+  },
+  { make: n => `<a ${'b="c" '.repeat(n)}`, name: 'html-unclosed-quoted-attrs' },
+  { make: n => `<Foo ${'a="b" '.repeat(n)}/>`, name: 'component-quoted-attrs' },
+  {
+    make: n => `<div>\n${'x <a'.repeat(n)}\n</div>`,
+    name: 'html-body-tag-openers',
+  },
+  {
+    make: n => `<Foo>\n${'<a\n'.repeat(n)}</Foo>`,
+    name: 'component-body-line-openers',
+  },
+  { make: n => `<div>\n${'<a\n'.repeat(n)}`, name: 'html-body-line-openers' },
+  {
     make: n => `<div>\n${'<section>\n</section>\n'.repeat(n)}`,
     name: 'html-body-nested-blocks',
   },
@@ -237,8 +255,6 @@ const shapes: Array<{
       `<Foo>\n${'<section>\n<b>x</b>\n</section>\n'.repeat(n)}\n</Foo>`,
     name: 'component-body-nested-block-bodies',
   },
-  // Deeply nested same-tag openers. `n >> 4` repeats, so n stays the input
-  // size: a closer search per opener costs too much to start at a repeat of BASE
   ...[
     ['<div>\n\n', '</div>\n\n', 'blank'],
     ['<div>\n\n', '', 'blank-unclosed'],
@@ -247,9 +263,6 @@ const shapes: Array<{
     make: (n: number) => opener.repeat(n >> 4) + closer.repeat(n >> 4),
     name: `html-nested-openers-${name}`,
   })),
-  // A closer search per opener: no closer at all, one past a Type 1 tag (a near
-  // tag, a far one all openers share, or one inside an attribute), and the
-  // cursors and verdicts a nested string must not cost the outer one
   ...[
     ['<div>\nx\n\n', 'opener-text-blank'],
     ['<Foo>\nx\n\n', 'component-text-blank'],
@@ -270,7 +283,6 @@ const shapes: Array<{
       '<pre></pre>\n',
     ],
     ['<div>\nx\n\n<section>\ny\n\n<p>\nq\n\n</section>\n', 'nested-unclosed'],
-    // A blockquote or list parses its own string without going through an HTML body
     ['<div>\nx\n\n> <div>\n> y\n\n', 'blockquote-between'],
     ['<div>\nx\n\n- <div>\n  y\n\n', 'list-between'],
   ].map(([unit, name, closer = '', middle = '']) => ({
@@ -278,13 +290,11 @@ const shapes: Array<{
     name: `html-closer-search-${name}`,
   })),
   { make: n => `x ${'<b>a'.repeat(n)}`, name: 'inline-openers-unclosed' },
-  // Link text walks over a comment opener whose terminator never comes
   { make: n => `[ ${'<!-- '.repeat(n)}]`, name: 'link-text-comment-openers' },
   {
     make: n => '[a<!-- b](/u) '.repeat(n),
     name: 'links-holding-comment-openers',
   },
-  // An inline opener of raw markup whose terminator never comes
   ...[
     ['<!-- ', 'comment'],
     ['<? ', 'instruction'],
@@ -294,12 +304,10 @@ const shapes: Array<{
     make: (n: number) => `x ${unit.repeat(n)}`,
     name: `inline-unterminated-${name}`,
   })),
-  // A nested inline parse fails on the same terminator between the outer openers
   {
     make: n => `x ${'<? [<? a](/u) '.repeat(n)}`,
     name: 'inline-unterminated-instruction-in-link',
   },
-  // The markdown output's raw-string screens
   {
     compile: true,
     make: n => '<![CDATA[a]]]>'.repeat(n),
@@ -405,8 +413,6 @@ const shapes: Array<{
     make: n => `<div>\n${'!["]'.repeat(n)}`,
     name: 'markdown-raw-image-alts',
   },
-  // The walks over a raw string, each reached through what the parser keeps raw:
-  // a block's body or what follows a comment on its line
   ...[
     [']', 'bracket'],
     ['](', 'paren'],
@@ -432,7 +438,6 @@ const shapes: Array<{
     make: (n: number) => `<!-- x -->${unit.repeat(n)}`,
     name: `markdown-after-markup-${name}`,
   })),
-  // A code body is tested as raw HTML before it is written
   ...[
     ['<', 'openers'],
     ['<b onclick=a>', 'tags'],
@@ -456,10 +461,21 @@ const shapes: Array<{
   },
 ]
 
-function timeOnce(shape: (typeof shapes)[number], input: string): number {
-  const t0 = performance.now()
-  run(shape, input)
-  return performance.now() - t0
+function cpuMs(): number {
+  const { system, user } = process.cpuUsage()
+  return (system + user) / 1000
+}
+
+function timeOnce(
+  shape: (typeof shapes)[number],
+  input: string,
+  reps = 1
+): number {
+  const t0 = cpuMs()
+  for (var r = 0; r < reps; r++) {
+    run(shape, input)
+  }
+  return cpuMs() - t0
 }
 
 function run(shape: (typeof shapes)[number], input: string): void {
@@ -470,20 +486,11 @@ function run(shape: (typeof shapes)[number], input: string): void {
   }
 }
 
-/**
- * One measurement of a shape: grow to `targetMs`, then take the fastest of
- * `runs` alternating timings per size.
- */
 function measure(
   shape: (typeof shapes)[number],
   targetMs: number,
   runs: number
 ) {
-  // The first parse of a new input pays to flatten the string `make` built
-  // (and, for the first size, to compile the parser), so each size is parsed
-  // once untimed, and the faster of two timed parses decides whether to grow:
-  // one slow run stopping the growth early leaves a weak quadratic too small
-  // to see.
   var size = BASE
   var input = shape.make(size)
   run(shape, input)
@@ -500,11 +507,9 @@ function measure(
   var small = Number.POSITIVE_INFINITY
   var large = Number.POSITIVE_INFINITY
   for (var r = 0; r < runs; r++) {
-    small = Math.min(small, timeOnce(shape, smallInput))
+    small = Math.min(small, timeOnce(shape, smallInput, 4) / 4)
     large = Math.min(large, timeOnce(shape, largeInput))
   }
-  // Quadrupling the input costs 4x when linear and 16x when quadratic, so the
-  // exponent is the log of the ratio over the two doublings between them.
   return {
     exponent: Math.log2(large / Math.max(small, MIN_SMALL_MS)) / 2,
     large,
@@ -512,11 +517,21 @@ function measure(
   }
 }
 
-// Purpose-built bad input warns once per URL, and the logging would be the cost measured
 console.warn = () => {}
 
+const only = process.argv.slice(2)
+const unknown = only.filter(name => !shapes.some(shape => shape.name === name))
+if (unknown.length > 0) {
+  console.error(
+    `scaling-smoke: no shape named ${unknown.join(', ')}; run without arguments to measure every shape`
+  )
+  process.exit(2)
+}
+
 var failed = 0
-for (const shape of shapes) {
+for (const shape of only.length > 0
+  ? shapes.filter(s => only.includes(s.name))
+  : shapes) {
   const first = measure(shape, TARGET_MS, RUNS)
   if (first.large < MIN_JUDGE_MS) {
     console.log(
@@ -524,26 +539,24 @@ for (const shape of shapes) {
     )
     continue
   }
-  if (first.exponent <= MAX_EXPONENT) {
+  const maxExponent = shape.maxExponent ?? MAX_EXPONENT
+  if (first.exponent <= maxExponent) {
     console.log(
-      `OK ${shape.name}: ${first.sizes}, exponent ${first.exponent.toFixed(2)}, max ${MAX_EXPONENT}`
+      `OK ${shape.name}: ${first.sizes}, exponent ${first.exponent.toFixed(2)}, max ${maxExponent}`
     )
     continue
   }
-  // CPU contention only adds time and can land unevenly on the two sizes, so a
-  // reading over the limit is re-measured with twice the budget and runs. A
-  // real quadratic sits near 2.0 in both readings; contention rarely repeats.
   const confirm = measure(shape, TARGET_MS * 2, RUNS * 2)
   const readings = `first ${first.exponent.toFixed(2)}, confirm ${confirm.exponent.toFixed(2)}`
-  if (confirm.exponent <= MAX_EXPONENT) {
+  if (confirm.exponent <= maxExponent) {
     console.log(
-      `OK* ${shape.name}: ${readings}, max ${MAX_EXPONENT}; ${confirm.sizes}`
+      `OK* ${shape.name}: ${readings}, max ${maxExponent}; ${confirm.sizes}`
     )
     continue
   }
   failed++
   console.log(
-    `FAIL ${shape.name}: ${readings}, max ${MAX_EXPONENT}; first ${first.sizes}; confirm ${confirm.sizes}`
+    `FAIL ${shape.name}: ${readings}, max ${maxExponent}; first ${first.sizes}; confirm ${confirm.sizes}`
   )
 }
 

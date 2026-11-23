@@ -1,15 +1,3 @@
-/**
- * Mounts every case in fixtures/cases.ts once per browser compiler, each case
- * into its own root (see harness.ts). Imports resolve through the built
- * package exports map (node_modules/markdown-to-jsx -> lib/), so this page
- * verifies the shipped artifacts and, via the exports "browser" condition,
- * the DOM-based entity decoder in lib/src/entities.browser.ts. The Preact
- * build of the React mounts is preact/main.ts.
- *
- * No JSX and no framework Vite plugins on purpose: the mounts stay in plain
- * createElement/createComponent/h so the harness carries zero transform config.
- */
-
 import SolidMarkdown from 'markdown-to-jsx/solid'
 import VueMarkdown from 'markdown-to-jsx/vue'
 import { createComponent } from 'solid-js'

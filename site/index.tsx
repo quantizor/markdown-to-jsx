@@ -585,12 +585,10 @@ function TryItLive() {
         </div>
       </header>
 
-      {/* Full screen lava lamp background */}
       <React.Suspense fallback={null}>
         <LavaLamp className="w-full h-full" />
       </React.Suspense>
 
-      {/* Editor and Preview positioned over canvas */}
       <section className="hidden md:flex justify-center gap-0 w-[95%] items-start min-h-[400px] max-h-[80vh]">
         <div className="w-1/2 flex flex-col gap-6 self-stretch">
           <div className="text-[13px] text-black font-bold uppercase text-center bg-accent px-3 pt-1.25 pb-1 rounded-xl leading-none self-center sticky top-2 z-10">

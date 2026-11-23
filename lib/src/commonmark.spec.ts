@@ -21,23 +21,10 @@ const specExamples: SpecExample[] = JSON.parse(
   )
 )
 
-/**
- * Collapse insignificant whitespace so output is compared structurally, not
- * byte-for-byte. This deliberately forgives three known, intentional deviations
- * from the spec's literal bytes (see BACKLOG.md "Known spec deviations"):
- * compact inter-block formatting (`<ul><li>` vs `<ul>\n<li>`), the code-block
- * trailing newline, and inter-tag whitespace inside raw HTML blocks. A real
- * content difference still fails.
- */
 function normalizeHtml(html: string): string {
   return html.replace(/\n\s*/g, '').replace(/>\s+</g, '><').trim()
 }
 
-/**
- * Examples whose output deviates from the spec on purpose, with the exact output
- * asserted instead: each is a tag still open at the end of its string, which a
- * browser would read on into whatever markup follows.
- */
 const SECURITY_DEVIATIONS: Record<number, string> = {
   156: '&lt;div id="foo"\n*hi*\n',
   157: '&lt;div class\nfoo\n',
@@ -53,17 +40,12 @@ describe('CommonMark 0.31.2 Specification', () => {
     section,
     example,
   }) => {
-    // Enable GFM extensions for autolinks and tagfilter tests
-    // Note: angle bracket autolinks (<https://...>) are part of core CommonMark spec
-    // GFM bare URL autolinks (www., http:// without <>) are extensions
     const isGfmAutolinkTest = section === 'Autolinks (extension)'
     const isTagfilterTest = section === 'tagfilter'
 
     const ast = parser(markdown, {
-      // Bare URL autolinks are GFM extensions - only enable for GFM autolink tests
-      // Angle bracket autolinks are handled separately and are always enabled
       disableAutoLink: !isGfmAutolinkTest,
-      tagfilter: isTagfilterTest, // Tagfilter is on by default, but most CommonMark tests expect it off
+      tagfilter: isTagfilterTest,
       slugify: () => '',
     })
 

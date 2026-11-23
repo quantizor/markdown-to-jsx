@@ -117,11 +117,12 @@ Shared across every renderer unless noted.
 | ------------------------------- | ----------------------------- | -------- | -------------------------------------------------------------------------------- |
 | `createElement`                 | `function`                    | -        | Hook `(type, props, children)` before elements are built. JSX renderers only.     |
 | `disableAutoLink`               | `boolean`                     | `false`  | Leave bare URLs as text.                                                          |
+| `disableFrontmatter`            | `boolean`                     | `false`  | Read a `---` on the document's first line as a thematic break instead of the start of YAML frontmatter. |
 | `disableParsingRawHTML`         | `boolean`                     | `false`  | Skip converting raw HTML to elements.                                             |
 | `enforceAtxHeadings`            | `boolean`                     | `true`   | Require a space after `#` for a heading. `false` also reads `#heading` as one.    |
 | `evalUnserializableExpressions` | `boolean`                     | `false`  | Run `eval()` on JSX prop expressions. Unsafe; see Don't.                          |
 | `forceBlock` / `forceInline`    | `boolean`                     | `false`  | Pin the whole input to block or inline parsing.                                   |
-| `forceWrapper`                  | `boolean`                     | `false`  | Wrap even a single child. JSX renderers only.                                     |
+| `forceWrapper`                  | `boolean`                     | `false`  | Wrap even a single child. Every output except markdown.                           |
 | `ignoreHTMLBlocks`              | `boolean`                     | `false`  | Emit HTML blocks as literal text.                                                 |
 | `optimizeForStreaming`          | `boolean`                     | `false`  | Hold back incomplete syntax while content streams in.                             |
 | `overrides`                     | `object`                      | -        | Swap the component or props used for a tag name.                                  |
@@ -130,8 +131,8 @@ Shared across every renderer unless noted.
 | `sanitizer`                     | `function`                    | built-in | Replace URL scheme sanitization. Signature `(value, tag, attribute)`.             |
 | `slugify`                       | `function`                    | built-in | Replace heading id generation from plain text content. Duplicate ids still get `-1`, `-2`, … suffixes. |
 | `tagfilter`                     | `boolean`                     | `true`   | Escape leading `<` on `script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, and kin; keep body and closer as inert text; allowed nested tags still render. |
-| `wrapper`                       | `string \| component \| null` | `'div'`  | Element wrapping multiple children. `null` returns an array. JSX renderers only.  |
-| `wrapperProps`                  | `object`                      | -        | Props for that wrapper.                                                           |
+| `wrapper`                       | `string \| component \| null` | `'div'`  | Element wrapping multiple children. `null` returns an array (a string in HTML output). Every output except markdown. |
+| `wrapperProps`                  | `object`                      | -        | Props for that wrapper. Every output except markdown.                             |
 
 React Native adds `styles`, `onLinkPress`, and `onLinkLongPress`.
 
@@ -183,7 +184,7 @@ Override keys match the source tag's exact case: `<MyThing />` needs the key `My
 
 ## renderRule
 
-Runs before every other rendering path and sees nodes that are normally skipped (`ref`, `footnote`, `frontmatter`). Call `next()` to fall through to the default.
+Runs before every other rendering path. In the JSX renderers it also sees nodes that render nothing by default (`refCollection`, `footnote`, `frontmatter`); the markdown renderer passes it `refCollection` and `frontmatter`, and the HTML string renderer none of the three. Call `next()` to fall through to the default.
 
 Here it swaps `:smile:` style shortcodes for emoji as text nodes are rendered:
 
@@ -301,8 +302,8 @@ Node shapes worth knowing:
 - `codeBlock` `{ lang, text, attrs? }`
 - `orderedList` `{ items, start? }` / `unorderedList` `{ items }`, where `items` is an array of node arrays
 - `table` `{ header, cells, align }`
-- `htmlBlock` `{ tag, attrs?, children? }`, always fully parsed into `children`
-- `htmlSelfClosing` `{ tag, attrs? }`, `htmlComment` `{ text }`
+- `htmlBlock` `{ tag, attrs?, children?, text? }`, content always parsed into `children`, with `text` holding the content's source
+- `htmlSelfClosing` `{ tag, attrs? }`, `htmlComment` `{ text }`, where `text` holds the delimiters for a block-level comment, processing instruction, CDATA section, or declaration such as `<!doctype html>`, and only the inner text for an inline comment
 - `text` `{ text }`, `codeInline` `{ text }`, `textFormatted` `{ tag, children }`
 - `link` `{ target, title?, children }`, `image` `{ target, alt?, title? }`
 - `gfmTask` `{ completed }`, `footnoteReference` `{ target, text }`, `frontmatter` `{ text }`
@@ -312,9 +313,9 @@ JSX props on a capitalized tag listed in `overrides` are parsed for you: arrays 
 
 ## Security
 
-Raw HTML is sanitized in every renderer, always, independent of `options.sanitizer`. Stripped before render: every `on*` inline handler (a `{…}` handler stays on a capitalized tag in `overrides`, and HTML and markdown output emit it as written; on a lowercase or hyphenated tag in `overrides` a handler stays in the parsed node's `attrs` as written text for `renderRule`, and no output renders it), `javascript:`/`vbscript:`/non-image `data:` URLs in `href`, `src`, `action`, `formaction`, `poster`, `cite`, `background`, `data`, `longdesc`, and `xlink:href` or `xlinkHref` (including entity-obfuscated variants), `iframe` `srcdoc`, the framework-only attributes `innerHTML`, `outerHTML`, `dangerouslySetInnerHTML`, `ref`, and `children` (on a tag in `overrides`, it becomes the element's text content), and any of these behind a Solid `attr:`, `prop:`, or `bool:` prefix. Dangerous tag names are escaped separately by `tagfilter`.
+Raw HTML is sanitized in every renderer, always, independent of `options.sanitizer`. Stripped before render: every `on*` inline handler (a `{…}` handler on a capitalized tag in `overrides` reaches the component as a string prop in React, React Native, and Solid, and is dropped from HTML and markdown output, from an override that renders an element, and from Vue, which passes undeclared props to the root element; on a lowercase or hyphenated tag in `overrides` a handler stays in the parsed node's `attrs` as written text for `renderRule`, and no output renders it), `javascript:`/`vbscript:`/non-image `data:` URLs in `href`, `src`, `action`, `formaction`, `poster`, `cite`, `background`, `data`, `longdesc`, and `xlink:href` or `xlinkHref` (including entity-obfuscated variants), a `<meta>` refresh `content` whose URL uses one of those schemes (`0;url=javascript:…`), `srcdoc` on any tag, a `style` that loads one of those schemes or uses `expression()`, `-moz-binding`, or `behavior` (CSS comments and escapes are decoded first), the framework-only attributes `innerHTML`, `outerHTML`, `dangerouslySetInnerHTML`, `ref`, and `children` (on a tag in `overrides`, it becomes the element's text content), and any of these behind a Solid `attr:`, `prop:`, or `bool:` prefix. Dangerous tag names are escaped separately by `tagfilter`.
 
-`data:image/svg+xml` passes the filter and can still execute script if a user opens it as a top-level navigation, so treat SVG data URLs from untrusted authors with care.
+An SVG data URL (`data:image/svg+xml`) is kept only as an image source (`img` `src`/`srcset`, `source` `src`/`srcset`, `video` `poster`, `input` `src`, `image` `src`/`srcset`/`href`/`xlink:href`) and dropped from links, `<meta>` refresh URLs, frames, objects, and every other URL attribute, since a browser runs its script when it opens one as a page. The exported `sanitizer(url, tag, attribute)` applies that rule when given the tag and attribute; `sanitizer(url)` alone keeps it.
 
 ## Gotchas
 
@@ -328,7 +329,7 @@ compiler('a\\\nb') // "<p>a<br />\nb</p>", trailing backslash
 
 **Indented template literals become code blocks.** Four leading spaces is indented-code syntax, so markdown written inside an indented template literal parses as a code block rather than as content. Dedent the string before passing it in.
 
-**Fenced code inside a raw HTML block stays literal.** The parser does not descend into a raw HTML block looking for markdown, so a fence inside a `<div>` renders as its own backticks. Put the fence at the top level and wrap it with a `pre` override if you need a container.
+**Markdown inside a raw HTML block needs blank lines around it.** `<div>\n\n*a*\n\n</div>` renders the emphasis; with no blank line after the opener, `<div>\n*a*\n</div>` keeps `*a*` as literal text. The HTML string renderer also keeps a fence or heading there literal, while the JSX renderers render it.
 
 **Leading whitespace in an HTML block is trimmed** relative to the first line's indentation, so the block does not collide with indented-code syntax.
 

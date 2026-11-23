@@ -6,6 +6,7 @@ import * as path from 'node:path'
 import * as React from 'react'
 import { renderToStaticMarkup, renderToString } from 'react-dom/server'
 import theredoc from 'theredoc'
+import { $ } from './constants.ts'
 import Markdown, {
   astToJSX,
   compiler,
@@ -14,13 +15,12 @@ import Markdown, {
   sanitizer,
 } from './react.tsx'
 import { supportsRawElements } from './runtime-probe.ts'
-import { storedAST, treeProps } from './test-tree.ts'
+import { quotesDeep, storedAST, treeProps } from './test-tree.ts'
 import type { MarkdownToJSX } from './types.ts'
 
 const root = { innerHTML: '' }
 
 function render(jsx: React.ReactNode) {
-  // compiler() is typed as ReactNode; these tests always pass element-shaped output.
   root.innerHTML = renderToString(jsx as React.ReactElement)
 }
 
@@ -29,7 +29,7 @@ afterEach(() => {
   mock.clearAllMocks()
 })
 
-it('should throw if not passed a string (first arg)', () => {
+it('should throw, and fail type-checking, if not passed a string (first arg)', () => {
   expect(() => compiler('')).not.toThrow()
   expect(() => compiler()).not.toThrow()
   // @ts-expect-error -- negative-behavior test: non-string input must throw
@@ -52,10 +52,7 @@ it('should handle a basic string', () => {
   expect(root.innerHTML).toBe('Hello.')
 })
 
-it('raw elements have _store for React dev-mode validation (issue #821)', () => {
-  // React's dev-mode reconciler sets element._store.validated to track whether
-  // elements were created via JSX vs createElement. Without _store this throws
-  // "Cannot set properties of undefined (setting 'validated')".
+it('raw elements have _store, so the React dev-mode reconciler setting element._store.validated does not throw (issue #821)', () => {
   expect(() =>
     render(compiler('# Title\n\nParagraph\n\n- item 1\n- item 2'))
   ).not.toThrow()
@@ -164,6 +161,30 @@ describe('inline textual elements', () => {
     )
   })
 
+  it.each([
+    ['==``==b==`', '<p>==``<mark>b</mark>`</p>'],
+    ['~~``~~b~~`', '<p>~~``<del>b</del>`</p>'],
+    ['[a ``b](/u) `c', '<p><a href="/u">a ``b</a> `c</p>'],
+    ['~~a ~~', '<p>~~a ~~</p>'],
+    ['~~ a~~', '<p>~~ a~~</p>'],
+    ['~~a~~~\n~~<', '<p>~~a~~~\n~~&lt;</p>'],
+    ['a ===c=== b', '<p>a ===c=== b</p>'],
+    ['==a===b==', '<p><mark>a===b</mark></p>'],
+    ['==x==', '<p><mark>x</mark></p>'],
+    ['== x==', '<p>== x==</p>'],
+    ['a \\==b==', '<p>a ==b==</p>'],
+    ['~~foo ~~bar baz~~', '<p>~~foo <del>bar baz</del></p>'],
+    ['~~a ~~b~~ c~~', '<p><del>a <del>b</del> c</del></p>'],
+    ['==a ==b== c==', '<p><mark>a <mark>b</mark> c</mark></p>'],
+    ['~~**a**~~', '<p><del><strong>a</strong></del></p>'],
+    ['**~~a~~**', '<p><strong><del>a</del></strong></p>'],
+    ['*~~a*~~', '<p><em>~~a</em>~~</p>'],
+    ['~~*a~~*', '<p><del>*a</del>*</p>'],
+  ])('pairs strikethrough and mark runs like emphasis: %j', (input, expected) => {
+    render(compiler(input, { forceBlock: true }))
+    expect(root.innerHTML.replaceAll('<!-- -->', '')).toBe(expected)
+  })
+
   it('ignore similar syntax inside inline syntax', () => {
     render(
       compiler(
@@ -260,6 +281,71 @@ describe('misc block level elements', () => {
     `)
   })
 
+  it.each([
+    [
+      '>     code\n> para\nlazy',
+      '<blockquote><pre><code class="">code</code></pre><p>para\nlazy</p></blockquote>',
+    ],
+    [
+      '> para\n>     code\nlazy',
+      '<blockquote><p>para\ncode\nlazy</p></blockquote>',
+    ],
+    [
+      '> # h\nlazy',
+      '<div><blockquote><h1 id="h">h</h1></blockquote><p>lazy</p></div>',
+    ],
+    [
+      '- # h\nlazy',
+      '<div><ul><li><h1 id="h">h</h1></li></ul><p>lazy</p></div>',
+    ],
+    ['> ---\nlazy', '<div><blockquote><hr/></blockquote><p>lazy</p></div>'],
+    [
+      '> ```\n> a\nlazy',
+      '<div><blockquote><pre><code class="">a</code></pre></blockquote><p>lazy</p></div>',
+    ],
+    [
+      '- | a | b |\n  | - | - |\nlazy',
+      '<div><ul><li><table><thead><tr><th>a</th><th>b</th></tr></thead></table></li></ul><p>lazy</p></div>',
+    ],
+    [
+      '> <pre>\nlazy',
+      '<div><blockquote><pre></pre></blockquote><p>lazy</p></div>',
+    ],
+    ['- <pre>\nlazy', '<div><ul><li><pre></pre></li></ul><p>lazy</p></div>'],
+    [
+      '> <div>\nlazy',
+      '<div><blockquote><div></div></blockquote><p>lazy</p></div>',
+    ],
+    ['- <div>\nlazy', '<div><ul><li><div></div></li></ul><p>lazy</p></div>'],
+    ['- </pre>\nm', '<div><ul><li><pre></pre></li></ul><p>m</p></div>'],
+    ['> </pre>\nm', '<div><blockquote><pre></pre></blockquote><p>m</p></div>'],
+    ['> - a\nlazy', '<blockquote><ul><li>a\nlazy</li></ul></blockquote>'],
+    [
+      '> > a\nlazy',
+      '<blockquote><blockquote><p>a\nlazy</p></blockquote></blockquote>',
+    ],
+    [
+      '> f\nbar\n> # x',
+      '<blockquote><p>f\nbar</p><h1 id="x">x</h1></blockquote>',
+    ],
+    [
+      '- 10. a\n\n      b\nlazy',
+      '<ul><li><ol start="10"><li><p>a</p><p>b\nlazy</p></li></ol></li></ul>',
+    ],
+    [
+      '> 1.  one\n>\n>     two\nthree',
+      '<blockquote><ol start="1"><li><p>one</p><p>two\nthree</p></li></ol></blockquote>',
+    ],
+    [
+      '> [x]: /u\n[y]: /v\n\n[y]',
+      '<div><blockquote></blockquote><p><a href="/v">y</a></p></div>',
+    ],
+  ])('ends or extends a container for the lazy line of %j as %j', (input, expected) => {
+    render(compiler(input))
+
+    expect(root.innerHTML).toBe(expected)
+  })
+
   it('should handle consecutive blockquotes', () => {
     render(compiler('> Something important, perhaps?\n\n> Something else'))
 
@@ -273,6 +359,14 @@ describe('misc block level elements', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<blockquote class="markdown-alert-note"><header>NOTE</header><p>Something important, perhaps?</p></blockquote>"`
+    )
+  })
+
+  it('should keep an alert when the marker is followed by an ideographic space', () => {
+    render(compiler('> [!NOTE]　\n> body'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<blockquote class="markdown-alert-note"><header>NOTE</header><p>body</p></blockquote>"`
     )
   })
 
@@ -518,6 +612,16 @@ describe('images', () => {
 })
 
 describe('links', () => {
+  it('ends link text at a bracket inside a raw HTML element, and hides only a bracket inside the tag itself', () => {
+    render(
+      compiler('[see <b>this]</b> note](/docs)\n\n[a <b title="]">x</b>](/u)')
+    )
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<div><p>[see <b>this]</b> note](/docs)</p><p><a href="/u">a <b title="]">x</b></a></p></div>"`
+    )
+  })
+
   it('should handle a link reference', () => {
     render(compiler('[foo][1]\n\n[1]: /xyz.png'))
 
@@ -1085,10 +1189,9 @@ describe('links', () => {
     )
   })
 
-  it('should handle self-closing HTML tags', () => {
+  it('should handle self-closing HTML tags, which React renders as <br/>', () => {
     render(compiler('text <br> more'))
 
-    // normally this would be <br> but react will render it as <br/>
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<span>text <br/> more</span>"`
     )
@@ -1133,6 +1236,22 @@ describe('lists', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<ul><li>xyz<ul><li>abc</li></ul></li><li>foo</li></ul>"`
+    )
+  })
+
+  it('should keep a list loose when an HTML block ends at the blank line before a paragraph', () => {
+    render(compiler('- <div>x</div>\n\n  i\n- b'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li><div>x</div><p>i</p></li><li><p>b</p></li></ul>"`
+    )
+  })
+
+  it('should keep a list tight when a void tag is followed by a line remainder, using <br> because React hoists a preload link for <img>', () => {
+    render(compiler('- <br> \n  caption\n- b'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li><br/>caption</li><li>b</li></ul>"`
     )
   })
 
@@ -1203,6 +1322,16 @@ describe('lists', () => {
       `"<ul><li>foo</li><li>bar <strong>+ baz</strong> qux <strong>quux</strong></li></ul>"`
     )
   })
+
+  it.each([
+    ['-\n  _\n\n  )', '<ul><li><p>_</p><p>)</p></li></ul>'],
+    ['-\n\n  -', '<ul><li></li><li></li></ul>'],
+    ['>a\n-', '<div><blockquote><p>a</p></blockquote><ul><li></li></ul></div>'],
+  ])('renders the item structure of %j as %j', (input, expected) => {
+    render(compiler(input))
+
+    expect(root.innerHTML).toBe(expected)
+  })
 })
 
 it('should continue an indented list', () => {
@@ -1247,6 +1376,22 @@ describe('GFM task lists', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<ul><li><input readOnly="" type="checkbox" checked=""/> foo</li></ul>"`
+    )
+  })
+
+  it('keeps a marker as text unless whitespace and content follow it', () => {
+    render(compiler('- [x]foo\n- [ ] \n- [x] baz'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li>[x]foo</li><li>[ ]</li><li><input readOnly="" type="checkbox" checked=""/> baz</li></ul>"`
+    )
+  })
+
+  it('keeps the rest of a marker line as text, never a block', () => {
+    render(compiler('- [x] # heading\n- [x] > quote'))
+
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<ul><li><input readOnly="" type="checkbox" checked=""/> # heading</li><li><input readOnly="" type="checkbox" checked=""/> &gt; quote</li></ul>"`
     )
   })
 })
@@ -1534,6 +1679,15 @@ describe('GFM tables', () => {
           React.isValidElement(c) && c.type === 'tbody'
       )?.key
     ).toMatchInlineSnapshot(`"tbody"`)
+  })
+
+  it.each([
+    ['`a| b |\n|---|', '<p>`a| b |\n|---|</p>'],
+    ['`|]\n-', '<h2>`|]</h2>'],
+  ])('renders %j, a delimiter row with the wrong cell count, as %j', (input, expected) => {
+    render(compiler(input))
+
+    expect(root.innerHTML).toBe(expected)
   })
 })
 
@@ -1887,18 +2041,14 @@ comment -->`)
     )
   })
 
-  it('regression test for #860 - HTML block content without blank lines preserves literal markdown', () => {
-    // Per CommonMark Example 189: content in an HTML block without blank lines
-    // must not be processed as markdown.
+  it('regression test for #860 - HTML block content without blank lines is not processed as markdown, preserving it literally', () => {
     render(compiler('<div>\n*Emphasized* text.\n</div>'))
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<div>*Emphasized* text.</div>"`
     )
   })
 
-  it('regression test for #860 - HTML block with blank-line-delimited content does parse markdown', () => {
-    // Per CommonMark Example 188: blank lines around content inside an HTML block
-    // allow markdown parsing to apply.
+  it('regression test for #860 - HTML block with blank-line-delimited content does parse markdown, since blank lines around content inside an HTML block allow markdown parsing', () => {
     render(compiler('<div>\n\n*Emphasized* text.\n\n</div>'))
     expect(root.innerHTML).toMatchInlineSnapshot(
       `"<div><p><em>Emphasized</em> text.</p></div>"`
@@ -2140,7 +2290,6 @@ comment -->`)
   })
 
   it('does not parse the inside of <script> blocks with weird capitalization', () => {
-    // React DEV warns about non-lowercase HTML tags; the casing is the point of the test.
     spyOn(console, 'error').mockImplementation(() => {})
     render(
       compiler(['<SCRIPT>', '  new Date();', '</SCRIPT>'].join('\n'), {
@@ -2153,11 +2302,35 @@ comment -->`)
     )
   })
 
+  it.each([
+    ['x<span></span></span', '<span>x<span></span>&lt;/span</span>'],
+    ['x<div></div></div', '<span>x<div></div>&lt;/div</span>'],
+    ['x<Foo></Foo></Foo', '<span>x<Foo></Foo>&lt;/Foo</span>'],
+  ])('leaves the second closer of %j as text', (input, expected) => {
+    spyOn(console, 'error').mockImplementation(() => {})
+    render(compiler(input))
+
+    expect(root.innerHTML).toBe(expected)
+  })
+
+  it.each([
+    '<!--@/>',
+    '<!A[@e>',
+  ])('renders %j as a raw block, which writes no markup', markup => {
+    render(compiler(markup, { forceBlock: true }))
+
+    expect(root.innerHTML).toBe('')
+  })
+
+  it('renders the children of a stored block with its private fields dropped', () => {
+    expect(
+      renderToStaticMarkup(
+        astToJSX(storedAST('<div>\n  <div/>\n  <span>content</span>\n</div>'))
+      )
+    ).toBe('<div><div></div><p><span>content</span></p></div>')
+  })
+
   describe('tagfilter escapes dangerous tags by default', () => {
-    // Regression: render paths read options.tagfilter directly while only the
-    // parse-time options were defaulted, so solid/vue/native (and direct
-    // astToJSX calls here) emitted live dangerous tags despite the documented
-    // default-on protection. Both compiler() and astToJSX must escape.
     it('escapes script with default options via compiler()', () => {
       render(compiler('<script>alert(1)</script>'))
       expect(root.innerHTML).toBe(
@@ -2165,7 +2338,7 @@ comment -->`)
       )
     })
 
-    it('escapes dangerous tags by default via astToJSX()', () => {
+    it('escapes dangerous tags by default via astToJSX(), as compiler() does (regression: render paths read options.tagfilter directly while only the parse-time options were defaulted)', () => {
       render(astToJSX(parser('<script>alert(1)</script>')))
       expect(root.innerHTML).toBe(
         '<span>&lt;script&gt;alert(1)&lt;/script&gt;</span>'
@@ -2466,10 +2639,8 @@ Item detail
 </dl-custom>`)
     )
 
-    // Should only have one dl-custom opening tag, not two
     const openingTagCount = (root.innerHTML.match(/<dl-custom/g) || []).length
     expect(openingTagCount).toBe(1)
-    // Verify the attribute value is correctly parsed (#781 fix)
     expect(root.innerHTML).toContain('data-variant="horizontalTable"')
     expect(root.innerHTML).toContain('title 1')
   })
@@ -2617,15 +2788,13 @@ describe('line breaks', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(`"<p>hello<br/>there</p>"`)
   })
 
-  it('should be added for 2-space sequences inside list items', () => {
-    // Regression test for https://github.com/quantizor/markdown-to-jsx/issues/766
+  it('should be added for 2-space sequences inside list items (issue #766)', () => {
     render(compiler(['- c  ', '  d'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(`"<ul><li>c<br/>d</li></ul>"`)
   })
 
-  it('should be added for 2-space sequences inside blockquotes in list items', () => {
-    // Additional regression test for blockquotes within list items
+  it('should be added for 2-space sequences inside blockquotes in list items (additional regression test for #766)', () => {
     render(compiler(['- > a  ', '  > b'].join('\n')))
 
     expect(root.innerHTML).toMatchInlineSnapshot(
@@ -2664,10 +2833,9 @@ Yeah boi
   it('regression 602 - should treat anything following ``` as code until the closing pair', () => {
     render(compiler('```\nfoo'))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`
-      "<pre><code class="">foo
-      </code></pre>"
-    `)
+    expect(root.innerHTML).toMatchInlineSnapshot(
+      `"<pre><code class="">foo</code></pre>"`
+    )
   })
 
   it('regression 670 - fenced code block intentional escape', () => {
@@ -2846,7 +3014,6 @@ describe('footnotes', () => {
 })
 
 describe('named character entity decoding', () => {
-  // All named entities are now supported by default via the full entity list
   const content =
     '&AElig;,&Aacute;,&Acirc;,&Agrave;,&Aring;,&Atilde;,&Auml;,&Ccedil;,&Eacute;,&Ecirc;,&Egrave;,&Euml;,&Iacute;,&Icirc;,&Igrave;,&Iuml;,&Ntilde;,&Oacute;,&Ocirc;,&Ograve;,&Oslash;,&Otilde;,&Ouml;,&Uacute;,&Ucirc;,&Ugrave;,&Uuml;,&Yacute;,&aacute;,&acirc;,&aelig;,&agrave;,&aring;,&atilde;,&auml;,&ccedil;,&coy;,&eacute;,&ecirc;,&egrave;,&euml;,&ge;,&iacute;,&icirc;,&igrave;,&iuml;,&laquo;,&le;,&nbsp;,&ntilde;,&oacute;,&ocirc;,&ograve;,&oslash;,&otilde;,&ouml;,&para;,&quot;,&raquo;,&szlig;,&uacute;,&ucirc;,&ugrave;,&uuml;,&yacute;'
 
@@ -3040,24 +3207,24 @@ describe('options.slugify', () => {
   it('should use the default function if unset', () => {
     render(compiler('# 中文'))
 
-    expect(root.innerHTML).toMatchInlineSnapshot(`"<h1 id="">中文</h1>"`)
+    expect(root.innerHTML).toMatchInlineSnapshot(`"<h1>中文</h1>"`)
   })
 
-  it('should throw error if invalid', () => {
+  it('should throw error, and fail type-checking, if invalid', () => {
     expect(() => {
       // @ts-expect-error -- negative-behavior test: invalid slugify option must throw
       render(compiler('# 中文', { slugify: 'invalid' }))
     }).toThrow()
   })
 
-  it('should throw error if options.overrides is not an object', () => {
+  it('should throw error, and fail type-checking, if options.overrides is not an object', () => {
     expect(() => {
       // @ts-expect-error -- negative-behavior test: invalid overrides option must throw
       render(compiler('# test', { overrides: 'invalid' }))
     }).toThrow(/options\.overrides/)
   })
 
-  it('should throw error if options.overrides is an array', () => {
+  it('should throw error, and fail type-checking, if options.overrides is an array', () => {
     expect(() => {
       // @ts-expect-error -- negative-behavior test: invalid overrides option must throw
       render(compiler('# test', { overrides: [] }))
@@ -3563,7 +3730,7 @@ describe('Markdown component', () => {
     )
   })
 
-  it('throws error for non-string input to compiler', () => {
+  it('throws error, and fails type-checking, for non-string input to compiler', () => {
     expect(() => {
       // @ts-expect-error -- negative-behavior test: non-string input must throw
       compiler(123)
@@ -3640,9 +3807,7 @@ describe('tagfilter option', () => {
   })
 
   describe('HTML block with tagfilter disabled', () => {
-    it('should not escape script tags when tagfilter is false', () => {
-      // Single-line Type 1 must keep its text content (inline and block shapes
-      // share the verbatim node contract).
+    it('should not escape script tags when tagfilter is false, keeping the text content of a single-line Type 1 block as inline and block shapes share the verbatim node contract', () => {
       render(compiler('<script>alert("xss")</script>', { tagfilter: false }))
       expect(root.innerHTML).toBe('<script>alert("xss")</script>')
     })
@@ -3807,10 +3972,7 @@ tags:
 })
 
 describe('options immutability', () => {
-  it('should not mutate options object when calling astToJSX multiple times', () => {
-    // Test that astToJSX doesn't mutate the options object when called multiple times
-    // This is important for memoization - if the same options object is reused,
-    // mutations could cause unexpected side effects
+  it('should not mutate options object when calling astToJSX multiple times, so a reused options object has no side effects', () => {
     const markdown = '# Hello world'
     const ast = parser(markdown)
     const options: Parameters<typeof astToJSX>[1] = {
@@ -3818,37 +3980,28 @@ describe('options immutability', () => {
     }
     const originalOverrides = options.overrides
 
-    // First call
     astToJSX(ast, options)
 
-    // Verify options object wasn't mutated
     expect(options.overrides).toBe(originalOverrides)
 
-    // Second call with same options
     astToJSX(ast, options)
 
-    // Options should still be unchanged
     expect(options.overrides).toBe(originalOverrides)
   })
 
   it('should not mutate options object when calling compiler multiple times', () => {
-    // Test that compiler doesn't mutate the options object when called multiple times
     const markdown = '# Hello world'
     const options: Parameters<typeof compiler>[1] = {
       slugify: (input: string) => input.toLowerCase(),
     }
     const originalOverrides = options.overrides
 
-    // First call
     compiler(markdown, options)
 
-    // Verify options object wasn't mutated
     expect(options.overrides).toBe(originalOverrides)
 
-    // Second call with same options
     compiler(markdown, options)
 
-    // Options should still be unchanged
     expect(options.overrides).toBe(originalOverrides)
   })
 })
@@ -3990,7 +4143,6 @@ describe('optimizeForStreaming option', () => {
   })
 
   it('should render incomplete fenced code blocks normally (content visible as it streams)', () => {
-    // Fenced code blocks should render as they stream - users want to see the code
     render(compiler('```js\nconst x = 1;', { optimizeForStreaming: true }))
     expect(root.innerHTML).toContain('const x = 1')
   })
@@ -4008,13 +4160,11 @@ describe('optimizeForStreaming option', () => {
       compiler('Hello world `incomplete code', { optimizeForStreaming: true })
     )
     expect(root.innerHTML).toContain('Hello world')
-    // Content might be truncated depending on implementation
   })
 
   it('should strip incomplete bold markers but keep text content', () => {
     render(compiler('Hello world **bold text', { optimizeForStreaming: true }))
     expect(root.innerHTML).toContain('Hello world')
-    // The text "bold text" should appear without ** markers
     expect(root.innerHTML).toContain('bold text')
     expect(root.innerHTML).not.toContain('**')
   })
@@ -4023,7 +4173,6 @@ describe('optimizeForStreaming option', () => {
     render(compiler('Hello world *italic text', { optimizeForStreaming: true }))
     expect(root.innerHTML).toContain('Hello world')
     expect(root.innerHTML).toContain('italic text')
-    // Asterisk should not appear as literal text
   })
 
   it('should strip incomplete strikethrough markers but keep text content', () => {
@@ -4079,7 +4228,7 @@ describe('optimizeForStreaming option', () => {
     expect(root.innerHTML).toContain('incomplete')
   })
 
-  it('should work with Markdown component', () => {
+  it('should work with Markdown component, stripping an unclosed tag but keeping its content', () => {
     const result = renderToString(
       React.createElement(
         Markdown,
@@ -4087,7 +4236,6 @@ describe('optimizeForStreaming option', () => {
         '<CustomComponent>streaming'
       )
     )
-    // Strips unclosed tag but keeps content
     expect(result).toContain('streaming')
     expect(result).not.toContain('CustomComponent')
   })
@@ -4119,6 +4267,11 @@ describe('optimizeForStreaming preserves literal less-than', () => {
     expect(root.innerHTML).toBe('<p>incomplete</p>')
   })
 
+  it('reads a closing tag after an unfinished opener the way a full parse does', () => {
+    render(compiler('x <Comp </b>y', { optimizeForStreaming: true }))
+    expect(root.innerHTML).toBe('<span>x &lt;Comp <b></b>y</span>')
+  })
+
   it('keeps a completed tag plus a later literal less-than', () => {
     render(
       compiler('Hello <div>a</div> and 1 < 2', { optimizeForStreaming: true })
@@ -4128,9 +4281,7 @@ describe('optimizeForStreaming preserves literal less-than', () => {
 })
 
 describe('optimizeForStreaming keeps literal delimiters', () => {
-  it('removes only unclosed emphasis openers', () => {
-    // Literal `_` and `*` in finished text survive; only the genuinely
-    // unclosed opener on the last line is held back (issue #905)
+  it('removes only the genuinely unclosed emphasis opener on the last line, keeping literal `_` and `*` in finished text (issue #905)', () => {
     render(
       compiler(
         'pass *args and **kwargs\n\ncustomer_id and `customer_id`\n\nSELECT * FROM t WHERE 2*3=6\n\nhttps://example.com/a_b and <https://example.com/c_d>\n\n**held',
@@ -4142,10 +4293,7 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
     )
   })
 
-  it('hides a never-closed opener until the final render (issue #909)', () => {
-    // The parser cannot tell a streaming edge from finished text, so an
-    // opener with no closer stays hidden while the option is on; the
-    // documented final render with the option off shows it as written
+  it('hides a never-closed opener while the option is on, since the parser cannot tell a streaming edge from finished text, and shows it as written in the final render with the option off (issue #909)', () => {
     const md = 'Use _trace and *args'
     render(compiler(md, { optimizeForStreaming: true }))
     expect(root.innerHTML).toMatchInlineSnapshot(`"Use trace and args"`)
@@ -4153,9 +4301,7 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(`"Use _trace and *args"`)
   })
 
-  it('keeps complete HTML and earlier blocks unchanged', () => {
-    // Complete raw HTML, and incomplete-looking links and code in a block
-    // that is no longer the last one, render exactly as without the option
+  it('keeps complete HTML, and incomplete-looking links and code in a block that is no longer the last one, rendering exactly as without the option', () => {
     const md = 'a <span>z</span> <br> b\n\nsee [a](b and `code\n\nlast'
     render(compiler(md))
     const plain = root.innerHTML
@@ -4303,6 +4449,26 @@ describe('unique heading IDs (#857)', () => {
       '<h2 id="text"><a href="https://e.com">text</a></h2>'
     )
   })
+
+  it('folds accented Latin letters and ß into the heading id', () => {
+    render(compiler('# Öl Straße\n\n# Łódź'))
+    expect(root.innerHTML).toBe(
+      '<div><h1 id="ol-strasse">Öl Straße</h1><h1 id="lodz">Łódź</h1></div>'
+    )
+  })
+
+  it.each([
+    ['# !!!', '<h1>!!!</h1>'],
+    ['# `]`', '<h1><code>]</code></h1>'],
+  ])('omits the id attribute of %j, a heading with an empty slug', (input, expected) => {
+    render(compiler(input))
+    expect(root.innerHTML).toBe(expected)
+  })
+
+  it('omits the id attribute of a heading whose slug is only whitespace', () => {
+    render(compiler('# Hi', { slugify: () => ' ' }))
+    expect(root.innerHTML).toBe('<h1>Hi</h1>')
+  })
 })
 
 describe('destination entity decode before sanitize', () => {
@@ -4311,6 +4477,62 @@ describe('destination entity decode before sanitize', () => {
     expect(root.innerHTML).toBe('<a>x</a>')
     render(compiler('![x](&#106;avascript:alert(1))'))
     expect(root.innerHTML).toBe('<img alt="x"/>')
+  })
+
+  it('percent-encodes a control character in an image src as in a link href, with the preload link React 19 hoists ahead of an img that has a src', () => {
+    render(compiler('![x](java\u0001script:alert(1))'))
+    expect(root.innerHTML).toBe(
+      '<link rel="preload" as="image" href="java%01script:alert(1)"/><img alt="x" src="java%01script:alert(1)"/>'
+    )
+    render(compiler('![x](java&#1;script:alert(1))'))
+    expect(root.innerHTML).toBe(
+      '<link rel="preload" as="image" href="java%01script:alert(1)"/><img alt="x" src="java%01script:alert(1)"/>'
+    )
+    render(compiler('[x](java\u0001script:alert(1))'))
+    expect(root.innerHTML).toBe('<a href="java%01script:alert(1)">x</a>')
+  })
+
+  it.each([
+    ['tab', '![x](java\tscript:alert(1))'],
+    ['tab entity', '![x](java&#9;script:alert(1))'],
+    ['newline entity', '![x](java&#10;script:alert(1))'],
+    ['percent tab, mixed case', '![x](JaVa%09ScRiPt:alert(1))'],
+    ['percent control character', '![x](java%01script:alert(1))'],
+    ['percent letter', '![x](java%73cript:alert(1))'],
+  ])('drops an image src whose stripped form is a dangerous scheme: %s', (_, input) => {
+    render(compiler(input))
+    expect(root.innerHTML).toBe('<img alt="x"/>')
+  })
+
+  it('keeps and encodes a safe image src', () => {
+    render(compiler('![x](https://a.b/c.png)'))
+    expect(root.innerHTML).toBe(
+      '<link rel="preload" as="image" href="https://a.b/c.png"/><img alt="x" src="https://a.b/c.png"/>'
+    )
+    render(compiler('![x](<a b.png>)'))
+    expect(root.innerHTML).toBe(
+      '<link rel="preload" as="image" href="a%20b.png"/><img alt="x" src="a%20b.png"/>'
+    )
+  })
+
+  it.each([
+    ['0;url=javascript:alert(1)'],
+    ['0;URL=javascript:alert(1)'],
+    ["0; url = 'javascript:alert(1)'"],
+    ['0;url=&#106;avascript:alert(1)'],
+    ['0;url=java%73cript:alert(1)'],
+    ['0;url=data:text/html,x'],
+    ['0;javascript:alert(1)'],
+  ])('strips a meta refresh content whose URL is dangerous, written as httpEquiv because React warns on the hyphenated spelling: %s', content => {
+    render(compiler(`<meta httpEquiv="refresh" content="${content}">`))
+    expect(root.innerHTML).toBe('<meta http-equiv="refresh"/>')
+  })
+
+  it('keeps a meta refresh content whose URL is safe', () => {
+    render(compiler('<meta httpEquiv="refresh" content="0;url=https://x.y">'))
+    expect(root.innerHTML).toBe(
+      '<meta http-equiv="refresh" content="0;url=https://x.y"/>'
+    )
   })
 
   it('re-sanitizes direct astToJSX link targets before href encoding', () => {
@@ -4344,6 +4566,20 @@ describe('inline Type 1 content with tagfilter off', () => {
       compiler('<script>x</script>', { tagfilter: false, forceInline: true })
     )
     expect(root.innerHTML).toBe('<script>x</script>')
+  })
+
+  it('gives a textarea its decoded body, markup included, as its default value, which React accepts where it rejects inner HTML', () => {
+    render(
+      compiler('<textarea><b>x</b> &amp;</textarea>', { tagfilter: false })
+    )
+    expect(root.innerHTML).toBe(
+      '<textarea>&lt;b&gt;x&lt;/b&gt; &amp;</textarea>'
+    )
+  })
+
+  it('shows the body of a textarea written in capitals', () => {
+    render(compiler('<TEXTAREA>a &lt; b</TEXTAREA>', { tagfilter: false }))
+    expect(root.innerHTML).toBe('<textarea>a &lt; b</textarea>')
   })
 })
 
@@ -4406,16 +4642,20 @@ describe('enforceAtxHeadings (#903)', () => {
   })
 })
 
-/** The type of every `on*` prop in an element tree, which server rendering drops from its string. */
 const handlerProps = (el: React.ReactNode) =>
   treeProps(el)
     .filter(([name]) => name.toLowerCase().startsWith('on'))
     .map(([name, value]) => `${name}=${typeof value}`)
 
-/** Every prop name in an element tree but children, which server rendering hides for a ref. */
 const propNames = (el: React.ReactNode) => treeProps(el).map(([name]) => name)
 
 describe('attribute names a renderer acts on rather than writes', () => {
+  it('writes a name that ends in a colon as written', () => {
+    expect(renderToStaticMarkup(compiler('<span a:="1">b</span>'))).toBe(
+      '<span a:="1">b</span>'
+    )
+  })
+
   it.each([
     ['<div innerHTML="x<img src=x onerror=alert(1)>">y</div>', '<div>y</div>'],
     [
@@ -4440,6 +4680,17 @@ describe('attribute names a renderer acts on rather than writes', () => {
     render(result)
     expect(root.innerHTML).toBe(expected)
     expect(propNames(result)).toEqual([])
+  })
+
+  it('renders no text for a brace value holding markup on a self-closing tag while streaming', () => {
+    spyOn(console, 'error').mockImplementation(() => {})
+    render(
+      compiler(
+        '<A dangerouslySetInnerHTML={{__html: "<img src=x onerror=alert(1)>"}} />',
+        { optimizeForStreaming: true }
+      )
+    )
+    expect(root.innerHTML).toBe('<A></A>')
   })
 
   it.each([
@@ -4468,20 +4719,17 @@ describe('attribute names a renderer acts on rather than writes', () => {
       '<svg><g><animate attributeName="opacity" values="0;1"></animate></g></svg>',
       ['attributeName', 'values'],
     ],
-    // A comment has no element here, and a filtered tag is text
     [
       '<!-- c --> <script>alert(1)</script>',
       '<span> <span>&lt;script&gt;alert(1)&lt;/script&gt;</span></span>',
       [],
     ],
-    // A filtered tag in a list item is text too
     [
       '- a <!-- c --> <script>alert(1)</script>',
       '<ul><li>a <!-- --> <span>&lt;script&gt;alert(1)&lt;/script&gt;</span></li></ul>',
       ['start'],
     ],
     ['<!-- <script> -->', '', []],
-    // A block left open before raw markup: an element tree has no browser reading to confuse
     ['<p><? a\n\n<!-- x><script>alert(1)</script>', '<p></p>', []],
     [
       '<p><? a\n\n<div title="x><script>alert(1)</script>">body</div>',
@@ -4493,7 +4741,6 @@ describe('attribute names a renderer acts on rather than writes', () => {
       '<div><p></p><p>b <br title="--&gt;&lt;script&gt;alert(1)&lt;/script&gt;"/> c</p></div>',
       ['title'],
     ],
-    // A prop value is escaped whole, so no tag starts inside it
     [
       '<div x={a><script>alert(1)</script>}>y</div>',
       '<div x="{a&gt;&lt;script&gt;alert(1)&lt;/script&gt;}">y</div>',
@@ -4506,7 +4753,6 @@ describe('attribute names a renderer acts on rather than writes', () => {
     expect(propNames(result)).toEqual(props)
   })
 
-  // Registered, since React logs an error for a capitalized DOM tag
   it.each([
     [
       '<Btn action={javascript:alert(1)}>x</Btn>',
@@ -4514,11 +4760,22 @@ describe('attribute names a renderer acts on rather than writes', () => {
       ['className'],
     ],
     [
+      '<Btn srcDoc={"<script>alert(1)</script>"}>x</Btn>',
+      '<button>x</button>',
+      ['className'],
+    ],
+    ['<Btn attributeName={href}>x</Btn>', '<button>x</button>', ['className']],
+    [
+      '<Btn attributeName={opacity}>x</Btn>',
+      '<button attributeName="opacity">x</button>',
+      ['attributeName', 'className'],
+    ],
+    [
       '<Btn href={link}>x</Btn>',
       '<button href="{link}">x</button>',
       ['href', 'className'],
     ],
-  ])('renders %j as %j, with props %j', (input, expected, props) => {
+  ])('renders %j as %j, with props %j, registering the tag because React logs an error for a capitalized DOM tag', (input, expected, props) => {
     const result = compiler(input, {
       overrides: { Btn: { component: 'button' } },
     })
@@ -4533,8 +4790,7 @@ describe('attribute names a renderer acts on rather than writes', () => {
       '<link rel="preload" as="image" href="/x"/><img src="/x"/>',
     ],
     ['<pre><b>x</b></pre>', '<pre><b>x</b></pre>'],
-    // The raw body keeps its stray closer, which a browser ignores
-    ['<div><pre>a</pre></div>', '<div><pre>a</pre></div>\n</div>'],
+    ['<div><pre>a</pre></div>', '<div><pre>a</pre></div></div>'],
     [
       '![" onclick=alert(1)>](/x)',
       '<link rel="preload" as="image" href="/x"/><img alt="&quot; onclick=alert(1)&gt;" src="/x"/>',
@@ -4550,7 +4806,6 @@ describe('attribute names a renderer acts on rather than writes', () => {
     ['<Br children={{"a":1}} />', '<Br></Br>'],
     ['<Img children={{"a":1}}></Img>', '<span><Img></Img><Img></Img></span>'],
   ])('renders unregistered %j without its object child, as %j', (input, expected) => {
-    // React warns about the casing of a tag no override claims
     spyOn(console, 'error').mockImplementation(() => {})
 
     render(compiler(input))
@@ -4613,8 +4868,6 @@ describe('a children attribute on a tag with an override', () => {
 
   const card = { card: { component: 'i' } }
 
-  // An element with no content of its own takes the value as text, in any
-  // document shape; the attribute is never written. Same inputs as the html suite.
   it.each<[string, string, MarkdownToJSX.Overrides, string]>([
     [
       'a capitalized self-closing tag',
@@ -4844,8 +5097,7 @@ describe('a children attribute on a tag with an override', () => {
       card,
       '<div><i>&lt;img src=x onerror=alert(1)&gt;</i></div>',
     ],
-  ])('renders %s as its content', (_title, input, overrides, expected) => {
-    // React warns about the casing of a tag no component renders
+  ])('renders %s as its content, since an element with no content of its own takes the value as text in any document shape and the attribute is never written', (_title, input, overrides, expected) => {
     spyOn(console, 'error').mockImplementation(() => {})
 
     render(compiler(input, { overrides }))
@@ -4949,6 +5201,10 @@ describe('markup a browser reads differently from the parser', () => {
       '<pre><code class="language-x lang-x">y</code></pre>',
     ],
     [
+      '```x style="color:red"\ny\n```',
+      '<pre><code style="color:red" class="language-x lang-x">y</code></pre>',
+    ],
+    [
       '<iframe><img src=x onerror=alert(1)',
       '<span><span>&lt;iframe&gt;</span>&lt;img src=x onerror=alert(1)</span>',
     ],
@@ -4979,8 +5235,6 @@ describe('markup a browser reads differently from the parser', () => {
       'x <javascript:alert(1)> y',
       '<span>x <a>javascript:alert(1)</a> y</span>',
     ],
-    // The markdown output ends an autolink at an ASCII space or control only, so a
-    // Unicode space in one is the same link here
     [
       'x <span><javascript:alert(1)//\xa0></span>',
       '<span>x <span><a>javascript:alert(1)//\xa0</a></span></span>',
@@ -5026,18 +5280,32 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '1. # [^1]\n[^1]:&#106avascript:alert(1)',
-      '<ol start="1"><li><h1 id="1">[^1]</h1>[^1]:&amp;#106avascript:alert(1)</li></ol>',
+      '<div><ol start="1"><li><h1 id="1"><a href="#1"><sup>1</sup></a></h1></li></ol><footer><div id="1">1: <!-- -->&amp;#106avascript:alert(1)</div></footer></div>',
+    ],
+    [
+      '1. a [^1]\n[^1]:&#106avascript:alert(1)',
+      '<ol start="1"><li>a [^1]\n[^1]:&amp;#106avascript:alert(1)</li></ol>',
     ],
     [
       '1. <!-- c --> x\n[^1]:&#106avascript:alert(1)\n\n[^1]',
       '<div><ol start="1"><li></li></ol><p><a href="#1"><sup>1</sup></a></p><footer><div id="1">1: <!-- -->&amp;#106avascript:alert(1)</div></footer></div>',
     ],
-    ['- <pre>x\ny</pre>', '<ul><li><pre>x\ny</pre></li></ul>'],
-    ['- <!-- x\ny -->', '<ul><li></li></ul>'],
-    ['- <div\nonclick=alert(1)>x</div>', '<ul><li><div>x</div></li></ul>'],
+    [
+      '- <pre>x\ny</pre>',
+      '<div><ul><li><pre>x</pre></li></ul><p>y<pre></pre></p></div>',
+    ],
+    ['- <!-- x\ny -->', '<div><ul><li></li></ul><p>y --&gt;</p></div>'],
+    [
+      '- <div\nonclick=alert(1)>x</div>',
+      '<div><ul><li>&lt;div</li></ul><p>onclick=alert(1)&gt;x<div></div></p></div>',
+    ],
+    ['- a <div\nonclick=alert(1)>x</div>', '<ul><li>a <div>x</div></li></ul>'],
     ['- <x-y\nonclick=alert(1)>y</x-y>', '<ul><li><x-y>y</x-y></li></ul>'],
     ['- <x-y a="1\n2">y</x-y>', '<ul><li><x-y a="1\n2">y</x-y></li></ul>'],
-    ['- ```\ny', '<ul><li><pre><code class="">y</code></pre></li></ul>'],
+    [
+      '- ```\ny',
+      '<div><ul><li><pre><code class=""></code></pre></li></ul><p>y</p></div>',
+    ],
     ['1. <x-y>x\ny', '<ol start="1"><li><x-y>x y</x-y></li></ol>'],
     [
       '1. [r]:\n/u "a\nb"\n\n   [r]',
@@ -5049,7 +5317,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '- # h\na | b\n  --- | ---',
-      '<ul><li><h1 id="h">h</h1><table><thead><tr><th>a</th><th>b</th></tr></thead></table></li></ul>',
+      '<div><ul><li><h1 id="h">h</h1></li></ul><table><thead><tr><th>a</th><th>b</th></tr></thead></table></div>',
     ],
     [
       '- - [^1]:\nz\n\n  [^1]',
@@ -5061,13 +5329,12 @@ describe('markup a browser reads differently from the parser', () => {
     ['[x](a\\\\)', '<a href="a%5C">x</a>'],
     [
       '- a | b\n  --- | ---\nc | d',
-      '<ul><li><table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>c</td><td>d</td></tr></tbody></table></li></ul>',
+      '<div><ul><li><table><thead><tr><th>a</th><th>b</th></tr></thead></table></li></ul><p>c | d</p></div>',
     ],
     [
       '1. [^1]:\nb\n\n   [^1]',
       '<div><ol start="1"><li><p><a href="#1"><sup>1</sup></a></p></li></ol><footer><div id="1">1: <!-- -->b</div></footer></div>',
     ],
-    // A paragraph's lazy line stays out of block parsing, so no heading
     ['- <b>x</b>\ny\n===', '<ul><li><b>x</b>\ny\n===</li></ul>'],
     [
       '<div <b c="d"/>\n<![CDATA[</pre>\n\n```\n<b>\n```',
@@ -5087,7 +5354,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<div>\n\n```\n``` \n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
-      '<div><div><pre><code class="">``` \n</code></pre></div><pre><code class="">&lt;img src=x onerror=alert(1)&gt;\n</code></pre></div>',
+      '<div><div><pre><code class="">``` \n</code></pre></div><pre><code class="">&lt;img src=x onerror=alert(1)&gt;</code></pre></div>',
     ],
     [
       '<![CDATA[a]]]>\n\n```\n<img src=x onerror=alert(1)>\n```',
@@ -5095,15 +5362,19 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '- <?p ?> <?q ?>[x](\njavascript:alert(1))',
-      '<ul><li>javascript:alert(1))</li></ul>',
+      '<div><ul><li></li></ul><p>javascript:alert(1))</p></div>',
+    ],
+    [
+      '- a <?p ?> <?q ?>[x](\njavascript:alert(1))',
+      '<ul><li>a <!-- --> <a>x</a></li></ul>',
     ],
     [
       '<div>\n\n```\n```\t\n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
-      '<div><div><pre><code class=""></code></pre></div><pre><code class="">&lt;img src=x onerror=alert(1)&gt;\n</code></pre></div>',
+      '<div><div><pre><code class=""></code></pre></div><pre><code class="">&lt;img src=x onerror=alert(1)&gt;</code></pre></div>',
     ],
     [
       '<div>\n\n```\n```~\n```\n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
-      '<div><div><pre><code class="">```~</code></pre></div><pre><code class="">&lt;img src=x onerror=alert(1)&gt;\n</code></pre></div>',
+      '<div><div><pre><code class="">```~</code></pre></div><pre><code class="">&lt;img src=x onerror=alert(1)&gt;</code></pre></div>',
     ],
     [
       '<details>\n\n```\n```js\n```\n\n</details>',
@@ -5160,7 +5431,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<?p ?><!DOCTYPE html>```\n```\n<svg onload=alert(1)>',
-      '<pre><code class="">&lt;svg onload=alert(1)&gt;\n</code></pre>',
+      '<pre><code class="">&lt;svg onload=alert(1)&gt;</code></pre>',
     ],
     [
       '[l](/u "--><img src=x onerror=alert(1)>")',
@@ -5203,19 +5474,20 @@ describe('markup a browser reads differently from the parser', () => {
       '<span><annotation-xml></annotation-xml>[^1]: ](javascript:alert(1)</span>',
     ],
     ['<pre>a', '<pre>a</pre>'],
-    ['<div><pre>a', '<div><pre>a\n</div>'],
+    ['<div><pre>a', '<div><pre>a</div>'],
     ['<div>\n\n', '<div></div>'],
     ["<div </div>'", '&lt;div &lt;/div&gt;&#x27;'],
     ['<?php echo 1 ?>', ''],
     ['<!DOCTYPE html>', ''],
+    ['<!doctype html>', ''],
     ['<![CDATA[x]]>', ''],
-    // The string outputs' quote re-pairing has no reading here: these are elements and text
     [
       '<![CDATA[<a title="</style><a title="</textarea><a href="javascript:alert(1)">l</a> x" onclick=alert(1)>',
       '<span>&lt;![CDATA[&lt;a title=&quot;<span>&lt;/style&gt;</span>&lt;a title=&quot;<span>&lt;/textarea&gt;</span><a>l</a> x&quot; onclick=alert(1)&gt;</span>',
     ],
     ['a <?b?> c', '<span>a <!-- --> c</span>'],
     ['a <!B c> d', '<span>a <!-- --> d</span>'],
+    ['x <!a b> y', '<span>x <!-- --> y</span>'],
     ['a <![CDATA[b]]> c', '<span>a <!-- --> c</span>'],
     ['a <!-- b --> c', '<span>a <!-- --> c</span>'],
     ['[l](java&Tab;script:alert(1))', '<a>l</a>'],
@@ -5254,7 +5526,6 @@ describe('markup a browser reads differently from the parser', () => {
       '![a\\\\\\](javascript:alert(1))b](/x)',
       '<link rel="preload" as="image" href="/x"/><img alt="a\\](javascript:alert(1))b" src="/x"/>',
     ],
-    // Shapes only the markdown output screens
     [
       `> <div a=1${String.fromCharCode(0x20_28)}>  onclick=alert(1) b>y</div>`,
       `<blockquote><div a="1${String.fromCharCode(0x20_28)}">onclick=alert(1) b&gt;y</div></blockquote>`,
@@ -5262,7 +5533,11 @@ describe('markup a browser reads differently from the parser', () => {
     ['<pre>a &lt; b &amp; c</pre>', '<pre>a &lt; b &amp; c</pre>'],
     [
       `> <div </div${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
-      '<blockquote><div></div></blockquote>',
+      '<div><blockquote><div></div></blockquote><p>onclick=&#x27;alert(1)&#x27;</p></div>',
+    ],
+    [
+      `> a <div </div${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
+      `<blockquote><p>a &lt;div &lt;/div${String.fromCharCode(0x20_28)}&gt;\nonclick=&#x27;alert(1)&#x27;</p></blockquote>`,
     ],
     [
       '/\n    <pre>\n```\n<img src=x onerror=alert(1)>\n```',
@@ -5317,7 +5592,7 @@ describe('markup a browser reads differently from the parser', () => {
     ['`<script> https://a.b/c`', '<code>&lt;script&gt; https://a.b/c</code>'],
     [
       `> <div </div ${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
-      '<blockquote><div></div></blockquote>',
+      '<div><blockquote><div></div></blockquote><p>onclick=&#x27;alert(1)&#x27;</p></div>',
     ],
     [
       '<pre/>\n\n```\n<img src=x onerror=alert(1)>\n```',
@@ -5332,7 +5607,6 @@ describe('markup a browser reads differently from the parser', () => {
       '<pre><code class="">&lt;img src=x onerror=alert(1)&gt;</code></pre>',
     ],
   ])('renders %j as %j with no handler prop', (input, expected) => {
-    // React warns about a tag's casing and a lowercase handler prop; neither is a verdict here
     spyOn(console, 'error').mockImplementation(() => {})
     const result = compiler(input)
     render(result)
@@ -5367,7 +5641,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<pre/>`<img src=x onerror=alert(1)>`',
-      '<script>`<img src=x>`\n</script>',
+      '<script>`<img src=x>`</script>',
       'pre',
       'script',
     ],
@@ -5400,7 +5674,6 @@ describe('markup a browser reads differently from the parser', () => {
   })
 
   it.each([
-    // A tag no override matches is HTML, whose handlers go
     ['<Img onclick={alert(1)} />', undefined, '<Img></Img>', []],
     ['<Img onerror />', undefined, '<Img></Img>', []],
     [
@@ -5409,12 +5682,11 @@ describe('markup a browser reads differently from the parser', () => {
       '<my-widget>x</my-widget>',
       [],
     ],
-    // React writes no bare handler; what a component receives stays
     [
       '<Img onerror />',
       { overrides: { Img: { props: {} } } },
       '<Img></Img>',
-      ['onerror=boolean'],
+      [],
     ],
     [
       '<constructor>hi</constructor>',
@@ -5428,14 +5700,12 @@ describe('markup a browser reads differently from the parser', () => {
       '<Constructor>hi</Constructor>',
       [],
     ],
-    // A lowercase tag an override matches passes no handler on
     [
       '<my-widget onclick={alert(1)}>x</my-widget>',
       { overrides: { 'my-widget': { props: {} } } },
       '<my-widget>x</my-widget>',
       [],
     ],
-    // A lowercase tag is HTML, so its value is never evaluated
     [
       '<my-widget onclick={() => 1}>x</my-widget>',
       { evalUnserializableExpressions: true },
@@ -5452,7 +5722,6 @@ describe('markup a browser reads differently from the parser', () => {
       ['onclick=function'],
     ],
   ])('with its options keeps %j and %j as %j with props %j', (input, options, expected, handlers) => {
-    // React warns about a tag's casing and a lowercase handler prop; neither is a verdict here
     spyOn(console, 'error').mockImplementation(() => {})
     const result = compiler(input, options)
     render(result)
@@ -5470,7 +5739,6 @@ describe('a capitalized tag an override matches is a component, and every other 
     'onclick',
     'title',
   ]
-  /** The written attribute props of every element, without what the renderer adds (an override's merge sets an undefined className) */
   const attrProps = (el: React.ReactNode) =>
     treeProps(el).filter(
       ([name, value]) => ATTR_NAMES.includes(name) && value !== undefined
@@ -5512,7 +5780,6 @@ describe('a capitalized tag an override matches is a component, and every other 
       '<span>a <Card data="{[1]}" title="t">x</Card> b</span>',
     ],
   ])('renders the unmatched capitalized tag in %j as HTML: %j', (input, expected) => {
-    // React warns about the tag's casing, which is not the verdict here
     spyOn(console, 'error').mockImplementation(() => {})
     const result = compiler(input)
     render(result)
@@ -5523,8 +5790,7 @@ describe('a capitalized tag an override matches is a component, and every other 
     ])
   })
 
-  it('strips a brace handler from a lowercase tag an override restyles', () => {
-    // className rather than class, since React warns about class
+  it('strips a brace handler from a lowercase tag an override restyles, with className rather than class since React warns about class', () => {
     const result = compiler('x <a href="/" onclick={alert(1)}>y</a>', {
       overrides: { a: { props: { className: 'x' } } },
     })
@@ -5536,9 +5802,7 @@ describe('a capitalized tag an override matches is a component, and every other 
     ])
   })
 
-  /** Spreads every prop it receives onto the page */
   const MyLink = (props: React.ComponentProps<'a'>) => <a {...props} />
-  /** Renders its children only */
   const Box = ({ children }: { children?: React.ReactNode }) => (
     <b>{children}</b>
   )
@@ -5559,7 +5823,6 @@ describe('a capitalized tag an override matches is a component, and every other 
       { a: { component: 'span' } },
       '<span>x <span href="/">y</span></span>',
     ],
-    // React reads a bare string override as no new component
     ['x <a href="/" onclick={alert(1)}>y</a>', { a: 'span' }, link],
     [
       '<my-widget onclick={alert(1)}>x</my-widget>',
@@ -5679,7 +5942,6 @@ describe('a capitalized tag an override matches is a component, and every other 
     [
       '<div><img src=x onerror="alert(1)"></div>',
       undefined,
-      // React hoists a preload hint for the image ahead of the markup
       '<link rel="preload" as="image" href="x"/><div><img src="x"/></div>',
     ],
   ])('renders %j with %j, stored without its private fields, as %j', (input, overrides, expected) => {
@@ -5689,9 +5951,32 @@ describe('a capitalized tag an override matches is a component, and every other 
   })
 })
 
+describe('emphasis that follows emphasis', () => {
+  it('renders as two elements', () => {
+    expect(renderToStaticMarkup(compiler('_a_*b*'))).toBe(
+      '<span><em>a</em><em>b</em></span>'
+    )
+  })
+
+  it('renders as three elements across a chain of alternating delimiters', () => {
+    expect(renderToStaticMarkup(compiler('*a*_b_*c*'))).toBe(
+      '<span><em>a</em><em>b</em><em>c</em></span>'
+    )
+  })
+})
+
+describe('emphasis nested past the inline depth limit', () => {
+  it('leaves the delimiters outside the 199th level as literal text', () => {
+    expect(
+      renderToStaticMarkup(compiler(`${'*'.repeat(6000)}a${'*'.repeat(6000)}`))
+    ).toBe(
+      `<span>${'*'.repeat(5602)}${'<strong>'.repeat(199)}a${'</strong>'.repeat(199)}${'*'.repeat(5602)}</span>`
+    )
+  })
+})
+
 describe('a www. bare URL needs a dot inside its own span', () => {
-  it('ignores a dot in the text after the URL', () => {
-    // Text with no element in it renders as a bare string, with no wrapper
+  it('ignores a dot in the text after the URL, rendering text with no element in it as a bare string with no wrapper', () => {
     expect(renderToStaticMarkup(compiler('www.foo bar.com'))).toBe(
       'www.foo bar.com'
     )
@@ -5771,8 +6056,7 @@ describe('bare URLs in a run without spaces', () => {
     )
   })
 
-  // A lone text node renders without a wrapper element
-  it('stays text when a ] before a later candidate leaves it no clean domain', () => {
+  it('stays text, as a lone text node with no wrapper element, when a ] before a later candidate leaves it no clean domain', () => {
     expect(renderToStaticMarkup(compiler('www.]www.a.b_[]'))).toBe(
       'www.]www.a.b_[]'
     )
@@ -5819,8 +6103,6 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '[see https://example.com/?a[0]=1]',
       '<p>[see <a href="https://example.com/?a%5B0%5D=1">https://example.com/?a[0]=1</a>]</p>',
     ],
-    // A trailing ] is trimmed to text while the URL holds more ] than [, so a ]
-    // with no matching [ ends the URL wherever its [ sits
     [
       'see https://example.com/a]',
       '<p>see <a href="https://example.com/a">https://example.com/a</a>]</p>',
@@ -5842,10 +6124,29 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '<p>[see <mark><a href="https://example.com/a">https://example.com/a</a>]</mark></p>',
     ],
     [
+      '==https://example.com/a==',
+      '<p><mark><a href="https://example.com/a">https://example.com/a</a></mark></p>',
+    ],
+    [
+      '==https://x.y/?t=YQ== b',
+      '<p><mark><a href="https://x.y/?t=YQ">https://x.y/?t=YQ</a></mark> b</p>',
+    ],
+    [
+      'https://x.y/?t=YQ== b',
+      '<p><a href="https://x.y/?t=YQ==">https://x.y/?t=YQ==</a> b</p>',
+    ],
+    [
+      '~~a https://x.y/?t=YQ== b~~',
+      '<p><del>a <a href="https://x.y/?t=YQ==">https://x.y/?t=YQ==</a> b</del></p>',
+    ],
+    [
+      "~~https://example.com/a~~'",
+      '<p><del><a href="https://example.com/a">https://example.com/a</a></del>&#x27;</p>',
+    ],
+    [
       '[see <span>https://example.com/a]</span>',
       '<p>[see <span><a href="https://example.com/a">https://example.com/a</a>]</span></p>',
     ],
-    // The URL ends before \] and the escape renders as a literal ]
     [
       '[see https://example.com/a\\]]',
       '<p>[see <a href="https://example.com/a">https://example.com/a</a>]]</p>',
@@ -5870,7 +6171,6 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '[see https://example.com/a.]',
       '<p>[see <a href="https://example.com/a">https://example.com/a</a>.]</p>',
     ],
-    // An unclosed [ inside the URL balances the final ], so it stays
     [
       '[see https://example.com/?a[0=1]',
       '<p>[see <a href="https://example.com/?a%5B0=1%5D">https://example.com/?a[0=1]</a></p>',
@@ -5893,8 +6193,6 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
 })
 
 describe('raw element detection', () => {
-  // React's exports map hides the cjs builds, so they load by file path; each build
-  // checks NODE_ENV once at load and exports nothing when it does not match
   function loadReactBuild(build: 'development' | 'production') {
     const priorEnv = process.env.NODE_ENV
     process.env.NODE_ENV = build
@@ -5957,5 +6255,170 @@ describe('raw element detection', () => {
       '_debugStack',
       '_debugTask',
     ])
+  })
+})
+
+describe('override props that have no attribute form in the html compiler', () => {
+  it('hands the element every value, leaving the DOM renderer to decide what each writes', () => {
+    spyOn(console, 'error').mockImplementation(() => {})
+    const noop = () => {}
+    const result = compiler('# hi', {
+      overrides: {
+        h1: {
+          props: {
+            'data-a': false,
+            'data-b': noop,
+            'data-c': { x: 1 },
+            'data-d': 'k',
+            style: {},
+          },
+        },
+      },
+    })
+    render(result)
+
+    expect(
+      treeProps(result).filter(
+        ([name]) => name !== 'id' && name !== 'className'
+      )
+    ).toEqual([
+      ['data-a', false],
+      ['data-b', noop],
+      ['data-c', { x: 1 }],
+      ['data-d', 'k'],
+      ['style', {}],
+    ])
+    expect(root.innerHTML).toBe(
+      '<h1 id="hi" data-a="false" data-c="[object Object]" data-d="k">hi</h1>'
+    )
+  })
+})
+
+describe('render depth limit', () => {
+  function elementDepth(tree: React.ReactNode): number {
+    let depth = 0
+    let current: React.ReactNode = tree
+    while (current && typeof current === 'object') {
+      if (Array.isArray(current)) {
+        current = current[0]
+      } else if (
+        React.isValidElement<{ children?: React.ReactNode }>(current)
+      ) {
+        depth++
+        current = current.props.children
+      } else {
+        break
+      }
+    }
+    return depth
+  }
+
+  it.each([
+    [$.MAX_RENDER_DEPTH - 1, $.MAX_RENDER_DEPTH - 1],
+    [$.MAX_RENDER_DEPTH, $.MAX_RENDER_DEPTH],
+    [$.MAX_RENDER_DEPTH + 1, $.MAX_RENDER_DEPTH],
+    [$.MAX_RENDER_DEPTH * 2, $.MAX_RENDER_DEPTH],
+  ])('renders %i nested block quotes %i levels deep', (count, expected) => {
+    expect(elementDepth(astToJSX(quotesDeep(count)))).toBe(expected)
+  })
+
+  it.each([
+    [$.MAX_RENDER_DEPTH, 'x'],
+    [$.MAX_RENDER_DEPTH + 1, ''],
+    [$.MAX_RENDER_DEPTH * 2, ''],
+  ])('continues the depth through renderChildren in a renderRule for %i nested block quotes', (count, expected) => {
+    expect(
+      astToJSX(quotesDeep(count), {
+        renderRule: (next, node, renderChildren) =>
+          node.type === RuleType.blockQuote
+            ? renderChildren(node.children)
+            : next(),
+      })
+    ).toBe(expected)
+  })
+})
+
+describe('a setext underline after a lazy line in a block quote', () => {
+  it.each([
+    ['> a\nb\n> ---', '<blockquote><h2 id="ab">a\nb</h2></blockquote>'],
+    [
+      '> a\nb\n>\n> c\n> ===',
+      '<blockquote><p>a\nb</p><h1 id="c">c</h1></blockquote>',
+    ],
+    ['> a\nb\n===', '<blockquote><p>a\nb\n===</p></blockquote>'],
+  ])('renders %j as %j', (input, expected) => {
+    expect(renderToStaticMarkup(compiler(input))).toBe(expected)
+  })
+})
+
+describe('code span edge spaces', () => {
+  it.each([
+    ['` a `', '<code>a</code>'],
+    ['` \t `', '<code>\t</code>'],
+    ['`   `', '<code> </code>'],
+  ])('renders %j as %j', (input, expected) => {
+    expect(renderToStaticMarkup(compiler(input))).toBe(expected)
+  })
+})
+
+describe('code spans at the streaming edge', () => {
+  it.each([
+    ['x `` a ` b `` y', '<span>x <code>a ` b</code> y</span>'],
+    ['x \\` y', 'x ` y'],
+  ])('renders %j as %j with optimizeForStreaming, as without it', (input, expected) => {
+    expect(
+      renderToStaticMarkup(compiler(input, { optimizeForStreaming: true }))
+    ).toBe(expected)
+    expect(renderToStaticMarkup(compiler(input))).toBe(expected)
+  })
+})
+
+describe('a bare email address with an underscore', () => {
+  it.each([
+    ['foo@a_b.c', '<a href="mailto:foo@a_b.c">foo@a_b.c</a>'],
+    ['foo@a.b_c.d', '<a href="mailto:foo@a.b_c.d">foo@a.b_c.d</a>'],
+    ['a.b-c_d@a.b_', 'a.b-c_d@a.b_'],
+  ])('renders %j as %j', (input, expected) => {
+    expect(renderToStaticMarkup(compiler(input))).toBe(expected)
+  })
+})
+
+describe('entity text in image alt and link title', () => {
+  it('shows the literal text &copy; in an image alt', () => {
+    expect(renderToStaticMarkup(compiler('![&amp;copy;](x)'))).toBe(
+      '<link rel="preload" as="image" href="x"/><img alt="&amp;copy;" src="x"/>'
+    )
+  })
+
+  it('shows the literal text &copy; in a link title', () => {
+    expect(renderToStaticMarkup(compiler('[a](x "&amp;copy;")'))).toBe(
+      '<a href="x" title="&amp;copy;">a</a>'
+    )
+  })
+})
+
+describe('frontmatter above a reference definition', () => {
+  const input = '---\ntitle: x\n---\n\n# H\n\n[a]\n\n[a]: /u'
+
+  it('drops the frontmatter and links the reference', () => {
+    expect(renderToStaticMarkup(compiler(input))).toBe(
+      '<div><h1 id="h">H</h1><p><a href="/u">a</a></p></div>'
+    )
+  })
+
+  it('keeps the frontmatter with preserveFrontmatter and links the reference', () => {
+    expect(
+      renderToStaticMarkup(compiler(input, { preserveFrontmatter: true }))
+    ).toBe(
+      '<div><pre>---\ntitle: x\n---</pre><h1 id="h">H</h1><p><a href="/u">a</a></p></div>'
+    )
+  })
+
+  it('keeps a document that is only frontmatter, closed at the end of input, as frontmatter', () => {
+    expect(
+      renderToStaticMarkup(
+        compiler('---\ntitle: Draft\n---', { preserveFrontmatter: true })
+      )
+    ).toBe('<pre>---\ntitle: Draft\n---</pre>')
   })
 })

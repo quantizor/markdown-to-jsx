@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { compiler as htmlCompiler } from './html.ts'
-import { parser } from './parse.ts'
-import type { MarkdownToJSX } from './types.ts'
+import { parseMarkdown, parser, toParseOptions } from './parse.ts'
+import { type MarkdownToJSX, RuleType } from './types.ts'
 
 describe('Streaming optimization - inline code', () => {
   it('should remove incomplete inline code backtick and content', () => {
@@ -12,7 +12,6 @@ describe('Streaming optimization - inline code', () => {
       optimizeForStreaming: true,
     })
 
-    // Should show "Some text" without the backtick
     expect(html).toContain('Some text')
     expect(html).not.toContain('`')
   })
@@ -37,6 +36,30 @@ describe('Streaming optimization - inline code', () => {
   })
 })
 
+describe('Streaming optimization - code span runs and escapes', () => {
+  it.each([
+    ['x `` a ` b `` y', '<p>x <code>a ` b</code> y</p>'],
+    ['x \\` y', '<p>x ` y</p>'],
+    ['x \\\\` y', '<p>x \\</p>'],
+    ['a ```', '<p>a </p>'],
+    ['a ``` b `` c', '<p>a </p>'],
+    ['x <b>`</b> tail', '<p>x <b></p>'],
+    ['`a` `` b `` `c', '<p><code>a</code> <code>b</code> </p>'],
+  ])('renders %j as %j while streaming', (input, html) => {
+    expect(htmlCompiler(input, { optimizeForStreaming: true })).toBe(html)
+  })
+
+  it.each([
+    'x `` a ` b `` y',
+    'x \\` y',
+    '`a` `` b `` c',
+  ])('renders the complete input %j the same streaming and not', input => {
+    expect(htmlCompiler(input, { optimizeForStreaming: true })).toBe(
+      htmlCompiler(input)
+    )
+  })
+})
+
 describe('Streaming optimization - link destinations', () => {
   it('should preserve underscores in complete link destinations', () => {
     const url = 'https://example.com/search?geoShape=KLUv_WCPBdUbAFa'
@@ -49,13 +72,12 @@ describe('Streaming optimization - link destinations', () => {
     expect(link.target).toBe(url)
   })
 
-  it('should still suppress delimiters in incomplete links', () => {
+  it('should still suppress the unclosed asterisk opener in an incomplete link while the intraword underscore stays literal', () => {
     const html = htmlCompiler(
       '[View_results *now](https://example.com/search?x=1',
       { optimizeForStreaming: true }
     )
 
-    // The intraword `_` is literal; the `*` opener is still unclosed
     expect(html).toMatchInlineSnapshot(`"<p>View_results now</p>"`)
   })
 })
@@ -80,13 +102,11 @@ describe('Streaming optimization - code blocks', () => {
 })
 
 describe('Streaming optimization - tables', () => {
-  it('should suppress a lone header line before its delimiter arrives', () => {
+  it('should suppress a lone leading-pipe line as a probable incomplete table header so raw pipes do not flash before the delimiter row arrives', () => {
     const html = htmlCompiler('| Header |', {
       optimizeForStreaming: true,
     })
 
-    // A leading-pipe line mid-stream is a probable incomplete table header;
-    // suppress it so raw pipes do not flash before the delimiter row arrives.
     expect(html).not.toContain('<table>')
     expect(html).not.toContain('|')
     expect(html).not.toContain('Header')
@@ -135,9 +155,6 @@ describe('Streaming optimization - tables', () => {
     expect(html).not.toContain('---')
   })
 
-  // Progressive check: feed each document one character at a time (the strictest
-  // superset of any token boundary an LLM could stream) and assert no in-flight
-  // prefix flashes raw table syntax outside a rendered <table>.
   const progressiveDocs: Record<string, string> = {
     'aligned delimiters': '| L | R |\n| :--- | ---: |\n| 1 | 2 |\n',
     'single column': 'text\n\n| Only |\n| --- |\n| a |\n',
@@ -147,7 +164,7 @@ describe('Streaming optimization - tables', () => {
     'three column': '| A | B | C |\n| --- | --- | --- |\n| 1 | 2 | 3 |\n',
   }
   for (const [name, doc] of Object.entries(progressiveDocs)) {
-    it(`never flashes raw table syntax while streaming: ${name}`, () => {
+    it(`never flashes raw table syntax outside a rendered table in any one-character-at-a-time prefix: ${name}`, () => {
       for (let n = 1; n <= doc.length; n++) {
         const html = htmlCompiler(doc.slice(0, n), {
           optimizeForStreaming: true,
@@ -161,10 +178,7 @@ describe('Streaming optimization - tables', () => {
     })
   }
 
-  it('never hides a table after it has appeared (no flicker between rows)', () => {
-    // A multi-row table: once the first body row makes the table renderable, no
-    // longer prefix may drop it, even at the moment a finished row is followed by
-    // the next row's opening pipe (`| 1 | 2 |\n|`).
+  it('never hides a multi-row table once the first body row made it renderable, even when a finished row is followed by the next row opening pipe', () => {
     const doc = '| A | B |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |\n'
     let appeared = false
     for (let n = 1; n <= doc.length; n++) {
@@ -248,6 +262,15 @@ describe('Streaming optimization - list markers', () => {
     const html = htmlCompiler('* ', {})
     expect(html).toBe('<ul><li></li></ul>')
   })
+
+  it('should leave an empty item and a sibling, as CommonMark does, when an unclosed tag on a marker line is stripped before a nested marker', () => {
+    expect(
+      htmlCompiler('- <Foo>\n\n  - n', { optimizeForStreaming: true })
+    ).toBe('<ul><li></li><li><p>n</p></li></ul>')
+    expect(
+      htmlCompiler('- <div>\n\n  - n', { optimizeForStreaming: true })
+    ).toBe('<ul><li></li><li><p>n</p></li></ul>')
+  })
 })
 
 describe('Streaming optimization - HTML tags in code spans', () => {
@@ -280,6 +303,28 @@ describe('Streaming optimization - HTML tags in code spans', () => {
   it('defers a trailing incomplete tag name whose > has not arrived', () => {
     const html = htmlCompiler('Hello <Citation', { optimizeForStreaming: true })
     expect(html).toBe('<p>Hello</p>')
+  })
+
+  it('reads a closing tag after an unfinished opener the way a full parse does', () => {
+    const html = htmlCompiler('x <Comp </b>y', { optimizeForStreaming: true })
+    expect(html).toBe('<p>x &lt;Comp </b>y</p>')
+  })
+
+  it('drops a prop whose value holds markup and leaves no text from it', () => {
+    const nodes = parseMarkdown(
+      '<A dangerouslySetInnerHTML={{__html: "<img src=x onerror=alert(1)>"}} />',
+      { inline: true, refs: Object.create(null) },
+      toParseOptions({ optimizeForStreaming: true })
+    )
+    expect(nodes).toEqual([
+      {
+        _isClosingTag: false,
+        _rawOpen: '<A  />',
+        attrs: {},
+        tag: 'A',
+        type: RuleType.htmlSelfClosing,
+      },
+    ])
   })
 
   it('preserves literal less-than prose while streaming', () => {
@@ -378,7 +423,6 @@ describe('Streaming optimization - bold/italic markers', () => {
     expect(html).toMatchInlineSnapshot(`"<p><em>italic</em> text</p>"`)
   })
 
-  // Issue #905: a `_` or `*` the parser renders literally is never an opener
   it.each([
     ['intraword underscore', 'customer_id'],
     ['underscore in code span', '`customer_id`'],
@@ -401,18 +445,16 @@ describe('Streaming optimization - bold/italic markers', () => {
     ['tilde run of four', 'a ~~~~ b'],
     ['trailing tilde run of three', 'a ~~~'],
     ['trailing tilde run of four', 'a ~~~~'],
-  ])('keeps literal delimiters: %s', (_name, input) => {
+  ])('keeps an underscore or asterisk the parser renders literally, never treating it as an opener: %s', (_name, input) => {
     expect(htmlCompiler(input, { optimizeForStreaming: true })).toBe(
       htmlCompiler(input)
     )
   })
 
-  // The JSX compilers append blank lines after the last block; those must
-  // not make it look as if more content follows
   it.each([
     ['', ''],
     ['trailing blank lines', '\n\n'],
-  ])('holds back openers only in the last block: %s', (_name, tail) => {
+  ])('holds back openers only in the last block, and trailing blank lines such as the JSX compilers append do not make it look as if more content follows: %s', (_name, tail) => {
     expect(
       htmlCompiler(
         `pass *args\n\n- a *b\n- c\n\n> q _x\n\nlast **held${tail}`,
@@ -442,6 +484,7 @@ describe('Streaming optimization - bold/italic markers', () => {
         'foo **bar `x**',
         '**Note:**_x',
         '~~**a',
+        '~~a ~~~~',
       ].map(input => htmlCompiler(input, { optimizeForStreaming: true }))
     ).toMatchInlineSnapshot(`
       [
@@ -455,6 +498,7 @@ describe('Streaming optimization - bold/italic markers', () => {
         "<p>foo bar </p>",
         "<p><strong>Note:</strong>x</p>",
         "<p>a</p>",
+        "<p>a ~~~~</p>",
       ]
     `)
   })
@@ -485,14 +529,13 @@ describe('Streaming optimization - links', () => {
     `)
   })
 
-  // Only the block at the streaming edge can still be completed
   it.each([
     ['link in an earlier block', 'p [a](b\n\nnext'],
     ['code in an earlier block', '`code\n\nnext'],
     ['closing tag', '<span>z</span> b'],
     ['void element', 'a <img src="x.png"> b'],
     ['line break element', 'a <br> b'],
-  ])('keeps complete text: %s', (_name, input) => {
+  ])('keeps complete text, since only the block at the streaming edge can still be completed: %s', (_name, input) => {
     expect(htmlCompiler(input, { optimizeForStreaming: true })).toBe(
       htmlCompiler(input)
     )

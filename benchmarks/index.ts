@@ -1,5 +1,3 @@
-// @ts-expect-error - react/jsx-runtime types may be incomplete
-
 import * as fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -44,21 +42,17 @@ const largeFixture = fs.readFileSync(
   'utf8'
 )
 
-// Set up rehype processor with all plugins to match markdown-to-jsx features
 // @ts-expect-error - rehype-react types may be incomplete
 const production = { Fragment: prod.Fragment, jsx: prod.jsx, jsxs: prod.jsxs }
 
 const rehypeProcessor = remark()
-  .use(remarkGfm) // GFM tables, task lists, autolinks, strikethrough, footnotes
-  .use(remarkDirective) // Directives like [!NOTE] (though may not match exactly)
-  .use(remarkRehype, { allowDangerousHtml: true }) // Convert mdast to hast
-  .use(rehypeRaw) // Process HTML in markdown
-  .use(rehypeReact, production) // Convert hast to React
-
-// Create a parse-only processor for AST benchmarks
-const remarkParseProcessor = remark()
-  .use(remarkGfm) // GFM tables, task lists, autolinks, strikethrough, footnotes
+  .use(remarkGfm)
   .use(remarkDirective)
+  .use(remarkRehype, { allowDangerousHtml: true })
+  .use(rehypeRaw)
+  .use(rehypeReact, production)
+
+const remarkParseProcessor = remark().use(remarkGfm).use(remarkDirective)
 
 const bar = new cliProgress.SingleBar(
   {
@@ -72,6 +66,10 @@ const isAll = process.argv.includes('--all')
 const isJsx = process.argv.includes('--jsx')
 const shouldUpdateSnapshot = process.argv.includes('-u')
 const isHtml = process.argv.includes('--html')
+
+const ANSI_GREEN_FOR_IMPROVEMENT = '\u001b[32m'
+const ANSI_RED_FOR_REGRESSION = '\u001b[31m'
+const SIGNIFICANT_CHANGE_PERCENT = 2
 
 interface Test {
   name: string
@@ -180,14 +178,12 @@ async function setupBenchmark() {
     .on('start', () => {
       totalCycles = suite._counter
       bar.start(totalCycles, 0)
-      // Memory cleanup between cycles
       if (typeof global !== 'undefined' && global.gc) {
         global.gc()
       }
     })
     .on('cycle', () => {
       bar.update(totalCycles - (suite._counter ?? 0))
-      // Memory cleanup between cycles
       if (typeof global !== 'undefined' && global.gc) {
         global.gc()
       }
@@ -197,7 +193,6 @@ async function setupBenchmark() {
       console.log(`Fastest is ${suite.filter('fastest').map('name')}`)
       console.log(suite.table.toString())
 
-      // Filter to only store markdown-to-jsx (next) results for baseline comparison
       const filteredResults: Record<string, any[]> = {}
       if (suite._results) {
         Object.entries(suite._results).forEach(([functionName, benchmarks]) => {
@@ -221,7 +216,6 @@ async function setupBenchmark() {
         console.log('Performance baseline updated!')
       }
 
-      // Load and compare against baseline (only when not updating)
       const baselinePath = path.join(import.meta.dirname, 'bench.baseline.json')
       if (fs.existsSync(baselinePath) && !shouldUpdateSnapshot) {
         try {
@@ -229,12 +223,10 @@ async function setupBenchmark() {
 
           console.log('\n=== Performance vs Baseline ===')
 
-          // Compare results - only show markdown-to-jsx (next) comparisons
           if (suite._results && baseline.results) {
             var prevGroup = ''
             Object.entries(suite._results).forEach(
               ([functionName, benchmarks]: [string, Benchmark[]]) => {
-                // Only compare markdown-to-jsx (next) results
                 if (functionName.includes('markdown-to-jsx (next)')) {
                   var group = functionName.replace(/.*\[(\w+)\].*/, '$1')
                   if (prevGroup && group !== prevGroup) {
@@ -243,7 +235,6 @@ async function setupBenchmark() {
                   prevGroup = group
                   benchmarks.forEach(benchmark => {
                     if (benchmark?.name && benchmark.hz) {
-                      // Find corresponding benchmark in baseline
                       const baselineBenchmarks = baseline.results[functionName]
                       const baselineBenchmark = baselineBenchmarks?.find(
                         (b: any) => b.name === benchmark.name
@@ -257,17 +248,16 @@ async function setupBenchmark() {
                         const change = changePercent.toFixed(1)
                         const symbol = ratio > 1 ? '↑' : ratio < 1 ? '↓' : '→'
 
-                        // Colorize only for statistically meaningful changes (>2% absolute)
                         const absChange = Math.abs(changePercent)
-                        const isSignificant = absChange > 2
+                        const isSignificant =
+                          absChange > SIGNIFICANT_CHANGE_PERCENT
                         const colorCode = isSignificant
                           ? changePercent > 0
-                            ? '\u001b[32m'
-                            : '\u001b[31m' // green for improvement, red for regression
+                            ? ANSI_GREEN_FOR_IMPROVEMENT
+                            : ANSI_RED_FOR_REGRESSION
                           : ''
                         const resetCode = isSignificant ? '\u001b[39m' : ''
 
-                        // Clean up the test name for display
                         const displayName = benchmark.name
                           .replace(' for inputs 1kB markdown string', ' (1kB)')
                           .replace(
@@ -296,7 +286,6 @@ async function setupBenchmark() {
         }
       }
     })
-    // run async
     .run({ async: true, initCount: 50 })
 }
 

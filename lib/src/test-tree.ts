@@ -1,5 +1,5 @@
 import { parser } from './parse.ts'
-import type { MarkdownToJSX } from './types.ts'
+import { type MarkdownToJSX, RuleType } from './types.ts'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object'
@@ -16,13 +16,11 @@ function walk(node: unknown, out: [string, unknown][]): void {
     return
   }
 
-  // A Vue slot object holds its content behind a `default` function.
   if (typeof node.default === 'function') {
     walk(node.default(), out)
     return
   }
 
-  // Solid elements keep props on `p`; React and Vue elements keep them on `props`.
   const props = (isRecord(node.p) ? node.p : node.props) ?? {}
   if (!isRecord(props)) {
     return
@@ -33,21 +31,37 @@ function walk(node: unknown, out: [string, unknown][]): void {
     }
   }
 
-  // A Vue VNode keeps children beside its props, not inside them.
   walk('children' in node ? node.children : props.children, out)
 }
 
-/**
- * Every prop of every element in a rendered React, React Native, Solid, or Vue
- * tree, as `[name, value]` pairs in tree order (an element's props, then its
- * children's). Children are walked, never reported as a prop. A Vue slot
- * object is walked through its `default()` result. Strings, null, and other
- * non-element values contribute nothing.
- */
 export function treeProps(tree: unknown): [string, unknown][] {
   const out: [string, unknown][] = []
   walk(tree, out)
   return out
+}
+
+export function elementTypes(node: unknown, out: string[] = []): string[] {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      elementTypes(child, out)
+    }
+    return out
+  }
+  if (!isRecord(node)) {
+    return out
+  }
+  if (typeof node.default === 'function') {
+    return elementTypes(node.default(), out)
+  }
+  const type = node.t ?? node.type
+  if (typeof type === 'string') {
+    out.push(type)
+  }
+  const props = isRecord(node.p) ? node.p : node.props
+  return elementTypes(
+    'children' in node || !isRecord(props) ? node.children : props.children,
+    out
+  )
 }
 
 function withoutPrivateField(key: string, value: unknown): unknown {
@@ -57,11 +71,6 @@ function withoutPrivateField(key: string, value: unknown): unknown {
   return value
 }
 
-/**
- * The `parser()` output for `input` as a caller stores it: through JSON, with
- * every private `_` field dropped, so a compiler can only write it from the
- * public fields.
- */
 export function storedAST(
   input: string,
   overrides?: { [tag: string]: unknown }
@@ -71,12 +80,18 @@ export function storedAST(
   )
 }
 
-/**
- * `text` as an HTML serializer writes a text node (`&`, `<`, `>` escaped), so
- * a serializer snapshot tells a text child from an element or raw markup.
- */
+export function quotesDeep(count: number): MarkdownToJSX.ASTNode[] {
+  let node: MarkdownToJSX.ASTNode = {
+    type: RuleType.blockQuote,
+    children: [{ type: RuleType.text, text: 'x' }],
+  }
+  for (let i = 1; i < count; i++) {
+    node = { type: RuleType.blockQuote, children: [node] }
+  }
+  return [node]
+}
+
 export function escapeText(text: string): string {
-  // `&` goes first so the entities written for `<` and `>` stay whole
   return text
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')

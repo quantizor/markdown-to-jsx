@@ -1,21 +1,3 @@
-/**
- * Canonical harness case list, consumed by both live harnesses:
- * - browser/ mounts every case once per browser renderer (browser/tests/renderers.spec.ts
- *   lists them) and the Playwright suite asserts each case's `dom` expectations per root.
- * - native/ renders every case in the Expo showcase and the jest smoke suite.
- *
- * One fact, one home: a markdown feature or issue regression lives here once.
- * Cases marked `ref` trace to a GitHub issue.
- *
- * Keep `dom` expectations renderer-agnostic and semantic: tag names, counts,
- * ids, hrefs, and exact text. Never classes, inline styles, or whitespace.
- * `sel: ''` targets the case output container itself (bare inline output).
- *
- * Every expectation here was written against observed compiler output, not
- * assumed shapes. A red expectation is a parser/compiler bug until proven
- * otherwise; do not edit expectations to green without that investigation.
- */
-
 export type DomExpect =
   | { absent: true; sel: string }
   | { attr: [string, string]; sel: string }
@@ -31,18 +13,14 @@ export interface HarnessCase {
   dom: DomExpect[]
   id: string
   md: string
-  /** Compiler options for this case only. Omitted means library defaults. */
   options?: HarnessOptions
   ref?: string
-  /** Skip mounting/asserting this case in the named harness. */
   skip?: Array<'browser' | 'native'>
 }
 
 var FENCE = '```'
 
-// 1x1 transparent PNG. data: is the only image scheme besides http(s) the
-// sanitizer allows, and React Native needs a loadable source to lay out.
-var PIXEL =
+var TRANSPARENT_PIXEL_PNG_DATA_URI =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
 export var CASES: HarnessCase[] = [
@@ -129,7 +107,6 @@ export var CASES: HarnessCase[] = [
     dom: [
       { sel: 'blockquote', count: 1 },
       { sel: 'blockquote p', count: 1 },
-      // DOM text joins the lines with \n; toHaveText collapses whitespace.
       { sel: 'blockquote p', text: 'a continued b' },
     ],
   },
@@ -195,6 +172,17 @@ export var CASES: HarnessCase[] = [
     ],
   },
   {
+    id: 'task-marker-whitespace',
+    ref: '#916',
+    md: '- [x]foo\n- [ ] \n- [x]\tdone\n- [ ]     todo\n- [x] # not a heading',
+    dom: [
+      { sel: 'input[type="checkbox"]', count: 3 },
+      { sel: 'input[type="checkbox"]:checked', count: 2 },
+      { sel: 'pre', absent: true },
+      { sel: 'h1', absent: true },
+    ],
+  },
+  {
     id: 'code-fence-lang',
     md: `${FENCE}js\nconst x = 1\n${FENCE}`,
     dom: [
@@ -249,7 +237,6 @@ export var CASES: HarnessCase[] = [
   },
   {
     id: 'table-align',
-    // Alignment lands in inline styles, which the harness never asserts.
     md: '| a | b |\n| :- | -: |\n| 1 | 2 |',
     dom: [
       { sel: 'table', count: 1 },
@@ -295,7 +282,6 @@ export var CASES: HarnessCase[] = [
   },
   {
     id: 'frontmatter',
-    // Frontmatter parses to its own node and renderers skip it.
     md: '---\ntitle: x\n---\n\nbody',
     dom: [
       { sel: 'p', count: 1 },
@@ -326,7 +312,7 @@ export var CASES: HarnessCase[] = [
   },
   {
     id: 'html-self-closing',
-    md: `<img src="${PIXEL}" alt="z" />`,
+    md: `<img src="${TRANSPARENT_PIXEL_PNG_DATA_URI}" alt="z" />`,
     dom: [
       { sel: 'img[src^="data:"]', count: 1 },
       { sel: 'img', attr: ['alt', 'z'] },
@@ -352,7 +338,6 @@ export var CASES: HarnessCase[] = [
     id: 'tagfilter-off-script-plain',
     md: '<script type="text/plain">hello</script>',
     options: { tagfilter: false },
-    // Native has no DOM script element; browser asserts the live inert tag.
     skip: ['native'],
     dom: [
       { sel: 'script', attr: ['type', 'text/plain'] },
@@ -428,8 +413,6 @@ export var CASES: HarnessCase[] = [
   },
   {
     id: 'link-sanitize-entity-encoded',
-    // Destinations are entity-decoded at parse time, so this is rejected the
-    // same way as a literal javascript: URL: the href attribute is omitted.
     md: '[x](&#106;avascript:alert(1))',
     dom: [
       { sel: 'a', text: 'x' },
@@ -446,7 +429,7 @@ export var CASES: HarnessCase[] = [
   },
   {
     id: 'link-image-nested',
-    md: `[![alt](${PIXEL})](https://e.com)`,
+    md: `[![alt](${TRANSPARENT_PIXEL_PNG_DATA_URI})](https://e.com)`,
     dom: [
       { sel: 'a', attr: ['href', 'https://e.com'] },
       { sel: 'a img', attr: ['alt', 'alt'] },
@@ -454,9 +437,7 @@ export var CASES: HarnessCase[] = [
   },
   {
     id: 'image-basic',
-    // Every image source in this corpus is a data URI: the harness must be
-    // hermetic, and any remote URL here becomes a real fetch in the browser.
-    md: `![alt](${PIXEL} "ti")`,
+    md: `![alt](${TRANSPARENT_PIXEL_PNG_DATA_URI} "ti")`,
     dom: [
       { sel: 'img[src^="data:"]', count: 1 },
       { sel: 'img', attr: ['alt', 'alt'] },
@@ -465,7 +446,7 @@ export var CASES: HarnessCase[] = [
   },
   {
     id: 'image-data-uri',
-    md: `![p](${PIXEL})`,
+    md: `![p](${TRANSPARENT_PIXEL_PNG_DATA_URI})`,
     dom: [
       { sel: 'img', attr: ['alt', 'p'] },
       { sel: 'img[src^="data:"]', count: 1 },
@@ -523,9 +504,6 @@ export var CASES: HarnessCase[] = [
     dom: [{ sel: '', text: 'AT&T < 5 > 3' }],
   },
 
-  // --- Issue regressions (open + closed). Dom expectations pin observed
-  // green output so a parser/compiler drift fails the harness. ---
-
   {
     id: 'ordered-list-bold-title-hyphen',
     ref: '#652',
@@ -559,7 +537,6 @@ export var CASES: HarnessCase[] = [
   {
     id: 'hard-break-in-list-item',
     ref: '#766',
-    // Trailing double spaces on the `a` and `c` lines are load-bearing.
     md: 'a  \nb\n\n- c  \n d',
     dom: [
       { sel: 'br', count: 2 },
@@ -605,9 +582,6 @@ export var CASES: HarnessCase[] = [
   {
     id: 'triple-nested-divs',
     ref: '#520',
-    // React keeps all three empty levels; solid/vue collapse the innermost
-    // empty div. The #520 bug emitted a stray "</div>" text sibling; assert
-    // the case container has no text content.
     md: '<div><div><div></div></div></div>',
     dom: [{ sel: '', text: '' }],
   },
@@ -652,9 +626,6 @@ export var CASES: HarnessCase[] = [
   {
     id: 'html-block-emphasis-literal',
     ref: '#860',
-    // Without a blank line after the opener this library leaves emphasis
-    // markers literal inside the HTML block (documented divergence from the
-    // blank-line path that does parse markdown).
     md: '<div>\n*Emphasized* text.\n</div>',
     dom: [{ sel: 'div', text: '*Emphasized* text.' }],
   },
@@ -686,7 +657,7 @@ export var CASES: HarnessCase[] = [
   {
     id: 'image-alt-escaped-chars',
     ref: '#688',
-    md: `![\\-\\<stuff](${PIXEL})`,
+    md: `![\\-\\<stuff](${TRANSPARENT_PIXEL_PNG_DATA_URI})`,
     dom: [{ sel: 'img', attr: ['alt', '-<stuff'] }],
   },
   {
@@ -813,7 +784,6 @@ export var CASES: HarnessCase[] = [
   {
     id: 'escaped-ordered-list-marker',
     ref: 'BACKLOG',
-    // Trailing double space on line 1 is the hard break.
     md: '1\\. First item  \n2\\. Second item',
     dom: [
       { sel: 'p', count: 1 },
@@ -834,7 +804,6 @@ export var CASES: HarnessCase[] = [
   {
     id: 'setext-vs-list-streaming',
     ref: '#827',
-    // Incomplete setext/list ambiguity must not commit under streaming.
     options: { optimizeForStreaming: true },
     md: 'Some Text\n-',
     dom: [{ sel: 'h2', absent: true }],
@@ -842,9 +811,6 @@ export var CASES: HarnessCase[] = [
   },
   {
     id: 'literal-less-than-streaming',
-    // Prose comparisons must not be truncated by streaming HTML deferral.
-    // Single-line input auto-inlines in some compilers, so assert on the card
-    // root text rather than a paragraph wrapper.
     options: { optimizeForStreaming: true },
     md: '5 < 3 is false',
     dom: [{ sel: '', text: '5 < 3 is false' }],
@@ -853,8 +819,13 @@ export var CASES: HarnessCase[] = [
   {
     id: 'inline-html-edge-spaces',
     ref: '#904',
-    // Spaces just inside an inline tag stay, so the words do not run together.
     md: 'a<span> b </span>c\n\nsecond',
     dom: [{ sel: 'p', text: 'a b c' }],
   },
 ]
+
+export function casesFor(
+  harness: NonNullable<HarnessCase['skip']>[number]
+): HarnessCase[] {
+  return CASES.filter(c => !c.skip || c.skip.indexOf(harness) === -1)
+}

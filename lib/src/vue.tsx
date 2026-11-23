@@ -10,6 +10,7 @@ import {
   provide,
   type VNode,
 } from 'vue'
+import { $ } from './constants.ts'
 import * as parse from './parse.ts'
 import {
   type MarkdownToJSX,
@@ -29,10 +30,8 @@ export { sanitizer, slugify } from './utils.ts'
 export const MarkdownOptionsKey: InjectionKey<VueOptions | undefined> =
   Symbol('markdown-options')
 
-// Shared type for Vue child elements
 type VueChild = VNode | string
 
-// Vue sanitizer type (uses string instead of React's HTMLTags)
 type VueSanitizer = (
   value: string,
   tag: string,
@@ -44,12 +43,9 @@ type VueAstRender = (
   state: MarkdownToJSX.State
 ) => VueChild[] | VueChild | null
 
-// Helper to normalize children output to array format (only for null handling)
-// Inlined in hot paths for performance
 const normalizeChildren = (output: VueChild[] | VueChild | null): VueChild[] =>
   Array.isArray(output) ? output : output === null ? [] : [output]
 
-// Render functions for each node type
 const renderers: Record<
   number,
   (node: any, ctx: RenderContext) => VueChild[] | VueChild | null
@@ -107,7 +103,7 @@ const renderers: Record<
   [RuleType.heading]: (node, { h, output, state }) =>
     h(
       `h${node.level}`,
-      { id: node.id, key: state.key },
+      { id: util.headingId(node.id), key: state.key },
       ...normalizeChildren(output(node.children, state))
     ),
 
@@ -146,10 +142,6 @@ const renderers: Record<
       const tagLower = (node.tag as string).toLowerCase()
       const isType1Block = parse.isType1Block(tagLower)
 
-      // Type 1 blocks (pre, script, style, textarea) always render verbatim.
-      // The element wrapper below supplies its own tags, so the body is the
-      // inner content: the text field when no closing tag was found, since
-      // the outer span holds this element's own opening tag
       if (isType1Block) {
         const type1Body = (isRawOuter ? node.text : node._rawBody) || ''
         const textContent = util.tagfilterEnabled(options)
@@ -169,7 +161,6 @@ const renderers: Record<
         )
       }
 
-      // Use already-parsed children if available instead of re-parsing rawSource
       const containsPreTags = /<\/?pre\b/i.test(rawSource)
       if (containsPreTags) {
         const innerHtml = util.tagfilterEnabled(options)
@@ -182,14 +173,12 @@ const renderers: Record<
         })
       }
 
-      // Fallback to re-parsing rawSource if children not available (edge case)
       const parseOptions = parse.toParseOptions({
         overrides: options.overrides,
         slugify: options.slugify,
         sanitizer: sanitize,
         tagfilter: true,
       })
-      // The parser's re-parse span holds the children attribute rawSource cut
       const cleanedText = util.normalizeJsxReparseText(
         node._reparseSource || rawSource
       )
@@ -208,17 +197,11 @@ const renderers: Record<
         { inline: false, refs, inHTML: false },
         parseOptions
       )
-      // Clear verbatim on re-parsed nodes so a nested element does not absorb a
-      // following text line into itself, then split at this element's own
-      // closing tag so any trailing content renders as siblings (issue #881).
       util.stripVerbatim(astNodes)
       if (util.reparsedToItself(astNodes, cleanedText)) {
         return cleanedText
       }
 
-      // _rawOuter means the parser already determined this span is the FULL
-      // outer block, so emit the parsed nodes directly instead of nesting
-      // them in another copy of the tag.
       if (isRawOuter) {
         return normalizeChildren(
           output(astNodes.flatMap(util.processVerbatimNode), state)
@@ -282,7 +265,9 @@ const renderers: Record<
 
   [RuleType.image]: (node, { h, state, sanitize }) => {
     const src =
-      node.target === null ? null : sanitize(node.target, 'img', 'src')
+      node.target === null
+        ? null
+        : util.sanitizeAndEncodeUrlTarget(node.target, sanitize, 'img', 'src')
     return h('img', {
       key: state.key,
       alt: node.alt?.length > 0 ? node.alt : undefined,
@@ -294,7 +279,6 @@ const renderers: Record<
   [RuleType.link]: (node, { h, output, state, sanitize }) => {
     const props: Record<string, unknown> = { key: state.key }
     if (node.target != null) {
-      // Re-sanitize at emit so direct astToJSX(dangerous) cannot skip the gate.
       const href = util.sanitizeAndEncodeUrlTarget(
         node.target,
         sanitize,
@@ -387,7 +371,7 @@ const renderers: Record<
       ...normalizeChildren(output(node.children, state))
     ),
 
-  [RuleType.ref]: () => null, // Reference definitions should not be rendered
+  [RuleType.ref]: () => null,
 }
 
 interface RenderContext {
@@ -451,14 +435,16 @@ const createRenderer = (
   const renderRule = (
     node: MarkdownToJSX.ASTNode,
     renderChildren: (
-      children: MarkdownToJSX.ASTNode[]
+      children: MarkdownToJSX.ASTNode[],
+      state?: MarkdownToJSX.State
     ) => (VNode | string)[] | VNode,
     state: MarkdownToJSX.State
   ) => {
     const defaultRender = () =>
       render(
         node,
-        ast => renderChildren(Array.isArray(ast) ? ast : [ast]),
+        (ast, childState) =>
+          renderChildren(Array.isArray(ast) ? ast : [ast], childState),
         state,
         h,
         sanitize,
@@ -477,7 +463,7 @@ const createRenderer = (
     state: MarkdownToJSX.State = {}
   ) => {
     const depth = (state.renderDepth || 0) + 1
-    if (depth > 2500) {
+    if (depth > $.MAX_RENDER_DEPTH) {
       return handleStackOverflow(ast)
     }
     state.renderDepth = depth
@@ -485,18 +471,20 @@ const createRenderer = (
     const oldKey = state.key
     const result: VueChild[] = []
     let lastWasString = false
+    const renderChildren = userRender
+      ? (children: MarkdownToJSX.ASTNode[], childState?: MarkdownToJSX.State) =>
+          renderer(children, childState || state)
+      : renderer
     for (let i = 0; i < ast.length; i++) {
       state.key = i
-      const nodeOut = renderRule(ast[i], renderer, state)
+      const nodeOut = renderRule(ast[i], renderChildren, state)
       const isString = typeof nodeOut === 'string'
       if (lastWasString && typeof nodeOut === 'string') {
-        // Concatenate consecutive strings
         const last = result.at(-1)
         result[result.length - 1] =
           (typeof last === 'string' ? last : '') + nodeOut
       } else if (nodeOut != null) {
         if (Array.isArray(nodeOut)) {
-          // Use loop instead of spread for better performance
           for (let j = 0; j < nodeOut.length; j++) {
             result.push(nodeOut[j])
           }
@@ -513,8 +501,6 @@ const createRenderer = (
   return renderer
 }
 
-// A value is renderable as a Vue component if it is a function or an object
-// with a render/setup definition
 const isVueComponent = (value: unknown): value is Component =>
   typeof value === 'function' ||
   (typeof value === 'object' &&
@@ -602,12 +588,11 @@ export function astToJSX(
 
   const slug = opts.slugify || util.slugify
   const sanitize = opts.sanitizer || util.sanitizer
+  const hasOverrides = Object.keys(opts.overrides).length > 0
 
-  // Recursive compile function for HTML content
   const compileHtml = (input: string) =>
     compiler(input, { ...opts, wrapper: null })
 
-  // JSX helper function - this is what @jsx pragma uses
   function hHelper(
     tag: string | Component,
     props?: Record<string, unknown> & {
@@ -618,8 +603,6 @@ export function astToJSX(
     ...children: VueChild[]
   ): VNode {
     const tagKey = typeof tag === 'string' ? tag : ''
-    const hasOverrides =
-      opts.overrides && Object.keys(opts.overrides).length > 0
     const overrideProps = hasOverrides
       ? (util.get(opts.overrides, `${tagKey}.props`, {}) as Record<
           string,
@@ -629,11 +612,7 @@ export function astToJSX(
     const vueProps = props ? (props as Record<string, unknown>) : null
     const finalTag = hasOverrides ? getTag(tag, opts.overrides) : tag
 
-    // Convert HTML content in props (early exit for non-HTML)
     if (vueProps) {
-      // Vue writes a children prop as an attribute, so a children string is
-      // the element's text (a vnode child, a component's default slot) when it
-      // has no content of its own. A void tag takes none.
       if (typeof vueProps.children === 'string') {
         const attrText = util.childrenAttrContent(vueProps.children, children)
         delete vueProps.children
@@ -646,7 +625,6 @@ export function astToJSX(
       }
       for (const key in vueProps) {
         const value = vueProps[key]
-        // innerHTML is the compiler's own screened markup, and only a string reaches the page
         if (
           key !== 'innerHTML' &&
           typeof value === 'string' &&
@@ -709,7 +687,7 @@ export function astToJSX(
       return h(tag, props || {}, ...children)
     })
 
-  const parseOptions = parse.toParseOptions(opts, opts.forceInline)
+  const parseOptions = parse.toParseOptions(opts)
 
   const refs =
     ast[0] && ast[0].type === RuleType.refCollection
@@ -797,7 +775,7 @@ export function compiler(
   const inline =
     opts.forceInline ||
     !(opts.forceBlock || util.SHOULD_RENDER_AS_BLOCK_R.test(markdown))
-  const parseOptions = parse.toParseOptions(opts, inline)
+  const parseOptions = parse.toParseOptions(opts)
 
   const refs: { [key: string]: { target: string; title: string | undefined } } =
     Object.create(null)

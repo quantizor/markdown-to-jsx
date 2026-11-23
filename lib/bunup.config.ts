@@ -2,9 +2,6 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { type BunupPlugin, type DefineConfigItem, defineConfig } from 'bunup'
 import { transformSync } from 'esbuild'
 
-// Property names that must survive mangling. React reads `_store`, `_owner`,
-// `_debugStack`, `_debugTask` by literal name in dev/RSC builds and warns
-// when they are missing. `__html` is the dangerouslySetInnerHTML payload key.
 var RESERVED_PROPS = ['__html', '_store', '_owner', '_debugStack', '_debugTask']
 var RESERVED_PROPS_PATTERN = new RegExp(`\\b(?:${RESERVED_PROPS.join('|')})\\b`)
 
@@ -24,13 +21,6 @@ function manglePropsPlugin(): BunupPlugin {
           }
 
           var code = readFileSync(file.fullPath, 'utf-8')
-          // Biome may insert `import process from 'node:process'`, which turns
-          // process into a local binding so bunup's define cannot replace
-          // process.env.NODE_ENV. After minify the check is `X.env.NODE_ENV!==
-          // "production"` (esm) or `X.default.env.NODE_ENV!=="production"` (cjs).
-          // Force those predicates false before minifySyntax so DEV warn
-          // branches and their string constants drop from the bundle.
-          // Do not match import.meta.env (lookbehind rejects the dot before meta).
           code = code
             .replace(
               /(?<![.\w$])[A-Za-z_$][\w$]*(?:\.default)?\.env\.NODE_ENV\s*!==\s*["']production["']/g,
@@ -57,9 +47,6 @@ function manglePropsPlugin(): BunupPlugin {
   }
 }
 
-// Guard against the regression fixed in this commit: if the mangler ever
-// strips a reserved field again, fail the build instead of shipping a
-// broken dist.
 function verifyReservedPropsPlugin(): BunupPlugin {
   return {
     name: 'verify-reserved-props',
@@ -135,8 +122,6 @@ function verifyDtsPlugin(): BunupPlugin {
   }
 }
 
-// JSX-only attr map marker. A multi-entry Bun.build shares the utils graph and
-// leaks this into markdown; fail the build if that regression returns.
 function verifyNoJsxAttrLeakPlugin(): BunupPlugin {
   return {
     name: 'verify-no-jsx-attr-leak',
@@ -156,7 +141,7 @@ function verifyNoJsxAttrLeakPlugin(): BunupPlugin {
             continue
           }
           var code = readFileSync(file.fullPath, 'utf-8')
-          if (code.indexOf('allowtransparency') !== -1) {
+          if (code.indexOf('allowTransparency') !== -1) {
             failures.push(file.fullPath)
           }
         }
@@ -171,8 +156,6 @@ function verifyNoJsxAttrLeakPlugin(): BunupPlugin {
   }
 }
 
-// clean:false: configs run concurrently and share outDir; package.json rimrafs
-// before bunup. Default clean:true would race across items.
 var common = {
   clean: false,
   define: {
@@ -206,14 +189,11 @@ var compiler = {
 } satisfies DefineConfigItem
 
 export default defineConfig([
-  // Entities modules - built separately for browser field swapping
   {
     ...common,
     name: 'entities',
     entry: ['src/entities.generated.ts', 'src/entities.browser.ts'],
   },
-  // One Bun.build per entry so unused utils exports do not survive into
-  // compilers that never import them (e.g. HTML_TO_JSX_MAP into markdown).
   { ...compiler, name: 'index', entry: 'src/index.tsx' },
   { ...compiler, name: 'react', entry: 'src/react.tsx' },
   { ...compiler, name: 'html', entry: 'src/html.ts' },

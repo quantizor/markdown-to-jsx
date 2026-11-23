@@ -4,11 +4,11 @@
 
 लाइब्रेरी की कुछ विशेष सुविधाएं:
 
-- `dangerouslySetInnerHTML` के बिना मनमानी HTML समर्थित और उपयुक्त JSX प्रतिनिधित्व में पार्स की जाती है
+- आपके markdown में मौजूद कच्चा HTML `dangerouslySetInnerHTML` के बिना वास्तविक एलिमेंट्स बन जाता है।
 
-- कंपाइलर और/या `<Markdown>` कंपोनेंट द्वारा रेंडर किए गए किसी भी HTML टैग को अतिरिक्त props शामिल करने या यहां तक कि पूरी तरह से एक अलग HTML प्रतिनिधित्व के लिए ओवरराइड किया जा सकता है।
+- आप कंपाइलर या `<Markdown>` कंपोनेंट द्वारा रेंडर किए गए किसी भी HTML टैग को ओवरराइड कर सकते हैं, ताकि props जोड़ सकें या अपना कोई कंपोनेंट लगा सकें।
 
-- सभी GFM विशेष सिंटैक्स समर्थित हैं, जिनमें टेबल, टास्क लिस्ट, स्ट्राइकथ्रू, ऑटोलिंक, टैग फ़िल्टरिंग और बहुत कुछ शामिल है।
+- हर GFM सिंटैक्स समर्थित है, जिसमें टेबल, टास्क लिस्ट, स्ट्राइकथ्रू, ऑटोलिंक और टैग फ़िल्टरिंग शामिल हैं, साथ ही `<mark>` के लिए `==highlight==` भी।
 
 - [highlight.js](https://highlightjs.org/) समर्थन के साथ फ़ेंस्ड कोड ब्लॉक्स; highlight.js सेट अप करने के निर्देशों के लिए [सिंटैक्स हाइलाइटिंग](#syntax-highlighting) देखें।
 
@@ -78,7 +78,7 @@
 /** v9 */ compiler('&le; symbol')
 ```
 
-- **`tagfilter` डिफ़ॉल्ट रूप से सक्षम**: खतरनाक HTML टैग (`script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`) React, HTML, Solid, Vue, और React Native आउटपुट में डिफ़ॉल्ट रूप से एस्केप किए जाते हैं। GFM के अनुरूप, केवल प्रत्येक टैग का अग्रणी `<` निष्क्रिय होता है; बॉडी और बंद टैग निष्क्रिय पाठ के रूप में दिखते रहते हैं, और फ़िल्टर किए गए पैरेंट के अंदर अनुमत नेस्टेड टैग सामान्य रूप से रेंडर होते रहते हैं। पहले कुछ रेंडरर इन टैगों को जीवित माउंट करते थे, और एस्केप आउटपुट ओपनर पर रुक जाता था।
+- **`tagfilter` डिफ़ॉल्ट रूप से सक्षम**: खतरनाक HTML टैग (`script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`) React, HTML, Solid, Vue, और React Native आउटपुट में डिफ़ॉल्ट रूप से एस्केप किए जाते हैं। GFM के अनुरूप, केवल प्रत्येक टैग का अग्रणी `<` निष्क्रिय होता है; बॉडी और बंद टैग निष्क्रिय पाठ के रूप में दिखते रहते हैं, और फ़िल्टर किए गए पैरेंट के अंदर अनुमत नेस्टेड टैग सामान्य रूप से रेंडर होते रहते हैं।
 
 ```typescript
 /** v8 */ टैग JSX एलिमेंट्स के रूप में रेंडर किए गए
@@ -147,11 +147,11 @@ import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
 /** v8+ */ MarkdownToJSX.ASTNode[]
 ```
 
-- एकाधिक `RuleType` enums को `RuleType.textFormatted` में समेकित किया गया - यदि आप `RuleType.textBolded`, `RuleType.textEmphasized`, `RuleType.textMarked`, या `RuleType.textStrikethroughed` की जांच कर रहे थे, तो `RuleType.textFormatted` की जांच करने और नोड के बूलियन फ़्लैग का निरीक्षण करने के लिए अपडेट करें:
+- एकाधिक `RuleType` enums को `RuleType.textFormatted` में समेकित किया गया - यदि आप `RuleType.textBolded`, `RuleType.textEmphasized`, `RuleType.textMarked`, या `RuleType.textStrikethroughed` की जांच कर रहे थे, तो `RuleType.textFormatted` की जांच करने और नोड का `tag` (`strong`, `em`, `mark`, या `del`) पढ़ने के लिए अपडेट करें:
 
 ```typescript
 /** v7 */ RuleType.textBolded
-/** v8+ */ RuleType.textFormatted && node.bold
+/** v8+ */ RuleType.textFormatted && node.tag === 'strong'
 ```
 
 </details>
@@ -173,9 +173,9 @@ ES6-शैली उपयोग\*:
 ```tsx
 import Markdown from 'markdown-to-jsx'
 import React from 'react'
-import { render } from 'react-dom'
+import { createRoot } from 'react-dom/client'
 
-render(<Markdown># नमस्कार दुनिया!</Markdown>, document.body)
+createRoot(document.body).render(<Markdown># नमस्कार दुनिया!</Markdown>)
 
 /*
     रेंडर करता है:
@@ -389,7 +389,7 @@ HTML टैग स्वचालित रूप से React Native कंप�
 - इनलाइन एलिमेंट्स (`<span>`, `<strong>`, `<em>`, `<a>`, शीर्षक, `<code>`, आदि) → `Text` कंपोनेंट
 - Type 1 ब्लॉक्स (`<pre>`, `<script>`, `<style>`, `<textarea>`) → `View` कंपोनेंट
 
-**टेक्स्ट और ब्लॉक्स का मिश्रण:** React Native टेक्स्ट के अंदर किसी इमेज या व्यू को नेस्ट नहीं कर सकता, इसलिए जब कोई इनलाइन कंटेनर (पैराग्राफ़, शीर्षक, ज़ोर (emphasis), या लिंक) किसी इमेज या ब्लॉक-स्तरीय सामग्री को धारण करता है, तो वह `Text` के बजाय `View` के रूप में रेंडर होता है। उसका टेक्स्ट एक `Text` में समूहित किया जाता है ताकि वह एक ही पंक्ति में प्रवाहित होता रहे, इमेज अपने स्वयं के एलिमेंट के रूप में रेंडर होती है, और लिंक के अंदर की इमेज `Pressable` के माध्यम से टैप करने योग्य बनी रहती है। केवल-टेक्स्ट वाली सामग्री अप्रभावित रहती है और पहले की तरह रेंडर होती है।
+**टेक्स्ट और ब्लॉक्स का मिश्रण:** React Native टेक्स्ट के अंदर किसी इमेज या व्यू को नेस्ट नहीं कर सकता, इसलिए जब कोई इनलाइन कंटेनर (पैराग्राफ़, शीर्षक, ज़ोर (emphasis), या लिंक) किसी इमेज या ब्लॉक-स्तरीय सामग्री को धारण करता है, तो वह `Text` के बजाय `View` के रूप में रेंडर होता है। उसका टेक्स्ट एक `Text` में समूहित किया जाता है ताकि वह एक ही पंक्ति में प्रवाहित होता रहे, इमेज अपने स्वयं के एलिमेंट के रूप में रेंडर होती है, और लिंक के अंदर की इमेज `Pressable` के माध्यम से टैप करने योग्य बनी रहती है। जिस कंटेनर में केवल टेक्स्ट होता है, वह `Text` के रूप में रेंडर होता है।
 
 **नोट:** बेहतर पहुंच और खोज योग्यता के लिए लिंक डिफ़ॉल्ट रूप से रेखांकित हैं। आप इसे `styles.link` विकल्प के माध्यम से ओवरराइड कर सकते हैं।
 
@@ -438,7 +438,7 @@ function AppWithContext() {
 **SolidJS-विशिष्ट सुविधाएं:**
 
 - **रिएक्टिव सामग्री**: `Markdown` कंपोनेंट markdown सामग्री बदलने पर स्वचालित अपडेट के लिए signals/accessors स्वीकार करता है
-- **मेमोइज़ेशन**: इष्टतम प्रदर्शन के लिए AST पार्सिंग स्वचालित रूप से मेमोइज़ की जाती है
+- **मेमोइज़ेशन**: कंपोनेंट केवल तभी दोबारा पार्स करता है जब उसकी सामग्री या विकल्प बदलते हैं
 - **Context API**: डिफ़ॉल्ट विकल्प प्रदान करने और prop drilling से बचने के लिए `MarkdownProvider` का उपयोग करें
 
 <h4 id="vuejs">Vue.js</h4>
@@ -488,14 +488,15 @@ markdown-to-markdown कंपाइलेशन (सामान्यीकर
 ```typescript
 import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
 
-const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
+const normalizedMarkdown = compiler('Hello world\n===========\n\n* one\n* two')
+// '# Hello world\n\n- one\n- two'
 
 /** या AST के साथ काम करें */
-const ast = parser('# Hello  world')
+const ast = parser('Hello world\n===========')
 const normalizedMarkdown2 = astToMarkdown(ast)
 ```
 
-यदि किसी कोड ब्लॉक या इनलाइन कोड की सामग्री को कच्चे HTML या लिंक के रूप में पढ़ना असुरक्षित हो, तो उसे एंटिटी के साथ `<pre><code>` या `<code>` के रूप में लिखा जाता है, क्योंकि कोई अन्य रेंडरर उसके आसपास के मार्कअप को कच्चे HTML के रूप में पढ़ सकता है। ब्राउज़र वही अक्षर दिखाता है, और बाकी कोड अपनी फ़ेंस या बैकटिक रखता है।
+यदि किसी कोड ब्लॉक या इनलाइन कोड की सामग्री को कच्चे HTML या लिंक के रूप में पढ़ना असुरक्षित हो, तो उसे एंटिटी के साथ `<pre><code>` या `<code>` के रूप में लिखा जाता है, क्योंकि कोई अन्य रेंडरर उसके आसपास के मार्कअप को कच्चे HTML के रूप में पढ़ सकता है। ब्राउज़र वही अक्षर दिखाता है, और बाकी कोड अपनी फ़ेंस या बैकटिक रखता है। लिंक और इमेज पतों में कंट्रोल वर्ण प्रतिशत-एन्कोड (`%01`) करके लिखे जाते हैं, ताकि आउटपुट दोबारा पार्स होने पर भी उसी तरह पढ़ा जाए।
 
 <h3 id="library-options">लाइब्रेरी विकल्प</h3>
 
@@ -505,13 +506,14 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 | ------------------------------- | ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `createElement`                 | `function`                    | -        | कस्टम createElement व्यवहार (केवल React/React Native/SolidJS/Vue)। विवरण के लिए [createElement](#optionscreateelement) देखें।                          |
 | `disableAutoLink`               | `boolean`                     | `false`  | नंगे URLs के एंकर टैग में स्वचालित रूपांतरण को अक्षम करें।                                                                                             |
+| `disableFrontmatter`            | `boolean`                     | `false`  | दस्तावेज़ की पहली पंक्ति के `---` को YAML फ्रंटमैटर की शुरुआत के बजाय थीमैटिक ब्रेक के रूप में पढ़ें।                                                    |
 | `disableParsingRawHTML`         | `boolean`                     | `false`  | raw HTML की JSX में पार्सिंग को अक्षम करें।                                                                                                            |
 | `enforceAtxHeadings`            | `boolean`                     | `true`   | `#` और हेडिंग टेक्स्ट के बीच स्पेस आवश्यक है (CommonMark अनुपालन)। `false` सेट करने पर `#heading` को भी हेडिंग माना जाता है।                              |
 | `evalUnserializableExpressions` | `boolean`                     | `false`  | ⚠️ अनसीरियलाइज़ेबल props को eval करें (खतरनाक)। विवरण के लिए [evalUnserializableExpressions](#optionsevalunserializableexpressions) देखें।             |
 | `forceBlock`                    | `boolean`                     | `false`  | सभी सामग्री को ब्लॉक-स्तर के रूप में माना जाए।                                                                                                         |
 | `forceInline`                   | `boolean`                     | `false`  | सभी सामग्री को इनलाइन के रूप में माना जाए।                                                                                                             |
 | `ignoreHTMLBlocks`              | `boolean`                     | `false`  | HTML ब्लॉक्स की पार्सिंग को अक्षम करें, उन्हें प्लेन टेक्स्ट के रूप में माना जाए।                                                                         |
-| `forceWrapper`                  | `boolean`                     | `false`  | एकल चाइल्ड के साथ भी रैपर को बाध्य करें (केवल React/React Native/Vue)। विवरण के लिए [forceWrapper](#optionsforcewrapper) देखें।                        |
+| `forceWrapper`                  | `boolean`                     | `false`  | एकल चाइल्ड के साथ भी रैपर को बाध्य करें (markdown को छोड़कर हर आउटपुट)। विवरण के लिए [forceWrapper](#optionsforcewrapper) देखें।                        |
 | `overrides`                     | `object`                      | -        | HTML टैग रेंडरिंग को ओवरराइड करें। विवरण के लिए [overrides](#optionsoverrides) देखें।                                                                  |
 | `preserveFrontmatter`           | `boolean`                     | `false`  | रेंडर किए गए आउटपुट में फ्रंटमैटर शामिल करें (HTML/JSX के लिए `<pre>` के रूप में, markdown में शामिल)। व्यवहार कंपाइलर प्रकार के अनुसार भिन्न होता है। |
 | `renderRule`                    | `function`                    | -        | AST नियमों के लिए कस्टम रेंडरिंग। विवरण के लिए [renderRule](#optionsrenderrule) देखें।                                                                 |
@@ -519,8 +521,8 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 | `slugify`                       | `function`                    | built-in | हेडिंग IDs के लिए कस्टम slug जनरेशन। विवरण के लिए [slugify](#optionsslugify) देखें।                                                                    |
 | `optimizeForStreaming`          | `boolean`                     | `false`  | स्ट्रीमिंग के लिए अपूर्ण markdown सिंटैक्स की रेंडरिंग को दबाएं। विवरण के लिए [स्ट्रीमिंग Markdown](#स्ट्रीमिंग-markdown) देखें।                          |
 | `tagfilter`                     | `boolean`                     | `true`   | XSS को रोकने के लिए खतरनाक HTML टैग (`script`, `iframe`, `style`, आदि) को एस्केप करें।                                                                 |
-| `wrapper`                       | `string \| component \| null` | `'div'`  | एकाधिक children के लिए रैपर एलिमेंट (केवल React/React Native/Vue)। विवरण के लिए [wrapper](#optionswrapper) देखें।                                      |
-| `wrapperProps`                  | `object`                      | -        | रैपर एलिमेंट के लिए props (केवल React/React Native/Vue)। विवरण के लिए [wrapperProps](#optionswrapperprops) देखें।                                      |
+| `wrapper`                       | `string \| component \| null` | `'div'`  | एकाधिक children के लिए रैपर एलिमेंट (markdown को छोड़कर हर आउटपुट)। विवरण के लिए [wrapper](#optionswrapper) देखें।                                      |
+| `wrapperProps`                  | `object`                      | -        | रैपर एलिमेंट के लिए props (markdown को छोड़कर हर आउटपुट)। विवरण के लिए [wrapperProps](#optionswrapperprops) देखें।                                      |
 
 <h4 id="optionscreateelement">options.createElement</h4>
 
@@ -529,13 +531,13 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 ```javascript
 import Markdown from 'markdown-to-jsx'
 import React from 'react'
-import { render } from 'react-dom'
+import { createRoot } from 'react-dom/client'
 
 const md = `
 # नमस्कार दुनिया
 `
 
-render(
+createRoot(document.body).render(
   <Markdown
     children={md}
     options={{
@@ -547,8 +549,7 @@ render(
         )
       },
     }}
-  />,
-  document.body
+  />
 )
 ```
 
@@ -720,7 +721,7 @@ compiler(markdown, {
 
 <h4 id="optionsrenderrule">options.renderRule</h4>
 
-अपना खुद का रेंडरिंग फ़ंक्शन प्रदान करें जो चुनिंदा रूप से ओवरराइड कर सकता है कि _नियम_ कैसे रेंडर किए जाते हैं (नोट करें, यह _`options.overrides`_ से अलग है जो HTML टैग स्तर पर संचालित होता है और अधिक सामान्य है)। `renderRule` फ़ंक्शन हमेशा किसी भी अन्य रेंडरिंग कोड से पहले निष्पादित होता है, जो आपको नोड्स के रेंडर होने के तरीके पर पूर्ण नियंत्रण देता है, जिसमें सामान्य रूप से छोड़े गए नोड्स जैसे `ref`, `footnote`, और `frontmatter` शामिल हैं।
+अपना खुद का रेंडरिंग फ़ंक्शन प्रदान करें जो चुनिंदा रूप से ओवरराइड कर सकता है कि _नियम_ कैसे रेंडर किए जाते हैं (नोट करें, यह _`options.overrides`_ से अलग है जो HTML टैग स्तर पर संचालित होता है और अधिक सामान्य है)। `renderRule` फ़ंक्शन हमेशा किसी भी अन्य रेंडरिंग कोड से पहले निष्पादित होता है, जो आपको नोड्स के रेंडर होने के तरीके पर पूर्ण नियंत्रण देता है। React, React Native, Solid और Vue में यह वे नोड्स भी देखता है जिन्हें ये रेंडरर सामान्य रूप से छोड़ देते हैं (`refCollection`, `footnote`, और `frontmatter`); markdown कंपाइलर इसे `refCollection` और `frontmatter` देता है, और HTML कंपाइलर इन तीनों में से कोई नहीं।
 
 आप इस कार्यक्षमता का उपयोग स्थापित AST नोड के साथ लगभग कुछ भी करने के लिए कर सकते हैं; यहां `@matejmazur/react-katex` लाइब्रेरी का उपयोग करके LaTeX सिंटैक्स को प्रोसेस करने के लिए चुनिंदा रूप से "codeBlock" नियम को ओवरराइड करने का एक उदाहरण है:
 
@@ -772,9 +773,9 @@ function App() {
 
 <h4 id="optionssanitizer">options.sanitizer</h4>
 
-डिफ़ॉल्ट रूप से एक हल्का URL सैनिटाइज़र फ़ंक्शन प्रदान किया जाता है ताकि सामान्य हमले वैक्टरों से बचा जा सके जो एंकर टैग के `href` में रखे जा सकते हैं, उदाहरण के लिए। सैनिटाइज़र इनपुट, लक्षित HTML टैग, और एट्रिब्यूट नाम प्राप्त करता है। मूल फ़ंक्शन `sanitizer` नामक लाइब्रेरी export के रूप में उपलब्ध है।
+एक अंतर्निहित URL सैनिटाइज़र हर लिंक और इमेज पते की जाँच करता है, ताकि कोई `javascript:` लिंक या इमेज स्रोत पेज तक न पहुँचे। जाँच में पास होने वाले पते दोनों स्थितियों में एक ही तरह से प्रतिशत-एन्कोड किए जाते हैं। सैनिटाइज़र को पता, उससे जुड़ा HTML टैग, और एट्रिब्यूट नाम मिलता है (लिंक के लिए `'a', 'href'`, इमेज के लिए `'img', 'src'`), और वह रखने के लिए पता या हटाने के लिए `null` रिटर्न करता है। टैग और एट्रिब्यूट मिलने पर, अंतर्निहित फ़ंक्शन इमेज स्रोत को छोड़कर हर जगह से SVG data URL (`data:image/svg+xml`) भी हटा देता है, क्योंकि ब्राउज़र उसे पेज के रूप में खोलने पर SVG की स्क्रिप्ट चलाता है। केवल पते के साथ कॉल करने पर यह उसे रखता है। अंतर्निहित फ़ंक्शन `sanitizer` नामक लाइब्रेरी export के रूप में उपलब्ध है।
 
-यदि वांछित हो तो इसे `options.sanitizer` के माध्यम से एक कस्टम सैनिटाइज़र से ओवरराइड और प्रतिस्थापित किया जा सकता है:
+अपने नियम लागू करने के लिए, `options.sanitizer` के रूप में एक फ़ंक्शन पास करें:
 
 <!-- biome-ignore format: keep example fences intact -->
 ```tsx
@@ -800,16 +801,21 @@ compiler('[foo](javascript:alert("foo"))', {
 
 - इनलाइन इवेंट हैंडलर: `onclick`, `onerror`, `onload`, और कोई भी अन्य `on*` एट्रिब्यूट।
 - `href`, `src`, `action`, `formaction`, `poster`, `cite`, `background`, `data`, `longdesc`, और `xlink:href` (या `xlinkHref`) में `javascript:`, `vbscript:`, या गैर-छवि `data:` scheme वाले URL एट्रिब्यूट। HTML एंटिटीज़ के पीछे छिपे schemes, जैसे `java&#9;script:` या अर्धविराम-रहित `&#106avascript:`, को भी डिकोड करके पकड़ा जाता है।
-- `iframe` का `srcdoc` एट्रिब्यूट।
+- इन एट्रिब्यूट में SVG data URLs (`data:image/svg+xml`), इमेज स्रोत को छोड़कर: `img` का `src` और `srcset`, `source` का `src` और `srcset`, `video` का `poster`, `input` का `src`, और `image` का `src`, `srcset`, `href` और `xlink:href`। `<meta>` रिफ़्रेश URL को लिंक माना जाता है।
+- किसी `<meta>` रीफ़्रेश का `content` एट्रिब्यूट, जब उसके URL में इनमें से कोई scheme हो, जैसे `content="0;url=javascript:alert(1)"`।
+- किसी भी टैग पर `srcdoc` एट्रिब्यूट।
+- ऐसा `style` एट्रिब्यूट जो इनमें से कोई scheme लोड करता है (`background:url(javascript:…)`, `image-set(…)`) या कोई पुराना स्क्रिप्ट हुक इस्तेमाल करता है (`expression()`, `-moz-binding`, `behavior`), तब भी जब CSS टिप्पणियाँ या escapes उसे छिपाते हैं।
 - वे एट्रिब्यूट जिनका अर्थ केवल किसी फ़्रेमवर्क के लिए होता है: `innerHTML`, `outerHTML`, `dangerouslySetInnerHTML`, `ref`, और `children` (आपके अपने कंपोनेंट्स पर रखा जाता है), साथ ही Solid के `attr:`, `prop:`, या `bool:` उपसर्ग के पीछे ऊपर बताई गई कोई भी चीज़।
 
-रखा गया: अपने मूल स्वरूप के साथ सुरक्षित एट्रिब्यूट, `data:image` URLs, और वे इवेंट हैंडलर जिन्हें आप अपने स्वयं के कंपोनेंट्स को एक्सप्रेशन के रूप में पास करते हैं (`<MyButton onClick={fn} />`, जहाँ `MyButton` एक `overrides` कुंजी है), साथ ही उन पर सादे बूलियन props (`<MyButton onClick />`)। HTML और markdown आउटपुट किसी कंपोनेंट के एक्सप्रेशन इवेंट हैंडलर को जैसा लिखा गया है वैसा ही उत्सर्जित करते हैं, और ब्राउज़र उसे चलाता है, इसलिए जो अविश्वसनीय इनपुट आपके कंपोनेंट नामों का उपयोग करता है, उसे ऐसे HTML स्ट्रिंग में रेंडर न करें जिसे आप किसी पेज में डालते हैं। React भी ऐसे हाइफ़न वाले टैग के लिए यही करता है जिसे उसका override स्ट्रिंग ही रहने देता है। एक चेतावनी: `data:image/svg+xml` की अनुमति है लेकिन यह टॉप-लेवल नेविगेशन के रूप में खोले जाने पर स्क्रिप्ट चला सकता है, इसलिए अविश्वसनीय स्रोतों से आए SVG data URLs को सावधानी से संभालें।
+रखा गया: अपने मूल स्वरूप के साथ सुरक्षित एट्रिब्यूट, `data:image` URLs, और वे इवेंट हैंडलर जिन्हें आप अपने स्वयं के कंपोनेंट्स को एक्सप्रेशन के रूप में पास करते हैं (`<MyButton onClick={fn} />`, जहाँ `MyButton` एक `overrides` कुंजी है), साथ ही उन पर सादे बूलियन props (`<MyButton onClick />`)। React, React Native और Solid कंपोनेंट को हैंडलर एक स्ट्रिंग prop के रूप में देते हैं। जहाँ भी हैंडलर किसी असली एलिमेंट पर पहुँचता, वहाँ उसे हटा दिया जाता है: HTML और markdown आउटपुट में, ऐसे override में जो एलिमेंट रेंडर करता है (`{ component: 'a' }`), और Vue में, जो कंपोनेंट के अघोषित props को उसके रूट एलिमेंट तक पहुँचा देता है।
 
 खतरनाक टैग नाम (`script`, `iframe`, `style`, और इसी तरह के) [`tagfilter`](#all-options) विकल्प द्वारा अलग से एस्केप किए जाते हैं, जो डिफ़ॉल्ट रूप से सक्रिय है।
 
 <h4 id="optionsslugify">options.slugify</h4>
 
-डिफ़ॉल्ट रूप से, प्रत्येक हेडिंग की सादा टेक्स्ट सामग्री से HTML id जनरेट करने के लिए एक [हल्का deburring फ़ंक्शन](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) का उपयोग किया जाता है (फ़ॉर्मेटिंग मार्कर, लिंक गंतव्य और छवि alt टेक्स्ट छोड़ दिए जाते हैं; फ़ुटनोट मार्कर अपना प्रदर्शन टेक्स्ट योगदान करते हैं)। जब एक से अधिक हेडिंग एक ही id बनाती हैं, तो संख्यात्मक प्रत्यय स्वचालित रूप से जोड़ा जाता है (`foo`, `foo-1`, `foo-2`) ताकि उस parse के भीतर प्रत्येक id अद्वितीय रहे। आप `options.slugify` को एक फ़ंक्शन पास करके slug जनरेशन को ओवरराइड कर सकते हैं; फ़ंक्शन को वही सादा टेक्स्ट सामग्री मिलती है, और अद्वितीयता आपके फ़ंक्शन की वापसी पर भी लागू होती है। यह तब मददगार होता है जब आप हेडिंग में गैर-अल्फ़ान्यूमेरिक वर्णों (उदाहरण के लिए चीनी या जापानी वर्ण) का उपयोग कर रहे हों। उदाहरण के लिए:
+हर हेडिंग को उसकी सादा टेक्स्ट सामग्री से बनी एक HTML id मिलती है (फ़ॉर्मेटिंग मार्कर, लिंक गंतव्य और छवि alt टेक्स्ट छोड़ दिए जाते हैं; फ़ुटनोट मार्कर अपना प्रदर्शन टेक्स्ट योगदान करते हैं)। अंतर्निहित फ़ंक्शन टेक्स्ट को छोटे अक्षरों में बदलता है, a से z तक के अक्षर (उच्चारण-चिह्न वाले लैटिन अक्षरों को सरल करते हुए, ताकि `é` बन जाए `e` और `ß` बन जाए `ss`), अंक और हाइफ़न रखता है, स्पेस को हाइफ़न में बदलता है, और बाकी सब हटा देता है, इसलिए `# Hello World` को `id="hello-world"` मिलती है। जब एक से अधिक हेडिंग एक ही id बनाती हैं, तो संख्यात्मक प्रत्यय स्वचालित रूप से जोड़ा जाता है (`foo`, `foo-1`, `foo-2`) ताकि उस parse के भीतर प्रत्येक id अद्वितीय रहे। जिस हेडिंग की id खाली बनती, जैसे `# !!!`, उसे कोई `id` एट्रिब्यूट नहीं मिलता।
+
+अपने तरीके से ids बनाने के लिए, `options.slugify` के रूप में एक फ़ंक्शन पास करें। उसे हेडिंग का सादा टेक्स्ट और अंतर्निहित फ़ंक्शन मिलता है, और अद्वितीयता प्रत्यय उसकी हर वापसी पर लागू होता है। यह तब मददगार होता है जब आपकी हेडिंग में लैटिन वर्णमाला के बाहर के वर्ण हों, जैसे चीनी या जापानी, जिन्हें अंतर्निहित फ़ंक्शन हटा देता है। उदाहरण के लिए:
 
 <!-- biome-ignore format: keep example fences intact -->
 ```tsx
@@ -836,9 +842,8 @@ compiler(str, { wrapper: 'article' })
 बिना रैपर के children की एक array वापस पाने के लिए, `wrapper` को `null` पर सेट करें। यह विशेष रूप से उपयोगी है जब सीधे `compiler(…)` का उपयोग कर रहे हों।
 
 ```tsx
-compiler('One\n\nTwo\n\nThree', { wrapper: null })[
-  /** रिटर्न करता है */ ((<p>One</p>), (<p>Two</p>), (<p>Three</p>))
-]
+compiler('One\n\nTwo\n\nThree', { wrapper: null })
+// रिटर्न करता है [<p>One</p>, <p>Two</p>, <p>Three</p>]
 ```
 
 बिना किसी HTML रैपर के `<Markdown>` के समान DOM स्तर पर children रेंडर करने के लिए, `wrapper` को `React.Fragment` पर सेट करें। यह अभी भी रेंडरिंग के उद्देश्यों के लिए आपके children को एक React नोड में रैप करेगा, लेकिन रैपर एलिमेंट DOM में दिखाई नहीं देगा।
@@ -860,7 +865,7 @@ compiler('One\n\nTwo\n\nThree', { wrapper: null })[
 
 <h3 id="syntax-highlighting">सिंटैक्स हाइलाइटिंग</h3>
 
-भाषा एनोटेशन के साथ [fenced code blocks](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) का उपयोग करते समय, वह भाषा `<code>` एलिमेंट में `class="language-${language}"` के रूप में जोड़ी जाएगी। JSX रेंडरर (React, React Native, Solid, Vue) इसके साथ लीगेसी `lang-${language}` भी जोड़ते हैं। सर्वोत्तम परिणामों के लिए, आप `options.overrides` का उपयोग करके `highlight.js` का उपयोग करके इस तरह एक उपयुक्त सिंटैक्स हाइलाइटिंग एकीकरण प्रदान कर सकते हैं:
+भाषा एनोटेशन के साथ [fenced code blocks](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) का उपयोग करते समय, वह भाषा `<code>` एलिमेंट में `class="language-${language}"` के रूप में जोड़ी जाएगी। React, Solid और Vue इसके साथ लीगेसी `lang-${language}` भी जोड़ते हैं। React Native एलिमेंट को कोई भाषा नहीं देता; वहाँ हाइलाइटिंग के लिए [React Native](#react-native) देखें। वेब पर, आप `options.overrides` का उपयोग करके कोई सिंटैक्स हाइलाइटर जोड़ सकते हैं, जैसे `highlight.js` वाला यह उदाहरण:
 
 ```html
 <!-- अपने पेज <head> में निम्नलिखित टैग जोड़ें ताकि hljs और स्टाइल्स स्वचालित रूप से लोड हों: -->
@@ -876,7 +881,8 @@ compiler('One\n\nTwo\n\nThree', { wrapper: null })[
 ```
 
 ````tsx
-import { Markdown, RuleType } from 'markdown-to-jsx'
+import { Markdown } from 'markdown-to-jsx'
+import React from 'react'
 
 const mdContainingFencedCodeBlock =
   '```js\nconsole.log("नमस्कार दुनिया!");\n```\n'
@@ -921,7 +927,7 @@ const shortcodeMap = {
   smile: '🙂',
 }
 
-const detector = /(:[^:]+:)/g
+const detector = /(:[^:]+:)/
 
 const replaceEmoji = (text: string): React.ReactNode => {
   return text.split(detector).map((part, index) => {
@@ -960,7 +966,7 @@ function Example() {
 
 जब markdown सामग्री क्रमिक रूप से आती है (जैसे, AI/LLM API, WebSocket, या सर्वर-सेंट इवेंट्स से), तो आप देख सकते हैं कि कच्चे markdown सिंटैक्स सही रेंडरिंग से पहले संक्षेप में दिखाई देते हैं। ऐसा इसलिए होता है क्योंकि `**बोल्ड टेक्स्ट` या `<CustomComponent>आंशिक सामग्री` जैसे अपूर्ण सिंटैक्स बंद करने वाले डेलिमीटर आने से पहले टेक्स्ट के रूप में रेंडर हो जाते हैं।
 
-`optimizeForStreaming` विकल्प अपूर्ण markdown संरचनाओं का पता लगाकर और सामग्री पूर्ण होने तक उन्हें रोककर इसे हल करता है (React और React Native पर `null` रिटर्न करते हुए, HTML पर खाली स्ट्रिंग)। यह हर रेंडरर पर काम करता है:
+`optimizeForStreaming` विकल्प अधूरे सिंटैक्स को उसका बंद करने वाला डेलिमीटर आने तक छिपाता है, ताकि पाठकों को टेक्स्ट दिखे, बिखरे मार्कर नहीं। यह हर रेंडरर पर काम करता है:
 
 ```tsx
 import Markdown from 'markdown-to-jsx/react'
@@ -999,16 +1005,23 @@ function ChatMessage({ stream }) {
 
 अंतिम रेंडर के लिए इस विकल्प को बंद करें। जब यह चालू रहता है, तो पार्सर अधूरे सिंटैक्स और पूर्ण टेक्स्ट में अंतर नहीं कर सकता, इसलिए ऐसा `*` या `_` जिसका कभी बंद करने वाला जोड़ा नहीं आता (जैसे `*args` या `_id`) छिपा रहता है। पूर्ण संदेश को `optimizeForStreaming: false` के साथ रेंडर करने पर वह ठीक वैसा ही दिखता है जैसा लिखा गया है।
 
-**यह क्या दबाता है:**
+**यह क्या छिपाता है:**
 
-- अबंद HTML टैग (`<div>सामग्री` बिना `</div>`)
+इनके मार्कर छिपे रहते हैं, जबकि इनका टेक्स्ट आते ही दिखता है:
+
+- अबंद बोल्ड/इटैलिक (`**टेक्स्ट` या `*टेक्स्ट` बिना बंद): `टेक्स्ट` दिखता है
+- अबंद स्ट्राइकथ्रू (`~~टेक्स्ट` बिना बंद `~~`): `टेक्स्ट` दिखता है
+- अबंद लिंक (`[टेक्स्ट](url` बिना बंद `)`): `टेक्स्ट` दिखता है
+- अबंद HTML टैग (`<div>सामग्री` बिना `</div>`): `सामग्री` दिखती है
+
+ये पूर्ण होने तक पूरी तरह छिपे रहते हैं:
+
 - अपूर्ण टैग सिंटैक्स (`<div attr="value` बिना बंद `>`)
 - अबंद HTML कमेंट्स (`<!-- कमेंट` बिना `-->`)
 - अबंद इनलाइन कोड (`` `कोड `` बिना बंद बैकटिक)
-- अबंद बोल्ड/इटैलिक (`**टेक्स्ट` या `*टेक्स्ट` बिना बंद)
-- अबंद स्ट्राइकथ्रू (`~~टेक्स्ट` बिना बंद `~~`)
-- अबंद लिंक (`[टेक्स्ट](url` बिना बंद `)`)
 - अपूर्ण टेबल (पहली डेटा पंक्ति से पहले केवल हेडर या डिवाइडर पंक्ति); एक बार टेबल रेंडर हो जाने पर, आगे और पंक्तियाँ आने पर भी वह स्थिर रहती है, इसलिए यह कभी raw पाइप्स नहीं दिखाती या पंक्तियों के बीच झिलमिलाती नहीं है
+
+जब दिखाने के लिए कुछ नहीं बचता, तो React और React Native `null` रिटर्न करते हैं।
 
 **सामान्य रूप से रेंडर (स्ट्रीमिंग के दौरान सामग्री दिखाई देती है):**
 
@@ -1022,7 +1035,7 @@ function ChatMessage({ stream }) {
 
 Abstract Syntax Tree (AST) पार्स किए गए markdown का एक संरचित प्रतिनिधित्व है। AST में प्रत्येक नोड में एक `type` property होती है जो इसकी प्रकार की पहचान करती है, और type-विशिष्ट properties।
 
-**महत्वपूर्ण:** AST में पहला नोड आमतौर पर एक `RuleType.refCollection` नोड होता है जिसमें दस्तावेज़ में पाई गई सभी संदर्भ परिभाषाएं शामिल होती हैं, जिनमें फ़ुटनोट्स (`^` के साथ प्रीफ़िक्स किए गए कुंजियों के साथ संग्रहीत) शामिल हैं। यह नोड रेंडरिंग के दौरान छोड़ दिया जाता है लेकिन संदर्भ डेटा तक पहुंचने के लिए उपयोगी है। फ़ुटनोट्स को स्वचालित रूप से refCollection से निकाला जाता है और `compiler()` और `astToJSX()` दोनों द्वारा एक `<footer>` एलिमेंट में रेंडर किया जाता है।
+**महत्वपूर्ण:** जब दस्तावेज़ संदर्भ या फ़ुटनोट परिभाषित करता है, तो AST में पहला नोड एक `RuleType.refCollection` नोड होता है जिसमें वे सभी शामिल होते हैं (फ़ुटनोट्स `^` प्रीफ़िक्स वाली कुंजियों के साथ संग्रहीत होते हैं)। यह नोड रेंडरिंग के दौरान छोड़ दिया जाता है लेकिन संदर्भ डेटा तक पहुंचने के लिए उपयोगी है। फ़ुटनोट्स को स्वचालित रूप से refCollection से निकाला जाता है और `compiler()` और `astToJSX()` दोनों द्वारा एक `<footer>` एलिमेंट में रेंडर किया जाता है।
 
 <h4 id="node-types">नोड प्रकार</h4>
 
@@ -1044,7 +1057,7 @@ AST निम्नलिखित नोड प्रकारों से ब
   ```
 - `RuleType.blockQuote` - ब्लॉककोट्स (`>`)
   ```tsx
-  { type: RuleType.blockQuote, children: [...], alert?: "note" }
+  { type: RuleType.blockQuote, children: [...], alert?: "NOTE" }
   ```
 - `RuleType.orderedList` / `RuleType.unorderedList` - सूचियां
   ```tsx
@@ -1058,10 +1071,10 @@ AST निम्नलिखित नोड प्रकारों से ब
 - `RuleType.htmlBlock` - HTML ब्लॉक्स और JSX कंपोनेंट्स
 
   ```tsx
-  { type: RuleType.htmlBlock, tag: "div", attrs?: Record<string, any>, children?: ASTNode[] }
+  { type: RuleType.htmlBlock, tag: "div", attrs?: Record<string, any>, children?: ASTNode[], text?: string /* अप्रचलित */ }
   ```
 
-  **नोट:** PascalCase JSX कंपोनेंट्स और हाइफ़नेटेड कस्टम एलिमेंट्स, opening/closing टैग के बीच खाली लाइन आने पर अपने children को nest करते हैं, बजाय बाद की सामग्री को sibling के रूप में लीक करने के। ज्ञात HTML ब्लॉक टैग (`div`, `figure`, और CommonMark ब्लॉक सेट के बाकी टैग) भी ऐसा ही करते हैं। अज्ञात लोअरकेस टैग अभी भी CommonMark Type 7 का पालन करते हैं और पहली खाली लाइन पर रुक जाते हैं।
+  **नोट:** PascalCase JSX कंपोनेंट्स और हाइफ़नेटेड कस्टम एलिमेंट्स, opening/closing टैग के बीच खाली लाइन आने पर अपने children को nest करते हैं, बजाय बाद की सामग्री को sibling के रूप में लीक करने के। ज्ञात HTML ब्लॉक टैग (`div`, `figure`, और CommonMark ब्लॉक सेट के बाकी टैग) भी ऐसा ही करते हैं। अज्ञात लोअरकेस टैग CommonMark Type 7 का पालन करते हैं और पहली खाली लाइन पर रुक जाते हैं।
 
   **HTML Block Parsing (v9.2+):** HTML ब्लॉक्स को हमेशा `children` property में पूरी तरह से पार्स किया जाता है। `renderRule` कॉलबैक सभी HTML ब्लॉक्स के लिए `children` में पूरी तरह से पार्स की गई AST तक पहुंच सकते हैं।
 
@@ -1071,7 +1084,7 @@ AST निम्नलिखित नोड प्रकारों से ब
   ```tsx
   { type: RuleType.text, text: "नमस्कार दुनिया" }
   ```
-- `RuleType.textFormatted` - बोल्ड, इटैलिक, आदि।
+- `RuleType.textFormatted` - बोल्ड, इटैलिक, स्ट्राइकथ्रू (`~~`), और हाइलाइट (`==`), जिनमें `tag` का मान `strong`, `em`, `del`, या `mark` होता है
   ```tsx
   { type: RuleType.textFormatted, tag: "strong", children: [...] }
   ```
@@ -1112,7 +1125,8 @@ AST निम्नलिखित नोड प्रकारों से ब
   ```
 - `RuleType.htmlComment` - HTML कमेंट नोड्स
   ```tsx
-  { type: RuleType.htmlComment, text: "टिप्पणी टेक्स्ट" }
+  { type: RuleType.htmlComment, text: " टिप्पणी टेक्स्ट " } // इनलाइन: मार्करों के बीच का टेक्स्ट
+  { type: RuleType.htmlComment, text: "<!-- टिप्पणी टेक्स्ट -->" } // अपनी पंक्ति पर: पूरी टिप्पणी, जैसी लिखी गई वैसी ही उत्सर्जित
   ```
 - `RuleType.htmlSelfClosing` - स्व-बंद होने वाले HTML टैग
   ```tsx
@@ -1191,7 +1205,7 @@ console.log('code')
 AST नोड्स की पहचान करने के लिए `RuleType` enum का उपयोग करें:
 
 ```tsx
-import { RuleType } from 'markdown-to-jsx'
+import { type MarkdownToJSX, RuleType } from 'markdown-to-jsx'
 
 if (node.type === RuleType.heading) {
   const heading = node as MarkdownToJSX.HeadingNode
@@ -1237,17 +1251,21 @@ const Table = ({ columns, data, ...props }) => {
 
 **Function props को स्ट्रिंग्स के रूप में रखा जाता है** सुरक्षा के लिए, `overrides` में सूचीबद्ध बड़े अक्षर वाले टैग पर; कोई भी अन्य टैग HTML है और अपने इवेंट हैंडलर खो देता है। केस-बाई-केस हैंडलिंग के लिए [renderRule](#optionsrenderrule) का उपयोग करें, या opt-in eval के लिए [evalUnserializableExpressions](#optionsevalunserializableexpressions) देखें।
 
-**HTML indentation:** markdown सिंटैक्स संघर्षों से बचने के लिए HTML ब्लॉक्स में अग्रणी व्हाइटस्पेस को पहली लाइन के इंडेंटेशन के आधार पर स्वतः-ट्रिम किया जाता है।
+**HTML indentation:** आप अपने markdown में HTML को स्वतंत्र रूप से इंडेंट कर सकते हैं। HTML ब्लॉक में अग्रणी व्हाइटस्पेस पहली लाइन के इंडेंटेशन के आधार पर ट्रिम किया जाता है, इसलिए उसके अंदर की इंडेंट की गई लाइनें कोड ब्लॉक के रूप में नहीं पढ़ी जातीं।
 
-**HTML में कोड:** HTML divs में सीधे कोड न डालें। इसके बजाय fenced code blocks का उपयोग करें:
+**HTML में कोड:** किसी HTML टैग के अंदर fenced code block रखने के लिए, खुलने वाले टैग के बाद और बंद होने वाले टैग से पहले एक-एक खाली लाइन छोड़ें। इनके बिना, HTML आउटपुट फ़ेंस को कच्चे टेक्स्ट के रूप में रखता है, जैसा CommonMark अपेक्षित करता है:
 
 ````md
 <div>
+
 ```js
 var code = here();
 ```
+
 </div>
 ````
+
+**बहुत गहरी नेस्टिंग:** एक निश्चित गहराई से आगे नेस्ट किए गए ज़ोर (emphasis) या उद्धरण सादा टेक्स्ट बने रहते हैं, और हर रेंडरर एक निश्चित गहराई के बाद AST रेंडर करना रोक देता है, इसलिए कॉल स्टैक को भरने के लिए लिखा गया इनपुट आपके ऐप को क्रैश करने के बजाय रेंडर होता है।
 
 <h2 id="changelog">परिवर्तन लॉग</h2>
 

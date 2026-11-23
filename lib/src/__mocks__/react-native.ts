@@ -1,14 +1,8 @@
-// This file sets up the react-native mock using Bun's mock.module
 import { mock } from 'bun:test'
 import * as React from 'react'
 
 const mockLinkingOpenUrl = mock(() => Promise.resolve())
 
-/**
- * Build a forwardRef host component that renders to a plain string tag, so
- * tests can assert on the tag name while matching react-native's forwardRef
- * component shape.
- */
 function mockHostComponent(tag: string) {
   return React.forwardRef<unknown, Record<string, unknown>>(
     function render(props, ref) {
@@ -17,7 +11,6 @@ function mockHostComponent(tag: string) {
   )
 }
 
-// Set up the mock module
 mock.module('react-native', () => {
   const Text = mockHostComponent('Text')
   const View = mockHostComponent('View')

@@ -1,5 +1,3 @@
-// Re-export React for convenience since types reference it
-
 import type * as React from 'react'
 
 /**
@@ -33,9 +31,6 @@ const RuleTypeConst = {
 } as const
 
 if (process.env.NODE_ENV === 'test') {
-  // In test mode, use strings for better debugging. The literal type above
-  // describes production; mutate through a mutable-typed alias of the same
-  // object so the swap typechecks without an assertion.
   const ruleTypeDebugView: { [key: string]: number | string } = RuleTypeConst
   Object.keys(ruleTypeDebugView).forEach(key => {
     ruleTypeDebugView[key] = key
@@ -83,7 +78,7 @@ declare namespace MarkdownToJSX {
     inList?: boolean
     /** true if parsing in an inline context (subset of rules around formatting and links) */
     inline?: boolean
-    /** internal (react-native renderer): the enclosing subtree is already known inline-safe, so a nested inline container can skip re-deriving it */
+    /** internal (react-native renderer): the enclosing subtree is already known inline-safe */
     inlineSafe?: boolean
 
     /** use this for the `key` prop */
@@ -94,41 +89,16 @@ declare namespace MarkdownToJSX {
     renderDepth?: number
     /** internal: block parse recursion depth */
     _depth?: number
-    /** internal: disable setext heading detection (lazy blockquote continuation) */
-    _noSetext?: boolean
     /** internal: HTML nesting depth for stack overflow protection */
     _htmlDepth?: number
     /** internal: set by collectReferenceDefinitions when input ends inside an unclosed fence */
     _endsInsideFence?: boolean
-    /**
-     * internal: heading ids assigned in this parse. Key presence means the id
-     * is taken. The value is the last numeric suffix tried when that string
-     * was used as a slugify base (`0` means the unsuffixed id was taken, and
-     * no further suffix has been generated from it yet). Dense collisions stay
-     * amortized O(1) without a second map.
-     */
+    /** internal: heading ids assigned in this parse, each mapped to the last numeric suffix tried */
     _headingIds?: { [id: string]: number }
-    /** internal: true when the current block content cannot hold the document's streaming edge, so streaming suppression can be skipped */
+    /** internal: true when the current block content cannot hold the document's streaming edge */
     _notAtEdge?: boolean
     /** internal: enable hard/soft line-break processing in parseInline (paragraph inline content) */
     _breaks?: boolean
-    /** internal: deferred inline parses, drained by the owning parseMarkdown after the block pass so all reference definitions are known */
-    _pendingInline?: {
-      dest: ASTNode[]
-      text: string
-      breaks: boolean
-      inline?: boolean
-      inAnchor?: boolean
-      inHTML?: boolean
-      htmlDepth?: number
-      inList?: boolean
-      inBlockQuote?: boolean
-      noSetext?: boolean
-      depth?: number
-      notAtEdge?: boolean
-    }[]
-    /** internal: deferred list-item unwrap/concat ops, run after _pendingInline drains */
-    _pendingOps?: { src: ASTNode[]; dest: ASTNode[]; unwrap: boolean }[]
   }
 
   /**
@@ -382,20 +352,9 @@ declare namespace MarkdownToJSX {
     _rawClose?: string
     /** @internal Full span including own opener through closer; JSX/component re-parse only */
     _rawOuter?: string
-    /**
-     * @internal The span the JSX renderers re-parse in place of `_rawOuter` (or
-     * `_rawBody` when it has none): the same screened text with the `children`
-     * attribute a registered tag keeps in `attrs` left in, so the re-parse reads
-     * that content too. Undefined when the screen cut no such attribute. Only the
-     * JSX renderers' re-parse reads it; no output writes it.
-     */
+    /** @internal The span the JSX renderers re-parse in place of `_rawOuter` (or `_rawBody`); undefined when the screen cut no `children` attribute */
     _reparseSource?: string
-    /**
-     * @internal `_rawBody` embeds this node's own closing tag (plus any
-     * trailing same-line siblings) as literal text; the HTML compiler slices
-     * at that closing tag and always emits its own `</tag>` rather than
-     * relying on the embedded one.
-     */
+    /** @internal `_rawBody` embeds this node's own closing tag as literal text; the HTML compiler emits its own `</tag>` */
     _emitOwnClose?: boolean
     /** @deprecated This property will be removed in a future major version. */
     text?: string | undefined
@@ -457,7 +416,7 @@ declare namespace MarkdownToJSX {
    */
   export type ASTRender = (
     ast: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
-    state: MarkdownToJSX.State
+    state?: MarkdownToJSX.State
   ) => React.ReactNode
 
   /**
@@ -608,10 +567,6 @@ declare namespace MarkdownToJSX {
      *   return next();
      * }
      * ```
-     *
-     * Thar be dragons obviously, but you can do a lot with this
-     * (have fun!) To see how things work internally, check the `render`
-     * method in source for a particular rule.
      */
     renderRule: (
       /** Resume normal processing, call this function as a fallback if you are not returning custom JSX. */
@@ -626,7 +581,7 @@ declare namespace MarkdownToJSX {
 
     /**
      * Override the built-in sanitizer function for URLs, etc if desired. The built-in version is available as a library
-     export called `sanitizer`.
+     * export called `sanitizer`.
      */
     sanitizer: (value: string, tag: string, attribute: string) => string | null
 

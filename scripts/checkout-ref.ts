@@ -4,11 +4,6 @@ import os from 'node:os'
 import path from 'node:path'
 import { REPO_ROOT } from './metrics-targets.ts'
 
-/**
- * `git merge-base <ref> HEAD` in this checkout, so a comparison against a
- * branch measures only this branch's own changes, not commits that landed on
- * the branch after it forked. Throws with a fix when the ref is unknown.
- */
 export function mergeBase(ref: string): string {
   const result = spawnSync('git', ['merge-base', ref, 'HEAD'], {
     cwd: REPO_ROOT,
@@ -22,15 +17,6 @@ export function mergeBase(ref: string): string {
   return result.stdout.trim()
 }
 
-/**
- * Extracts `rev`'s lib/ into a new temporary directory whose lib/node_modules
- * links to this checkout's, and returns that directory as `root` (so
- * `root/lib/src/...` imports work like this checkout's). The directory is
- * removed by `cleanup`, and also when the process exits, since an early
- * `process.exit` skips any pending `finally`.
- */
-// Ctrl-C and kill end the process without an 'exit' event; exit explicitly so
-// the exit listeners below still remove the extracted trees.
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => process.exit(128 + os.constants.signals[signal]))
 }

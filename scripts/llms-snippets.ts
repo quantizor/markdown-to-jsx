@@ -1,10 +1,5 @@
 #!/usr/bin/env bun
 import { spawnSync } from 'node:child_process'
-/**
- * Run executable fences from lib/llms.txt that import markdown-to-jsx string
- * compilers (html/markdown) or a self-contained react compiler/parser call.
- * Skips illustrative fragments that reference undefined locals.
- */
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -52,11 +47,9 @@ for (const fence of fences) {
   if (SKIP_IF.some(s => fence.body.includes(s))) {
     continue
   }
-  // Only self-contained compile/parser demos against html, markdown, or react.
   if (!/markdown-to-jsx\/(html|markdown|react)/.test(fence.body)) {
     continue
   }
-  // native/solid/vue need more runtime than a one-shot eval
   if (/markdown-to-jsx\/(native|solid|vue)/.test(fence.body)) {
     continue
   }
@@ -69,7 +62,6 @@ ${fence.body}
     : fence.body
 
   const result = spawnSync('bun', ['-e', wrapped], {
-    // Package exports resolve from lib/ (workspace package name).
     cwd: path.join(import.meta.dirname, '..', 'lib'),
     encoding: 'utf8',
     env: process.env,
