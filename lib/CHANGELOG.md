@@ -31,6 +31,9 @@
   Thanks Anubhav Lal!
 
 - 7d72738: A task list checkbox now needs a space and some text after its marker, as GFM specifies, so `- [x]foo` and a bare `- [x]` stay plain text. Text after a checkbox stays text: `- [x] # title` no longer becomes a heading.
+
+  Thanks Anubhav Lal!
+
 - f181d9a, 7d72738: Long runs of web addresses parse over 600 times faster at 200 to 280 kB. A run of `www.` addresses, or of addresses with no spaces between them, took time that grew with the square of its length and now takes time proportional to it. If you render markdown written by someone else, please upgrade.
 
   A `www.` address with no further dot, such as `www.foo` in `www.foo bar.com`, is no longer linked just because a later word has one.
