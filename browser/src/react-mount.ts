@@ -1,10 +1,3 @@
-/**
- * Mounts every browser case through markdown-to-jsx/react into `#rootId`.
- * The imports are bare `react` and `react-dom/client`, so the build decides
- * the runtime: vite.config.ts bundles real React, vite.preact.config.ts
- * aliases the same specifiers to preact/compat. No JSX, no framework plugin.
- */
-
 import ReactMarkdown from 'markdown-to-jsx/react'
 import { createElement } from 'react'
 import { createRoot } from 'react-dom/client'
