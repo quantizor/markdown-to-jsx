@@ -189,7 +189,7 @@ Key library files
 Internationalization
 
 - Localized content lives in `lib/src/i18n/`. Each language needs `README.md`, `default-template.md`, `gfm-spec.md`, and `markdown-spec.md`. UI strings are in `ui-strings.ts`; supported languages in `languages.ts`.
-- lib/README.md and its translations are reader-facing copy written by the `writer` agent; the `technical-writer` agent edits specs, standards, AGENTS.md, BACKLOG.md, and lib/llms.txt.
+- lib/README.md, its translations, and changesets are reader-facing copy written by the `writer` agent; the `technical-writer` agent edits specs, standards, AGENTS.md, BACKLOG.md, and lib/llms.txt.
 - `lib/README.md` is the single source for library docs. Any edit propagates in the same change to every `lib/src/i18n/{lang}/README.md`: copy it verbatim into `en/README.md` as an exact mirror, and translate the changed sections into `hi` and `zh` per their `.cursor/rules/i18n-{lang}.mdc`. `validate-i18n` checks UI strings, required files, equal README fence counts, TOC entry count parity with `lib/README.md`, TOC anchors resolving to headings or HTML ids in the same file, and exact TOC anchor match for `en/`. Keep code identifiers, API names, and anchors as each file already does.
 - Order new languages by global speakers (Ethnologue 2025, https://www.ethnologue.com/insights/most-spoken-language/): English, Mandarin Chinese, Hindi, Spanish, Arabic. A new language gets a PATCH changeset and its own `.cursor/rules/i18n-{lang}.mdc` covering term translations, style, technical-term handling, and format conventions, written for machine interpretation.
 - Documentation standards: Simplified Chinese (普通话), Modern Standard Hindi (मानक हिन्दी, formal आप).
