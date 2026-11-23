@@ -29,6 +29,9 @@ Rules:
 - A scanner returns its end position through the module variable `_end` (`ret(end, node)`) instead of allocating a result object. Arguments evaluate before the call, so `_end` is set after any child parse inside `node` has overwritten it: a scanner builds its child nodes in the argument list of `ret`, never before computing `end`.
 - `_doc` is one lazily allocated per-document cache; nested blocks save and restore it.
 - `indent`, `dedentLine`, and `expandTabs` are the one tab-aware helper set every block container uses.
+- `expandTabs` turns a tab into spaces only inside a line's container prefix: the run of spaces, tabs, `>`, and list-marker-shaped tokens followed by whitespace or the line end, cut short by four columns of indent (the rest is indented code). A tab after that prefix is content and stays a tab (CommonMark 0.31.2, tabs): `> a\tb` holds `a\tb`. The prefix is read from text alone, so a quoted line inside a fence or a paragraph that starts marker-shaped (`> -\tb`) still loses its tab (BACKLOG.md, "Known spec deviations").
+- Where CommonMark says "spaces or tabs" (around a link destination and title, before a closing heading sequence, a paragraph line's leading whitespace), the scan tests `F.WS` or `F.WSNL`, never U+0020 alone.
+- A line ending inside inline text trims trailing spaces and tabs (`F.WS`), as cmark and md4c do (md4c regression #250); CommonMark's soft line break text names only spaces, and commonmark.js and markdown-it keep a trailing tab. A hard line break still needs two U+0020 right before the line ending: `foo  \t\nbar` is a soft break.
 - Each node type builds one shape (standards/performance.md, "AST node representation"), except `htmlBlock`: `makeHtmlNode` takes an `H` mask (a const enum) naming the optional fields a node carries (attributes, body, closer, outer span, own-closer emission, verbatim, closing tag), so an `htmlBlock` has one shape and key order per mask (a single-shape experiment is open in BACKLOG.md, "Performance"). A closing-tag node lists `_rawClose` before `_rawBody`; every other node lists `_rawBody` first. Key order shows in AST snapshots.
 - Streaming-edge trimming is cold code kept outside the hot loops.
 
@@ -99,6 +102,7 @@ A lazy continuation line extends a blockquote or list item only while the state 
 ### Code spans
 
 - A code span's content loses one leading and one trailing U+0020 when it has both and is not all U+0020 (CommonMark 0.31.2, code spans): `` ` a ` `` holds `a`, `` `  ` `` holds two spaces, `` ` a` `` holds ` a`. A tab or a no-break space is content and is never stripped.
+- A line ending inside a code span becomes one space, and the spaces and tabs that start the next line go with it, since a paragraph line loses its leading whitespace (CommonMark 0.31.2, paragraphs; commonmark.js and md4c agree, markdown-it and micromark keep the indent): ``` ``a\n b`` ``` holds `a b`.
 
 ### HTML blocks
 
@@ -157,7 +161,7 @@ When `parseHtmlChildren` parses an element's content, its `HtmlChildrenMode` nam
 
 ### Links and autolinks
 
-- The link destination, title, bracket-label, and autolink scanners are shared. `matchAutolinkEnd` allocates nothing and returns the end index or -1. A tab invalidates an angle autolink (`<https://e.com\tpath>` stays text).
+- The link destination, title, bracket-label, and autolink scanners are shared. `matchAutolinkEnd` allocates nothing and returns the end index or -1. A tab invalidates an angle autolink (`<https://e.com\tpath>` stays text). A tab ends a bare link destination (`[a](/u\t"t")` links `/u` with title `t`, and `![x](java\tscript:x)` is text); only an angle-bracket destination holds a raw tab.
 - Links do not nest: the inner link wins and the outer brackets are text. Unescaped brackets may sit in a destination (`[t](url[invalid])`).
 - A code span, an autolink, or one raw HTML tag hides its own brackets from link text, as CommonMark specifies; an HTML element's content does not, so `[a <b>b]</b> c](/u)` is text and `[a <b title="]">x</b>](/u)` is a link.
 - An email local-part may start up to 64 characters before its `@`, so the inline fast-skip stops 64 characters before the next `@` and never starts a URL at an `h`, `w`, or `f` inside the local-part (issue #877).

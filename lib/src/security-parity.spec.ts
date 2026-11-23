@@ -140,7 +140,7 @@ const CASES: DangerCase[] = [
   },
   {
     id: 'image-javascript-tab',
-    md: '![x](java\tscript:alert(1))',
+    md: '![x](<java\tscript:alert(1)>)',
     absentFromHtml: ['javascript:', 'script:alert'],
     absentFromMarkdown: ['javascript:', 'script:alert'],
   },

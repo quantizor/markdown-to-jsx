@@ -226,7 +226,7 @@ function StreamingSlider({
 
   return (
     <div
-      className={`hidden md:flex streaming-slider-container fixed bottom-0 left-0 right-0 flex-row items-center gap-4 px-6 py-3 backdrop-blur-md border-t border-white/10 z-50${isInteracted ? ' slider-interacted' : ''}`}
+      className={`hidden md:flex streaming-slider-container fixed bottom-0 left-0 right-0 flex-row items-center gap-4 px-6 py-3 backdrop-blur-md border-t border-white/10 z-50 ${isInteracted ? 'slider-interacted' : ''}`}
     >
       <button
         onClick={() => {
