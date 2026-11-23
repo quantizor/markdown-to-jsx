@@ -317,6 +317,20 @@ describe('compiler', () => {
     expect(text).toContain('Hello')
     expect(text).toContain('World')
   })
+
+  it('breaks: true leaves native output as is, since Text already shows a soft line break as a new line', () => {
+    const md = 'a\nb\n\n> c\n> d\n\n- e\n  f\n\ng <span>h\ni</span>'
+    const out = serialize(compiler(md, { breaks: true }))
+
+    expect(out).toBe(serialize(compiler(md)))
+    expect(out).toMatchInlineSnapshot(`
+      "<View><Text>a
+      b</Text><View><Text>c
+      d</Text></View><View><View><Text>• </Text><View><Text>e
+      f</Text></View></View></View><Text>g <Text>h
+      i</Text></Text></View>"
+    `)
+  })
 })
 
 describe('link handling', () => {

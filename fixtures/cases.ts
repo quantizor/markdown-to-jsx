@@ -5,6 +5,7 @@ export type DomExpect =
   | { sel: string; text: string }
 
 export interface HarnessOptions {
+  breaks?: boolean
   optimizeForStreaming?: boolean
   tagfilter?: boolean
 }
@@ -484,6 +485,14 @@ export var CASES: HarnessCase[] = [
     id: 'hard-break',
     md: 'a  \nb',
     dom: [{ sel: 'br', count: 1 }],
+  },
+  {
+    id: 'soft-break-as-hard-break',
+    ref: '#279',
+    options: { breaks: true },
+    md: 'a\nb\n\nc[^1]\n\n[^1]: d\n    e',
+    dom: [{ sel: 'br', count: 2 }],
+    skip: ['native'],
   },
   {
     id: 'entity-mixed',

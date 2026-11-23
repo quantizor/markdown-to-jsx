@@ -877,6 +877,18 @@ describe('links', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(`"https://google.com"`)
   })
 
+  it('breaks: true renders every soft line break as a hard break, outside raw inline HTML', () => {
+    render(
+      compiler('a\nb\n\n> c\n> d\n\n- e\n  f\n\ng <span>h\ni</span>', {
+        breaks: true,
+      })
+    )
+
+    expect(root.innerHTML).toBe(
+      '<div><p>a<br/>b</p><blockquote><p>c<br/>d</p></blockquote><ul><li>e<br/>f</li></ul><p>g <span>h\ni</span></p></div>'
+    )
+  })
+
   it('should not sanitize markdown when explicitly disabled', () => {
     spyOn(console, 'warn').mockImplementation(() => {})
     spyOn(console, 'error').mockImplementation(() => {})

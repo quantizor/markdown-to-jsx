@@ -146,6 +146,18 @@ describe('break elements', () => {
     expect(text).toContain('Line 2')
   })
 
+  it('breaks: true renders every soft line break as a hard break, outside raw inline HTML', () => {
+    expect(
+      serialize(
+        compiler('a\nb\n\n> c\n> d\n\n- e\n  f\n\ng <span>h\ni</span>', {
+          breaks: true,
+        })
+      )
+    ).toBe(
+      '<div><p>a<br></br>b</p><blockquote><p>c<br></br>d</p></blockquote><ul><li>e<br></br>f</li></ul><p>g <span>h\ni</span></p></div>'
+    )
+  })
+
   it('should handle breakThematic (horizontal rule)', () => {
     const result = compiler('---')
     expect(result).not.toBeNull()

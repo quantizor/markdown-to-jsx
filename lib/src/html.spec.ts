@@ -7,6 +7,16 @@ import { quotesDeep, storedAST } from './test-tree.ts'
 import type { MarkdownToJSX } from './types.ts'
 
 describe('html compiler', () => {
+  it('breaks: true renders every soft line break as a hard break, outside raw inline HTML', () => {
+    expect(
+      compiler('a\nb\n\n> c\n> d\n\n- e\n  f\n\ng <span>h\ni</span>', {
+        breaks: true,
+      })
+    ).toBe(
+      '<div><p>a<br />\nb</p><blockquote><p>c<br />\nd</p></blockquote><ul><li>e<br />\nf</li></ul><p>g <span>h\ni</span></p></div>'
+    )
+  })
+
   it('strikes through only tilde runs of exactly two', () => {
     expect(compiler('a ~~~c~~~ b ~~~~ ~~d~~~e~~')).toMatchInlineSnapshot(
       `"<p>a ~~~c~~~ b ~~~~ <del>d~~~e</del></p>"`

@@ -10,6 +10,7 @@ import {
 } from './utils.ts'
 
 export interface ParseOptions {
+  breaks?: boolean
   disableAutoLink?: boolean
   disableFrontmatter?: boolean
   disableParsingRawHTML?: boolean
@@ -25,6 +26,7 @@ export interface ParseOptions {
 
 /** Compiler-option subset the parser reads (renderer-agnostic). */
 export interface ParserInputOptions {
+  breaks?: boolean
   disableAutoLink?: boolean
   disableFrontmatter?: boolean
   disableParsingRawHTML?: boolean
@@ -48,6 +50,7 @@ export function toParseOptions(
   var opts = options || {}
   const userSlugify = opts.slugify
   return {
+    breaks: opts.breaks,
     disableAutoLink: opts.disableAutoLink,
     disableFrontmatter: opts.disableFrontmatter,
     disableParsingRawHTML: opts.disableParsingRawHTML,
@@ -5890,7 +5893,7 @@ function parseInline(
         var hardEnd =
           p > textStart && s.charCodeAt(p - 1) === $.CHAR_BACKSLASH
             ? p - 1
-            : spCount >= 2
+            : spCount >= 2 || opts.breaks
               ? trimEnd
               : -1
         if (

@@ -115,6 +115,7 @@ Shared across every renderer unless noted.
 
 | Option                          | Type                          | Default  | Effect                                                                           |
 | ------------------------------- | ----------------------------- | -------- | -------------------------------------------------------------------------------- |
+| `breaks`                        | `boolean`                     | `false`  | Render a single newline inside a paragraph, heading, or footnote as a hard break (`<br>`); text inside inline HTML tags keeps its newlines. |
 | `createElement`                 | `function`                    | -        | Hook `(type, props, children)` before elements are built. JSX renderers only.     |
 | `disableAutoLink`               | `boolean`                     | `false`  | Leave bare URLs as text.                                                          |
 | `disableFrontmatter`            | `boolean`                     | `false`  | Read a `---` on the document's first line as a thematic break instead of the start of YAML frontmatter. |

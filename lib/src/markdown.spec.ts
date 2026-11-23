@@ -202,6 +202,14 @@ describe('markdown compiler', () => {
       }
       expect(markdown(ast)).toBe('  \n')
     })
+
+    it('breaks: true writes every soft line break as a hard break, outside raw inline HTML', () => {
+      expect(
+        compiler('a\nb\n\n> c\n> d\n\n- e\n  f\n\ng <span>h\ni</span>', {
+          breaks: true,
+        })
+      ).toBe('a  \nb\n\n> c  \n> d\n\n- e  \n  f\n\ng <span>h\ni</span>')
+    })
   })
 
   describe('code', () => {
