@@ -877,6 +877,38 @@ describe('links', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(`"https://google.com"`)
   })
 
+  it('breaks: true renders every soft line break as a hard break, outside raw inline HTML', () => {
+    render(
+      compiler('a\nb\n\n> c\n> d\n\n- e\n  f\n\ng <span>h\ni</span>', {
+        breaks: true,
+      })
+    )
+
+    expect(root.innerHTML).toBe(
+      '<div><p>a<br/>b</p><blockquote><p>c<br/>d</p></blockquote><ul><li>e<br/>f</li></ul><p>g <span>h\ni</span></p></div>'
+    )
+  })
+
+  it('renders hard breaks in forceInline text and footnote bodies, and soft ones too under breaks: true', () => {
+    const footnote = 'x[^1]\n\n[^1]: a  \n    b\n    c'
+    const html = (md: string, options: MarkdownToJSX.Options) => {
+      render(compiler(md, options))
+      return root.innerHTML
+    }
+
+    expect([
+      html('a  \nb\nc', { forceInline: true }),
+      html('a  \nb\nc', { breaks: true, forceInline: true }),
+      html(footnote, {}),
+      html(footnote, { breaks: true }),
+    ]).toEqual([
+      '<span>a<br/>b\nc</span>',
+      '<span>a<br/>b<br/>c</span>',
+      '<div><p>x<a href="#1"><sup>1</sup></a></p><footer><div id="1">1: <!-- -->a<br/>b\nc</div></footer></div>',
+      '<div><p>x<a href="#1"><sup>1</sup></a></p><footer><div id="1">1: <!-- -->a<br/>b<br/>c</div></footer></div>',
+    ])
+  })
+
   it('should not sanitize markdown when explicitly disabled', () => {
     spyOn(console, 'warn').mockImplementation(() => {})
     spyOn(console, 'error').mockImplementation(() => {})
@@ -2977,8 +3009,8 @@ describe('footnotes', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       "<div><p>foo<a href="#abc"><sup>abc</sup></a> bar</p><p>After footnotes content</p><footer><div id="abc">abc: <!-- -->Baz
-        line2
-        line3</div></footer></div>"
+      line2
+      line3</div></footer></div>"
     `)
   })
 
@@ -2997,8 +3029,8 @@ describe('footnotes', () => {
 
     expect(root.innerHTML).toMatchInlineSnapshot(`
       "<div><p>a<a href="#a"><sup>a</sup></a> b<a href="#b"><sup>b</sup></a> c<a href="#c"><sup>c</sup></a></p><footer><div id="a">a: <!-- -->single</div><div id="b">b: <!-- -->bbbb
-        bbbb
-        bbbb</div><div id="c">c: <!-- -->single-c</div></footer></div>"
+      bbbb
+      bbbb</div><div id="c">c: <!-- -->single-c</div></footer></div>"
     `)
   })
 
@@ -3022,11 +3054,11 @@ describe('footnotes', () => {
     expect(root.innerHTML).toMatchInlineSnapshot(`
       "<div><p>Here&#x27;s a simple footnote,<a href="#1"><sup>1</sup></a> and here&#x27;s a longer one.<a href="#bignote"><sup>bignote</sup></a></p><footer><div id="1">1: <!-- -->This is the first footnote.</div><div id="bignote">bignote: <!-- -->Here&#x27;s one with multiple paragraphs and code.
 
-          Indent paragraphs to include them in the footnote.
+      Indent paragraphs to include them in the footnote.
 
-          <code>{ my code }</code>
+      <code>{ my code }</code>
 
-          Add as many paragraphs as you like.</div></footer></div>"
+      Add as many paragraphs as you like.</div></footer></div>"
     `)
   })
 })

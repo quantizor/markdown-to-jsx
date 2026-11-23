@@ -504,6 +504,7 @@ A code block or code span whose contents would be unsafe read as raw HTML or a l
 
 | Option                          | Type                          | Default  | Description                                                                                                                       |
 | ------------------------------- | ----------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `breaks`                        | `boolean`                     | `false`  | Render a single line break inside a paragraph, heading, or footnote as a `<br>` instead of joining the lines with a space. Text inside inline HTML tags keeps its line breaks. |
 | `createElement`                 | `function`                    | -        | Custom createElement behavior (React/React Native/SolidJS/Vue only). See [createElement](#optionscreateelement) for details.      |
 | `disableAutoLink`               | `boolean`                     | `false`  | Disable automatic conversion of bare URLs to anchor tags.                                                                         |
 | `disableFrontmatter`            | `boolean`                     | `false`  | Read a `---` on the document's first line as a thematic break instead of the start of YAML frontmatter.                           |

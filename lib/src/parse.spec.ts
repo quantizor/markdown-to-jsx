@@ -8074,6 +8074,21 @@ describe('text normalization edge cases', () => {
       `)
     })
 
+    it('breaks: true parses a soft line break, its trailing whitespace trimmed, as a hard break', () => {
+      expect(p.parser('a\t\n b\nc', { breaks: true })).toEqual([
+        {
+          type: RuleType.paragraph,
+          children: [
+            { type: RuleType.text, text: 'a' },
+            { type: RuleType.breakLine },
+            { type: RuleType.text, text: 'b' },
+            { type: RuleType.breakLine },
+            { type: RuleType.text, text: 'c' },
+          ],
+        },
+      ])
+    })
+
     it('emphasis can close before a hard break (two trailing spaces) (issue #830)', () => {
       const result = p.parser('**TEST:**  \nTEST')
       expect(result).toMatchInlineSnapshot(`

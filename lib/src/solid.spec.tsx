@@ -146,6 +146,34 @@ describe('break elements', () => {
     expect(text).toContain('Line 2')
   })
 
+  it('breaks: true renders every soft line break as a hard break, outside raw inline HTML', () => {
+    expect(
+      serialize(
+        compiler('a\nb\n\n> c\n> d\n\n- e\n  f\n\ng <span>h\ni</span>', {
+          breaks: true,
+        })
+      )
+    ).toBe(
+      '<div><p>a<br></br>b</p><blockquote><p>c<br></br>d</p></blockquote><ul><li>e<br></br>f</li></ul><p>g <span>h\ni</span></p></div>'
+    )
+  })
+
+  it('renders hard breaks in forceInline text and footnote bodies, and soft ones too under breaks: true', () => {
+    const footnote = 'x[^1]\n\n[^1]: a  \n    b\n    c'
+
+    expect([
+      serialize(compiler('a  \nb\nc', { forceInline: true })),
+      serialize(compiler('a  \nb\nc', { breaks: true, forceInline: true })),
+      serialize(compiler(footnote)),
+      serialize(compiler(footnote, { breaks: true })),
+    ]).toEqual([
+      '<span>a<br></br>b\nc</span>',
+      '<span>a<br></br>b<br></br>c</span>',
+      '<div><p>x<a><sup>1</sup></a></p><footer><div>1: a<br></br>b\nc</div></footer></div>',
+      '<div><p>x<a><sup>1</sup></a></p><footer><div>1: a<br></br>b<br></br>c</div></footer></div>',
+    ])
+  })
+
   it('should handle breakThematic (horizontal rule)', () => {
     const result = compiler('---')
     expect(result).not.toBeNull()

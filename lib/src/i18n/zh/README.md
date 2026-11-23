@@ -504,6 +504,7 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 
 | 选项                            | 类型                          | 默认值  | 说明                                                                                                           |
 | :------------------------------ | :---------------------------- | :------ | :------------------------------------------------------------------------------------------------------------- |
+| `breaks`                        | `boolean`                     | `false` | 将段落、标题或脚注内的单个换行渲染为 `<br>`，而不是用空格连接两行。内联 HTML 标签内的文本保留原有换行。 |
 | `createElement`                 | `function`                    | -       | 自定义 createElement 行为 (仅限 React/React Native/SolidJS/Vue)。详见 [createElement](#optionscreateelement)。 |
 | `disableAutoLink`               | `boolean`                     | `false` | 禁用将裸 URL 自动转换为锚点标签。                                                                              |
 | `disableFrontmatter`            | `boolean`                     | `false` | 把文档第一行的 `---` 读作分隔线，而不是 YAML 前置元数据的开头。                                                  |

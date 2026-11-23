@@ -443,6 +443,15 @@ declare namespace MarkdownToJSX {
    */
   export type Options = Partial<{
     /**
+     * Render every soft line break (a single line ending inside a paragraph,
+     * a multi-line heading, or a footnote) as a hard line break instead of
+     * joining the lines with a space. A multi-line heading's generated id
+     * changes with it (`foo-bar` instead of `foobar`). Text inside raw inline
+     * HTML keeps its line endings.
+     */
+    breaks: boolean
+
+    /**
      * Ultimate control over the output of all rendered JSX.
      */
     createElement: (

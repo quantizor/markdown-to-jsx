@@ -202,6 +202,26 @@ describe('markdown compiler', () => {
       }
       expect(markdown(ast)).toBe('  \n')
     })
+
+    it('breaks: true writes every soft line break as a hard break, outside raw inline HTML', () => {
+      expect(
+        compiler('a\nb\n\n> c\n> d\n\n- e\n  f\n\ng <span>h\ni</span>', {
+          breaks: true,
+        })
+      ).toBe('a  \nb\n\n> c  \n> d\n\n- e  \n  f\n\ng <span>h\ni</span>')
+    })
+
+    it('breaks: true writes a soft line break in forceInline text as a hard break, and a footnote body keeps its source as written', () => {
+      expect([
+        compiler('a  \nb\nc', { forceInline: true }),
+        compiler('a  \nb\nc', { breaks: true, forceInline: true }),
+        compiler('x[^1]\n\n[^1]: a  \n    b\n    c', { breaks: true }),
+      ]).toEqual([
+        'a  \nb\nc',
+        'a  \nb  \nc',
+        '[^1]: a  \n    b\n    c\n\nx[^1]',
+      ])
+    })
   })
 
   describe('code', () => {

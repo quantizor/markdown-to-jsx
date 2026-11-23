@@ -10,6 +10,7 @@ import {
 } from './utils.ts'
 
 export interface ParseOptions {
+  breaks?: boolean
   disableAutoLink?: boolean
   disableFrontmatter?: boolean
   disableParsingRawHTML?: boolean
@@ -25,6 +26,7 @@ export interface ParseOptions {
 
 /** Compiler-option subset the parser reads (renderer-agnostic). */
 export interface ParserInputOptions {
+  breaks?: boolean
   disableAutoLink?: boolean
   disableFrontmatter?: boolean
   disableParsingRawHTML?: boolean
@@ -48,6 +50,7 @@ export function toParseOptions(
   var opts = options || {}
   const userSlugify = opts.slugify
   return {
+    breaks: opts.breaks,
     disableAutoLink: opts.disableAutoLink,
     disableFrontmatter: opts.disableFrontmatter,
     disableParsingRawHTML: opts.disableParsingRawHTML,
@@ -4119,7 +4122,7 @@ function parseFootnoteDefinition(
   }
 
   var fnEnd = lineEnd(s, i)
-  var content = s.slice(i, fnEnd).trim()
+  var content = s.slice(i, fnEnd)
   var end = fnEnd < len ? fnEnd + 1 : len
 
   while (end < len) {
@@ -4145,7 +4148,10 @@ function parseFootnoteDefinition(
   }
 
   if (state.refs && !state.refs[label]) {
-    state.refs[label] = { target: content, title: undefined }
+    state.refs[label] = {
+      target: content.slice(0, rtrim(content, 0, content.length, true)),
+      title: undefined,
+    }
   }
   return ret(end, { type: RuleType.footnote })
 }
@@ -5890,7 +5896,7 @@ function parseInline(
         var hardEnd =
           p > textStart && s.charCodeAt(p - 1) === $.CHAR_BACKSLASH
             ? p - 1
-            : spCount >= 2
+            : spCount >= 2 || opts.breaks
               ? trimEnd
               : -1
         if (
@@ -6022,6 +6028,7 @@ function parseBlocks(
   }
 
   if (state.inline) {
+    state._breaks = true
     var inl = parseInline(s, 0, s.length, state, opts)
     state._depth = savedDepth
     _blocksHadInternalBlank = false

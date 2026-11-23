@@ -317,6 +317,32 @@ describe('compiler', () => {
     expect(text).toContain('Hello')
     expect(text).toContain('World')
   })
+
+  it('breaks: true leaves native output as is, since Text already shows a soft line break as a new line', () => {
+    const md = 'a\nb\n\n> c\n> d\n\n- e\n  f\n\ng <span>h\ni</span>'
+    const out = serialize(compiler(md, { breaks: true }))
+
+    expect(out).toBe(serialize(compiler(md)))
+    expect(out).toMatchInlineSnapshot(`
+      "<View><Text>a
+      b</Text><View><Text>c
+      d</Text></View><View><View><Text>• </Text><View><Text>e
+      f</Text></View></View></View><Text>g <Text>h
+      i</Text></Text></View>"
+    `)
+  })
+
+  it('drops the continuation indent of a footnote body, and breaks: true changes nothing there either, since Text already shows a soft line break as a new line', () => {
+    const footnote = 'x[^1]\n\n[^1]: a  \n    b\n    c'
+    const out = serialize(compiler(footnote, { breaks: true }))
+
+    expect(out).toBe(serialize(compiler(footnote)))
+    expect(out).toMatchInlineSnapshot(`
+      "<View><Text>x<Text>¹</Text></Text><View><Text>1: a
+      b
+      c</Text></View></View>"
+    `)
+  })
 })
 
 describe('link handling', () => {

@@ -7,6 +7,7 @@ Open work and known issues for markdown-to-jsx. Remove an entry as the final ste
 The markdown output compiler is guarded construct by construct by the "HTML equivalence corpus" round-trip harness in lib/src/markdown.spec.ts. These cases remain:
 
 - Two adjacent lists of the same kind re-parse as one list. The source can only separate them by a marker change (`- a` then `* b`, or `1.` then `2)`), but compileUnorderedList always writes `-` and compileOrderedList `.`, so the blank line between them joins them into one loose list. Fixing it means alternating the marker when a list follows a list of the same kind.
+- Under `breaks: true` the markdown compiler writes a raw HTML block and a footnote body as written, so their soft line breaks stay soft and render as spaces when the output is parsed again without `breaks` (`<div>\n\na\nb\n\n</div>`), while every other construct writes them as `  \n`.
 - A code block written through the `<pre><code>` fallback (a body compileCodeBlock judges unsafe as raw text) re-parses as a raw HTML block, not a code block: its text holds entities such as `&#42;` and a newline before `</code>`, so gfm-spec.md does not round-trip.
 
 Add a corpus case when each is fixed.
@@ -19,10 +20,14 @@ Add a corpus case when each is fixed.
 - Container content is rewritten as text before the nested parse: `expandTabs` reads a quote line's prefix from its characters alone, and a list continuation line keeps its tabs but the nested parse measures them from the item's content column. So a fenced or paragraph line in a quote that starts marker-shaped loses its tab (`> ```\n> -\tb\n> ```` gives `- b`), tab-indented code in a quote becomes spaces (`> \treturn` inside a fence), and `- a\n\n  \tb` becomes indented code instead of a paragraph. Fix: hand the nested parse each line's starting column (as commonmark.js does with `offset` and `column`) so `indent` computes tab stops in absolute columns and no container rewrites tabs.
 - Under `optimizeForStreaming`, an unclosed block-level tag on a list-marker line (`- <div>x`) is stripped as an incomplete streaming tag, leaving an empty list item until the closer arrives.
 - Under `optimizeForStreaming`, an unclosed highlight (`==hi`) shows its `==` marker, while unclosed `**`, `~~`, and links hide theirs.
+- Text inside raw inline HTML children parses with line breaks off, so a hard break there is lost (`<span>a  \nb</span>` gives `<span>a \nb</span>`, CommonMark gives `<br />`) and `breaks: true` leaves its soft breaks alone, while markdown-it and marked break there. Turning `_breaks` on in inline HTML children changes published output.
+- A heading id drops a soft line break instead of reading it as a separator (`Foo\nbar\n===` gets `foobar`) while a hard break separates (`foo-bar`), so `breaks: true` renames multi-line heading ids. Treating both alike changes published ids.
+- An unindented footnote continuation line (`[^1]: a\nb`) becomes its own paragraph instead of a lazy continuation of the footnote.
 - A bare email whose domain label ends in `-` or `_` before a dot (`foo@a_.c`) stays text, while GFM and cmark-gfm link it: scanBareEmail applies hostname label rules (each label ends with a letter or digit, at most 63 characters). Matching GFM changes which text links, so it needs a maintainer call.
 
 ## Renderer drift
 
+- React Native shows a soft line break as a new line: paragraph text keeps its `\n` and `Text` renders it literally, while every web renderer collapses it to a space. So `breaks: true` changes nothing in native. Rendering a soft break as a space in native changes published native output for every wrapped paragraph, so it needs a maintainer call.
 - Vue ignores an `overrides` map whose keys are all inherited (`Object.create(card)`), because it tests `Object.keys(overrides).length`, while React and the string compilers read inherited keys through `util.overrideValue`. Aligning Vue on `util.hasKeys` changes published Vue output for that shape.
 - A stray `</div>` closer inside paragraph text renders as a View nested in a Text in React Native, which Android rejects; the other renderers emit it as text or drop it.
 - Re-rendering a stored AST through `astToJSX` wraps a top-level inline HTML span in a `<p>` that the direct `compiler` call does not emit.
