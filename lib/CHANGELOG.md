@@ -1,5 +1,40 @@
 # markdown-to-jsx
 
+## 9.11.0
+
+### Minor Changes
+
+- 7d72738: Parsing is 16% faster on average, and rendering to React, React Native, Solid, Vue, and HTML is 12% faster, on documents from a few words to 211 kB (Bun 1.4, Apple Silicon Mac mini, production builds). On Node 24, parsing is 27% faster and rendering to React, Solid, Vue, and HTML is 26% faster; in Chrome 157, the same figures are 16% and 14%. Bundles are 12% smaller gzipped for browsers and 18% smaller for Node.
+
+  Raw HTML is screened more strictly. A `<meta>` refresh to a script URL, a `style` that loads a script (even when disguised), a `srcdoc` written in braces, and an event handler written in braces on a tag listed in `overrides` no longer reach the page, though React, React Native, and Solid components still receive that handler as a prop. In React and React Native, an attribute name with a colon in it, other than an `xlink:`, `xml:`, or `xmlns:` name, stays as written, where `<a h:ref="javascript:…">` used to become a working `href`. Image addresses are percent-encoded like link addresses, and an SVG data URL works only as an image. If you render markdown written by someone else, please upgrade.
+
+  Parsing follows CommonMark and GFM more closely: highlight (`==`) needs a run of exactly two, as strikethrough does; a line missing its `>` or list indent continues a quote or list item only after a paragraph; a code span trims one space from each end only when both ends have one; a `]` inside an HTML element's content ends link text; lowercase `<!doctype html>` is raw HTML; and a bare email address may have `_` in its domain.
+
+  Heading ids now spell accented Latin letters as their plain letters, and `ß` as `ss`, so `# Öl Straße` gets `id="ol-strasse"` where it got `l-strae`, and `# Łódź` gets `lodz` where it got `od`. Update any link to such a heading's old id. A heading whose id would be empty, such as `# !!!`, gets no `id`.
+
+  React no longer throws on a code fence with a `style` attribute or on a `<textarea>` holding markup with `tagfilter` off, and React and React Native no longer throw on an attribute name ending in a colon (`<span a:="1">`).
+
+  A document that is only frontmatter is read as frontmatter, and React Native accepts `preserveFrontmatter`. Converting to markdown now keeps escaped text, adjacent emphasis, email addresses, and frontmatter as written when the output is parsed again.
+
+### Patch Changes
+
+- 94aa18e, 7d72738: A `]` right after a web address is no longer part of the link, so `[see https://example.com/a]` links to `https://example.com/a` instead of `https://example.com/a%5D`. A `]` stays in the address when it closes a `[` there (`?a[0]=1`) or when more address text follows it.
+
+  Thanks 0z5a!
+
+- 2916490, 7d72738: Apps on Preact through `preact/compat` now see rendered markdown where the output was blank. React apps are unaffected.
+
+  Thanks Sadra Ganjali!
+
+- d42e8a9, 7d72738: Runs of three or more tildes inside a line no longer strike text through, as GFM specifies, so `a ~~~c~~~ b` stays plain text and `a ~~~~ b` keeps its tildes.
+
+  Thanks Anubhav Lal!
+
+- 7d72738: A task list checkbox now needs a space and some text after its marker, as GFM specifies, so `- [x]foo` and a bare `- [x]` stay plain text. Text after a checkbox stays text: `- [x] # title` no longer becomes a heading.
+- f181d9a, 7d72738: Long runs of web addresses parse over 600 times faster at 200 to 280 kB. A run of `www.` addresses, or of addresses with no spaces between them, took time that grew with the square of its length and now takes time proportional to it. If you render markdown written by someone else, please upgrade.
+
+  A `www.` address with no further dot, such as `www.foo` in `www.foo bar.com`, is no longer linked just because a later word has one.
+
 ## 9.10.6
 
 ### Patch Changes
