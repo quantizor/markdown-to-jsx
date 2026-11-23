@@ -1,8 +1,4 @@
 #!/usr/bin/env bun
-/**
- * Production dist must not retain DEV sanitizer warn strings or live
- * console.warn / console.error calls that NODE_ENV replacement should drop.
- */
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -46,16 +42,12 @@ for (const file of files) {
       violations.push(`${rel}: retains DEV warn string`)
     }
   }
-  // Production builds replace process.env.NODE_ENV so warn branches drop.
-  // A bare console.warn( call in a shipping chunk is a strip failure.
   if (/\bconsole\.warn\s*\(/.test(body)) {
     violations.push(`${rel}: contains console.warn(`)
   }
   if (/\bconsole\.error\s*\(/.test(body)) {
     violations.push(`${rel}: contains console.error(`)
   }
-  // Surviving .env.NODE_ENV means define failed (usually a local process binding
-  // from `import process from 'node:process'`).
   if (/\.env\.NODE_ENV\b/.test(body)) {
     violations.push(`${rel}: retains .env.NODE_ENV after production define`)
   }

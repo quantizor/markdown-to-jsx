@@ -1,29 +1,9 @@
 #!/usr/bin/env bun
-/**
- * List everyone who introduced or edited a changeset file, so a credit line in
- * the changeset is derived from git rather than remembered.
- *
- * Attribution lives in the commits: an outside fix lands with the contributor
- * as git author even when a maintainer rewrites and commits it, and a helper
- * who is not the author lands as a Co-authored-by trailer. Both are reported.
- *
- * The query itself lives in scripts/changelog.cjs, which the release notes use
- * too, so the report and the published notes can never disagree about which
- * commits belong to a changeset.
- *
- * Usage: bun scripts/changeset-credits.ts               # every pending changeset
- *        bun scripts/changeset-credits.ts quick-moons-invent
- *        bun scripts/changeset-credits.ts .changeset/process-env-define.md
- *
- * A released changeset still resolves: the release commit deletes the file, but
- * the path keeps its history, and the delete is filtered out.
- */
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { attribution, changesetPath, isAgent } from './changelog.cjs'
 
-/** One person credited on a changeset, with the commit that first put them there. */
 interface Contributor {
   email: string
   name: string
@@ -32,16 +12,11 @@ interface Contributor {
   via: 'author' | 'co-author'
 }
 
-/** How a person is written in the report, and what the column is sized to. */
 const who = (credit: Contributor) => `${credit.name} <${credit.email}>`
 
 const CHANGESET_DIR = '.changeset'
 const REPO_ROOT = path.resolve(import.meta.dir, '..')
 
-/**
- * Resolve an argument to a repo-relative changeset path. Accepts a bare
- * changeset name, a path, or a path with or without the `.md` suffix.
- */
 function resolveChangeset(arg: string): string {
   if (arg.includes('/')) {
     return arg.endsWith('.md') ? arg : `${arg}.md`
@@ -49,7 +24,6 @@ function resolveChangeset(arg: string): string {
   return changesetPath(arg.replace(/\.md$/, ''))
 }
 
-/** Every pending changeset, in name order. README.md is changesets' own docs. */
 function pendingChangesets(): string[] {
   const dir = path.join(REPO_ROOT, CHANGESET_DIR)
   if (!fs.existsSync(dir)) {
@@ -62,13 +36,6 @@ function pendingChangesets(): string[] {
     .map(name => path.join(CHANGESET_DIR, name))
 }
 
-/**
- * Credits plus where they were found. The distinction is load-bearing: a
- * changeset whose only commits sit on an unmerged branch (a contributor's PR
- * fetched locally, a squash-merge that renamed the file) has real authors, and
- * reporting that as "no history" reads as "nobody to credit". A path with no
- * history anywhere is usually a mistyped name, not a new changeset.
- */
 function creditsFor(file: string): {
   credits: Contributor[]
   scope: 'all' | 'head' | 'none'
@@ -84,11 +51,6 @@ function creditsFor(file: string): {
     : { credits: [], scope: 'none' }
 }
 
-/**
- * The changeset's own summary text, minus the frontmatter block, or null when
- * the file is not in the tree. Absence alone does not mean released: the same
- * state covers a name that was mistyped, so the caller decides what to say.
- */
 function summaryOf(file: string): string | null {
   const abs = path.join(REPO_ROOT, file)
   if (!fs.existsSync(abs)) {

@@ -1,15 +1,3 @@
-/**
- * Byte-equality self-check for the React, HTML, and markdown outputs.
- *
- * Compiles every bench corpus through each output (React via
- * renderToStaticMarkup), writing a golden file on first run (--save) or
- * diffing against it otherwise. Run in both dev (NODE_ENV unset) and prod
- * (NODE_ENV=production) modes; both must match the same golden bytes.
- *
- * Usage: bun scripts/emit-selfcheck.ts [--save]
- * (run from the repo root, as verify does)
- */
-
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -37,7 +25,6 @@ const OUTPUTS = {
 const goldenPath = path.join(root, 'src', '.emit-golden.json')
 const save = process.argv.includes('--save')
 
-// One entry per output and corpus, keyed `output:corpus`
 const out: Record<string, string> = {}
 for (const [output, render] of Object.entries(OUTPUTS)) {
   for (const c of CORPORA) {
@@ -46,7 +33,6 @@ for (const [output, render] of Object.entries(OUTPUTS)) {
 }
 
 if (save) {
-  // Biome's JSON layout, so verify's format step does not rewrite a fresh save
   fs.writeFileSync(goldenPath, `${JSON.stringify(out, null, 2)}\n`)
   console.log(
     'saved golden:',

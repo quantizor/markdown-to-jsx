@@ -15,10 +15,6 @@ const README_PATHS = [
   ...SUPPORTED_LANGUAGES.map(lang => `lib/src/i18n/${lang}/README.md`),
 ]
 
-/**
- * GitHub-flavored heading slug (unicode letters kept; punctuation dropped).
- * TOC anchors may be percent-encoded; decode before comparing.
- */
 function githubSlug(text: string): string {
   return text
     .trim()
@@ -58,7 +54,6 @@ function extractTocAnchors(src: string): string[] {
   return anchors
 }
 
-/** ATX heading slugs plus explicit HTML heading id attributes. */
 function extractHeadingTargets(src: string): Set<string> {
   const targets = new Set<string>()
   const lines = src.split('\n')
@@ -79,7 +74,6 @@ function extractHeadingTargets(src: string): Set<string> {
 function validateTranslations() {
   const errors: string[] = []
 
-  // 1. Validate UI strings completeness
   const baseKeys = Object.keys(UI_STRINGS.en)
 
   for (const lang of SUPPORTED_LANGUAGES) {
@@ -101,7 +95,6 @@ function validateTranslations() {
     }
   }
 
-  // 2. Validate required documentation files exist
   for (const lang of SUPPORTED_LANGUAGES) {
     for (const file of REQUIRED_FILES) {
       const path = `lib/src/i18n/${lang}/${file}`
@@ -111,7 +104,6 @@ function validateTranslations() {
     }
   }
 
-  // 3. Validate languages.ts and ui-strings.ts are in sync
   const uiLangs = Object.keys(UI_STRINGS)
   const registryLangs = SUPPORTED_LANGUAGES
 
@@ -127,7 +119,6 @@ function validateTranslations() {
     }
   }
 
-  // 4. README fence-count parity across canonical + translations
   const fenceCounts = README_PATHS.map(p => {
     if (!existsSync(p)) {
       errors.push(`Missing README: ${p}`)
@@ -144,9 +135,6 @@ function validateTranslations() {
     }
   }
 
-  // 5. TOC: every anchor resolves in its own file; TOC entry count matches
-  //    lib/README.md. en/ is an exact mirror so its anchor set must match too.
-  //    hi/zh may use localized anchors (AGENTS: anchors as each file already does).
   if (existsSync('lib/README.md')) {
     const baseSrc = readFileSync('lib/README.md', 'utf8')
     const baseToc = extractTocAnchors(baseSrc)

@@ -1,16 +1,3 @@
-/**
- * Differential security fuzz: seeded documents built from markup fragments go
- * through the html, markdown, and react outputs, and a spec-conformant HTML
- * tokenizer (parse5) reads the result the way a browser would, the markdown
- * output after both marked and micromark have rendered it. Fails on a live
- * handler, a dangerous URL, a live filtered tag, or a throw, and prints each
- * failure shrunk to its smallest fragment list. The react, solid, and vue element trees are also read
- * prop by prop, for the props a framework acts on and markup never shows.
- *
- * Usage: bun scripts/html-fuzz.ts [--count N] [--seed N] [--max-failures N]
- * The same seed and count always build the same documents, so a failure here
- * is a reproducible parser or compiler bug rather than a flake.
- */
 import process from 'node:process'
 import { marked } from 'marked'
 import { micromark } from 'micromark'
@@ -26,8 +13,6 @@ import { compiler as reactCompiler } from '../lib/src/react.tsx'
 import { compiler as solidCompiler } from '../lib/src/solid.tsx'
 import { compiler as vueCompiler } from '../lib/src/vue.tsx'
 
-// Every character ECMAScript reads as whitespace, which the markdown output's scanner also
-// treats as a separator in a link destination. CommonMark ends an autolink at ASCII space only.
 const SPACE_CODES = [
   0x09, 0x0b, 0x0c, 0x0d, 0xa0, 0x16_80, 0x20_00, 0x20_01, 0x20_02, 0x20_03,
   0x20_04, 0x20_05, 0x20_06, 0x20_07, 0x20_08, 0x20_09, 0x20_0a, 0x20_28,
@@ -37,13 +22,11 @@ const SPACES = SPACE_CODES.map(code => String.fromCharCode(code))
 const NBSP = String.fromCharCode(0xa0)
 const EM_SPACE = String.fromCharCode(0x20_03)
 
-// Whitespace to ECMAScript that a tokenizer or renderer can read differently where markup's shape is decided
 const ODD_SPACES = [
   0x09, 0x0b, 0x0c, 0x0d, 0xa0, 0x20_28, 0x20_29, 0xfe_ff,
 ].map(code => String.fromCharCode(code))
 
 const FRAGMENTS = [
-  // openers a tokenizer can stay inside
   '<!--',
   '-->',
   '--!>',
@@ -64,7 +47,6 @@ const FRAGMENTS = [
   '<my-widget ',
   '<Img ',
   '<Foo ',
-  // a quoted value holding the end of markup an earlier piece left open
   '<a title="-->',
   '<a title="--!>',
   '<a title="?>',
@@ -75,10 +57,8 @@ const FRAGMENTS = [
   '<a title="</style>',
   '<a title="</textarea>',
   '">',
-  // a brace value holding a `>`, which ends the tag there for a browser
   '<div x={a>',
   '<Foo x={a>',
-  // tags that change what a tokenizer or tree builder does next
   '<div>',
   '</div>',
   '<span>',
@@ -112,11 +92,9 @@ const FRAGMENTS = [
   '<plaintext>',
   '<pre>',
   '</pre>',
-  // tags named after a built-in, which an override lookup can answer
   '<constructor>',
   '<Constructor>',
   '<toString>',
-  // tag punctuation
   '>',
   '/>',
   '"',
@@ -126,7 +104,6 @@ const FRAGMENTS = [
   '}',
   ' ',
   '/',
-  // payloads
   'onerror=alert(1)',
   'onmouseover="alert(1)"',
   "onclick='alert(1)'",
@@ -141,7 +118,6 @@ const FRAGMENTS = [
   '<iframe srcdoc="x"></iframe>',
   '<b onclick=alert(1)>b</b>',
   '<Foo onclick={alert(1)}>f</Foo>',
-  // an SVG animation writes its value onto the attribute it names
   '<set attributeName="href" to="javascript:alert(1)"/>',
   '<animate attributeName="href" values="javascript:alert(1)"/>',
   '<set attributeName="&#104;ref" to="javascript:alert(1)"/>',
@@ -150,7 +126,6 @@ const FRAGMENTS = [
   '<set attributeName={href} to="javascript:alert(1)"/>',
   'attributeName="href"',
   'attributeName="opacity"',
-  // a brace value on a component-like tag that reaches a URL prop
   'action={javascript:alert(1)}',
   'href={java&#115;cript:alert(1)}',
   'src={ javascript:alert(1)}',
@@ -158,17 +133,14 @@ const FRAGMENTS = [
   'src={[1]}',
   'data={{"a":1}}',
   'href={link}',
-  // where a browser ends markup the parser ends later or not at all
   '<!-- c -->',
   '--!> ',
   '<?x > ',
   '<![CDATA[ > ',
-  // attribute names a framework acts on rather than writes
   'innerHTML="x<img src=x onerror=alert(1)>"',
   'prop:innerHTML="x<img src=x onerror=alert(1)>"',
   'attr:onclick="alert(1)"',
   'bool:onclick',
-  // Solid passes these to addEventListener, which throws on anything but a function
   'onerror',
   'on:click',
   'oncapture:click',
@@ -177,7 +149,6 @@ const FRAGMENTS = [
   '<x-y onerror>f</x-y>',
   '<Foo on:click>f</Foo>',
   '<Foo onclick={[1]}>f</Foo>',
-  // a blocked scheme after a URL's first `/`, `?`, or `#`, which a browser does not read as one
   '[l](/javascript:alert(1))',
   '[l](?javascript:alert(1))',
   '[l](#javascript:alert(1))',
@@ -194,10 +165,8 @@ const FRAGMENTS = [
   '/javascript:alert(1)',
   '?javascript:alert(1)',
   '#javascript:alert(1)',
-  // a destination another renderer splits, reading the rest as a live link
   '[r]: /javascript:alert(1)[x](javascript:alert(1) "t")',
   '[x](\n?>[x](javascript:alert(1) "t")',
-  // A lazy list line an HTML block takes in
   '- <div\nonclick=alert(1)>f</div>',
   '- <x-y\nonclick=alert(1)>f</x-y>',
   '- <Foo\nonclick=alert(1)>f</Foo>',
@@ -216,7 +185,6 @@ const FRAGMENTS = [
   '[r]: /u "\n```\n"\n\n',
   '[^1]: a\n\n  ```\n\n',
   '- | a |\n  | - |\n| <img src=x onerror=alert(1)> |',
-  // A split tag on the line after a Type 1 tag in a list item
   '1. <pre>a</pre>\n   <img\n   src=x>" onclick=alert(1)>',
   '- <pre>a</pre>\n  <img\n  src=x>" onclick=alert(1)>',
   '- a <pre>x</pre>\n  <img\n  src=x>" onclick=alert(1)>',
@@ -235,7 +203,6 @@ const FRAGMENTS = [
   '<?p ?>',
   '<javascript:alert(1)>',
   '<span>[l](javascript:alert(1))</span>',
-  // a target followed by a space character, where renderers disagree on where the target ends
   `<javascript:alert(1)//${NBSP}>`,
   '<javascript:alert(1)// >',
   '<javascript:alert(1) x>',
@@ -244,8 +211,7 @@ const FRAGMENTS = [
   '<span><javascript:alert(1) x></span>',
   '<vbscript:x y>',
   `<vbscript:x${String.fromCharCode(0x20_28)}y>`,
-  // an unquoted value ending in a separator, whose `>` a blockquote reader takes as a marker
-  `\n\n> <div a=1${String.fromCharCode(0x20_28)}>  onclick=alert(1) b>y</div>\n\n`,
+  `\n\n><div a=1${String.fromCharCode(0x20_28)}>  onclick=alert(1) b>y</div>\n\n`,
   '[x](<javascript:alert(1) y>)',
   `[x](<javascript:alert(1)${NBSP}y>)`,
   '[x](javascript:alert(1) "t")',
@@ -256,22 +222,18 @@ const FRAGMENTS = [
   NBSP,
   EM_SPACE,
   ...SPACES.map(space => `<javascript:alert(1)${space}x>`),
-  // raw markup that ends in a later block, which can hold a definition
   '<!-- a\n\n',
   '\n-->',
   '<? a\n\n',
   '\n?>',
   '<![CDATA[\n\n',
   '\n]]>',
-  // an autolink's body once its `<` is neutralized, and a `<` that blocks one
   '[x <https:a ](javascript:alert(1))>',
   '[x <javascript:a](javascript:alert(1))>',
   '<https:a [x](javascript:alert(1))>',
   '[x <javascript:a](<javascript:alert(1)>)>',
-  // a closer's own bytes, read on from a block left open or from its attributes
   '</div title="><script>alert(1)</script>">',
   '</Foo a={><script>alert(1)</script>}>',
-  // a block left open, which a browser reads on into the next raw block
   '<p><? a\n\n',
   '<p><!x a\n\n',
   '<p></ a\n\n',
@@ -281,7 +243,6 @@ const FRAGMENTS = [
   '<!-- x><noembed>',
   '<div title="x><script>alert(1)</script>">',
   '<br title="--><script>alert(1)</script>">',
-  // block structure that splits a document into separately screened pieces
   '\n',
   '\n\n',
   '\n\n',
@@ -293,7 +254,6 @@ const FRAGMENTS = [
   '# ',
   '```\n',
   '| a | b |\n|---|---|\n',
-  // inline structure and text that decodes into markup
   '[^1]',
   '[^1]: ',
   '[r]: ',
@@ -316,13 +276,10 @@ const FRAGMENTS = [
   'java\tscript:alert(1)',
   'data:text/html,x',
   'text',
-  // compiler-built attributes and fence info strings
   '[l](/u "--><img src=x onerror=alert(1)>")',
   '![a"--><img src=x onerror=alert(1)>](/x)',
   '```x onmouseover="alert(1)"\n',
   '~~~~',
-  // whole shapes random pieces rarely assemble: a footnote body, a target that
-  // decodes twice, a closer carrying a value
   '[^1]: a [l](javascript:alert(1))\n',
   '[^1]: [l](javascript:alert(1))\n',
   '[^1]: ![a](javascript:alert(1))\n',
@@ -330,7 +287,6 @@ const FRAGMENTS = [
   '![a](&amp;#106;avascript:alert(1))',
   '[r]: &amp;#106;avascript:alert(1)\n',
   '[x](&amp;amp;#106;avascript:alert(1))',
-  // a browser decodes a numeric reference with no semicolon or with many zeros
   '[x](&#106avascript:alert(1))',
   '[x](java&#9script:alert(1))',
   '[x](&#00000000106;avascript:alert(1))',
@@ -339,12 +295,10 @@ const FRAGMENTS = [
   '<a href="&#106avascript:alert(1)">',
   '<a href="&#00000000106;avascript:alert(1)">',
   '[^1]:&#106avascript:alert(1)',
-  // a browser ends this at the first `>`, marked at the terminator inside the value
   '<?e><a e="?>">\n',
   "<?e><a e='?>'>\n",
   '<![CDATA[x><a e="]]>">\n',
   '<![cdata[x><a e="]]>">\n',
-  // a renderer can drop this at the start of a document, and another keep it
   '\n﻿',
   '1. # [^1]\n',
   '1. <!-- c --> x\n',
@@ -392,7 +346,6 @@ const FRAGMENTS = [
     `[x](${space}javascript:alert(1))`,
     `[r]:${space}javascript:alert(1)\n`,
   ]),
-  // a renderer starts over at the blank line and stays inside the opener
   '<title>a\n\n<!--</title>',
   '<div>a\n\n<?</div>\n',
   '&amp;#106;avascript:alert(1)',
@@ -403,7 +356,6 @@ const FRAGMENTS = [
   '[r]: java&amp;amp;#9;script:alert(1)\n',
   '[^1]: &amp;#106;avascript:alert(1)\n',
   '[x][^1]',
-  // marked restarts at each terminator, so a chain moves where it reads a fence
   '<?p ?><!DOCTYPE html>',
   '<!DOCTYPE html><?p ?>',
   '<?p ?><![CDATA[x]]>',
@@ -434,7 +386,6 @@ const URL_ATTRIBUTES = new Set([
   'xlinkhref',
 ])
 
-/** Props a framework acts on, which throw or inject markup when markdown supplies them. */
 const RENDERER_ONLY_PROPS = new Set([
   'children',
   'dangerouslysetinnerhtml',
@@ -443,18 +394,14 @@ const RENDERER_ONLY_PROPS = new Set([
   'ref',
 ])
 
-/** The prefixes Solid strips to reach the attribute or property named after them. */
 const SOLID_TARGET_PREFIX_R = /^(?:attr|bool|prop):/i
 
-// A browser removes tab, LF, and CR anywhere in a URL and C0 or space at its start
 const URL_REMOVED_R = /[\t\n\r]/g
 const URL_LEADING_R = /^[\0- ]+/
 const DANGEROUS_SCHEME_R = /^(?:javascript|vbscript|data(?!:image)):/i
 
-/** A brace object or array, kept as a prop whatever it holds. */
 const BRACE_OBJECT_VALUE_R = /^\{\s*[[{]/
 
-/** The GFM tagfilter list, which the html sink must never leave as a live element. */
 const TAGFILTER_TAGS = new Set([
   'iframe',
   'noembed',
@@ -467,11 +414,9 @@ const TAGFILTER_TAGS = new Set([
   'xmp',
 ])
 
-/** The tag a sink registers as a component, whose `{`-leading attribute is kept by design. */
 const REGISTERED_TAG = 'foo'
 const REGISTERED_OVERRIDES = { Foo: { props: {} } }
 
-/** Renames that change how a renderer reads what follows the tag: inline to block-level, and any tag to one read raw through its closer. */
 const READING_CHANGING_OVERRIDES = {
   b: { component: 'script' },
   br: { component: 'pre' },
@@ -483,7 +428,6 @@ const READING_CHANGING_OVERRIDES = {
 }
 const CHAR_BRACE_OPEN = 0x7b
 
-/** A `<` then a tag name starting with a capital */
 const COMPONENT_TAG_R = /<([A-Z][a-zA-Z0-9-]*)/g
 
 interface Finding {
@@ -506,12 +450,6 @@ function createRandom(seed: number) {
   }
 }
 
-// On 9.x a capitalized tag keeps a `{`-leading attribute value by public
-// behavior, registered or not. So an attribute is exempt only when its value
-// starts with `{` and its element's name matches, case-insensitively, a
-// capitalized tag name written in the source document or the tag the sink
-// registers. Only the registered tag keeps a handler. A hyphenated tag gets no
-// exemption, and `<div onclick={alert(1)}<xmp>` stays a failure.
 function componentTagsIn(source: string, registered?: string): Set<string> {
   const names = new Set<string>(registered ? [registered] : [])
   for (const match of source.matchAll(COMPONENT_TAG_R)) {
@@ -520,7 +458,6 @@ function componentTagsIn(source: string, registered?: string): Set<string> {
   return names
 }
 
-/** Pre-order walk of a parsed tree (template contents included); the first finding `check` returns on a node wins. */
 function findInTree(
   node: TreeNode,
   check: (node: TreeNode) => string | undefined
@@ -571,7 +508,6 @@ function dangerOf(
         }
         continue
       }
-      // An empty handler attribute holds no script
       if (name.startsWith('on') && attribute.value !== '') {
         return `<${node.tagName} ${name}>`
       }
@@ -585,7 +521,6 @@ function dangerOf(
   }
 }
 
-// scriptingEnabled matches a live page, where <noscript> is raw text
 function parseAsBrowser(html: string) {
   return parseFragment(html, { scriptingEnabled: true })
 }
@@ -613,7 +548,6 @@ function isDangerousUrl(value: string): boolean {
   )
 }
 
-/** Whether an attributeName value, already decoded, targets a URL or on* attribute. */
 function animatesDangerousAttr(value: string): boolean {
   const target = value.trim().toLowerCase()
   const local = target.slice(target.lastIndexOf(':') + 1)
@@ -630,7 +564,6 @@ function filteredTagOf(node: TreeNode): string | undefined {
   }
 }
 
-/** Reads one compiled html string as a browser would: a dangerous attribute, then a tag the output should have filtered. */
 function readHtmlOutput(
   output: string,
   source: string,
@@ -640,7 +573,6 @@ function readHtmlOutput(
   return readTree(tree, source, registered) ?? findInTree(tree, filteredTagOf)
 }
 
-/** Reads a React, Solid, or Vue element tree, each of which keeps its props on a different field. */
 function findPropDanger(tree: unknown, source: string): string | undefined {
   if (Array.isArray(tree)) {
     for (const item of tree) {
@@ -663,12 +595,10 @@ function findPropDanger(tree: unknown, source: string): string | undefined {
   }
   const props = element.p ?? element.props ?? {}
   const tag = element.t ?? element.type
-  // On 9.x a capitalized tag keeps a `{...}` value, which reaches here unbraced
   const isComponentTag = typeof tag === 'string' && /^[A-Z]/.test(tag)
   for (const name of Object.keys(props)) {
     const value = props[name]
     const target = name.replace(SOLID_TARGET_PREFIX_R, '').toLowerCase()
-    // The compiler's own markup, which must be a string to reach the page as markup
     if (name === 'innerHTML' || name === 'dangerouslySetInnerHTML') {
       const markup =
         name === 'innerHTML'
@@ -693,7 +623,6 @@ function findPropDanger(tree: unknown, source: string): string | undefined {
     ) {
       return `prop ${name}=${value}`
     }
-    // React keeps a capitalized tag's handler prop for a component and writes no string handler
     const isHeldProp =
       isComponentTag &&
       !URL_ATTRIBUTES.has(target) &&
@@ -701,7 +630,6 @@ function findPropDanger(tree: unknown, source: string): string | undefined {
     if (typeof value === 'function' || isHeldProp) {
       continue
     }
-    // A bare name holds no script. Only Solid (`p`) throws on one, and not behind a target prefix
     const isInertBare =
       value === true &&
       (element.p === undefined || SOLID_TARGET_PREFIX_R.test(name))
@@ -719,14 +647,10 @@ function findPropDanger(tree: unknown, source: string): string | undefined {
   return findPropDanger(props.children ?? element.children, source)
 }
 
-// A consumer renders markdown output with its own markdown renderer, and
-// marked passes raw HTML through unscreened
 function renderDownstream(markdown: string): string {
   return marked.parse(markdown, { async: false })
 }
 
-// micromark follows CommonMark to the letter, where marked reads some shapes
-// differently (an autolink body, a link title)
 function renderCommonMark(markdown: string): string {
   return micromark(markdown, {
     allowDangerousHtml: true,
@@ -734,7 +658,6 @@ function renderCommonMark(markdown: string): string {
   })
 }
 
-/** Reads markdown output through every renderer; unsafe in either is a finding. */
 function readDownstream(
   markdown: string,
   source: string,
@@ -824,7 +747,6 @@ const count = readFlag('count', 4000)
 const seed = readFlag('seed', 1)
 const maxFailures = readFlag('max-failures', 40)
 
-// Purpose-built bad input warns by design; a warning is not a finding
 console.error = () => {}
 console.warn = () => {}
 

@@ -1,7 +1,4 @@
 #!/usr/bin/env bun
-/**
- * Scan lib/dist for network API needles (mirrors lib/src/utils.spec.ts source scan).
- */
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -21,9 +18,6 @@ const NetworkApis = [
   'new EventSource',
 ]
 
-// Browser consumers (and the site Vite build) resolve node:process to {}.
-// An import turns process into a local binding so define cannot replace
-// process.env.NODE_ENV, and runtime then crashes on {}.env.NODE_ENV.
 const ForbiddenModules = ['node:process', 'from"process"', "from'process'"]
 
 const distDir = path.join(import.meta.dirname, '..', 'lib', 'dist')

@@ -4,10 +4,8 @@ import { performance } from 'node:perf_hooks'
 import process from 'node:process'
 import { loadCompiler, REPO_ROOT } from './metrics-targets.ts'
 
-/** Calls per run: enough for the sampling profiler to see the hot paths. */
 const ITERATIONS = 1000
 
-// Mute console.log so only the console.info lines below reach the output.
 console.log = () => undefined
 
 async function main() {
@@ -18,7 +16,6 @@ async function main() {
       : process.argv[fileArg + 1]
   const markdown = fs.readFileSync(filePath, 'utf8')
 
-  // Parse flags
   const isStreaming = process.argv.includes('--streaming')
   const targetIndex = process.argv.indexOf('--target')
   const targetName =

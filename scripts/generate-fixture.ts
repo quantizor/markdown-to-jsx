@@ -1,21 +1,5 @@
-/**
- * Script to generate a comprehensive markdown fixture file for testing markdown-to-jsx
- *
- * This script creates a fixture file with all supported markdown syntax elements,
- * each tested with 5 different input sizes: tiny, short, medium, long, and veryLong.
- *
- * Usage:
- *   bun scripts/generate-fixture.ts
- *   npm run fixture
- *
- * Output: lib/src/stress-test.generated.md
- * The generated file will be over 100KB and contain systematic variations
- * of all markdown syntax elements for comprehensive parser testing.
- */
-
 import fs from 'node:fs'
 
-// Define types for content sizes
 interface ContentSizes {
   tiny: string
   short: string
@@ -24,7 +8,6 @@ interface ContentSizes {
   veryLong: string
 }
 
-// Content size variations with explicit typing
 const sizes: ContentSizes = {
   tiny: 'A',
   short: 'Short content',
@@ -35,10 +18,8 @@ const sizes: ContentSizes = {
     'This is an extremely long piece of content designed to test parsing performance with very large input strings containing extensive lorem ipsum text and multiple complex elements. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Curabitur pretium tincidunt lacus. Nulla gravida orci a odio. Nullam varius, turpis et commodo pharetra, est eros bibendum elit, nec luctus magna felis sollicitudin mauris. Integer in mauris eu nibh euismod gravida. Duis ac tellus et risus vulputate vehicula. Donec lobortis risus a elit. Etiam tempor. Ut ullamcorper, ligula eu tempor congue, eros est euismod turpis, id tincidunt sapien risus a quam. Maecenas fermentum consequat mi. Donec fermentum. Pellentesque malesuada nulla a mi. Duis sapien sem, aliquet nec, commodo eget, consequat quis, neque. Aliquam faucibus, elit ut dictum aliquet, felis nisl adipiscing sapien, sed malesuada diam lacus eget erat. Cras mollis scelerisque nunc. Nullam arcu. Aliquam consequat. Curabitur augue lorem, dapibus quis, laoreet et, pretium ac, nisi. Aenean magna nisl, mollis quis, molestie eu, feugiat in, orci. In hac habitasse platea dictumst.',
 }
 
-// Type for the template function
 type TemplateFunction = (content: string) => string
 
-// Generate content for each size with proper typing
 function generateForSizes(templateFn: TemplateFunction): string {
   let result = ''
   for (const [sizeName, content] of Object.entries(sizes) as [
@@ -51,7 +32,6 @@ function generateForSizes(templateFn: TemplateFunction): string {
   return result
 }
 
-// Main output generation
 const output = `---
 title: Comprehensive Markdown Syntax Fixture
 description: A comprehensive test fixture for markdown-to-jsx parser with all syntax elements and various input sizes
@@ -783,6 +763,5 @@ ${sizes.veryLong}
 This file has been designed to comprehensively test all markdown syntax elements supported by markdown-to-jsx, with a focus on various input sizes and edge cases to ensure robust parsing performance. The file contains extensive content in multiple large blocks to exceed the 100KB size requirement while maintaining diverse markdown syntax coverage.
 `
 
-// Write the output to file
 fs.writeFileSync('lib/src/stress-test.generated.md', output)
 console.log('Fixture file generated successfully!')
