@@ -1,24 +1,3 @@
-/**
- * WGSL source for the lava lamp: a compute pass that steps the particle
- * physics and a fullscreen fragment pass that raymarches the blended
- * distance field they define.
- *
- * Kept apart from the React component because the shader is the whole of what
- * makes this scene expensive, and reading or changing it should not mean
- * scrolling past device setup, pointer handling, and React lifecycle.
- */
-
-/**
- * Copies every particle's position and radius into per-invocation storage,
- * once per pixel.
- *
- * The particle buffer is bound `read_write` because the compute stage writes
- * it, and a writable storage buffer may alias, so the compiler cannot hoist a
- * load out of a loop: reading `particles[i]` inside map() re-fetches all of
- * them on every one of the ~15 map() calls a pixel makes. Reading them once
- * into private storage is the same arithmetic against registers instead of
- * memory, and measured 2x faster with pixel-identical output.
- */
 function generateParticleLoad(numParticles: number): string {
   var parts: string[] = [
     `var<private> P: array<vec4f, ${numParticles}>;\n`,
@@ -31,10 +10,6 @@ function generateParticleLoad(numParticles: number): string {
   return parts.join('')
 }
 
-/**
- * The distance field, unrolled over `numParticles` so the loop bound is a
- * compile-time constant and no dynamic indexing survives into the hot path.
- */
 function generateMapFunction(numParticles: number): string {
   var parts: string[] = [
     'fn map(pos: vec3f) -> f32 {\n    let k = u.elasticity;\n    let q0 = P[0u];\n    var d = length(pos - q0.xyz) - q0.w;\n',
@@ -48,7 +23,6 @@ function generateMapFunction(numParticles: number): string {
   return parts.join('')
 }
 
-/** Complete WGSL module: `simulate`, `vs_main`, and `fs_main`. */
 export function generateShaderCode(numParticles: number): string {
   const mapFunction =
     generateParticleLoad(numParticles) + generateMapFunction(numParticles)

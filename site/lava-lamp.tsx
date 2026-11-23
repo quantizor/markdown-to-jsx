@@ -253,9 +253,6 @@ export function LavaLamp({ className }: { className?: string }) {
     let fpsMeter: FpsMeter | null = null
     let isDestroyed = false
     let sizeObserver: ResizeObserver | null = null
-    // Every listener below is registered with this signal, so teardown is one
-    // abort() rather than a removeEventListener per listener, each guarded by
-    // whether that listener was reached before the async setup finished.
     const listeners = new AbortController()
     const numParticles = 16
     const uniformBufferSize = 160
@@ -372,20 +369,10 @@ export function LavaLamp({ className }: { className?: string }) {
         })
         let isSaving = false
         const saveArrayLength = numParticles * 12
-        // Persisting is only a reload convenience; snapshot once per second
-        // instead of every 100ms. The old rate kept a GPU->CPU readback in
-        // flight nearly full-time, stalling the pipeline.
-        const saveInterval = 1000
+        const saveIntervalMs = 1000
 
-        // Render at devicePixelRatio capped at 2 for edge sharpness. The cap
-        // is the only resolution concession: the scene holds 60fps at full dpr,
-        // scrolling included, so nothing drops resolution to keep up.
         const renderScale = () => Math.min(window.devicePixelRatio || 1, 2)
 
-        // Sized from the canvas's own box, which CSS sizes in svw/svh, rather
-        // than from visualViewport. The two disagree on iOS while the URL bar
-        // collapses: sizing to the viewport stretches the image, because the
-        // element's box is following the stable svh instead.
         const resizeCanvas = (cssWidth: number, cssHeight: number) => {
           if (isDestroyed) {
             return
@@ -403,14 +390,6 @@ export function LavaLamp({ className }: { className?: string }) {
           }
         }
 
-        // ResizeObserver reports the canvas's own box changing for any reason,
-        // which is the actual event of interest. Watching window resize,
-        // orientationchange, and visualViewport resize instead would be three
-        // proxies for it: none of them fires when the element's box changes on
-        // its own, all three can fire for one change, and answering them means
-        // reading the box back with getBoundingClientRect, a forced layout
-        // flush. The callback delivers the size directly, after layout and
-        // before paint, so nothing here reads layout at all.
         sizeObserver = new ResizeObserver(entries => {
           const box = entries.at(-1)?.contentRect
           if (box) {
@@ -419,14 +398,9 @@ export function LavaLamp({ className }: { className?: string }) {
         })
         sizeObserver.observe(canvas)
 
-        // The observer fires once on observe(), but that is a frame away and
-        // the first render happens sooner.
         const startRect = canvas.getBoundingClientRect()
         resizeCanvas(startRect.width, startRect.height)
 
-        // Frame-rate readout for checking a real device: append ?fps to the
-        // URL. Imported only when asked for, so a normal visit downloads none
-        // of it.
         if (new URLSearchParams(window.location.search).has('fps')) {
           const { createFpsMeter } = await import('./fps-meter')
           if (!isDestroyed) {
@@ -439,37 +413,21 @@ export function LavaLamp({ className }: { className?: string }) {
             return
           }
 
-          // requestAnimationFrame stops in background tabs on most browsers,
-          // but not all (and not when throttled rather than stopped). Skip
-          // the GPU work explicitly so a hidden tab costs nothing.
           if (document.visibilityState === 'hidden') {
             animationFrameRef.current = requestAnimationFrame(frame)
             return
           }
 
-          // Cap the animation at 60fps on displays that run faster. The gate
-          // allows a tenth of a frame of slack: on a 60Hz display the browser
-          // routinely delivers a callback a hair under 16.67ms, and an exact
-          // comparison rejects it, drops that frame, and halves the animation
-          // to 30fps on exactly the displays with the least headroom.
           const elapsed = time - lastFrameTime
           if (elapsed < frameInterval * 0.9) {
             animationFrameRef.current = requestAnimationFrame(frame)
             return
           }
-          // Carry the overshoot forward so the cadence stays on a 60fps grid
-          // rather than drifting later every frame. The remainder only makes
-          // sense once a full interval has passed: for a frame let through by
-          // the slack above, `elapsed % frameInterval` is the whole elapsed
-          // time, which would put the marker back where it already was and
-          // let every subsequent callback through, running the animation at
-          // the display's full rate instead of 60.
-          lastFrameTime =
-            elapsed >= frameInterval ? time - (elapsed % frameInterval) : time
+          const fullIntervalElapsed = elapsed >= frameInterval
+          lastFrameTime = fullIntervalElapsed
+            ? time - (elapsed % frameInterval)
+            : time
 
-          // The backing store as the observer last sized it. Reading it back
-          // costs nothing, where measuring the element here would flush layout
-          // every frame.
           const renderWidth = canvas.width
           const renderHeight = canvas.height
           const dpr = renderScale()
@@ -527,18 +485,17 @@ export function LavaLamp({ className }: { className?: string }) {
             renderPass.draw(6)
             renderPass.end()
 
-            // Encoders, passes, the command buffer, and the texture view are
-            // all lightweight JS-side objects holding no GPU memory of their
-            // own; only buffers and textures do, and none are allocated here.
-            // The canvas texture comes from getCurrentTexture() and is owned
-            // by the context, so there is nothing to destroy per frame.
             device.queue.submit([commandEncoder.finish()])
           } catch (err) {
             console.warn('Lava lamp render error:', err)
           }
 
           const now = Date.now()
-          if (now - lastSaveTime > saveInterval && stagingBuffer && !isSaving) {
+          if (
+            now - lastSaveTime > saveIntervalMs &&
+            stagingBuffer &&
+            !isSaving
+          ) {
             lastSaveTime = now
             isSaving = true
             device.queue

@@ -52,7 +52,6 @@ export default defineConfig({
   appType: 'spa',
   plugins: [
     react({
-      // Exclude the file that uses custom classic JSX
       exclude: /\/react\.tsx$/,
     }),
     tailwindcss(),
