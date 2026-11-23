@@ -1,5 +1,16 @@
 # markdown-to-jsx
 
+## 9.12.0
+
+### Minor Changes
+
+- 1a7fa12: A new `breaks` option renders a single line break inside a paragraph, heading, or footnote as a line break (`<br>`) instead of joining the two lines with a space. Text inside inline HTML tags keeps its line breaks, and a heading that spans two lines gets a slightly different id (`foo-bar` instead of `foobar`). It's off by default.
+
+### Patch Changes
+
+- 9e5361f: A tab inside the text of a quote or list item now stays a tab instead of turning into spaces, so `> a\tb` keeps its tab. Tabs now count as spaces where the CommonMark spec allows either: between a link's address and its title (`[a](/u\t"t")`) and before a heading's closing `#`. A tab at the end of a line inside a paragraph is now trimmed along with trailing spaces, as GitHub does. An inline code span that wraps onto an indented line now joins the two lines with one space, as the spec requires, instead of also keeping that line's indentation.
+- 1a7fa12: A line break made with two trailing spaces or a backslash now shows up inside a footnote, and in `forceInline` text in React, Solid, and Vue, as it already did in the HTML output. The indented lines of a multi-line footnote also no longer keep their indentation.
+
 ## 9.11.0
 
 ### Minor Changes
