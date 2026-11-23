@@ -6025,6 +6025,7 @@ function parseBlocks(
   }
 
   if (state.inline) {
+    state._breaks = true
     var inl = parseInline(s, 0, s.length, state, opts)
     state._depth = savedDepth
     _blocksHadInternalBlank = false
