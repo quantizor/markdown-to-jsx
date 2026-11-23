@@ -39,5 +39,8 @@ describe('normalize', () => {
 
   test('whitespace inside a raw pre element is kept', () => {
     expect(normalize('<pre>a\n  b</pre>')).toBe('<pre>a\n  b</pre>')
+    expect(normalize('<pre><div>x</div>  </pre>\n<p>y</p>')).toBe(
+      '<pre><div>x</div>  </pre><p>y</p>'
+    )
   })
 })

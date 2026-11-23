@@ -38,6 +38,7 @@ const USAGE =
 const BLOCK_TAG_R =
   /\s*(<\/?(?:blockquote|div|h[1-6]|hr|li|ol|p|table|tbody|td|tfoot|th|thead|tr|ul)(?=[\s/>])[^>]*>)\s*/gi
 const CODE_FINAL_NEWLINE_R = /\n<\/code><\/pre>/g
+const PRE_ELEMENT_R = /(<pre(?=[\s>])[^>]*>[\s\S]*?<\/pre\s*>)/i
 const MAX_FUZZ_TOKENS = 24
 const MAX_SEED = 2 ** 32 - 1
 const OURS_AT = 'ours@'
@@ -101,9 +102,15 @@ const OPTION_RENDERERS = {
 } satisfies Record<OptionName, RendererName[]>
 
 export function normalize(output: string): string {
-  return serialize(
-    parseFragment(output.replace(BLOCK_TAG_R, '$1').trim())
-  ).replace(CODE_FINAL_NEWLINE_R, '</code></pre>')
+  const pieces = output.split(PRE_ELEMENT_R)
+  let stripped = ''
+  for (let i = 0; i < pieces.length; i++) {
+    stripped += i % 2 ? pieces[i] : pieces[i].replace(BLOCK_TAG_R, '$1')
+  }
+  return serialize(parseFragment(stripped.trim())).replace(
+    CODE_FINAL_NEWLINE_R,
+    '</code></pre>'
+  )
 }
 
 function fail(message: string): never {
@@ -276,7 +283,12 @@ async function main() {
 
   for (const side of sides) {
     if (option !== undefined) {
-      readOption(side.base, option, '--option')
+      const name = readOption(side.base, option, '--option')
+      if (side.settings[name]) {
+        fail(
+          `--option ${name} needs sides without it, but ${side.name} already has it.`
+        )
+      }
     }
   }
 
