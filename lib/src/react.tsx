@@ -2,9 +2,10 @@
 /** @jsx h */
 
 import * as React from 'react'
-import * as $ from './constants.ts'
+import { $ } from './constants.ts'
 import * as parse from './parse.ts'
 import { supportsRawElements } from './runtime-probe.ts'
+import { useShallowStable } from './shallow-stable.ts'
 import { type MarkdownToJSX, RuleType } from './types.ts'
 import * as util from './utils.ts'
 
@@ -13,61 +14,20 @@ export { parser } from './parse.ts'
 export { type MarkdownToJSX, RuleType } from './types.ts'
 export { sanitizer, slugify } from './utils.ts'
 
-/**
- * JSX namespace anchor for this file's classic-runtime custom factory pragma.
- * TypeScript resolves the JSX namespace from the factory identifier (h.JSX)
- * before falling back to the global JSX namespace, which @types/react v19
- * no longer declares. This namespace-only declaration exists purely at the
- * type level and types every intrinsic element in this file via React's own
- * JSX definitions; it emits nothing and merges with no runtime value.
- * Do not name the pragma directive itself in prose here: Bun's runtime
- * transpiler scans every comment for JSX pragma tokens and a quoted mention
- * corrupts the factory name.
- */
 declare namespace h {
   export import JSX = React.JSX
 }
 
-/**
- * Symbol that marks a valid element, read from the installed runtime's own
- * elements (React 18 uses react.element, React 19+ uses
- * react.transitional.element, future versions may use something else).
- * Null when the runtime does not build React-shaped elements, so
- * createRawElement delegates to its createElement.
- * React's public element type does not expose `$$typeof`, so the probe
- * narrows structurally instead of asserting.
- */
 var REACT_ELEMENT_TYPE: symbol | null = null
 try {
   var probeElement: unknown = React.createElement('div')
   if (supportsRawElements(probeElement)) {
     REACT_ELEMENT_TYPE = probeElement.$$typeof
   }
-} catch {
-  // A probe that throws leaves REACT_ELEMENT_TYPE null, so elements delegate
-}
+} catch {}
 
-/**
- * Create an element without going through the runtime's createElement
- * whenever the runtime represents elements in React's internal shape.
- * This avoids type validation, key/ref extraction, defaultProps merging,
- * and dev-mode freezing that React.createElement performs.
- * Inspired by Bun's JSReactElement approach.
- *
- * When the runtime does not use React's element shape (Preact behind a
- * `react` -> `preact/compat` alias), a hand-built object is meaningless to
- * its renderer, so we delegate to the runtime's own createElement instead.
- * Every caller passes a props object it owns, which the delegated path may
- * add `key` to.
- */
 function createRawElement(type: any, props: any, key: any): any {
   if (REACT_ELEMENT_TYPE !== null) {
-    // These internal properties must be included unconditionally because the
-    // library build replaces process.env.NODE_ENV, which strips dev-only branches.
-    // _store: React's dev reconciler writes _store.validated; without _store it throws.
-    // _debugStack/_debugTask: React's RSC Flight server (used by Next.js) warns
-    // "Attempted to render without development properties" when these are undefined.
-    // null (not undefined) satisfies the !== undefined check.
     return {
       $$typeof: REACT_ELEMENT_TYPE,
       type,
@@ -80,19 +40,12 @@ function createRawElement(type: any, props: any, key: any): any {
       _debugTask: null,
     }
   }
-  // Preact behind a `react` -> `preact/compat` alias: build the element with
-  // the runtime's own factory so its renderer recognizes the result.
   if (key != null) {
     props.key = key
   }
   return React.createElement(type, props)
 }
 
-/**
- * Build a props object of { key, ...jsx-mapped attrs } without the object
- * spread: the spread helper (cloneObject) runs even when attrs is undefined,
- * and HTML nodes without attributes are the common case in real documents.
- */
 function keyedJsxProps(
   key: any,
   attrs: Record<string, any> | null | undefined
@@ -158,7 +111,6 @@ function render(
       return null
 
     case RuleType.codeBlock: {
-      // Decode entity references in language name (per CommonMark spec)
       const decodedLang = node.lang
         ? util.decodeEntityReferences(node.lang)
         : ''
@@ -199,15 +151,13 @@ function render(
     case RuleType.heading:
       return h(
         `h${node.level}`,
-        { id: node.id, key: state.key },
+        { id: util.headingId(node.id), key: state.key },
         output(node.children, state)
       )
 
     case RuleType.htmlBlock: {
       const htmlNode = node as MarkdownToJSX.HTMLNode
 
-      // Apply options.tagfilter: escape dangerous tags (GFM: leading '<' only;
-      // React text nodes also escape '>', which is the JSX sink's normal form).
       if (
         util.tagfilterEnabled(options) &&
         util.shouldFilterTag(htmlNode.tag)
@@ -235,22 +185,25 @@ function render(
           ? htmlNode._rawBody || ''
           : (htmlNode._rawBody || '') + (htmlNode._rawClose || '')
       if (rawSource && htmlNode._verbatim) {
-        // For verbatim blocks, always use rawSource for rendering (CommonMark compliance)
         const tagLower = (htmlNode.tag as string).toLowerCase()
         const isType1Block = parse.isType1Block(tagLower)
         const htmlChildren = htmlNode.children
         const hasChildren = htmlChildren != null && htmlChildren.length > 0
 
-        // Type 1 blocks (pre, script, style, textarea) always render verbatim.
-        // The element wrapper below supplies its own tags, so the body is the
-        // inner content: the text field when no closing tag was found, since
-        // the outer span holds this element's own opening tag
         if (isType1Block) {
           const type1Body =
             (isRawOuter ? htmlNode.text : htmlNode._rawBody) || ''
           const textContent = util.tagfilterEnabled(options)
             ? util.applyTagFilterToText(type1Body)
             : type1Body
+          if (tagLower === 'textarea') {
+            var taProps = keyedJsxProps(
+              state.key,
+              util.withoutHandlerSource(node.tag, node.attrs, options.overrides)
+            )
+            taProps.defaultValue = util.verbatimText(tagLower, textContent)
+            return h(tagLower, taProps)
+          }
           if (/<[a-z][^>]{0,100}>/i.test(type1Body)) {
             var t1Props = keyedJsxProps(state.key, node.attrs)
             t1Props.dangerouslySetInnerHTML = { __html: textContent }
@@ -263,8 +216,6 @@ function render(
           )
         }
 
-        // When the tag itself is filtered (e.g. <iframe>), prefer
-        // children so each child element goes through its own tagfilter check
         const ownTagStartR = new RegExp(`^<${htmlNode.tag}(\\s|>)`, 'i')
         if (
           hasChildren &&
@@ -279,7 +230,6 @@ function render(
           )
         }
 
-        // Non-Type-1 verbatim blocks containing Type 1 tags use innerHTML
         const containsVerbatimTags = parse.containsType1Tag(rawSource)
         if (containsVerbatimTags) {
           const innerHtml = util.tagfilterEnabled(options)
@@ -289,26 +239,20 @@ function render(
           vProps.dangerouslySetInnerHTML = { __html: innerHtml }
           return hJsx(node.tag, vProps)
         }
-        // For other verbatim blocks, re-parse rawSource for JSX compilation
-        // (children are available for renderRule but default uses rawSource)
         const parseOptions = parse.toParseOptions({
           overrides: options.overrides,
           slugify: options.slugify,
           sanitizer: sanitize,
           tagfilter: true,
         })
-        // The parser's re-parse span holds the children attribute rawSource cut
         const cleanedText = util.normalizeJsxReparseText(
           htmlNode._reparseSource || rawSource
         )
-        // Avoid infinite recursion: if cleanedText is just the same HTML tag we're processing,
-        // render as an empty element
         const selfTagRegex = new RegExp(
           `^<${htmlNode.tag}(\\s[^>]*)?>(\\s*</${htmlNode.tag}>)?$`,
           'i'
         )
         if (selfTagRegex.test(cleanedText)) {
-          // If parser already produced children, use them instead of discarding
           if (htmlNode.children && htmlNode.children.length > 0) {
             return hJsx(
               node.tag,
@@ -324,22 +268,14 @@ function render(
           { inline: false, refs, inHTML: false },
           parseOptions
         )
-        // Strip verbatim from re-parsed nodes to prevent infinite re-parse
-        // recursion, keeping it only where trailing content bled past a closing
-        // tag (issue #881). See util.stripVerbatim for the full rationale.
         util.stripVerbatim(astNodes)
         if (util.reparsedToItself(astNodes, cleanedText)) {
           return cleanedText
         }
 
-        // _rawOuter means the parser already determined this span is the FULL
-        // outer block (own opening tag through own closing tag, or through end
-        // of input when no closer exists); render the parsed nodes directly
-        // without adding another wrapper.
         const tagLowerCheck = (htmlNode.tag as string).toLowerCase()
         const isFullOuterBlock = isRawOuter
 
-        // When rawSource wraps the full outer block, prefer children if available
         if (isFullOuterBlock && hasChildren) {
           return hJsx(
             node.tag,
@@ -351,9 +287,6 @@ function render(
           return output(astNodes.flatMap(util.processVerbatimNode), state)
         }
 
-        // Split the re-parsed AST at this element's own closing tag so trailing
-        // content becomes siblings (issue #881). Runs on the raw AST before
-        // util.processVerbatimNode strips closing tags.
         var splitResult = util.findOwnCloseInAST(astNodes, tagLowerCheck)
         if (splitResult.found && splitResult.afterClose.length > 0) {
           var beforeProcessed = splitResult.beforeClose.flatMap(
@@ -397,7 +330,6 @@ function render(
     case RuleType.htmlSelfClosing: {
       const htmlNode = node as MarkdownToJSX.HTMLSelfClosingNode
 
-      // Apply options.tagfilter: escape dangerous self-closing tags
       if (
         util.tagfilterEnabled(options) &&
         util.shouldFilterTag(htmlNode.tag)
@@ -417,7 +349,9 @@ function render(
 
     case RuleType.image: {
       const src =
-        node.target === null ? null : sanitize(node.target, 'img', 'src')
+        node.target === null
+          ? null
+          : util.sanitizeAndEncodeUrlTarget(node.target, sanitize, 'img', 'src')
       return (
         <img
           key={state.key}
@@ -431,7 +365,6 @@ function render(
     case RuleType.link: {
       const props: Record<string, unknown> = { key: state.key }
       if (node.target != null) {
-        // Re-sanitize at emit so direct astToJSX(dangerous) cannot skip the gate.
         const href = util.sanitizeAndEncodeUrlTarget(
           node.target,
           sanitize,
@@ -443,7 +376,6 @@ function render(
         }
       }
       if (node.title) {
-        // Entity references are already decoded during parsing (per CommonMark spec)
         props.title = node.title
       }
       return h('a', props, output(node.children, state))
@@ -530,7 +462,6 @@ function render(
       return <p key={state.key}>{output(node.children, state)}</p>
 
     case RuleType.ref:
-      // Reference definitions should not be rendered (they're consumed during parsing)
       return null
 
     default:
@@ -560,10 +491,9 @@ const createRenderer = (
     astInput: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
     state: MarkdownToJSX.State = {}
   ): React.ReactNode[] => {
-    // The public ASTRender contract accepts a single node as well as a list
     var ast = Array.isArray(astInput) ? astInput : [astInput]
     var depth = (state.renderDepth || 0) + 1
-    if (depth > 2500) {
+    if (depth > $.MAX_RENDER_DEPTH) {
       return handleStackOverflow(ast)
     }
     state.renderDepth = depth
@@ -571,6 +501,12 @@ const createRenderer = (
     var oldKey = state.key
     var result: React.ReactNode[] = []
     var lastWasString = false
+    var renderChildren = userRender
+      ? (
+          children: MarkdownToJSX.ASTNode | MarkdownToJSX.ASTNode[],
+          childState?: MarkdownToJSX.State
+        ) => renderer(children, childState || state)
+      : renderer
     for (var i = 0; i < ast.length; i++) {
       state.key = i
       var nodeOut: React.ReactNode
@@ -587,7 +523,7 @@ const createRenderer = (
           options,
           hJsx
         )
-        nodeOut = userRender(defaultRender, ast[i], renderer, state)
+        nodeOut = userRender(defaultRender, ast[i], renderChildren, state)
       } else {
         nodeOut = render(
           ast[i],
@@ -603,14 +539,11 @@ const createRenderer = (
       }
       var isString = typeof nodeOut === 'string'
       if (lastWasString && typeof nodeOut === 'string') {
-        // Concatenate consecutive strings. lastWasString guarantees the last
-        // entry is a string; the typeof re-check narrows it for the compiler.
         var lastEntry = result.at(-1)
         result[result.length - 1] =
           (typeof lastEntry === 'string' ? lastEntry : '') + nodeOut
       } else if (nodeOut != null) {
         if (Array.isArray(nodeOut)) {
-          // Use loop instead of spread for better performance
           for (var j = 0; j < nodeOut.length; j++) {
             result.push(nodeOut[j])
           }
@@ -659,14 +592,9 @@ export function astToJSX(
   const customCreateElement = opts.createElement
   const hasOverrides = util.hasKeys(opts.overrides)
 
-  // Recursive compile function for HTML content
   const compileHtml = (input: string) =>
     compiler(input, { ...opts, wrapper: null })
 
-  // Compile any JSX-like string values in props. Only called from the HTML
-  // block/self-closing render cases via hJSX — the vast majority of h()
-  // calls (paragraphs, headings, lists, inline emphasis, etc.) never contain
-  // embedded JSX strings so running this per-element is a profiled hot path.
   function _compilePropsJsx(props: Record<string, any>): void {
     for (var pkey in props) {
       var pval = props[pkey]
@@ -687,13 +615,7 @@ export function astToJSX(
     }
   }
 
-  // JSX custom pragma — props are already JSX-compatible (htmlAttrsToJSXProps
-  // is applied at call sites in render() that deal with HTML attributes).
-  // Fast path: does NOT run the embedded-JSX compile loop. Use hJSX for HTML
-  // render cases where props may contain JSX-like strings.
-  // eslint-disable-next-line no-unused-vars
   function h(
-    // locally we always will render a known string tag
     tag: MarkdownToJSX.HTMLTags,
     props: Parameters<MarkdownToJSX.CreateElement>[1] & {
       className?: string
@@ -714,18 +636,22 @@ export function astToJSX(
         className:
           util.cx(finalProps.className, overrideProps.className) || undefined,
       }
-      // An override can keep a tag void or make it one, and React throws on children there
       if (typeof resolvedTag === 'string' && util.isVoidElement(resolvedTag)) {
         delete finalProps.children
         children.length = 0
       }
     }
 
-    // Fast path: bypass React.createElement when no custom createElement
     if (!customCreateElement) {
       var elKey = finalProps.key
       if (elKey != null) {
-        delete finalProps.key
+        var keyless: any = {}
+        for (var pk in finalProps) {
+          if (pk !== 'key') {
+            keyless[pk] = finalProps[pk]
+          }
+        }
+        finalProps = keyless
       }
       if (children.length === 1) {
         finalProps.children = children[0]
@@ -738,16 +664,11 @@ export function astToJSX(
     return customCreateElement(resolvedTag, finalProps, ...children)
   }
 
-  // Variant that drops handler source and runs the embedded-JSX compile loop
-  // on props before delegating to h. Used only by HTML block / self-closing
-  // render cases.
   function hJsx(tag: any, attrProps: any, ...children: any[]): any {
     var props =
-      attrProps && util.withoutHandlerSource(tag, attrProps, opts.overrides)
+      attrProps &&
+      util.withoutHandlerSource(tag, attrProps, opts.overrides, getTag)
     if (props) {
-      // A children string is the element's text when it has no content of its
-      // own; as a prop it would be parsed as markup, and an empty child array
-      // would override it
       if (typeof props.children === 'string') {
         var attrText =
           props.dangerouslySetInnerHTML === undefined
@@ -763,7 +684,7 @@ export function astToJSX(
     return h(tag, props, ...children)
   }
 
-  const parseOptions = parse.toParseOptions(opts, opts.forceInline)
+  const parseOptions = parse.toParseOptions(opts)
 
   const refs =
     ast[0] && ast[0].type === RuleType.refCollection
@@ -859,7 +780,7 @@ export function compiler(
     const inline =
       opts.forceInline ||
       !(opts.forceBlock || util.SHOULD_RENDER_AS_BLOCK_R.test(input))
-    const parseOptions = parse.toParseOptions(opts, inline)
+    const parseOptions = parse.toParseOptions(opts)
 
     const processedInput = inline ? input : util.prepareBlockInput(input)
 
@@ -906,39 +827,6 @@ export const MarkdownProvider: React.FC<{
 }
 
 /**
- * Return the previous object identity when the new one is shallow-equal.
- * The JSX rest-props object is freshly allocated on every render; without
- * stabilization it invalidates the compile memo below even when nothing
- * changed, forcing a full re-parse per parent re-render.
- */
-function useShallowStable<T extends Record<string, any>>(value: T): T {
-  const ref = React.useRef(value)
-  const prev = ref.current
-  if (prev !== value) {
-    var same = true
-    var count = 0
-    for (var key in value) {
-      count++
-      if (!Object.is(prev[key], value[key])) {
-        same = false
-        break
-      }
-    }
-    if (same) {
-      var prevCount = 0
-      for (var _prevKey in prev) {
-        prevCount++
-      }
-      same = prevCount === count
-    }
-    if (!same) {
-      ref.current = value
-    }
-  }
-  return ref.current
-}
-
-/**
  * A React component for easy markdown rendering. Feed the markdown content as a direct child
  * and the rest is taken care of automatically. Supports memoization for optimal performance.
  *
@@ -954,7 +842,6 @@ export const Markdown: React.FC<
 > = ({ children: rawChildren, options, ...props }) => {
   const hasHooks = typeof React.useContext !== 'undefined'
 
-  // RSC path: direct execution
   if (!hasHooks) {
     const mergedOptions = {
       ...options,
@@ -971,10 +858,6 @@ export const Markdown: React.FC<
     return compiler(content, mergedOptions) as React.ReactElement
   }
 
-  // Client path: existing hook-based implementation. hasHooks implies
-  // createContext was available, so MarkdownContext exists here; the guard
-  // expresses that without a non-null assertion. The condition is constant
-  // for the lifetime of the module, so hook order is stable.
   const contextOptions = MarkdownContext
     ? React.useContext(MarkdownContext)
     : undefined
@@ -1006,7 +889,5 @@ export const Markdown: React.FC<
 
   return jsx as React.ReactElement
 }
-
-// MarkdownToJSX namespace moved to types.ts
 
 export default Markdown

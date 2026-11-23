@@ -1,70 +1,42 @@
-import * as $ from './constants.ts'
+import { $ } from './constants.ts'
 import * as parse from './parse.ts'
 import { type MarkdownToJSX, RuleType } from './types.ts'
 import * as util from './utils.ts'
 
 var hasKeys = util.hasKeys
 
-// Re-export parser, types, and utils for the /html entry point
 export { parser } from './parse.ts'
 export { type MarkdownToJSX, RuleType } from './types.ts'
 export { sanitizer, slugify } from './utils.ts'
 
-/**
- * Escape HTML entities for text content
- * Fast path: return early if no escaping needed
- */
+var _escapeRe = /[&<>"]/
+
 function escapeHtml(text: string): string {
   if (!text) {
     return text
   }
-  // Use SIMD-accelerated indexOf to find earliest escapable char
-  var i = text.indexOf('&')
-  var lt = text.indexOf('<')
-  if (lt !== -1 && (i === -1 || lt < i)) {
-    i = lt
-  }
-  var gt = text.indexOf('>')
-  if (gt !== -1 && (i === -1 || gt < i)) {
-    i = gt
-  }
-  var qt = text.indexOf('"')
-  if (qt !== -1 && (i === -1 || qt < i)) {
-    i = qt
-  }
+  var i = text.search(_escapeRe)
   if (i === -1) {
     return text
   }
-  // Build result from first escapable char with charCode replacement loop
   var result = text.slice(0, i)
   var last = i
   var len = text.length
   while (i < len) {
     var code = text.charCodeAt(i)
     if (code <= 62) {
-      if (code === $.CHAR_AMPERSAND) {
-        if (i > last) {
-          result += text.slice(last, i)
-        }
-        result += '&amp;'
-        last = i + 1
-      } else if (code === $.CHAR_LT) {
-        if (i > last) {
-          result += text.slice(last, i)
-        }
-        result += '&lt;'
-        last = i + 1
-      } else if (code === $.CHAR_GT) {
-        if (i > last) {
-          result += text.slice(last, i)
-        }
-        result += '&gt;'
-        last = i + 1
-      } else if (code === $.CHAR_DOUBLE_QUOTE) {
-        if (i > last) {
-          result += text.slice(last, i)
-        }
-        result += '&quot;'
+      var entity =
+        code === $.CHAR_AMPERSAND
+          ? '&amp;'
+          : code === $.CHAR_LT
+            ? '&lt;'
+            : code === $.CHAR_GT
+              ? '&gt;'
+              : code === $.CHAR_DOUBLE_QUOTE
+                ? '&quot;'
+                : ''
+      if (entity) {
+        result = `${result}${text.slice(last, i)}${entity}`
         last = i + 1
       }
     }
@@ -76,29 +48,8 @@ function escapeHtml(text: string): string {
   return result
 }
 
-/**
- * Escape HTML for attribute values, preserving entity references
- * Only escapes bare & that are not part of valid entities
- */
 function escapeHtmlAttr(value: string): string {
-  // Fast-path: check if escaping is needed before regex
-  var needsEscape = false
-  var i = 0
-  var len = value.length
-  while (i < len) {
-    var code = value.charCodeAt(i)
-    if (
-      code === $.CHAR_AMPERSAND ||
-      code === $.CHAR_LT ||
-      code === $.CHAR_GT ||
-      code === $.CHAR_DOUBLE_QUOTE
-    ) {
-      needsEscape = true
-      break
-    }
-    i++
-  }
-  if (!needsEscape) {
+  if (value.search(_escapeRe) === -1) {
     return value
   }
 
@@ -116,12 +67,11 @@ function formatAttributes(attrs: Record<string, any>): string {
     if (value === undefined || value === null) {
       continue
     }
-    result += ' '
     if (value === true) {
-      result += key
+      result += ` ${key}`
     } else if (value === '') {
-      result += `${key}=""`
-    } else if (key === 'style' && typeof value === 'object' && value != null) {
+      result += ` ${key}=""`
+    } else if (key === 'style' && typeof value === 'object') {
       var styleStr = ''
       var styleFirst = true
       for (var styleKey in value) {
@@ -145,18 +95,17 @@ function formatAttributes(attrs: Record<string, any>): string {
         }
       }
       if (styleStr) {
-        result += `style="${escapeHtmlAttr(styleStr)}"`
+        result += ` style="${escapeHtmlAttr(styleStr)}"`
       }
     } else if (typeof value === 'string') {
-      result += `${key}="${escapeHtmlAttr(value)}"`
+      result += ` ${key}="${escapeHtmlAttr(value)}"`
     } else if (typeof value === 'number') {
-      result += `${key}="${value}"`
+      result += ` ${key}="${value}"`
     }
   }
   return result
 }
 
-/** The attributes of a node the parser did not read, without `children`, which is written as content and never as an attribute; the same object when it has none. */
 function _withoutChildren(
   attrs: Record<string, any> | undefined
 ): Record<string, any> | undefined {
@@ -172,11 +121,6 @@ function _withoutChildren(
   return rest
 }
 
-/**
- * Writes a self-closing tag whose attributes hold `children`: the string
- * becomes the content of the element written for the tag, escaped as text, and
- * a void tag takes none. The attribute is never written.
- */
 function _selfClosingWithChildren(
   node: MarkdownToJSX.HTMLSelfClosingNode,
   attrs: Record<string, any>,
@@ -194,8 +138,6 @@ function _selfClosingWithChildren(
     : _emptyObj
   var attrsStr: string
   if (open) {
-    // The parser wrote the attributes between the tag name and its ending
-    // (` />`, `/>`, or `>`), screened and without `children`
     var raw = util.rawOpenTagAttrs(open, defaultTag.length)
     if (ctx.tagfilter) {
       raw = util.applyTagFilterToText(raw)
@@ -203,9 +145,7 @@ function _selfClosingWithChildren(
     attrsStr =
       (raw.length > 0 && raw.charCodeAt(0) > $.CHAR_SPACE ? ' ' : '') +
       raw +
-      (hasKeys(overrideProps)
-        ? ` ${formatAttributes(overrideProps).trim()}`
-        : '')
+      formatAttributes(overrideProps)
   } else {
     attrsStr = formatAttributes(
       _mergeAttrs(
@@ -267,8 +207,8 @@ export type HTMLOptions = Omit<
   wrapperWasAutoSet?: boolean
 }
 
-// Render context — created once per astToHTML call, shared across all recursive renders
 interface _Ctx {
+  depth: number
   sanitize: (url: string, tag: string, attr: string) => string | null
   slug: (input: string, defaultFn: typeof util.slugify) => string
   refs: { [key: string]: { target: string; title: string | undefined } }
@@ -282,7 +222,6 @@ interface _Ctx {
 
 var _emptyObj: Record<string, any> = {}
 
-/** A filtered tag's text body as markup in this output; the parser already warned for it */
 function screenFilteredBody(text: string): string {
   return parse.stripDangerousHtml(text, true)
 }
@@ -354,7 +293,23 @@ function _renderTag(
   return `<${tag}${formatAttributes(finalAttrs)}>${children}</${tag}>`
 }
 
+function _overflowText(nodes: MarkdownToJSX.ASTNode[]): string {
+  var result = ''
+  for (var i = 0; i < nodes.length; i++) {
+    var node = nodes[i]
+    if ('text' in node && node.text) {
+      result += escapeHtml(node.text)
+    }
+  }
+  return result
+}
+
 function _renderChildren(nodes: MarkdownToJSX.ASTNode[], ctx: _Ctx): string {
+  var depth = ctx.depth
+  if (depth >= $.MAX_RENDER_DEPTH) {
+    return _overflowText(nodes)
+  }
+  ctx.depth = depth + 1
   var result = ''
   if (ctx.renderRule) {
     for (var i = 0; i < nodes.length; i++) {
@@ -372,6 +327,7 @@ function _renderChildren(nodes: MarkdownToJSX.ASTNode[], ctx: _Ctx): string {
       }
     }
   }
+  ctx.depth = depth
   return result
 }
 
@@ -448,9 +404,6 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
       }
       var codeAttrStr = formatAttributes(codeAttrs)
       var codeText = node.text || ''
-      // Known deviation from CommonMark: the spec keeps a code block's trailing
-      // newline (the scanners store node.text without it). No rendered
-      // difference, since a final empty line generates no line box.
       return (
         '<pre><code' +
         codeAttrStr +
@@ -480,7 +433,8 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
 
     case RuleType.heading: {
       var level = node.level || 1
-      var headingAttrs = node.id?.trim() ? { id: node.id } : undefined
+      var headingId = util.headingId(node.id)
+      var headingAttrs = headingId ? { id: headingId } : undefined
       return _renderTag(
         `h${level}`,
         node.children ? _renderChildren(node.children, ctx) : '',
@@ -490,17 +444,16 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
     }
 
     case RuleType.htmlComment: {
-      var htmlCommentNode = node as MarkdownToJSX.HTMLCommentNode
-      var markup = htmlCommentNode.raw
-        ? htmlCommentNode.text
-        : htmlCommentNode._endsWithGT
+      var markup = node.raw
+        ? node.text
+        : node._endsWithGT
           ? `<!--${node.text}>`
           : `<!--${node.text}-->`
       return ctx.tagfilter ? util.applyTagFilterToText(markup) : markup
     }
 
     case RuleType.htmlBlock: {
-      var htmlNode = node as MarkdownToJSX.HTMLNode
+      var htmlNode = node
       var defaultTag = htmlNode.tag || 'div'
       var tag = ctx.hasOverrides
         ? util.getTag(defaultTag, ctx.overrides)
@@ -523,8 +476,6 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
           )
         )
       } else {
-        // Filtered in values too, since what comes earlier in the output can end
-        // a value early. `&lt;` decodes back to `<`, so the value holds
         var rawAttrsValue = ctx.tagfilter
           ? util.applyTagFilterToText(htmlNode._rawAttrs)
           : htmlNode._rawAttrs
@@ -533,9 +484,7 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
         attrsStr =
           (needsLeadingSpace ? ' ' : '') +
           rawAttrsValue +
-          (hasKeys(overrideProps)
-            ? ` ${formatAttributes(overrideProps).trim()}`
-            : '')
+          formatAttributes(overrideProps)
       }
       if (ctx.tagfilter && util.shouldFilterTag(tag)) {
         var filtered = util.getFilteredTagEmit(htmlNode, screenFilteredBody)
@@ -555,9 +504,6 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
           : htmlNode._rawBody
         return `</${tag}>${closerTrailing}`
       }
-      // A raw span with no content of its own (an empty pair, or a tag left
-      // open) takes a children attribute as its content, and closes, as the
-      // markdown output writes it
       var hasRawContent =
         rawOuter === undefined && (htmlNode._rawBody || htmlNode._rawClose)
       if (
@@ -577,19 +523,12 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
         }
       }
       if (htmlNode._verbatim && rawOuter !== undefined) {
-        // Parser-verified full outer span (own opening tag through own
-        // closing tag, or through end of input when none exists); emit
-        // as-is, no synthesized wrapper needed.
         return ctx.tagfilter ? util.applyTagFilterToText(rawOuter) : rawOuter
       }
       if (htmlNode._verbatim && !htmlNode._isClosingTag) {
         var tagLower = tag.toLowerCase()
         var isType1Block = parse.isType1Block(tagLower)
         if (isType1Block) {
-          // The parser always supplies _rawClose (or _rawOuter, handled
-          // above) for real Type 1 output; a missing close here only
-          // happens on a hand-built AST, so synthesize the tag's own
-          // closer rather than leaving the element unclosed.
           var type1BodyAndClose =
             (htmlNode._rawBody || '') + (htmlNode._rawClose || `</${tag}>`)
           var type1Content = ctx.tagfilter
@@ -602,10 +541,6 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
         var textContent = ctx.tagfilter
           ? util.applyTagFilterToText(bodyAndClose)
           : bodyAndClose
-        // Parser sets _emitOwnClose when rawBody represents a closed HTML
-        // block nested inside another HTML block. rawBody may carry trailing
-        // same-line siblings (kept for the React re-parse split), so slice
-        // at the own close tag and always emit our own </tag> (#862).
         if (htmlNode._emitOwnClose) {
           var ownCloseIdx67 = textContent.indexOf(`</${tagLower}>`)
           var body67 =
@@ -660,9 +595,6 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
           children = escapeHtml(attrChildren)
         }
       }
-      // Structurally-closed elements always emit </tag>, even when empty.
-      // _verbatim is raw source pass-through (e.g. unclosed <div>); only then
-      // do we suppress the close, and only when children is whitespace-only.
       if (!htmlNode._verbatim) {
         return `<${tag}${attrsStr}>${children}</${tag}>`
       }
@@ -681,7 +613,7 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
     }
 
     case RuleType.htmlSelfClosing: {
-      var scNode = node as MarkdownToJSX.HTMLSelfClosingNode
+      var scNode = node
       var scDefaultTag = scNode.tag || 'div'
       var scTag = ctx.hasOverrides
         ? util.getTag(scDefaultTag, ctx.overrides)
@@ -727,13 +659,19 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
       var imgOverrideProps = ctx.hasOverrides
         ? util.getOverrideProps('img', ctx.overrides)
         : _emptyObj
-      var src = ctx.sanitize(node.target || '', 'img', 'src') || ''
+      var src =
+        util.sanitizeAndEncodeUrlTarget(
+          node.target || '',
+          ctx.sanitize,
+          'img',
+          'src'
+        ) || ''
       var imgAttrs: Record<string, any> = {
         ...imgOverrideProps,
-        alt: node.alt || '',
+        alt: escapeHtml(node.alt || ''),
       }
       if (node.title) {
-        imgAttrs.title = node.title
+        imgAttrs.title = escapeHtml(node.title)
       }
       return (
         '<' +
@@ -755,8 +693,6 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
         ? { ...linkOverrideProps }
         : {}
       if (node.target != null) {
-        // Sanitize before encode (same order as the JSX compilers) so a
-        // dangerous direct-AST target never reaches href=.
         var linkHref = util.sanitizeAndEncodeUrlTarget(
           node.target,
           ctx.sanitize,
@@ -764,13 +700,11 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
           'href'
         )
         if (linkHref != null) {
-          // Decoded text, so an `&` left as written would decode again in a
-          // browser, past the sanitizer: `&#106;avascript:` is `javascript:`.
           linkAttrs.href = escapeHtml(linkHref)
         }
       }
       if (node.title) {
-        linkAttrs.title = util.decodeEntityReferences(node.title)
+        linkAttrs.title = escapeHtml(node.title)
       }
       return (
         '<' +
@@ -785,7 +719,7 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
     }
 
     case RuleType.table: {
-      var tableNode = node as MarkdownToJSX.TableNode
+      var tableNode = node
       var alignments = tableNode.align || []
       var header = ''
       var headerCells = tableNode.header || []
@@ -874,19 +808,14 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
         return node.children ? _renderChildren(node.children, ctx) : ''
       }
       var children = node.children ? _renderChildren(node.children, ctx) : ''
-      // Per CommonMark: collapse trailing spaces before newlines (soft line breaks)
-      // Fast-path: skip collapsing if no newline in rendered output (most paragraphs)
       var idx = 0
       if (children.indexOf('\n') !== -1) {
-        // Use indexOf to jump between occurrences (SIMD) instead of scanning every char
-        // Track tag boundaries to avoid collapsing inside HTML attribute values
         var result = ''
         var segStart = 0
         var searchFrom = 0
         var inTag = false
         var quoteCount = 0
         while ((idx = children.indexOf(' \n', searchFrom)) !== -1) {
-          // Update tag tracking only in the gap since last search
           for (var j = searchFrom; j < idx; j++) {
             var code = children.charCodeAt(j)
             if (code === $.CHAR_LT) {
@@ -900,7 +829,6 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
             }
           }
           if (inTag && quoteCount % 2 === 1) {
-            // Inside quoted attribute — preserve
             searchFrom = idx + 2
           } else {
             result += `${children.slice(segStart, idx)}\n`
@@ -914,7 +842,7 @@ function _renderNode(node: MarkdownToJSX.ASTNode, ctx: _Ctx): string {
           }
           children = result
         }
-      } // end if (indexOf('\n'))
+      }
 
       if (!ctx.hasOverrides) {
         return `<p>${children}</p>`
@@ -945,7 +873,6 @@ export function astToHTML(
   var refs = options.refs || Object.create(null)
   var overrides = options.overrides || {}
 
-  // Extract refs from reference collection node and filter non-renderable nodes
   var refsFromAst: {
     [key: string]: { target: string; title: string | undefined }
   } = Object.create(null)
@@ -954,9 +881,7 @@ export function astToHTML(
   for (var i = 0; i < nodes.length; i++) {
     var node = nodes[i]
     if (node.type === RuleType.refCollection && !foundRefCollection) {
-      refsFromAst =
-        (node as MarkdownToJSX.ReferenceCollectionNode).refs ||
-        Object.create(null)
+      refsFromAst = node.refs || Object.create(null)
       foundRefCollection = true
       continue
     }
@@ -969,8 +894,8 @@ export function astToHTML(
     refs[key] = refsFromAst[key]
   }
 
-  // Create render context once — shared across all recursive renders
   var ctx: _Ctx = {
+    depth: 1,
     sanitize,
     slug,
     refs,
@@ -1004,7 +929,6 @@ export function astToHTML(
     content = _renderNodeEntry(nodes, { refs }, ctx)
   }
 
-  // Extract and render footnotes
   var footnoteFooter = ''
   for (var key in refs) {
     if (key.charCodeAt(0) === $.CHAR_CARET) {
@@ -1043,12 +967,10 @@ export function astToHTML(
     footnoteFooter += '</footer>'
   }
 
-  // Handle wrapper options
   if (options.wrapper === null) {
     return content + footnoteFooter
   }
 
-  // Determine if content should be wrapped (only when explicitly requested)
   var hasMultipleChildren = nonRefCollectionNodes.length > 1
   var hasExplicitWrapper = options.wrapper != null
   var wrapperWasExplicit =
@@ -1062,18 +984,17 @@ export function astToHTML(
     return content + footnoteFooter
   }
 
-  // Extract paragraph content when forceInline or forceWrapper with explicit wrapper
   var contentToWrap = content
+  var onlyNode = nonRefCollectionNodes[0]
   if (
     (options.forceInline ||
       (options.forceWrapper &&
         wrapperWasExplicit &&
         !options.wrapperWasAutoSet)) &&
-    !hasMultipleChildren &&
     nonRefCollectionNodes.length === 1 &&
-    nonRefCollectionNodes[0].type === RuleType.paragraph
+    onlyNode.type === RuleType.paragraph
   ) {
-    var paragraphNode = nonRefCollectionNodes[0] as MarkdownToJSX.ParagraphNode
+    var paragraphNode = onlyNode
     if (paragraphNode.children) {
       var inlineCtx: _Ctx = {
         ...ctx,
@@ -1084,7 +1005,6 @@ export function astToHTML(
     }
   }
 
-  // Determine wrapper tag
   var wrapperTag =
     typeof options.wrapper === 'string'
       ? options.wrapper
@@ -1121,8 +1041,8 @@ export function astToHTML(
 }
 
 /**
- * Compiler function that parses markdown and renders to HTML string
- * Convenience function that combines parser() and html()
+ * Parses markdown and renders it to an HTML string
+ * (`parser()` followed by `astToHTML()`)
  *
  * @param markdown - Markdown string to compile
  * @param options - HTML compiler options
@@ -1143,8 +1063,7 @@ export function compiler(markdown: string, options?: HTMLOptions): string {
       if (
         n.type !== RuleType.refCollection &&
         n.type !== RuleType.footnote &&
-        n.type !== RuleType.ref &&
-        (n.type !== RuleType.frontmatter || !options?.preserveFrontmatter)
+        n.type !== RuleType.ref
       ) {
         nonRefCount++
       }

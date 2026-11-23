@@ -4,12 +4,11 @@
 
 Some special features of the library:
 
-- Arbitrary HTML is supported and parsed into the appropriate JSX representation
-  without `dangerouslySetInnerHTML`
+- Raw HTML in your markdown becomes real elements, without `dangerouslySetInnerHTML`.
 
-- Any HTML tags rendered by the compiler and/or `<Markdown>` component can be overridden to include additional props or even a different HTML representation entirely.
+- You can override any HTML tag the compiler or `<Markdown>` component renders, to add props or swap in a component of your own.
 
-- All GFM special syntaxes are supported, including tables, task lists, strikethrough, autolinks, tag filtering, and more.
+- Every GFM syntax is supported, including tables, task lists, strikethrough, autolinks, and tag filtering, plus `==highlight==` for `<mark>`.
 
 - Fenced code blocks with [highlight.js](https://highlightjs.org/) support; see [Syntax highlighting](#syntax-highlighting) for instructions on setting up highlight.js.
 
@@ -79,7 +78,7 @@ Some special features of the library:
 /** v9 */ compiler('&le; symbol')
 ```
 
-- **`tagfilter` enabled by default**: Dangerous HTML tags (`script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`) are escaped by default across the React, HTML, Solid, Vue, and React Native outputs. Matching GFM, only each tag's leading `<` is neutralized; the body and closing tag stay visible as inert text, and allowed nested tags inside a filtered parent still render normally. Previously some renderers mounted these tags live, and escaped output dropped everything after the opener.
+- **`tagfilter` enabled by default**: Dangerous HTML tags (`script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`) are escaped by default across the React, HTML, Solid, Vue, and React Native outputs. Matching GFM, only each tag's leading `<` is neutralized; the body and closing tag stay visible as inert text, and allowed nested tags inside a filtered parent still render normally.
 
 ```typescript
 /** v8 */ tags rendered as JSX elements
@@ -148,11 +147,11 @@ import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
 /** v8+ */ MarkdownToJSX.ASTNode[]
 ```
 
-- Multiple `RuleType` enums consolidated into `RuleType.textFormatted` - If you were checking for `RuleType.textBolded`, `RuleType.textEmphasized`, `RuleType.textMarked`, or `RuleType.textStrikethroughed`, update to check for `RuleType.textFormatted` and inspect the node's boolean flags:
+- Multiple `RuleType` enums consolidated into `RuleType.textFormatted` - If you were checking for `RuleType.textBolded`, `RuleType.textEmphasized`, `RuleType.textMarked`, or `RuleType.textStrikethroughed`, update to check for `RuleType.textFormatted` and read the node's `tag` (`strong`, `em`, `mark`, or `del`):
 
 ```typescript
 /** v7 */ RuleType.textBolded
-/** v8+ */ RuleType.textFormatted && node.bold
+/** v8+ */ RuleType.textFormatted && node.tag === 'strong'
 ```
 
 </details>
@@ -174,9 +173,9 @@ ES6-style usage\*:
 ```tsx
 import Markdown from 'markdown-to-jsx'
 import React from 'react'
-import { render } from 'react-dom'
+import { createRoot } from 'react-dom/client'
 
-render(<Markdown># Hello world!</Markdown>, document.body)
+createRoot(document.body).render(<Markdown># Hello world!</Markdown>)
 
 /*
     renders:
@@ -390,7 +389,7 @@ HTML tags are automatically mapped to React Native components:
 - Inline elements (`<span>`, `<strong>`, `<em>`, `<a>`, headings, `<code>`, etc.) → `Text` component
 - Type 1 blocks (`<pre>`, `<script>`, `<style>`, `<textarea>`) → `View` component
 
-**Mixing text and blocks:** React Native cannot nest an image or view inside text, so an inline container (a paragraph, heading, emphasis, or link) that holds an image or block-level content renders as a `View` instead of a `Text`. Its text is grouped into a `Text` so it still flows on one line, the image renders as its own element, and an image inside a link stays tappable through a `Pressable`. Text-only content is unaffected and renders as before.
+**Mixing text and blocks:** React Native cannot nest an image or view inside text, so an inline container (a paragraph, heading, emphasis, or link) that holds an image or block-level content renders as a `View` instead of a `Text`. Its text is grouped into a `Text` so it still flows on one line, the image renders as its own element, and an image inside a link stays tappable through a `Pressable`. A container that holds only text renders as a `Text`.
 
 **Note:** Links are underlined by default for better accessibility and discoverability. You can override this via the `styles.link` option.
 
@@ -439,7 +438,7 @@ function AppWithContext() {
 **SolidJS-specific features:**
 
 - **Reactive content**: The `Markdown` component accepts signals/accessors for automatic updates when markdown content changes
-- **Memoization**: AST parsing is automatically memoized for optimal performance
+- **Memoization**: The component parses again only when its content or options change
 - **Context API**: Use `MarkdownProvider` to provide default options and avoid prop drilling
 
 #### Vue.js
@@ -489,14 +488,15 @@ For markdown-to-markdown compilation (normalization and formatting), import from
 ```typescript
 import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
 
-const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
+const normalizedMarkdown = compiler('Hello world\n===========\n\n* one\n* two')
+// '# Hello world\n\n- one\n- two'
 
 /** Or work with AST */
-const ast = parser('# Hello  world')
+const ast = parser('Hello world\n===========')
 const normalizedMarkdown2 = astToMarkdown(ast)
 ```
 
-A code block or code span whose contents would be unsafe read as raw HTML or a link is written as `<pre><code>` or `<code>` with entities, because another renderer can read the markup around it as raw HTML. A browser shows the same characters, and other code keeps its fence or backticks.
+A code block or code span whose contents would be unsafe read as raw HTML or a link is written as `<pre><code>` or `<code>` with entities, because another renderer can read the markup around it as raw HTML. A browser shows the same characters, and other code keeps its fence or backticks. Control characters in link and image addresses are written percent-encoded (`%01`), so the output reads the same way when parsed again.
 
 ### Library Options
 
@@ -506,13 +506,14 @@ A code block or code span whose contents would be unsafe read as raw HTML or a l
 | ------------------------------- | ----------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `createElement`                 | `function`                    | -        | Custom createElement behavior (React/React Native/SolidJS/Vue only). See [createElement](#optionscreateelement) for details.      |
 | `disableAutoLink`               | `boolean`                     | `false`  | Disable automatic conversion of bare URLs to anchor tags.                                                                         |
+| `disableFrontmatter`            | `boolean`                     | `false`  | Read a `---` on the document's first line as a thematic break instead of the start of YAML frontmatter.                           |
 | `disableParsingRawHTML`         | `boolean`                     | `false`  | Disable parsing of raw HTML into JSX.                                                                                             |
 | `enforceAtxHeadings`            | `boolean`                     | `true`   | Require a space between `#` and heading text (CommonMark). Set `false` to also read `#heading` as a heading.                      |
 | `evalUnserializableExpressions` | `boolean`                     | `false`  | ⚠️ Eval unserializable props (DANGEROUS). See [evalUnserializableExpressions](#optionsevalunserializableexpressions) for details. |
 | `forceBlock`                    | `boolean`                     | `false`  | Force all content to be treated as block-level.                                                                                   |
 | `forceInline`                   | `boolean`                     | `false`  | Force all content to be treated as inline.                                                                                        |
 | `ignoreHTMLBlocks`              | `boolean`                     | `false`  | Disable parsing of HTML blocks, treating them as plain text.                                                                      |
-| `forceWrapper`                  | `boolean`                     | `false`  | Force wrapper even with single child (React/React Native/Vue only). See [forceWrapper](#optionsforcewrapper) for details.         |
+| `forceWrapper`                  | `boolean`                     | `false`  | Force wrapper even with single child (every output except markdown). See [forceWrapper](#optionsforcewrapper) for details.        |
 | `overrides`                     | `object`                      | -        | Override HTML tag rendering. See [overrides](#optionsoverrides) for details.                                                      |
 | `preserveFrontmatter`           | `boolean`                     | `false`  | Include frontmatter in rendered output (as `<pre>` for HTML/JSX, included in markdown). Behavior varies by compiler type.         |
 | `renderRule`                    | `function`                    | -        | Custom rendering for AST rules. See [renderRule](#optionsrenderrule) for details.                                                 |
@@ -520,8 +521,8 @@ A code block or code span whose contents would be unsafe read as raw HTML or a l
 | `slugify`                       | `function`                    | built-in | Custom slug generation for heading IDs. See [slugify](#optionsslugify) for details.                                               |
 | `optimizeForStreaming`          | `boolean`                     | `false`  | Suppress rendering of incomplete markdown syntax for streaming. See [Streaming Markdown](#streaming-markdown) for details.        |
 | `tagfilter`                     | `boolean`                     | `true`   | Escape dangerous HTML tags (`script`, `iframe`, `style`, etc.) to prevent XSS.                                                    |
-| `wrapper`                       | `string \| component \| null` | `'div'`  | Wrapper element for multiple children (React/React Native/Vue only). See [wrapper](#optionswrapper) for details.                  |
-| `wrapperProps`                  | `object`                      | -        | Props for wrapper element (React/React Native/Vue only). See [wrapperProps](#optionswrapperprops) for details.                    |
+| `wrapper`                       | `string \| component \| null` | `'div'`  | Wrapper element for multiple children (every output except markdown). See [wrapper](#optionswrapper) for details.                 |
+| `wrapperProps`                  | `object`                      | -        | Props for wrapper element (every output except markdown). See [wrapperProps](#optionswrapperprops) for details.                   |
 
 #### options.createElement
 
@@ -530,13 +531,13 @@ Sometimes, you might want to override the `React.createElement` default behavior
 ```javascript
 import Markdown from 'markdown-to-jsx'
 import React from 'react'
-import { render } from 'react-dom'
+import { createRoot } from 'react-dom/client'
 
 const md = `
 # Hello world
 `
 
-render(
+createRoot(document.body).render(
   <Markdown
     children={md}
     options={{
@@ -548,8 +549,7 @@ render(
         )
       },
     }}
-  />,
-  document.body
+  />
 )
 ```
 
@@ -721,7 +721,7 @@ When enabled, the parser will not attempt to parse HTML blocks. HTML syntax will
 
 #### options.renderRule
 
-Supply your own rendering function that can selectively override how _rules_ are rendered (note, this is different than _`options.overrides`_ which operates at the HTML tag level and is more general). The `renderRule` function always executes before any other rendering code, giving you full control over how nodes are rendered, including normally-skipped nodes like `ref`, `footnote`, and `frontmatter`.
+Supply your own rendering function that can selectively override how _rules_ are rendered (note, this is different than _`options.overrides`_ which operates at the HTML tag level and is more general). The `renderRule` function always executes before any other rendering code, giving you full control over how nodes are rendered. In React, React Native, Solid, and Vue it also sees the nodes those renderers normally skip (`refCollection`, `footnote`, and `frontmatter`); the markdown compiler passes it `refCollection` and `frontmatter`, and the HTML compiler passes it none of the three.
 
 You can use this functionality to do pretty much anything with an established AST node; here's an example of selectively overriding the "codeBlock" rule to process LaTeX syntax using the `@matejmazur/react-katex` library:
 
@@ -773,9 +773,9 @@ function App() {
 
 #### options.sanitizer
 
-By default a lightweight URL sanitizer function is provided to avoid common attack vectors that might be placed into the `href` of an anchor tag, for example. The sanitizer receives the input, the HTML tag being targeted, and the attribute name. The original function is available as a library export called `sanitizer`.
+A built-in URL sanitizer checks every link and image address, so a `javascript:` link or image source never reaches the page. Addresses that pass are percent-encoded the same way in both cases. The sanitizer receives the address, the HTML tag it belongs to, and the attribute name (`'a', 'href'` for a link, `'img', 'src'` for an image), and returns the address to keep or `null` to drop it. Given the tag and attribute, the built-in function also drops an SVG data URL (`data:image/svg+xml`) everywhere but an image source, because a browser runs the SVG's script when it opens one as a page. Called with the address alone, it keeps it. The built-in function is available as a library export called `sanitizer`.
 
-This can be overridden and replaced with a custom sanitizer if desired via `options.sanitizer`:
+To use your own rules, pass a function as `options.sanitizer`:
 
 <!-- biome-ignore format: keep example fences intact -->
 ```tsx
@@ -801,16 +801,21 @@ Removed before rendering:
 
 - Inline event handlers: `onclick`, `onerror`, `onload`, and any other `on*` attribute.
 - URL attributes carrying a `javascript:`, `vbscript:`, or non-image `data:` scheme, in `href`, `src`, `action`, `formaction`, `poster`, `cite`, `background`, `data`, `longdesc`, and `xlink:href` (or `xlinkHref`). Schemes hidden behind HTML entities such as `java&#9;script:` or a semicolon-less `&#106avascript:` are decoded and caught too.
-- The `iframe` `srcdoc` attribute.
+- SVG data URLs (`data:image/svg+xml`) in those attributes, except an image source: `img` `src` and `srcset`, `source` `src` and `srcset`, `video` `poster`, `input` `src`, and `image` `src`, `srcset`, `href`, and `xlink:href`. A `<meta>` refresh URL counts as a link.
+- The `content` attribute of a `<meta>` refresh whose URL carries one of those schemes, such as `content="0;url=javascript:alert(1)"`.
+- The `srcdoc` attribute, on any tag.
+- A `style` attribute that loads one of those schemes (`background:url(javascript:…)`, `image-set(…)`) or uses a legacy script hook (`expression()`, `-moz-binding`, `behavior`), including when CSS comments or escapes hide it.
 - Attributes that only mean something to a framework: `innerHTML`, `outerHTML`, `dangerouslySetInnerHTML`, `ref`, and `children` (kept on your own components), plus anything above behind a Solid `attr:`, `prop:`, or `bool:` prefix.
 
-Kept: safe attributes with their original formatting, `data:image` URLs, and event handlers you pass as expressions to your own components (`<MyButton onClick={fn} />`, where `MyButton` is an `overrides` key) along with bare boolean props on them (`<MyButton onClick />`). HTML and markdown output emit a component's expression handler as written, and a browser runs it, so do not render untrusted input that uses your component names to an HTML string you insert into a page. React does the same for a hyphenated tag whose override leaves it a string. One caveat: `data:image/svg+xml` is allowed but can execute script when opened as a top-level navigation, so treat SVG data URLs from untrusted sources with care.
+Kept: safe attributes with their original formatting, `data:image` URLs, and event handlers you pass as expressions to your own components (`<MyButton onClick={fn} />`, where `MyButton` is an `overrides` key) along with bare boolean props on them (`<MyButton onClick />`). React, React Native, and Solid give the component the handler as a string prop. Wherever the handler would land on a real element, it is dropped: in HTML and markdown output, under an override that renders an element (`{ component: 'a' }`), and in Vue, which passes a component's undeclared props on to its root element.
 
 Dangerous tag names (`script`, `iframe`, `style`, and similar) are escaped separately by the [`tagfilter`](#all-options) option, which is on by default.
 
 #### options.slugify
 
-By default, a [lightweight deburring function](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275) is used to generate an HTML id from each heading's plain text content (formatting markers, link destinations, and image alt text are omitted; footnote markers contribute their display text). When more than one heading produces the same id, a numeric suffix is added automatically (`foo`, `foo-1`, `foo-2`) so each id stays unique within that parse. You can override slug generation by passing a function to `options.slugify`; the function receives that plain text content, and uniqueness is still applied to whatever it returns. This is helpful when you are using non-alphanumeric characters (e.g. Chinese or Japanese characters) in headings. For example:
+Each heading gets an HTML id built from its plain text content (formatting markers, link destinations, and image alt text are omitted; footnote markers contribute their display text). The built-in function lowercases the text, keeps the letters a to z (folding accented Latin letters, so `é` becomes `e` and `ß` becomes `ss`), the digits, and hyphens, turns spaces into hyphens, and drops everything else, so `# Hello World` gets `id="hello-world"`. When more than one heading produces the same id, a numeric suffix is added automatically (`foo`, `foo-1`, `foo-2`) so each id stays unique within that parse. A heading whose id would be empty, such as `# !!!`, gets no `id` attribute.
+
+To build ids your own way, pass a function as `options.slugify`. It receives the heading's plain text and the built-in function, and the uniqueness suffix applies to whatever it returns. This helps when your headings use characters outside the Latin alphabet, such as Chinese or Japanese, which the built-in function drops. For example:
 
 <!-- biome-ignore format: keep example fences intact -->
 ```tsx
@@ -837,9 +842,8 @@ compiler(str, { wrapper: 'article' })
 To get an array of children back without a wrapper, set `wrapper` to `null`. This is particularly useful when using `compiler(…)` directly.
 
 ```tsx
-compiler('One\n\nTwo\n\nThree', { wrapper: null })[
-  /** Returns */ ((<p>One</p>), (<p>Two</p>), (<p>Three</p>))
-]
+compiler('One\n\nTwo\n\nThree', { wrapper: null })
+// returns [<p>One</p>, <p>Two</p>, <p>Three</p>]
 ```
 
 To render children at the same DOM level as `<Markdown>` with no HTML wrapper, set `wrapper` to `React.Fragment`. This will still wrap your children in a React node for the purposes of rendering, but the wrapper element won't show up in the DOM.
@@ -861,7 +865,7 @@ Props to apply to the wrapper element when `wrapper` is used.
 
 ### Syntax highlighting
 
-When using [fenced code blocks](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) with language annotation, that language will be added to the `<code>` element as `class="language-${language}"`. The JSX renderers (React, React Native, Solid, Vue) add a legacy `lang-${language}` alongside it. For best results, you can use `options.overrides` to provide an appropriate syntax highlighting integration like this one using `highlight.js`:
+When using [fenced code blocks](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) with language annotation, that language will be added to the `<code>` element as `class="language-${language}"`. React, Solid, and Vue add a legacy `lang-${language}` alongside it. React Native passes no language to the element; see [React Native](#react-native) for highlighting there. On the web, you can use `options.overrides` to plug in a syntax highlighter, like this one using `highlight.js`:
 
 ```html
 <!-- Add the following tags to your page <head> to automatically load hljs and styles: -->
@@ -877,7 +881,8 @@ When using [fenced code blocks](https://www.markdownguide.org/extended-syntax/#s
 ```
 
 ````tsx
-import { Markdown, RuleType } from 'markdown-to-jsx'
+import { Markdown } from 'markdown-to-jsx'
+import React from 'react'
 
 const mdContainingFencedCodeBlock = '```js\nconsole.log("Hello world!");\n```\n'
 
@@ -921,7 +926,7 @@ const shortcodeMap = {
   smile: '🙂',
 }
 
-const detector = /(:[^:]+:)/g
+const detector = /(:[^:]+:)/
 
 const replaceEmoji = (text: string): React.ReactNode => {
   return text.split(detector).map((part, index) => {
@@ -960,7 +965,7 @@ When you use `options.renderRule`, any React-renderable JSX may be returned incl
 
 When rendering markdown content that arrives incrementally (e.g., from an AI/LLM API, WebSocket, or Server-Sent Events), you may notice raw markdown syntax briefly appearing before it renders properly. This happens because incomplete syntax like `**bold text` or `<CustomComponent>partial content` gets rendered as text before the closing delimiter arrives.
 
-The `optimizeForStreaming` option solves this by detecting incomplete markdown structures and holding them back until the content is complete (returning `null` on React and React Native, an empty string on HTML). It works across every renderer:
+The `optimizeForStreaming` option hides half-written syntax until its closing delimiter arrives, so readers see text, never stray markers. It works across every renderer:
 
 ```tsx
 import Markdown from 'markdown-to-jsx/react'
@@ -995,16 +1000,23 @@ function ChatMessage({ stream }) {
 
 Turn the option off for the final render. While it is on, the parser cannot tell half-written syntax from finished text, so a `*` or `_` that never gets a closing partner (such as `*args` or `_id`) stays hidden. Rendering the completed message with `optimizeForStreaming: false` shows it exactly as written.
 
-**What it suppresses:**
+**What it hides:**
 
-- Unclosed HTML tags (`<div>content` without `</div>`)
+These hide their markers while their text shows as it arrives:
+
+- Unclosed bold/italic (`**text` or `*text` without closing): shows `text`
+- Unclosed strikethrough (`~~text` without closing `~~`): shows `text`
+- Unclosed links (`[text](url` without closing `)`): shows `text`
+- Unclosed HTML tags (`<div>content` without `</div>`): shows `content`
+
+These stay hidden whole until they are complete:
+
 - Incomplete tag syntax (`<div attr="value` without closing `>`)
 - Unclosed HTML comments (`<!-- comment` without `-->`)
 - Unclosed inline code (`` `code `` without closing backtick)
-- Unclosed bold/italic (`**text` or `*text` without closing)
-- Unclosed strikethrough (`~~text` without closing `~~`)
-- Unclosed links (`[text](url` without closing `)`)
 - Incomplete tables (a header or divider row before the first data row); once the table renders, it stays put as further rows stream in, so it never flashes raw pipes or flickers between rows
+
+When nothing is left to show, React and React Native return `null`.
 
 **What renders normally (content visible as it streams):**
 
@@ -1018,7 +1030,7 @@ Everything will work just fine! Simply [Alias `react` to `preact/compat`](https:
 
 The Abstract Syntax Tree (AST) is a structured representation of parsed markdown. Each node in the AST has a `type` property that identifies its kind, and type-specific properties.
 
-**Important:** The first node in the AST is typically a `RuleType.refCollection` node that contains all reference definitions found in the document, including footnotes (stored with keys prefixed with `^`). This node is skipped during rendering but is useful for accessing reference data. Footnotes are automatically extracted from the refCollection and rendered in a `<footer>` element by both `compiler()` and `astToJSX()`.
+**Important:** When the document defines references or footnotes, the first node in the AST is a `RuleType.refCollection` node that contains all of them (footnotes are stored with keys prefixed with `^`). This node is skipped during rendering but is useful for accessing reference data. Footnotes are automatically extracted from the refCollection and rendered in a `<footer>` element by both `compiler()` and `astToJSX()`.
 
 #### Node Types
 
@@ -1040,7 +1052,7 @@ The AST consists of the following node types (use `RuleType` to check node types
   ```
 - `RuleType.blockQuote` - Blockquotes (`>`)
   ```tsx
-  { type: RuleType.blockQuote, children: [...], alert?: "note" }
+  { type: RuleType.blockQuote, children: [...], alert?: "NOTE" }
   ```
 - `RuleType.orderedList` / `RuleType.unorderedList` - Lists
   ```tsx
@@ -1054,10 +1066,10 @@ The AST consists of the following node types (use `RuleType` to check node types
 - `RuleType.htmlBlock` - HTML blocks and JSX components
 
   ```tsx
-  { type: RuleType.htmlBlock, tag: "div", attrs?: Record<string, any>, children?: ASTNode[] }
+  { type: RuleType.htmlBlock, tag: "div", attrs?: Record<string, any>, children?: ASTNode[], text?: string /* deprecated */ }
   ```
 
-  **Note:** PascalCase JSX components and hyphenated custom elements nest their children when blank lines appear between the opening and closing tags, instead of leaking later siblings. Known HTML block tags (`div`, `figure`, and the rest of the CommonMark block set) behave the same way. Lowercase unknown tags still follow CommonMark Type 7 and stop at the first blank line.
+  **Note:** PascalCase JSX components and hyphenated custom elements nest their children when blank lines appear between the opening and closing tags, instead of leaking later siblings. Known HTML block tags (`div`, `figure`, and the rest of the CommonMark block set) behave the same way. Lowercase unknown tags follow CommonMark Type 7 and stop at the first blank line.
 
   **HTML Block Parsing (v9.2+):** HTML blocks are always fully parsed into the `children` property. The `renderRule` callback can access the fully parsed AST in `children` for all HTML blocks.
 
@@ -1067,7 +1079,7 @@ The AST consists of the following node types (use `RuleType` to check node types
   ```tsx
   { type: RuleType.text, text: "Hello world" }
   ```
-- `RuleType.textFormatted` - Bold, italic, etc.
+- `RuleType.textFormatted` - Bold, italic, strikethrough (`~~`), and highlight (`==`), with `tag` set to `strong`, `em`, `del`, or `mark`
   ```tsx
   { type: RuleType.textFormatted, tag: "strong", children: [...] }
   ```
@@ -1108,7 +1120,8 @@ The AST consists of the following node types (use `RuleType` to check node types
   ```
 - `RuleType.htmlComment` - HTML comment nodes
   ```tsx
-  { type: RuleType.htmlComment, text: "comment text" }
+  { type: RuleType.htmlComment, text: " comment text " } // inline: the text between the markers
+  { type: RuleType.htmlComment, text: "<!-- comment text -->" } // on its own line: the whole comment, emitted as written
   ```
 - `RuleType.htmlSelfClosing` - Self-closing HTML tags
   ```tsx
@@ -1187,7 +1200,7 @@ console.log('code')
 Use the `RuleType` enum to identify AST nodes:
 
 ```tsx
-import { RuleType } from 'markdown-to-jsx'
+import { type MarkdownToJSX, RuleType } from 'markdown-to-jsx'
 
 if (node.type === RuleType.heading) {
   const heading = node as MarkdownToJSX.HeadingNode
@@ -1233,17 +1246,21 @@ const Table = ({ columns, data, ...props }) => {
 
 **Function props are kept as strings** for security, on a capitalized tag listed in `overrides`; any other tag is HTML and loses its event handlers. Use [renderRule](#optionsrenderrule) for case-by-case handling, or see [evalUnserializableExpressions](#optionsevalunserializableexpressions) for opt-in eval.
 
-**HTML indentation:** Leading whitespace in HTML blocks is auto-trimmed based on the first line's indentation to avoid markdown syntax conflicts.
+**HTML indentation:** You can indent the HTML in your markdown freely. Leading whitespace in an HTML block is trimmed based on the first line's indentation, so indented lines inside it are not read as code blocks.
 
-**Code in HTML:** Don't put code directly in HTML divs. Use fenced code blocks instead:
+**Code in HTML:** To put a fenced code block inside an HTML tag, leave a blank line after the opening tag and another before the closing tag. Without them, the HTML output keeps the fence as raw text, as CommonMark requires:
 
 ````md
 <div>
+
 ```js
 var code = here();
 ```
+
 </div>
 ````
+
+**Very deep nesting:** Emphasis or quotes nested past a fixed depth stay literal text, and every renderer stops rendering an AST past a fixed depth, so input written to overflow the call stack renders instead of crashing your app.
 
 ## Changelog
 

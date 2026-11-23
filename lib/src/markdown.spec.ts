@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import { marked } from 'marked'
 import { micromark } from 'micromark'
 
+import { $ } from './constants.ts'
 import { astToHTML } from './html.ts'
 import {
   astToMarkdown,
@@ -12,20 +13,17 @@ import {
   markdown,
 } from './markdown.ts'
 import { parser } from './parse.ts'
-import { storedAST } from './test-tree.ts'
+import { quotesDeep, storedAST } from './test-tree.ts'
 import type { MarkdownToJSX } from './types.ts'
 import { RuleType } from './types.ts'
 
-/**
- * Collapse insignificant whitespace so semantically equivalent HTML compares
- * equal: whitespace before a tag's closing angle bracket (including an
- * XML-style " />") and whitespace-only inter-tag gaps that span a newline.
- * Meaningful single spaces between inline elements are preserved. The tag scan
- * is quote-aware so a literal `>` inside an attribute value (html.ts emits raw
- * attributes verbatim) is left intact instead of masking a real difference.
- */
 function normalizeHtml(html: string): string {
   const isSpace = (c: number) => c === 32 || c === 9 || c === 10 || c === 13
+  const charLessThan = 60
+  const charGreaterThan = 62
+  const charDoubleQuote = 34
+  const charSingleQuote = 39
+  const charSlash = 47
   let out = ''
   let inTag = false
   let quote = 0
@@ -34,7 +32,7 @@ function normalizeHtml(html: string): string {
     const c = html.charCodeAt(i)
     if (!inTag) {
       out += html[i]
-      if (c === 60 /* < */) {
+      if (c === charLessThan) {
         inTag = true
         tagStart = out.length
       }
@@ -47,19 +45,17 @@ function normalizeHtml(html: string): string {
       }
       continue
     }
-    if (c === 34 /* " */ || c === 39 /* ' */) {
+    if (c === charDoubleQuote || c === charSingleQuote) {
       quote = c
       out += html[i]
       continue
     }
-    if (c === 62 /* > */) {
-      // Trim trailing whitespace and an optional self-closing slash before the
-      // real tag closer, without reaching past the tag's own start.
+    if (c === charGreaterThan) {
       let j = out.length
       while (j > tagStart && isSpace(out.charCodeAt(j - 1))) {
         j--
       }
-      if (j > tagStart && out.charCodeAt(j - 1) === 47 /* / */) {
+      if (j > tagStart && out.charCodeAt(j - 1) === charSlash) {
         j--
       }
       while (j > tagStart && isSpace(out.charCodeAt(j - 1))) {
@@ -74,11 +70,6 @@ function normalizeHtml(html: string): string {
   return out.replace(/>\s*\n\s*</g, '><').trim()
 }
 
-/**
- * Assert the astToMarkdown round-trip contract: the source markdown and its
- * parse -> astToMarkdown -> re-parse counterpart must render to semantically
- * equivalent HTML.
- */
 function expectRoundTrip(source: string): void {
   const original = astToHTML(parser(source))
   const roundTripped = astToHTML(parser(astToMarkdown(parser(source))))
@@ -98,9 +89,7 @@ describe('normalizeHTML round-trip helper', () => {
     )
   })
 
-  it('leaves a literal > inside an attribute value intact', () => {
-    // The old whole-string collapse rewrote this `>` and could mask a real
-    // round-trip difference; the quote-aware scan preserves it.
+  it('leaves a literal > inside an attribute value intact so the quote-aware scan cannot mask a real round-trip difference', () => {
     expect(normalizeHtml('<abbr title="a > b">x</abbr>')).toBe(
       '<abbr title="a > b">x</abbr>'
     )
@@ -130,9 +119,6 @@ describe('markdown compiler', () => {
         type: RuleType.text,
         text: '*bold* _italic_ `code` [link](url)',
       }
-      // Every special character in a text node is literal (emphasis, code, and
-      // links are separate node types), so it is escaped to avoid re-activating
-      // as syntax when the output is parsed again.
       expect(markdown(ast)).toBe(
         '\\*bold\\* \\_italic\\_ \\`code\\` \\[link\\]\\(url)'
       )
@@ -232,8 +218,6 @@ describe('markdown compiler', () => {
         type: RuleType.codeInline,
         text: 'code with `backtick`',
       }
-      // The delimiter is longer than the interior run, and the content ends
-      // with a backtick so a space pads it off the closing delimiter.
       expect(markdown(ast)).toBe('`` code with `backtick` ``')
     })
 
@@ -277,10 +261,53 @@ describe('markdown compiler', () => {
       expect(markdown(ast)).toBe('**bold text**')
     })
 
+    it('writes an empty strikethrough as escaped tildes so its neighbors stay apart', () => {
+      const ast: MarkdownToJSX.ParagraphNode = {
+        type: RuleType.paragraph,
+        children: [
+          { type: RuleType.text, text: '<' },
+          { type: RuleType.textFormatted, tag: 'del', children: [] },
+          { type: RuleType.text, text: 'javascript:alert(1)>' },
+        ],
+      }
+      expect(markdown(ast)).toBe('&lt;\\~\\~\\~\\~javascript:alert(1)>')
+    })
+
     it('strikes through only tilde runs of exactly two', () => {
       expect(compiler('a ~~~c~~~ b ~~~~ ~~d~~~e~~')).toMatchInlineSnapshot(
         `"a \\~\\~\\~c\\~\\~\\~ b \\~\\~\\~\\~ ~~d\\~\\~\\~e~~"`
       )
+    })
+
+    it.each([
+      ['==``==b==`', '\\==\\`\\`==b==\\`'],
+      ['~~``~~b~~`', '\\~\\~\\`\\`~~b~~\\`'],
+      ['[a ``b](/u) `c', '[a \\`\\`b](/u) \\`c'],
+      ['~~a ~~', '\\~\\~a \\~\\~'],
+      ['~~ a~~', '\\~\\~ a\\~\\~'],
+      ['~~a~~~\n~~<', '\\~\\~a\\~\\~\\~\n\\~\\~<'],
+      ['a ===c=== b', 'a ===c=== b'],
+      ['==a===b==', '==a===b=='],
+      ['==x==', '==x=='],
+      ['== x==', '\\== x=='],
+      ['a \\==b==', 'a \\==b=='],
+      ['a \\=\\=b\\=\\= c', 'a \\==b== c'],
+      ['a == b === c', 'a == b === c'],
+      ['~~foo ~~bar baz~~', '\\~\\~foo ~~bar baz~~'],
+      ['~~a ~~b~~ c~~', '~~a ~~b~~ c~~'],
+      ['==a ==b== c==', '==a ==b== c=='],
+      ['==a\\===', '==a\\==='],
+      ['==\\=a==', '==\\=a=='],
+      ['a\\===b==', 'a\\===b=='],
+      ['==b==\\=c', '==b==\\=c'],
+      ['===`=`a==', '\\=\\==`=`a=='],
+      ['===*x==*', '\\=\\==*x==*'],
+      ['~~**a**~~', '~~**a**~~'],
+      ['**~~a~~**', '**~~a~~**'],
+      ['*~~a*~~', '*\\~\\~a*\\~\\~'],
+      ['~~*a~~*', '~~\\*a~~\\*'],
+    ])('pairs strikethrough and mark runs like emphasis, keeping escapes on literal runs and leaving paired runs bare so each output re-parses to the same tree: %j', (input, expected) => {
+      expect(compiler(input)).toBe(expected)
     })
 
     it('should compile strikethrough', () => {
@@ -301,6 +328,25 @@ describe('markdown compiler', () => {
       expect(markdown(ast)).toBe('==highlighted==')
     })
 
+    it.each([
+      ['_a_*b*', '*a*_b_'],
+      ['*a*_b_', '*a*_b_'],
+      ['__a__**b**', '**a**__b__'],
+      ['*a*__b__', '*a*__b__'],
+      ['x _a_*b* y', 'x *a*_b_ y'],
+      ['_a_*b*y', '_a_*b*y'],
+      ['*a*_b_*c*', '*a*_b_*c*'],
+      ['*a*_b_**c**', '*a*_b_**c**'],
+      ['**a**__b__**c**', '**a**__b__**c**'],
+      ['_a_*b*_c_*d*', '*a*_b_*c*_d_'],
+      ['_a_*b*_c_*d*y', '_a_*b*_c_*d*y'],
+      ['[_a_*b*](/u)', '[*a*_b_](/u)'],
+      ['| _a_*b* |\n| - |\n| c |', '| *a*_b_ |\n| --- |\n| c |'],
+    ])('keeps adjacent emphasis in %j from fusing', (input, expected) => {
+      expect(compiler(input)).toBe(expected)
+      expectRoundTrip(input)
+    })
+
     it('should compile nested formatted text', () => {
       const ast: MarkdownToJSX.FormattedTextNode = {
         type: RuleType.textFormatted,
@@ -319,6 +365,15 @@ describe('markdown compiler', () => {
   })
 
   describe('links', () => {
+    it('ends link text at a bracket inside a raw HTML element, and hides only a bracket inside the tag itself', () => {
+      expect(compiler('[see <b>this]</b> note](/docs)')).toBe(
+        '\\[see <b>this]</b> note\\]\\(/docs)'
+      )
+      expect(compiler('[a <b title="]">x</b>](/u)')).toBe(
+        '[a <b title="]">x</b>](/u)'
+      )
+    })
+
     it('should compile inline link', () => {
       const ast: MarkdownToJSX.LinkNode = {
         type: RuleType.link,
@@ -455,14 +510,10 @@ describe('markdown compiler', () => {
     })
 
     it('should separate a nested list from its parent item text on round-trip', () => {
-      // Regression: a block-level child (the nested list) must not concatenate
-      // onto the item's inline text, which would flatten it back into a string.
       expect(astToMarkdown(parser('- a\n  - b\n'))).toBe('- a\n  - b')
     })
 
     it('should separate loose list item blocks with a blank line on round-trip', () => {
-      // Regression: two paragraph children of a loose item need a blank-line
-      // separator or they merge into one word ("foobar").
       expect(astToMarkdown(parser('- foo\n\n  bar\n'))).toBe('- foo\n  \n  bar')
       expect(astToMarkdown(parser('1. a\n\n   b\n'))).toBe('1. a\n   \n   b')
     })
@@ -472,6 +523,54 @@ describe('markdown compiler', () => {
       expect(astToMarkdown(parser('- foo\n\n  ## h\n\n  bar\n'))).toBe(
         '- foo\n  \n  ## h\n  \n  bar'
       )
+    })
+
+    it.each([
+      [
+        'a block that ends at the blank line before a paragraph',
+        '- <div>x</div>\n\n  i\n- b',
+        '- <div>x</div>\n  \n  i\n\n- b',
+      ],
+      [
+        'a nested block that ends at a blank line',
+        '- <details>\n  <summary>S</summary>\n\n  body\n\n  </details>\n- next',
+        '- <details>\n  <summary>S</summary>\n  \n  body\n  \n  </details>\n\n- next',
+      ],
+      [
+        'an unclosed block that ends at a blank line',
+        '- <div>a\n\n  b',
+        '- <div>a\n  \n  \n  b',
+      ],
+      [
+        'an opener whose block ends at a blank line',
+        '1. <p align="center">\n\n   para\n2. x',
+        '1. <p align="center"></p>\n   \n   para\n\n2. x',
+      ],
+      [
+        'a void tag followed by a line remainder',
+        '- <img src="a.png"> \n  caption\n- b',
+        '- <img src="a.png">\n  caption\n- b',
+      ],
+      [
+        'a self-closing component followed by a line remainder',
+        '- <MyComponent /> \n  text\n- two',
+        '- <MyComponent ></MyComponent>\n  text\n- two',
+      ],
+      [
+        'a closing tag followed by text',
+        '- </pre>\n  x\n- y',
+        '- </pre>x\n- y',
+      ],
+    ])('keeps the list looseness of a round trip with %s', (_name, source, expected) => {
+      expect(astToMarkdown(parser(source))).toBe(expected)
+    })
+
+    it.each([
+      ['-\n  _\n\n  )', '- \\_\n  \n  )'],
+      ['-\n\n  -', '- \n- '],
+      ['>a\n-', '> a\n\n- '],
+    ])('should emit the item structure of %j as %j', (input, expected) => {
+      expect(compiler(input)).toBe(expected)
     })
   })
 
@@ -524,9 +623,7 @@ describe('markdown compiler', () => {
       expect(markdown(ast)).toBe('> > Nested quote')
     })
 
-    it('should re-emit the alert marker line for alert blockquotes', () => {
-      // Regression: the alert field was ignored, so `> [!NOTE]` blockquotes
-      // lost their type on round-trip.
+    it('should re-emit the alert marker line for alert blockquotes so `> [!NOTE]` keeps its type on round-trip', () => {
       const ast: MarkdownToJSX.BlockQuoteNode = {
         alert: 'NOTE',
         children: [
@@ -538,6 +635,44 @@ describe('markdown compiler', () => {
         type: RuleType.blockQuote,
       }
       expect(markdown(ast)).toBe('> [!NOTE]\n> Useful info')
+    })
+
+    it.each([
+      ['a no-break space', ' '],
+      ['an ideographic space', '　'],
+      ['a form feed', '\f'],
+      ['a vertical tab', '\v'],
+    ])('should keep the alert marker followed by %s on round-trip', (_name, ws) => {
+      expect(astToMarkdown(parser(`> [!NOTE]${ws}\n> body`))).toBe(
+        '> [!NOTE]\n> body'
+      )
+    })
+
+    it.each([
+      ['>     code\n> para\nlazy', '> ```\n> code\n> ```\n>\n> para\n> lazy'],
+      ['> para\n>     code\nlazy', '> para\n> code\n> lazy'],
+      ['> # h\nlazy', '> # h\n\nlazy'],
+      ['- # h\nlazy', '- # h\n\nlazy'],
+      ['> ---\nlazy', '> ---\n\nlazy'],
+      ['> ```\n> a\nlazy', '> ```\n> a\n> ```\n\nlazy'],
+      [
+        '- | a | b |\n  | - | - |\nlazy',
+        '- | a | b |\n  | --- | --- |\n\nlazy',
+      ],
+      ['> <pre>\nlazy', '> <pre>\n\nlazy'],
+      ['- <pre>\nlazy', '- <pre>\n\nlazy'],
+      ['> <div>\nlazy', '> <div></div>\n\nlazy'],
+      ['- <div>\nlazy', '- <div></div>\n\nlazy'],
+      ['- </pre>\nm', '- </pre>\n\nm'],
+      ['> </pre>\nm', '> </pre>\n\nm'],
+      ['> - a\nlazy', '> - a\n>   lazy'],
+      ['> > a\nlazy', '> > a\n> > lazy'],
+      ['> f\nbar\n> # x', '> f\n> bar\n>\n> # x'],
+      ['- 10. a\n\n      b\nlazy', '- 10. a\n      \n      b\n      lazy'],
+      ['> 1.  one\n>\n>     two\nthree', '> 1. one\n>\n>    two\n>    three'],
+      ['> [x]: /u\n[y]: /v\n\n[y]', '[x]: /u\n[y]: /v\n\n>\n\n[y](/v)'],
+    ])('should re-emit %j, where a lazy line extends or ends its container, as %j', (input, expected) => {
+      expect(compiler(input)).toBe(expected)
     })
   })
 
@@ -584,9 +719,7 @@ describe('markdown compiler', () => {
       expect(markdown(ast)).toBe(expected)
     })
 
-    it('escapes backslashes before pipes in table cells', () => {
-      // A cell whose text already contains `\` + `|` must not emit `\\|`, which
-      // re-parses as an escaped backslash plus an unescaped column split.
+    it('escapes backslashes before pipes in table cells so a cell containing `\\` + `|` does not emit `\\\\|`, which re-parses as an escaped backslash plus an unescaped column split', () => {
       const ast: MarkdownToJSX.TableNode = {
         type: RuleType.table,
         align: [null],
@@ -606,6 +739,13 @@ describe('markdown compiler', () => {
         }
       }
       expect(headerText).toBe('a \\| b')
+    })
+
+    it.each([
+      ['`a| b |\n|---|', '\\`a| b |\n\\|---|'],
+      ['`|]\n-', '## \\`|\\]'],
+    ])('should emit %j, a delimiter row with the wrong cell count, as %j', (input, expected) => {
+      expect(compiler(input)).toBe(expected)
     })
   })
 
@@ -666,8 +806,6 @@ describe('markdown compiler', () => {
     })
 
     it('should emit a raw comment as-is rather than nesting its delimiters', () => {
-      // Regression: a raw comment's text already carries <!-- -->, so wrapping
-      // it again produced <!--<!-- c -->-->.
       const ast: MarkdownToJSX.HTMLCommentNode = {
         type: RuleType.htmlComment,
         text: '<!-- c -->',
@@ -677,8 +815,6 @@ describe('markdown compiler', () => {
     })
 
     it('should emit a bare closing tag for an orphan closing-tag node', () => {
-      // Regression: the verbatim branch required a truthy raw string, so an
-      // orphan </details> fell through and re-emitted as <details></details>.
       const ast: MarkdownToJSX.HTMLNode = {
         _isClosingTag: true,
         _verbatim: true,
@@ -704,8 +840,6 @@ describe('markdown compiler', () => {
     })
 
     it('should keep the closing tag when a non-void HTML block carries inner text', () => {
-      // Regression: node.text holds inner content only, so a missing closing tag
-      // let a following sibling be absorbed into this element on round-trip.
       const ast: MarkdownToJSX.HTMLNode = {
         type: RuleType.htmlBlock,
         tag: 'div',
@@ -715,6 +849,29 @@ describe('markdown compiler', () => {
         _verbatim: false,
       }
       expect(markdown(ast)).toBe('<div>x</div>')
+    })
+
+    it.each([
+      ['x<span></span></span', 'x<span></span>&lt;/span'],
+      ['x<div></div></div', 'x<div></div>&lt;/div'],
+      ['x<Foo></Foo></Foo', 'x<Foo></Foo>&lt;/Foo'],
+    ])('should leave the second closer of %j as text', (input, expected) => {
+      expect(compiler(input)).toBe(expected)
+    })
+
+    it.each([
+      '<!--@/>',
+      '<!A[@e>',
+    ])('should pass %j through as a raw block', markup => {
+      expect(compiler(markup)).toBe(markup)
+    })
+
+    it('should emit the children of a stored block with its private fields dropped', () => {
+      expect(
+        astToMarkdown(
+          storedAST('<div>\n  <div/>\n  <span>content</span>\n</div>')
+        )
+      ).toBe('<div>  <div/>\n  <span>content</span>\n</div>')
     })
   })
 
@@ -746,9 +903,7 @@ describe('markdown compiler', () => {
   })
 
   describe('frontmatter', () => {
-    // FrontmatterNode.text stores the full raw block including the ---
-    // delimiters (as produced by the parser), so the compiler emits it as-is.
-    it('should compile frontmatter', () => {
+    it('should compile frontmatter by emitting its raw text, delimiters included, as-is', () => {
       const ast: MarkdownToJSX.FrontmatterNode = {
         type: RuleType.frontmatter,
         text: '---\ntitle: My Document\nauthor: John Doe\n---',
@@ -783,6 +938,10 @@ describe('markdown compiler', () => {
       }
       expect(markdown(ast, { preserveFrontmatter: false })).toBe('')
     })
+
+    it('keeps a document that is only frontmatter, closed at the end of input, as frontmatter', () => {
+      expect(compiler('---\ntitle: Draft\n---')).toBe('---\ntitle: Draft\n---')
+    })
   })
 
   describe('reference collection', () => {
@@ -794,7 +953,6 @@ describe('markdown compiler', () => {
           github: { target: 'https://github.com', title: undefined },
         },
       }
-      // Reference collection should be preserved for round-trip compilation
       const result = markdown(ast)
       expect(result).toContain('[example]: https://example.com "Example Site"')
       expect(result).toContain('[github]: https://github.com')
@@ -818,15 +976,11 @@ describe('markdown compiler', () => {
       expect(markdown(ast)).toBe('# Title\n\nParagraph text')
     })
 
-    // Note: Round-trip testing is complex due to text node splitting differences
-    // The markdown compiler preserves structure but may format differently
-    // For now, we test that compilation produces valid markdown that can be reparsed
     it('should produce valid markdown that can be reparsed', () => {
       const input = '# Hello\n\nThis is **bold** and *italic* text.'
       const ast = parser(input)
       const output = markdown(ast)
       const reparsed = parser(output)
-      // Verify it parses without errors and produces similar structure
       expect(reparsed.length).toBeGreaterThan(0)
       expect(output).toContain('# Hello')
       expect(output).toContain('**bold**')
@@ -959,10 +1113,8 @@ describe('markdown compiler', () => {
           text: undefined,
         }
 
-        // Test with undefined (default)
         expect(markdown(ast)).toBe('<div class="container">\nContent\n</div>')
 
-        // Test with explicitly false
         expect(markdown(ast, { disableParsingRawHTML: false })).toBe(
           '<div class="container">\nContent\n</div>'
         )
@@ -1015,10 +1167,17 @@ author: Test Author
 
 # Content`
       const output = compiler(input)
-      // Output should match input exactly for round-trip compilation
       expect(output).toContain('title: Test Document')
       expect(output).toContain('author: Test Author')
       expect(output).toContain('# Content')
+    })
+
+    it('writes frontmatter before reference definitions so it survives re-parsing', () => {
+      const input = '---\ntitle: x\n---\n\n# H\n\n[a]\n\n[a]: /u'
+      expect(compiler(input)).toBe(
+        '---\ntitle: x\n---\n\n[a]: /u\n\n# H\n\n[a](/u)'
+      )
+      expectRoundTrip(input)
     })
 
     it('should preserve frontmatter by default in full compilation', () => {
@@ -1041,10 +1200,8 @@ author: Test Author
 ---
 
 # Content`
-      const output = compiler(input, { preserveFrontmatter: true })
-      expect(output).toContain('title: Test Document')
-      expect(output).toContain('author: Test Author')
-      expect(output).toContain('# Content')
+      // markdown output has no wrapper element, so it asserts the frontmatter stays first, above the content
+      expect(compiler(input, { preserveFrontmatter: true })).toBe(input)
     })
 
     it('should exclude frontmatter when preserveFrontmatter is false in full compilation', () => {
@@ -1109,51 +1266,21 @@ More text`
   })
 
   describe('round-trip compilation', () => {
-    it('should round-trip the markdown specification document and produce equivalent AST', () => {
+    it('should round-trip the markdown specification document to the same HTML', () => {
       const specPath = path.join(import.meta.dirname, 'markdown-spec.md')
-      const originalMarkdown = fs.readFileSync(specPath, 'utf8')
-
-      // Parse to AST
-      const originalAst = parser(originalMarkdown)
-
-      // Convert back to markdown
-      const roundTripMarkdown = markdown(originalAst)
-
-      // Parse the round-trip result
-      const roundTripAst = parser(roundTripMarkdown)
-
-      // The ASTs should be structurally equivalent (allowing for formatting differences)
-      // For now, we'll just check that both parse successfully and produce some content
-      expect(originalAst.length).toBeGreaterThan(0)
-      expect(roundTripAst.length).toBeGreaterThan(0)
-      expect(roundTripMarkdown.length).toBeGreaterThan(0)
-
-      // Basic smoke test: the round-trip should contain some key elements
-      expect(roundTripMarkdown).toContain('# Markdown: Syntax')
-      expect(roundTripMarkdown).toContain('Overview')
-      expect(roundTripMarkdown).toContain('**Note:**')
+      expectRoundTrip(fs.readFileSync(specPath, 'utf8'))
     })
 
-    it('should round-trip the GFM specification document and produce equivalent AST', () => {
+    it('should round-trip the GFM specification document to non-empty markdown that reparses and keeps its key elements', () => {
       const specPath = path.join(import.meta.dirname, 'gfm-spec.md')
       const originalMarkdown = fs.readFileSync(specPath, 'utf8')
-
-      // Parse to AST
       const originalAst = parser(originalMarkdown)
-
-      // Convert back to markdown
       const roundTripMarkdown = markdown(originalAst)
-
-      // Parse the round-trip result
       const roundTripAst = parser(roundTripMarkdown)
 
-      // The ASTs should be structurally equivalent (allowing for formatting differences)
-      // For now, we'll just check that both parse successfully and produce some content
       expect(originalAst.length).toBeGreaterThan(0)
       expect(roundTripAst.length).toBeGreaterThan(0)
       expect(roundTripMarkdown.length).toBeGreaterThan(0)
-
-      // Basic smoke test: the round-trip should contain some key elements
       expect(roundTripMarkdown).toContain('# Introduction')
       expect(roundTripMarkdown).toContain(
         '## What is GitHub Flavored Markdown?'
@@ -1164,29 +1291,19 @@ More text`
       )
     })
 
-    it('should round-trip the comprehensive stress test fixture and produce equivalent AST', () => {
+    it('should round-trip the comprehensive stress test fixture to non-empty markdown that reparses and keeps its key elements', () => {
       const fixturePath = path.join(
         import.meta.dirname,
         'stress-test.generated.md'
       )
       const originalMarkdown = fs.readFileSync(fixturePath, 'utf8')
-
-      // Parse to AST
       const originalAst = parser(originalMarkdown)
-
-      // Convert back to markdown
       const roundTripMarkdown = markdown(originalAst)
-
-      // Parse the round-trip result
       const roundTripAst = parser(roundTripMarkdown)
 
-      // The ASTs should be structurally equivalent (allowing for formatting differences)
-      // For now, we'll just check that both parse successfully and produce some content
       expect(originalAst.length).toBeGreaterThan(0)
       expect(roundTripAst.length).toBeGreaterThan(0)
       expect(roundTripMarkdown.length).toBeGreaterThan(0)
-
-      // Basic smoke test: the round-trip should contain some key elements
       expect(roundTripMarkdown).toContain(
         '# Comprehensive Markdown Syntax Fixture'
       )
@@ -1198,11 +1315,6 @@ More text`
     })
 
     describe('HTML equivalence corpus', () => {
-      // Guards the round-trip contract construct by construct. One known-corrupt
-      // construct remains: an escaped ordered-list marker (`1\. text`) the parser
-      // splits across text nodes. See BACKLOG.md "astToMarkdown round-trip
-      // fidelity". Do not add a case for it until it is fixed, or the assertion
-      // would encode the bug.
       it('round-trips headings and thematic breaks', () => {
         expectRoundTrip('# Title')
         expectRoundTrip('## Subtitle with *emphasis*')
@@ -1223,6 +1335,11 @@ More text`
         expectRoundTrip('\\# not a heading')
         expectRoundTrip('\\- not a list')
         expectRoundTrip('\\> not a quote')
+        expectRoundTrip('1\\. not a list')
+        expectRoundTrip('2\\) not a list')
+        expectRoundTrip('a\n3\\. not a list')
+        expectRoundTrip('www\\.not-a-link.com')
+        expectRoundTrip('http\\://not-a-link.com')
       })
 
       it('round-trips links, images, and references', () => {
@@ -1270,6 +1387,19 @@ More text`
         expectRoundTrip('1. first\n2. second')
         expectRoundTrip('- parent\n  - child')
         expectRoundTrip('- [ ] todo\n- [x] done')
+      })
+
+      it('keeps a task marker as text unless whitespace and content follow it', () => {
+        expect(compiler('- [x]foo\n- [ ] \n- [x] baz')).toBe(
+          '- \\[x\\]foo\n- \\[ \\]\n- [x] baz'
+        )
+      })
+
+      it('keeps the rest of a task marker line as text, never a block', () => {
+        expect(compiler('- [x] # heading\n- [x] > quote')).toBe(
+          '- [x] \\# heading\n- [x] \\> quote'
+        )
+        expectRoundTrip('- [x] # heading\n- [x] > quote')
       })
 
       it('round-trips loose lists without collapsing them to tight', () => {
@@ -1324,8 +1454,6 @@ More text`
       })
 
       it('round-trips inline processing instructions, CDATA, and declarations verbatim', () => {
-        // Regression: these were reconstructed as a generic `<tag />` self-closing
-        // element, mangling `<?xml ?>` into `<? />` and dropping CDATA/DOCTYPE content.
         const source = 'text <?xml version="1.0"?> more'
         expect(astToMarkdown(parser(source))).toBe(source)
 
@@ -1597,7 +1725,6 @@ More text`
           },
         }
       )
-      // Empty strings are still joined with \n\n, so we get empty line + content
       expect(result).toBe('\n\nShould be visible')
     })
 
@@ -1700,13 +1827,9 @@ More text`
           },
         }
       )
-      // State includes refs from options, but they may not be merged with AST refs
-      // Check that state.key is correctly passed (0 and 1)
       expect(result).toContain('#1 [0]')
       expect(result).toContain('#2 [1]')
       expect(result).toContain('Test')
-      // Note: refs in state may be empty if not extracted from AST
-      // The test verifies state is accessible, not necessarily populated
     })
 
     it('handles renderRule with mixed node types in children', () => {
@@ -1751,7 +1874,6 @@ More text`
         ],
         {
           renderRule: (next, node) => {
-            // Skip code blocks
             if (node.type === RuleType.codeBlock) {
               return ''
             }
@@ -1759,7 +1881,6 @@ More text`
           },
         }
       )
-      // Empty strings are still joined with \n\n
       expect(result).toBe('Keep\n\n\n\nKeep')
     })
 
@@ -1852,7 +1973,6 @@ More text`
               if (codeNode.lang === 'python') {
                 return `\`\`\`python\n${codeNode.text || ''}\n\`\`\``
               }
-              // For typescript, use default
             }
             return next()
           },
@@ -2266,9 +2386,7 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
       )
     })
 
-    it('sanitizes raw HTML nested in a container that holds block-level markdown', () => {
-      // The markdown compiler emits the container's raw inner source verbatim,
-      // so its nested tags must be stripped at parse time.
+    it('sanitizes raw HTML nested in a container that holds block-level markdown at parse time, since the markdown compiler emits the container raw inner source verbatim', () => {
       expect(
         compiler(
           '<div>\n# Heading\n<a href="javascript:alert(1)">y</a>\n</div>'
@@ -2288,9 +2406,7 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
 })
 
 describe('unique heading IDs (#857)', () => {
-  it('round-trips duplicate headings without emitting ids', () => {
-    // The markdown compiler has no id attribute surface; assert the full
-    // emitted markdown for the same input so drift still fails the suite.
+  it('round-trips duplicate headings without emitting ids, since the markdown compiler has no id surface and the full emitted markdown is asserted instead', () => {
     expect(
       compiler(`# Foo
 
@@ -2311,12 +2427,16 @@ describe('unique heading IDs (#857)', () => {
       '## [text](https://e.com)'
     )
   })
+
+  it.each([
+    ['# !!!', '# !!!'],
+    ['# `]`', '# `]`'],
+  ])('round-trips %j, a heading with an empty slug, as %j (markdown output has no id surface, so the emitted text is asserted)', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+  })
 })
 
 describe('destination entity decode before sanitize', () => {
-  // Markdown re-emits destinations from the AST. A nulled dangerous link or
-  // image becomes an empty destination so the emitter writes [text]() /
-  // ![alt]() rather than embedding the word null.
   it('emits an empty destination for entity-obfuscated javascript: links', () => {
     expect(compiler('[x](&#106;avascript:alert(1))')).toBe('[x]()')
   })
@@ -2325,6 +2445,53 @@ describe('destination entity decode before sanitize', () => {
     expect(compiler('![alt](javascript:alert(1))')).toBe('![alt]()')
     expect(compiler('![alt](javascript:alert(1) "t")')).toBe('![alt]()')
   })
+
+  it.each([
+    ['tab', '![x](java\tscript:alert(1))'],
+    ['tab entity', '![x](java&#9;script:alert(1))'],
+    ['newline entity', '![x](java&#10;script:alert(1))'],
+    ['percent tab, mixed case', '![x](JaVa%09ScRiPt:alert(1))'],
+    ['percent control character', '![x](java%01script:alert(1))'],
+  ])('emits ![x]() for an image whose stripped form is a dangerous scheme: %s', (_, input) => {
+    expect(compiler(input)).toBe('![x]()')
+  })
+
+  it.each([
+    ['![&amp;copy;](x)', '![&amp;copy;](x)'],
+    ['[a](x "&amp;copy;")', '[a](x "&amp;copy;")'],
+    ['![a](x "t&amp;amp;")', '![a](x "t&amp;amp;")'],
+    [
+      '[a][r]\n\n[r]: /u "t&amp;copy;"',
+      '[r]: /u "t&amp;copy;"\n\n[a](/u "t&amp;copy;")',
+    ],
+    ['![&copy;](x)', '![©](x)'],
+    ['[a](x "&copy;")', '[a](x "©")'],
+  ])('keeps entity-shaped alt and title text literal in %j', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+    expectRoundTrip(input)
+  })
+
+  it('keeps a safe image destination', () => {
+    expect(compiler('![x](https://a.b/c.png)')).toBe('![x](https://a.b/c.png)')
+  })
+
+  it.each([
+    ['0;url=javascript:alert(1)'],
+    ['0;url=&#106;avascript:alert(1)'],
+    ['0;url=java%73cript:alert(1)'],
+    ['0;url=data:text/html,x'],
+    ['0;javascript:alert(1)'],
+  ])('writes a meta refresh with a dangerous URL without its content: %s', content => {
+    expect(compiler(`<meta http-equiv="refresh" content="${content}">`)).toBe(
+      '<meta http-equiv="refresh">'
+    )
+  })
+
+  it('keeps a meta refresh with a safe URL', () => {
+    expect(
+      compiler('<meta http-equiv="refresh" content="0;url=https://x.y">')
+    ).toBe('<meta http-equiv="refresh" content="0;url=https://x.y">')
+  })
 })
 
 describe('inline Type 1 content with tagfilter off', () => {
@@ -2332,6 +2499,18 @@ describe('inline Type 1 content with tagfilter off', () => {
     expect(compiler('<script>x</script>', { tagfilter: false })).toBe(
       '<script>x</script>'
     )
+  })
+
+  it('passes a textarea body, markup and references included, through unchanged', () => {
+    expect(
+      compiler('<textarea><b>x</b> &amp;</textarea>', { tagfilter: false })
+    ).toBe('<textarea><b>x</b> &amp;</textarea>')
+  })
+
+  it('passes a textarea written in capitals through unchanged', () => {
+    expect(
+      compiler('<TEXTAREA>a &lt; b</TEXTAREA>', { tagfilter: false })
+    ).toBe('<TEXTAREA>a &lt; b</TEXTAREA>')
   })
 })
 
@@ -2354,13 +2533,7 @@ Some paragraph
 })
 
 describe('tagfilter passthrough contract', () => {
-  // The markdown compiler emits markdown, not markup: raw HTML passes through
-  // byte-for-byte by design. It is not an execution sink, so tagfilter
-  // escaping does not apply here; the protection lands in the renderers that
-  // consume the HTML downstream.
-  it('passes raw dangerous tags through unchanged, with or without tagfilter', () => {
-    // Parity with HTML/JSX sinks: those emit inert full source
-    // (`&lt;script>…&lt;/script>` / span text). Markdown stays byte-preserving.
+  it('passes raw dangerous tags through unchanged, with or without tagfilter, because the markdown compiler is not an execution sink and stays byte-preserving where HTML and JSX sinks emit inert source', () => {
     expect(compiler('<script>alert(1)</script>')).toBe(
       '<script>alert(1)</script>'
     )
@@ -2372,8 +2545,6 @@ describe('tagfilter passthrough contract', () => {
     )
   })
 
-  // A document can write these tags raw, so naming one in code adds nothing to
-  // what another renderer can be shown
   it.each([
     ['`<script>`'],
     ['`<style>`'],
@@ -2381,7 +2552,7 @@ describe('tagfilter passthrough contract', () => {
     ['```html\n<title>x</title>\n```'],
     ['```\n<iframe src="https://a.b"></iframe>\n```'],
     ['```\n<textarea>\n```'],
-  ])('keeps code naming a filtered tag as code: %j', input => {
+  ])('keeps code naming a filtered tag as code, since a document can write these tags raw and naming one in code adds nothing another renderer can be shown: %j', input => {
     expect(compiler(input)).toBe(input)
   })
 
@@ -2392,7 +2563,6 @@ describe('tagfilter passthrough contract', () => {
     expect(compiler(`\`${code}\``)).toBe(expected)
   })
 
-  // With raw HTML off, code is the one way a tag can reach another renderer
   it.each([
     ['`<script>`', '<code>&lt;script></code>'],
     ['`<title>`', '<code>&lt;title></code>'],
@@ -2404,12 +2574,11 @@ describe('tagfilter passthrough contract', () => {
       '[^a`b]: x\n\n[^a`b] `<script>alert(1)</script>`',
       '[^a`b]: x\n\n[^a`b] <code>&lt;script>alert(1)&lt;/script></code>',
     ],
-  ])('writes %j as HTML when raw HTML parsing is off', (input, expected) => {
+  ])('writes %j as HTML when raw HTML parsing is off, since code is then the one way a tag can reach another renderer', (input, expected) => {
     expect(compiler(input, { disableParsingRawHTML: true })).toBe(expected)
   })
 
-  it('reads a truthy option as on, as the parser does', () => {
-    // Options parsed from JSON reach this with no type holding them to a boolean
+  it('reads a truthy option as on, as the parser does, since options parsed from JSON reach it with no type holding them to a boolean', () => {
     expect(
       compiler('`<script>`', JSON.parse('{"disableParsingRawHTML":1}'))
     ).toBe('<code>&lt;script></code>')
@@ -2433,9 +2602,7 @@ describe('prototype-slot reference labels (#900)', () => {
 })
 
 describe('optimizeForStreaming keeps literal delimiters', () => {
-  it('removes only unclosed emphasis openers', () => {
-    // Literal `_` and `*` in finished text survive; only the genuinely
-    // unclosed opener on the last line is held back (issue #905)
+  it('removes only the genuinely unclosed emphasis opener on the last line and keeps literal `_` and `*` in finished text (issue #905)', () => {
     expect(
       compiler(
         'pass *args and **kwargs\n\ncustomer_id and `customer_id`\n\nSELECT * FROM t WHERE 2*3=6\n\nhttps://example.com/a_b and <https://example.com/c_d>\n\n**held',
@@ -2454,10 +2621,7 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
     `)
   })
 
-  it('hides a never-closed opener until the final render (issue #909)', () => {
-    // The parser cannot tell a streaming edge from finished text, so an
-    // opener with no closer stays hidden while the option is on; the
-    // documented final render with the option off shows it as written
+  it('hides a never-closed opener while the option is on, since the parser cannot tell a streaming edge from finished text, and shows it as written in the final render with the option off (issue #909)', () => {
     const md = 'Use _trace and *args'
     expect(compiler(md, { optimizeForStreaming: true })).toMatchInlineSnapshot(
       `"Use trace and args"`
@@ -2467,9 +2631,7 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
     )
   })
 
-  it('keeps complete HTML and earlier blocks unchanged', () => {
-    // Complete raw HTML, and incomplete-looking links and code in a block
-    // that is no longer the last one, render exactly as without the option
+  it('keeps complete raw HTML, and incomplete-looking links and code in a block that is no longer the last one, rendering exactly as without the option', () => {
     const md = 'a <span>z</span> <br> b\n\nsee [a](b and `code\n\nlast'
     const streamed = compiler(md, { optimizeForStreaming: true })
     expect(streamed).toBe(compiler(md))
@@ -2494,6 +2656,12 @@ describe('optimizeForStreaming preserves literal less-than', () => {
     expect(
       compiler('x < y\n\nsecond para', { optimizeForStreaming: true })
     ).toBe('x < y\n\nsecond para')
+  })
+
+  it('reads a closing tag after an unfinished opener the way a full parse does', () => {
+    expect(compiler('x <Comp </b>y', { optimizeForStreaming: true })).toBe(
+      'x &lt;Comp </b>y'
+    )
   })
 })
 
@@ -2524,16 +2692,18 @@ describe('enforceAtxHeadings (#903)', () => {
     [false, '#######x', '\\#######x'],
     [undefined, 'a<span>#</span>b', 'a<span>#</span>b'],
     [false, 'a<span>#</span>b', 'a<span>#</span>b'],
-    // The markdown compiler re-emits a block HTML element's source text, so the
-    // heading the parser reads inside <div> under false does not show here.
     [undefined, '<div>\n#x\n</div>', '<div>\n#x\n</div>'],
     [false, '<div>\n#x\n</div>', '<div>\n#x\n</div>'],
-  ])('with enforceAtxHeadings %j writes %j as %j', (enforceAtxHeadings, input, expected) => {
+  ])('with enforceAtxHeadings %j writes %j as %j (a block HTML element is re-emitted as its source text, so the heading the parser reads inside <div> under false does not show)', (enforceAtxHeadings, input, expected) => {
     expect(compiler(input, { enforceAtxHeadings })).toBe(expected)
   })
 })
 
 describe('attribute names a renderer acts on rather than writes', () => {
+  it('writes a name that ends in a colon as written', () => {
+    expect(compiler('<span a:="1">b</span>')).toBe('<span a:="1">b</span>')
+  })
+
   it('removes an object children value from a registered tag', () => {
     expect(
       compiler('<Foo children={{"a":1}}>y</Foo>', {
@@ -2589,10 +2759,14 @@ describe('attribute names a renderer acts on rather than writes', () => {
       '<svg><rect><animate attributeName="opacity" values="0;1"/></rect></svg>',
     ],
     ['<Btn action={javascript:alert(1)}>x</Btn>', '<Btn >x</Btn>'],
+    ['<Btn srcDoc={"<script>alert(1)</script>"}>x</Btn>', '<Btn >x</Btn>'],
+    ['<Btn attributeName={href}>x</Btn>', '<Btn >x</Btn>'],
+    [
+      '<Btn attributeName={opacity}>x</Btn>',
+      '<Btn attributeName={opacity}>x</Btn>',
+    ],
     ['<Btn href={link}>x</Btn>', '<Btn href={link}>x</Btn>'],
     ['<Btn data={{"a":1}}>x</Btn>', '<Btn data={{"a":1}}>x</Btn>'],
-    // The tagfilter contract names the rendered outputs and not this one, which
-    // writes source for a renderer that applies its own filter
     [
       '<!-- c --> <script>alert(1)</script>',
       '<!-- c --> <script>alert(1)</script>',
@@ -2618,14 +2792,31 @@ describe('attribute names a renderer acts on rather than writes', () => {
       '<p><!-- a\n\nb <br title="--><script>alert(1)</script>"> c',
       '<p><!-- a\n\n\nb <br title="--><script>alert(1)</script>"> c',
     ],
-  ])('writes %j as %j', (input, expected) => {
+  ])('writes %j as %j (the tagfilter contract names the rendered outputs and not this one, which writes source for a renderer that applies its own filter)', (input, expected) => {
     expect(compiler(input)).toBe(expected)
+  })
+
+  it('drops a brace srcDoc and a brace attributeName naming a link from a tag an override renders as an element', () => {
+    expect(
+      compiler(
+        '<Card srcDoc={"<script>alert(1)</script>"} attributeName={href} title="t">a</Card>',
+        { overrides: { Card: { component: 'iframe' } } }
+      )
+    ).toBe('<Card title="t">a</Card>')
+  })
+
+  it('drops a brace value holding markup from a self-closing tag while streaming', () => {
+    expect(
+      compiler(
+        '<A dangerouslySetInnerHTML={{__html: "<img src=x onerror=alert(1)>"}} />',
+        { optimizeForStreaming: true }
+      )
+    ).toBe('<A ></A>')
   })
 })
 
 describe('text a downstream renderer reads as markup or a link', () => {
   it.each([
-    // An attribute value is raw text to a renderer that does not read the tag as a block
     [
       '<Foo x={a><javascript:alert(1)>}>',
       '<Foo x={a>&lt;javascript:alert(1)>}></Foo>',
@@ -2635,13 +2826,12 @@ describe('text a downstream renderer reads as markup or a link', () => {
       '<Foo x={a>[l&#93;(javascript:alert(1))}></Foo>',
     ],
     ['<Foo x={a>b}>', '<Foo x={a>b}></Foo>'],
-    // A target with a space is no definition to a renderer, so its text is a paragraph
     [
       '[r]: <a title=\'<Img onmouseover="alert(1)"&gt;x>\n\n[r]',
       "[r]: a%20title='%3CImg%20onmouseover=%22alert(1)%22%3Ex\n\n[r](a%20title='%3CImg%20onmouseover=%22alert(1)%22%3Ex)",
     ],
     ['[r]: /u\n\n[r]', '[r]: /u\n\n[r](/u)'],
-  ])('writes %j as %j', (input, expected) => {
+  ])('writes %j as %j (an attribute value is raw text to a renderer that does not read the tag as a block, and a definition target with a space is no definition to a renderer, so its text is a paragraph)', (input, expected) => {
     expect(compiler(input)).toBe(expected)
   })
 })
@@ -2676,6 +2866,7 @@ describe('markup a browser or downstream renderer reads differently from the par
     ['<pre><Img onclick={alert(1)}', '<pre>&lt;Img onclick={alert(1)}'],
     ['<div>\n<b onclick=alert(1)', '<div>&lt;b onclick=alert(1)'],
     ['```x onmouseover="alert(1)"\ny\n```', '```x\ny\n```'],
+    ['```x style="color:red"\ny\n```', '```x\ny\n```'],
     [
       '<iframe><img src=x onerror=alert(1)',
       '<iframe>&lt;img src=x onerror=alert(1)',
@@ -2697,7 +2888,6 @@ describe('markup a browser or downstream renderer reads differently from the par
       '<span>[l&#93;(javascript:alert(1))</span>',
     ],
     ['x <javascript:alert(1)> y', 'x [javascript:alert(1)]() y'],
-    // A Unicode space does not end an autolink, so it cannot hide the target
     [
       'x <span><javascript:alert(1)//\xa0></span>',
       'x <span>&lt;javascript:alert(1)//\xa0></span>',
@@ -2734,10 +2924,8 @@ describe('markup a browser or downstream renderer reads differently from the par
     ['[x][^1]', '\\[x\\]\\[^1\\]'],
     ['[^1][^2]\n\n[^1]: see [^3]', '[^1]: see [^3]\n\n[^1]\\[^2\\]'],
     ['[^1]\n\n[^1]: see [^2]\n\n[^2]: y', '[^1]: see [^2]\n[^2]: y\n\n[^1]'],
-    // A browser decodes a numeric reference with no semicolon or with many zeros
     ['[l](&#106avascript:alert(1))', '[l]()'],
     ['[l](jav&#X61script:alert(1))', '[l]()'],
-    // Hex digits run on, so this reads as `jvascript:`, not a dangerous scheme
     ['[l](&#X6Avascript:alert(1))', '[l](&#X6Avascript:alert(1))'],
     ['![l](java&#9script:alert(1))', '![l]()'],
     ['[l](&#00000000106;avascript:alert(1))', '[l]()'],
@@ -2752,7 +2940,6 @@ describe('markup a browser or downstream renderer reads differently from the par
       '[^1]: <!---->&#106avascript:alert(1)\n\n[^1]',
     ],
     ['[l](/a&#98c)', '[l](/a&#98c)'],
-    // An ATX heading is one line, so the next line would start a block of its own
     ['a\nb\n=', '# a b'],
     ['a  \nb\n---', '## a b'],
     [
@@ -2763,12 +2950,10 @@ describe('markup a browser or downstream renderer reads differently from the par
       '[^1]\n[^1]:&#106avascript:alert(1)\n=\n\n[^1]: y',
       '[^1]: y\n\n# [^1] [^1]\\:&#106avascript:alert(1)',
     ],
-    // `[^1]:` opening a block is a link reference to a renderer without footnotes
     [
       '- [^1]: a )\n[^1]:&#106avascript:alert(1)',
       '[^1]: a )\n\n- [^1]\\:&#106avascript:alert(1)',
     ],
-    // A browser ends this at the first `>`, marked at `?>`, inside the tag's value
     ['<q> <b>x</b>', '<q> <b>x</b>'],
     ['&amp;copy; a &amp; b', '&amp;copy; a & b'],
     ['&amp;#106;', '&amp;#106;'],
@@ -2789,33 +2974,38 @@ describe('markup a browser or downstream renderer reads differently from the par
     ],
     [
       '1. # [^1]\n[^1]:&#106avascript:alert(1)',
-      '1. # \\[^1\\]\n   \\[^1\\]:&#106avascript:alert(1)',
+      '[^1]: <!---->&#106avascript:alert(1)\n\n1. # [^1]',
+    ],
+    [
+      '1. a [^1]\n[^1]:&#106avascript:alert(1)',
+      '1. a \\[^1\\]\n   \\[^1\\]:&#106avascript:alert(1)',
     ],
     [
       '1. # [^1]\n[^1]:&#106avascript:alert(1)\n\n[^1]: y',
-      '[^1]: y\n\n1. # [^1]\n   [^1]\\:&#106avascript:alert(1)',
+      '[^1]: <!---->&#106avascript:alert(1)\n\n1. # [^1]',
     ],
     [
       '1. <!-- c --> x\n[^1]:&#106avascript:alert(1)\n\n[^1]',
-      '[^1]: <!---->&#106avascript:alert(1)\n\n1. <!-- c --> x\n   \n\n[^1]',
+      '[^1]: <!---->&#106avascript:alert(1)\n\n1. <!-- c --> x\n\n[^1]',
     ],
-    ['- <pre>x\ny</pre>', '- <pre>x\n  y</pre>'],
-    ['- <!-- x\ny -->', '- <!-- x\n  y -->'],
-    ['- <div\nonclick=alert(1)>x</div>', '- <div >x</div>'],
+    ['- <pre>x\ny</pre>', '- <pre>x\n\ny</pre>'],
+    ['- <!-- x\ny -->', '- <!-- x\n\ny -->'],
+    [
+      '- <div\nonclick=alert(1)>x</div>',
+      '- &lt;div\n\nonclick=alert(1)>x</div>',
+    ],
+    ['- a <div\nonclick=alert(1)>x</div>', '- a \n  <div>x</div>'],
     ['- <x-y\nonclick=alert(1)>y</x-y>', '- <x-y>y</x-y>'],
     ['- <Foo x="1\n2">y</Foo>', '- <Foo x="1&#10;2">y</Foo>'],
-    ['- ```\ny', '- ```\n  y\n  ```'],
+    ['- ```\ny', '- ```\n  \n  ```\n\ny'],
     ['1. <x-y>x\ny', '1. <x-y>x\n   y'],
     ['1. [r]:\n/u "a\nb"\n\n   [r]', '[r]: /u "a\nb"\n\n1. [r](/u "a\n   b")'],
-    [
-      '- a | b\n  --- | ---\nc | d',
-      '- | a | b |\n  | --- | --- |\n  | c | d |',
-    ],
+    ['- a | b\n  --- | ---\nc | d', '- | a | b |\n  | --- | --- |\n\nc | d'],
     [
       '- <b>f</b><!-- c --><img\nsrc=x>z onclick=alert(1)',
       '- <b>f</b>\n  <!-- c --><img src=x>z onclick=alert(1)',
     ],
-    ['- # h\na | b\n  --- | ---', '- # h\n  \n  | a | b |\n  | --- | --- |'],
+    ['- # h\na | b\n  --- | ---', '- # h\n\n| a | b |\n| --- | --- |'],
     ['- - [^1]:\nz\n\n  [^1]', '[^1]: z\n\n- - \n  \n  [^1]'],
     ['[r]: a\\\nb\n\n[r]', '[r]: a\\\\\n\nb\n\n[r](a\\\\)'],
     ['[r]: a\\ "t"\n\n[r]', '[r]: a\\\\ "t"\n\n[r](a\\\\ "t")'],
@@ -2823,7 +3013,6 @@ describe('markup a browser or downstream renderer reads differently from the par
     ['[x](a\\\\)', '[x](a\\\\)'],
     ['[x](a\\b)', '[x](a\\b)'],
     ['1. [^1]:\nb\n\n   [^1]', '[^1]: b\n\n1. \n   [^1]'],
-    // A paragraph's lazy line stays out of block parsing, so no heading
     ['- <b>x</b>\ny\n===', '- <b>x</b>\n  \n  y\n  \\==='],
     [
       '<div <b c="d"/>\n<![CDATA[</pre>\n\n```\n<b>\n```',
@@ -2851,12 +3040,14 @@ describe('markup a browser or downstream renderer reads differently from the par
     ],
     [
       '- <?p ?> <?q ?>[x](\njavascript:alert(1))',
-      '- <?p ?> <?q ?>[x&#93;(\n  javascript:alert(1))',
+      '- <?p ?> <?q ?>[x&#93;(\n\njavascript:alert(1))',
     ],
+    ['- a <?p ?> <?q ?>[x](\njavascript:alert(1))', '- a <?p ?> <?q ?>[x]()'],
     [
       '1. <!X>![x]( \rjavascript:alert(1))',
-      '1. <!X>![x&#93;( \n   javascript:alert(1))',
+      '1. <!X>![x&#93;( \n\njavascript:alert(1))',
     ],
+    ['1. a <!X>![x]( \rjavascript:alert(1))', '1. a <!X>![x]()'],
     [
       '<div>\n\n```\n```\t\n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
       '<div>\n\n```\n```\t\n\n</div>\n\n<pre><code>&lt;img src=x onerror=alert(1)>\n</code></pre>',
@@ -2885,21 +3076,25 @@ describe('markup a browser or downstream renderer reads differently from the par
     ['[r]: <a b>\n\n[r]', '[r]: a%20b\n\n[r](a%20b)'],
     ['[x](<a(b>)', '[x](<a(b>)'],
     ['[a](b<c)', '[a](b%3Cc)'],
+    ['[a](x&#1;y)', '[a](x%01y)'],
+    ['![a](x&#127;y)', '![a](x%7Fy)'],
     [
       `> <div </div${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
-      "> <div </div&#8232;>\n> onclick='alert(1)'\n>",
+      "> <div </div&#8232;>\n>\n\nonclick='alert(1)'",
+    ],
+    [
+      `> a <div </div${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
+      `> a &lt;div &lt;/div${String.fromCharCode(0x20_28)}>\n> onclick='alert(1)'`,
     ],
     [
       '/\n    <pre>\n```\n<img src=x onerror=alert(1)>\n```',
       '/\n<pre>\n\n<pre><code>&lt;img src=x onerror=alert(1)>\n</code></pre>',
     ],
     ['[^a`b] `<img src=x onerror=alert(1)>`', '\\[^a`b] `<img src=x>\\`'],
-    // No raw HTML: a renderer pairs the footnote label's backtick with the code span's
     [
       '[^a`b] `<img src=x onerror=alert(1)>`\n\n[^a`b]: y',
       '[^a`b]: y\n\n[^a`b] <code>&lt;img src=x onerror=alert(1)></code>',
     ],
-    // No raw HTML: a renderer reads the title's fence
     [
       '[r]: /u "\n```\n"\n\n```\n<img src=x onerror=alert(1)>\n```',
       '[r]: /u "\n```\n"\n\n<pre><code>&lt;img src=x onerror=alert(1)>\n</code></pre>',
@@ -2940,7 +3135,6 @@ describe('markup a browser or downstream renderer reads differently from the par
       '`[x](javascript:alert(1))`',
       '<code>&#91;x&#93;(javascript&#58;alert(1))</code>',
     ],
-    // A renderer reads markdown in a code span written as HTML, where a URL becomes a link
     [
       '`<img onerror=x> https://a.b/c`',
       '<code>&lt;img onerror=x> https&#58;//a&#46;b/c</code>',
@@ -2953,7 +3147,6 @@ describe('markup a browser or downstream renderer reads differently from the par
       '`<img onerror=x> a@b.co`',
       '<code>&lt;img onerror=x> a&#64;b&#46;co</code>',
     ],
-    // A reference definition split across raw HTML and the next line of a list item
     [
       '- <?a ?>[x]:\n  javascript:alert(1)\n\n<span>[x]</span>',
       '- <?a ?>[x&#93;:\n  javascript:alert(1)\n\n<span>[x]</span>',
@@ -2966,30 +3159,25 @@ describe('markup a browser or downstream renderer reads differently from the par
       '1. <![CDATA[a]]>[x]:\n   &#106;avascript:alert(1)\n\n<span>[y][x]</span>',
       '1. <![CDATA[a]]>[x&#93;:\n   javascript:alert(1)\n\n<span>[y][x]</span>',
     ],
-    // A footnote's first word that names no scheme stays bare, and a screened one is not screened again
     ['a[^1]\n\n[^1]: 100% of people', '[^1]: 100% of people\n\na[^1]'],
     [
       'a[^1]\n\n[^1]: <!---->Javascript: x',
       '[^1]: <!---->Javascript: x\n\na[^1]',
     ],
-    // Continuation lines indent to the marker's width, or a fence's body gains a space on each pass
     ['1. ```\n   foo\n   ```', '1. ```\n   foo\n   ```'],
     ['10. ```\n    foo\n    ```', '10. ```\n    foo\n    ```'],
     [
       '1. ```\n   <img onerror=x>\n   ```',
       '1. <pre><code>&lt;img onerror=x>\n   </code></pre>',
     ],
-    // A last `#` run after a space reads as a closing sequence
     ['a #\n=', '# a \\#'],
     ['# a \\#', '# a \\#'],
     ['## a ###', '## a'],
     ['# a#', '# a#'],
-    // A language that reads as plain text survives as the class a renderer would write
     [
       '```html\n<button onclick="go()">*go*</button>\n```',
       '<pre><code class="language-html">&lt;button onclick="go()">&#42;go&#42;&lt;/button>\n</code></pre>',
     ],
-    // Code that is harmless even read as raw HTML keeps its markdown form
     ['`<div>`', '`<div>`'],
     ['```html\n<div>hi</div>\n```', '```html\n<div>hi</div>\n```'],
     [
@@ -3069,14 +3257,12 @@ describe('markup a browser or downstream renderer reads differently from the par
       '[l](/u "-->&lt;img src=x onerror=alert(1)>")',
     ],
     ['![a"--><img src=x onerror=alert(1)>](/x)', '![a&quot;-->](/x)'],
-    // marked reads `<?>` as an opener with no end, and every block after it as raw HTML
     ['<?>\n\n```\n<img src=x>\n```', '<?>\n\n\n```\n<img src=x>\n```'],
     [
       '<?>\n\n```\n<img src=x onerror=alert(1)>\n```',
       '<?>\n\n\n<pre><code>&lt;img src=x onerror=alert(1)>\n</code></pre>',
     ],
     ['<?x?>', '<?x?>'],
-    // A renderer writes alt into a quoted attribute, and marked 17 does so unescaped
     ['![" onclick=alert(1)>](/x)', '![&quot; onclick=alert(1)>](/x)'],
     ['![a &quot;b&quot; c](/x)', '![a &quot;b&quot; c](/x)'],
     [
@@ -3135,9 +3321,11 @@ describe('markup a browser or downstream renderer reads differently from the par
     ["<div </div>'", "<div </div>'"],
     ['<?php echo 1 ?>', '<?php echo 1 ?>'],
     ['<!DOCTYPE html>', '<!DOCTYPE html>'],
+    ['<!doctype html>', '<!doctype html>'],
     ['<![CDATA[x]]>', '<![CDATA[x]]>'],
     ['a <?b?> c', 'a <?b?> c'],
     ['a <!B c> d', 'a <!B c> d'],
+    ['x <!a b> y', 'x <!a b> y'],
     ['a <![CDATA[b]]> c', 'a <![CDATA[b]]> c'],
     ['a <!-- b --> c', 'a <!-- b --> c'],
     ['[l](java&Tab;script:alert(1))', '[l]()'],
@@ -3236,14 +3424,25 @@ describe('markup a browser or downstream renderer reads differently from the par
     ['<div>y</div>', '<section>y</section>', 'div', 'section'],
     [
       '- <script></textarea></script\v>\n&gt;- <b>f</b><!-- c --><img\nsrc=x> onclick=alert(1)',
-      '- <script></textarea></script\v>\n  \n  \\>\\-\n  \n  <script>f</script>\n  <!-- c --><img src=x> onclick=alert(1)',
+      '- <script></textarea></script\v>\n\n\\>- <script>f</script><!-- c --><img\nsrc=x> onclick=alert(1)',
       'b',
       'script',
     ],
-    // A `{…}` value does not stop a renderer splitting the tag
+    [
+      '- a <script></textarea></script\v>\n&gt;- <b>f</b><!-- c --><img\nsrc=x> onclick=alert(1)',
+      '- a <script></textarea>&lt;/script\v>\n  \\>-\n  \n  <script>f</script>\n  <!-- c --><img src=x> onclick=alert(1)',
+      'b',
+      'script',
+    ],
     [
       '- <script></textarea></script\v>\n&gt;- <b>f</b><!DOCTYPE html><Foo x={1\nsrc=x}> onclick=alert(1)',
-      '- <script></textarea></script\v>\n  \n  \\>\\-\n  \n  <script>f</script>\n  <!DOCTYPE html><Foo x={1 src=x}> onclick=alert(1)',
+      '- <script></textarea></script\v>\n\n\\>- <script>f</script><!DOCTYPE html><Foo x={1\nsrc=x}> onclick=alert(1)',
+      'b',
+      'script',
+    ],
+    [
+      '- a <script></textarea></script\v>\n&gt;- <b>f</b><!DOCTYPE html><Foo x={1\nsrc=x}> onclick=alert(1)',
+      '- a <script></textarea>&lt;/script\v>\n  \\>-\n  \n  <script>f</script>\n  <!DOCTYPE html><Foo x={1 src=x}> onclick=alert(1)',
       'b',
       'script',
     ],
@@ -3274,8 +3473,6 @@ describe('markup a browser or downstream renderer reads differently from the par
     ['<Btn onClick={go}>x</Btn>', '<Btn >x</Btn>'],
     ['<Btn onClick={() => x > 1}>x</Btn>', '<Btn >x</Btn>'],
     ['<Img src=x onerror={steal()}>', '<Img src=x>'],
-    // An HTML tag a browser reads as holding a live handler is text in raw markup,
-    // and inline it loses each attribute a browser reads differently
     [
       '<Btn onClick={go} style={{ a: 1 }}>x</Btn>',
       '&lt;Btn onClick={go} style={{ a: 1 }}>x</Btn>',
@@ -3289,7 +3486,6 @@ describe('markup a browser or downstream renderer reads differently from the par
       '<Btn onclick={a} x={ onclick={b} }>y</Btn>',
       '&lt;Btn onclick={a} x={ onclick={b} }>y</Btn>',
     ],
-    // A bare handler name goes from an HTML tag too
     ['<Btn onClick>x</Btn>', '<Btn >x</Btn>'],
     ['<Img onerror>', '<Img >'],
     ['<my-widget online>x</my-widget>', '<my-widget >x</my-widget>'],
@@ -3299,10 +3495,15 @@ describe('markup a browser or downstream renderer reads differently from the par
   })
 
   it.each([
-    ['<Btn onClick={go}>x</Btn>'],
-    ['<Btn onClick={go} style={{ a: 1 }}>x</Btn>'],
-  ])('keeps the brace handler in %j when `overrides` registers the tag', input => {
-    expect(compiler(input, { overrides: { Btn: { props: {} } } })).toBe(input)
+    ['<Btn onClick={go}>x</Btn>', '<Btn >x</Btn>'],
+    [
+      '<Btn onClick={go} style={{ a: 1 }}>x</Btn>',
+      '<Btn style={{ a: 1 }}>x</Btn>',
+    ],
+  ])('writes %j as %j when `overrides` registers the tag, since a browser runs the handler', (input, expected) => {
+    expect(compiler(input, { overrides: { Btn: { props: {} } } })).toBe(
+      expected
+    )
   })
 
   it.each(
@@ -3438,15 +3639,8 @@ describe('markup a browser or downstream renderer reads differently from the par
       undefined,
       'x <a href="/">y</a>',
     ],
-    // A capitalized tag an override matches is a component, whose handler stays
-    [
-      '<Btn onClick={go}>x</Btn>',
-      { Btn: { props: {} } },
-      '<Btn onClick={go}>x</Btn>',
-    ],
-    // With no raw source, the output writes the tag from its attrs
+    ['<Btn onClick={go}>x</Btn>', { Btn: { props: {} } }, '<Btn >x</Btn>'],
     [handBuiltLink, undefined, '<a href="/" />'],
-    // The rename pass writes a handler-free `<a href="/" />` the same way
     [handBuiltLink, { a: { component: 'b' } }, '<b href="/" ></b>'],
     [handBuiltText, undefined, '<span>t</span>'],
     [handBuiltBlock('div'), undefined, '<div>\nx\n</div>'],
@@ -3506,7 +3700,7 @@ describe('markup a browser or downstream renderer reads differently from the par
     [
       storedAST('<Btn onClick={go}>x</Btn>', { Btn: { props: {} } }),
       { Btn: { props: {} } },
-      '<Btn onClick="go">x</Btn>',
+      '<Btn>x</Btn>',
     ],
   ] as const)('writes %j with %j as %j', (input, overrides, expected) => {
     if (typeof input === 'string') {
@@ -3516,8 +3710,7 @@ describe('markup a browser or downstream renderer reads differently from the par
     expect(astToMarkdown(input, { overrides })).toBe(expected)
   })
 
-  it('writes a hand-built code block as a fence, without its attributes', () => {
-    // A fence has no place for attributes, so neither data-x nor the handler is written
+  it('writes a hand-built code block as a fence, without its attributes (a fence has no place for them, so neither data-x nor the handler is written)', () => {
     const ast = parser('```js\nx\n```')
     Object.assign(ast[0], { attrs: { 'data-x': 'y', onclick: 'alert(1)' } })
     expect(astToMarkdown(ast)).toBe('```js\nx\n```')
@@ -3560,13 +3753,11 @@ describe('markup a browser or downstream renderer reads differently from the par
       { overrides: {} },
       '<Constructor>hi</Constructor>',
     ],
-    // A lowercase tag an override matches writes no handler
     [
       '<my-widget onclick={alert(1)}>x</my-widget>',
       { overrides: { 'my-widget': { props: {} } } },
       '<my-widget >x</my-widget>',
     ],
-    // A lowercase tag is HTML, which the option does not change
     [
       '<my-widget onclick={() => 1}>x</my-widget>',
       { evalUnserializableExpressions: true },
@@ -3578,7 +3769,7 @@ describe('markup a browser or downstream renderer reads differently from the par
         evalUnserializableExpressions: true,
         overrides: { IMG: { props: {} } },
       },
-      '<Img onclick={() => 1} >',
+      '<Img >',
     ],
   ])('with its options keeps %j and %j as %j', (input, options, expected) => {
     expect(compiler(input, options)).toBe(expected)
@@ -3599,8 +3790,6 @@ describe('markup a browser or downstream renderer reads differently from the par
 describe('a children attribute on a tag with an override', () => {
   const card = { card: { component: 'i' } }
 
-  // An element with no content of its own takes the value as text; the
-  // attribute is never written. Same inputs as the html suite.
   it.each([
     [
       'a capitalized self-closing tag',
@@ -3783,8 +3972,6 @@ describe('a children attribute on a tag with an override', () => {
       card,
       '<i>a\nb</i>',
     ],
-    // A tag nested in a raw block keeps its written name here, which the JSX
-    // outputs rename; whether this output should rename it is an open question
     [
       'a registered tag inside a raw block, which the output passes through without the attribute',
       '<div>\n<Card children="z" />\n</div>',
@@ -3827,8 +4014,6 @@ describe('a children attribute on a tag with an override', () => {
       card,
       '<div><Card  />\n</div>',
     ],
-    // The value goes with the attribute here, as in the rows above; the JSX
-    // outputs keep it byte for byte
     [
       'a value with markup characters and a run of spaces inside a raw block, which the output passes through without the attribute',
       '<div>\n<Card children="a >  < b" />\n</div>',
@@ -3869,10 +4054,6 @@ describe('a children attribute on a tag with an override', () => {
     expect(compiler(input, { overrides })).toBe(expected)
   })
 
-  // The value is written with entities only: a block-level tag alone on its line
-  // opens a raw HTML block, where a backslash shows as text, and an inline
-  // position is read as markdown again, so only an entity is inert in both.
-  // Each reader must show exactly the value as the element's visible text.
   const visibleText = (html: string, tag: string) => {
     const match = new RegExp(`<${tag}[^>]*>(.*?)</${tag}>`, 's').exec(html)
 
@@ -3921,7 +4102,7 @@ describe('a children attribute on a tag with an override', () => {
       '<div >&amp;amp;copy;</div>',
       'Before <div>&amp;amp;copy;</div> after.',
     ],
-  ])('writes the value %j in a %s tag as text that marked and micromark show as written', (value, tag, alone, inline) => {
+  ])('writes the value %j in a %s tag with entities only (alone on its line a block tag opens a raw HTML block where a backslash shows as text, and inline the value is read as markdown again, so only an entity is inert in both), so marked and micromark show it as written', (value, tag, alone, inline) => {
     const overrides = { Card: { component: tag, props: {} } }
     const aloneOutput = compiler(`<Card children="${value}" />`, { overrides })
     const inlineOutput = compiler(
@@ -3961,7 +4142,6 @@ describe('a URL that names a dangerous scheme', () => {
       '<a href="/docs/javascript:intro">x</a>',
       '<a href="/docs/javascript:intro">x</a>',
     ],
-    // Another renderer splits this one and reads a live link from the rest
     ['[l](/[x](javascript:alert(1)))', '[l]()'],
     ['[x](\n?>[x](javascript:alert(1) "t")', '[x]()'],
     ['[a](javascript:alert(1))', '[a]()'],
@@ -3977,15 +4157,15 @@ describe('the character rules of the raw string screens', () => {
 
   const hex = (code: number) => code.toString(16).toUpperCase().padStart(4, '0')
 
-  // The ECMAScript whitespace set: tab through CR, space, and the Unicode spaces
   const ECMASCRIPT_SPACE_CODES = [
     0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x20, 0xa0, 0x16_80, 0x20_00, 0x20_01,
     0x20_02, 0x20_03, 0x20_04, 0x20_05, 0x20_06, 0x20_07, 0x20_08, 0x20_09,
     0x20_0a, 0x20_28, 0x20_29, 0x20_2f, 0x20_5f, 0x30_00, 0xfe_ff,
   ]
 
-  // Zero-width, control, and formerly-space characters that are not whitespace
-  const NON_SPACE_CODES = [0x85, 0x18_0e, 0x20_0b, 0x20_60]
+  const ZERO_WIDTH_CONTROL_AND_FORMER_SPACE_CODES = [
+    0x85, 0x18_0e, 0x20_0b, 0x20_60,
+  ]
 
   it.each(
     ECMASCRIPT_SPACE_CODES.map(code => [hex(code), String.fromCharCode(code)])
@@ -3999,7 +4179,10 @@ describe('the character rules of the raw string screens', () => {
   })
 
   it.each(
-    NON_SPACE_CODES.map(code => [hex(code), String.fromCharCode(code)])
+    ZERO_WIDTH_CONTROL_AND_FORMER_SPACE_CODES.map(code => [
+      hex(code),
+      String.fromCharCode(code),
+    ])
   )('U+%s is part of a destination', (_, character) => {
     expect(screen(`](a${character}<javascript:x>`)).toBe(
       `&#93;(a${character}&lt;javascript:x>`
@@ -4007,12 +4190,10 @@ describe('the character rules of the raw string screens', () => {
   })
 
   it.each([
-    // A closing paren, `>`, and `]` end a destination too
     ['](/a)javascript:x', '](/a)javascript:x'],
     ['](/a>javascript:x', '](/a>javascript:x'],
     ['](/a]javascript:x', '](/a]javascript:x'],
     [']:javascript:x', '&#93;:javascript:x'],
-    // At the string's end the destination is in the next node, out of sight
     [']:', '&#93;:'],
     [']:  \n', '&#93;:  \n'],
     ['](', '&#93;('],
@@ -4021,13 +4202,9 @@ describe('the character rules of the raw string screens', () => {
     [']x', ']x'],
     ['](<javascript:x', '&#93;(&lt;javascript:x'],
     [']( <javascript:x', '&#93;( &lt;javascript:x'],
-    // A match ends at its destination, so the walk resumes at the `]` that ended it
     ['](/a](javascript:x', '](/a&#93;(javascript:x'],
     ['<javascript:x>', '&lt;javascript:x>'],
     ['<JavaScript:x>', '&lt;JavaScript:x>'],
-    // An autolink needs a scheme of two to 32 characters. Inside one, the unsafe
-    // destination neutralizes its `<`, and the `]` is screened either way, since
-    // a neutralized body is text and an earlier `[` can pair with it
     ['<j:](javascript:x>', '<j:&#93;(javascript:x>'],
     ['<jj:](javascript:x>', '&lt;jj:&#93;(javascript:x>'],
     ['[x <jj:a](javascript:x)>', '[x &lt;jj:a&#93;(javascript:x)>'],
@@ -4043,9 +4220,7 @@ describe('the character rules of the raw string screens', () => {
     ['<1j:](javascript:x>', '<1j:&#93;(javascript:x>'],
     ['<j_j:](javascript:x>', '<j_j:&#93;(javascript:x>'],
     ['<j+.-j:](javascript:x>', '&lt;j+.-j:&#93;(javascript:x>'],
-    // An autolink holds no whitespace or second `<`, and needs its `>`
     ['<jj:](javascript:x', '<jj:&#93;(javascript:x'],
-    // CommonMark ends an autolink only at an ASCII control or space, `<`, or `>`
     ['<jj:a\xa0](javascript:x>', '&lt;jj:a\xa0&#93;(javascript:x>'],
     ['<javascript:x\xa0y>', '&lt;javascript:x\xa0y>'],
     ['<javascript:x\u{2003}y>', '&lt;javascript:x\u{2003}y>'],
@@ -4057,8 +4232,6 @@ describe('the character rules of the raw string screens', () => {
     ['<jj:a\xa0<javascript:x\xa0y>', '<jj:a\xa0&lt;javascript:x\xa0y>'],
     ['<javascript:x\0y>', '<javascript:x\0y>'],
     ['<jj:<jj:](javascript:x>', '<jj:&lt;jj:&#93;(javascript:x>'],
-    // A second `<` neutralized would let the first close at a later `>`, so an
-    // unsafe body before it is neutralized too
     [
       '<javascript:a](<javascript:x>)>',
       '&lt;javascript:a&#93;(&lt;javascript:x>)>',
@@ -4068,10 +4241,8 @@ describe('the character rules of the raw string screens', () => {
       '&lt;javascript:a&lt;javascript:b&lt;javascript:c>',
     ],
     ['<https:a<javascript:b>', '<https:a&lt;javascript:b>'],
-    // marked reads U+007F as part of an autolink's body, CommonMark does not
     ['<javascript:x\x7f>', '&lt;javascript:x\x7f>'],
     ['<jj:a>](javascript:x)', '<jj:a>&#93;(javascript:x)'],
-    // The alt search reads the link pass's output, where the unsafe `]` is gone
     ['![a"]', '!&#91;a"]'],
     ['![a"\n]', '!&#91;a"\n]'],
     ['![a"\n\n]', '![a"\n\n]'],
@@ -4085,10 +4256,18 @@ describe('the character rules of the raw string screens', () => {
   })
 })
 
+describe('emphasis nested past the inline depth limit', () => {
+  it('leaves the delimiters outside the 199th level as literal text', () => {
+    expect(compiler(`${'*'.repeat(6000)}a${'*'.repeat(6000)}`)).toBe(
+      `${'\\*'.repeat(5602)}${'**'.repeat(199)}a${'**'.repeat(199)}${'\\*'.repeat(5602)}`
+    )
+  })
+})
+
 describe('a www. bare URL needs a dot inside its own span', () => {
-  it('ignores a dot in the text after the URL', () => {
-    // The markdown compiler writes an unlinked URL back as the same text
-    expect(compiler('www.foo bar.com')).toBe('www.foo bar.com')
+  it('ignores a dot in the text after the URL and escapes the dot after www. so a node written after the text cannot complete a URL', () => {
+    expect(compiler('www.foo bar.com')).toBe('www\\.foo bar.com')
+    expectRoundTrip('www.foo bar.com')
   })
 
   it('links a URL whose own span holds a dot', () => {
@@ -4103,17 +4282,25 @@ describe('a www. bare URL needs a dot inside its own span', () => {
 })
 
 describe('bare URLs in a run without spaces', () => {
-  // The markdown compiler writes each link as `[text](url)`, escapes `_` and
-  // `(` in text, and wraps a destination with unbalanced parens in `<...>`.
   it('links a later www. address whose own paren balance trims differently', () => {
     expect(compiler('www.(www.ab_.))')).toBe(
-      'www.([www.ab](http://www.ab)\\_.))'
+      'www\\.([www.ab](http://www.ab)\\_.))'
     )
+    expectRoundTrip('www.(www.ab_.))')
+  })
+
+  it.each([
+    ['a\\@b.com', 'a\\@b.com'],
+    ['a@b.c', '[a@b.c](mailto:a@b.c)'],
+    ['a@b_c.d', '[a@b\\_c.d](mailto:a@b_c.d)'],
+  ])('writes %j as %j', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+    expectRoundTrip(input)
   })
 
   it('links the earliest candidate whose trailing parens leave a clean domain', () => {
     expect(compiler('www._)www._(www.c).).')).toBe(
-      'www.*)www.*\\([www.c](http://www.c)).).'
+      'www\\.*)www\\.*\\([www.c](http://www.c)).).'
     )
   })
 
@@ -4125,19 +4312,20 @@ describe('bare URLs in a run without spaces', () => {
 
   it('links a scheme URL after a rejected one', () => {
     expect(compiler('http://a_b.c_dhttp://x.y')).toBe(
-      'http://a\\_b.c\\_d[http://x.y](http://x.y)'
+      'http:/\\/a\\_b.c\\_d[http://x.y](http://x.y)'
     )
+    expectRoundTrip('http://a_b.c_dhttp://x.y')
   })
 
   it('links a www. address past a slash that ended a rejected domain', () => {
     expect(compiler('www.a_/www.b.c')).toBe(
-      'www.a\\_/[www.b.c](http://www.b.c)'
+      'www\\.a\\_/[www.b.c](http://www.b.c)'
     )
   })
 
   it('links a later candidate past a slash that reuses the rejected domain verdict', () => {
     expect(compiler('www.x_www.y/a.b')).toBe(
-      'www.x\\_[www.y/a.b](http://www.y/a.b)'
+      'www\\.x\\_[www.y/a.b](http://www.y/a.b)'
     )
   })
 
@@ -4155,7 +4343,7 @@ describe('bare URLs in a run without spaces', () => {
 
   it('links a later www. address past a [ that the first candidate never closes', () => {
     expect(compiler('www.[www.a.b_]')).toBe(
-      'www.\\[[www.a.b](http://www.a.b)\\_\\]'
+      'www\\.\\[[www.a.b](http://www.a.b)\\_\\]'
     )
   })
 
@@ -4166,11 +4354,11 @@ describe('bare URLs in a run without spaces', () => {
   })
 
   it('stays text when a ] before a later candidate leaves it no clean domain', () => {
-    expect(compiler('www.]www.a.b_[]')).toBe('www.\\]www.a.b\\_\\[\\]')
+    expect(compiler('www.]www.a.b_[]')).toBe('www\\.\\]www\\.a.b\\_\\[\\]')
   })
 
   it('stays text when a nested [ pair closes after an underscore in the last segment', () => {
-    expect(compiler('www.[[a.b]_]')).toBe('www.\\[\\[a.b\\]\\_\\]')
+    expect(compiler('www.[[a.b]_]')).toBe('www\\.\\[\\[a.b\\]\\_\\]')
   })
 
   it('ends the link at the last closer when a kept ) and a kept ] both remain', () => {
@@ -4178,11 +4366,11 @@ describe('bare URLs in a run without spaces', () => {
   })
 
   it('stays text when a scheme URL has an empty domain', () => {
-    expect(compiler('http://.')).toBe('http://.')
+    expect(compiler('http://.')).toBe('http:/\\/.')
   })
 
   it('stays text when a www. address trims away to nothing', () => {
-    expect(compiler('www._www..')).toBe('www.\\_www..')
+    expect(compiler('www._www..')).toBe('www\\.\\_www\\..')
   })
 })
 
@@ -4208,8 +4396,6 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '[see https://example.com/?a[0]=1]',
       '\\[see [https://example.com/?a\\[0\\]=1](https://example.com/?a[0]=1)\\]',
     ],
-    // A trailing ] is trimmed to text while the URL holds more ] than [, so a ]
-    // with no matching [ ends the URL wherever its [ sits
     [
       'see https://example.com/a]',
       'see [https://example.com/a](https://example.com/a)\\]',
@@ -4230,12 +4416,24 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '[see ==https://example.com/a]==',
       '\\[see ==[https://example.com/a](https://example.com/a)\\]==',
     ],
-    // The markdown compiler writes a raw HTML element back as its source, so no link shows
+    [
+      '==https://example.com/a==',
+      '==[https://example.com/a](https://example.com/a)==',
+    ],
+    ['==https://x.y/?t=YQ== b', '==[https://x.y/?t=YQ](https://x.y/?t=YQ)== b'],
+    ['https://x.y/?t=YQ== b', '[https://x.y/?t=YQ==](https://x.y/?t=YQ==) b'],
+    [
+      '~~a https://x.y/?t=YQ== b~~',
+      '~~a [https://x.y/?t=YQ==](https://x.y/?t=YQ==) b~~',
+    ],
+    [
+      "~~https://example.com/a~~'",
+      "~~[https://example.com/a](https://example.com/a)~~'",
+    ],
     [
       '[see <span>https://example.com/a]</span>',
       '\\[see <span>https://example.com/a]</span>',
     ],
-    // The URL ends before \] and the escape renders as a literal ]
     [
       '[see https://example.com/a\\]]',
       '\\[see [https://example.com/a](https://example.com/a)\\]\\]',
@@ -4260,7 +4458,6 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '[see https://example.com/a.]',
       '\\[see [https://example.com/a](https://example.com/a).\\]',
     ],
-    // An unclosed [ inside the URL balances the final ], so it stays
     [
       '[see https://example.com/?a[0=1]',
       '\\[see [https://example.com/?a\\[0=1\\]](https://example.com/?a[0=1])',
@@ -4275,5 +4472,111 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '\\[see [https://example.com/a](https://example.com/a)\\] after'
     expect(compiler(input)).toBe(expected)
     expect(compiler(input, { optimizeForStreaming: true })).toBe(expected)
+  })
+})
+
+describe('override props that have no attribute form in the html compiler', () => {
+  it('writes the heading without reading override props, since markdown has no attributes', () => {
+    expect(
+      compiler('# hi', {
+        overrides: {
+          h1: {
+            props: { 'data-a': false, 'data-d': 'k' },
+          },
+        },
+      })
+    ).toBe('# hi')
+  })
+})
+
+describe('a setext underline after a lazy line in a block quote', () => {
+  it('writes the heading as ATX with its lines joined by a space', () => {
+    expect(compiler('> a\nb\n> ---')).toBe('> ## a b')
+  })
+  it.each([
+    ['> a\nb\n>\n> c\n> ===', '> a\n> b\n>\n> # c'],
+    ['> a\nb\n===', '> a\n> b\n> \\==='],
+  ])('writes %j as %j and re-parses to the same output', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+    expectRoundTrip(input)
+  })
+})
+
+describe('code span edge spaces', () => {
+  it.each([
+    ['` a `', '`a`'],
+    ['` \t `', '`\t`'],
+    ['`   `', '` `'],
+  ])('writes %j as %j and re-parses to the same output', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+    expectRoundTrip(input)
+  })
+})
+
+describe('code spans at the streaming edge', () => {
+  it.each([
+    ['x `` a ` b `` y', 'x ``a ` b`` y'],
+    ['x \\` y', 'x \\` y'],
+  ])('writes %j as %j with optimizeForStreaming, as without it', (input, expected) => {
+    expect(compiler(input, { optimizeForStreaming: true })).toBe(expected)
+    expect(compiler(input)).toBe(expected)
+  })
+})
+
+describe('a bare email address with an underscore', () => {
+  it.each([
+    ['foo@a_b.c', '[foo@a\\_b.c](mailto:foo@a_b.c)'],
+    ['foo@a.b_c.d', '[foo@a.b\\_c.d](mailto:foo@a.b_c.d)'],
+    ['a.b-c_d@a.b_', 'a.b-c\\_d\\@a.b\\_'],
+  ])('writes %j as %j and re-parses to the same output', (input, expected) => {
+    expect(compiler(input)).toBe(expected)
+    expectRoundTrip(input)
+  })
+})
+
+describe('a heading whose slug is only whitespace', () => {
+  it('writes the heading with no id, since markdown has no id syntax', () => {
+    expect(compiler('# Hi', { slugify: () => ' ' })).toBe('# Hi')
+  })
+
+  it('writes a heading with accented Latin letters and ß as written, since markdown has no id syntax for the folded slug', () => {
+    expect(compiler('# Öl Straße\n\n# Łódź')).toBe('# Öl Straße\n\n# Łódź')
+  })
+})
+
+describe('render depth limit', () => {
+  it.each([
+    [$.MAX_RENDER_DEPTH - 1, `${'> '.repeat($.MAX_RENDER_DEPTH - 1)}x`],
+    [$.MAX_RENDER_DEPTH, `${'> '.repeat($.MAX_RENDER_DEPTH)}x`],
+    [$.MAX_RENDER_DEPTH + 1, `${'> '.repeat($.MAX_RENDER_DEPTH - 1)}>`],
+    [$.MAX_RENDER_DEPTH * 2, `${'> '.repeat($.MAX_RENDER_DEPTH - 1)}>`],
+    [100_000, `${'> '.repeat($.MAX_RENDER_DEPTH - 1)}>`],
+  ])('writes %i nested block quotes up to the depth limit', (count, expected) => {
+    expect(astToMarkdown(quotesDeep(count))).toBe(expected)
+  })
+
+  it.each([
+    [$.MAX_RENDER_DEPTH, 'x'],
+    [$.MAX_RENDER_DEPTH + 1, ''],
+    [100_000, ''],
+  ])('continues the depth through renderChildren in a renderRule for %i nested block quotes', (count, expected) => {
+    expect(
+      astToMarkdown(quotesDeep(count), {
+        renderRule: (next, node, renderChildren) =>
+          node.type === RuleType.blockQuote
+            ? renderChildren(node.children)
+            : next(),
+      })
+    ).toBe(expected)
+  })
+
+  it('writes the overflow text escaped', () => {
+    let node: MarkdownToJSX.ASTNode = { type: RuleType.text, text: '*a*' }
+    for (let i = 0; i < $.MAX_RENDER_DEPTH; i++) {
+      node = { type: RuleType.blockQuote, children: [node] }
+    }
+    expect(astToMarkdown([node])).toBe(
+      `${'> '.repeat($.MAX_RENDER_DEPTH)}\\*a\\*`
+    )
   })
 })

@@ -3,7 +3,8 @@
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import { createSSRApp, defineComponent, h, type Slots, type VNode } from 'vue'
 import { renderToString } from 'vue/server-renderer'
-import { escapeText, storedAST, treeProps } from './test-tree.ts'
+import { $ } from './constants.ts'
+import { escapeText, quotesDeep, storedAST, treeProps } from './test-tree.ts'
 import type { MarkdownToJSX } from './types.ts'
 import Markdown, {
   astToJSX,
@@ -18,7 +19,6 @@ afterEach(() => {
   mock.clearAllMocks()
 })
 
-// Helper to extract text content from Vue VNode structure
 function extractTextContent(
   element: VNode | VNode[] | string | null | undefined
 ): string {
@@ -52,7 +52,6 @@ function extractTextContent(
     ) {
       return props.alt
     }
-    // Check innerHTML prop first (for verbatim blocks like pre/script)
     if (props?.innerHTML !== undefined) {
       return extractTextContent(props.innerHTML as VNode | VNode[] | string)
     }
@@ -63,7 +62,6 @@ function extractTextContent(
           : undefined
         : props.children
     if (children !== undefined) {
-      // Handle slot functions (e.g., { default: () => [...] })
       if (
         typeof children === 'object' &&
         children !== null &&
@@ -80,10 +78,6 @@ function extractTextContent(
   return ''
 }
 
-// Serialize a Vue VNode tree to an HTML-like string so nesting and sibling
-// order (not just text presence) are asserted. A text child is escaped like an
-// HTML text node; innerHTML is a markup sink, so it prints raw inside an
-// `innerHTML` marker on the tag (`<div innerHTML>raw</div>`).
 function serialize(el: unknown): string {
   if (el === null || typeof el === 'boolean') {
     return ''
@@ -121,14 +115,12 @@ function serialize(el: unknown): string {
     : inner
 }
 
-// Type guard to check if result is a single VNode (not array or null)
 function isSingleVNode(
   vnode: VNode | VNode[] | null | undefined
 ): vnode is VNode {
   return vnode != null && !Array.isArray(vnode)
 }
 
-// Helper to get prop value from VNode
 function getProp(
   vnode: VNode | VNode[] | null | undefined,
   prop: string
@@ -145,7 +137,6 @@ function isVNode(value: unknown): value is VNode {
   return typeof value === 'object' && value !== null && 'type' in value
 }
 
-/** Vue types `children` as string | VNodeArrayChildren | RawSlots; tests index normalized arrays. */
 function vnodeChildAt(vnode: VNode, index: number): VNode | undefined {
   const kids = vnode.children
   if (!Array.isArray(kids)) {
@@ -155,7 +146,6 @@ function vnodeChildAt(vnode: VNode, index: number): VNode | undefined {
   return isVNode(child) ? child : undefined
 }
 
-// Helper to get VNode type
 function getVNodeType(
   vnode: VNode | VNode[] | null | undefined
 ): string | undefined {
@@ -167,7 +157,6 @@ function getVNodeType(
   }
 }
 
-// Helper to find a child VNode by tag name
 function findByTag(
   vnode: VNode | VNode[] | null,
   tag: string
@@ -189,7 +178,7 @@ function findByTag(
   }
 }
 
-it('should throw if not passed a string (first arg)', () => {
+it('should throw, and fail type-checking, if not passed a string (first arg)', () => {
   expect(() => compiler('')).not.toThrow()
   expect(() => compiler()).not.toThrow()
   // @ts-expect-error -- negative-behavior test: non-string input must throw
@@ -209,7 +198,6 @@ it('should throw if not passed a string (first arg)', () => {
 it('should handle a basic string', () => {
   const result = compiler('Hello.')
   expect(extractTextContent(result)).toBe('Hello.')
-  // Verify it's a string VNode, not wrapped
   expect(typeof result).toBe('string')
 })
 
@@ -284,6 +272,29 @@ describe('inline textual elements', () => {
     ).toMatchInlineSnapshot(`"<span>a ~~~c~~~ b ~~~~ <del>d~~~e</del></span>"`)
   })
 
+  it.each([
+    ['==``==b==`', '<p>==``<mark>b</mark>`</p>'],
+    ['~~``~~b~~`', '<p>~~``<del>b</del>`</p>'],
+    ['[a ``b](/u) `c', '<p><a>a ``b</a> `c</p>'],
+    ['~~a ~~', '<p>~~a ~~</p>'],
+    ['~~ a~~', '<p>~~ a~~</p>'],
+    ['~~a~~~\n~~<', '<p>~~a~~~\n~~&lt;</p>'],
+    ['a ===c=== b', '<p>a ===c=== b</p>'],
+    ['==a===b==', '<p><mark>a===b</mark></p>'],
+    ['==x==', '<p><mark>x</mark></p>'],
+    ['== x==', '<p>== x==</p>'],
+    ['a \\==b==', '<p>a ==b==</p>'],
+    ['~~foo ~~bar baz~~', '<p>~~foo <del>bar baz</del></p>'],
+    ['~~a ~~b~~ c~~', '<p><del>a <del>b</del> c</del></p>'],
+    ['==a ==b== c==', '<p><mark>a <mark>b</mark> c</mark></p>'],
+    ['~~**a**~~', '<p><del><strong>a</strong></del></p>'],
+    ['**~~a~~**', '<p><strong><del>a</del></strong></p>'],
+    ['*~~a*~~', '<p><em>~~a</em>~~</p>'],
+    ['~~*a~~*', '<p><del>*a</del>*</p>'],
+  ])('pairs strikethrough and mark runs like emphasis: %j', (input, expected) => {
+    expect(serialize(compiler(input, { forceBlock: true }))).toBe(expected)
+  })
+
   it('should handle escaped text', () => {
     const result = compiler('Hello.\\_\\_foo\\_\\_')
     const text = extractTextContent(result)
@@ -328,6 +339,16 @@ describe('headings', () => {
 })
 
 describe('links', () => {
+  it('ends link text at a bracket inside a raw HTML element, and hides only a bracket inside the tag itself', () => {
+    expect(
+      serialize(
+        compiler('[see <b>this]</b> note](/docs)\n\n[a <b title="]">x</b>](/u)')
+      )
+    ).toMatchInlineSnapshot(
+      `"<div><p>[see <b>this]</b> note](/docs)</p><p><a>a <b>x</b></a></p></div>"`
+    )
+  })
+
   it('should render inline links', () => {
     const result = compiler('[Link](https://example.com)')
     expect(getVNodeType(result)).toBe('a')
@@ -337,11 +358,9 @@ describe('links', () => {
 
   it('should render reference links', () => {
     const result = compiler('[Link][ref]\n\n[ref]: https://example.com')
-    // Reference links are wrapped in paragraph
     expect(getVNodeType(result)).toBe('p')
     const text = extractTextContent(result)
     expect(text).toBe('Link')
-    // The link is nested inside the paragraph
     if (!isSingleVNode(result)) {
       throw new Error('Expected single VNode')
     }
@@ -447,6 +466,39 @@ describe('lists', () => {
     expect(Array.isArray(vnode.children)).toBe(true)
     expect(vnode.children?.length).toBe(2)
   })
+
+  it.each([
+    [
+      'keeps a list loose when an HTML block ends at the blank line before a paragraph',
+      '- <div>x</div>\n\n  i\n- b',
+      '<ul><li><div>x</div><p>i</p></li><li><p>b</p></li></ul>',
+    ],
+    [
+      'keeps a list loose when an unclosed HTML block ends at a blank line',
+      '- <div>a\n\n  b',
+      '<ul><li><div>a</div><p>b</p></li></ul>',
+    ],
+    [
+      'keeps a list tight when a void tag is followed by a line remainder',
+      '- <img src="a.png"> \n  caption\n- b',
+      '<ul><li><img></img>caption</li><li>b</li></ul>',
+    ],
+    [
+      'keeps a list tight when a self-closing component is followed by a line remainder',
+      '- <MyComponent /> \n  text\n- two',
+      '<ul><li><MyComponent></MyComponent>text</li><li>two</li></ul>',
+    ],
+  ])('%s', (_name, source, expected) => {
+    expect(serialize(compiler(source))).toBe(expected)
+  })
+
+  it.each([
+    ['-\n  _\n\n  )', '<ul><li><p>_</p><p>)</p></li></ul>'],
+    ['-\n\n  -', '<ul><li></li><li></li></ul>'],
+    ['>a\n-', '<div><blockquote><p>a</p></blockquote><ul><li></li></ul></div>'],
+  ])('renders the item structure of %j as %j', (input, expected) => {
+    expect(serialize(compiler(input))).toBe(expected)
+  })
 })
 
 describe('code blocks', () => {
@@ -496,7 +548,6 @@ describe('Vue-specific features', () => {
         h1: CustomHeading,
       },
     })
-    // Component overrides result in function component type
     if (!isSingleVNode(result)) {
       throw new Error('Expected single VNode')
     }
@@ -516,16 +567,13 @@ describe('Vue-specific features', () => {
         h1: OptionsApiComponent,
       },
     })
-    // Object-based component should be recognized and passed to h()
     if (!isSingleVNode(result)) {
       throw new Error('Expected single VNode')
     }
     expect(typeof result.type).toBe('object')
     expect(result.type).toBe(OptionsApiComponent)
-    // Verify the component has a render function (Options API)
     expect('render' in OptionsApiComponent).toBe(true)
     expect(typeof OptionsApiComponent.render).toBe('function')
-    // Verify the component's render function produces the expected output
     const renderedOutput = OptionsApiComponent.render()
     expect(getVNodeType(renderedOutput as VNode)).toBe('h1')
     expect(getProp(renderedOutput as VNode, 'class')).toBe('options-api')
@@ -544,16 +592,13 @@ describe('Vue-specific features', () => {
         h1: CompositionApiComponent,
       },
     })
-    // Object-based component should be recognized and passed to h()
     if (!isSingleVNode(result)) {
       throw new Error('Expected single VNode')
     }
     expect(typeof result.type).toBe('object')
     expect(result.type).toBe(CompositionApiComponent)
-    // Verify the component has a setup function (Composition API)
     expect('setup' in CompositionApiComponent).toBe(true)
     expect(typeof CompositionApiComponent.setup).toBe('function')
-    // Verify the component's setup function produces the expected output
     const renderFn = CompositionApiComponent.setup()
     expect(typeof renderFn).toBe('function')
     const renderedOutput = renderFn()
@@ -588,6 +633,13 @@ describe('tables', () => {
     expect(vnode.children?.length).toBe(1)
     expect(getVNodeType(vnodeChildAt(vnode, 0))).toBe('thead')
   })
+
+  it.each([
+    ['`a| b |\n|---|', '<p>`a| b |\n|---|</p>'],
+    ['`|]\n-', '<h2>`|]</h2>'],
+  ])('renders %j, a delimiter row with the wrong cell count, as %j', (input, expected) => {
+    expect(serialize(compiler(input))).toBe(expected)
+  })
 })
 
 describe('blockquotes', () => {
@@ -596,6 +648,63 @@ describe('blockquotes', () => {
     expect(getVNodeType(result)).toBe('blockquote')
     const text = extractTextContent(result)
     expect(text).toBe('This is a quote')
+  })
+
+  it.each([
+    [
+      '>     code\n> para\nlazy',
+      '<blockquote><pre><code>code</code></pre><p>para\nlazy</p></blockquote>',
+    ],
+    [
+      '> para\n>     code\nlazy',
+      '<blockquote><p>para\ncode\nlazy</p></blockquote>',
+    ],
+    [
+      '> # h\nlazy',
+      '<div><blockquote><h1>h</h1></blockquote><p>lazy</p></div>',
+    ],
+    ['- # h\nlazy', '<div><ul><li><h1>h</h1></li></ul><p>lazy</p></div>'],
+    ['> ---\nlazy', '<div><blockquote><hr></hr></blockquote><p>lazy</p></div>'],
+    [
+      '> ```\n> a\nlazy',
+      '<div><blockquote><pre><code>a</code></pre></blockquote><p>lazy</p></div>',
+    ],
+    [
+      '- | a | b |\n  | - | - |\nlazy',
+      '<div><ul><li><table><thead><tr><th>a</th><th>b</th></tr></thead></table></li></ul><p>lazy</p></div>',
+    ],
+    [
+      '> <pre>\nlazy',
+      '<div><blockquote><pre></pre></blockquote><p>lazy</p></div>',
+    ],
+    ['- <pre>\nlazy', '<div><ul><li><pre></pre></li></ul><p>lazy</p></div>'],
+    [
+      '> <div>\nlazy',
+      '<div><blockquote><div></div></blockquote><p>lazy</p></div>',
+    ],
+    ['- <div>\nlazy', '<div><ul><li><div></div></li></ul><p>lazy</p></div>'],
+    ['- </pre>\nm', '<div><ul><li><pre></pre></li></ul><p>m</p></div>'],
+    ['> </pre>\nm', '<div><blockquote><pre></pre></blockquote><p>m</p></div>'],
+    ['> - a\nlazy', '<blockquote><ul><li>a\nlazy</li></ul></blockquote>'],
+    [
+      '> > a\nlazy',
+      '<blockquote><blockquote><p>a\nlazy</p></blockquote></blockquote>',
+    ],
+    ['> f\nbar\n> # x', '<blockquote><p>f\nbar</p><h1>x</h1></blockquote>'],
+    [
+      '- 10. a\n\n      b\nlazy',
+      '<ul><li><ol><li><p>a</p><p>b\nlazy</p></li></ol></li></ul>',
+    ],
+    [
+      '> 1.  one\n>\n>     two\nthree',
+      '<blockquote><ol><li><p>one</p><p>two\nthree</p></li></ol></blockquote>',
+    ],
+    [
+      '> [x]: /u\n[y]: /v\n\n[y]',
+      '<div><blockquote></blockquote><p><a>y</a></p></div>',
+    ],
+  ])('ends or extends a container for the lazy line of %j as %j', (input, expected) => {
+    expect(serialize(compiler(input))).toBe(expected)
   })
 })
 
@@ -638,34 +747,28 @@ interface MarkdownProps {
   [key: string]: unknown
 }
 
-// Markdown is implemented as a functional component, so we can type it as a function
 type MarkdownComponent = (props: MarkdownProps) => VNode | VNode[] | null
 
 describe('Markdown component', () => {
-  // Calling the functional component outside a Vue setup() triggers inject() DEV
-  // warnings; silence them so console-leak does not fail these unit checks.
   afterEach(() => {
     mock.restore()
   })
 
   it('should render markdown via component', () => {
     spyOn(console, 'warn').mockImplementation(() => {})
-    // Markdown is a functional component, call it directly
     const result = (Markdown as MarkdownComponent)({ children: '# Hello' })
     expect(getVNodeType(result)).toBe('h1')
     expect(extractTextContent(result)).toBe('Hello')
   })
 
-  it('should handle null children', () => {
+  it('should convert null children to an empty string and render null', () => {
     spyOn(console, 'warn').mockImplementation(() => {})
-    // Markdown component converts null to empty string
     const result = (Markdown as MarkdownComponent)({ children: null })
     expect(result).toBeNull()
   })
 
   it('should merge additional props into wrapperProps', () => {
     spyOn(console, 'warn').mockImplementation(() => {})
-    // Markdown component merges restProps into wrapperProps
     const result = (Markdown as MarkdownComponent)({
       children: '# Hello\n\n## World',
       'data-testid': 'markdown-wrapper',
@@ -722,6 +825,14 @@ describe('blockquotes with alerts', () => {
     }
     const vnode = result
     expect(Array.isArray(vnode.children)).toBe(true)
+  })
+
+  it('should keep an alert when the marker is followed by an ideographic space', () => {
+    const result = compiler('> [!NOTE]　\n> body')
+    expect(serialize(result)).toBe(
+      '<blockquote><header>NOTE</header><p>body</p></blockquote>'
+    )
+    expect(getProp(result, 'class')).toBe('markdown-alert-note')
   })
 })
 
@@ -791,13 +902,28 @@ describe('GFM task lists', () => {
     expect(getProp(checkbox, 'type')).toBe('checkbox')
     expect(getProp(checkbox, 'checked')).toBe(true)
   })
+
+  it('keeps a marker as text unless whitespace and content follow it', () => {
+    expect(
+      serialize(compiler('- [x]foo\n- [ ] \n- [x] baz'))
+    ).toMatchInlineSnapshot(
+      `"<ul><li>[x]foo</li><li>[ ]</li><li><input></input> baz</li></ul>"`
+    )
+  })
+
+  it('keeps the rest of a marker line as text, never a block', () => {
+    expect(
+      serialize(compiler('- [x] # heading\n- [x] > quote'))
+    ).toMatchInlineSnapshot(
+      `"<ul><li><input></input> # heading</li><li><input></input> &gt; quote</li></ul>"`
+    )
+  })
 })
 
 describe('code blocks with attributes', () => {
   it('should handle code blocks with custom attributes', () => {
     const result = compiler('```js data-line="1"\ncode\n```')
     expect(getVNodeType(result)).toBe('pre')
-    // Attributes are on code element inside pre, not on pre itself
     const codeElement = isSingleVNode(result)
       ? vnodeChildAt(result, 0)
       : undefined
@@ -853,19 +979,39 @@ describe('HTML blocks', () => {
     expect(text).toContain('src="test"')
   })
 
-  it('should handle HTML blocks with pre tags using innerHTML', () => {
+  it('should handle HTML blocks with pre tags using innerHTML, whose raw body keeps its stray closer as React does and a browser ignores', () => {
     const result = compiler('<div><pre>code\nhere</pre>text</div>')
     expect(getVNodeType(result)).toBe('div')
-    // The raw body keeps its stray closer, as React's does; a browser ignores it
-    expect(getProp(result, 'innerHTML')).toBe(
-      '<pre>code\nhere</pre>text</div>\n'
-    )
+    expect(getProp(result, 'innerHTML')).toBe('<pre>code\nhere</pre>text</div>')
   })
 
   it('should handle self-closing tag regex match with attributes', () => {
     const result = compiler('<div class="test"></div>')
     expect(getVNodeType(result)).toBe('div')
     expect(getProp(result, 'class')).toBe('test')
+  })
+
+  it.each([
+    ['x<span></span></span', '<span>x<span></span>&lt;/span</span>'],
+    ['x<div></div></div', '<span>x<div></div>&lt;/div</span>'],
+    ['x<Foo></Foo></Foo', '<span>x<Foo></Foo>&lt;/Foo</span>'],
+  ])('leaves the second closer of %j as text', (input, expected) => {
+    expect(serialize(compiler(input))).toBe(expected)
+  })
+
+  it.each([
+    '<!--@/>',
+    '<!A[@e>',
+  ])('renders %j as a raw block, which writes no markup', markup => {
+    expect(serialize(compiler(markup, { forceBlock: true }))).toBe('')
+  })
+
+  it('renders the children of a stored block with its private fields dropped', () => {
+    expect(
+      serialize(
+        astToJSX(storedAST('<div>\n  <div/>\n  <span>content</span>\n</div>'))
+      )
+    ).toBe('<div><div></div><p><span>content</span></p></div>')
   })
 })
 
@@ -1035,10 +1181,9 @@ describe('links without target', () => {
 })
 
 describe('images with various attributes', () => {
-  it('should handle images with empty alt', () => {
+  it('should leave an image with empty alt undefined rather than an empty string', () => {
     const result = compiler('![](image.png)')
     expect(getVNodeType(result)).toBe('img')
-    // Empty alt should be undefined, not empty string
     if (
       result &&
       typeof result === 'object' &&
@@ -1109,10 +1254,10 @@ describe('HTML block processing', () => {
   it('should handle HTML blocks with pre tags', () => {
     const result1 = compiler('<div><pre>code</pre></div>')
     expect(getVNodeType(result1 as VNode)).toBe('div')
-    expect(getProp(result1, 'innerHTML')).toBe('<pre>code</pre></div>\n')
+    expect(getProp(result1, 'innerHTML')).toBe('<pre>code</pre></div>')
     const result2 = compiler('<div><pre>code</pre></div>', { tagfilter: true })
     expect(getVNodeType(result2 as VNode)).toBe('div')
-    expect(getProp(result2, 'innerHTML')).toBe('<pre>code</pre></div>\n')
+    expect(getProp(result2, 'innerHTML')).toBe('<pre>code</pre></div>')
   })
 
   it('should process markdown within HTML blocks', () => {
@@ -1178,7 +1323,6 @@ describe('hHelper edge cases', () => {
         },
       },
     })
-    // HTML in overrideProps is passed through as string (compilation only happens on direct props)
     const dataHtmlProp = getProp(result, 'data-html')
     expect(dataHtmlProp).toBe('<span>test</span>')
   })
@@ -1193,7 +1337,6 @@ describe('hHelper edge cases', () => {
         },
       },
     })
-    // HTML in overrideProps is passed through as string
     const dataHtmlProp = getProp(result, 'data-html')
     expect(dataHtmlProp).toBe('<DIV>test</DIV>')
   })
@@ -1212,7 +1355,6 @@ describe('hHelper edge cases', () => {
   })
 
   it('should handle innerHTML prop when not overridden', () => {
-    // Test the branch where innerHTML exists in vueProps but not in overrideProps
     const result = compiler('<div>content</div>')
     expect(getVNodeType(result)).toBe('div')
     const text = extractTextContent(result)
@@ -1257,8 +1399,6 @@ describe('renderRule edge cases', () => {
 
 describe('createElement override', () => {
   it('should use custom createElement function', () => {
-    // createElement is used for wrapper elements
-    // Test that it's called by checking wrapper behavior
     const result = compiler('# Hello\n\n## World', {
       wrapper: 'article',
     })
@@ -1267,14 +1407,14 @@ describe('createElement override', () => {
 })
 
 describe('error handling', () => {
-  it('should throw error for invalid overrides type', () => {
+  it('should throw error, and fail type-checking, for invalid overrides type', () => {
     expect(() => {
       // @ts-expect-error -- negative-behavior test: invalid overrides option must throw
       compiler('# Hello', { overrides: 'invalid' })
     }).toThrow('options.overrides')
   })
 
-  it('should throw error for invalid overrides array', () => {
+  it('should throw error, and fail type-checking, for invalid overrides array', () => {
     expect(() => {
       // @ts-expect-error -- negative-behavior test: invalid overrides option must throw
       compiler('# Hello', { overrides: [] })
@@ -1283,11 +1423,10 @@ describe('error handling', () => {
 })
 
 describe('renderer edge cases', () => {
-  it('should handle array output from renderRule', () => {
+  it('should handle a single VNode from renderRule, since arrays are handled internally', () => {
     const result = compiler('# Hello', {
       renderRule: (next, node, _renderChildren, state) => {
         if (node.type === RuleType.heading) {
-          // Return single VNode instead of array - arrays are handled internally
           return h('h1', { key: state.key }, 'First')
         }
         return next()
@@ -1298,7 +1437,7 @@ describe('renderer edge cases', () => {
     expect(text).toBe('First')
   })
 
-  it('should concatenate consecutive string outputs', () => {
+  it('should concatenate consecutive string outputs, preserving the space', () => {
     const result = compiler('text1 text2', {
       renderRule: (next, node) => {
         if (node.type === RuleType.text) {
@@ -1308,7 +1447,6 @@ describe('renderer edge cases', () => {
       },
     })
     const text = extractTextContent(result)
-    // Consecutive strings are concatenated, preserving the space
     expect(text).toBe('text1 text2')
   })
 
@@ -1342,9 +1480,7 @@ describe('MarkdownProvider (provide/inject)', () => {
     expect(typeof MarkdownOptionsKey).toBe('symbol')
   })
 
-  it('should support provide/inject pattern (integration test)', () => {
-    // Note: Full provide/inject testing requires Vue runtime
-    // This test verifies the exports exist and have correct types
+  it('should export the provide/inject pair with correct types, since full provide/inject testing requires the Vue runtime', () => {
     const { MarkdownProvider, MarkdownOptionsKey } = require('./vue.tsx')
     expect(MarkdownProvider).toBeDefined()
     expect(MarkdownOptionsKey).toBeDefined()
@@ -1380,16 +1516,13 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
     ).toMatchInlineSnapshot(`"<div><p>a</p> x <p>b</p></div>"`)
   })
 
-  it('text after the element own closing tag renders as a sibling', () => {
-    // tail is a sibling of the span's div, wrapped in Vue's multi-root container
+  it('text after the element own closing tag renders as a sibling of the span div, wrapped in the multi-root container Vue builds', () => {
     expect(
       serialize(compiler('<div>\n<span>a</span>\n</div>\ntail'))
     ).toMatchInlineSnapshot(`"<div><div><span>a</span></div> tail</div>"`)
   })
 
-  it('never injects dangerous raw HTML attributes', () => {
-    // Vue injects verbatim blocks via innerHTML with no framework backstop,
-    // so the parser-level stripping is the only defense.
+  it('never injects dangerous raw HTML attributes, because Vue injects verbatim blocks via innerHTML with no framework backstop and parser-level stripping is the only defense', () => {
     const dump = (s: string) => JSON.stringify(compiler(s))
     expect(dump('<div><img onerror=alert(1)></div>')).not.toContain('onerror')
     expect(dump('<pre onclick=alert(1)>code</pre>')).not.toContain('onclick')
@@ -1426,7 +1559,6 @@ describe('unique heading IDs (#857)', () => {
           }
         }
       } else if (kids && typeof kids === 'object') {
-        // RawSlots is not a VNode; cast through unknown for slot-object walks in tests.
         walk(kids as unknown as VNode)
       }
     }
@@ -1448,6 +1580,24 @@ describe('unique heading IDs (#857)', () => {
 
   it('slugs headings from inline text content, not raw source', () => {
     expect(collectIds(compiler('## [text](https://e.com)'))).toEqual(['text'])
+  })
+
+  it('folds accented Latin letters and ß into the heading id', () => {
+    expect(collectIds(compiler('# Öl Straße\n\n# Łódź'))).toEqual([
+      'ol-strasse',
+      'lodz',
+    ])
+  })
+
+  it.each([
+    '# !!!',
+    '# `]`',
+  ])('omits the id of %j, a heading with an empty slug', input => {
+    expect(collectIds(compiler(input))).toEqual([])
+  })
+
+  it('omits the id of a heading whose slug is only whitespace', () => {
+    expect(collectIds(compiler('# Hi', { slugify: () => ' ' }))).toEqual([])
   })
 })
 
@@ -1480,10 +1630,71 @@ describe('destination entity decode before sanitize', () => {
         }
       }
     } else if (kids && typeof kids === 'object') {
-      // RawSlots is not a VNode; cast through unknown for slot-object walks in tests.
       return firstAttr(kids as unknown as VNode, prop)
     }
   }
+
+  const firstSrcOrHref = (el: unknown) =>
+    treeProps(el).find(
+      ([name, value]) =>
+        (name === 'href' || name === 'src') && value !== undefined
+    )?.[1]
+
+  const metaProps = (md: string) =>
+    treeProps(compiler(md)).filter(([name]) => name !== 'key')
+
+  it('percent-encodes a control character in an image src as in a link href', () => {
+    expect(firstSrcOrHref(compiler('![x](java\u0001script:alert(1))'))).toBe(
+      'java%01script:alert(1)'
+    )
+    expect(firstSrcOrHref(compiler('![x](java&#1;script:alert(1))'))).toBe(
+      'java%01script:alert(1)'
+    )
+    expect(firstSrcOrHref(compiler('[x](java\u0001script:alert(1))'))).toBe(
+      'java%01script:alert(1)'
+    )
+  })
+
+  it.each([
+    ['tab', '![x](java\tscript:alert(1))'],
+    ['tab entity', '![x](java&#9;script:alert(1))'],
+    ['newline entity', '![x](java&#10;script:alert(1))'],
+    ['percent tab, mixed case', '![x](JaVa%09ScRiPt:alert(1))'],
+    ['percent control character', '![x](java%01script:alert(1))'],
+    ['percent letter', '![x](java%73cript:alert(1))'],
+  ])('drops an image src whose stripped form is a dangerous scheme: %s', (_, input) => {
+    expect(firstSrcOrHref(compiler(input))).toBeUndefined()
+  })
+
+  it('keeps and encodes a safe image src', () => {
+    expect(firstSrcOrHref(compiler('![x](https://a.b/c.png)'))).toBe(
+      'https://a.b/c.png'
+    )
+    expect(firstSrcOrHref(compiler('![x](<a b.png>)'))).toBe('a%20b.png')
+  })
+
+  it.each([
+    ['0;url=javascript:alert(1)'],
+    ['0;URL=javascript:alert(1)'],
+    ["0; url = 'javascript:alert(1)'"],
+    ['0;url=&#106;avascript:alert(1)'],
+    ['0;url=java%73cript:alert(1)'],
+    ['0;url=data:text/html,x'],
+    ['0;javascript:alert(1)'],
+  ])('strips a meta refresh content whose URL is dangerous: %s', content => {
+    expect(
+      metaProps(`<meta http-equiv="refresh" content="${content}">`)
+    ).toEqual([['http-equiv', 'refresh']])
+  })
+
+  it('keeps a meta refresh content whose URL is safe', () => {
+    expect(
+      metaProps('<meta http-equiv="refresh" content="0;url=https://x.y">')
+    ).toEqual([
+      ['http-equiv', 'refresh'],
+      ['content', '0;url=https://x.y'],
+    ])
+  })
 
   it('drops entity-obfuscated javascript: href and src', () => {
     expect(firstAttr(compiler('[x](&#106;avascript:alert(1))'), 'href')).toBe(
@@ -1521,6 +1732,18 @@ describe('inline Type 1 content with tagfilter off', () => {
       )
     ).toBe('<script>x</script>')
   })
+
+  it('writes a textarea body, markup and references included, as written, which a browser shows as text', async () => {
+    expect(
+      await ssr('<textarea><b>x</b> &amp;</textarea>', { tagfilter: false })
+    ).toBe('<textarea><b>x</b> &amp;</textarea>')
+  })
+
+  it('writes the body of a textarea written in capitals', async () => {
+    expect(
+      await ssr('<TEXTAREA>a &lt; b</TEXTAREA>', { tagfilter: false })
+    ).toBe('<TEXTAREA>a &lt; b</TEXTAREA>')
+  })
 })
 
 describe('component-like HTML blank-line nesting (#870)', () => {
@@ -1540,10 +1763,6 @@ Some paragraph
 })
 
 describe('tagfilter escapes dangerous tags by default', () => {
-  // Regression: the render-time tag filter defaulted OFF in vue (raw options
-  // flowed to the renderer; only parse options were coerced), so default output
-  // mounted live dangerous tags despite the documented default-on protection.
-  // Both compiler() and astToJSX must escape.
   it('escapes script with default options via compiler()', () => {
     expect(serialize(compiler('<script>alert(1)</script>'))).toBe(
       '<span>&lt;script&gt;alert(1)&lt;/script&gt;</span>'
@@ -1556,7 +1775,7 @@ describe('tagfilter escapes dangerous tags by default', () => {
     )
   })
 
-  it('escapes dangerous tags by default via astToJSX()', () => {
+  it('escapes dangerous tags by default via astToJSX(), as compiler() does (regression: the render-time tag filter defaulted off)', () => {
     expect(serialize(astToJSX(parser('<script>alert(1)</script>')))).toBe(
       '<span>&lt;script&gt;alert(1)&lt;/script&gt;</span>'
     )
@@ -1606,9 +1825,7 @@ describe('prototype-slot reference labels (#900)', () => {
 })
 
 describe('optimizeForStreaming keeps literal delimiters', () => {
-  it('removes only unclosed emphasis openers', () => {
-    // Literal `_` and `*` in finished text survive; only the genuinely
-    // unclosed opener on the last line is held back (issue #905)
+  it('removes only the genuinely unclosed emphasis opener on the last line, keeping literal `_` and `*` in finished text (issue #905)', () => {
     expect(
       serialize(
         compiler(
@@ -1621,10 +1838,7 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
     )
   })
 
-  it('hides a never-closed opener until the final render (issue #909)', () => {
-    // The parser cannot tell a streaming edge from finished text, so an
-    // opener with no closer stays hidden while the option is on; the
-    // documented final render with the option off shows it as written
+  it('hides a never-closed opener while the option is on, since the parser cannot tell a streaming edge from finished text, and shows it as written in the final render with the option off (issue #909)', () => {
     const md = 'Use _trace and *args'
     expect(
       serialize(compiler(md, { optimizeForStreaming: true }))
@@ -1634,9 +1848,7 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
     ).toMatchInlineSnapshot(`"Use _trace and *args"`)
   })
 
-  it('keeps complete HTML and earlier blocks unchanged', () => {
-    // Complete raw HTML, and incomplete-looking links and code in a block
-    // that is no longer the last one, render exactly as without the option
+  it('keeps complete HTML, and incomplete-looking links and code in a block that is no longer the last one, rendering exactly as without the option', () => {
     const md = 'a <span>z</span> <br> b\n\nsee [a](b and `code\n\nlast'
     const streamed = serialize(compiler(md, { optimizeForStreaming: true }))
     expect(streamed).toBe(serialize(compiler(md)))
@@ -1647,8 +1859,7 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
 })
 
 describe('optimizeForStreaming preserves literal less-than', () => {
-  it('keeps comparison prose and defers incomplete tag prefixes', () => {
-    // Single-line input auto-inlines, so serialize sees a bare text node.
+  it('keeps comparison prose and defers incomplete tag prefixes, on single-line input that auto-inlines so serialize sees a bare text node', () => {
     expect(
       serialize(compiler('5 < 3 is false', { optimizeForStreaming: true }))
     ).toBe('5 &lt; 3 is false')
@@ -1660,6 +1871,12 @@ describe('optimizeForStreaming preserves literal less-than', () => {
         compiler('x < y\n\nsecond para', { optimizeForStreaming: true })
       )
     ).toBe('<div><p>x &lt; y</p><p>second para</p></div>')
+  })
+
+  it('reads a closing tag after an unfinished opener the way a full parse does', () => {
+    expect(
+      serialize(compiler('x <Comp </b>y', { optimizeForStreaming: true }))
+    ).toBe('<span>x &lt;Comp <b></b>y</span>')
   })
 })
 
@@ -1701,34 +1918,36 @@ describe('enforceAtxHeadings (#903)', () => {
   })
 })
 
-/** The type of every `on*` prop in a VNode tree, serialize showing no props. */
 const handlerProps = (el: unknown) =>
   treeProps(el)
     .filter(([name]) => name.toLowerCase().startsWith('on'))
     .map(([name, value]) => `${name}=${typeof value}`)
 
-/** Every prop name in a VNode tree but key and the compiler's own innerHTML. */
 const propNames = (el: unknown) =>
   treeProps(el)
     .map(([name]) => name)
     .filter(name => name !== 'key' && name !== 'innerHTML')
 
-/** The first href in a VNode tree. */
 const firstHref = (el: unknown) =>
   treeProps(el).find(
     ([name, value]) => name === 'href' && value !== undefined
   )?.[1]
 
 describe('attribute names a renderer acts on rather than writes', () => {
-  it('removes an object children value from a registered tag', () => {
+  it('passes a name that ends in a colon on as written', () => {
+    const result = compiler('<span a:="1">b</span>')
+
+    expect(serialize(result)).toBe('<span>b</span>')
+    expect(propNames(result)).toEqual(['a:'])
+  })
+
+  it('removes an object children value from a registered tag, checking the key directly because the walker behind propNames skips `children` and Vue keeps a markdown `children` attribute in vnode.props', () => {
     const result = compiler('<Foo children={{"a":1}}>y</Foo>', {
       overrides: { Foo: { props: {} } },
     })
 
     expect(serialize(result)).toBe('<Foo>y</Foo>')
     expect(propNames(result)).toEqual([])
-    // The walker behind propNames skips `children`, and Vue keeps a markdown
-    // `children` attribute in vnode.props, so check the key directly
     expect(isSingleVNode(result)).toBe(true)
     expect(getProp(result, 'children')).toBeUndefined()
   })
@@ -1752,14 +1971,23 @@ describe('attribute names a renderer acts on rather than writes', () => {
       '<div dangerouslySetInnerHTML={{"__html":"<img src=x onerror=alert(1)>"}}></div>',
       '<div></div>',
     ],
-    // A VNode in innerHTML would reach the page as [object Object]
     ['<pre><b>x</b></pre>', '<pre innerHTML><b>x</b></pre>'],
-    // The raw body keeps its stray closer, which a browser ignores
-    ['<div><pre>a</pre></div>', '<div innerHTML><pre>a</pre></div>\n</div>'],
+    ['<div><pre>a</pre></div>', '<div innerHTML><pre>a</pre></div></div>'],
   ])('renders %j with no prop, as %j', (input, expected) => {
     const result = compiler(input)
     expect(serialize(result)).toBe(expected)
     expect(propNames(result)).toEqual([])
+  })
+
+  it('renders no text for a brace value holding markup on a self-closing tag while streaming', () => {
+    expect(
+      serialize(
+        compiler(
+          '<A dangerouslySetInnerHTML={{__html: "<img src=x onerror=alert(1)>"}} />',
+          { optimizeForStreaming: true }
+        )
+      )
+    ).toBe('<A></A>')
   })
 
   it.each([
@@ -1789,21 +2017,21 @@ describe('attribute names a renderer acts on rather than writes', () => {
       ['attributeName', 'values'],
     ],
     ['<Btn action={javascript:alert(1)}>x</Btn>', '<Btn>x</Btn>', []],
+    ['<Btn srcDoc={"<script>alert(1)</script>"}>x</Btn>', '<Btn>x</Btn>', []],
+    ['<Btn attributeName={href}>x</Btn>', '<Btn>x</Btn>', []],
+    ['<Btn attributeName={opacity}>x</Btn>', '<Btn>x</Btn>', ['attributeName']],
     ['<Btn href={link}>x</Btn>', '<Btn>x</Btn>', ['href']],
-    // A filtered tag is a text node, which the serializer writes escaped
     [
       '<!-- c --> <script>alert(1)</script>',
       '<span> <span>&lt;script&gt;alert(1)&lt;/script&gt;</span></span>',
       [],
     ],
-    // A filtered tag in a list item is text too
     [
       '- a <!-- c --> <script>alert(1)</script>',
       '<ul><li>a  <span>&lt;script&gt;alert(1)&lt;/script&gt;</span></li></ul>',
       [],
     ],
     ['<!-- <script> -->', '', []],
-    // A block left open before raw markup: an element tree has no browser reading to confuse
     ['<p><? a\n\n<!-- x><script>alert(1)</script>', '<p></p>', []],
     [
       '<p><? a\n\n<div title="x><script>alert(1)</script>">body</div>',
@@ -1815,7 +2043,6 @@ describe('attribute names a renderer acts on rather than writes', () => {
       '<div><p></p><p>b <br></br> c</p></div>',
       ['title'],
     ],
-    // A prop value is written whole, so no tag starts inside it
     ['<div x={a><script>alert(1)</script>}>y</div>', '<div>y</div>', ['x']],
     ['<img children="z" src="/x">', '<img></img>', ['src']],
     ['![" onclick=alert(1)>](/x)', '<img></img>', ['alt', 'title', 'src']],
@@ -1824,20 +2051,24 @@ describe('attribute names a renderer acts on rather than writes', () => {
     expect(serialize(result)).toBe(expected)
     expect(propNames(result)).toEqual(props)
   })
+
+  it('drops a brace srcDoc and a brace attributeName naming a link from a tag an override renders as an element', () => {
+    const result = compiler(
+      '<Card srcDoc={"<script>alert(1)</script>"} attributeName={href} title="t">a</Card>',
+      { overrides: { Card: { component: 'iframe' } } }
+    )
+    expect(propNames(result)).toEqual(['title'])
+  })
 })
 
 describe('a children attribute on a tag with an override', () => {
   const card = { card: { component: 'i' } }
 
-  // Vue writes a children prop as an attribute, so the value has to be a vnode
-  // child, which a component override receives as its default slot
   it.each([
     ['<card children="z" />', card, '<i>z</i>'],
     ['<CARD children="z" />', card, '<i>z</i>'],
-    // The Vue renderer lists its overrides with Object.keys, so an inherited one
-    // is not applied (React finds it); the value is still the child
     ['<card children="z" />', Object.create(card), '<card>z</card>'],
-  ])('gives %j the value as a child, never as a prop, with overrides %j', (input, overrides, expected) => {
+  ])('gives %j the value as a child, never as a prop, with overrides %j, since Vue writes a children prop as an attribute and a component override receives a vnode child as its default slot, and Vue lists overrides with Object.keys so an inherited one is not applied as React applies it', (input, overrides, expected) => {
     const result = compiler(input, { overrides })
 
     expect(serialize(result)).toBe(expected)
@@ -1900,9 +2131,6 @@ describe('a children attribute on a tag with an override', () => {
     expect(serialize(compiler(input, { overrides }))).toBe(expected)
   })
 
-  // An element with no content of its own takes the value as text, in any
-  // document shape. Same inputs as the html suite; the serializer writes no
-  // attributes, so the row for another attribute lives there.
   it.each([
     [
       'a capitalized self-closing tag',
@@ -2115,7 +2343,7 @@ describe('a children attribute on a tag with an override', () => {
       card,
       '<div><i>inner</i></div>',
     ],
-  ])('renders %s as its content', (_title, input, overrides, expected) => {
+  ])('renders %s as its content, since an element with no content of its own takes the value as text in any document shape', (_title, input, overrides, expected) => {
     expect(serialize(compiler(input, { overrides }))).toBe(expected)
   })
 
@@ -2196,6 +2424,7 @@ describe('markup a browser reads differently from the parser', () => {
     ['<pre><Img onclick={alert(1)}', '<pre>&lt;Img onclick={alert(1)}</pre>'],
     ['<div>\n<b onclick=alert(1)', '<div>&lt;b onclick=alert(1)</div>'],
     ['```x onmouseover="alert(1)"\ny\n```', '<pre><code>y</code></pre>'],
+    ['```x style="color:red"\ny\n```', '<pre><code>y</code></pre>'],
     [
       '<iframe><img src=x onerror=alert(1)',
       '<span><span>&lt;iframe&gt;</span>&lt;img src=x onerror=alert(1)</span>',
@@ -2224,8 +2453,6 @@ describe('markup a browser reads differently from the parser', () => {
       'x <javascript:alert(1)> y',
       '<span>x <a>javascript:alert(1)</a> y</span>',
     ],
-    // The markdown output ends an autolink at an ASCII space or control only, so a
-    // Unicode space in one is the same link here
     [
       'x <span><javascript:alert(1)//\xa0></span>',
       '<span>x <span><a>javascript:alert(1)//\xa0</a></span></span>',
@@ -2265,18 +2492,32 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '1. # [^1]\n[^1]:&#106avascript:alert(1)',
-      '<ol><li><h1>[^1]</h1>[^1]:&amp;#106avascript:alert(1)</li></ol>',
+      '<div><ol><li><h1><a><sup>1</sup></a></h1></li></ol><footer><div>1: &amp;#106avascript:alert(1)</div></footer></div>',
+    ],
+    [
+      '1. a [^1]\n[^1]:&#106avascript:alert(1)',
+      '<ol><li>a [^1]\n[^1]:&amp;#106avascript:alert(1)</li></ol>',
     ],
     [
       '1. <!-- c --> x\n[^1]:&#106avascript:alert(1)\n\n[^1]',
       '<div><ol><li></li></ol><p><a><sup>1</sup></a></p><footer><div>1: &amp;#106avascript:alert(1)</div></footer></div>',
     ],
-    ['- <pre>x\ny</pre>', '<ul><li><pre>x\ny</pre></li></ul>'],
-    ['- <!-- x\ny -->', '<ul><li></li></ul>'],
-    ['- <div\nonclick=alert(1)>x</div>', '<ul><li><div>x</div></li></ul>'],
+    [
+      '- <pre>x\ny</pre>',
+      '<div><ul><li><pre>x</pre></li></ul><p>y<pre></pre></p></div>',
+    ],
+    ['- <!-- x\ny -->', '<div><ul><li></li></ul><p>y --&gt;</p></div>'],
+    [
+      '- <div\nonclick=alert(1)>x</div>',
+      '<div><ul><li>&lt;div</li></ul><p>onclick=alert(1)&gt;x<div></div></p></div>',
+    ],
+    ['- a <div\nonclick=alert(1)>x</div>', '<ul><li>a <div>x</div></li></ul>'],
     ['- <x-y\nonclick=alert(1)>y</x-y>', '<ul><li><x-y>y</x-y></li></ul>'],
     ['- <Foo x="1\n2">y</Foo>', '<ul><li><Foo>y</Foo></li></ul>'],
-    ['- ```\ny', '<ul><li><pre><code>y</code></pre></li></ul>'],
+    [
+      '- ```\ny',
+      '<div><ul><li><pre><code></code></pre></li></ul><p>y</p></div>',
+    ],
     ['1. <x-y>x\ny', '<ol><li><x-y>x y</x-y></li></ol>'],
     ['1. [r]:\n/u "a\nb"\n\n   [r]', '<ol><li><p><a>r</a></p></li></ol>'],
     [
@@ -2285,7 +2526,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '- # h\na | b\n  --- | ---',
-      '<ul><li><h1>h</h1><table><thead><tr><th>a</th><th>b</th></tr></thead></table></li></ul>',
+      '<div><ul><li><h1>h</h1></li></ul><table><thead><tr><th>a</th><th>b</th></tr></thead></table></div>',
     ],
     [
       '- - [^1]:\nz\n\n  [^1]',
@@ -2297,15 +2538,13 @@ describe('markup a browser reads differently from the parser', () => {
     ['[x](a\\\\)', '<a>x</a>'],
     [
       '- a | b\n  --- | ---\nc | d',
-      '<ul><li><table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>c</td><td>d</td></tr></tbody></table></li></ul>',
+      '<div><ul><li><table><thead><tr><th>a</th><th>b</th></tr></thead></table></li></ul><p>c | d</p></div>',
     ],
     [
       '1. [^1]:\nb\n\n   [^1]',
       '<div><ol><li><p><a><sup>1</sup></a></p></li></ol><footer><div>1: b</div></footer></div>',
     ],
-    // A paragraph's lazy line stays out of block parsing, so no heading
     ['- <b>x</b>\ny\n===', '<ul><li><b>x</b>\ny\n===</li></ul>'],
-    // The innerHTML is the screened raw block, which the React output drops
     [
       '<div <b c="d"/>\n<![CDATA[</pre>\n\n```\n<b>\n```',
       '<div><div innerHTML><div <b c="d"/>\n<![CDATA[</pre>\n</div><pre><code>&lt;b&gt;</code></pre></div>',
@@ -2324,7 +2563,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<div>\n\n```\n``` \n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
-      '<div><div><pre><code>``` \n</code></pre></div><pre><code>&lt;img src=x onerror=alert(1)&gt;\n</code></pre></div>',
+      '<div><div><pre><code>``` \n</code></pre></div><pre><code>&lt;img src=x onerror=alert(1)&gt;</code></pre></div>',
     ],
     [
       '<![CDATA[a]]]>\n\n```\n<img src=x onerror=alert(1)>\n```',
@@ -2332,15 +2571,19 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '- <?p ?> <?q ?>[x](\njavascript:alert(1))',
-      '<ul><li>javascript:alert(1))</li></ul>',
+      '<div><ul><li></li></ul><p>javascript:alert(1))</p></div>',
+    ],
+    [
+      '- a <?p ?> <?q ?>[x](\njavascript:alert(1))',
+      '<ul><li>a  <a>x</a></li></ul>',
     ],
     [
       '<div>\n\n```\n```\t\n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
-      '<div><div><pre><code></code></pre></div><pre><code>&lt;img src=x onerror=alert(1)&gt;\n</code></pre></div>',
+      '<div><div><pre><code></code></pre></div><pre><code>&lt;img src=x onerror=alert(1)&gt;</code></pre></div>',
     ],
     [
       '<div>\n\n```\n```~\n```\n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
-      '<div><div><pre><code>```~</code></pre></div><pre><code>&lt;img src=x onerror=alert(1)&gt;\n</code></pre></div>',
+      '<div><div><pre><code>```~</code></pre></div><pre><code>&lt;img src=x onerror=alert(1)&gt;</code></pre></div>',
     ],
     [
       '<details>\n\n```\n```js\n```\n\n</details>',
@@ -2394,7 +2637,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<?p ?><!DOCTYPE html>```\n```\n<svg onload=alert(1)>',
-      '<pre><code>&lt;svg onload=alert(1)&gt;\n</code></pre>',
+      '<pre><code>&lt;svg onload=alert(1)&gt;</code></pre>',
     ],
     ['[l](/u "--><img src=x onerror=alert(1)>")', '<a>l</a>'],
     ['![a"--><img src=x onerror=alert(1)>](/x)', '<img></img>'],
@@ -2431,19 +2674,20 @@ describe('markup a browser reads differently from the parser', () => {
       '<span><annotation-xml></annotation-xml>[^1]: ](javascript:alert(1)</span>',
     ],
     ['<pre>a', '<pre>a</pre>'],
-    ['<div><pre>a', '<div innerHTML><pre>a\n</div>'],
+    ['<div><pre>a', '<div innerHTML><pre>a</div>'],
     ['<div>\n\n', '<div></div>'],
     ["<div </div>'", "&lt;div &lt;/div&gt;'"],
     ['<?php echo 1 ?>', ''],
     ['<!DOCTYPE html>', ''],
+    ['<!doctype html>', ''],
     ['<![CDATA[x]]>', ''],
-    // The string outputs' quote re-pairing has no reading here: these are elements and text
     [
       '<![CDATA[<a title="</style><a title="</textarea><a href="javascript:alert(1)">l</a> x" onclick=alert(1)>',
       '<span>&lt;![CDATA[&lt;a title="<span>&lt;/style&gt;</span>&lt;a title="<span>&lt;/textarea&gt;</span><a>l</a> x" onclick=alert(1)&gt;</span>',
     ],
     ['a <?b?> c', '<span>a  c</span>'],
     ['a <!B c> d', '<span>a  d</span>'],
+    ['x <!a b> y', '<span>x  y</span>'],
     ['a <![CDATA[b]]> c', '<span>a  c</span>'],
     ['a <!-- b --> c', '<span>a  c</span>'],
     ['[l](java&Tab;script:alert(1))', '<a>l</a>'],
@@ -2476,7 +2720,6 @@ describe('markup a browser reads differently from the parser', () => {
       '<img></img>',
     ],
     ['![a\\\\\\](javascript:alert(1))b](/x)', '<img></img>'],
-    // Shapes only the markdown output screens
     [
       `> <div a=1${String.fromCharCode(0x20_28)}>  onclick=alert(1) b>y</div>`,
       '<blockquote><div>onclick=alert(1) b&gt;y</div></blockquote>',
@@ -2484,7 +2727,11 @@ describe('markup a browser reads differently from the parser', () => {
     ['<pre>a &lt; b &amp; c</pre>', '<pre>a &lt; b &amp; c</pre>'],
     [
       `> <div </div${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
-      '<blockquote><div></div></blockquote>',
+      "<div><blockquote><div></div></blockquote><p>onclick='alert(1)'</p></div>",
+    ],
+    [
+      `> a <div </div${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
+      `<blockquote><p>a &lt;div &lt;/div${String.fromCharCode(0x20_28)}&gt;\nonclick='alert(1)'</p></blockquote>`,
     ],
     [
       '/\n    <pre>\n```\n<img src=x onerror=alert(1)>\n```',
@@ -2533,7 +2780,7 @@ describe('markup a browser reads differently from the parser', () => {
     ['`<script> https://a.b/c`', '<code>&lt;script&gt; https://a.b/c</code>'],
     [
       `> <div </div ${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
-      '<blockquote><div></div></blockquote>',
+      "<div><blockquote><div></div></blockquote><p>onclick='alert(1)'</p></div>",
     ],
     [
       '<pre/>\n\n```\n<img src=x onerror=alert(1)>\n```',
@@ -2580,7 +2827,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<pre/>`<img src=x onerror=alert(1)>`',
-      '<script innerHTML>`<img src=x>`\n</script>',
+      '<script innerHTML>`<img src=x>`</script>',
       'pre',
       'script',
     ],
@@ -2613,7 +2860,6 @@ describe('markup a browser reads differently from the parser', () => {
     ['<Img onclick={alert(1)} />', undefined, '<Img></Img>', []],
     ['<Img attr:onerror={alert(1)} />', undefined, '<Img></Img>', []],
     ['<Btn onclick={[1]}>x</Btn>', undefined, '<Btn>x</Btn>', []],
-    // A tag no override matches is HTML, whose handlers go
     ['<Img onerror />', undefined, '<Img></Img>', []],
     [
       '<my-widget online>x</my-widget>',
@@ -2621,12 +2867,11 @@ describe('markup a browser reads differently from the parser', () => {
       '<my-widget>x</my-widget>',
       [],
     ],
-    // Vue writes a bare name as a plain attribute or nothing, and neither runs or throws
     [
       '<Img onerror />',
       { overrides: { Img: { props: {} } } },
       '<Img></Img>',
-      ['onerror=boolean'],
+      [],
     ],
     [
       '<constructor>hi</constructor>',
@@ -2640,14 +2885,12 @@ describe('markup a browser reads differently from the parser', () => {
       '<Constructor>hi</Constructor>',
       [],
     ],
-    // A lowercase tag an override matches passes no handler on
     [
       '<my-widget onclick={alert(1)}>x</my-widget>',
       { overrides: { 'my-widget': { props: {} } } },
       '<my-widget>x</my-widget>',
       [],
     ],
-    // A lowercase tag is HTML, so its value is never evaluated
     [
       '<my-widget onclick={() => 1}>x</my-widget>',
       { evalUnserializableExpressions: true },
@@ -2672,7 +2915,6 @@ describe('markup a browser reads differently from the parser', () => {
 
 describe('a capitalized tag an override matches is a component, and every other tag is HTML', () => {
   const ATTR_NAMES = ['class', 'data', 'href', 'onClick', 'onclick', 'title']
-  /** The written attribute props of every element, without what the renderer adds */
   const attrProps = (el: unknown) =>
     treeProps(el).filter(([name]) => ATTR_NAMES.includes(name))
 
@@ -2726,13 +2968,11 @@ describe('a capitalized tag an override matches is a component, and every other 
     ])
   })
 
-  /** Declares no props, so Vue writes every attribute it receives onto its `<a>` */
   const MyLink = defineComponent(
     (_, { slots }) =>
       () =>
         h('a', null, slots.default?.())
   )
-  /** Renders its default slot only */
   const Box = (_: unknown, { slots }: { slots: Slots }) =>
     h('b', null, slots.default?.())
   const widget = { 'my-widget': { props: {} } }
@@ -2754,7 +2994,6 @@ describe('a capitalized tag an override matches is a component, and every other 
       { a: { component: 'span' } },
       '<span>x <span href="/">y</span></span>',
     ],
-    // Vue reads a bare string override as no new component
     ['x <a href="/" onclick={alert(1)}>y</a>', { a: 'span' }, link],
     [
       '<my-widget onclick={alert(1)}>x</my-widget>',
@@ -2793,12 +3032,12 @@ describe('a capitalized tag an override matches is a component, and every other 
     expect(handlerProps(result)).toEqual([])
   })
 
-  it('keeps the handler of a capitalized tag an override matches as a prop', async () => {
-    const result = compiler('<Btn onClick={go}>x</Btn>', {
+  it('drops the handler of a capitalized tag an override makes a component, since Vue writes an undeclared prop onto its root element', async () => {
+    const result = compiler('<Btn onclick={alert(1)}>x</Btn>', {
       overrides: { Btn: Box },
     })
     expect(await page(result)).toBe('<b>x</b>')
-    expect(handlerProps(result)).toEqual(['onClick=string'])
+    expect(handlerProps(result)).toEqual([])
   })
 
   it('gives renderRule the handler of a lowercase tag an override matches, as written', async () => {
@@ -2838,14 +3077,12 @@ describe('a capitalized tag an override matches is a component, and every other 
     expect(handlerProps(result)).toEqual([])
   })
 
-  it('passes a capitalized tag its handler string only when an override matches the tag', () => {
+  it('passes a capitalized tag no handler string, with or without an override component', () => {
     const ast: MarkdownToJSX.ASTNode[] = [
       { attrs: { onClick: 'go' }, tag: 'Btn', type: RuleType.htmlSelfClosing },
     ]
     expect(handlerProps(astToJSX(ast))).toEqual([])
-    expect(handlerProps(astToJSX(ast, { overrides: { Btn: Box } }))).toEqual([
-      'onClick=string',
-    ])
+    expect(handlerProps(astToJSX(ast, { overrides: { Btn: Box } }))).toEqual([])
   })
 
   it('passes the attributes of a hand-built code block on without its handler', async () => {
@@ -2881,14 +3118,38 @@ describe('a capitalized tag an override matches is a component, and every other 
   })
 })
 
+describe('emphasis that follows emphasis', () => {
+  it('renders as two elements', async () => {
+    const tree = compiler('_a_*b*')
+    expect(await renderToString(createSSRApp({ render: () => tree }))).toBe(
+      '<span><em>a</em><em>b</em></span>'
+    )
+  })
+
+  it('renders as three elements across a chain of alternating delimiters', async () => {
+    const tree = compiler('*a*_b_*c*')
+    expect(await renderToString(createSSRApp({ render: () => tree }))).toBe(
+      '<span><em>a</em><em>b</em><em>c</em></span>'
+    )
+  })
+})
+
+describe('emphasis nested past the inline depth limit', () => {
+  it('leaves the delimiters outside the 199th level as literal text', async () => {
+    const tree = compiler(`${'*'.repeat(6000)}a${'*'.repeat(6000)}`)
+    expect(await renderToString(createSSRApp({ render: () => tree }))).toBe(
+      `<span>${'*'.repeat(5602)}${'<strong>'.repeat(199)}a${'</strong>'.repeat(199)}${'*'.repeat(5602)}</span>`
+    )
+  })
+})
+
 describe('a www. bare URL needs a dot inside its own span', () => {
   const page = (input: string) => {
     const tree = compiler(input)
     return renderToString(createSSRApp({ render: () => tree }))
   }
 
-  it('ignores a dot in the text after the URL', async () => {
-    // Text with no element in it renders as a bare string, with no wrapper
+  it('ignores a dot in the text after the URL, rendering text with no element in it as a bare string with no wrapper', async () => {
     expect(await page('www.foo bar.com')).toBe('www.foo bar.com')
   })
 
@@ -2988,8 +3249,7 @@ describe('bare URLs in a run without spaces', () => {
     expect(hrefs('www._[www.a.b])')).toEqual(['http://www._%5Bwww.a.b%5D'])
   })
 
-  // A lone text node renders without a wrapper element
-  it('stays text when a ] before a later candidate leaves it no clean domain', async () => {
+  it('stays text, as a lone text node with no wrapper element, when a ] before a later candidate leaves it no clean domain', async () => {
     expect(await page('www.]www.a.b_[]')).toBe('www.]www.a.b_[]')
     expect(hrefs('www.]www.a.b_[]')).toEqual([])
   })
@@ -3036,8 +3296,6 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '[see https://example.com/?a[0]=1]',
       '<p>[see <a>https://example.com/?a[0]=1</a>]</p>',
     ],
-    // A trailing ] is trimmed to text while the URL holds more ] than [, so a ]
-    // with no matching [ ends the URL wherever its [ sits
     ['see https://example.com/a]', '<p>see <a>https://example.com/a</a>]</p>'],
     ['[a] https://example.com/a]', '<p>[a] <a>https://example.com/a</a>]</p>'],
     [
@@ -3053,10 +3311,26 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '<p>[see <mark><a>https://example.com/a</a>]</mark></p>',
     ],
     [
+      '==https://example.com/a==',
+      '<p><mark><a>https://example.com/a</a></mark></p>',
+    ],
+    [
+      '==https://x.y/?t=YQ== b',
+      '<p><mark><a>https://x.y/?t=YQ</a></mark> b</p>',
+    ],
+    ['https://x.y/?t=YQ== b', '<p><a>https://x.y/?t=YQ==</a> b</p>'],
+    [
+      '~~a https://x.y/?t=YQ== b~~',
+      '<p><del>a <a>https://x.y/?t=YQ==</a> b</del></p>',
+    ],
+    [
+      "~~https://example.com/a~~'",
+      "<p><del><a>https://example.com/a</a></del>'</p>",
+    ],
+    [
       '[see <span>https://example.com/a]</span>',
       '<p>[see <span><a>https://example.com/a</a>]</span></p>',
     ],
-    // The URL ends before \] and the escape renders as a literal ]
     [
       '[see https://example.com/a\\]]',
       '<p>[see <a>https://example.com/a</a>]]</p>',
@@ -3081,7 +3355,6 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '[see https://example.com/a.]',
       '<p>[see <a>https://example.com/a</a>.]</p>',
     ],
-    // An unclosed [ inside the URL balances the final ], so it stays
     [
       '[see https://example.com/?a[0=1]',
       '<p>[see <a>https://example.com/?a[0=1]</a></p>',
@@ -3101,11 +3374,169 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
     ).toBe(expected)
   })
 
-  // serialize drops props, so the href is read from the vnode tree
   it.each([
     ['[see https://example.com/a]', 'https://example.com/a'],
     ['[see https://example.com/?a[0]=1]', 'https://example.com/?a%5B0%5D=1'],
-  ])('links %j to %j', (input, expected) => {
+  ])('links %j to %j, reading the href from the vnode tree because serialize drops props', (input, expected) => {
     expect(firstHref(compiler(input, { forceBlock: true }))).toBe(expected)
+  })
+})
+
+describe('override props that have no attribute form in the html compiler', () => {
+  it('hands the element every value, leaving the DOM renderer to decide what each writes', () => {
+    const noop = () => {}
+    const result = compiler('# hi', {
+      overrides: {
+        h1: {
+          props: {
+            'data-a': false,
+            'data-b': noop,
+            'data-c': { x: 1 },
+            'data-d': 'k',
+            style: {},
+          },
+        },
+      },
+    })
+
+    expect(
+      treeProps(result).filter(
+        ([name]) => name.startsWith('data-') || name === 'style'
+      )
+    ).toEqual([
+      ['data-a', false],
+      ['data-b', noop],
+      ['data-c', { x: 1 }],
+      ['data-d', 'k'],
+      ['style', {}],
+    ])
+    expect(serialize(result)).toBe('<h1>hi</h1>')
+  })
+})
+
+describe('render depth limit', () => {
+  function vnodeDepth(tree: unknown): number {
+    let depth = 0
+    let current = tree
+    while (current && typeof current === 'object') {
+      if (Array.isArray(current)) {
+        current = current[0]
+      } else if ('children' in current) {
+        depth++
+        current = (current as VNode).children
+      } else {
+        break
+      }
+    }
+    return depth
+  }
+
+  it.each([
+    [$.MAX_RENDER_DEPTH - 1, $.MAX_RENDER_DEPTH - 1],
+    [$.MAX_RENDER_DEPTH, $.MAX_RENDER_DEPTH],
+    [$.MAX_RENDER_DEPTH + 1, $.MAX_RENDER_DEPTH],
+    [$.MAX_RENDER_DEPTH * 2, $.MAX_RENDER_DEPTH],
+  ])('renders %i nested block quotes %i levels deep', (count, expected) => {
+    expect(vnodeDepth(astToJSX(quotesDeep(count), { wrapper: null }))).toBe(
+      expected
+    )
+  })
+
+  it.each([
+    [$.MAX_RENDER_DEPTH, 'x'],
+    [$.MAX_RENDER_DEPTH + 1, ''],
+    [$.MAX_RENDER_DEPTH * 2, ''],
+  ])('continues the depth through renderChildren in a renderRule for %i nested block quotes', (count, expected) => {
+    expect<unknown>(
+      astToJSX(quotesDeep(count), {
+        wrapper: null,
+        renderRule: (next, node, renderChildren) =>
+          node.type === RuleType.blockQuote
+            ? renderChildren(node.children)
+            : next(),
+      })
+    ).toBe(expected)
+  })
+})
+
+function ssr(input: string, options?: VueOptions) {
+  const tree = compiler(input, options)
+  return renderToString(createSSRApp({ render: () => tree }))
+}
+
+describe('a setext underline after a lazy line in a block quote', () => {
+  it.each([
+    ['> a\nb\n> ---', '<blockquote><h2 id="ab">a\nb</h2></blockquote>'],
+    [
+      '> a\nb\n>\n> c\n> ===',
+      '<blockquote><p>a\nb</p><h1 id="c">c</h1></blockquote>',
+    ],
+    ['> a\nb\n===', '<blockquote><p>a\nb\n===</p></blockquote>'],
+  ])('renders %j as %j', async (input, expected) => {
+    expect(await ssr(input)).toBe(expected)
+  })
+})
+
+describe('code span edge spaces', () => {
+  it.each([
+    ['` a `', '<code>a</code>'],
+    ['` \t `', '<code>\t</code>'],
+    ['`   `', '<code> </code>'],
+  ])('renders %j as %j', async (input, expected) => {
+    expect(await ssr(input)).toBe(expected)
+  })
+})
+
+describe('code spans at the streaming edge', () => {
+  it.each([
+    ['x `` a ` b `` y', '<span>x <code>a ` b</code> y</span>'],
+    ['x \\` y', 'x ` y'],
+  ])('renders %j as %j with optimizeForStreaming, as without it', async (input, expected) => {
+    expect(await ssr(input, { optimizeForStreaming: true })).toBe(expected)
+    expect(await ssr(input)).toBe(expected)
+  })
+})
+
+describe('a bare email address with an underscore', () => {
+  it.each([
+    ['foo@a_b.c', '<a href="mailto:foo@a_b.c">foo@a_b.c</a>'],
+    ['foo@a.b_c.d', '<a href="mailto:foo@a.b_c.d">foo@a.b_c.d</a>'],
+    ['a.b-c_d@a.b_', 'a.b-c_d@a.b_'],
+  ])('renders %j as %j', async (input, expected) => {
+    expect(await ssr(input)).toBe(expected)
+  })
+})
+
+describe('entity text in image alt and link title', () => {
+  it('shows the literal text &copy; in an image alt', async () => {
+    expect(await ssr('![&amp;copy;](x)')).toBe('<img alt="&amp;copy;" src="x">')
+  })
+
+  it('shows the literal text &copy; in a link title', async () => {
+    expect(await ssr('[a](x "&amp;copy;")')).toBe(
+      '<a href="x" title="&amp;copy;">a</a>'
+    )
+  })
+})
+
+describe('frontmatter above a reference definition', () => {
+  const input = '---\ntitle: x\n---\n\n# H\n\n[a]\n\n[a]: /u'
+
+  it('drops the frontmatter and links the reference', async () => {
+    expect(await ssr(input)).toBe(
+      '<div><h1 id="h">H</h1><p><a href="/u">a</a></p></div>'
+    )
+  })
+
+  it('keeps the frontmatter with preserveFrontmatter and links the reference', async () => {
+    expect(await ssr(input, { preserveFrontmatter: true })).toBe(
+      '<div><pre>---\ntitle: x\n---</pre><h1 id="h">H</h1><p><a href="/u">a</a></p></div>'
+    )
+  })
+
+  it('keeps a document that is only frontmatter, closed at the end of input, as frontmatter', async () => {
+    expect(
+      await ssr('---\ntitle: Draft\n---', { preserveFrontmatter: true })
+    ).toBe('<pre>---\ntitle: Draft\n---</pre>')
   })
 })

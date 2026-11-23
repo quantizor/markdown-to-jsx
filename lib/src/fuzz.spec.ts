@@ -2,8 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { performance } from 'node:perf_hooks'
 import { compiler } from './index.tsx'
 
-// CI is slower than my MBP, so we give it more time
-const MAX_EXECUTION_TIME_MS = 1000
+const CI_TOLERANT_MAX_EXECUTION_TIME_MS = 1000
 
 function timeExecution(fn: () => void): number {
   const start = performance.now()
@@ -30,7 +29,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(html)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -51,7 +50,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(html)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -67,7 +66,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(html)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -88,7 +87,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(html)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -109,7 +108,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(html)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
   })
@@ -132,7 +131,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -153,7 +152,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -171,7 +170,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -189,7 +188,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -207,7 +206,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -225,7 +224,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
   })
@@ -245,7 +244,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -262,7 +261,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -287,7 +286,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -305,7 +304,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
   })
@@ -328,7 +327,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -349,7 +348,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -371,7 +370,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -390,7 +389,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(`${longPattern}text${longPattern}`)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -412,7 +411,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -433,7 +432,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -453,7 +452,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
             compiler(pattern)
           })
 
-          expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+          expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
         }
       }
     })
@@ -475,7 +474,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -493,7 +492,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -511,7 +510,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -529,7 +528,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -548,7 +547,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -570,7 +569,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -584,16 +583,13 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        // Allow more time for CI environments which may be slower
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
-    it('should have try/catch safety net for unexpected stack overflows', () => {
-      // Create extremely deeply nested structure that could bypass depth check
+    it('should not throw on 10,000 opening and 10,000 closing delimiters around text', () => {
       const extremeNesting = `${'*'.repeat(10_000)}text${'*'.repeat(10_000)}`
 
-      // Should not throw - try/catch should catch and fallback to plain text
       const executionTime = timeExecution(() => {
         expect(() => {
           const result = compiler(extremeNesting)
@@ -601,8 +597,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         }).not.toThrow()
       })
 
-      // Should complete in reasonable time even with fallback
-      expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+      expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
     })
 
     it('should handle mixed delimiter characters that look similar', () => {
@@ -621,7 +616,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
             compiler(pattern)
           })
 
-          expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+          expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
         }
       }
     })
@@ -640,7 +635,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -658,7 +653,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
   })
@@ -674,7 +669,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
       return result
     }
 
-    it('should handle random inputs without hanging', () => {
+    it('should handle random inputs without throwing or hanging', () => {
       const testCount = 100
       const inputLengths = [10, 50, 100, 500]
 
@@ -683,19 +678,15 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           const input = randomString(length)
 
           const executionTime = timeExecution(() => {
-            try {
-              compiler(input)
-            } catch {
-              // Errors are acceptable, we just want to avoid hangs
-            }
+            compiler(input)
           })
 
-          expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+          expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
         }
       }
     })
 
-    it('should handle adversarial patterns without exponential behavior', () => {
+    it('should handle adversarial patterns without throwing or exponential behavior', () => {
       const adversarialPatterns = [
         '*'.repeat(1000) + 'a'.repeat(1000) + '*'.repeat(1000),
         '['.repeat(100) + ']'.repeat(100),
@@ -709,14 +700,10 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
 
       for (const pattern of adversarialPatterns) {
         const executionTime = timeExecution(() => {
-          try {
-            compiler(pattern)
-          } catch {
-            // Errors are acceptable
-          }
+          compiler(pattern)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
   })
@@ -743,7 +730,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(html)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -765,7 +752,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(html)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -781,12 +768,10 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         '[text][',
         '[text][ref]',
         '[incomplete link](',
-        // Many incomplete brackets
         '['.repeat(100),
         ']'.repeat(100),
         '[['.repeat(50),
         ']]'.repeat(50),
-        // Mismatched brackets
         '[text](url))',
         '[text]((url)',
         '[text](url)]',
@@ -798,7 +783,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -813,11 +798,9 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         '```code```',
         '```code~~~',
         '~~~code```',
-        // Many unclosed fences
         '`'.repeat(100),
         '```'.repeat(50),
         '~~~'.repeat(50),
-        // Mixed incomplete fences
         '```~~~`'.repeat(20),
       ]
 
@@ -826,7 +809,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -839,20 +822,16 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         '| col1 | col2\n---',
         '| col1 | col2\n| ---',
         '| col1\n',
-        // Excessive pipes
         '|'.repeat(1000),
         '| | |'.repeat(100),
-        // Mismatched alignment
         '| col |\n|:--:|\n|:data|',
         '| col |\n|---|\n|data| |extra',
-        // Incomplete headers
         '|',
         '||',
         '|||',
         '| ',
         '| ||',
         '|| |',
-        // Incomplete separator
         '| col |\n',
         '| col |\n|',
         '| col |\n| -',
@@ -863,7 +842,6 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         '| col |\n| :--',
         '| col |\n| :--:',
         '| col |\n| :--: ',
-        // Misaligned rows
         '| col |\n|---|\n|data',
         '| col |\n|---|\n|data\n',
         '| col |\n|---|\n|data|',
@@ -877,7 +855,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(table)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -885,13 +863,10 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
       const testCases = [
         '* item\n2. ',
         '* item\n*',
-        // Mismatched list types
         '* item\n1. item',
         '1. item\n* item',
-        // Excessive indentation
         '           * item',
         '\t\t\t\t\t\t* item',
-        // Missing spaces
         '*item',
         '1.item',
         '10.item',
@@ -902,7 +877,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -916,10 +891,8 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         "<div attr='no closing",
         '<div attr="many"quotes"here">',
         "<div attr='many'quotes'here'>",
-        // Excessive quotes
         `<div attr="${'"'.repeat(100)}">`,
         `<div attr='${"'".repeat(100)}'>`,
-        // Nested quotes
         `<div attr="'inner'"'>`,
         `<div attr='"inner"'">`,
       ]
@@ -929,7 +902,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(html)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -955,7 +928,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(html)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -979,23 +952,19 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
     it('should handle incomplete headings', () => {
-      const testCases = [
-        '#######', // Excessive hashes
-        '#no space',
-        '##no space',
-      ]
+      const testCases = ['#######', '#no space', '##no space']
 
       for (const markdown of testCases) {
         const executionTime = timeExecution(() => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -1007,9 +976,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         '[text]: url"',
         '[text]: url)',
         '[text]: url]',
-        // Reference definition without reference
         '[ref]: http://example.com',
-        // Invalid reference
         '[text][nonexistent]',
         '[text][]',
         '[][ref]',
@@ -1022,7 +989,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -1041,7 +1008,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -1066,7 +1033,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(html)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -1090,7 +1057,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -1106,7 +1073,6 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         '<div>| table',
         '# heading<div>',
         '<div># heading',
-        // Multiple incomplete elements
         '<div><span>[link*item`code',
         '[link](<div>*text```code',
         '| table\n<div>[link*item',
@@ -1117,7 +1083,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
   })
@@ -1125,16 +1091,11 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
   describe('Brutal Attack Scenarios', () => {
     it('should handle ATTR_EXTRACTOR_R edge cases without backtracking', () => {
       const brutalCases = [
-        // Massive attribute strings with many quotes
         `<div attr="${'"'.repeat(1000)}val${'"'.repeat(1000)}"></div>`,
-        // Many nested quotes
         `<div attr='${"''".repeat(100)}'></div>`,
-        // Excessive escapes
         `<div attr="\\${'x'.repeat(500)}"></div>`,
-        // Deeply nested interpolations
         '<div attr={a{b{c{d}}}}></div>',
         `<div attr="\\${'"'.repeat(100)}${"'$&#39;".repeat(50)}"></div>`,
-        // Repeated attribute patterns
         `<div ${'attr="val" '.repeat(200)}></div>`,
       ]
 
@@ -1143,7 +1104,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(html)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -1173,7 +1134,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
             compiler(html)
           })
 
-          expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+          expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
         }
       }
     })
@@ -1196,20 +1157,17 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
     it('should handle escaped content proliferation', () => {
       const testCases = [
-        // Many escapes in sequence
         '*text \\*\\*\\*\\*\\* text*',
         '**text \\\\\\\\\\\\\\\\ text**',
         '`code \\\\\\\\\\\\\\\\ code`',
-        // Escapes mixed with delimiters
         '*\\*\\*\\*text\\*\\*\\*\\*\\*text*',
         '_\\_\\_\\_text\\_\\_\\_\\_\\_text_',
-        // Escapes in HTML attributes
         `<div title="\\${'*'.repeat(100)}"></div>`,
         `<div class='\\${'_'.repeat(100)}'></div>`,
       ]
@@ -1219,51 +1177,45 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
-    it('should handle prevCapture string growth', () => {
+    it('should handle many small emphasis lines followed by a final list item', () => {
       const sizes = [100, 500, 1000]
 
       for (const size of sizes) {
         let markdown = ''
-        // Create many small captures to grow prevCapture
         for (let i = 0; i < size; i++) {
           markdown += `*item${i}*\n`
         }
-        // Trigger lookback check
         markdown += '* final item'
 
         const executionTime = timeExecution(() => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
     it('should handle table parsing with pathological patterns', () => {
       const brutalTables = [
-        // Many columns
         '| ' +
           '*'.repeat(100) +
           ' | '.repeat(100) +
           '\n' +
           '| ' +
           '--- | '.repeat(100),
-        // Excessive whitespace
         '|   '.repeat(50) +
           ' |   '.repeat(50) +
           '\n|   ' +
           '---   |   '.repeat(50),
-        // Nested delimiters in cells
         '| ' +
           '***'.repeat(50) +
           ' | '.repeat(10) +
           '\n| ' +
           '--- | '.repeat(10),
-        // Mixed separators
         '| ' +
           '--- | '.repeat(50) +
           '\n| ' +
@@ -1277,19 +1229,15 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(table)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
     it('should handle code block fence variations', () => {
       const testCases = [
-        // Many fences
         `\`\`\`${'`'.repeat(100)}\ncode\n\`\`\`${'`'.repeat(100)}`,
-        // Mixed fences
         `~~~${'~'.repeat(100)}\ncode\n~~~${'~'.repeat(100)}`,
-        // Alternating fences
         `${'```~~~```~~~'.repeat(50)}\ncode\n${'```~~~```~~~'.repeat(50)}`,
-        // Very long language identifier
         `\`\`\`${'a'.repeat(1000)}\ncode\n\`\`\``,
       ]
 
@@ -1298,7 +1246,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -1310,7 +1258,6 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         for (let i = 0; i < size; i++) {
           markdown += `[ref${i}]: http://example.com/path${i}\n`
         }
-        // Use references
         for (let i = 0; i < size; i++) {
           markdown += `[link${i}][ref${i}] `
         }
@@ -1319,7 +1266,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -1340,7 +1287,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -1351,7 +1298,6 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
         let markdown = ''
         for (let i = 0; i < depth; i++) {
           markdown += `${'  '.repeat(i)}* `
-          // Each item has nested formatting
           markdown += `${'*'.repeat(i + 1)}text${'*'.repeat(i + 1)} `
           markdown += `${'_'.repeat(i + 1)}text${'_'.repeat(i + 1)}\n`
         }
@@ -1360,21 +1306,16 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
     it('should handle pathological whitespace patterns', () => {
       const testCases = [
-        // Excessive spaces
         `${' '.repeat(1000)}text`,
-        // Tabs everywhere
         `${'\t'.repeat(1000)}text`,
-        // Mixed whitespace
         `${' \t '.repeat(500)}text`,
-        // Newlines
         `${'\n'.repeat(1000)}text`,
-        // In code blocks
         `\`\`\`\n${' '.repeat(1000)}code\n\`\`\``,
       ]
 
@@ -1383,20 +1324,17 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
     it('should handle HTML character entity variations', () => {
       const testCases = [
-        // Many entities
         'a'.repeat(100) + '&'.repeat(100) + 'b'.repeat(100),
         '&amp;'.repeat(1000),
         `&#x${'0'.repeat(100)};`,
         `&#${'9'.repeat(100)};`,
-        // Mixed entities
         'text&nbsp;'.repeat(500),
-        // In attributes
         `<div title="&${'amp;'.repeat(100)}">content</div>`,
       ]
 
@@ -1405,7 +1343,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -1427,7 +1365,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
 
@@ -1449,7 +1387,7 @@ describe('Fuzzing: Exponential Backtracking Protections', () => {
           compiler(markdown)
         })
 
-        expect(executionTime).toBeLessThan(MAX_EXECUTION_TIME_MS)
+        expect(executionTime).toBeLessThan(CI_TOLERANT_MAX_EXECUTION_TIME_MS)
       }
     })
   })

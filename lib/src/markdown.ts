@@ -1,4 +1,4 @@
-import * as $ from './constants.ts'
+import { $ } from './constants.ts'
 import {
   indexOfCi,
   isASCIILetter,
@@ -21,6 +21,7 @@ import {
   getTag,
   isAlnumCode,
   isVoidElement,
+  opensSvgAsPage,
   rawOpenTagAttrs,
   URL_VERDICT,
   urlNamesBlockedScheme,
@@ -123,9 +124,6 @@ export function astToMarkdown(
     return writeMarkdown(ast, options, overrides)
   }
 
-  // A rename moves where a renderer ends a block, so markup the parser read as one
-  // raw string splits and a quote pairs with a later one. What a rename writes is
-  // read again like any source, and only that reading writes reference links.
   var again = { ...options, overrides: names, renderRule: undefined }
   return writeMarkdown(
     parser(
@@ -144,7 +142,6 @@ function writeMarkdown(
 ): string {
   const nodes = Array.isArray(ast) ? ast : [ast]
 
-  // Extract refs from reference collection node
   var refs: { [key: string]: { target: string; title: string | undefined } } =
     Object.create(null)
   var nonRefCollectionNodes: MarkdownToJSX.ASTNode[] = []
@@ -153,9 +150,7 @@ function writeMarkdown(
   for (var i = 0; i < nodes.length; i++) {
     var node = nodes[i]
     if (node.type === RuleType.refCollection && !foundRefCollection) {
-      refs =
-        (node as MarkdownToJSX.ReferenceCollectionNode).refs ||
-        Object.create(null)
+      refs = node.refs || Object.create(null)
       foundRefCollection = true
       nonRefCollectionNodes.push(node)
     } else if (
@@ -166,6 +161,14 @@ function writeMarkdown(
     ) {
       nonRefCollectionNodes.push(node)
     }
+  }
+
+  if (
+    nonRefCollectionNodes.length > 1 &&
+    nonRefCollectionNodes[0].type === RuleType.refCollection &&
+    nonRefCollectionNodes[1].type === RuleType.frontmatter
+  ) {
+    nonRefCollectionNodes.unshift(nonRefCollectionNodes.splice(1, 1)[0])
   }
 
   function renderNodeDefault(node: MarkdownToJSX.ASTNode): string {
@@ -180,22 +183,29 @@ function writeMarkdown(
     return compileNode(node, state)
   }
 
+  var depth = 0
+
   function nestedStatefulRender(
     node: MarkdownToJSX.ASTNode,
     stateWithKey: MarkdownToJSX.State = _emptyState
   ): string {
-    // renderRule must be checked FIRST, before any filtering or rendering logic
-    // This gives users full control to render even normally-skipped nodes
-    if (options?.renderRule) {
-      return options.renderRule(
-        () => renderNodeDefault(node),
-        node,
-        renderChildren,
-        stateWithKey
-      )
+    if (depth >= $.MAX_RENDER_DEPTH) {
+      return 'text' in node && node.text
+        ? compileText({ type: RuleType.text, text: node.text }, state)
+        : ''
     }
 
-    return renderNodeDefault(node)
+    depth++
+    var out = options?.renderRule
+      ? options.renderRule(
+          () => renderNodeDefault(node),
+          node,
+          renderChildren,
+          stateWithKey
+        )
+      : renderNodeDefault(node)
+    depth--
+    return out
   }
 
   function renderChildren(children: MarkdownToJSX.ASTNode[]): string {
@@ -207,14 +217,15 @@ function writeMarkdown(
   }
 
   const state: CompilerState = {
+    inLink: false,
     options: options || {},
     references: new Map(),
     referenceIndex: 1,
     overrides,
     renderChild: nestedStatefulRender,
+    underscorePlans: new WeakMap(),
   }
 
-  // Render nodes, tracking key indices without O(n^2) indexOf
   var keyOffset = 0
   var content = ''
   for (var ni = 0; ni < nonRefCollectionNodes.length; ni++) {
@@ -240,10 +251,6 @@ function writeMarkdown(
   return content
 }
 
-/**
- * The tag names `overrides` registers once its renames are written, for a parser
- * that reads only the names, or undefined when no key renames its tag.
- */
 function namesAfterRenames(
   overrides: MarkdownOverrides
 ): Record<string, boolean> | undefined {
@@ -257,17 +264,13 @@ function namesAfterRenames(
   return renames ? names : undefined
 }
 
-// Alias for backwards compatibility
 export const markdown: typeof astToMarkdown = astToMarkdown
 
-/** Options as the writer reads them: `overrides` only by name, for its nested parses */
 type WriterOptions = Omit<MarkdownCompilerOptions, 'overrides'> &
   Pick<ParserInputOptions, 'overrides'>
 
-/**
- * Internal compiler state
- */
 interface CompilerState {
+  inLink: boolean
   options: WriterOptions
   references: Map<string, { url: string; title?: string }>
   referenceIndex: number
@@ -276,18 +279,16 @@ interface CompilerState {
     node: MarkdownToJSX.ASTNode,
     stateWithKey?: MarkdownToJSX.State
   ) => string
+  underscorePlans: WeakMap<MarkdownToJSX.ASTNode[], Uint8Array>
 }
 
-/**
- * Compile a single AST node to markdown
- */
 function compileNode(
   node: MarkdownToJSX.ASTNode,
   state: CompilerState
 ): string {
   switch (node.type) {
     case RuleType.text:
-      return compileText(node)
+      return compileText(node, state)
 
     case RuleType.paragraph:
       return compileParagraph(node, state)
@@ -350,101 +351,76 @@ function compileNode(
       return compileReferenceCollection(node, state)
 
     default:
-      // Unknown node type, return empty string
       return ''
   }
 }
 
-/**
- * Escape, in a single pass, every character a text node must protect so it
- * stays literal on re-parse. An inline special (backslash, backtick, `*`, `_`,
- * `[`, `]`, `~`) is escaped anywhere, since emphasis, code, and links are
- * separate node types. A `<` before a letter, `/`, `!`, or `?` is written as an
- * entity: text can decode to one (`&lt;img …&gt;`), and a downstream renderer
- * would read it as live HTML. An entity stays inert where that renderer sees a
- * raw HTML block and a backslash would not, and re-parses to the same text. A
- * block starter is escaped only at the start of a line: `#` heading, `>`
- * blockquote, `-`/`+` bullet, `=`/`-` setext underline, `|` table, and a digit
- * run followed by `.`/`)`. A `(` after `]` is escaped too, and one opening the
- * node, since the node before it can end in `]` (`[^1](javascript:…)`): marked
- * drops the backslash of `\]` in link text and parses that text again, so `\](`
- * alone would read as a link.
- */
-const ESCAPE_ALL_R =
-  /\]\(|[\\`*_[\]~]|<(?=[a-zA-Z/!?])|&(?=#?\w+;)|(^|\n)([ \t]*)(?:([#>=|+-])|(\d{1,9})([.)]))/g
+const TEXT_ESCAPE_R =
+  /\]\(|[\\`*_[\]~]|<(?=[a-zA-Z/!?])|&(?=#?\w+;)|(^|\n)([ \t]*)(?:([#>=|+-])|(\d{1,9})([.)]))|==+/g
 
-/**
- * Matches whenever compileText would change something, and on any `&`. Most text
- * nodes are plain words that match nothing here, so this cheap test skips the
- * escape pass for the common case (measured faster than running the escape regex
- * on text that needs no change), and the opening character it tests costs less
- * here than a charCodeAt on every node.
- */
-const ESCAPE_TRIGGER_R =
-  /^[(﻿]|[\\`*_[\]~&]|<[a-zA-Z/!?]|(?:^|\n)[ \t]*(?:[#>=|+-]|\d{1,9}[.)])/
+const TEXT_NEEDS_ESCAPE_R =
+  /[\\`*_[\]~&@]|www\.|:\/\/|==|<[a-zA-Z/!?]|^[(﻿]|(?:^|\n)[ \t]*(?:[#>=|+-]|\d{1,9}[.)])/
+
+const BARE_URL_START_R =
+  /www\.(?![ \t\n\r<>])|(?:https?|ftp):\/\/(?![ \t\n\r<>])|[\w.!#$%&'*+/=?^`{|}~-]@(?=[\w-]*(?:\.[a-zA-Z0-9]|$))|^@$/g
 
 const BACKSLASH_R = /\\/g
-/** What can open markup in a code body a renderer reads as raw HTML or markdown */
-const CODE_MARKUP_R = /[&<[\]`*_~\\|]/g
+const CODE_BLOCK_MARKUP_R = /[&<[\]`*_~\\|]/g
 const PLAIN_LANG_R = /^[a-zA-Z0-9+#.-]+$/
-/**
- * What any step of screenRawLinks acts on: a link or image opener, raw markup, a
- * type 1 tag, an autolink's scheme, and U+2028 or U+2029 before a `>`, which
- * `[^\t-~]` holds along with the rest of non-ASCII. A string with none of them comes
- * through unchanged.
- */
-const RAW_SCREEN_SHAPE_R =
+const RAW_SCREEN_TRIGGER_R =
   /[^\t-~] {0,3}>|\][(:]|!\[|<(?:[?!]|pre|script|style|textarea|[a-z][a-z0-9+.-]{1,31}:)/i
-/** A code span written as HTML is still inline markdown, where a URL or email address becomes a link */
 const CODE_SPAN_MARKUP_R = /[&<[\]`*_~\\|:.@]/g
 const FOOTNOTE_DESTINATION_BREAK = '<!---->'
-/** What opens a tag, an autolink, or a link in a label a renderer reads as text */
 const LABEL_MARKUP_R = /[<[(]/g
 const LABEL_MARKUP_ENTITY: Record<string, string> = {
   '(': '&#40;',
   '<': '&lt;',
   '[': '&#91;',
 }
+const ENTITY_AMPERSAND_R = /&(?=#?\w+;)/g
 const LEFT_BRACKET_R = /\[/g
 const RIGHT_BRACKET_R = /\]/g
-/** The `<` a downstream renderer reads as the start of markup */
 const MARKUP_LT_R = /<(?=[a-zA-Z/!?])/g
-const ALT_QUOTE_R = /"/g
-/** The characters that end an image's alt early, the backslash included so `\]` can't */
-const ALT_BRACKET_R = /[[\]\\]/g
+const QUOTE_R = /"/g
+const ALT_BRACKET_OR_BACKSLASH_R = /[[\]\\]/g
 const LT_R = /</g
-const UNREADABLE_DESTINATION_R = /[\s<>]/
-/** An escape pair, which a table cell keeps whole, or a bare pipe */
-const CELL_PIPE_R = /\\[\s\S]|\|/g
-/** A footnote body's first word, a destination to a renderer without footnotes */
+const UNREADABLE_DESTINATION_R = /[\s<>\u0000-\u001F\u007F]/
+const CELL_ESCAPE_PAIR_OR_PIPE_R = /\\[\s\S]|\|/g
 const FIRST_WORD_R = /^\s*(\S*)/
 const NUMERIC_REFERENCE_R = /&#(?:0*(\d+)|x0*([\da-f]+));?/gi
-/** A line break and the spaces around it, which an ATX heading's one line cannot hold */
 const LINE_BREAK_R = / *\n */g
-/** The closer of each raw markup opener; a declaration's is a bare `>` */
 const RAW_MODE_MARKUP_CLOSER: Partial<Record<string, string>> = {
   '!--': '-->',
   '![cdata[': ']]>',
   '?': '?>',
 }
 
-function compileText(node: MarkdownToJSX.TextNode): string {
+function compileText(
+  node: MarkdownToJSX.TextNode,
+  state: CompilerState
+): string {
   var text = node.text
-  // `\<` parses to a text node of its own, so what follows it is the next node
   if (text === '<') {
     return '&lt;'
   }
-  if (!ESCAPE_TRIGGER_R.test(text)) {
+  if (!TEXT_NEEDS_ESCAPE_R.test(text)) {
     return text
   }
-  var out = text.replace(ESCAPE_ALL_R, escapeTextMatch)
+  var out = text.replace(TEXT_ESCAPE_R, escapeTextMatch)
+  var mayAutolink =
+    out.indexOf('@') !== -1 ||
+    out.indexOf('www.') !== -1 ||
+    out.indexOf('://') !== -1
+  if (mayAutolink && !(state.inLink || state.options.disableAutoLink)) {
+    out = out.replace(
+      BARE_URL_START_R,
+      match => `${match.slice(0, -1)}\\${match.slice(-1)}`
+    )
+  }
   var first = out.charCodeAt(0)
   if (first === $.CHAR_PAREN_OPEN) {
     return `\\${out}`
   }
-  // Some renderers drop this mark at the start of a document and others keep it as
-  // text, so what follows reads as a block to one and a paragraph to the other. Only
-  // a text node can open the output with it, and checking the output would flatten it.
   return first === $.CHAR_BYTE_ORDER_MARK ? `&#xFEFF;${out.slice(1)}` : out
 }
 
@@ -454,16 +430,20 @@ function escapeTextMatch(
   indent: string,
   blockChar: string | undefined,
   digits: string,
-  marker: string
+  marker: string,
+  at: number,
+  text: string
 ): string {
   if (lineStart === undefined) {
+    if (match.charCodeAt(0) === $.CHAR_EQ) {
+      return opensHighlight(match, at, text) ? `\\${match}` : match
+    }
     if (match === '<') {
       return '&lt;'
     }
     if (match === '](') {
       return '\\]\\('
     }
-    // Text reading `&copy;` decoded from `&amp;copy;`, and must not decode twice
     return match === '&' ? '&amp;' : `\\${match}`
   }
   if (blockChar !== undefined) {
@@ -472,15 +452,54 @@ function escapeTextMatch(
   return `${lineStart + indent + digits}\\${marker}`
 }
 
-/**
- * Text written as the content of an element the output tag opens. That element
- * can open a raw HTML block (a block-level tag alone on its line), where a
- * backslash shows as text, or sit inside a paragraph, where markdown is read
- * again. Only an entity is inert in both, so every character compileText would
- * escape is written as one.
- */
+function opensHighlight(run: string, at: number, text: string): boolean {
+  return run.length === 2 && text.charCodeAt(at + 2) > $.CHAR_SPACE
+}
+
+function isHighlight(node: MarkdownToJSX.ASTNode | undefined): boolean {
+  return (
+    node !== undefined &&
+    node.type === RuleType.textFormatted &&
+    node.tag === 'mark'
+  )
+}
+
+function escapeEqAt(s: string, at: number): string {
+  if (at < 0 || s.charCodeAt(at) !== $.CHAR_EQ) {
+    return s
+  }
+  var slashes = 0
+  for (var i = at - 1; i >= 0 && s.charCodeAt(i) === $.CHAR_BACKSLASH; i--) {
+    slashes++
+  }
+  return slashes % 2 ? s : `${s.slice(0, at)}\\${s.slice(at)}`
+}
+
+function escapeTrailingEq(s: string): string {
+  return escapeEqAt(s, s.length - 1)
+}
+
+function escapeEqBeforeSibling(
+  children: MarkdownToJSX.ASTNode[],
+  i: number,
+  rendered: string
+): string {
+  var after = i + 1
+  while (after < children.length && children[after].type === RuleType.text) {
+    after++
+  }
+  if (isHighlight(children[after])) {
+    rendered = escapeTrailingEq(rendered)
+  }
+  return after < children.length &&
+    rendered.charCodeAt(rendered.length - 1) === $.CHAR_EQ &&
+    rendered.charCodeAt(rendered.length - 2) === $.CHAR_EQ
+    ? escapeEqAt(rendered, rendered.length - 2)
+    : rendered
+}
+
 function compileElementText(text: string): string {
-  return text.replace(ESCAPE_ALL_R, entityTextMatch)
+  return text.replace(TEXT_ESCAPE_R, entityTextMatch)
 }
 
 function entityTextMatch(
@@ -489,9 +508,14 @@ function entityTextMatch(
   indent: string,
   blockChar: string | undefined,
   digits: string,
-  marker: string
+  marker: string,
+  at: number,
+  text: string
 ): string {
   if (lineStart === undefined) {
+    if (match.charCodeAt(0) === $.CHAR_EQ) {
+      return opensHighlight(match, at, text) ? '&#61;=' : match
+    }
     if (match === '<') {
       return '&lt;'
     }
@@ -537,14 +561,12 @@ function compileHeading(
     return `${content}\n${(node.level === 1 ? '=' : '-').repeat(content.length)}`
   }
 
-  // A heading rarely holds a line break, and the regex costs far more to find none
   var oneLine =
     content.indexOf('\n') === -1 ? content : content.replace(LINE_BREAK_R, ' ')
 
   return `${'#'.repeat(node.level)}${state.options.enforceAtxHeadings === false ? '' : ' '}${escapeClosingSequence(oneLine)}`
 }
 
-/** A heading's last `#` run after a space reads as its closing sequence and is dropped, so the run gets a backslash */
 function escapeClosingSequence(text: string): string {
   var end = text.length
   while (
@@ -572,15 +594,6 @@ function compileBreakLine(_node: MarkdownToJSX.BreakLineNode): string {
   return '  \n'
 }
 
-/**
- * A renderer can read a code body as raw HTML or as markdown wherever it reads the
- * structure around it differently, and no screen can rule that out. So a body that
- * would be unsafe read that way, or a fence's info string, is not written as code
- * markup. `<` and `]` open everything this looks for. Raw HTML earlier in the
- * document is not required: `[^a`b]` re-pairs the backtick of a later code span.
- * A filtered tag counts only with raw HTML off: otherwise the document can write
- * that tag raw, and it passes through.
- */
 function codeTextIsUnsafe(text: string, options: WriterOptions): boolean {
   if (text.indexOf('<') === -1 && text.indexOf(']') === -1) {
     return false
@@ -592,7 +605,6 @@ function codeTextIsUnsafe(text: string, options: WriterOptions): boolean {
   )
 }
 
-/** What opens markup in a raw HTML or markdown reading, as an entity a browser shows as the character */
 function encodeCodeText(text: string, markup: RegExp): string {
   return text.replace(markup, char =>
     char === '&' ? '&amp;' : char === '<' ? '&lt;' : `&#${char.charCodeAt(0)};`
@@ -611,14 +623,10 @@ function compileCodeBlock(
       node.lang && PLAIN_LANG_R.test(node.lang)
         ? ` class="language-${node.lang}"`
         : ''
-    return `<pre><code${langClass}>${encodeCodeText(node.text, CODE_MARKUP_R)}\n</code></pre>`
+    return `<pre><code${langClass}>${encodeCodeText(node.text, CODE_BLOCK_MARKUP_R)}\n</code></pre>`
   }
-  // A backtick fence cannot carry an info string holding a backtick: it would
-  // re-parse as a paragraph with the body live, so that info string gets tildes.
   var fenceChar = node.lang && node.lang.indexOf('`') !== -1 ? '~' : '`'
   var fenceCode = fenceChar.charCodeAt(0)
-  // The fence must be longer than any run of its character inside the content,
-  // or an interior ``` would terminate the block early on re-parse.
   var longest = 0
   var run = 0
   for (var i = 0; i < node.text.length; i++) {
@@ -643,8 +651,6 @@ function compileCodeInline(
   if (codeTextIsUnsafe(text, options)) {
     return `<code>${encodeCodeText(text, CODE_SPAN_MARKUP_R)}</code>`
   }
-  // The delimiter must be longer than the longest backtick run inside, or the
-  // content would close the span early.
   var longest = 0
   var run = 0
   for (var i = 0; i < text.length; i++) {
@@ -658,8 +664,6 @@ function compileCodeInline(
     }
   }
   var fence = '`'.repeat(longest + 1)
-  // Pad with a space when the content abuts the delimiter with a backtick, so
-  // the opening and closing runs stay distinct.
   var pad =
     text.length > 0 &&
     (text.charCodeAt(0) === $.CHAR_BACKTICK ||
@@ -675,11 +679,8 @@ function compileTextFormatted(
 ): string {
   var content = ''
   for (var fi = 0; fi < node.children.length; fi++) {
-    content += state.renderChild(node.children[fi], _emptyState)
+    content += compileInlineChild(node.children, fi, state)
   }
-  // Nothing to format: `~~~~` beside a code span reads as text to marked, which
-  // leaves the span's content live, and writing nothing would join its neighbors
-  // (`<~~~~javascript:…>` into an autolink)
   if (!content) {
     return node.tag === 'del' ? '\\~\\~\\~\\~' : ''
   }
@@ -694,7 +695,7 @@ function compileTextFormatted(
     case 's':
       return `~~${content}~~`
     case 'mark':
-      return `==${content}==`
+      return `==${escapeTrailingEq(content)}==`
     case 'code':
       return compileCodeInline(
         { type: RuleType.codeInline, text: content },
@@ -705,37 +706,24 @@ function compileTextFormatted(
   }
 }
 
-/**
- * Serialize a link/image title for a `"..."` delimiter, escaping the backslash
- * and quote a bare title would otherwise use to close the title early. A `<`, `[`,
- * and `]` become entities, which re-parse to the same title and stay inert for a
- * downstream renderer that reads the line as text (a reference definition joined
- * to a paragraph above it, whose open `[` a `]` here would close).
- */
 function escapeLinkTitle(title: string): string {
   return title
     .replace(BACKSLASH_R, '\\\\')
-    .replace(/"/g, '\\"')
+    .replace(ENTITY_AMPERSAND_R, '&amp;')
+    .replace(QUOTE_R, '\\"')
     .replace(MARKUP_LT_R, '&lt;')
     .replace(LEFT_BRACKET_R, '&#91;')
     .replace(RIGHT_BRACKET_R, '&#93;')
 }
 
-/**
- * A reference or footnote name, written the same in the reference and the
- * definition so the two still match. A renderer without footnotes reads the
- * reference as text, and a definition joined to a paragraph above it too.
- */
 function writtenLabel(label: string): string {
   return label.replace(LABEL_MARKUP_R, c => LABEL_MARKUP_ENTITY[c])
 }
 
-/** Whether a destination passes the screen as a renderer reads it: entities decoded, backslash escapes gone. */
 function isSafeDestination(url: string): boolean {
   return destinationVerdict(url) === URL_VERDICT.safe
 }
 
-/** What another renderer can split a destination at, reading what follows as a URL of its own */
 const DESTINATION_SPLIT_R = /[\s<>()[\]"'`&\\]/
 
 function destinationVerdict(
@@ -753,7 +741,6 @@ function destinationVerdict(
     : verdict
 }
 
-/** A numeric reference as a decoder needs it: a browser needs no semicolon and takes any number of leading zeros */
 function completeNumericReference(
   _match: string,
   decimal: string | undefined,
@@ -762,18 +749,35 @@ function completeNumericReference(
   return decimal ? `&#${decimal};` : `&#x${hex};`
 }
 
-/**
- * A renderer without footnotes reads `[^1]:` opening a block as a link reference,
- * with the text after it as the destination. Where it opens a block is out of reach
- * from a node (a leading hard break writes a line it reads as blank, a comment ends
- * its line), and `\:` reads the same to every renderer, so the colon always gets it.
- */
 function compileInlineChild(
   children: MarkdownToJSX.ASTNode[],
   i: number,
   state: CompilerState
 ): string {
-  var rendered = state.renderChild(children[i], _emptyState)
+  var node = children[i]
+  if (node.type === RuleType.text) {
+    if (i > 0 && children[i - 1].type === RuleType.text) {
+      return ''
+    }
+    var next = children[i + 1]
+    if (next !== undefined && next.type === RuleType.text) {
+      node = textRun(children, i)
+    }
+  }
+  var rendered = underscoreAdjacentEmphasis(
+    children,
+    i,
+    state.renderChild(node, _emptyState),
+    state
+  )
+  if (
+    node.type === RuleType.text &&
+    rendered.charCodeAt(rendered.length - 1) === $.CHAR_EQ
+  ) {
+    // Kept out of line: written inline, it makes this function too large for
+    // V8 to inline and markdown output in Chrome runs 4% slower.
+    rendered = escapeEqBeforeSibling(children, i, rendered)
+  }
   return i > 0 &&
     children[i - 1].type === RuleType.footnoteReference &&
     children[i].type === RuleType.text &&
@@ -782,7 +786,98 @@ function compileInlineChild(
     : rendered
 }
 
-/** Whether a UTF-16 code unit is ECMAScript whitespace or a line terminator, a wider set than isASCIIWhitespace */
+function textRun(
+  children: MarkdownToJSX.ASTNode[],
+  start: number
+): MarkdownToJSX.TextNode {
+  var text = ''
+  for (var j = start; j < children.length; j++) {
+    var child = children[j]
+    if (child.type !== RuleType.text) {
+      break
+    }
+    text += child.text
+  }
+  return { text, type: RuleType.text }
+}
+
+function isStarEmphasis(
+  node: MarkdownToJSX.ASTNode | undefined
+): node is MarkdownToJSX.FormattedTextNode {
+  return (
+    node !== undefined &&
+    node.type === RuleType.textFormatted &&
+    (node.tag === 'em' ||
+      node.tag === 'i' ||
+      node.tag === 'strong' ||
+      node.tag === 'b')
+  )
+}
+
+function planUnderscoreRuns(children: MarkdownToJSX.ASTNode[]): Uint8Array {
+  var plan = new Uint8Array(children.length)
+  for (var start = 0; start < children.length; start++) {
+    if (!isStarEmphasis(children[start])) {
+      continue
+    }
+    var end = start
+    while (isStarEmphasis(children[end + 1])) {
+      end++
+    }
+    if (end > start) {
+      var before = children[start - 1]
+      var after = children[end + 1]
+      var wordBefore =
+        before !== undefined &&
+        before.type === RuleType.text &&
+        isAlnumCode(before.text.charCodeAt(before.text.length - 1))
+      var wordAfter =
+        after !== undefined &&
+        after.type === RuleType.text &&
+        isAlnumCode(after.text.charCodeAt(0))
+      var lastIsOdd = (end - start) % 2 === 1
+      var oddCanClose = !(lastIsOdd && wordAfter)
+      var evenCanOpen = !(wordBefore || (!lastIsOdd && wordAfter))
+      if (oddCanClose || evenCanOpen) {
+        for (var at = start + (oddCanClose ? 1 : 0); at <= end; at += 2) {
+          plan[at] = 1
+        }
+      }
+    }
+    start = end
+  }
+  return plan
+}
+
+function underscoreAdjacentEmphasis(
+  children: MarkdownToJSX.ASTNode[],
+  i: number,
+  rendered: string,
+  state: CompilerState
+): string {
+  var node = children[i]
+  if (
+    !(
+      isStarEmphasis(node) &&
+      (isStarEmphasis(children[i - 1]) || isStarEmphasis(children[i + 1]))
+    ) ||
+    rendered.charCodeAt(0) !== $.CHAR_ASTERISK
+  ) {
+    return rendered
+  }
+  var plan = state.underscorePlans.get(children)
+  if (plan === undefined) {
+    plan = planUnderscoreRuns(children)
+    state.underscorePlans.set(children, plan)
+  }
+  if (plan[i] === 0) {
+    return rendered
+  }
+  var width = node.tag === 'strong' || node.tag === 'b' ? 2 : 1
+  var mark = '_'.repeat(width)
+  return mark + rendered.slice(width, -width) + mark
+}
+
 function isECMAScriptSpace(code: number): boolean {
   return code <= $.CHAR_SPACE
     ? code === $.CHAR_SPACE || (code >= $.CHAR_TAB && code <= $.CHAR_CR)
@@ -798,13 +893,6 @@ function isECMAScriptSpace(code: number): boolean {
           code === 0xfe_ff)
 }
 
-/**
- * Index of the `>` closing an autolink whose `<` is at `start`, or -1. The scheme
- * is a letter and then 1 to 31 scheme characters, and the body holds nothing up to
- * a space, `<`, or `>`. U+007F stays in the body, though CommonMark ends an autolink
- * there: marked reads it as a link. A second `<` ends the search there too:
- * neutralizing it would let this one close at a later `>`.
- */
 function autolinkEnd(raw: string, start: number): number {
   if (!isASCIILetter(raw.charCodeAt(start + 1))) {
     return -1
@@ -837,11 +925,6 @@ function autolinkEnd(raw: string, start: number): number {
   return -1
 }
 
-/**
- * Index where the destination of the `](` or `]:` at `bracket` starts, past any
- * whitespace and one `<`, or -1 when no such opener is there. The destination runs
- * to whitespace, `)`, `>`, `]`, or the end, and may be empty.
- */
 function linkDestinationStart(raw: string, bracket: number): number {
   var kind = raw.charCodeAt(bracket + 1)
   if (kind !== $.CHAR_PAREN_OPEN && kind !== $.CHAR_COLON) {
@@ -854,7 +937,6 @@ function linkDestinationStart(raw: string, bracket: number): number {
   return raw.charCodeAt(at) === $.CHAR_LT ? at + 1 : at
 }
 
-/** Index where a link destination starting at `start` ends */
 function linkDestinationEnd(raw: string, start: number): number {
   for (var at = start; at < raw.length; at++) {
     var code = raw.charCodeAt(at)
@@ -870,17 +952,8 @@ function linkDestinationEnd(raw: string, start: number): number {
   return raw.length
 }
 
-/**
- * A raw string reaches the output as written, and a downstream renderer reads
- * markdown in it wherever it does not see an HTML block: a neutralized opener
- * (`&lt;div`), an inline tag's body, a block's body after a blank line. So an
- * inline link's `]` or an autolink's `<` with an unsafe destination becomes an
- * entity, which renders the same in raw HTML. An autolink's body is read too:
- * neutralized it is text, where a `]` pairs with any `[` before it, and a renderer
- * that ends an autolink sooner than CommonMark reads it as text already.
- */
 function screenRawLinks(source: string): string {
-  if (!RAW_SCREEN_SHAPE_R.test(source)) {
+  if (!RAW_SCREEN_TRIGGER_R.test(source)) {
     return source
   }
   var raw = screenUnendedOpeners(
@@ -918,8 +991,6 @@ function screenRawLinks(source: string): string {
       if (isLink) {
         resume = destinationEnd
       }
-      // An opener with nothing after it takes its destination from the next node,
-      // which a tight list item writes one line down, out of sight here
       if (
         !isSafeDestination(raw.slice(destinationStart, destinationEnd)) ||
         (isLink && start + 2 === contentEnd)
@@ -927,7 +998,6 @@ function screenRawLinks(source: string): string {
         out +=
           raw.slice(copied, start) +
           (isLink ? '&#93;' : '&lt;') +
-          // A `<` left in the destination would still read as an autolink
           raw.slice(start + 1, resume).replace(LT_R, '&lt;')
         copied = resume
       }
@@ -942,10 +1012,6 @@ function screenRawLinks(source: string): string {
   return screenRawImageAlts(out + raw.slice(copied))
 }
 
-/**
- * marked strips blockquote markers with a multiline `^`, which JavaScript also matches
- * after U+2028 and U+2029, so a tag's own `>` after one is removed and the tag stays open.
- */
 function screenLineSeparators(raw: string): string {
   var out = ''
   var copied = 0
@@ -965,18 +1031,11 @@ function screenLineSeparators(raw: string): string {
   return copied ? out + raw.slice(copied) : raw
 }
 
-/** Index of `needle` at or after `from`, or the end of `text` */
 function indexOrEnd(text: string, needle: string, from: number): number {
   var index = text.indexOf(needle, from)
   return index === -1 ? text.length : index
 }
 
-/**
- * A raw string can read as an image whose alt holds a quote, and marked 17 copies
- * alt into a quoted attribute unescaped. So a `![` with a `"` and then a `]` ahead
- * of the next blank line becomes an entity. Each search resumes where the last
- * ended, which keeps a run of `![` linear.
- */
 function screenRawImageAlts(raw: string): string {
   var opener = raw.indexOf('![')
   var quote = -1
@@ -1003,10 +1062,6 @@ function screenRawImageAlts(raw: string): string {
   return out + raw.slice(copied)
 }
 
-/**
- * Index past a type 1 tag name at `at`, or -1. A name followed by a word character
- * is another name.
- */
 function type1NameEnd(text: string, at: number): number {
   for (var i = 0; i < TYPE1_TAG_NAMES.length; i++) {
     var end = at + TYPE1_TAG_NAMES[i].length
@@ -1022,16 +1077,11 @@ function type1NameEnd(text: string, at: number): number {
   return -1
 }
 
-/** Index just past `needle` at or after `from`, or -1 */
 function indexPast(text: string, needle: string, from: number): number {
   var index = text.indexOf(needle, from)
   return index === -1 ? -1 : index + needle.length
 }
 
-/**
- * Index past an opener a renderer stays inside until its closer, with its `<` at
- * `at`, or -1: a type 1 tag or other raw markup, in any ASCII case.
- */
 function rawModeOpenerEnd(text: string, at: number): number {
   var kind = text.charCodeAt(at + 1)
   if (kind === $.CHAR_QUESTION) {
@@ -1049,15 +1099,6 @@ function rawModeOpenerEnd(text: string, at: number): number {
   return isASCIILetter(text.charCodeAt(at + 2)) ? at + 3 : -1
 }
 
-/**
- * A browser ends a processing instruction or CDATA section at its first `>`, and
- * a renderer at its terminator, which can sit inside a value of a tag the browser
- * reads past that `>`. A renderer can then move or escape what follows the
- * terminator, so the value's closing quote pairs with a later one, reading text
- * there as attributes. Such a tag is written as text, wherever a raw string holds
- * the markup: a renderer can reach it past anything before it. The search stops at
- * the first terminator it does not find, so it stays linear.
- */
 function screenMarkupBody(
   raw: string,
   opener: string,
@@ -1085,10 +1126,6 @@ function screenMarkupBody(
   return copied ? out + raw.slice(copied) : raw
 }
 
-/**
- * Whether the opener at `at` has no closer in `raw`. `lastCloser` keeps it to one
- * search per closer: the openers in a string are unbounded.
- */
 function isUnendedOpener(
   raw: string,
   at: number,
@@ -1109,13 +1146,6 @@ function isUnendedOpener(
   return closerAt < openerEnd
 }
 
-/**
- * A renderer can start over inside a raw string, at a blank line or after a first
- * line it reads as text, so a line opening markup with no closer here is raw HTML
- * to it through the end of the document. A browser reads what that hides as written,
- * past the opener's first `>` or an element the opener sat in
- * (`<title>a\n\n<!--</title>`).
- */
 function screenUnendedOpeners(raw: string): string {
   var lineStart = raw.indexOf('\n') + 1
   if (lineStart === 0) {
@@ -1140,15 +1170,8 @@ function screenUnendedOpeners(raw: string): string {
   return copied ? out + raw.slice(copied) : raw
 }
 
-/** A backslash a renderer would read as an escape: before ASCII punctuation, or before the `)` written after the destination */
 const ESCAPING_BACKSLASH_R = /\\(?=[!-/:-@[-`{-~]|$)/g
 
-/**
- * A destination with whitespace or an angle bracket (a footnote's text under
- * `[r][^1]`, a `<a b>` destination) is not one a renderer reads between plain
- * parentheses: it would leave them as text and any markup in it live.
- * Percent-encoding is what the other outputs emit for it.
- */
 function writeDestination(url: string): string {
   const written = UNREADABLE_DESTINATION_R.test(url)
     ? encodeUrlTarget(url)
@@ -1159,7 +1182,6 @@ function writeDestination(url: string): string {
     : written.replace(ESCAPING_BACKSLASH_R, '\\\\')
 }
 
-/** A destination outside angle brackets ends at a paren with no partner */
 function hasUnbalancedParen(url: string): boolean {
   var depth = 0
   for (var i = 0; i < url.length; i++) {
@@ -1178,44 +1200,36 @@ function compileLink(
   state: CompilerState
 ): string {
   var text = ''
+  state.inLink = true
   for (var li = 0; li < node.children.length; li++) {
-    text += state.renderChild(node.children[li], _emptyState)
+    text += compileInlineChild(node.children, li, state)
   }
-  // The parser keeps an autolink's scheme and the other outputs screen it at render
-  const url =
-    node.target && isSafeDestination(node.target)
-      ? writeDestination(node.target)
-      : ''
-  const title = url ? node.title : undefined
-
-  if (state.options.useReferenceLinks) {
-    const refKey = generateReferenceKey(state)
-    if (!state.references.has(refKey)) {
-      state.references.set(refKey, { url, title })
-    }
-    return `[${text}][${refKey}]`
-  }
-
-  return title
-    ? `[${text}](${url} "${escapeLinkTitle(title)}")`
-    : `[${text}](${url})`
+  state.inLink = false
+  return writeTarget('', text, node, state)
 }
 
 function compileImage(
   node: MarkdownToJSX.ImageNode,
   state: CompilerState
 ): string {
-  // A renderer writes alt into a quoted attribute, and marked 17 does so unescaped.
-  // A bare `]` would end the image early and turn the rest of the alt into markdown.
   const alt = (node.alt || '')
-    .replace(ALT_BRACKET_R, '\\$&')
+    .replace(ALT_BRACKET_OR_BACKSLASH_R, '\\$&')
+    .replace(ENTITY_AMPERSAND_R, '&amp;')
     .replace(MARKUP_LT_R, '&lt;')
-    .replace(ALT_QUOTE_R, '&quot;')
-  // Rejected destinations are null; keep the round-trip as ![alt]() so a
-  // leftover title cannot become a live destination on re-parse. A target the
-  // parser passed can still decode to a scheme once a renderer reads it.
+    .replace(QUOTE_R, '&quot;')
+  return writeTarget('!', alt, node, state)
+}
+
+function writeTarget(
+  prefix: '' | '!',
+  text: string,
+  node: MarkdownToJSX.LinkNode | MarkdownToJSX.ImageNode,
+  state: CompilerState
+): string {
   const url =
-    node.target && isSafeDestination(node.target)
+    node.target &&
+    isSafeDestination(node.target) &&
+    (prefix === '!' || !opensSvgAsPage(node.target, 'a', 'href'))
       ? writeDestination(node.target)
       : ''
   const title = url ? node.title : undefined
@@ -1225,18 +1239,14 @@ function compileImage(
     if (!state.references.has(refKey)) {
       state.references.set(refKey, { url, title })
     }
-    return `![${alt}][${refKey}]`
+    return `${prefix}[${text}][${refKey}]`
   }
 
   return title
-    ? `![${alt}](${url} "${escapeLinkTitle(title)}")`
-    : `![${alt}](${url})`
+    ? `${prefix}[${text}](${url} "${escapeLinkTitle(title)}")`
+    : `${prefix}[${text}](${url})`
 }
 
-/**
- * Block-level node types that need a line break separating them from a
- * sibling inside a list item; inline siblings continue on the same line.
- */
 function isBlockListChild(t: MarkdownToJSX.ASTNode['type']): boolean {
   return (
     t === RuleType.blockQuote ||
@@ -1251,18 +1261,11 @@ function isBlockListChild(t: MarkdownToJSX.ASTNode['type']): boolean {
   )
 }
 
-/**
- * Render a list item's children, separating block-level siblings: two
- * block siblings get a blank line (loose item), an inline/block boundary
- * gets a single line break. Inline runs stay joined on one line.
- */
 function compileListItemChildren(
   item: MarkdownToJSX.ASTNode[],
   state: CompilerState
 ): string {
   var content = ''
-  // A renderer's HTML block runs to a blank line, so a block sibling after raw
-  // HTML needs one or a code fence is read as part of the raw HTML
   var sawRawHtml = false
   for (var i = 0; i < item.length; i++) {
     var type = item[i].type
@@ -1281,7 +1284,6 @@ function compileListItemChildren(
       type === RuleType.htmlSelfClosing ||
       type === RuleType.htmlComment
     var written = compileInlineChild(item, i, state)
-    // A custom rule can return anything for these nodes, and text is not a tag
     var opensTag =
       (type === RuleType.htmlBlock || type === RuleType.htmlSelfClosing) &&
       written.charCodeAt(0) === $.CHAR_LT
@@ -1293,14 +1295,6 @@ function compileListItemChildren(
   return content
 }
 
-/**
- * Write a raw element's opening tag on one line. A renderer can end an HTML
- * block on the line a tag starts, and a tight list then joins the next line to
- * it, so the text after a split tag reads as that tag's attributes. A line break
- * between attributes means the same as a space, and one in a quoted value the
- * same as `&#10;`. One in a `{…}` value folds too and changes that value: a
- * renderer splits the tag there all the same, so keeping it lets a handler go live.
- */
 function openTagOnOneLine(written: string): string {
   var out = ''
   var quote = 0
@@ -1324,11 +1318,6 @@ function openTagOnOneLine(written: string): string {
   return out + written.slice(segStart)
 }
 
-/**
- * A list is loose when the parser kept paragraph wrappers inside its items
- * (tight items are unwrapped to inline children). A loose list separates its
- * items with a blank line so it re-parses loose and keeps its `<p>` wrappers.
- */
 function isLooseList(items: MarkdownToJSX.ASTNode[][]): boolean {
   for (var i = 0; i < items.length; i++) {
     for (var j = 0; j < items[i].length; j++) {
@@ -1378,7 +1367,6 @@ function compileBlockQuote(
   node: MarkdownToJSX.BlockQuoteNode,
   state: CompilerState
 ): string {
-  // Single-pass: render children, then prefix lines with > while scanning for \n
   var rendered = ''
   for (var qi = 0; qi < node.children.length; qi++) {
     if (qi > 0) {
@@ -1386,9 +1374,6 @@ function compileBlockQuote(
     }
     rendered += state.renderChild(node.children[qi], _emptyState)
   }
-  // Prefix each line with >; an alert blockquote re-emits its marker line
-  // first so the round-trip re-parses to the same alert (mirrors the html
-  // compiler, which renders the alert as a header + class).
   var out = node.alert ? `> [!${node.alert}]` : ''
   var segStart = 0
   for (var ri = 0; ri <= rendered.length; ri++) {
@@ -1408,18 +1393,14 @@ function compileTable(
   node: MarkdownToJSX.TableNode,
   state: CompilerState
 ): string {
-  // Emit outer pipes and escape only a bare pipe. An escape pair stays whole:
-  // `\|` is already a cell's literal pipe, and `\[` or `\*` guard markup that
-  // doubling the backslash would leave live. Without the outer pipes a
-  // single-column table re-parses as a setext heading.
   var compileRow = (cells: MarkdownToJSX.ASTNode[][]): string => {
     var out = '|'
     for (var j = 0; j < cells.length; j++) {
       var cell = ''
       for (var k = 0; k < cells[j].length; k++) {
-        cell += state.renderChild(cells[j][k], _emptyState)
+        cell += compileInlineChild(cells[j], k, state)
       }
-      out += ` ${cell.replace(CELL_PIPE_R, match => (match === '|' ? '\\|' : match))} |`
+      out += ` ${cell.replace(CELL_ESCAPE_PAIR_OR_PIPE_R, match => (match === '|' ? '\\|' : match))} |`
     }
     return out
   }
@@ -1460,14 +1441,10 @@ function compileHtmlBlock(
   const defaultTag = node.tag || 'div'
   const tag = getTag(defaultTag, state.overrides)
 
-  // An orphan closing tag re-emits as the bare closing tag; _rawBody carries
-  // any trailing same-line content (mirrors the html compiler).
   if (node._isClosingTag) {
     return `</${tag}>${screenRawLinks(node._rawBody || '')}`
   }
 
-  // A children attribute is the element's content when it has none of its own
-  // (an empty pair or a self-closing tag), and is never written as an attribute
   const attrText =
     node.attrs !== undefined && node.attrs.children !== undefined
       ? childrenAttrContent(node.attrs.children, [
@@ -1477,9 +1454,6 @@ function compileHtmlBlock(
         ])
       : undefined
 
-  // _rawOuter is the full span (own opener through closer, or through end of
-  // input) and is emitted without an added wrapper, except for an empty pair
-  // that takes content.
   if (
     node._verbatim &&
     node._rawOuter !== undefined &&
@@ -1489,13 +1463,8 @@ function compileHtmlBlock(
   }
 
   const overrideProps = getOverrideProps(defaultTag, state.overrides)
-  // Prefer the raw source attribute string (mirrors the html compiler): the
-  // parsed attrs map loses formatting, turning a style object into
-  // `[object Object]` and collapsing expression attributes. Override props are
-  // appended after the raw attributes so they win.
   let attrs: string
   if (node._rawAttrs === undefined) {
-    // `false` writes nothing, which keeps children from an attribute
     attrs = compileAttributes({
       ...withoutHandlerSource(defaultTag, node.attrs, state.overrides),
       children: false,
@@ -1512,29 +1481,19 @@ function compileHtmlBlock(
         : '')
   }
 
-  // Check if this is a void element (self-closing)
   const isVoid = isVoidElement(tag)
 
-  // Verbatim raw source already carries its own closing tag, so the body and
-  // closer are appended after the reconstructed opening tag.
   if (node._verbatim && (node._rawBody || node._rawClose)) {
     return screenRawLinks(
       `<${tag}${attrs}>${node._rawBody || ''}${node._rawClose || ''}`
     )
   }
-  // The deprecated text field holds inner content only, so a non-void element
-  // needs its closing tag appended or the round-trip drops it (a following
-  // sibling would then be absorbed into this element).
   if (node.text) {
-    // Whole, since a separator ending the attributes pairs with the tag's own `>`
     return screenRawLinks(
       `<${tag}${attrs}>${node.text}${isVoid ? '' : `</${tag}>`}`
     )
   }
 
-  // For HTML blocks with children, reconstruct the HTML. Empty children emit no
-  // content: the newline wrapping used for block formatting would otherwise
-  // split the surrounding paragraph when the element sits inline.
   const content =
     node.children && node.children.length > 0
       ? `\n${node.children.map(child => state.renderChild(child, _emptyState)).join('\n')}\n`
@@ -1545,20 +1504,13 @@ function compileHtmlBlock(
   return `${screenRawLinks(`<${tag}${attrs}>`)}${content}${closingTag}`
 }
 
-/**
- * Compile self-closing HTML tag
- */
 function compileHtmlSelfClosing(
   node: MarkdownToJSX.HTMLSelfClosingNode,
   state: CompilerState
 ): string {
-  // An orphan closing tag and a self-contained leaf (processing instruction,
-  // CDATA section, declaration) carry no attrs/overrides to reconstruct from;
-  // their true source is the only faithful round-trip.
   if (node._isClosingTag) {
     return node._rawClose || `</${node.tag}>`
   }
-  // A children attribute is the element's content and never an attribute
   const attrText =
     node.attrs !== undefined && node.attrs.children !== undefined
       ? childrenAttrContent(node.attrs.children, null)
@@ -1569,7 +1521,6 @@ function compileHtmlSelfClosing(
   const defaultTag = node.tag || 'div'
   const tag = getTag(defaultTag, state.overrides)
   const overrideProps = getOverrideProps(defaultTag, state.overrides)
-  // `false` writes nothing, which keeps children from an attribute
   const attrs = node._rawOpen
     ? rawOpenTagAttrs(node._rawOpen, defaultTag.length) +
       compileAttributes(overrideProps)
@@ -1587,13 +1538,9 @@ function compileHtmlSelfClosing(
 }
 
 function compileHtmlComment(node: MarkdownToJSX.HTMLCommentNode): string {
-  // Mirror the html compiler: a raw comment already carries its own delimiters
-  // (wrapping again would nest them), and an unterminated `<!--... >` comment
-  // keeps its single-`>` close.
   if (node.raw) {
     return screenRawLinks(node.text)
   }
-  // A renderer can read a comment as broken open, leaving its text as markdown
   var text = screenRawLinks(node.text)
   return node._endsWithGT ? `<!--${text}>` : `<!--${text}-->`
 }
@@ -1605,9 +1552,6 @@ function compileFootnoteReference(
 }
 
 function compileFrontmatter(node: MarkdownToJSX.FrontmatterNode): string {
-  // The parser stores the full raw block including its --- delimiters
-  // (the html compiler renders node.text as-is inside <pre>), so wrapping
-  // again would double the delimiters and break the round-trip.
   return node.text
 }
 
@@ -1615,12 +1559,6 @@ function compileGfmTask(node: MarkdownToJSX.GFMTaskNode): string {
   return node.completed ? '[x]' : '[ ]'
 }
 
-/**
- * A footnote stores its source as written. Text with no `<` and no unsafe link
- * stays byte-exact; anything else goes through the parser, the one place that
- * tells raw HTML or a link, which it screens, from a code span holding the same
- * text.
- */
 function compileFootnoteDefinition(
   source: string,
   refs: MarkdownToJSX.ReferenceCollectionNode['refs'],
@@ -1629,7 +1567,6 @@ function compileFootnoteDefinition(
   if (source.indexOf('<') === -1 && screenRawLinks(source) === source) {
     return source
   }
-  // A copy: the inline pass registers definitions it finds in the state's refs
   var nodes = parseMarkdown(
     source,
     { inline: true, refs: { ...refs } },
@@ -1644,13 +1581,6 @@ function compileFootnoteDefinition(
   return out
 }
 
-/**
- * A renderer without footnotes reads `[^1]: x` as a link reference whose
- * destination is the body's first word. A comment before an unsafe one breaks
- * that reading, since a destination opening with `<` must close at its `>`, and
- * draws nothing for a renderer with footnotes. A word that cannot be decoded, such
- * as `100%`, names no scheme, and a word already behind the comment stays as it is.
- */
 function screenFootnoteDestination(body: string): string {
   var word = FIRST_WORD_R.exec(body)
   if (!word || word[1].startsWith(FOOTNOTE_DESTINATION_BREAK)) {
@@ -1691,7 +1621,6 @@ function generateReferenceKey(state: CompilerState): string {
 function compileAttributes(attrs: Record<string, any>): string {
   return Object.entries(attrs || {})
     .map(([key, value]) => {
-      // Convert className back to class for HTML output
       const attrName = key === 'className' ? 'class' : key
       return typeof value === 'boolean'
         ? value

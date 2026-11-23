@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'bun:test'
+import { astToHTML } from './html.ts'
 import * as p from './parse.ts'
+import { storedAST } from './test-tree.ts'
 import { type MarkdownToJSX, RuleType } from './types.ts'
 
-// Test fixtures factories
 function createBlockState(refs = Object.create(null)) {
   return { inline: false, refs } as MarkdownToJSX.State
 }
@@ -17,8 +18,8 @@ function createDefaultOptions() {
   } as p.ParseOptions
 }
 
-function createForceBlockOptions() {
-  return { forceBlock: true } as p.ParseOptions
+function createForceBlockOptions(): p.ParserInputOptions {
+  return { forceBlock: true }
 }
 
 function createEmptyRefs() {
@@ -37,11 +38,49 @@ describe('parser', () => {
     )
   })
 
+  it('ends link text at a bracket inside a raw HTML element, and hides only a bracket inside the tag itself', () => {
+    expect(
+      JSON.stringify([
+        p.parser('[see <b>this]</b> note](/docs)'),
+        p.parser('[a <b title="]">x</b>](/u)'),
+      ])
+    ).toMatchInlineSnapshot(
+      `"[[{"type":"paragraph","children":[{"type":"text","text":"[see "},{"type":"htmlBlock","tag":"b","attrs":{},"_rawAttrs":"","children":[{"type":"text","text":"this]"}],"text":"this]","_verbatim":false,"_isClosingTag":false},{"type":"text","text":" note](/docs)"}]}],[{"type":"paragraph","children":[{"type":"link","target":"/u","children":[{"type":"text","text":"a "},{"type":"htmlBlock","tag":"b","attrs":{"title":"]"},"_rawAttrs":"title=\\"]\\"","children":[{"type":"text","text":"x"}],"text":"x","_verbatim":false,"_isClosingTag":false}]}]}]]"`
+    )
+  })
+
   it('finds a closer after another tag failed to find one', () => {
     const nodes = p.parser('<q> <b>x</b>') as MarkdownToJSX.ASTNode[]
 
     expect(JSON.stringify(nodes)).toMatchInlineSnapshot(
       `"[{"type":"paragraph","children":[{"type":"htmlSelfClosing","tag":"q","attrs":{},"_rawOpen":"<q>","_isClosingTag":false},{"type":"text","text":" "},{"type":"htmlBlock","tag":"b","attrs":{},"_rawAttrs":"","children":[{"type":"text","text":"x"}],"text":"x","_verbatim":false,"_isClosingTag":false}]}]"`
+    )
+  })
+
+  it('opens a code span at a run whose length has a closer after other runs failed to find theirs', () => {
+    const nodes = p.parser('`a ``b ```c `` ````d') as MarkdownToJSX.ASTNode[]
+
+    expect(JSON.stringify(nodes)).toMatchInlineSnapshot(
+      `"[{"type":"paragraph","children":[{"type":"text","text":"\`a "},{"type":"codeInline","text":"b \`\`\`c "},{"type":"text","text":" \`\`\`\`d"}]}]"`
+    )
+  })
+
+  it('pairs each closer with the nearest live opener past pairs already consumed', () => {
+    const nodes = p.parser('*a *b *c d* e* f*') as MarkdownToJSX.ASTNode[]
+
+    expect(JSON.stringify(nodes)).toMatchInlineSnapshot(
+      `"[{"type":"paragraph","children":[{"type":"textFormatted","tag":"em","children":[{"type":"text","text":"a "},{"type":"textFormatted","tag":"em","children":[{"type":"text","text":"b "},{"type":"textFormatted","tag":"em","children":[{"type":"text","text":"c d"}]},{"type":"text","text":" e"}]},{"type":"text","text":" f"}]}]}]"`
+    )
+  })
+
+  it('keeps only the innermost link when long link texts enclose each other', () => {
+    const filler = 'a '.repeat(200)
+    const nodes = p.parser(
+      `[${filler}[${filler}[[b](u)](v) c](w) d](x)`
+    ) as MarkdownToJSX.ASTNode[]
+
+    expect(JSON.stringify(nodes)).toBe(
+      `[{"type":"paragraph","children":[{"type":"text","text":"[${filler}[${filler}["},{"type":"link","target":"u","children":[{"type":"text","text":"b"}]},{"type":"text","text":"](v) c](w) d](x)"}]}]`
     )
   })
 
@@ -101,11 +140,10 @@ describe('parser', () => {
     ])
   })
 
-  it('should handle mixed line endings', () => {
+  it('should normalize mixed CRLF, LF, and CR line endings to LF', () => {
     const result = p.parser(
       'line1\r\nline2\nline3\rline4'
     ) as MarkdownToJSX.ParagraphNode[]
-    // CRLF, LF, and CR are all normalized to LF
     expect(result).toEqual([
       {
         type: RuleType.paragraph,
@@ -124,8 +162,7 @@ describe('parser', () => {
     ])
   })
 
-  it('should handle HTML with percent character in attributes without throwing URIError', () => {
-    // Regression test for issue #753: URIError when HTML attributes contain % character
+  it('should handle HTML with percent character in attributes without throwing URIError (issue #753)', () => {
     const result = p.parser(
       '<iframe src="https://example.com" width="100%"></iframe>'
     )
@@ -232,16 +269,11 @@ describe('parseMarkdown', () => {
     ])
   })
 
-  it('parses many emphasis pairs in linear time', () => {
-    // Regression guard for the O(n^2) emphasis matcher. With the old
-    // array-splice design this input took tens of seconds and would blow the
-    // suite timeout; it now completes in milliseconds. The assertion is on
-    // structure so it stays deterministic.
+  it('parses many emphasis pairs in linear time, asserting structure so the guard against a quadratic matcher stays deterministic', () => {
     const state = createInlineState()
     const options = createDefaultOptions()
     const n = 20_000
     const result = p.parseMarkdown('*a* '.repeat(n), state, options)
-    // n emphasis nodes, each followed by its trailing single-space text node
     expect(result.length).toBe(2 * n)
     expect(result[0]).toEqual({
       type: RuleType.textFormatted,
@@ -269,7 +301,7 @@ describe('parseMarkdown', () => {
     ])
   })
 
-  it('should handle nested links in inline mode', () => {
+  it('should not nest links in inline mode: the inner link takes precedence and the outer brackets become literal text', () => {
     const state = createInlineState()
     const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
     const result = p.parseMarkdown(
@@ -277,8 +309,6 @@ describe('parseMarkdown', () => {
       state,
       options
     )
-    // Per CommonMark, links cannot nest. Inner link takes precedence,
-    // outer brackets become literal text.
     expect(result).toEqual([
       { type: RuleType.text, text: '[outer ' },
       {
@@ -315,7 +345,7 @@ describe('parseMarkdown', () => {
     ])
   })
 
-  it('should reject links with unescaped brackets in URLs', () => {
+  it('should allow unescaped brackets in link URLs', () => {
     const state = createInlineState()
     const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
     const result = p.parseMarkdown('[text](url[invalid])', state, options)
@@ -325,12 +355,10 @@ describe('parseMarkdown', () => {
         target: 'url[invalid]',
         title: undefined,
         children: [{ type: RuleType.text, text: 'text' }],
-      }, // Brackets in URLs are actually allowed
+      },
     ])
   })
 
-  // The linear-time half of issue #874 is link-empty-dest-openers in
-  // scripts/scaling-smoke.ts; a wall-clock check here fails under machine load.
   it('keeps many unterminated inline-link openers as literal text (issue #874)', () => {
     const input = '[]('.repeat(2000)
     expect(p.parser(input)).toEqual([
@@ -341,13 +369,7 @@ describe('parseMarkdown', () => {
     ])
   })
 
-  // Scan memos let one walk answer for every candidate it passes, so the risk
-  // is an answer that is right for the walk that recorded it and wrong for a
-  // later reader. These assert the shapes where a too-eager memo would show,
-  // and `scripts/scaling-smoke.ts` covers the growth rate the memos exist for.
-  it('keeps bracket matching exact when an outer opener never closes', () => {
-    // In `[[foo](/url)` the outer `[` has no match while the inner one does,
-    // so a shared "nothing from here matches" answer would swallow the link.
+  it('keeps bracket matching exact when an outer opener never closes, so a shared "nothing from here matches" memo answer cannot swallow the inner link', () => {
     function expected(leadingText: string) {
       return [
         {
@@ -365,15 +387,11 @@ describe('parseMarkdown', () => {
       ]
     }
     expect(p.parser('[[foo](/url)')).toEqual(expected('['))
-    // Same shape, padded past the span that earns a memo table, so the second
-    // opener is answered from the table rather than by its own walk.
     const pad = 'z'.repeat(400)
     expect(p.parser(`[${pad}[foo](/url)`)).toEqual(expected(`[${pad}`))
   })
 
-  it('still parses long link text containing nested brackets', () => {
-    // Capping the scanned span instead of remembering it would stop treating
-    // this as a link, which is legal Markdown.
+  it('still parses long link text containing nested brackets as a link, which capping the scanned span would stop doing', () => {
     const text = `${'x'.repeat(9000)} [inner] ${'y'.repeat(500)}`
     expect(p.parser(`[${text}](/url)`)).toEqual([
       {
@@ -390,8 +408,7 @@ describe('parseMarkdown', () => {
     ])
   })
 
-  it('keeps footnote references parsing after an unclosed opener', () => {
-    // A `[^` on one line must not suppress a real reference on the next.
+  it('keeps footnote references parsing after an unclosed opener, since a `[^` on one line must not suppress a real reference on the next', () => {
     expect(p.parser('[^unclosed\n\n[^1]: note\n\nsee [^1]')).toEqual([
       {
         type: RuleType.refCollection,
@@ -524,9 +541,7 @@ describe('parseMarkdown', () => {
     expect(countReferences(p.parser(body))).toBe(0)
   })
 
-  it('does not let the failed-link cache reject a valid trailing link (issue #874 follow-up)', () => {
-    // `[](([](a)` — outer link fails because the bare URL walks to end without
-    // a balanced ')'. The cache must not block the inner `[](a)` from parsing.
+  it('does not let the failed-link cache reject a valid trailing link: in `[](([](a)` the outer link fails because the bare URL walks to the end without a balanced `)`, and the inner `[](a)` must still parse (issue #874 follow-up)', () => {
     const result = p.parser('[](([](a)')
     expect(result).toEqual([
       {
@@ -572,7 +587,6 @@ describe('parseMarkdown', () => {
       disableParsingRawHTML: true,
       sanitizer: (x: string) => x,
       slugify: (value: string) => value,
-      tagfilter: true,
     }
     const result = p.parseMarkdown(
       '<https://example.com\nnext>',
@@ -974,17 +988,9 @@ describe('parseMarkdown', () => {
     expect((result[1] as MarkdownToJSX.TextNode).text).toBe('**')
   })
 
-  it('correctly autolinks bare email whose local-part starts before an INLINE_SPECIAL char, when @ is far from parse start (issue #877)', () => {
-    // The fast-skip optimisation uses INLINE_SPECIAL (which includes 'h', 'w', 'f' for URL
-    // detection) to jump to the next interesting character.  When the @ is more than 64 chars
-    // from the beginning of the parsed string the outer guard disables the email check and the
-    // inner loop can leap over the start of the email's local-part, landing on the 'h' inside
-    // e.g. "technicalsupport" and producing "tec" + link("hnicalsupport@example.com") instead
-    // of the correct link("technicalsupport@example.com").
+  it('links the whole local-part of a bare email, never starting at an inner "h" ("tec" plus a link to "hnicalsupport@example.com"), when the @ is more than 64 characters from the start of the parsed string (issue #877)', () => {
     const state = createInlineState()
     const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
-    // The long prefix places the @ sign > 64 characters from the start of the string,
-    // triggering the fast-skip path that previously caused the truncation.
     const input =
       'Please contact Support at 1-111-111-1111 or email technicalsupport@example.com for further assistance.'
     const result = p.parseMarkdown(
@@ -1009,11 +1015,8 @@ describe('parseMarkdown', () => {
     ])
   })
 
-  it('correctly autolinks bare email whose local-part contains w or f before the @ far from parse start', () => {
+  it('links the whole local-part of a bare email containing w or f before an @ more than 65 characters from the start of the parsed string', () => {
     const options = { ...createDefaultOptions(), sanitizer: (x: string) => x }
-    // 'w': @ at position 68 (prefix=50 + local-part=18), which is > 65, so the fast-skip path fires.
-    // Without the fix the loop lands on the 'h' inside "technicalsupworker" and links only
-    // "hnicalsupworker@example.com", leaving "technicalsup" as plain text.
     const inputW =
       'Please contact Support at 1-111-111-1111 or email technicalsupworker@example.com for further assistance.'
     const resultW = p.parseMarkdown(
@@ -1029,9 +1032,6 @@ describe('parseMarkdown', () => {
         { type: RuleType.text, text: 'technicalsupworker@example.com' },
       ],
     } as MarkdownToJSX.ASTNode)
-    // 'f': @ at position 66 (prefix=50 + local-part=16), which is > 65, so the fast-skip path fires.
-    // Without the fix the loop lands on the 'h' inside "technicalsupfool" and links only
-    // "hnicalsupfool@example.com", leaving "technicalsup" as plain text.
     const inputF =
       'Please contact Support at 1-111-111-1111 or email technicalsupfool@example.com for further assistance.'
     const resultF = p.parseMarkdown(
@@ -1067,13 +1067,12 @@ describe('parseMarkdown', () => {
     ])
   })
 
-  it('rejects angle autolinks containing tabs', () => {
+  it('rejects angle autolinks containing tabs, since CommonMark treats tabs as ASCII control characters that invalidate autolinks, leaving the brackets and content as literal text', () => {
     const state = createInlineState()
     const options: p.ParseOptions = {
       disableParsingRawHTML: true,
       sanitizer: (x: string) => x,
       slugify: (value: string) => value,
-      tagfilter: true,
     }
     const input = '<https://example.com\tpath>'
     const result = p.parseMarkdown(
@@ -1081,15 +1080,12 @@ describe('parseMarkdown', () => {
       state,
       options
     ) as MarkdownToJSX.ASTNode[]
-    // Per CommonMark spec, tabs are ASCII control characters and invalidate autolinks
-    // So the angle brackets and content should be treated as literal text
     expect(result).toEqual([
       { type: RuleType.text, text: '<https://example.com\tpath>' },
     ])
   })
 
-  // Issue #839: bare URL inside emphasis gets trailing delimiters in href
-  it('trims emphasis delimiters from bare URL endings', () => {
+  it('trims emphasis delimiters from bare URL endings (issue #839)', () => {
     const result = p.parser('**www.acme.com/training**')
     expect(result).toMatchInlineSnapshot(`
       [
@@ -1261,13 +1257,12 @@ describe('collectReferenceDefinitions', () => {
     expect(refs.parens.title).toBe('Parentheses')
   })
 
-  it('should normalize reference labels case-insensitively', () => {
+  it('should normalize reference labels case-insensitively, with the first definition winning per CommonMark', () => {
     const refs = createEmptyRefs()
     const options = createDefaultOptions()
     const input = `[Test]: http://example.com
 [TEST]: https://example.org`
     p.collectReferenceDefinitions(input, refs, options)
-    // First definition wins per CommonMark spec, and key should be normalized
     expect(refs).toHaveProperty('test')
     expect(refs.test.target).toBe('http://example.com')
   })
@@ -1311,7 +1306,7 @@ describe('collectReferenceDefinitions', () => {
 [valid]: https://example.org`
     p.collectReferenceDefinitions(input, refs, options)
     expect(refs).toHaveProperty('valid')
-    expect(refs).toHaveProperty('indented') // Indented up to 3 spaces should be allowed per spec
+    expect(refs).toHaveProperty('indented')
   })
 
   it('should reject reference definitions indented 4+ spaces', () => {
@@ -1384,14 +1379,14 @@ This is a link to [中文链接] in Chinese.`
 `)
   })
 
-  it('should handle reference definitions with malformed URLs', () => {
+  it('should collect reference definitions with malformed URLs, since the parser is permissive about URL validation', () => {
     const refs = createEmptyRefs()
     const options = createDefaultOptions()
     const input = `[bad-url]: not-a-url
 [good]: http://example.com`
     p.collectReferenceDefinitions(input, refs, options)
     expect(refs).toHaveProperty('good')
-    expect(refs).toHaveProperty('bad-url') // Parser is permissive about URL validation
+    expect(refs).toHaveProperty('bad-url')
   })
 
   it('should handle reference definitions with unclosed brackets', () => {
@@ -1416,7 +1411,6 @@ This is a link to [中文链接] in Chinese.`
   it('should reject reference definitions inside fenced code blocks', () => {
     const _refs = createEmptyRefs()
     const options = createDefaultOptions()
-    // Test via parser() which properly skips code blocks
     const input =
       '```\n[inside-code]: http://example.com\n```\n[outside]: https://example.org'
     const result = p.parser(input, options)
@@ -1694,6 +1688,32 @@ describe('calculateIndent', () => {
 })
 
 describe('parseCodeFenced', () => {
+  it('reads info string attributes as raw HTML attributes are read: a style object, and URLs through the sanitizer', () => {
+    expect(
+      p.parser(
+        '```x style="color:red; margin-top: 1px" href="/a" title="t"\ny\n```',
+        {
+          sanitizer: value => `${value}?checked`,
+        }
+      )[0]
+    ).toMatchInlineSnapshot(`
+      {
+        "attrs": {
+          "href": "/a?checked",
+          "style": {
+            "color": "red",
+            "marginTop": "1px",
+          },
+          "title": "t",
+        },
+        "infoString": "style="color:red; margin-top: 1px" href="/a" title="t"",
+        "lang": "x",
+        "text": "y",
+        "type": "codeBlock",
+      }
+    `)
+  })
+
   it('should parse fenced code blocks', () => {
     const _options = createDefaultOptions()
     const result = p.parseCodeFenced('```\ncode\n```', 0, createBlockState())
@@ -2009,8 +2029,6 @@ describe('parseCodeFenced', () => {
   })
 
   it('should treat fence with language as new opening, implicitly closing previous block', () => {
-    // When a fenced code block encounters ```python (fence + language immediately after)
-    // it should be treated as a new opening fence, closing the previous block
     const _options = createDefaultOptions()
     const input = '```markdown\n```python\ncode\n```'
     const result = p.parseCodeFenced(input, 0, createBlockState())
@@ -2038,7 +2056,6 @@ describe('parseCodeFenced', () => {
       }
     `)
 
-    // The next parse should handle ```python
     if (result == null) {
       throw new Error('expected fenced parse result')
     }
@@ -2050,9 +2067,7 @@ describe('parseCodeFenced', () => {
     expect(nextResult).toMatchInlineSnapshot('null')
   })
 
-  it('should treat fence with space before info string as content (CommonMark compliant)', () => {
-    // Per CommonMark: ``` aaa is NOT a valid closing fence but also should NOT be treated as new opening
-    // because the info string has space before it
+  it('should treat fence with space before info string as content, since it is neither a valid closing fence nor a new opening (CommonMark compliant)', () => {
     const _options = createDefaultOptions()
     const input = '```\n``` aaa\n```'
     const result = p.parseCodeFenced(input, 0, createBlockState())
@@ -2139,12 +2154,10 @@ def greet(name):
     `)
   })
 
-  it('should not treat fence with backtick in info string as new opening', () => {
-    // Per CommonMark: backtick fences cannot have backticks in info string
+  it('should not treat fence with backtick in info string as new opening, since CommonMark backtick fences cannot have backticks in the info string, so the entire content is parsed', () => {
     const _options = createDefaultOptions()
     const input = '```\n```py`thon\n```'
     const result = p.parseCodeFenced(input, 0, createBlockState())
-    // Should parse the entire content since ```py`thon is not a valid opening
     expect(result).toMatchInlineSnapshot(`
       {
         "attrs": undefined,
@@ -2307,8 +2320,7 @@ describe('parseHTMLTag', () => {
     })
   })
 
-  it('should parse tags with percent character in attributes without throwing URIError', () => {
-    // Regression test for issue #753: URIError when HTML attributes contain % character
+  it('should parse tags with percent character in attributes without throwing URIError (issue #753)', () => {
     const result = p.parseHTMLTag(
       '<iframe src="https://example.com" width="100%"></iframe>',
       0
@@ -2416,15 +2428,12 @@ describe('parseHTMLTag', () => {
     })
   })
 
-  it('should reject tags with underscores in tag name (no whitespace)', () => {
-    // Per CommonMark: tag name only allows [a-zA-Z][a-zA-Z0-9-]*
-    // Underscore after tag name without whitespace is invalid
+  it('should reject tags with underscores in tag name (no whitespace), since CommonMark tag names allow only [a-zA-Z][a-zA-Z0-9-]*', () => {
     const result = p.parseHTMLTag('<custom_tag>', 0)
     expect(result).toBeNull()
   })
 
-  it('should reject tags with invalid characters after tag name (no whitespace)', () => {
-    // Per CommonMark: need whitespace before attributes
+  it('should reject tags with invalid characters after tag name (no whitespace), since CommonMark requires whitespace before attributes', () => {
     const result = p.parseHTMLTag('<tag@name>', 0)
     expect(result).toBeNull()
 
@@ -2443,16 +2452,13 @@ describe('parseHTMLTag', () => {
     expect(result).toBeNull()
   })
 
-  it('should handle various HTML attribute formats per CommonMark', () => {
-    // Missing equals before value - quote without = is invalid attr
+  it('should reject a quote without equals before the value and an equals without a preceding attribute name, and accept an unquoted attribute value, per CommonMark', () => {
     const result1 = p.parseHTMLTag('<div class"missing-equals">', 0)
     expect(result1).toBeNull()
 
-    // Unquoted attribute value is valid per CommonMark
     const result2 = p.parseHTMLTag('<div class=missing-quotes>', 0)
     expect(result2?.tagName).toBe('div')
 
-    // = without preceding attr name - invalid
     const result3 = p.parseHTMLTag('<div ="missing-name">', 0)
     expect(result3).toBeNull()
   })
@@ -2475,10 +2481,10 @@ describe('parseHTMLTag', () => {
     })
   })
 
-  it('should handle tags with newlines in quoted attribute values', () => {
+  it('should allow newlines in quoted attribute values and preserve their content', () => {
     const result = p.parseHTMLTag('<div class="line1\nline2">', 0)
-    expect(result?.tagName).toBe('div') // HTML allows newlines in quoted attribute values
-    expect(result?.attrs).toContain('line1') // Should preserve the content
+    expect(result?.tagName).toBe('div')
+    expect(result?.attrs).toContain('line1')
   })
 
   it('should handle self-closing tags with complex attributes', () => {
@@ -2504,8 +2510,7 @@ describe('parseHTMLTag', () => {
     expect(result).toBeNull()
   })
 
-  it('should reject tags with nested angle brackets', () => {
-    // Per CommonMark: < after tag name without whitespace is invalid
+  it('should reject tags with nested angle brackets, since CommonMark makes a < after the tag name without whitespace invalid', () => {
     const result = p.parseHTMLTag('<div<inner>>', 0)
     expect(result).toBeNull()
   })
@@ -2556,83 +2561,58 @@ describe('parseHTMLTag', () => {
       }
     `)
   })
-})
 
-describe('parseStyleAttribute', () => {
-  it('should parse CSS style strings', () => {
-    const result = p.parseStyleAttribute('color: red; font-size: 12px')
-    expect(result).toEqual([
-      ['color', 'red'],
-      ['font-size', '12px'],
+  it.each([
+    'span',
+    'div',
+    'Foo',
+  ])('leaves a second %s closer as text after a matched pair', tag => {
+    expect(p.parser(`x<${tag}></${tag}></${tag}`)).toEqual([
+      {
+        children: [
+          { text: 'x', type: RuleType.text },
+          {
+            _isClosingTag: false,
+            _rawAttrs: '',
+            _verbatim: false,
+            attrs: {},
+            children: [],
+            tag,
+            text: '',
+            type: RuleType.htmlBlock,
+          },
+          { text: `</${tag}`, type: RuleType.text },
+        ],
+        type: RuleType.paragraph,
+      },
     ])
   })
 
-  it('should handle empty strings', () => {
-    const result = p.parseStyleAttribute('')
-    expect(result).toEqual([])
-  })
-
-  it('should handle malformed styles', () => {
-    const result = p.parseStyleAttribute('invalid')
-    expect(result).toEqual([])
-  })
-
-  it('should parse single properties', () => {
-    const result = p.parseStyleAttribute('color: red')
-    expect(result).toEqual([['color', 'red']])
-  })
-
-  it('should handle styles with extra whitespace', () => {
-    const result = p.parseStyleAttribute(' color : red ; font-size : 12px ')
-    expect(result).toEqual([
-      ['color', 'red'],
-      ['font-size', '12px'],
+  it.each([
+    '<!--@/>',
+    '<!A[@e>',
+    '<!doctype html>',
+    '<!a b>',
+  ])('reads %j as a raw HTML block', markup => {
+    expect(p.parser(markup)).toEqual([
+      {
+        _endsWithGT: false,
+        raw: true,
+        text: markup,
+        type: RuleType.htmlComment,
+      },
     ])
-  })
-
-  it('should handle various CSS property formats', () => {
-    // The parser should be permissive and parse what it can
-    const result1 = p.parseStyleAttribute('color:red;;font-size:12px')
-    expect(result1.length).toBeGreaterThan(0) // Should parse at least the first valid property
-
-    const result2 = p.parseStyleAttribute('color red')
-    expect(result2).toEqual([]) // Invalid format should return empty
-  })
-
-  it('should handle CSS with quoted values', () => {
-    const result = p.parseStyleAttribute(
-      'content: "hello world"; background: url(test.jpg)'
-    )
-    expect(result).toEqual([
-      ['content', 'hello world'], // Quotes are stripped by the parser
-      ['background', 'url(test.jpg)'],
-    ])
-  })
-
-  it('should handle CSS with line breaks', () => {
-    const result = p.parseStyleAttribute('color: red;\nfont-size: 12px')
-    expect(result).toEqual([
-      ['color', 'red'],
-      ['font-size', '12px'],
-    ])
-  })
-
-  it('should handle CSS with unclosed quotes gracefully', () => {
-    const result = p.parseStyleAttribute('content: "unclosed quote')
-    expect(result).toHaveLength(1) // Should parse what it can
-    expect(result[0][0]).toBe('content') // Should extract the property name
   })
 })
 
 describe('HTML tags interrupting lists', () => {
-  it('should interrupt list when HTML tag appears at base indent or less', () => {
+  it('should interrupt list with a one-item list followed by a paragraph wrapping the HTML tag when it appears at base indent or less', () => {
     const md = '- foo\n\n\n\n<small>Hi</small>'
     const result = p.parser(md)
 
-    // Should have a list with one item, then an HTML block
     expect(result.length).toBe(2)
     expect(result[0].type).toBe(RuleType.unorderedList)
-    expect(result[1].type).toBe(RuleType.paragraph) // HTML tag wrapped in paragraph
+    expect(result[1].type).toBe(RuleType.paragraph)
 
     const list = result[0] as MarkdownToJSX.UnorderedListNode
     expect(list.items.length).toBe(1)
@@ -2640,33 +2620,112 @@ describe('HTML tags interrupting lists', () => {
     expect((list.items[0][0] as MarkdownToJSX.TextNode).text).toBe('foo')
   })
 
-  it('should interrupt indented list when HTML tag appears at column 0', () => {
+  it('should interrupt indented list when HTML tag appears at column 0, leaving the HTML outside the last item', () => {
     const md =
       '  * You can have lists, like this one\n\n  * Make things **bold** or *italic*\n\n  * Embed snippets of `code`\n\n  * Create [links](/)\n\n  * ...\n\n\n\n<small>Sample content borrowed with thanks from [elm-markdown](http://elm-lang.org/examples/markdown) ❤️</small>'
     const result = p.parser(md)
 
-    // Should have a list, then HTML content (not inside the list)
     expect(result.length).toBeGreaterThan(1)
     expect(result[0].type).toBe(RuleType.unorderedList)
 
     const list = result[0] as MarkdownToJSX.UnorderedListNode
-    // The last item should NOT contain the <small> tag
     const lastItem = list.items.at(-1)
     const lastItemText = JSON.stringify(lastItem)
     expect(lastItemText).not.toContain('small')
     expect(lastItemText).not.toContain('Sample content')
   })
 
-  it('should interrupt list with block-level HTML tag', () => {
+  it('should interrupt list with block-level HTML tag, giving a two-item list, then the HTML block, then another list', () => {
     const md = '- item 1\n- item 2\n<div>test</div>\n- item 3'
     const result = p.parser(md)
 
-    // Should have a list with 2 items, then HTML block, then another list
     expect(result.length).toBeGreaterThan(1)
     expect(result[0].type).toBe(RuleType.unorderedList)
 
     const list = result[0] as MarkdownToJSX.UnorderedListNode
-    expect(list.items.length).toBe(2) // Should only have 2 items, not 3
+    expect(list.items.length).toBe(2)
+  })
+
+  it.each([
+    [
+      'a block that ends at the blank line before a paragraph',
+      '- <div>x</div>\n\n  i\n- b',
+      [[RuleType.htmlBlock, RuleType.paragraph], [RuleType.paragraph]],
+    ],
+    [
+      'an unclosed block that ends at a blank line',
+      '- <div>a\n\n  b',
+      [[RuleType.htmlBlock, RuleType.paragraph]],
+    ],
+    [
+      'an opener whose block ends at a blank line',
+      '1. <p align="center">\n\n   para\n2. x',
+      [[RuleType.htmlBlock, RuleType.paragraph], [RuleType.paragraph]],
+    ],
+    [
+      'a void tag followed by a line remainder',
+      '- <img src="a.png"> \n  caption\n- b',
+      [[RuleType.htmlBlock, RuleType.text], [RuleType.text]],
+    ],
+    [
+      'a closing tag followed by text',
+      '- </pre>\n  x\n- y',
+      [[RuleType.htmlSelfClosing, RuleType.text], [RuleType.text]],
+    ],
+  ])('should shape list items by blank lines around HTML blocks: %s', (_name, source, expected) => {
+    const list = p.parser(source)[0] as MarkdownToJSX.UnorderedListNode
+    expect(list.items.map(item => item.map(node => node.type))).toEqual(
+      expected
+    )
+  })
+
+  it('should split an empty item from a nested-marker line after one blank line, as CommonMark does for an item that starts with a blank line', () => {
+    const list = p.parser('-\n\n  - n')[0] as MarkdownToJSX.UnorderedListNode
+    expect(list.items.map(item => item.map(node => node.type))).toEqual([
+      [],
+      [RuleType.paragraph],
+    ])
+  })
+
+  it('makes an item loose when a blank line separates its blocks', () => {
+    expect(p.parser('-\n  _\n\n  )')).toEqual([
+      {
+        items: [
+          [
+            {
+              children: [{ text: '_', type: RuleType.text }],
+              type: RuleType.paragraph,
+            },
+            {
+              children: [{ text: ')', type: RuleType.text }],
+              type: RuleType.paragraph,
+            },
+          ],
+        ],
+        type: RuleType.unorderedList,
+      },
+    ])
+  })
+
+  it('reads a marker indented past a blank line after an empty item as a sibling item', () => {
+    expect(p.parser('-\n\n  -')).toEqual([
+      { items: [[], []], type: RuleType.unorderedList },
+    ])
+  })
+
+  it('ends a paragraph in a blockquote at a list marker line', () => {
+    expect(p.parser('>a\n-')).toEqual([
+      {
+        children: [
+          {
+            children: [{ text: 'a', type: RuleType.text }],
+            type: RuleType.paragraph,
+          },
+        ],
+        type: RuleType.blockQuote,
+      },
+      { items: [[]], type: RuleType.unorderedList },
+    ])
   })
 })
 
@@ -2682,7 +2741,6 @@ describe('description list parsing', () => {
 </dl>`
     const result = p.parser(md)
 
-    // Should have a single dl element
     expect(result.length).toBe(1)
     expect(result[0].type).toBe(RuleType.htmlBlock)
 
@@ -2690,7 +2748,6 @@ describe('description list parsing', () => {
     expect(dl.tag).toBe('dl')
     expect(dl.attrs?.['data-variant']).toBe('horizontalTable')
 
-    // Verify dt/dd children are present
     const children = dl.children!
     const htmlChildren = children.filter(
       (c: any) => c.tag === 'dt' || c.tag === 'dd'
@@ -2704,7 +2761,7 @@ describe('description list parsing', () => {
     expect((htmlChildren[5] as MarkdownToJSX.HTMLNode).tag).toBe('dd')
   })
 
-  it('should parse single dt tag correctly', () => {
+  it('should parse single dt tag correctly, with the compact parser including the closing tag in the text content', () => {
     const md = '<dt>title 1</dt>'
     const result = p.parser(md)
 
@@ -2713,7 +2770,6 @@ describe('description list parsing', () => {
 
     const dt = result[0] as MarkdownToJSX.HTMLNode
     expect(dt.tag).toBe('dt')
-    // Compact parser includes closing tag in text content
     expect(dt.text).toContain('title 1')
   })
 
@@ -2733,20 +2789,21 @@ describe('description list parsing', () => {
     expect(dd.text).toContain('description 1')
   })
 
-  it('should handle self-closing tags without incorrectly incrementing nesting depth', () => {
-    // Self-closing tags like <div/> should not increment nesting depth
+  it('should handle self-closing tags like <div/> without incrementing nesting depth, parsing as a single div with proper nesting', () => {
     const md = `<div>
   <div/>
   <span>content</span>
 </div>`
     const result = p.parser(md)
 
-    // Should parse as a single div with proper nesting
     expect(result.length).toBe(1)
     expect(result[0].type).toBe(RuleType.htmlBlock)
 
     const div = result[0] as MarkdownToJSX.HTMLNode
     expect(div.tag).toBe('div')
+    expect(astToHTML(storedAST(md))).toBe(
+      '<div><div></div><p><span>content</span></p></div>'
+    )
   })
 })
 
@@ -2945,19 +3002,21 @@ describe('multi-line HTML attributes', () => {
           "_isClosingTag": false,
           "_rawAttrs": 
       "
-        className="wrapper"
-        onClick={handleClick}
-      "
+        className="wrapper""
       ,
           "_rawOuter": 
       "<MyComponent
-        className="wrapper"
-        onClick={handleClick}
-      >
+        className="wrapper">
         inner content
       </MyComponent>"
       ,
-          "_reparseSource": undefined,
+          "_reparseSource": 
+      "<MyComponent
+        className="wrapper"
+        onClick={handleClick}>
+        inner content
+      </MyComponent>"
+      ,
           "_verbatim": true,
           "attrs": {
             "className": "wrapper",
@@ -3694,20 +3753,23 @@ describe('multi-line HTML attributes', () => {
             "_rawAttrs": 
         "
           data={myData}
-          columns={columns}
-          onRowClick={handleClick}
-        "
+          columns={columns}"
         ,
             "_rawOuter": 
         "<DataTable
           data={myData}
-          columns={columns}
-          onRowClick={handleClick}
-        >
+          columns={columns}>
           Loading...
         </DataTable>"
         ,
-            "_reparseSource": undefined,
+            "_reparseSource": 
+        "<DataTable
+          data={myData}
+          columns={columns}
+          onRowClick={handleClick}>
+          Loading...
+        </DataTable>"
+        ,
             "_verbatim": true,
             "attrs": {
               "columns": "columns",
@@ -3752,22 +3814,24 @@ describe('multi-line HTML attributes', () => {
             "_rawAttrs": 
         "
           className="container"
-          data-id="123"
-          onClick={handleClick}
-          disabled
-        "
+          data-id="123" disabled"
         ,
             "_rawOuter": 
         "<Widget
           className="container"
-          data-id="123"
-          onClick={handleClick}
-          disabled
-        >
+          data-id="123" disabled>
           content
         </Widget>"
         ,
-            "_reparseSource": undefined,
+            "_reparseSource": 
+        "<Widget
+          className="container"
+          data-id="123"
+          onClick={handleClick}
+          disabled>
+          content
+        </Widget>"
+        ,
             "_verbatim": true,
             "attrs": {
               "className": "container",
@@ -4151,7 +4215,7 @@ describe('multi-line HTML attributes', () => {
 })
 
 describe('tables in lists', () => {
-  it('should parse tables within list items (regression test for issue #1)', () => {
+  it('should parse tables within list items (regression test for issue #1): one list whose first item holds a "Browser Stats" paragraph and then a table of two header cells and three body rows', () => {
     const md = `- **Browser Stats**:
 
   | Computer | Memory Usage |
@@ -4162,27 +4226,23 @@ describe('tables in lists', () => {
 `
     const result = p.parser(md)
 
-    // Should have a single unordered list
     expect(result.length).toBe(1)
     expect(result[0].type).toBe(RuleType.unorderedList)
 
     const list = result[0] as MarkdownToJSX.UnorderedListNode
     expect(list.items.length).toBe(1)
 
-    // The first item should contain both content and a table
     const item = list.items[0]
     expect(item.length).toBe(2)
 
-    // First element is the paragraph with "Browser Stats"
     expect(item[0].type).toBe(RuleType.paragraph)
     const paragraph = item[0] as MarkdownToJSX.ParagraphNode
     expect(paragraph.children.length).toBeGreaterThan(0)
 
-    // Second element should be a table
     expect(item[1].type).toBe(RuleType.table)
     const table = item[1] as MarkdownToJSX.TableNode
     expect(table.header.length).toBe(2)
-    expect(table.cells.length).toBe(3) // FireFox, Chrome, Safari rows
+    expect(table.cells.length).toBe(3)
   })
 
   it('should parse standalone table', () => {
@@ -4199,7 +4259,7 @@ describe('tables in lists', () => {
     expect(table.cells.length).toBe(1)
   })
 
-  it('should parse multiple tables in separate list items', () => {
+  it('should parse multiple tables in separate list items, with both items holding a table', () => {
     const md = `- Item 1:
 
   | A | B |
@@ -4220,23 +4280,233 @@ describe('tables in lists', () => {
     const list = result[0] as MarkdownToJSX.UnorderedListNode
     expect(list.items.length).toBe(2)
 
-    // Both items should have tables
     for (const item of list.items) {
       const tables = item.filter(node => node.type === RuleType.table)
       expect(tables.length).toBe(1)
     }
   })
+
+  it('reads a delimiter row with fewer cells than the header row as paragraph text', () => {
+    expect(p.parser('`a| b |\n|---|')).toEqual([
+      {
+        children: [{ text: '`a| b |\n|---|', type: RuleType.text }],
+        type: RuleType.paragraph,
+      },
+    ])
+  })
+
+  it('reads a lone dash under a line with a pipe as a setext heading', () => {
+    expect(p.parser('`|]\n-')).toEqual([
+      {
+        children: [{ text: '`|]', type: RuleType.text }],
+        id: '',
+        level: 2,
+        type: RuleType.heading,
+      },
+    ])
+  })
+})
+
+describe('lazy continuation of a blockquote or list item', () => {
+  it.each([
+    [
+      '>     code\n> para\nlazy',
+      '<blockquote><pre><code>code</code></pre><p>para\nlazy</p></blockquote>',
+    ],
+    [
+      '> para\n>     code\nlazy',
+      '<blockquote><p>para\ncode\nlazy</p></blockquote>',
+    ],
+    ['> # h\nlazy', '<blockquote><h1 id="h">h</h1></blockquote><p>lazy</p>'],
+    ['- # h\nlazy', '<ul><li><h1 id="h">h</h1></li></ul><p>lazy</p>'],
+    ['> ---\nlazy', '<blockquote><hr /></blockquote><p>lazy</p>'],
+    [
+      '> ```\n> a\nlazy',
+      '<blockquote><pre><code>a</code></pre></blockquote><p>lazy</p>',
+    ],
+    [
+      '- | a | b |\n  | - | - |\nlazy',
+      '<ul><li><table><thead><tr><th>a</th><th>b</th></tr></thead></table></li></ul><p>lazy</p>',
+    ],
+    ['> <pre>\nlazy', '<blockquote><pre></blockquote><p>lazy</p>'],
+    ['- <div>\nlazy', '<ul><li><div></li></ul><p>lazy</p>'],
+    ['- </pre>\nm', '<ul><li></pre></li></ul><p>m</p>'],
+    ['> - a\nlazy', '<blockquote><ul><li>a\nlazy</li></ul></blockquote>'],
+    [
+      '> > a\nlazy',
+      '<blockquote><blockquote><p>a\nlazy</p></blockquote></blockquote>',
+    ],
+    ['- p\n\n  q\nlazy', '<ul><li><p>p</p><p>q\nlazy</p></li></ul>'],
+    [
+      '- ```\n  a\n  ```\nlazy',
+      '<ul><li><pre><code>a</code></pre></li></ul><p>lazy</p>',
+    ],
+    ['- p\nlazy1\n  q\nlazy2', '<ul><li>p\nlazy1\nq\nlazy2</li></ul>'],
+    ['- a\n- b\nlazy', '<ul><li>a</li><li>b\nlazy</li></ul>'],
+    ['> a\n>\n> b\nlazy', '<blockquote><p>a</p><p>b\nlazy</p></blockquote>'],
+    [
+      '- 10. a\n\n      b\nlazy',
+      '<ul><li><ol start="10"><li><p>a</p><p>b\nlazy</p></li></ol></li></ul>',
+    ],
+    [
+      '- - - a\n\n      b\nlazy',
+      '<ul><li><ul><li><ul><li><p>a</p><p>b\nlazy</p></li></ul></li></ul></li></ul>',
+    ],
+    [
+      '> 1.  one\n>\n>     two\nthree',
+      '<blockquote><ol><li><p>one</p><p>two\nthree</p></li></ol></blockquote>',
+    ],
+    [
+      '- 10. a\n\n          code\nlazy',
+      '<ul><li><ol start="10"><li><p>a</p><pre><code>code</code></pre></li></ol></li></ul><p>lazy</p>',
+    ],
+    [
+      '> [x]: /u\n[y]: /v\n\n[y]',
+      '<blockquote></blockquote><p><a href="/v">y</a></p>',
+    ],
+    [
+      '> [x]: /u\n[x]: /v\n\n[x]',
+      '<blockquote></blockquote><p><a href="/u">x</a></p>',
+    ],
+    [
+      '> [x]: /u\n"t"\n\n[x]',
+      '<blockquote></blockquote><p><a href="/u" title="t">x</a></p>',
+    ],
+    [
+      '- [x]: /u\n[y]: /v\n\n[y]',
+      '<ul><li></li></ul><p><a href="/v">y</a></p>',
+    ],
+    [
+      '> [x]: /u\n[^1]: n\n\n[^1]',
+      '<blockquote><p>[^1]: n</p></blockquote><p>[^1]</p>',
+    ],
+    [
+      '> a\n> ---\nlazy',
+      '<blockquote><h2 id="a">a</h2></blockquote><p>lazy</p>',
+    ],
+    [
+      '> a\nlazy1\n> b\nlazy2',
+      '<blockquote><p>a\nlazy1\nb\nlazy2</p></blockquote>',
+    ],
+    [
+      '> > a\nlazy\n> > ===\nlazy3',
+      '<blockquote><blockquote><h1 id="alazy">a\nlazy</h1></blockquote></blockquote><p>lazy3</p>',
+    ],
+    [
+      '- > a\nlazy\n  > ===\nlazy3',
+      '<ul><li><blockquote><h1 id="alazy">a\nlazy</h1></blockquote></li></ul><p>lazy3</p>',
+    ],
+    [
+      '> - a\n>     ```\n> - b\nlazy',
+      '<blockquote><ul><li>a<pre><code></code></pre></li><li>b\nlazy</li></ul></blockquote>',
+    ],
+    [
+      '> ```\n> > ```\n> b\nlazy',
+      '<blockquote><pre><code>&gt; ```\nb</code></pre></blockquote><p>lazy</p>',
+    ],
+    [
+      '> > 1.  one\n> >\n> >     two\nthree',
+      '<blockquote><blockquote><ol><li><p>one</p><p>two\nthree</p></li></ol></blockquote></blockquote>',
+    ],
+    [
+      '- 1.\n\n      a\nlazy',
+      '<ul><li><ol><li></li></ol><pre><code>a</code></pre></li></ul><p>lazy</p>',
+    ],
+    [
+      '- - [x]: /u\n[y]: /v\n\n[y]',
+      '<ul><li><ul><li></li></ul></li></ul><p><a href="/v">y</a></p>',
+    ],
+    [
+      '> > [x]: /u\n[y]: /v\n\n[y]',
+      '<blockquote><blockquote></blockquote></blockquote><p><a href="/v">y</a></p>',
+    ],
+    ['1. \n    a\nb', '<ol><li>a\nb</li></ol>'],
+    ['- a\n\n  ***', '<ul><li><p>a</p><hr /></li></ul>'],
+    ['> b\n\tc d', '<blockquote><p>b\nc d</p></blockquote>'],
+  ])('renders the lazy continuation rule for %j as %j', (input, html) => {
+    expect(astToHTML(p.parser(input))).toBe(html)
+  })
+
+  it('keeps the lazy line in the paragraph that follows indented code in a blockquote', () => {
+    const [quote] = p.parser(
+      '>     code\n> para\nlazy'
+    ) as MarkdownToJSX.BlockQuoteNode[]
+
+    expect(quote.children.map(node => node.type)).toEqual([
+      RuleType.codeBlock,
+      RuleType.paragraph,
+    ])
+    expect((quote.children[1] as MarkdownToJSX.ParagraphNode).children).toEqual(
+      [{ type: RuleType.text, text: 'para\nlazy' }]
+    )
+  })
+
+  it.each([
+    ['> a\nb\n> ---', '<blockquote><h2 id="ab">a\nb</h2></blockquote>'],
+    [
+      '> a\nb\n>\n> c\n> ===',
+      '<blockquote><p>a\nb</p><h1 id="c">c</h1></blockquote>',
+    ],
+    ['> a\nb\n===', '<blockquote><p>a\nb\n===</p></blockquote>'],
+    ['> a\n===', '<blockquote><p>a\n===</p></blockquote>'],
+    [
+      '> a\n> b\nc\n> ---',
+      '<blockquote><h2 id="abc">a\nb\nc</h2></blockquote>',
+    ],
+  ])('ends a setext heading in a blockquote at an underline on a quoted line only: %j renders %j', (input, html) => {
+    expect(astToHTML(p.parser(input))).toBe(html)
+  })
+
+  it.each([
+    [
+      '> f\nbar\n> # x',
+      '<blockquote><p>f\nbar</p><h1 id="x">x</h1></blockquote>',
+    ],
+    [
+      '> f\nbar\n> > x',
+      '<blockquote><p>f\nbar</p><blockquote><p>x</p></blockquote></blockquote>',
+    ],
+    [
+      '> f\nbar\n> - x',
+      '<blockquote><p>f\nbar</p><ul><li>x</li></ul></blockquote>',
+    ],
+    [
+      '> a\nb\n> ```\n> code\n> ```',
+      '<blockquote><p>a\nb</p><pre><code>code</code></pre></blockquote>',
+    ],
+    ['> a\nb\n> <div>\n> x', '<blockquote><p>a\nb</p><div>x\n</blockquote>'],
+    [
+      '> a\nb\nc\n> # x',
+      '<blockquote><p>a\nb\nc</p><h1 id="x">x</h1></blockquote>',
+    ],
+  ])('ends a paragraph in a blockquote at a block start on the quoted line after a lazy line: %j renders %j', (input, html) => {
+    expect(astToHTML(p.parser(input))).toBe(html)
+  })
+})
+
+describe('whitespace-only lines in a list item', () => {
+  it.each([
+    ['- a\n \n- b', '<ul><li><p>a</p></li><li><p>b</p></li></ul>'],
+    ['- a\n          \n- b', '<ul><li><p>a</p></li><li><p>b</p></li></ul>'],
+    ['- a\n\t\t\t\n- b', '<ul><li><p>a</p></li><li><p>b</p></li></ul>'],
+    [
+      '- a\n  - b\n              \n- c',
+      '<ul><li><p>a</p><ul><li>b</li></ul></li><li><p>c</p></li></ul>',
+    ],
+    ['- a\n          x \n- b', '<ul><li>a\nx</li><li>b</li></ul>'],
+  ])('reads a line of only spaces and tabs as a blank line: %j renders %j', (input, html) => {
+    expect(astToHTML(p.parser(input))).toBe(html)
+  })
 })
 
 describe('paragraph after nested list', () => {
-  it('should parse paragraph at column 0 after blank line as separate block (issue #776)', () => {
+  it('should parse paragraph at column 0 after blank line as separate block, leaving the nested list item with only its text (issue #776)', () => {
     const md = `- Unordered list
   - Unordered nested list
 
 This is paragraph after the unordered nested list.`
     const result = p.parser(md)
 
-    // Should have a list followed by a separate paragraph
     expect(result.length).toBe(2)
     expect(result[0].type).toBe(RuleType.unorderedList)
     expect(result[1].type).toBe(RuleType.paragraph)
@@ -4245,13 +4515,11 @@ This is paragraph after the unordered nested list.`
     expect(list.items.length).toBe(1)
 
     const firstItem = list.items[0]
-    expect(firstItem.length).toBe(2) // Text node + nested list
+    expect(firstItem.length).toBe(2)
 
-    // The nested list should not contain the paragraph
     const nestedList = firstItem[1] as MarkdownToJSX.UnorderedListNode
     expect(nestedList.items.length).toBe(1)
     const nestedItem = nestedList.items[0]
-    // Should only contain the text "Unordered nested list", not the paragraph
     expect(nestedItem.length).toBe(1)
     expect(nestedItem[0].type).toBe(RuleType.text)
     expect((nestedItem[0] as MarkdownToJSX.TextNode).text).toBe(
@@ -4293,7 +4561,7 @@ This is paragraph after the unordered nested list.`
     expect(result[1].type).toBe(RuleType.paragraph)
   })
 
-  it('should handle ordered nested list with paragraph after blank line', () => {
+  it('should keep the paragraph after a blank line out of the ordered nested list item, which holds only its text', () => {
     const md = `1. Ordered list
    1. Ordered nested list
 
@@ -4307,7 +4575,6 @@ This is paragraph after.`
     const list = result[0] as MarkdownToJSX.OrderedListNode
     const nestedList = list.items[0][1] as MarkdownToJSX.OrderedListNode
     const nestedItem = nestedList.items[0]
-    // Should only contain the text, not the paragraph
     expect(nestedItem.length).toBe(1)
     expect(nestedItem[0].type).toBe(RuleType.text)
   })
@@ -4339,12 +4606,10 @@ it('should preserve newline between list item text and continuation at same inde
                   },
                 ],
               ],
-              "start": undefined,
               "type": "unorderedList",
             },
           ],
         ],
-        "start": undefined,
         "type": "unorderedList",
       },
     ]
@@ -4379,12 +4644,10 @@ it('should preserve newlines between multiple continuation lines (#793)', () => 
                   },
                 ],
               ],
-              "start": undefined,
               "type": "unorderedList",
             },
           ],
         ],
-        "start": undefined,
         "type": "unorderedList",
       },
     ]
@@ -4419,12 +4682,10 @@ Prefixed spaces not equal to the nested list.
                   },
                 ],
               ],
-              "start": undefined,
               "type": "unorderedList",
             },
           ],
         ],
-        "start": undefined,
         "type": "unorderedList",
       },
     ]
@@ -4583,9 +4844,7 @@ describe('CRLF line endings', () => {
       expectCrlfEquivalent('```\nline 1\n\nline 3\n```')
     })
 
-    it('should preserve interior blank-line content in indented code (CommonMark ex 112)', () => {
-      // A blank line carrying more than 4 columns of whitespace keeps its
-      // dedented remainder as code content, per CommonMark 0.31.2 example 112.
+    it('should preserve interior blank-line content in indented code: a blank line carrying more than 4 columns of whitespace keeps its dedented remainder as code content (CommonMark 0.31.2 ex 112)', () => {
       const result = p.parser(
         '    chunk1\n      \n      chunk2\n'
       ) as MarkdownToJSX.ASTNode[]
@@ -5153,10 +5412,7 @@ describe('Unserializable expression evaluation', () => {
       expect(result[0].attrs).toEqual({ alt: 'a' })
     })
 
-    it('drops schemes hidden in numeric character references without a trailing semicolon', () => {
-      // A browser resolves a semicolon-less numeric reference, so &#106avascript:
-      // becomes javascript:; the scheme check must decode it too. A safe numeric
-      // entity (&#38; = ampersand) in a URL stays untouched.
+    it('drops schemes hidden in numeric character references without a trailing semicolon, which a browser resolves to the scheme, and leaves a safe numeric entity (&#38;) in a URL untouched', () => {
       const dec = p.parser(
         '<img src="&#106avascript:alert(1)" alt="a">'
       ) as MarkdownToJSX.HTMLSelfClosingNode[]
@@ -5171,10 +5427,7 @@ describe('Unserializable expression evaluation', () => {
       expect(safe[0].attrs).toEqual({ alt: 'a', src: '/s?a=1&#38;b=2' })
     })
 
-    it('keeps brace-expression props on components but strips dangerous brace handlers on HTML tags', () => {
-      // A capitalized tag an override matches takes brace expressions as
-      // renderer-resolved props, so they are kept. A lowercase tag an override
-      // matches keeps a handler in attrs, as written; without one it is HTML.
+    it('keeps brace-expression props, as renderer-resolved props, on a capitalized tag an override matches, and a handler as written on a lowercase tag an override matches, but strips dangerous brace handlers on HTML tags (a lowercase tag without an override is HTML)', () => {
       const jsx = p.parser(
         '<MyComponent onClick={handler} onChange={fn} href={url} data={[1,2,3]} />',
         { overrides: { MyComponent: { props: {} } } }
@@ -5193,9 +5446,6 @@ describe('Unserializable expression evaluation', () => {
         overrides: { 'my-el': { props: {} } },
       }) as MarkdownToJSX.HTMLNode[]
       expect(registered[0].attrs).toEqual({ onClick: '{handleClick}' })
-      // A standard HTML element is not a component, so a brace-valued event
-      // handler would still emit an executable handler in string output and is
-      // stripped; a non-dangerous brace attribute is kept as written.
       const div = p.parser(
         '<div onClick={alert(1)} title={t}>x</div>'
       ) as MarkdownToJSX.HTMLNode[]
@@ -5656,6 +5906,26 @@ describe('text normalization edge cases', () => {
         'hello\u2009world'
       )
     })
+
+    it.each([
+      ['a no-break space', '\u00a0'],
+      ['an ideographic space', '\u3000'],
+      ['a form feed', '\f'],
+      ['a vertical tab', '\v'],
+    ])('should keep a GitHub alert when its marker is followed by %s', (_name, ws) => {
+      expect(p.parser(`> [!NOTE]${ws}\n> body`)).toEqual([
+        {
+          alert: 'NOTE',
+          children: [
+            {
+              children: [{ text: 'body', type: RuleType.text }],
+              type: RuleType.paragraph,
+            },
+          ],
+          type: RuleType.blockQuote,
+        },
+      ])
+    })
   })
 
   describe('control characters', () => {
@@ -5711,12 +5981,7 @@ describe('text normalization edge cases', () => {
     })
   })
 
-  // md4c regression edge cases
-  // Sourced from https://github.com/mity/md4c/blob/master/test/regressions.txt
-  // Tests md4c-specific extensions (--fpermissive-url-autolinks, --fwiki-links) are excluded.
-  // Single-tilde strikethrough tests adapted to double-tilde (~~) for markdown-to-jsx.
-  describe('md4c regression edge cases', () => {
-    // Issue 2: Raw HTML
+  describe('md4c regression edge cases, from md4c test/regressions.txt without the md4c-specific extensions (--fpermissive-url-autolinks, --fwiki-links) and with single-tilde strikethrough adapted to double-tilde', () => {
     it('md4c#2: raw HTML block with attributes', () => {
       const result = p.parser('<gi att1=tok1 att2=tok2>')
       expect(result).toMatchInlineSnapshot(`
@@ -5806,7 +6071,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 4: Image with entity in alt text
     it('md4c#4: image alt text with entity', () => {
       const result = p.parser(
         "![alt text with *entity* &copy;](img.png 'title')"
@@ -5828,7 +6092,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 9: Reference link in blockquote
     it('md4c#9: reference link defined inside blockquote', () => {
       const result = p.parser('> [foo\n> bar]: /url\n>\n> [foo bar]')
       expect(result).toMatchInlineSnapshot(`
@@ -5868,7 +6131,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 10: Link def + list with processing instruction
     it('md4c#10: link def then list with processing instruction', () => {
       const result = p.parser('[x]:\nx\n- <?\n\n  x')
       expect(result).toMatchInlineSnapshot(`
@@ -5897,14 +6159,12 @@ describe('text normalization edge cases', () => {
                 },
               ],
             ],
-            "start": undefined,
             "type": "unorderedList",
           },
         ]
       `)
     })
 
-    // Issue 11: Link title with HTML entity
     it('md4c#11: link with entity in title', () => {
       const result = p.parser('x [link](/url "foo &ndash; bar") x')
       expect(result).toMatchInlineSnapshot(`
@@ -5937,7 +6197,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 14: Complex emphasis
     it('md4c#14: emphasis edge case a***b* c*', () => {
       const result = p.parser('a***b* c*')
       expect(result).toMatchInlineSnapshot(`
@@ -5969,7 +6228,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 15: Complex emphasis
     it('md4c#15: emphasis edge case ***b* c*', () => {
       const result = p.parser('***b* c*')
       expect(result).toMatchInlineSnapshot(`
@@ -6007,7 +6265,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 21: Complex emphasis
     it('md4c#21: emphasis edge case a*b**c*', () => {
       const result = p.parser('a*b**c*')
       expect(result).toMatchInlineSnapshot(`
@@ -6043,7 +6300,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 33: Code fence with entities in info string
     it('md4c#33: unclosed code fence with entities in info string', () => {
       const result = p.parser('```&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;')
       expect(result).toMatchInlineSnapshot(`
@@ -6059,7 +6315,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 36: Underscore emphasis
     it('md4c#36: underscore emphasis __x_ _x___', () => {
       const result = p.parser('__x_ _x___')
       expect(result).toMatchInlineSnapshot(`
@@ -6107,7 +6362,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 39: Backslash in reference definition
     it('md4c#39: reference def with backslash label', () => {
       const result = p.parser('[\\\\]: x')
       expect(result).toMatchInlineSnapshot(`
@@ -6125,7 +6379,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 40: Multiline link with title
     it('md4c#40: link with multiline title', () => {
       const result = p.parser("[x](url\n'title'\n)x")
       expect(result).toMatchInlineSnapshot(`
@@ -6154,7 +6407,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 42: Table with fewer body columns and link
     it('md4c#42: table with link in cell and fewer body columns', () => {
       const result = p.parser('A | B\n--- | ---\n[x](url)')
       expect(result).toMatchInlineSnapshot(`
@@ -6202,7 +6454,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 65: Single backtick
     it('md4c#65: single backtick as paragraph', () => {
       const result = p.parser('`')
       expect(result).toMatchInlineSnapshot(`
@@ -6220,7 +6471,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 69: Strikethrough with code/emphasis (adapted to ~~)
     it('md4c#69: strikethrough wrapping code', () => {
       const result = p.parser('~~`foo`~~')
       expect(result).toMatchInlineSnapshot(`
@@ -6302,7 +6552,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 74: Link def then indented code and list
     it('md4c#74: link def followed by indented code and list', () => {
       const result = p.parser('[f]:\n-\n    xx\n-')
       expect(result).toMatchInlineSnapshot(`
@@ -6327,14 +6576,12 @@ describe('text normalization edge cases', () => {
             "items": [
               [],
             ],
-            "start": undefined,
             "type": "unorderedList",
           },
         ]
       `)
     })
 
-    // Issue 78: Unicode case folding in reference labels
     it('md4c#78: unicode sharp-s case folding in refs', () => {
       const result = p.parser('[SS ẞ]: /url\n[ẞ SS]')
       expect(result).toMatchInlineSnapshot(`
@@ -6368,7 +6615,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 83: Paragraph followed by empty blockquote
     it('md4c#83: paragraph followed by empty blockquote', () => {
       const result = p.parser('foo\n>')
       expect(result).toMatchInlineSnapshot(`
@@ -6391,7 +6637,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 95: Dot followed by text is not ordered list
     it('md4c#95: dot-space is not an ordered list', () => {
       const result = p.parser('. foo')
       expect(result).toMatchInlineSnapshot(`
@@ -6409,7 +6654,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 96: Reference link matching
     it('md4c#96: reference link exact match only', () => {
       const result = p.parser('[ab]: /foo\n[a] [ab] [abc]')
       expect(result).toMatchInlineSnapshot(`
@@ -6484,7 +6728,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 97: Complex emphasis
     it('md4c#97: emphasis *a **b c* d**', () => {
       const result = p.parser('*a **b c* d**')
       expect(result).toMatchInlineSnapshot(`
@@ -6528,7 +6771,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 100: Autolink email with long labels
     it('md4c#100: autolink email at max label length', () => {
       const result = p.parser(
         '<foo@123456789012345678901234567890123456789012345678901234567890123.123456789012345678901234567890123456789012345678901234567890123>'
@@ -6574,7 +6816,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 104: Table with link in cell
     it('md4c#104: table cell containing a link', () => {
       const result = p.parser('A | B\n--- | ---\n[x](url)')
       expect(result).toMatchInlineSnapshot(`
@@ -6622,7 +6863,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 107: Complex emphasis
     it('md4c#107: emphasis ***foo *bar baz***', () => {
       const result = p.parser('***foo *bar baz***')
       expect(result).toMatchInlineSnapshot(`
@@ -6660,7 +6900,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 124: Code fence preserving leading spaces
     it('md4c#124: code fence preserves many leading spaces', () => {
       const result = p.parser(
         '~~~\n                x\n~~~\n\n~~~\n                 x\n~~~'
@@ -6685,7 +6924,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 131: Image inside link using reference definitions
     it('md4c#131: image inside link via reference defs', () => {
       const result = p.parser(
         '[![alt][img]][link]\n\n[img]: img_url\n[link]: link_url'
@@ -6727,7 +6965,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 138: Table with header row only
     it('md4c#138: table with header only, no body rows', () => {
       const result = p.parser('| abc | def |\n| --- | --- |')
       expect(result).toMatchInlineSnapshot(`
@@ -6758,7 +6995,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 142: Unicode ligature case folding
     it('md4c#142: unicode ligature not matching in ref labels', () => {
       const result = p.parser('[foo\uFB17]: /url\n[foo\uFB15]')
       expect(result).toMatchInlineSnapshot(`
@@ -6785,7 +7021,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 149: Script tag in list
     it('md4c#149: script tag inside list items', () => {
       const result = p.parser('- <script>\n- foo\nbar\n</script>')
       expect(result).toMatchInlineSnapshot(`
@@ -6818,7 +7053,6 @@ describe('text normalization edge cases', () => {
                 },
               ],
             ],
-            "start": undefined,
             "type": "unorderedList",
           },
           {
@@ -6832,7 +7066,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 190: Empty list item then indented code
     it('md4c#190: empty list item followed by indented code block', () => {
       const result = p.parser('-\n\n    foo')
       expect(result).toMatchInlineSnapshot(`
@@ -6841,7 +7074,6 @@ describe('text normalization edge cases', () => {
             "items": [
               [],
             ],
-            "start": undefined,
             "type": "unorderedList",
           },
           {
@@ -6855,7 +7087,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 200: HTML comment then indented code
     it('md4c#200: HTML comment followed by indented code', () => {
       const result = p.parser('<!-- foo -->\n    ```\n    bar\n    ```')
       expect(result).toMatchInlineSnapshot(`
@@ -6884,7 +7115,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 201: Paragraph lazy continuation with code
     it('md4c#201: lazy continuation with indented backtick code', () => {
       const result = p.parser('foo\n    ```\n    bar\n    ```')
       expect(result).toMatchInlineSnapshot(`
@@ -6909,7 +7139,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 207: Textarea HTML block
     it('md4c#207: textarea preserves inner markdown verbatim', () => {
       const result = p.parser(
         '<textarea>\n\n*foo*\n\n_bar_\n\n</textarea>\n\nbaz'
@@ -6952,7 +7181,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 210: Nested images
     it('md4c#210: nested image in image alt text', () => {
       const result = p.parser(
         '![outer ![inner](img_inner "inner title")](img_outer "outer title")'
@@ -6974,7 +7202,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 215: Setext heading with tab after dashes
     it('md4c#215: setext heading underline with trailing tab', () => {
       const result = p.parser('title\n--\t')
       expect(result).toMatchInlineSnapshot(`
@@ -6994,7 +7221,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 216: Inline HTML declaration
     it('md4c#216: inline HTML declaration <!A>', () => {
       const result = p.parser('x <!A>')
       expect(result).toMatchInlineSnapshot(`
@@ -7018,7 +7244,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 217: Complex emphasis patterns
     it('md4c#217: emphasis __!_!__', () => {
       const result = p.parser('__!_!__')
       expect(result).toMatchInlineSnapshot(`
@@ -7236,7 +7461,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 222: Strikethrough (adapted to ~~)
     it('md4c#222: strikethrough not opening mid-word', () => {
       const result = p.parser('~~foo ~~bar baz~~')
       expect(result).toMatchInlineSnapshot(`
@@ -7244,18 +7468,18 @@ describe('text normalization edge cases', () => {
           {
             "children": [
               {
+                "text": "~~foo ",
+                "type": "text",
+              },
+              {
                 "children": [
                   {
-                    "text": "foo ",
+                    "text": "bar baz",
                     "type": "text",
                   },
                 ],
                 "tag": "del",
                 "type": "textFormatted",
-              },
-              {
-                "text": "bar baz~~",
-                "type": "text",
               },
             ],
             "type": "paragraph",
@@ -7264,7 +7488,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 223: Code spans with newlines
     it('md4c#223: code span with leading newline', () => {
       const result = p.parser('`\nfoo`')
       expect(result).toMatchInlineSnapshot(`
@@ -7316,7 +7539,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 242: Tilde in paths should not trigger strikethrough
     it('md4c#242: tildes in file paths not strikethrough', () => {
       const result = p.parser('copy ~user1/file to ~user2/file')
       expect(result).toMatchInlineSnapshot(`
@@ -7326,6 +7548,265 @@ describe('text normalization edge cases', () => {
               {
                 "text": "copy ~user1/file to ~user2/file",
                 "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
+    it('GFM: a task marker needs whitespace and then content after it, and the whitespace stays inline', () => {
+      expect(
+        p.parser(
+          '- [x]foo\n- [ ]\n- [x] \n- [X]\tbaz\n- [x]     five\n- [x]\nlazy'
+        )
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "items": [
+              [
+                {
+                  "text": "[x]foo",
+                  "type": "text",
+                },
+              ],
+              [
+                {
+                  "text": "[ ]",
+                  "type": "text",
+                },
+              ],
+              [
+                {
+                  "text": "[x]",
+                  "type": "text",
+                },
+              ],
+              [
+                {
+                  "completed": true,
+                  "type": "gfmTask",
+                },
+                {
+                  "text": " ",
+                  "type": "text",
+                },
+                {
+                  "text": "baz",
+                  "type": "text",
+                },
+              ],
+              [
+                {
+                  "completed": true,
+                  "type": "gfmTask",
+                },
+                {
+                  "text": " ",
+                  "type": "text",
+                },
+                {
+                  "text": "five",
+                  "type": "text",
+                },
+              ],
+              [
+                {
+                  "completed": true,
+                  "type": "gfmTask",
+                },
+                {
+                  "text": " ",
+                  "type": "text",
+                },
+                {
+                  "text": "lazy",
+                  "type": "text",
+                },
+              ],
+            ],
+            "type": "unorderedList",
+          },
+        ]
+      `)
+    })
+
+    it('GFM: the rest of a task marker line is paragraph text, never a block', () => {
+      expect(
+        p.parser('- [x] # h\n- [x] > q\n- [x] 1. n\n- [x] ***\n- [x] [y]: /u')
+      ).toMatchInlineSnapshot(`
+        [
+          {
+            "items": [
+              [
+                {
+                  "completed": true,
+                  "type": "gfmTask",
+                },
+                {
+                  "text": " ",
+                  "type": "text",
+                },
+                {
+                  "text": "# h",
+                  "type": "text",
+                },
+              ],
+              [
+                {
+                  "completed": true,
+                  "type": "gfmTask",
+                },
+                {
+                  "text": " ",
+                  "type": "text",
+                },
+                {
+                  "text": "> q",
+                  "type": "text",
+                },
+              ],
+              [
+                {
+                  "completed": true,
+                  "type": "gfmTask",
+                },
+                {
+                  "text": " ",
+                  "type": "text",
+                },
+                {
+                  "text": "1. n",
+                  "type": "text",
+                },
+              ],
+              [
+                {
+                  "completed": true,
+                  "type": "gfmTask",
+                },
+                {
+                  "text": " ",
+                  "type": "text",
+                },
+                {
+                  "text": "***",
+                  "type": "text",
+                },
+              ],
+              [
+                {
+                  "completed": true,
+                  "type": "gfmTask",
+                },
+                {
+                  "text": " ",
+                  "type": "text",
+                },
+                {
+                  "text": "[y]: /u",
+                  "type": "text",
+                },
+              ],
+            ],
+            "type": "unorderedList",
+          },
+        ]
+      `)
+    })
+
+    it('GFM: a task marker alone on its line needs its paragraph to continue', () => {
+      expect([
+        p.parser('- [x]\n\n  foo'),
+        p.parser('- [x]\n  # h'),
+      ]).toMatchInlineSnapshot(`
+        [
+          [
+            {
+              "items": [
+                [
+                  {
+                    "children": [
+                      {
+                        "text": "[x]",
+                        "type": "text",
+                      },
+                    ],
+                    "type": "paragraph",
+                  },
+                  {
+                    "children": [
+                      {
+                        "text": "foo",
+                        "type": "text",
+                      },
+                    ],
+                    "type": "paragraph",
+                  },
+                ],
+              ],
+              "type": "unorderedList",
+            },
+          ],
+          [
+            {
+              "items": [
+                [
+                  {
+                    "text": "[x]",
+                    "type": "text",
+                  },
+                  {
+                    "children": [
+                      {
+                        "text": "h",
+                        "type": "text",
+                      },
+                    ],
+                    "id": "h",
+                    "level": 1,
+                    "type": "heading",
+                  },
+                ],
+              ],
+              "type": "unorderedList",
+            },
+          ],
+        ]
+      `)
+    })
+
+    it('GFM: a task marker followed by a colon is a link reference definition', () => {
+      expect(p.parser('- [x]: /url\n\n[x]')).toMatchInlineSnapshot(`
+        [
+          {
+            "refs": {
+              "x": {
+                "target": "/url",
+                "title": undefined,
+              },
+            },
+            "type": "refCollection",
+          },
+          {
+            "items": [
+              [],
+            ],
+            "type": "unorderedList",
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "x",
+                    "type": "text",
+                  },
+                ],
+                "target": "/url",
+                "title": undefined,
+                "type": "link",
               },
             ],
             "type": "paragraph",
@@ -7360,7 +7841,78 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 248: Heading with tab after #
+    it('GFM: strikethrough and mark need flanking runs of exactly two', () => {
+      expect(p.parser('~~a ~~')).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "~~a ~~",
+                "type": "text",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+      expect(p.parser('a ===c=== b ==d===e==')).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "text": "a ===c=== b ",
+                "type": "text",
+              },
+              {
+                "children": [
+                  {
+                    "text": "d===e",
+                    "type": "text",
+                  },
+                ],
+                "tag": "mark",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+      expect(p.parser('~~a ~~b~~ c~~')).toMatchInlineSnapshot(`
+        [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "text": "a ",
+                    "type": "text",
+                  },
+                  {
+                    "children": [
+                      {
+                        "text": "b",
+                        "type": "text",
+                      },
+                    ],
+                    "tag": "del",
+                    "type": "textFormatted",
+                  },
+                  {
+                    "text": " c",
+                    "type": "text",
+                  },
+                ],
+                "tag": "del",
+                "type": "textFormatted",
+              },
+            ],
+            "type": "paragraph",
+          },
+        ]
+      `)
+    })
+
     it('md4c#248: ATX heading with tab after #', () => {
       const result = p.parser('#\tFoo')
       expect(result).toMatchInlineSnapshot(`
@@ -7412,7 +7964,6 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue 250: Hard break with tabs
     it('md4c#250: space+space+tab+newline is not hard break', () => {
       const result = p.parser('foo  \t\nbar')
       expect(result).toMatchInlineSnapshot(`
@@ -7457,8 +8008,7 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue #830: emphasis closing before a hard break
-    it('emphasis can close before a hard break (two trailing spaces)', () => {
+    it('emphasis can close before a hard break (two trailing spaces) (issue #830)', () => {
       const result = p.parser('**TEST:**  \nTEST')
       expect(result).toMatchInlineSnapshot(`
         [
@@ -7488,11 +8038,7 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue #271: backslash-escaped underscores are literal, unescaped ones still form emphasis
-    it('backslash-escaped underscores become literal text inside emphasis', () => {
-      // Per CommonMark: \_  is a literal underscore. The outer unescaped _ delimiters
-      // still form valid emphasis. Only \_ prevents that specific underscore from
-      // being a delimiter.
+    it('backslash-escaped underscores become literal text inside emphasis, while the outer unescaped underscore delimiters still form emphasis (issue #271)', () => {
       const result = p.parser('_{over\\_flow}_')
       expect(result).toMatchInlineSnapshot(`
         [
@@ -7523,8 +8069,7 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue #271: escaping ALL underscores prevents emphasis entirely
-    it('all underscores escaped produces literal text', () => {
+    it('all underscores escaped produces literal text, preventing emphasis entirely (issue #271)', () => {
       const result = p.parser('\\_test\\_')
       expect(result).toMatchInlineSnapshot(`
         [
@@ -7549,8 +8094,7 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue #271: escaped underscore inside emphasis is literal
-    it('escaped underscore inside emphasis is literal', () => {
+    it('escaped underscore inside emphasis is literal (issue #271)', () => {
       const result = p.parser('*foo\\_bar*')
       expect(result).toMatchInlineSnapshot(`
         [
@@ -7581,8 +8125,7 @@ describe('text normalization edge cases', () => {
       `)
     })
 
-    // Issue #271: fully escaped example from the issue
-    it('all three underscores escaped produces all literal text', () => {
+    it('all three underscores escaped produces all literal text, the fully escaped example from issue #271', () => {
       const result = p.parser('\\_{over\\_flow}\\_')
       expect(result).toMatchInlineSnapshot(`
         [
@@ -7647,10 +8190,7 @@ describe('text normalization edge cases', () => {
   })
 })
 
-describe('forward reference resolution', () => {
-  // Reference definitions may appear anywhere in the document, including after
-  // their first use inside nested containers. These guard the invariant that
-  // every inline parse context sees the complete refs collection.
+describe('forward reference resolution: definitions may appear anywhere in the document, including after their first use inside nested containers, so every inline parse context sees the complete refs collection', () => {
   function findLinks(
     nodes: MarkdownToJSX.ASTNode[]
   ): { target: string; text: string }[] {
@@ -7803,6 +8343,13 @@ Foo
     ).toEqual(['foo', 'foo-1', 'foo-2'])
   })
 
+  it.each([
+    '# !!!',
+    '# `]`',
+  ])('keeps the empty id of %j, a heading with an empty slug', input => {
+    expect(headingIds(p.parser(input))).toEqual([''])
+  })
+
   it('dedupes headings nested in blockquote, list, and HTML', () => {
     expect(
       headingIds(
@@ -7858,9 +8405,7 @@ Foo
     expect(second).toEqual(['foo', 'foo-1'])
   })
 
-  // Slugs use flattened inline text (GitHub / rehype-slug), not raw source, so
-  // link destinations and image alt do not leak into the id.
-  it('slugs link text without the destination', () => {
+  it('slugs link text without the destination, since slugs use flattened inline text (GitHub / rehype-slug) rather than raw source', () => {
     expect(headingIds(p.parser('## [text](https://e.com)'))).toEqual(['text'])
   })
 
@@ -7915,8 +8460,7 @@ describe('destination entity decode before sanitize', () => {
     expect(linkTarget('[x](jav&#x61;script:alert(1))')).toBe(null)
   })
 
-  it('nulls rejected image destinations', () => {
-    // ImageNode.target is string | null; null round-trips as ![alt]() in markdown.
+  it('nulls rejected image destinations (ImageNode.target is string | null, and null round-trips as ![alt]() in markdown)', () => {
     expect(linkTarget('![x](&#106;avascript:alert(1))')).toBe(null)
     expect(linkTarget('![x](javascript:alert(1) "t")')).toBe(null)
     expect(linkTarget('![x][r]\n\n[r]: javascript:alert(1)')).toBe(null)
@@ -7933,7 +8477,41 @@ describe('destination entity decode before sanitize', () => {
     expect(linkTarget('![x](https://e.com)')).toBe('https://e.com')
   })
 
-  it('discards rewritten sanitizer returns at parse time', () => {
+  it('keeps a decoded control character in an image destination for the emitters to encode', () => {
+    expect(linkTarget('![x](java&#1;script:alert(1))')).toBe(
+      'java\u0001script:alert(1)'
+    )
+    expect(linkTarget('[x](java&#1;script:alert(1))')).toBe(
+      'java\u0001script:alert(1)'
+    )
+  })
+
+  it.each([
+    ['0;url=javascript:alert(1)'],
+    ['0;URL=javascript:alert(1)'],
+    ["0; url = 'javascript:alert(1)'"],
+    ['0;url=&#106;avascript:alert(1)'],
+    ['0;url=java%73cript:alert(1)'],
+    ['0; url=data:text/html,x'],
+    ['0;javascript:alert(1)'],
+  ])('drops a meta refresh content whose URL is dangerous: %s', content => {
+    const node = p.parser(
+      `<meta http-equiv="refresh" content="${content}">`
+    )[0] as MarkdownToJSX.HTMLNode
+    expect(node.attrs).toEqual({ 'http-equiv': 'refresh' })
+  })
+
+  it('keeps a meta refresh content whose URL is safe', () => {
+    const node = p.parser(
+      '<meta http-equiv="refresh" content="0;url=https://x.y">'
+    )[0] as MarkdownToJSX.HTMLNode
+    expect(node.attrs).toEqual({
+      content: '0;url=https://x.y',
+      'http-equiv': 'refresh',
+    })
+  })
+
+  it('discards rewritten sanitizer returns at parse time, so the parse keeps the original decoded destination and emit applies transforms', () => {
     var calls = 0
     const rewritten = p.parser('[x](https://e.com)', {
       sanitizer: () => {
@@ -7955,7 +8533,6 @@ describe('destination entity decode before sanitize', () => {
         }
       }
     }
-    // Parse keeps the original decoded destination; emit applies transforms.
     expect(walk(rewritten)).toBe('https://e.com')
   })
 })
@@ -8328,8 +8905,6 @@ describe('table cell pipe escapes', () => {
     ['a\\|b', ['a|b', 'z']],
     ['a\\\\\\|b', ['a\\|b', 'z']],
     ['a\\\\b', ['a\\b', 'z']],
-    // An even backslash run before a pipe is a column split; two header
-    // columns keep the first two of the row's three cells
     ['a\\\\|b', ['a\\', 'b']],
   ])('reads the row cell %j as the cell texts %j', (cell, expected) => {
     const table = p.parser(
@@ -8401,9 +8976,6 @@ describe('attribute names a renderer acts on rather than writes', () => {
 })
 
 describe('markup a browser reads differently from the parser', () => {
-  // A tag hidden in a value reads on past the tag that holds it, to a quote left
-  // open earlier in the string: written as text, there is no open quote left for
-  // a later rewrite to re-pair
   const OPEN_QUOTE = '<![CDATA[<a title="</style><a title="</textarea>'
   const OPEN_QUOTE_TEXT =
     '<![CDATA[&lt;a title="&lt;/style>&lt;a title="&lt;/textarea>'
@@ -8424,6 +8996,7 @@ describe('markup a browser reads differently from the parser', () => {
   it.each([
     ['<?php echo 1 ?>', '<?php echo 1 ?>'],
     ['<!DOCTYPE html>', '<!DOCTYPE html>'],
+    ['<!a b>', '<!a b>'],
     ['<![CDATA[x]]>', '<![CDATA[x]]>'],
   ])('reads the inline markup in a %j paragraph as a raw comment', (markup, text) => {
     const paragraph = p.parser(
@@ -8463,6 +9036,24 @@ describe('markup a browser reads differently from the parser', () => {
     expect(attrsOf(input, options)).toEqual(attrs)
   })
 
+  it.each([
+    '<Foo children="<img src=x onerror=alert(1)>"><my-el children="<img src=y onerror=alert(2)>">x</my-el></Foo>',
+    '<Foo children="<img src=x onerror=alert(1)>"><my-el>x</my-el></Foo>',
+  ])('keeps the outer component source of %j after its nested component is screened', input => {
+    const outer = p.parser(input, registeredTags)[0] as MarkdownToJSX.HTMLNode
+    expect(outer._reparseSource).toBe(input)
+  })
+
+  it('keeps the content source of an unclosed component after its nested component is screened', () => {
+    const outer = p.parser(
+      '<Foo a="x"><Bar onClick={go}></Bar><my-el children="<img src=y>">y',
+      { overrides: { ...registeredTags.overrides, Bar: { props: {} } } }
+    )[0] as MarkdownToJSX.HTMLNode
+    expect(outer._reparseSource).toBe(
+      '<Bar onClick={go}></Bar><my-el children="<img src=y>">y'
+    )
+  })
+
   it('reads no registered tag from a parse that ended', () => {
     p.parser('x', { overrides: { 'my-el': { props: {} } } })
     expect(attrsOf('<my-el onClick={go}>y</my-el>')).toEqual({})
@@ -8483,7 +9074,6 @@ describe('markup a browser reads differently from the parser', () => {
 })
 
 describe('a tag that matches an override is a component, and every other tag is HTML', () => {
-  /** The attributes of the first node with the tag, at any depth */
   const attrsOfTag = (
     source: string,
     tag: string,
@@ -8551,7 +9141,6 @@ describe('a tag that matches an override is a component, and every other tag is 
       { data: '{[1]}', hidden: '{true}' },
     ],
     ['<my-el data={[1]} onclick={go}>x</my-el>', undefined, { data: '{[1]}' }],
-    // A lowercase tag an override matches keeps its handler in attrs, as written
     [
       '<my-el data={[1]} onclick={go}>x</my-el>',
       { overrides: { 'my-el': { props: {} } } },
@@ -8608,7 +9197,6 @@ describe('a tag that matches an override is a component, and every other tag is 
     '_reparseSource',
   ] as const
 
-  /** Every raw source span in a parsed tree, as `[field, value]` in tree order */
   const rawSpans = (nodes: unknown) => {
     const out: string[][] = []
     const walk = (list: unknown) => {
@@ -8702,7 +9290,6 @@ describe('a tag that matches an override is a component, and every other tag is 
       { onclick: 'alert(1)' },
       widgetNested,
     ],
-    // A tag no override matches is HTML, whose handlers go
     [
       'x <a href="/" onclick={alert(1)}>y</a>',
       undefined,
@@ -8710,18 +9297,17 @@ describe('a tag that matches an override is a component, and every other tag is 
       [['_rawAttrs', 'href="/"']],
     ],
     ['<my-widget onclick={alert(1)}>x</my-widget>', undefined, {}, widgetBlock],
-    // A capitalized tag an override matches is a component, which keeps its handler in raw source too
     [
       '<Btn onClick={go}>x</Btn>',
       { overrides: { Btn: { props: {} } } },
       { onClick: 'go' },
       [
-        ['_rawAttrs', ' onClick={go}'],
-        ['_rawOuter', '<Btn onClick={go}>x</Btn>'],
+        ['_rawAttrs', ' '],
+        ['_rawOuter', '<Btn >x</Btn>'],
+        ['_reparseSource', '<Btn onClick={go}>x</Btn>'],
       ],
     ],
   ])('keeps the handlers of %j with %j in attrs as %j, with raw source %j', (input, options, attrs, spans) => {
-    // The tag holding the handler
     const opener = input.slice(input.lastIndexOf('<', input.indexOf(' on')) + 1)
     const tag = opener.slice(0, opener.indexOf(' '))
     const tree = p.parser(input, options)
@@ -8840,7 +9426,6 @@ describe('a tag that matches an override is a component, and every other tag is 
         },
       ],
     ],
-    // The line break ending the opening tag's line is not content, as in the raw body
     [
       '<Card children="z">\n',
       { overrides: { card: { component: 'i' } } },
@@ -8894,5 +9479,33 @@ describe('a tag that matches an override is a component, and every other tag is 
     ],
   ])('stores the screened inner content of %j with %j as text', (input, options, expected) => {
     expect(p.parser(input, options)).toEqual(expected)
+  })
+})
+
+describe('code span edge spaces strip only U+0020', () => {
+  it.each([
+    ['` \t `', '<p><code>\t</code></p>'],
+    ['`   `', '<p><code> </code></p>'],
+    ['`\t`', '<p><code>\t</code></p>'],
+    ['` a `', '<p><code>a</code></p>'],
+    ['`  a  `', '<p><code> a </code></p>'],
+    ['`  `', '<p><code>  </code></p>'],
+    ['` `` `', '<p><code>``</code></p>'],
+    ['`\na\n`', '<p><code>a</code></p>'],
+  ])('renders %j as %j', (input, html) => {
+    expect(astToHTML(p.parser(input))).toBe(html)
+  })
+})
+
+describe('bare email domains accept underscores, while www domains reject them in the last two segments (GFM 6.9)', () => {
+  it.each([
+    ['foo@a_b.c', '<p><a href="mailto:foo@a_b.c">foo@a_b.c</a></p>'],
+    ['foo@a.b_c.d', '<p><a href="mailto:foo@a.b_c.d">foo@a.b_c.d</a></p>'],
+    ['a.b-c_d@a.b', '<p><a href="mailto:a.b-c_d@a.b">a.b-c_d@a.b</a></p>'],
+    ['a.b-c_d@a.b_', '<p>a.b-c_d@a.b_</p>'],
+    ['www.a_b.com', '<p>www.a_b.com</p>'],
+    ['http://a_b.com', '<p>http://a_b.com</p>'],
+  ])('renders %j as %j', (input, html) => {
+    expect(astToHTML(p.parser(input))).toBe(html)
   })
 })

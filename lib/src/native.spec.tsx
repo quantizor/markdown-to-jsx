@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, mock } from 'bun:test'
 import * as React from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import type { ImageProps, TextProps, ViewProps } from 'react-native'
 import { Image, Pressable, Text, View } from 'react-native'
-
+import { $ } from './constants.ts'
 import Markdown, {
   astToNative,
   compiler,
@@ -14,14 +15,8 @@ import Markdown, {
   sanitizer,
   slugify,
 } from './native.tsx'
-import { escapeText, storedAST, treeProps } from './test-tree.ts'
+import { escapeText, quotesDeep, storedAST, treeProps } from './test-tree.ts'
 
-/**
- * Structural view of the props these tests read off rendered elements. The
- * native renderer assembles elements with loosely-typed props, so the tests
- * inspect them through this lens; a wrong claim here surfaces as a failing
- * expectation at runtime, not as unsound access.
- */
 interface TestProps {
   children?: React.ReactNode
   source?: { uri?: string }
@@ -31,18 +26,12 @@ interface TestProps {
   [prop: string]: unknown
 }
 
-/** A rendered element whose props are viewed through TestProps. */
 type TestElement = React.ReactElement<TestProps>
 
-/** Narrow any rendered value to an element with structurally-readable props. */
 function isTestElement(value: unknown): value is TestElement {
   return React.isValidElement(value)
 }
 
-/**
- * Runtime shape of a forwardRef component. React's public types hide these
- * internals, so the tests name the shape and prove it with a guard.
- */
 interface ForwardRefComponent {
   $$typeof: symbol
   render: (...args: unknown[]) => unknown
@@ -109,11 +98,9 @@ function isComponentType(
   element: React.ReactElement,
   component: React.ComponentType<any>
 ): boolean {
-  // Direct comparison works for forwardRef components
   if (element.type === component) {
     return true
   }
-  // For forwardRef, also check the render function
   if (isForwardRefComponent(element.type) && isForwardRefComponent(component)) {
     return element.type.render === component.render
   }
@@ -167,9 +154,7 @@ function findChildByType(
       for (const child of props.children) {
         try {
           return findChildByType(child, component)
-        } catch {
-          // Continue searching
-        }
+        } catch {}
       }
     } else {
       return findChildByType(props.children, component)
@@ -209,13 +194,11 @@ function findAllTextElements(element: React.ReactNode): TestElement[] {
 }
 
 function findLinkElement(element: React.ReactNode): TestElement {
-  // Check if element itself has onPress (for custom components)
   if (isTestElement(element)) {
     const props = element.props
     if (props.onPress) {
       return element
     }
-    // Search children
     if (props.children) {
       const children = Array.isArray(props.children)
         ? props.children
@@ -223,9 +206,7 @@ function findLinkElement(element: React.ReactNode): TestElement {
       for (const child of children) {
         try {
           return findLinkElement(child)
-        } catch {
-          // Continue searching
-        }
+        } catch {}
       }
     }
   }
@@ -233,18 +214,12 @@ function findLinkElement(element: React.ReactNode): TestElement {
     for (const item of element) {
       try {
         return findLinkElement(item)
-      } catch {
-        // Continue searching
-      }
+      } catch {}
     }
   }
   throw new Error('Link element with onPress not found')
 }
 
-/**
- * Flatten a React Native style prop (which may nest arrays) into a single object,
- * later entries winning on conflict, mirroring how RN resolves a style array.
- */
 function flattenStyle(
   style: unknown,
   acc: Record<string, unknown> = {}
@@ -302,14 +277,12 @@ describe('native.tsx exports', () => {
     expect(typeof Markdown).toBe('function')
   })
 
-  it('should export NativeOptions type', () => {
-    // Type check - if this compiles, the type exists
+  it('should export a NativeOptions type that compiles for an empty object', () => {
     const options: NativeOptions = {}
     expect(typeof options).toBe('object')
   })
 
-  it('should export NativeStyleKey type', () => {
-    // Type check
+  it('should export a NativeStyleKey type that compiles for "text"', () => {
     const key: NativeStyleKey = 'text'
     expect(key).toBe('text')
   })
@@ -349,6 +322,16 @@ describe('compiler', () => {
 describe('link handling', () => {
   afterEach(() => {
     mock.clearAllMocks()
+  })
+
+  it('ends link text at a bracket inside a raw HTML element, and hides only a bracket inside the tag itself', () => {
+    expect(
+      serialize(
+        compiler('[see <b>this]</b> note](/docs)\n\n[a <b title="]">x</b>](/u)')
+      )
+    ).toMatchInlineSnapshot(
+      `"<View><Text>[see <Text>this]</Text> note](/docs)</Text><Text><Text>a <Text>x</Text></Text></Text></View>"`
+    )
   })
 
   it('should render link as Text component with onPress and underline style', () => {
@@ -471,22 +454,18 @@ describe('component overrides', () => {
     })
     const element = getFirstElement(result)
     const linkElement = findLinkElement(element)
-    // Check that our custom component is used
     expect(linkElement.type).toBe(CustomLink)
-    // Check that onPress is passed through
     expect(typeof linkElement.props.onPress).toBe('function')
     expect(extractTextContent(linkElement)).toBe('Link')
   })
 
-  it('should allow overriding image component', () => {
+  it('should allow overriding image component, which stays an override of the paragraph View child since an image cannot sit inside a Text', () => {
     const CustomImage = (props: ImageProps) =>
       React.createElement(Image, { ...props, testID: 'custom-image' })
     const result = compiler('![Alt](image.jpg)', {
       forceBlock: true,
       overrides: { img: CustomImage },
     })
-    // An image cannot sit inside a Text, so the paragraph renders as a View with
-    // the image as its own child; the override still applies.
     const imageElement = findFirst(result, CustomImage)
     expect(imageElement?.type).toBe(CustomImage)
     expect(imageElement?.props.source?.uri).toBe('image.jpg')
@@ -525,7 +504,6 @@ function findFirst(
   return findAllByType(element, component)[0]
 }
 
-/** findFirst that throws instead of returning undefined, for direct prop reads. */
 function mustFindFirst(
   element: React.ReactNode,
   component: React.ComponentType
@@ -537,7 +515,6 @@ function mustFindFirst(
   return found
 }
 
-/** Return the index-th child of an element, asserting it is itself an element. */
 function childElementAt(element: TestElement, index: number): TestElement {
   const children = element.props.children
   const child = Array.isArray(children)
@@ -708,10 +685,7 @@ describe('parsed-markdown overrides', () => {
     expect(style.color).toBe('gold')
   })
 
-  it('renders frontmatter as Text-mapped tag when in inline mode', () => {
-    // Defensive: an inline-mode renderer wrapped in Text must not nest a View.
-    // Construct the AST directly since the parser would not normally emit
-    // frontmatter in inline mode.
+  it('renders frontmatter as Text-mapped tag when in inline mode so a renderer wrapped in Text does not nest a View (the AST is built directly since the parser would not normally emit frontmatter in inline mode)', () => {
     const ast: MarkdownToJSX.FrontmatterNode[] = [
       { type: RuleType.frontmatter, text: 'title: hi' },
     ]
@@ -722,6 +696,16 @@ describe('parsed-markdown overrides', () => {
     const element = getFirstElement(result)
     expect(isComponentType(element, Text)).toBe(true)
     expect(extractTextContent(element)).toContain('title: hi')
+  })
+
+  it('renders block frontmatter as a View holding a Text, with no bare string under a View', () => {
+    const result = compiler('---\ntitle: x\n---\n\n# H', {
+      preserveFrontmatter: true,
+    })
+    expect(serialize(result)).toBe(
+      '<View><View><Text>---\ntitle: x\n---</Text></View><Text>H</Text></View>'
+    )
+    expect(bareStringsInView(result)).toEqual([])
   })
 
   it('applies TextStyle (codeInline) to inline frontmatter and ViewStyle (codeBlock) to block', () => {
@@ -744,10 +728,9 @@ describe('parsed-markdown overrides', () => {
     expect(getComponentStyle(blockEl).padding).toBe(8)
   })
 
-  it('does not pass DOM-only props to View when no input override is set', () => {
+  it('does not pass DOM-only props to the checkbox View, which draws a checkmark rather than the "[x]" text marker, when no input override is set', () => {
     const result = compiler('- [x] Task')
     const allViews = findAllByType(result, View)
-    // The default checkbox draws a checkmark rather than the "[x]" text marker.
     const taskView = allViews.find(v => extractTextContent(v) === '✓')
     if (!taskView) {
       throw new Error('Expected a task checkbox View')
@@ -757,28 +740,26 @@ describe('parsed-markdown overrides', () => {
     expect(taskView.props.readOnly).toBeUndefined()
   })
 
-  it('task list item wrapper opts into row layout by default', () => {
+  it('task list item wrapper opts into row layout by default, top-aligned so the checkbox lines up with the first line of the label', () => {
     const ul = getFirstElement(compiler('- [x] Task'))
     const li = childElementAt(ul, 0)
     const innerItemView = childElementAt(li, 1)
     const style = getComponentStyle(innerItemView)
     expect(style.flexDirection).toBe('row')
-    // Top-aligned so the checkbox lines up with the first line of the label.
     expect(style.alignItems).toBe('flex-start')
   })
 
-  it('non-task list items flex their content but do not inherit task row defaults', () => {
+  it('non-task list items flex their content to fill the row width but do not inherit task row defaults, since only tasks get row+center layout', () => {
     const ul = getFirstElement(compiler('- regular item'))
     const li = childElementAt(ul, 0)
     const innerItemView = childElementAt(li, 1)
     const style = getComponentStyle(innerItemView)
-    // Content flexes to fill the row width, but only tasks get row+center layout.
     expect(style.flex).toBe(1)
     expect(style.flexDirection).toBeUndefined()
     expect(style.alignItems).toBeUndefined()
   })
 
-  it('consumer styles.listItem overrides task row defaults via mergeStyle', () => {
+  it('consumer styles.listItem overrides task row defaults via mergeStyle, which puts user style last so the user flexDirection wins and the default alignItems is preserved', () => {
     const ul = getFirstElement(
       compiler('- [x] Task', {
         styles: { listItem: { flexDirection: 'column' } },
@@ -787,9 +768,7 @@ describe('parsed-markdown overrides', () => {
     const li = childElementAt(ul, 0)
     const innerItemView = childElementAt(li, 1)
     const style = getComponentStyle(innerItemView)
-    // mergeStyle puts user style last → user flexDirection wins.
     expect(style.flexDirection).toBe('column')
-    // alignItems from the default is preserved (user didn't override it).
     expect(style.alignItems).toBe('flex-start')
   })
 })
@@ -870,6 +849,72 @@ describe('AST node rendering', () => {
     expect(extractTextContent(element)).toContain('Quote')
   })
 
+  it.each([
+    [
+      '>     code\n> para\nlazy',
+      '<View><View><Text>code</Text></View><Text>para\nlazy</Text></View>',
+    ],
+    ['> para\n>     code\nlazy', '<View><Text>para\ncode\nlazy</Text></View>'],
+    [
+      '> # h\nlazy',
+      '<View><View><Text>h</Text></View><Text>lazy</Text></View>',
+    ],
+    [
+      '- # h\nlazy',
+      '<View><View><View><Text>• </Text><View><Text>h</Text></View></View></View><Text>lazy</Text></View>',
+    ],
+    ['> ---\nlazy', '<View><View><View></View></View><Text>lazy</Text></View>'],
+    [
+      '> ```\n> a\nlazy',
+      '<View><View><View><Text>a</Text></View></View><Text>lazy</Text></View>',
+    ],
+    [
+      '- | a | b |\n  | - | - |\nlazy',
+      '<View><View><View><Text>• </Text><View><View><View><View><View><Text>a</Text></View><View><Text>b</Text></View></View></View></View></View></View></View><Text>lazy</Text></View>',
+    ],
+    [
+      '> <pre>\nlazy',
+      '<View><View><View><Text></Text></View></View><Text>lazy</Text></View>',
+    ],
+    [
+      '- <pre>\nlazy',
+      '<View><View><View><Text>• </Text><View><View><Text></Text></View></View></View></View><Text>lazy</Text></View>',
+    ],
+    [
+      '> <div>\nlazy',
+      '<View><View><View></View></View><Text>lazy</Text></View>',
+    ],
+    [
+      '- <div>\nlazy',
+      '<View><View><View><Text>• </Text><View><View></View></View></View></View><Text>lazy</Text></View>',
+    ],
+    [
+      '- </pre>\nm',
+      '<View><View><View><Text>• </Text><View><View></View></View></View></View><Text>m</Text></View>',
+    ],
+    ['> </pre>\nm', '<View><View><View></View></View><Text>m</Text></View>'],
+    [
+      '> - a\nlazy',
+      '<View><View><View><Text>• </Text><View><Text>a\nlazy</Text></View></View></View></View>',
+    ],
+    ['> > a\nlazy', '<View><View><Text>a\nlazy</Text></View></View>'],
+    ['> f\nbar\n> # x', '<View><Text>f\nbar</Text><Text>x</Text></View>'],
+    [
+      '- 10. a\n\n      b\nlazy',
+      '<View><View><Text>• </Text><View><View><View><Text>10. </Text><View><Text>a</Text><Text>b\nlazy</Text></View></View></View></View></View></View>',
+    ],
+    [
+      '> 1.  one\n>\n>     two\nthree',
+      '<View><View><View><Text>1. </Text><View><Text>one</Text><Text>two\nthree</Text></View></View></View></View>',
+    ],
+    [
+      '> [x]: /u\n[y]: /v\n\n[y]',
+      '<View><View></View><Text><Text>y</Text></Text></View>',
+    ],
+  ])('ends or extends a container for the lazy line of %j as %j', (input, expected) => {
+    expect(serialize(compiler(input))).toBe(expected)
+  })
+
   it('should render ordered list as View with Text bullets', () => {
     const ast = parser('1. Item 1\n2. Item 2')
     const result = astToNative(ast)
@@ -912,6 +957,49 @@ describe('AST node rendering', () => {
     expect(text).toContain('Item 2')
   })
 
+  it.each([
+    [
+      'keeps a list loose when an HTML block ends at the blank line before a paragraph',
+      '- <div>x</div>\n\n  i\n- b',
+      '<View><View><Text>• </Text><View><View><Text>x</Text></View><Text>i</Text></View></View><View><Text>• </Text><View><Text>b</Text></View></View></View>',
+    ],
+    [
+      'keeps a list tight when a void tag is followed by a line remainder',
+      '- <img src="a.png"> \n  caption\n- b',
+      '<View><View><Text>• </Text><View><Text><Image></Image>caption</Text></View></View><View><Text>• </Text><View><Text>b</Text></View></View></View>',
+    ],
+    [
+      'keeps a list tight when a self-closing component is followed by a line remainder',
+      '- <MyComponent /> \n  text\n- two',
+      '<View><View><Text>• </Text><View><Text><Text></Text>text</Text></View></View><View><Text>• </Text><View><Text>two</Text></View></View></View>',
+    ],
+  ])('%s', (_name, source, expected) => {
+    expect(serialize(compiler(source))).toBe(expected)
+  })
+
+  it('keeps an alert when the marker is followed by an ideographic space (native draws no alert header, so the marker line leaving the text is the observable change)', () => {
+    expect(serialize(compiler('> [!NOTE]　\n> body'))).toBe(
+      '<View><Text>body</Text></View>'
+    )
+  })
+
+  it.each([
+    [
+      '-\n  _\n\n  )',
+      '<View><View><Text>• </Text><View><Text>_</Text><Text>)</Text></View></View></View>',
+    ],
+    [
+      '-\n\n  -',
+      '<View><View><Text>• </Text><View></View></View><View><Text>• </Text><View></View></View></View>',
+    ],
+    [
+      '>a\n-',
+      '<View><View><Text>a</Text></View><View><View><Text>• </Text><View></View></View></View></View>',
+    ],
+  ])('should render the item structure of %j as %j', (input, expected) => {
+    expect(serialize(compiler(input))).toBe(expected)
+  })
+
   it('should render bold text as Text with fontWeight', () => {
     const result = compiler('**bold**')
     const element = getFirstElement(result)
@@ -944,6 +1032,29 @@ describe('AST node rendering', () => {
     )
   })
 
+  it.each([
+    ['==``==b==`', '<Text>==``<Text>b</Text>`</Text>'],
+    ['~~``~~b~~`', '<Text>~~``<Text>b</Text>`</Text>'],
+    ['[a ``b](/u) `c', '<Text><Text>a ``b</Text> `c</Text>'],
+    ['~~a ~~', '<Text>~~a ~~</Text>'],
+    ['~~ a~~', '<Text>~~ a~~</Text>'],
+    ['~~a~~~\n~~<', '<Text>~~a~~~\n~~&lt;</Text>'],
+    ['a ===c=== b', '<Text>a ===c=== b</Text>'],
+    ['==a===b==', '<Text><Text>a===b</Text></Text>'],
+    ['==x==', '<Text><Text>x</Text></Text>'],
+    ['== x==', '<Text>== x==</Text>'],
+    ['a \\==b==', '<Text>a ==b==</Text>'],
+    ['~~foo ~~bar baz~~', '<Text>~~foo <Text>bar baz</Text></Text>'],
+    ['~~a ~~b~~ c~~', '<Text><Text>a <Text>b</Text> c</Text></Text>'],
+    ['==a ==b== c==', '<Text><Text>a <Text>b</Text> c</Text></Text>'],
+    ['~~**a**~~', '<Text><Text><Text>a</Text></Text></Text>'],
+    ['**~~a~~**', '<Text><Text><Text>a</Text></Text></Text>'],
+    ['*~~a*~~', '<Text><Text>~~a</Text>~~</Text>'],
+    ['~~*a~~*', '<Text><Text>*a</Text>*</Text>'],
+  ])('pairs strikethrough and mark runs like emphasis: %j', (input, expected) => {
+    expect(serialize(compiler(input, { forceBlock: true }))).toBe(expected)
+  })
+
   it('should render thematic break as View component', () => {
     const result = compiler('---\n')
     const element = getFirstElement(result)
@@ -960,13 +1071,12 @@ describe('AST node rendering', () => {
     expect(text).toContain('Cell')
   })
 
-  it('should render GFM task as View with a drawn checkbox marker', () => {
+  it('should render GFM task as View with a drawn checkbox marker, a checkmark for a completed task rather than the "[x]" text marker', () => {
     const result = compiler('- [x] Task')
     const element = getFirstElement(result)
     expect(isComponentType(element, View)).toBe(true)
     const text = extractTextContent(element)
     expect(text).toContain('Task')
-    // A completed task draws a checkmark rather than the "[x]" text marker.
     expect(text).toContain('✓')
   })
 })
@@ -985,14 +1095,83 @@ describe('Markdown component', () => {
     expect(extractTextContent(result)).toContain('Hello')
   })
 
-  it('should accept wrapperProps', () => {
-    // Test that wrapperProps are accepted and merged correctly
-    // Note: Full rendering test requires React renderer, this verifies no errors
+  it('should accept wrapperProps and merge them onto the wrapper element', () => {
     const result = compiler('Hello\n\nWorld', {
       wrapperProps: { testID: 'markdown-wrapper' },
     })
     const rendered = getFirstElement(result)
     expect(rendered.props.testID).toBe('markdown-wrapper')
+  })
+
+  describe('with no styles option', () => {
+    function renderMarkdown(
+      children: string,
+      options?: NativeOptions
+    ): React.ReactNode {
+      let tree: React.ReactNode = null
+      const Capture = () => {
+        const rendered = Markdown({ children, options })
+        if (rendered instanceof Promise) {
+          throw new Error('Expected a synchronous Markdown render')
+        }
+        tree = rendered
+        return null
+      }
+      renderToStaticMarkup(React.createElement(Capture))
+      return tree
+    }
+
+    const input =
+      '# Title\n\nA paragraph with `code` and a [link](https://a.b).'
+
+    function propShape(tree: React.ReactNode) {
+      return treeProps(tree).map(([name, value]) => [
+        name,
+        typeof value === 'function' ? 'function' : value,
+      ])
+    }
+
+    it('renders the same tree as the compiler with no styles', () => {
+      expect(serialize(renderMarkdown(input))).toBe(serialize(compiler(input)))
+      expect(propShape(renderMarkdown(input))).toEqual(
+        propShape(compiler(input))
+      )
+    })
+
+    it('hands every element the same style objects as the compiler with no styles', () => {
+      const fromMarkdown = treeProps(renderMarkdown(input))
+      const fromCompiler = treeProps(compiler(input))
+
+      expect(fromMarkdown.length).toBe(fromCompiler.length)
+      fromMarkdown.forEach(([name, value], index) => {
+        if (name === 'style') {
+          expect(value).toBe(fromCompiler[index][1])
+        }
+      })
+    })
+
+    it.each([
+      ['the compiler', (options: NativeOptions) => compiler(input, options)],
+      ['Markdown', (options: NativeOptions) => renderMarkdown(input, options)],
+    ])('hands %s the same style objects for an empty styles object as for no styles', (_name, renderWith) => {
+      const styleValues = (tree: React.ReactNode) =>
+        treeProps(tree)
+          .filter(([name]) => name === 'style')
+          .map(([, value]) => value)
+      const withEmptyStyles = styleValues(renderWith({ styles: {} }))
+      const withoutStyles = styleValues(compiler(input))
+
+      expect(withEmptyStyles.length).toBe(withoutStyles.length)
+      withEmptyStyles.forEach((value, index) => {
+        expect(value).toBe(withoutStyles[index])
+      })
+    })
+
+    it('renders the same tree for an empty styles object as for no styles', () => {
+      expect(propShape(renderMarkdown(input, { styles: {} }))).toEqual(
+        propShape(compiler(input))
+      )
+    })
   })
 })
 
@@ -1202,7 +1381,6 @@ describe('edge cases - style application', () => {
   })
 })
 
-/** First Text element in the tree whose rendered text content equals `content`. */
 function findTextByContent(
   node: React.ReactNode,
   content: string
@@ -1217,20 +1395,17 @@ function findTextByContent(
 }
 
 describe('styles.text universal base', () => {
-  it('applies styles.text under paragraph, list item, table cell, and heading text', () => {
+  it('applies styles.text under paragraph, list item, table cell, and heading text, with the base fontSize showing through only where the element sets none (list item, table cell) while a heading or paragraph keeps its own size from the cascade', () => {
     const md =
       '# Heading\n\nParagraph text.\n\n- List item\n\n| Col |\n|-----|\n| Cell |\n'
     const result = compiler(md, {
       styles: { text: { color: 'red', fontSize: 18 } },
     })
-    // The base color reaches every Text (none of these elements set a color).
     for (const content of ['Heading', 'Paragraph text.', 'List item', 'Cell']) {
       expect(getComponentStyle(findTextByContent(result, content)).color).toBe(
         'red'
       )
     }
-    // The base fontSize shows through where the element sets none (list item,
-    // table cell); a heading or paragraph keeps its own size from the cascade.
     expect(
       getComponentStyle(findTextByContent(result, 'List item')).fontSize
     ).toBe(18)
@@ -1246,9 +1421,7 @@ describe('styles.text universal base', () => {
     expect(style.color).toBeUndefined()
   })
 
-  it('lets an element style win over the text base on conflict', () => {
-    // styles.text sets a base color; the heading has no color of its own, so the
-    // base shows through, while its fontSize (from the default cascade) is kept.
+  it('lets an element style win over the text base on conflict, so a heading with no color of its own shows the base color while keeping its default-cascade fontSize', () => {
     const result = compiler('# Heading', {
       forceBlock: true,
       styles: { text: { color: 'red' } },
@@ -1260,11 +1433,10 @@ describe('styles.text universal base', () => {
 })
 
 describe('table facsimile', () => {
-  it('renders bold header text and flex:1 cells that align across rows', () => {
+  it('renders bold header text, header cells with equal flex and a vertical divider on all but the last, a separator under the header row and under all but the last body row, and flex:1 body cells that align across rows', () => {
     const result = compiler('| A | B |\n|---|---|\n| c | d |\n| e | f |\n')
     const table = getFirstElement(result)
 
-    // Bold header runs.
     expect(getComponentStyle(findTextByContent(result, 'A')).fontWeight).toBe(
       'bold'
     )
@@ -1272,8 +1444,6 @@ describe('table facsimile', () => {
       'bold'
     )
 
-    // Header cells: equal flex, vertical divider on all but the last, separator
-    // under the header row.
     const headerRow = childElementAt(childElementAt(table, 0), 0)
     expect(getComponentStyle(headerRow).borderBottomWidth).toBe(1)
     const headerA = childElementAt(headerRow, 0)
@@ -1285,7 +1455,6 @@ describe('table facsimile', () => {
       headerB.props.style && flattenStyle(headerB.props.style).borderRightWidth
     ).toBeUndefined()
 
-    // Body rows: separator under all but the last row; body cells carry flex:1.
     const body = childElementAt(table, 1)
     const row0 = childElementAt(body, 0)
     const row1 = childElementAt(body, 1)
@@ -1310,6 +1479,13 @@ describe('table facsimile', () => {
     expect(getComponentStyle(childElementAt(headerRow, 2)).alignItems).toBe(
       'flex-end'
     )
+  })
+
+  it.each([
+    ['`a| b |\n|---|', '<Text>`a| b |\n|---|</Text>'],
+    ['`|]\n-', '<Text>`|]</Text>'],
+  ])('renders %j, a delimiter row with the wrong cell count, as %j', (input, expected) => {
+    expect(serialize(compiler(input))).toBe(expected)
   })
 })
 
@@ -1351,13 +1527,12 @@ describe('edge cases - wrapper rendering', () => {
 })
 
 describe('edge cases - component overrides', () => {
-  it('should handle override that returns null', () => {
+  it('should handle override that returns null, leaving the null-returning function as the element type', () => {
     const nullFn = () => null
     const result = compiler('Hello', {
       forceBlock: true,
       overrides: { p: nullFn },
     })
-    // When override returns null, the element type is the null-returning function
     expect(getFirstElement(result).type).toBe(nullFn)
   })
 
@@ -1387,7 +1562,7 @@ describe('edge cases - component overrides', () => {
     expect(element.props.testID).toBe('custom-paragraph')
   })
 
-  it('should handle nested overrides', () => {
+  it('should handle nested overrides, where the top-level htmlBlock has no paragraph wrapper so the first element is the Accordion itself and AccordionItem is its first child', () => {
     const Accordion = ({ children }: { children?: React.ReactNode }) => children
     const AccordionItem = ({ children }: { children?: React.ReactNode }) =>
       children
@@ -1402,11 +1577,8 @@ describe('edge cases - component overrides', () => {
         tagfilter: false,
       }
     )
-    // Compact parser produces top-level htmlBlock (no paragraph wrapper)
-    // so the first element IS the Accordion itself
     const element = getFirstElement(result)
     expect(element.type).toBe(Accordion)
-    // AccordionItem is the first child of Accordion
     const accordionItemElement = childElementAt(element, 0)
     expect(accordionItemElement.type).toBe(AccordionItem)
     expect(extractTextContent(result)).toContain('test')
@@ -1443,13 +1615,12 @@ describe('edge cases - component overrides', () => {
 })
 
 describe('edge cases - HTML tag rendering', () => {
-  it('should map unsupported HTML block tags to View', () => {
+  it('should map unsupported HTML block tags to View, a forwardRef component', () => {
     const result = compiler('<div>Content</div>', {
       forceBlock: true,
       tagfilter: false,
     })
     const element = getFirstElement(result)
-    // The element should be a View (forwardRef)
     const elementType: unknown = element.type
     expect(
       isForwardRefComponent(elementType) ? elementType.$$typeof : undefined
@@ -1477,22 +1648,44 @@ describe('edge cases - HTML tag rendering', () => {
     const element = getFirstElement(result)
     expect(isComponentType(element, View)).toBe(true)
   })
+
+  it.each([
+    ['x<span></span></span', '<Text>x<Text></Text>&lt;/span</Text>'],
+    ['x<div></div></div', '<Text>x<View></View>&lt;/div</Text>'],
+    ['x<Foo></Foo></Foo', '<Text>x<Text></Text>&lt;/Foo</Text>'],
+  ])('leaves the second closer of %j as text', (input, expected) => {
+    expect(serialize(compiler(input))).toBe(expected)
+  })
+
+  it.each([
+    '<!--@/>',
+    '<!A[@e>',
+  ])('renders %j as a raw block, which writes no markup', markup => {
+    expect(serialize(compiler(markup, { forceBlock: true }))).toBe('')
+  })
+
+  it('renders the children of a stored block with its private fields dropped', () => {
+    expect(
+      serialize(
+        astToNative(
+          storedAST('<div>\n  <div/>\n  <span>content</span>\n</div>')
+        )
+      )
+    ).toBe('<View><View></View><Text><Text>content</Text></Text></View>')
+  })
 })
 
 describe('footnotes', () => {
-  it('should render plain text footnote content wrapped in Text component', () => {
+  it('should render plain text footnote content wrapped in Text component so React Native does not throw "Text strings must be rendered within a Text component"', () => {
     const result = compiler('foo[^1] bar\n\n[^1]: Simple text')
     const textContent = extractTextContent(result)
     expect(textContent).toContain('Simple text')
     expect(() => {
-      // This should not throw "Text strings must be rendered within a Text component"
       const element = getFirstElement(result)
       expect(element).toBeDefined()
     }).not.toThrow()
   })
 
-  // The reference marker is the only pressable element in these single-footnote
-  // inputs, so collecting by onPress isolates it from body text and the footer.
   function findMarker(
     node: React.ReactNode,
     out: TestElement[] = []
@@ -1526,20 +1719,15 @@ describe('footnotes', () => {
     expect(extractTextContent(marker)).toBe('note')
   })
 
-  it('applies styles.footnote to the marker', () => {
+  it('applies styles.footnote to the marker, which carries the styles.text base plus the footnote override so the flattened style includes the red color', () => {
     const marker = findMarker(
       compiler('a[^1]\n\n[^1]: note', {
         styles: { footnote: { color: 'red' } },
       })
     )[0]
-    // The marker carries the styles.text base plus the footnote override; the
-    // override wins on conflict, so the flattened style includes the red color.
     expect(getComponentStyle(marker)).toMatchObject({ color: 'red' })
   })
 
-  // The footer collects footnote definitions. An all-inline note reads as one
-  // line and renders as a Text; a note holding a block (an image) stacks as a
-  // View, since a Text cannot nest a view (issue #884).
   function findFootnoteFooterEntry(result: React.ReactNode): TestElement {
     const outer = getFirstElement(result)
     const kids = Array.isArray(outer.props.children)
@@ -1552,13 +1740,13 @@ describe('footnotes', () => {
     return childElementAt(footer, 0)
   }
 
-  it('renders an inline note footer entry as a Text', () => {
+  it('renders an all-inline note footer entry as one line in a Text', () => {
     const entry = findFootnoteFooterEntry(compiler('a[^1]\n\n[^1]: The note.'))
     expect(isComponentType(entry, Text)).toBe(true)
     expect(extractTextContent(entry)).toContain('The note.')
   })
 
-  it('renders an image note footer entry as a View', () => {
+  it('renders a note footer entry holding a block (an image) stacked as a View, since a Text cannot nest a view (issue #884)', () => {
     const entry = findFootnoteFooterEntry(
       compiler('a[^1]\n\n[^1]: ![i](https://x.com/i.png)')
     )
@@ -1570,10 +1758,7 @@ describe('footnotes', () => {
 })
 
 describe('options immutability', () => {
-  it('should not mutate options object when calling astToNative multiple times', () => {
-    // Test that astToNative doesn't mutate the options object when called multiple times
-    // This is important for memoization - if the same options object is reused,
-    // mutations could cause unexpected side effects
+  it('should not mutate options object when calling astToNative multiple times, so a memoized options object reused across calls has no side effects', () => {
     const markdown = '# Hello world'
     const ast = parser(markdown)
     const options: NativeOptions = {
@@ -1581,37 +1766,28 @@ describe('options immutability', () => {
     }
     const originalOverrides = options.overrides
 
-    // First call
     astToNative(ast, options)
 
-    // Verify options object wasn't mutated
     expect(options.overrides).toBe(originalOverrides)
 
-    // Second call with same options
     astToNative(ast, options)
 
-    // Options should still be unchanged
     expect(options.overrides).toBe(originalOverrides)
   })
 
   it('should not mutate options object when calling compiler multiple times', () => {
-    // Test that compiler doesn't mutate the options object when called multiple times
     const markdown = '# Hello world'
     const options: NativeOptions = {
       slugify: (input: string) => input.toLowerCase(),
     }
     const originalOverrides = options.overrides
 
-    // First call
     compiler(markdown, options)
 
-    // Verify options object wasn't mutated
     expect(options.overrides).toBe(originalOverrides)
 
-    // Second call with same options
     compiler(markdown, options)
 
-    // Options should still be unchanged
     expect(options.overrides).toBe(originalOverrides)
   })
 })
@@ -1628,19 +1804,13 @@ describe('MarkdownProvider and MarkdownContext', () => {
     expect(typeof MarkdownContext.Provider).toBe('object')
   })
 
-  it('should support context-based options (integration test)', () => {
-    // Note: Full context testing requires a proper React renderer
-    // This test verifies the exports exist and have correct types
+  it('should export MarkdownProvider and MarkdownContext together (full context testing requires a React renderer)', () => {
     const { MarkdownProvider, MarkdownContext } = require('./native.tsx')
     expect(MarkdownProvider).toBeDefined()
     expect(MarkdownContext).toBeDefined()
   })
 })
 
-// Serialize a native element tree to a tag-and-text string so nesting and
-// sibling order (not just text presence) are asserted. RN primitives render as
-// Text/View; HTML tags with no RN mapping keep their tag name.
-/** displayName/name fallback when a component is none of the known primitives. */
 function componentDisplayName(t: unknown): string {
   if ((typeof t !== 'object' && typeof t !== 'function') || t === null) {
     return '?'
@@ -1733,15 +1903,13 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
     )
   })
 
-  // The element and its trailing siblings share one Fragment; both were keyed
-  // from 0, so React warned about duplicate keys. They must now be unique.
   const mixedBlocks: [string, string][] = [
     ['paragraphs around text', '<div>\n<p>a</p>\nx\n<p>b</p>\n</div>'],
     ['paragraph then text', '<div>\n<p>a</p>\nx\n</div>'],
     ['text after closing tag', '<div>\n<p>a</p>\nx\n<p>b</p>\n</div>\ntail'],
   ]
   mixedBlocks.forEach(([name, md]) => {
-    it(`assigns unique sibling keys: ${name}`, () => {
+    it(`assigns unique sibling keys, since the element and its trailing siblings share one Fragment and React warns on duplicate keys: ${name}`, () => {
       expect(duplicateSiblingKeys(compiler(md))).toEqual([])
     })
   })
@@ -1759,11 +1927,6 @@ describe('regression #881 - trailing text after a nested HTML element', () => {
   })
 })
 
-/**
- * Collect every element whose direct children include two siblings sharing a
- * React key, which triggers React's duplicate-key warning. An empty result
- * proves every sibling group has unique keys.
- */
 function duplicateSiblingKeys(
   el: React.ReactNode,
   out: string[] = []
@@ -1795,10 +1958,6 @@ function duplicateSiblingKeys(
   return out
 }
 
-/**
- * Collect every bare string that sits directly inside a View (or Image), which
- * React Native forbids at render time. An empty result proves the tree is safe.
- */
 function bareStringsInView(
   el: React.ReactNode,
   inView = false,
@@ -1825,10 +1984,6 @@ function bareStringsInView(
   return out
 }
 
-/**
- * Collect every View/Image element placed directly inside a Text, which React
- * Native forbids on Android ("Unexpected view type nested under text node").
- */
 function viewsInText(
   el: React.ReactNode,
   inText = false,
@@ -1897,10 +2052,7 @@ describe('regression #884 - bare strings must never sit inside a native View', (
     })
   })
 
-  it('renders a block-container HTML tag as a View, not inline Text', () => {
-    // A definition list is a block container, so it maps to a View whose text
-    // children are wrapped in Text (VIEW_TAGS covers dl/dt/dd; a Text host would
-    // lay them out inline).
+  it('renders a block-container HTML tag (a definition list, dl/dt/dd) as a View whose text children are wrapped in Text, not inline Text, which would lay them out inline', () => {
     expect(
       serialize(compiler('<dl><dt>term</dt><dd>def</dd></dl>\n'))
     ).toContain('<View>')
@@ -1940,16 +2092,28 @@ describe('regression #884 - bare strings must never sit inside a native View', (
     )
   })
 
-  it('renders a task checkbox and its label as siblings, with no bullet', () => {
-    // The checkbox (empty View when unchecked) replaces the bullet and sits
-    // beside the label; a checked task draws a checkmark inside the box. The
-    // whitespace-only text node after the task marker is dropped so the checkbox
-    // margin is the only gap to the label (no leading space in the label Text).
+  it('renders a task checkbox (an empty View when unchecked, a checkmark inside the box when checked) and its label as siblings, with no bullet and no leading space in the label Text since the whitespace-only text node after the task marker is dropped and the checkbox margin is the only gap', () => {
     expect(serialize(compiler('- [ ] todo\n'))).toMatchInlineSnapshot(
       `"<View><View><View><View></View><Text>todo</Text></View></View></View>"`
     )
     expect(serialize(compiler('- [x] done\n'))).toMatchInlineSnapshot(
       `"<View><View><View><View><Text>✓</Text></View><Text>done</Text></View></View></View>"`
+    )
+  })
+
+  it('keeps a task marker as text unless whitespace and content follow it', () => {
+    expect(
+      serialize(compiler('- [x]foo\n- [ ] \n- [x] baz'))
+    ).toMatchInlineSnapshot(
+      `"<View><View><Text>• </Text><View><Text>[x]foo</Text></View></View><View><Text>• </Text><View><Text>[ ]</Text></View></View><View><View><View><Text>✓</Text></View><Text>baz</Text></View></View></View>"`
+    )
+  })
+
+  it('keeps the rest of a task marker line as text, never a block', () => {
+    expect(
+      serialize(compiler('- [x] # heading\n- [x] > quote'))
+    ).toMatchInlineSnapshot(
+      `"<View><View><View><View><Text>✓</Text></View><Text># heading</Text></View></View><View><View><View><Text>✓</Text></View><Text>&gt; quote</Text></View></View></View>"`
     )
   })
 
@@ -1963,11 +2127,6 @@ describe('regression #884 - bare strings must never sit inside a native View', (
 })
 
 describe('streaming table suppression', () => {
-  // The native compiler runs input through prepareBlockInput (which appends a
-  // blank line) before parsing, a different path than the html compiler. This
-  // progressive check feeds each document one character at a time (the strictest
-  // superset of any token boundary an LLM could stream) and asserts no in-flight
-  // prefix leaks raw pipe syntax as text.
   const docs: Record<string, string> = {
     'single column': 'text\n\n| Only |\n| --- |\n| a |\n',
     'table after paragraph':
@@ -1975,7 +2134,7 @@ describe('streaming table suppression', () => {
     'table at start': '| A | B |\n| --- | --- |\n| 1 | 2 |\n',
   }
   for (const [name, doc] of Object.entries(docs)) {
-    it(`never flashes raw pipes while streaming: ${name}`, () => {
+    it(`never flashes raw pipes while streaming, with each document fed one character at a time (the strictest superset of any token boundary an LLM could stream) through the native input path: ${name}`, () => {
       for (let n = 1; n <= doc.length; n++) {
         const text = extractTextContent(
           compiler(doc.slice(0, n), { optimizeForStreaming: true })
@@ -2013,7 +2172,6 @@ describe('native styling escape hatches', () => {
     }
     return acc
   }
-  // Flattened style of the first element whose style declares `prop`.
   const firstStyleWith = (
     tree: React.ReactNode,
     prop: string
@@ -2154,9 +2312,7 @@ describe('native strips dangerous raw HTML attributes', () => {
 })
 
 describe('unique heading IDs (#857)', () => {
-  it('renders duplicate headings without id props', () => {
-    // React Native has no heading id attribute surface; assert the full
-    // element tree for the same input so drift still fails the suite.
+  it('renders duplicate headings without id props, since React Native has no heading id attribute surface and the full element tree is asserted instead', () => {
     expect(
       serialize(
         compiler(`# Foo
@@ -2170,11 +2326,23 @@ describe('unique heading IDs (#857)', () => {
     )
   })
 
-  it('renders a link-in-heading from text content without crashing', () => {
-    // Native emits no id; assert the visible text matches the slug source.
+  it('renders a link-in-heading from text content without crashing (native emits no id, so the visible text is asserted to match the slug source)', () => {
     expect(extractTextContent(compiler('## [text](https://e.com)'))).toBe(
       'text'
     )
+  })
+
+  it('renders a heading with accented Latin letters and ß as its text (native emits no id, so the folded slug does not apply)', () => {
+    expect(extractTextContent(compiler('# Öl Straße\n\n# Łódź'))).toBe(
+      'Öl StraßeŁódź'
+    )
+  })
+
+  it.each([
+    ['# !!!', '!!!'],
+    ['# `]`', ']'],
+  ])('renders %j, a heading with an empty slug, as text %j (native emits no id, so the same inputs as the id-omission tests are asserted to still render their text)', (input, text) => {
+    expect(extractTextContent(compiler(input))).toBe(text)
   })
 })
 
@@ -2196,6 +2364,63 @@ describe('destination entity decode before sanitize', () => {
     const result = compiler('[x](&#106;avascript:alert(1))')
     expect(extractTextContent(result)).toBe('x')
     expect(hasOnPress(result)).toBe(false)
+  })
+
+  const imageSources = (md: string) =>
+    treeProps(compiler(md))
+      .filter(([name]) => name === 'source')
+      .map(([, value]) => value)
+
+  it('percent-encodes a control character in an image uri', () => {
+    expect(imageSources('![x](java\u0001script:alert(1))')).toEqual([
+      { uri: 'java%01script:alert(1)' },
+    ])
+    expect(imageSources('![x](java&#1;script:alert(1))')).toEqual([
+      { uri: 'java%01script:alert(1)' },
+    ])
+  })
+
+  it.each([
+    ['tab', '![x](java\tscript:alert(1))'],
+    ['tab entity', '![x](java&#9;script:alert(1))'],
+    ['newline entity', '![x](java&#10;script:alert(1))'],
+    ['percent tab, mixed case', '![x](JaVa%09ScRiPt:alert(1))'],
+    ['percent control character', '![x](java%01script:alert(1))'],
+    ['percent letter', '![x](java%73cript:alert(1))'],
+  ])('drops an image whose stripped form is a dangerous scheme: %s', (_, input) => {
+    expect(imageSources(input)).toEqual([])
+  })
+
+  it('keeps and encodes a safe image uri', () => {
+    expect(imageSources('![x](https://a.b/c.png)')).toEqual([
+      { uri: 'https://a.b/c.png' },
+    ])
+    expect(imageSources('![x](<a b.png>)')).toEqual([{ uri: 'a%20b.png' }])
+  })
+
+  it.each([
+    ['0;url=javascript:alert(1)'],
+    ['0;URL=javascript:alert(1)'],
+    ["0; url = 'javascript:alert(1)'"],
+    ['0;url=&#106;avascript:alert(1)'],
+    ['0;url=java%73cript:alert(1)'],
+    ['0;url=data:text/html,x'],
+    ['0;javascript:alert(1)'],
+  ])('strips a meta refresh content whose URL is dangerous: %s', content => {
+    expect(
+      treeProps(compiler(`<meta http-equiv="refresh" content="${content}">`))
+    ).toEqual([['http-equiv', 'refresh']])
+  })
+
+  it('keeps a meta refresh content whose URL is safe', () => {
+    expect(
+      treeProps(
+        compiler('<meta http-equiv="refresh" content="0;url=https://x.y">')
+      )
+    ).toEqual([
+      ['http-equiv', 'refresh'],
+      ['content', '0;url=https://x.y'],
+    ])
   })
 
   it('re-sanitizes direct astToNative link targets before press handlers', () => {
@@ -2224,6 +2449,22 @@ describe('inline Type 1 content with tagfilter off', () => {
       )
     ).toBe('x')
   })
+
+  it('shows a textarea body, markup included, as text', () => {
+    expect(
+      extractTextContent(
+        compiler('<textarea><b>x</b> &amp;</textarea>', { tagfilter: false })
+      )
+    ).toBe('<b>x</b> &')
+  })
+
+  it('shows the body of a textarea written in capitals', () => {
+    expect(
+      extractTextContent(
+        compiler('<TEXTAREA>a &lt; b</TEXTAREA>', { tagfilter: false })
+      )
+    ).toBe('a < b')
+  })
 })
 
 describe('component-like HTML blank-line nesting (#870)', () => {
@@ -2243,10 +2484,6 @@ Some paragraph
 })
 
 describe('tagfilter escapes dangerous tags by default', () => {
-  // Regression: the render-time tag filter defaulted OFF (raw options flowed
-  // to the renderer; only parse options were coerced), so default output
-  // mounted dangerous tags unescaped despite the documented default-on
-  // protection. Both compiler() and astToNative must escape.
   it('escapes script with default options via compiler()', () => {
     expect(extractTextContent(compiler('<script>alert(1)</script>'))).toBe(
       '<script>alert(1)</script>'
@@ -2301,9 +2538,7 @@ describe('prototype-slot reference labels (#900)', () => {
 })
 
 describe('optimizeForStreaming keeps literal delimiters', () => {
-  it('removes only unclosed emphasis openers', () => {
-    // Literal `_` and `*` in finished text survive; only the genuinely
-    // unclosed opener on the last line is held back (issue #905)
+  it('removes only the genuinely unclosed emphasis opener on the last line and keeps literal `_` and `*` in finished text (issue #905)', () => {
     expect(
       serialize(
         compiler(
@@ -2316,10 +2551,7 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
     )
   })
 
-  it('hides a never-closed opener until the final render (issue #909)', () => {
-    // The parser cannot tell a streaming edge from finished text, so an
-    // opener with no closer stays hidden while the option is on; the
-    // documented final render with the option off shows it as written
+  it('hides a never-closed opener while the option is on, since the parser cannot tell a streaming edge from finished text, and shows it as written in the final render with the option off (issue #909)', () => {
     const md = 'Use _trace and *args'
     expect(
       serialize(compiler(md, { optimizeForStreaming: true }))
@@ -2329,9 +2561,7 @@ describe('optimizeForStreaming keeps literal delimiters', () => {
     ).toMatchInlineSnapshot(`"<Text>Use _trace and *args</Text>"`)
   })
 
-  it('keeps complete HTML and earlier blocks unchanged', () => {
-    // Complete raw HTML, and incomplete-looking links and code in a block
-    // that is no longer the last one, render exactly as without the option
+  it('keeps complete raw HTML, and incomplete-looking links and code in a block that is no longer the last one, rendering exactly as without the option', () => {
     const md = 'a <span>z</span> <br> b\n\nsee [a](b and `code\n\nlast'
     const streamed = serialize(compiler(md, { optimizeForStreaming: true }))
     expect(streamed).toBe(serialize(compiler(md)))
@@ -2364,6 +2594,12 @@ describe('optimizeForStreaming preserves literal less-than', () => {
         compiler('Hello <Citation', { optimizeForStreaming: true })
       )
     ).toBe('Hello ')
+  })
+
+  it('reads a closing tag after an unfinished opener the way a full parse does', () => {
+    expect(
+      serialize(compiler('x <Comp </b>y', { optimizeForStreaming: true }))
+    ).toBe('<Text>x &lt;Comp <Text></Text>y</Text>')
   })
 })
 
@@ -2408,10 +2644,6 @@ describe('enforceAtxHeadings (#903)', () => {
   })
 })
 
-/**
- * The type of every `on*` prop in an element tree, serialize showing no props.
- * onPress is what the renderer builds for a link.
- */
 const handlerProps = (el: React.ReactNode) =>
   treeProps(el)
     .filter(
@@ -2419,15 +2651,19 @@ const handlerProps = (el: React.ReactNode) =>
     )
     .map(([name, value]) => `${name}=${typeof value}`)
 
-/** Every prop name in an element tree but children, style, and what the renderer builds. */
 const propNames = (el: React.ReactNode) =>
   treeProps(el)
     .map(([name]) => name)
     .filter(name => name !== 'style' && name !== 'onPress')
 
-// A native view has no innerHTML or DOM attributes, so these assert that the
-// names leave the props: a ref string throws here as it does on the web.
 describe('attribute names a renderer acts on rather than writes', () => {
+  it('passes a name that ends in a colon on as written', () => {
+    const result = compiler('<span a:="1">b</span>')
+
+    expect(serialize(result)).toBe('<Text>b</Text>')
+    expect(propNames(result)).toEqual(['a:'])
+  })
+
   it('removes an object children value from a registered tag', () => {
     const result = compiler('<Foo children={{"a":1}}>y</Foo>', {
       overrides: { Foo: { props: {} } },
@@ -2459,14 +2695,23 @@ describe('attribute names a renderer acts on rather than writes', () => {
       '<div dangerouslySetInnerHTML={{"__html":"<img src=x onerror=alert(1)>"}}></div>',
       '<View></View>',
     ],
-  ])('renders %j with no prop, as %j', (input, expected) => {
+  ])('renders %j with no prop, as %j (a native view has no innerHTML or DOM attributes, so these names leave the props, and a ref string throws here as it does on the web)', (input, expected) => {
     const result = compiler(input)
     expect(serialize(result)).toBe(expected)
     expect(propNames(result)).toEqual([])
   })
 
-  // A native view has no SVG animation, no link target from an attribute, and no
-  // markup reader, so these assert the props each input reaches a view with
+  it('renders no text for a brace value holding markup on a self-closing tag while streaming', () => {
+    expect(
+      serialize(
+        compiler(
+          '<A dangerouslySetInnerHTML={{__html: "<img src=x onerror=alert(1)>"}} />',
+          { optimizeForStreaming: true }
+        )
+      )
+    ).toBe('<Text></Text>')
+  })
+
   it.each([
     [
       '<svg><a><set attributeName="href" to="javascript:alert(1)"/><rect/></a></svg>',
@@ -2494,21 +2739,25 @@ describe('attribute names a renderer acts on rather than writes', () => {
       ['attributeName', 'values'],
     ],
     ['<Btn action={javascript:alert(1)}>x</Btn>', '<Text>x</Text>', []],
+    ['<Btn srcDoc={"<script>alert(1)</script>"}>x</Btn>', '<Text>x</Text>', []],
+    ['<Btn attributeName={href}>x</Btn>', '<Text>x</Text>', []],
+    [
+      '<Btn attributeName={opacity}>x</Btn>',
+      '<Text>x</Text>',
+      ['attributeName'],
+    ],
     ['<Btn href={link}>x</Btn>', '<Text>x</Text>', ['href']],
-    // A filtered tag is a text node, which the serializer writes escaped
     [
       '<!-- c --> <script>alert(1)</script>',
       '<Text> <Text>&lt;script&gt;alert(1)&lt;/script&gt;</Text></Text>',
       [],
     ],
-    // A filtered tag in a list item is text too
     [
       '- a <!-- c --> <script>alert(1)</script>',
       '<View><View><Text>• </Text><View><Text>a  </Text><Text>&lt;script&gt;alert(1)&lt;/script&gt;</Text></View></View></View>',
       [],
     ],
     ['<!-- <script> -->', '', []],
-    // A block left open before raw markup: an element tree has no browser reading to confuse
     ['<p><? a\n\n<!-- x><script>alert(1)</script>', '<Text></Text>', []],
     [
       '<p><? a\n\n<div title="x><script>alert(1)</script>">body</div>',
@@ -2520,36 +2769,39 @@ describe('attribute names a renderer acts on rather than writes', () => {
       '<View><Text></Text><Text>b <Text></Text> c</Text></View>',
       ['title'],
     ],
-    // A prop value is written whole, so no tag starts inside it
     [
       '<div x={a><script>alert(1)</script>}>y</div>',
       '<View><Text>y</Text></View>',
       ['x'],
     ],
-  ])('renders %j as %j, with props %j', (input, expected, props) => {
+  ])('renders %j as %j, with props %j (a native view has no SVG animation, no link target from an attribute, and no markup reader; a filtered tag is a text node the serializer writes escaped, a block left open before raw markup has no browser reading to confuse, and a prop value is written whole so no tag starts inside it)', (input, expected, props) => {
     const result = compiler(input)
     expect(serialize(result)).toBe(expected)
     expect(propNames(result)).toEqual(props)
   })
 
+  it('drops a brace srcDoc and a brace attributeName naming a link from a tag an override renders as an element', () => {
+    const result = compiler(
+      '<Card srcDoc={"<script>alert(1)</script>"} attributeName={href} title="t">a</Card>',
+      { overrides: { Card: { component: 'iframe' } } }
+    )
+    expect(propNames(result)).toEqual(['title'])
+  })
+
   it.each([
     ['<img children="z" src="/x">', '<Image></Image>'],
     ['<pre><b>x</b></pre>', '<View><Text>&lt;b&gt;x&lt;/b&gt;</Text></View>'],
-    // A native view has no markup reader, so the raw body shows as text
     [
       '<div><pre>a</pre></div>',
-      '<Text>&lt;pre&gt;a&lt;/pre&gt;&lt;/div&gt;\n</Text>',
+      '<Text>&lt;pre&gt;a&lt;/pre&gt;&lt;/div&gt;</Text>',
     ],
     ['![" onclick=alert(1)>](/x)', '<Image></Image>'],
-  ])('renders %j as %j', (input, expected) => {
+  ])('renders %j as %j (a native view has no markup reader, so a raw body shows as text)', (input, expected) => {
     expect(serialize(compiler(input))).toBe(expected)
   })
 })
 
-// A native view has no markup for a browser to read, so these assert what it
-// renders from each input: the same screened attributes, with text as text.
 describe('a children attribute on a tag with an override', () => {
-  // Native maps a tag it has no element for to Text
   it.each([
     ['<card children="z" />', { card: { component: 'i' } }],
     ['<card children="z" />', Object.create({ card: { component: 'i' } })],
@@ -2583,9 +2835,6 @@ describe('a children attribute on a tag with an override', () => {
 
   const card = { card: { component: 'i', props: {} } } as const
 
-  // An element with no content of its own takes the value as text, in any
-  // document shape. Same inputs as the html suite; the serializer writes no
-  // attributes, so the row for another attribute lives there.
   it.each<[string, string, MarkdownToJSX.Overrides, string]>([
     [
       'a capitalized self-closing tag',
@@ -2812,10 +3061,8 @@ describe('a children attribute on a tag with an override', () => {
       card,
       '<View><Text><Text>inner</Text></Text></View>',
     ],
-    // The serializer escapes a string child and writes an element as a bare
-    // tag, so the value here is text: an element would show as `<img></img>`
     [
-      'a markup value inside a raw block, read as text',
+      'a markup value inside a raw block, read as text (the serializer escapes a string child and writes an element as a bare tag, so an element would show as `<img></img>`)',
       '<div>\n<Card children="<img src=x onerror=alert(1)>" />\n</div>',
       card,
       '<View><Text><Text>&lt;img src=x onerror=alert(1)&gt;</Text></Text></View>',
@@ -2866,8 +3113,7 @@ describe('a URL that names a dangerous scheme', () => {
     expect(onLinkPress.mock.calls).toEqual([[url, undefined]])
   })
 
-  // Raw HTML has no press handler in React Native, so the prop is what it produces
-  it('keeps the href of a raw link', () => {
+  it('keeps the href of a raw link, since raw HTML has no press handler in React Native and the prop is what it produces', () => {
     const link = compiler('<a href="/docs/javascript:intro">x</a>')
     expect(treeProps(link).filter(([name]) => name === 'href')).toEqual([
       ['href', '/docs/javascript:intro'],
@@ -2939,6 +3185,7 @@ describe('markup a browser reads differently from the parser', () => {
       '<View><Text>&lt;b onclick=alert(1)</Text></View>',
     ],
     ['```x onmouseover="alert(1)"\ny\n```', '<View><Text>y</Text></View>'],
+    ['```x style="color:red"\ny\n```', '<View><Text>y</Text></View>'],
     [
       '<iframe><img src=x onerror=alert(1)',
       '<Text><Text>&lt;iframe&gt;</Text>&lt;img src=x onerror=alert(1)</Text>',
@@ -2967,8 +3214,6 @@ describe('markup a browser reads differently from the parser', () => {
       'x <javascript:alert(1)> y',
       '<Text>x <Text>javascript:alert(1)</Text> y</Text>',
     ],
-    // The markdown output ends an autolink at an ASCII space or control only, so a
-    // Unicode space in one is the same link here
     [
       'x <span><javascript:alert(1)//\xa0></span>',
       '<Text>x <Text><Text>javascript:alert(1)//\xa0</Text></Text></Text>',
@@ -3008,7 +3253,11 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '1. # [^1]\n[^1]:&#106avascript:alert(1)',
-      '<View><View><Text>1. </Text><View><Text>[^1]</Text><Text>[^1]:&amp;#106avascript:alert(1)</Text></View></View></View>',
+      '<View><View><View><Text>1. </Text><View><Text><Text>¹</Text></Text></View></View></View><View><Text>1: &amp;#106avascript:alert(1)</Text></View></View>',
+    ],
+    [
+      '1. a [^1]\n[^1]:&#106avascript:alert(1)',
+      '<View><View><Text>1. </Text><View><Text>a [^1]\n[^1]:&amp;#106avascript:alert(1)</Text></View></View></View>',
     ],
     [
       '1. <!-- c --> x\n[^1]:&#106avascript:alert(1)\n\n[^1]',
@@ -3016,15 +3265,19 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '- <pre>x\ny</pre>',
-      '<View><View><Text>• </Text><View><View><Text>x\ny</Text></View></View></View></View>',
+      '<View><View><View><Text>• </Text><View><View><Text>x</Text></View></View></View></View><View><Text>y</Text><View></View></View></View>',
     ],
     [
       '- <!-- x\ny -->',
-      '<View><View><Text>• </Text><View><Text></Text></View></View></View>',
+      '<View><View><View><Text>• </Text><View><Text></Text></View></View></View><Text>y --&gt;</Text></View>',
     ],
     [
       '- <div\nonclick=alert(1)>x</div>',
-      '<View><View><Text>• </Text><View><View><Text>x</Text></View></View></View></View>',
+      '<View><View><View><Text>• </Text><View>&lt;div</View></View></View><View><Text>onclick=alert(1)&gt;x</Text><View></View></View></View>',
+    ],
+    [
+      '- a <div\nonclick=alert(1)>x</div>',
+      '<View><View><Text>• </Text><View><Text>a </Text><View><Text>x</Text></View></View></View></View>',
     ],
     [
       '- <x-y\nonclick=alert(1)>y</x-y>',
@@ -3036,7 +3289,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '- ```\ny',
-      '<View><View><Text>• </Text><View><View><Text>y</Text></View></View></View></View>',
+      '<View><View><View><Text>• </Text><View><View><Text></Text></View></View></View></View><Text>y</Text></View>',
     ],
     [
       '1. <x-y>x\ny',
@@ -3052,7 +3305,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '- # h\na | b\n  --- | ---',
-      '<View><View><Text>• </Text><View><Text>h</Text><View><View><View><View><Text>a</Text></View><View><Text>b</Text></View></View></View></View></View></View></View>',
+      '<View><View><View><Text>• </Text><View><Text>h</Text></View></View></View><View><View><View><View><Text>a</Text></View><View><Text>b</Text></View></View></View></View></View>',
     ],
     [
       '- - [^1]:\nz\n\n  [^1]',
@@ -3067,13 +3320,12 @@ describe('markup a browser reads differently from the parser', () => {
     ['[x](a\\\\)', '<Text>x</Text>'],
     [
       '- a | b\n  --- | ---\nc | d',
-      '<View><View><Text>• </Text><View><View><View><View><View><Text>a</Text></View><View><Text>b</Text></View></View></View><View><View><View><Text>c</Text></View><View><Text>d</Text></View></View></View></View></View></View></View>',
+      '<View><View><View><Text>• </Text><View><View><View><View><View><Text>a</Text></View><View><Text>b</Text></View></View></View></View></View></View></View><Text>c | d</Text></View>',
     ],
     [
       '1. [^1]:\nb\n\n   [^1]',
       '<View><View><View><Text>1. </Text><View><Text><Text>¹</Text></Text></View></View></View><View><Text>1: b</Text></View></View>',
     ],
-    // A paragraph's lazy line stays out of block parsing, so no heading
     [
       '- <b>x</b>\ny\n===',
       '<View><View><Text>• </Text><View><Text><Text>x</Text>\ny\n===</Text></View></View></View>',
@@ -3096,7 +3348,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<div>\n\n```\n``` \n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
-      '<View><View><View><Text>``` \n</Text></View></View><View><Text>&lt;img src=x onerror=alert(1)&gt;\n</Text></View></View>',
+      '<View><View><View><Text>``` \n</Text></View></View><View><Text>&lt;img src=x onerror=alert(1)&gt;</Text></View></View>',
     ],
     [
       '<![CDATA[a]]]>\n\n```\n<img src=x onerror=alert(1)>\n```',
@@ -3104,15 +3356,19 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '- <?p ?> <?q ?>[x](\njavascript:alert(1))',
-      '<View><View><Text>• </Text><View><Text>javascript:alert(1))</Text></View></View></View>',
+      '<View><View><View><Text>• </Text><View><Text></Text></View></View></View><Text>javascript:alert(1))</Text></View>',
+    ],
+    [
+      '- a <?p ?> <?q ?>[x](\njavascript:alert(1))',
+      '<View><View><Text>• </Text><View><Text>a  <Text>x</Text></Text></View></View></View>',
     ],
     [
       '<div>\n\n```\n```\t\n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
-      '<View><View><View><Text></Text></View></View><View><Text>&lt;img src=x onerror=alert(1)&gt;\n</Text></View></View>',
+      '<View><View><View><Text></Text></View></View><View><Text>&lt;img src=x onerror=alert(1)&gt;</Text></View></View>',
     ],
     [
       '<div>\n\n```\n```~\n```\n\n</div>\n\n```\n<img src=x onerror=alert(1)>\n',
-      '<View><View><View><Text>```~</Text></View></View><View><Text>&lt;img src=x onerror=alert(1)&gt;\n</Text></View></View>',
+      '<View><View><View><Text>```~</Text></View></View><View><Text>&lt;img src=x onerror=alert(1)&gt;</Text></View></View>',
     ],
     [
       '<details>\n\n```\n```js\n```\n\n</details>',
@@ -3172,7 +3428,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<?p ?><!DOCTYPE html>```\n```\n<svg onload=alert(1)>',
-      '<View><Text>&lt;svg onload=alert(1)&gt;\n</Text></View>',
+      '<View><Text>&lt;svg onload=alert(1)&gt;</Text></View>',
     ],
     ['[l](/u "--><img src=x onerror=alert(1)>")', '<Text>l</Text>'],
     ['![a"--><img src=x onerror=alert(1)>](/x)', '<Image></Image>'],
@@ -3209,19 +3465,20 @@ describe('markup a browser reads differently from the parser', () => {
       '<Text><Text></Text>[^1]: ](javascript:alert(1)</Text>',
     ],
     ['<pre>a', '<View><Text>a</Text></View>'],
-    ['<div><pre>a', '<Text>&lt;pre&gt;a\n</Text>'],
+    ['<div><pre>a', '<Text>&lt;pre&gt;a</Text>'],
     ['<div>\n\n', '<View></View>'],
     ["<div </div>'", "<Text>&lt;div &lt;/div&gt;'</Text>"],
     ['<?php echo 1 ?>', ''],
     ['<!DOCTYPE html>', ''],
+    ['<!doctype html>', ''],
     ['<![CDATA[x]]>', ''],
-    // The string outputs' quote re-pairing has no reading here: these are elements and text
     [
       '<![CDATA[<a title="</style><a title="</textarea><a href="javascript:alert(1)">l</a> x" onclick=alert(1)>',
       '<Text>&lt;![CDATA[&lt;a title="<Text>&lt;/style&gt;</Text>&lt;a title="<Text>&lt;/textarea&gt;</Text><Text>l</Text> x" onclick=alert(1)&gt;</Text>',
     ],
     ['a <?b?> c', '<Text>a  c</Text>'],
     ['a <!B c> d', '<Text>a  d</Text>'],
+    ['x <!a b> y', '<Text>x  y</Text>'],
     ['a <![CDATA[b]]> c', '<Text>a  c</Text>'],
     ['a <!-- b --> c', '<Text>a  c</Text>'],
     ['[l](java&Tab;script:alert(1))', '<Text>l</Text>'],
@@ -3251,7 +3508,6 @@ describe('markup a browser reads differently from the parser', () => {
       '<Image></Image>',
     ],
     ['![a\\\\\\](javascript:alert(1))b](/x)', '<Image></Image>'],
-    // Shapes only the markdown output screens
     [
       `> <div a=1${String.fromCharCode(0x20_28)}>  onclick=alert(1) b>y</div>`,
       '<View><View><Text>onclick=alert(1) b&gt;y</Text></View></View>',
@@ -3262,7 +3518,11 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       `> <div </div${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
-      '<View><View></View></View>',
+      "<View><View><View></View></View><Text>onclick='alert(1)'</Text></View>",
+    ],
+    [
+      `> a <div </div${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
+      `<View><Text>a &lt;div &lt;/div${String.fromCharCode(0x20_28)}&gt;\nonclick='alert(1)'</Text></View>`,
     ],
     [
       '/\n    <pre>\n```\n<img src=x onerror=alert(1)>\n```',
@@ -3317,7 +3577,7 @@ describe('markup a browser reads differently from the parser', () => {
     ['`<script> https://a.b/c`', '<Text>&lt;script&gt; https://a.b/c</Text>'],
     [
       `> <div </div ${String.fromCharCode(0x20_28)}>\nonclick='alert(1)'`,
-      '<View><View></View></View>',
+      "<View><View><View></View></View><Text>onclick='alert(1)'</Text></View>",
     ],
     [
       '<pre/>\n\n```\n<img src=x onerror=alert(1)>\n```',
@@ -3364,7 +3624,7 @@ describe('markup a browser reads differently from the parser', () => {
     ],
     [
       '<pre/>`<img src=x onerror=alert(1)>`',
-      '<View><Text>`&lt;img src=x&gt;`\n</Text></View>',
+      '<View><Text>`&lt;img src=x&gt;`</Text></View>',
       'pre',
       'script',
     ],
@@ -3394,27 +3654,23 @@ describe('markup a browser reads differently from the parser', () => {
   })
 
   it.each([
-    // A tag no override matches is HTML, whose handlers go
     ['<Img onclick={alert(1)} />', undefined, '<Image></Image>', []],
     ['<Img onerror />', undefined, '<Image></Image>', []],
     ['<my-widget online>x</my-widget>', undefined, '<Text>x</Text>', []],
-    // React Native writes no attributes; what a component receives stays
     [
       '<Img onerror />',
       { overrides: { Img: { props: {} } } },
       '<Image></Image>',
-      ['onerror=boolean'],
+      [],
     ],
     ['<constructor>hi</constructor>', { overrides: {} }, '<Text>hi</Text>', []],
     ['<Constructor>hi</Constructor>', { overrides: {} }, '<Text>hi</Text>', []],
-    // A lowercase tag an override matches passes no handler on
     [
       '<my-widget onclick={alert(1)}>x</my-widget>',
       { overrides: { 'my-widget': { props: {} } } },
       '<Text>x</Text>',
       [],
     ],
-    // A lowercase tag is HTML, so its value is never evaluated
     [
       '<my-widget onclick={() => 1}>x</my-widget>',
       { evalUnserializableExpressions: true },
@@ -3430,7 +3686,7 @@ describe('markup a browser reads differently from the parser', () => {
       '<Image></Image>',
       ['onclick=function'],
     ],
-  ])('with its options keeps %j and %j as %j with props %j', (input, options, expected, handlers) => {
+  ])('with its options keeps %j and %j as %j with props %j (a tag no override matches is HTML and loses its handlers; React Native writes no attributes, so what a component receives stays; a lowercase tag an override matches passes no handler on, and a lowercase tag is HTML so its value is never evaluated)', (input, options, expected, handlers) => {
     const result = compiler(input, options)
     expect(serialize(result)).toBe(expected)
     expect(handlerProps(result)).toEqual(handlers)
@@ -3439,7 +3695,6 @@ describe('markup a browser reads differently from the parser', () => {
 
 describe('a capitalized tag an override matches is a component, and every other tag is HTML', () => {
   const ATTR_NAMES = ['class', 'data', 'href', 'onClick', 'onclick', 'title']
-  /** The written attribute props of every element, without what the renderer adds */
   const attrProps = (el: React.ReactNode) =>
     treeProps(el).filter(([name]) => ATTR_NAMES.includes(name))
 
@@ -3497,7 +3752,6 @@ describe('a capitalized tag an override matches is a component, and every other 
     ])
   })
 
-  /** Spreads every prop it receives onto its Text */
   const MyLink = (props: TextProps) => <Text {...props} />
   const widget = { 'my-widget': { props: {} } }
 
@@ -3622,9 +3876,7 @@ describe('a capitalized tag an override matches is a component, and every other 
     ).toEqual(['onClick=string'])
   })
 
-  it('writes no attribute of a hand-built code block', () => {
-    // A native code block takes only its style, so neither data-x nor the
-    // handler reaches it, and the drop the other outputs need does not apply
+  it('writes no attribute of a hand-built code block, since a native code block takes only its style and neither data-x nor the handler reaches it', () => {
     const ast = parser('```js\nx\n```')
     Object.assign(ast[0], { attrs: { 'data-x': 'y', onclick: 'alert(1)' } })
     const result = astToNative(ast)
@@ -3651,8 +3903,29 @@ describe('a capitalized tag an override matches is a component, and every other 
   })
 })
 
+describe('emphasis that follows emphasis', () => {
+  it('renders as two elements', () => {
+    expect(serialize(compiler('_a_*b*'))).toBe(
+      '<Text><Text>a</Text><Text>b</Text></Text>'
+    )
+  })
+
+  it('renders as three elements across a chain of alternating delimiters', () => {
+    expect(serialize(compiler('*a*_b_*c*'))).toBe(
+      '<Text><Text>a</Text><Text>b</Text><Text>c</Text></Text>'
+    )
+  })
+})
+
+describe('emphasis nested past the inline depth limit', () => {
+  it('leaves the delimiters outside the 199th level as literal text', () => {
+    expect(serialize(compiler(`${'*'.repeat(6000)}a${'*'.repeat(6000)}`))).toBe(
+      `<Text>${'*'.repeat(5602)}${'<Text>'.repeat(199)}a${'</Text>'.repeat(199)}${'*'.repeat(5602)}</Text>`
+    )
+  })
+})
+
 describe('a www. bare URL needs a dot inside its own span', () => {
-  // A native link is a nested Text carrying a press handler, not an anchor
   const pressHandlers = (input: string) =>
     treeProps(compiler(input))
       .filter(([name]) => name === 'onPress')
@@ -3681,7 +3954,6 @@ describe('a www. bare URL needs a dot inside its own span', () => {
 })
 
 describe('bare URLs in a run without spaces', () => {
-  // A native link is a nested Text carrying a press handler, so each handler is pressed to read its URL
   const pressedUrls = (input: string) => {
     const onLinkPress = mock((_url: string, _title?: string) => {})
     for (const [name, value] of treeProps(compiler(input, { onLinkPress }))) {
@@ -3782,8 +4054,7 @@ describe('bare URLs in a run without spaces', () => {
     expect(pressedUrls('www.[[a.b]_]')).toEqual([])
   })
 
-  it('ends the link at the last closer when a kept ) and a kept ] both remain', () => {
-    // A lone link is the paragraph's only Text
+  it('ends the link at the last closer when a kept ) and a kept ] both remain, so a lone link is the paragraph only Text', () => {
     expect(serialize(compiler('www.[.()]'))).toBe('<Text>www.[.()]</Text>')
     expect(pressedUrls('www.[.()]')).toEqual(['http://www.%5B.()%5D'])
   })
@@ -3821,8 +4092,6 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '[see https://example.com/?a[0]=1]',
       '<Text>[see <Text>https://example.com/?a[0]=1</Text>]</Text>',
     ],
-    // A trailing ] is trimmed to text while the URL holds more ] than [, so a ]
-    // with no matching [ ends the URL wherever its [ sits
     [
       'see https://example.com/a]',
       '<Text>see <Text>https://example.com/a</Text>]</Text>',
@@ -3844,10 +4113,29 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '<Text>[see <Text><Text>https://example.com/a</Text>]</Text></Text>',
     ],
     [
+      '==https://example.com/a==',
+      '<Text><Text><Text>https://example.com/a</Text></Text></Text>',
+    ],
+    [
+      '==https://x.y/?t=YQ== b',
+      '<Text><Text><Text>https://x.y/?t=YQ</Text></Text> b</Text>',
+    ],
+    [
+      'https://x.y/?t=YQ== b',
+      '<Text><Text>https://x.y/?t=YQ==</Text> b</Text>',
+    ],
+    [
+      '~~a https://x.y/?t=YQ== b~~',
+      '<Text><Text>a <Text>https://x.y/?t=YQ==</Text> b</Text></Text>',
+    ],
+    [
+      "~~https://example.com/a~~'",
+      "<Text><Text><Text>https://example.com/a</Text></Text>'</Text>",
+    ],
+    [
       '[see <span>https://example.com/a]</span>',
       '<Text>[see <Text><Text>https://example.com/a</Text>]</Text></Text>',
     ],
-    // The URL ends before \] and the escape renders as a literal ]
     [
       '[see https://example.com/a\\]]',
       '<Text>[see <Text>https://example.com/a</Text>]]</Text>',
@@ -3872,7 +4160,6 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
       '[see https://example.com/a.]',
       '<Text>[see <Text>https://example.com/a</Text>.]</Text>',
     ],
-    // An unclosed [ inside the URL balances the final ], so it stays
     [
       '[see https://example.com/?a[0=1]',
       '<Text>[see <Text>https://example.com/?a[0=1]</Text></Text>',
@@ -3893,11 +4180,10 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
     ).toBe(expected)
   })
 
-  // serialize drops props, so the target a press opens is read from the handler
   it.each([
     ['[see https://example.com/a]', 'https://example.com/a'],
     ['[see https://example.com/?a[0]=1]', 'https://example.com/?a%5B0%5D=1'],
-  ])('opens %j at %j when pressed', (input, expected) => {
+  ])('opens %j at %j when pressed (serialize drops props, so the target a press opens is read from the handler)', (input, expected) => {
     const onLinkPress = mock((_url: string) => {})
     const link = findLinkElement(
       compiler(input, { forceBlock: true, onLinkPress })
@@ -3909,5 +4195,220 @@ describe('a bare URL inside [ ] text ends at the ] that closes it', () => {
     onPress()
 
     expect(onLinkPress).toHaveBeenCalledWith(expected, undefined)
+  })
+})
+
+describe('override props that have no attribute form in the html compiler', () => {
+  it('hands the element every value, leaving the DOM renderer to decide what each writes', () => {
+    const noop = () => {}
+    const result = compiler('# hi', {
+      overrides: {
+        h1: {
+          props: {
+            'data-a': false,
+            'data-b': noop,
+            'data-c': { x: 1 },
+            'data-d': 'k',
+            style: {},
+          },
+        },
+      },
+    })
+
+    expect(
+      treeProps(result).filter(
+        ([name]) => name.startsWith('data-') || name === 'style'
+      )
+    ).toEqual([
+      [
+        'style',
+        [
+          [
+            { fontSize: 16, lineHeight: 24 },
+            {
+              fontSize: 28,
+              fontWeight: '600',
+              lineHeight: 36,
+              marginBottom: 12,
+              marginTop: 8,
+            },
+          ],
+          {},
+        ],
+      ],
+      ['data-a', false],
+      ['data-b', noop],
+      ['data-c', { x: 1 }],
+      ['data-d', 'k'],
+    ])
+    expect(serialize(result)).toBe('<Text>hi</Text>')
+  })
+})
+
+describe('render depth limit', () => {
+  function elementDepth(tree: React.ReactNode): number {
+    let depth = 0
+    let current: React.ReactNode = tree
+    while (current && typeof current === 'object') {
+      if (Array.isArray(current)) {
+        current = current[0]
+      } else if (isTestElement(current)) {
+        depth++
+        current = current.props.children
+      } else {
+        break
+      }
+    }
+    return depth
+  }
+
+  it.each([
+    [$.MAX_RENDER_DEPTH - 1, $.MAX_RENDER_DEPTH - 1],
+    [$.MAX_RENDER_DEPTH, $.MAX_RENDER_DEPTH],
+    [$.MAX_RENDER_DEPTH + 1, $.MAX_RENDER_DEPTH],
+    [$.MAX_RENDER_DEPTH * 2, $.MAX_RENDER_DEPTH],
+  ])('renders %i nested block quotes %i levels deep', (count, expected) => {
+    expect(elementDepth(astToNative(quotesDeep(count)))).toBe(expected)
+  })
+
+  it.each([
+    [$.MAX_RENDER_DEPTH, 'x'],
+    [$.MAX_RENDER_DEPTH + 1, ''],
+    [$.MAX_RENDER_DEPTH * 2, ''],
+  ])('continues the depth through renderChildren in a renderRule for %i nested block quotes', (count, expected) => {
+    expect(
+      astToNative(quotesDeep(count), {
+        wrapper: null,
+        renderRule: (next, node, renderChildren) =>
+          node.type === RuleType.blockQuote
+            ? renderChildren(node.children)
+            : next(),
+      })
+    ).toEqual([expected])
+  })
+})
+
+function linkPresses(
+  input: string
+): Array<{ title: string | undefined; url: string }> {
+  const presses: Array<{ title: string | undefined; url: string }> = []
+  const tree = compiler(input, {
+    onLinkPress: (url, title) => {
+      presses.push({ title, url })
+    },
+  })
+  for (const [name, value] of treeProps(tree)) {
+    if (name === 'onPress' && typeof value === 'function') {
+      value()
+    }
+  }
+  return presses
+}
+
+describe('a setext underline after a lazy line in a block quote', () => {
+  const H1 = () => null
+  const H2 = () => null
+
+  it.each([
+    ['> a\nb\n> ---', '<View><H2>a\nb</H2></View>'],
+    ['> a\nb\n>\n> c\n> ===', '<View><Text>a\nb</Text><H1>c</H1></View>'],
+    ['> a\nb\n===', '<View><Text>a\nb\n===</Text></View>'],
+  ])('renders %j as %j', (input, expected) => {
+    expect(serialize(compiler(input, { overrides: { h1: H1, h2: H2 } }))).toBe(
+      expected
+    )
+  })
+})
+
+describe('code span edge spaces', () => {
+  it.each([
+    ['` a `', '<Text>a</Text>'],
+    ['` \t `', '<Text>\t</Text>'],
+    ['`   `', '<Text> </Text>'],
+  ])('renders %j as %j', (input, expected) => {
+    expect(serialize(compiler(input))).toBe(expected)
+  })
+})
+
+describe('code spans at the streaming edge', () => {
+  it.each([
+    ['x `` a ` b `` y', '<Text>x <Text>a ` b</Text> y</Text>'],
+    ['x \\` y', '<Text>x ` y</Text>'],
+  ])('renders %j as %j with optimizeForStreaming, as without it', (input, expected) => {
+    expect(serialize(compiler(input, { optimizeForStreaming: true }))).toBe(
+      expected
+    )
+    expect(serialize(compiler(input))).toBe(expected)
+  })
+})
+
+describe('a bare email address with an underscore', () => {
+  it.each([
+    [
+      'foo@a_b.c',
+      '<Text>foo@a_b.c</Text>',
+      [{ title: undefined, url: 'mailto:foo@a_b.c' }],
+    ],
+    [
+      'foo@a.b_c.d',
+      '<Text>foo@a.b_c.d</Text>',
+      [{ title: undefined, url: 'mailto:foo@a.b_c.d' }],
+    ],
+    ['a.b-c_d@a.b_', '<Text>a.b-c_d@a.b_</Text>', []],
+  ])('renders %j as %j and presses to %j', (input, expected, presses) => {
+    expect(serialize(compiler(input))).toBe(expected)
+    expect(linkPresses(input)).toEqual(presses)
+  })
+})
+
+describe('a heading whose slug is only whitespace', () => {
+  it('renders the text, since native emits no heading id so the slug rule does not apply', () => {
+    expect(serialize(compiler('# Hi', { slugify: () => ' ' }))).toBe(
+      '<Text>Hi</Text>'
+    )
+  })
+})
+
+describe('entity text in image alt and link title', () => {
+  it('shows the literal text &copy; in an image accessibility label', () => {
+    expect(
+      treeProps(compiler('![&amp;copy;](x)')).filter(
+        ([name]) => name === 'accessibilityLabel' || name === 'source'
+      )
+    ).toEqual([
+      ['source', { uri: 'x' }],
+      ['accessibilityLabel', '&copy;'],
+    ])
+  })
+
+  it('passes the literal text &copy; as the link title to onLinkPress', () => {
+    expect(linkPresses('[a](x "&amp;copy;")')).toEqual([
+      { title: '&copy;', url: 'x' },
+    ])
+  })
+})
+
+describe('frontmatter above a reference definition', () => {
+  const input = '---\ntitle: x\n---\n\n# H\n\n[a]\n\n[a]: /u'
+
+  it('drops the frontmatter and links the reference', () => {
+    expect(serialize(compiler(input))).toBe(
+      '<View><Text>H</Text><Text><Text>a</Text></Text></View>'
+    )
+    expect(linkPresses(input)).toEqual([{ title: undefined, url: '/u' }])
+  })
+
+  it('keeps the frontmatter with preserveFrontmatter and links the reference', () => {
+    expect(serialize(compiler(input, { preserveFrontmatter: true }))).toBe(
+      '<View><View><Text>---\ntitle: x\n---</Text></View><Text>H</Text><Text><Text>a</Text></Text></View>'
+    )
+  })
+
+  it('keeps a document that is only frontmatter, closed at the end of input, as frontmatter', () => {
+    expect(
+      serialize(
+        compiler('---\ntitle: Draft\n---', { preserveFrontmatter: true })
+      )
+    ).toBe('<View><Text>---\ntitle: Draft\n---</Text></View>')
   })
 })

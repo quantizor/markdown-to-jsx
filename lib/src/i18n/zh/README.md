@@ -4,11 +4,11 @@
 
 本库的一些特别功能：
 
-- 支持任意 HTML 并将其解析为适当的 JSX 表示，而无需使用 `dangerouslySetInnerHTML`。
+- Markdown 中的原始 HTML 会变成真实的元素，而无需使用 `dangerouslySetInnerHTML`。
 
-- 编译器和/或 `<Markdown>` 组件渲染的任何 HTML 标签都可以被覆盖 (Override)，以包含额外的属性 (Props) 甚至完全不同的 HTML 表示。
+- 您可以覆盖 (Override) 编译器 (Compiler) 或 `<Markdown>` 组件渲染的任何 HTML 标签，以添加属性 (Props) 或换成您自己的组件。
 
-- 支持所有 GFM 特殊语法，包括表格、任务列表、删除线、自动链接、标签过滤等。
+- 支持所有 GFM 语法，包括表格、任务列表、删除线、自动链接和标签过滤，另外还支持用 `==highlight==` 生成 `<mark>`。
 
 - 支持 [highlight.js](https://highlightjs.org/) 的围栏代码块 (Fenced code blocks)；有关设置 highlight.js 的说明，请参阅[语法高亮 (Syntax highlighting)](#语法高亮-syntax-highlighting)。
 
@@ -78,7 +78,7 @@
 /** v9 */ compiler('&le; symbol')
 ```
 
-- **`tagfilter` 默认启用**：危险的 HTML 标签 (`script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`) 在 React、HTML、Solid、Vue 和 React Native 输出中默认都会被转义。与 GFM 一致，仅中和每个标签开头的 `<`；正文和结束标签仍以惰性文本形式可见，且过滤父标签内的允许嵌套标签仍会正常渲染。以前部分渲染器会把这些标签当作真实元素挂载，且转义输出会在开标签处截断。
+- **`tagfilter` 默认启用**：危险的 HTML 标签 (`script`, `iframe`, `style`, `title`, `textarea`, `xmp`, `noembed`, `noframes`, `plaintext`) 在 React、HTML、Solid、Vue 和 React Native 输出中默认都会被转义。与 GFM 一致，仅中和每个标签开头的 `<`；正文和结束标签仍以惰性文本形式可见，且过滤父标签内的允许嵌套标签仍会正常渲染。
 
 ```typescript
 /** v8 */ 标签被渲染为 JSX 元素
@@ -147,11 +147,11 @@ import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
 /** v8+ */ MarkdownToJSX.ASTNode[]
 ```
 
-- 多个 `RuleType` 枚举合并为 `RuleType.textFormatted` - 如果您之前在检查 `RuleType.textBolded`, `RuleType.textEmphasized`, `RuleType.textMarked` 或 `RuleType.textStrikethroughed`，请更新为检查 `RuleType.textFormatted` 并检查节点的布尔标志：
+- 多个 `RuleType` 枚举合并为 `RuleType.textFormatted` - 如果您之前在检查 `RuleType.textBolded`, `RuleType.textEmphasized`, `RuleType.textMarked` 或 `RuleType.textStrikethroughed`，请更新为检查 `RuleType.textFormatted` 并读取节点的 `tag` (`strong`、`em`、`mark` 或 `del`)：
 
 ```typescript
 /** v7 */ RuleType.textBolded
-/** v8+ */ RuleType.textFormatted && node.bold
+/** v8+ */ RuleType.textFormatted && node.tag === 'strong'
 ```
 
 </details>
@@ -173,9 +173,9 @@ ES6 风格用法\*：
 ```tsx
 import Markdown from 'markdown-to-jsx'
 import React from 'react'
-import { render } from 'react-dom'
+import { createRoot } from 'react-dom/client'
 
-render(<Markdown># 你好世界!</Markdown>, document.body)
+createRoot(document.body).render(<Markdown># 你好世界!</Markdown>)
 
 /*
     渲染结果：
@@ -389,7 +389,7 @@ HTML 标签会自动映射到 React Native 组件：
 - 内联元素 (`<span>`, `<strong>`, `<em>`, `<a>`, 标题, `<code>` 等) → `Text` 组件
 - 类型 1 块 (`<pre>`, `<script>`, `<style>`, `<textarea>`) → `View` 组件
 
-**混合文本与块级内容：** React Native 无法在文本中嵌套图像或视图，因此当内联容器（段落、标题、强调或链接）包含图像或块级内容时，它会渲染为 `View` 而非 `Text`。其中的文本会归入一个 `Text`，以便仍在同一行中排布；图像作为独立元素渲染；链接内的图像则通过 `Pressable` 保持可点按。纯文本内容不受影响，渲染方式与之前一致。
+**混合文本与块级内容：** React Native 无法在文本中嵌套图像或视图，因此当内联容器（段落、标题、强调或链接）包含图像或块级内容时，它会渲染为 `View` 而非 `Text`。其中的文本会归入一个 `Text`，以便仍在同一行中排布；图像作为独立元素渲染；链接内的图像则通过 `Pressable` 保持可点按。只包含文本的容器渲染为 `Text`。
 
 **注意：** 为了更好的可访问性和可发现性，链接默认带有下划线。您可以通过 `styles.link` 选项覆盖此行为。
 
@@ -438,7 +438,7 @@ function AppWithContext() {
 **SolidJS 特定功能：**
 
 - **响应式内容**：`Markdown` 组件接受信号 (Signals)/访问器 (Accessors)，以便在 Markdown 内容更改时自动更新。
-- **记忆化 (Memoization)**：AST 解析会自动记忆化以获得最佳性能。
+- **记忆化 (Memoization)**：组件只在其内容或选项变化时重新解析。
 - **Context API**：使用 `MarkdownProvider` 提供默认选项，避免属性钻取 (Prop drilling)。
 
 #### Vue.js
@@ -488,14 +488,15 @@ const htmlString2 = astToHTML(ast)
 ```typescript
 import { compiler, astToMarkdown, parser } from 'markdown-to-jsx/markdown'
 
-const normalizedMarkdown = compiler('# Hello  world\n\nExtra spaces!')
+const normalizedMarkdown = compiler('Hello world\n===========\n\n* one\n* two')
+// '# Hello world\n\n- one\n- two'
 
 /** 或者使用 AST */
-const ast = parser('# Hello  world')
+const ast = parser('Hello world\n===========')
 const normalizedMarkdown2 = astToMarkdown(ast)
 ```
 
-如果代码块或行内代码的内容被当作原始 HTML 或链接读取时不安全，它会以带实体的 `<pre><code>` 或 `<code>` 形式写出，因为其他渲染器可能把它周围的标记读作原始 HTML。浏览器显示的字符相同，其他代码仍保留围栏或反引号。
+如果代码块或行内代码的内容被当作原始 HTML 或链接读取时不安全，它会以带实体的 `<pre><code>` 或 `<code>` 形式写出，因为其他渲染器可能把它周围的标记读作原始 HTML。浏览器显示的字符相同，其他代码仍保留围栏或反引号。链接和图像地址中的控制字符以百分号编码 (`%01`) 写出，因此输出再次解析时含义不变。
 
 ### 库选项 (Library Options)
 
@@ -505,13 +506,14 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 | :------------------------------ | :---------------------------- | :------ | :------------------------------------------------------------------------------------------------------------- |
 | `createElement`                 | `function`                    | -       | 自定义 createElement 行为 (仅限 React/React Native/SolidJS/Vue)。详见 [createElement](#optionscreateelement)。 |
 | `disableAutoLink`               | `boolean`                     | `false` | 禁用将裸 URL 自动转换为锚点标签。                                                                              |
+| `disableFrontmatter`            | `boolean`                     | `false` | 把文档第一行的 `---` 读作分隔线，而不是 YAML 前置元数据的开头。                                                  |
 | `disableParsingRawHTML`         | `boolean`                     | `false` | 禁用将原始 HTML 解析为 JSX。                                                                                   |
 | `enforceAtxHeadings`            | `boolean`                     | `true`  | 要求 `#` 与标题文本之间有空格 (符合 CommonMark)。设为 `false` 时，`#heading` 也会被识别为标题。                |
 | `evalUnserializableExpressions` | `boolean`                     | `false` | ⚠️ 计算不可序列化的属性 (危险)。详见 [evalUnserializableExpressions](#optionsevalunserializableexpressions)。  |
 | `forceBlock`                    | `boolean`                     | `false` | 强制将所有内容视为块级元素。                                                                                   |
 | `forceInline`                   | `boolean`                     | `false` | 强制将所有内容视为内联元素。                                                                                   |
 | `ignoreHTMLBlocks`              | `boolean`                     | `false` | 禁用 HTML 块的解析，将其视为纯文本。                                                                            |
-| `forceWrapper`                  | `boolean`                     | `false` | 即使只有单个子元素也强制使用包装器 (仅限 React/React Native/Vue)。详见 [forceWrapper](#optionsforcewrapper)。  |
+| `forceWrapper`                  | `boolean`                     | `false` | 即使只有单个子元素也强制使用包装器 (Markdown 以外的所有输出)。详见 [forceWrapper](#optionsforcewrapper)。  |
 | `overrides`                     | `object`                      | -       | 覆盖 HTML 标签渲染。详见 [overrides](#optionsoverrides)。                                                      |
 | `preserveFrontmatter`           | `boolean`                     | `false` | 在渲染输出中包含 Frontmatter (对于 HTML/JSX 为 `<pre>`，Markdown 则直接包含)。行为因编译器类型而异。           |
 | `renderRule`                    | `function`                    | -       | 自定义 AST 规则的渲染。详见 [renderRule](#optionsrenderrule)。                                                 |
@@ -519,8 +521,8 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 | `slugify`                       | `function`                    | 内置    | 自定义标题 ID 的 Slug 生成。详见 [slugify](#optionsslugify)。                                                  |
 | `optimizeForStreaming`          | `boolean`                     | `false` | 抑制不完整 markdown 语法的渲染，适用于流式场景。详见 [流式 Markdown](#流式-markdown)。                         |
 | `tagfilter`                     | `boolean`                     | `true`  | 转义危险的 HTML 标签 (`script`, `iframe`, `style` 等) 以防止 XSS。                                             |
-| `wrapper`                       | `string \| component \| null` | `'div'` | 多个子元素的包装元素 (仅限 React/React Native/Vue)。详见 [wrapper](#optionswrapper)。                          |
-| `wrapperProps`                  | `object`                      | -       | 包装元素的属性 (仅限 React/React Native/Vue)。详见 [wrapperProps](#optionswrapperprops)。                      |
+| `wrapper`                       | `string \| component \| null` | `'div'` | 多个子元素的包装元素 (Markdown 以外的所有输出)。详见 [wrapper](#optionswrapper)。                          |
+| `wrapperProps`                  | `object`                      | -       | 包装元素的属性 (Markdown 以外的所有输出)。详见 [wrapperProps](#optionswrapperprops)。                      |
 
 #### options.createElement
 
@@ -529,13 +531,13 @@ const normalizedMarkdown2 = astToMarkdown(ast)
 ```javascript
 import Markdown from 'markdown-to-jsx'
 import React from 'react'
-import { render } from 'react-dom'
+import { createRoot } from 'react-dom/client'
 
 const md = `
 # 你好世界
 `
 
-render(
+createRoot(document.body).render(
   <Markdown
     children={md}
     options={{
@@ -547,8 +549,7 @@ render(
         )
       },
     }}
-  />,
-  document.body
+  />
 )
 ```
 
@@ -714,7 +715,7 @@ compiler(markdown, {
 
 #### options.renderRule
 
-提供您自己的渲染函数，可以有选择地覆盖规则 (Rules) 的渲染方式 (注意，这与 `options.overrides` 不同，后者在 HTML 标签级别运行且更为通用)。`renderRule` 函数始终在任何其他渲染代码之前执行，让您可以完全控制节点的渲染方式，包括通常被跳过的节点，如 `ref`, `footnote` 和 `frontmatter`。
+提供您自己的渲染函数，可以有选择地覆盖规则 (Rules) 的渲染方式 (注意，这与 `options.overrides` 不同，后者在 HTML 标签级别运行且更为通用)。`renderRule` 函数始终在任何其他渲染代码之前执行，让您可以完全控制节点的渲染方式。在 React、React Native、Solid 和 Vue 中，它还能看到这些渲染器通常跳过的节点 (`refCollection`、`footnote` 和 `frontmatter`)；Markdown 编译器会把 `refCollection` 和 `frontmatter` 交给它，HTML 编译器则三者都不交给它。
 
 您可以使用此功能对已建立的 AST 节点执行任何操作；这里有一个选择性覆盖 "codeBlock" 规则以使用 `@matejmazur/react-katex` 库处理 LaTeX 语法的示例：
 
@@ -766,9 +767,9 @@ function App() {
 
 #### options.sanitizer
 
-默认提供一个轻量级的 URL 清理 (Sanitizer) 函数，以避免可能放置在例如锚点标签的 `href` 中的常见攻击向量。清理器接收输入、目标 HTML 标签和属性名称。原始函数作为名为 `sanitizer` 的库导出提供。
+内置的 URL 清理函数 (Sanitizer) 会检查每个链接和图像地址，因此 `javascript:` 链接或图像源永远不会到达页面。通过检查的地址在两种情况下都以相同方式进行百分号编码。清理函数接收地址、它所属的 HTML 标签和属性名称 (链接为 `'a', 'href'`，图像为 `'img', 'src'`)，并返回要保留的地址，或返回 `null` 以丢弃它。在获得标签和属性时，内置函数还会在图像源以外的所有位置丢弃 SVG data URL (`data:image/svg+xml`)，因为浏览器将其作为页面打开时会运行 SVG 中的脚本。仅传入地址调用时，它会保留该地址。内置函数作为名为 `sanitizer` 的库导出提供。
 
-如果需要，可以通过 `options.sanitizer` 覆盖并替换为自定义清理器：
+要使用您自己的规则，请将一个函数传给 `options.sanitizer`：
 
 <!-- biome-ignore format: keep example fences intact -->
 ```tsx
@@ -794,16 +795,21 @@ compiler('[foo](javascript:alert("foo"))', {
 
 - 内联事件处理程序：`onclick`、`onerror`、`onload` 以及任何其他 `on*` 属性。
 - 在 `href`、`src`、`action`、`formaction`、`poster`、`cite`、`background`、`data`、`longdesc` 和 `xlink:href` (或 `xlinkHref`) 中携带 `javascript:`、`vbscript:` 或非图像 `data:` scheme 的 URL 属性。隐藏在 HTML 实体后面的 scheme，例如 `java&#9;script:` 或无分号的 `&#106avascript:`，也会被解码并捕获。
-- `iframe` 的 `srcdoc` 属性。
+- 上述属性中的 SVG data URL (`data:image/svg+xml`)，图像源除外：`img` 的 `src` 和 `srcset`、`source` 的 `src` 和 `srcset`、`video` 的 `poster`、`input` 的 `src`，以及 `image` 的 `src`、`srcset`、`href` 和 `xlink:href`。`<meta>` 刷新 URL 视为链接。
+- URL 携带上述 scheme 的 `<meta>` 刷新的 `content` 属性，例如 `content="0;url=javascript:alert(1)"`。
+- 任何标签上的 `srcdoc` 属性。
+- 加载上述 scheme (`background:url(javascript:…)`、`image-set(…)`) 或使用旧式脚本钩子 (`expression()`、`-moz-binding`、`behavior`) 的 `style` 属性，即使 CSS 注释或转义隐藏了它们。
 - 仅对框架有意义的属性：`innerHTML`、`outerHTML`、`dangerouslySetInnerHTML`、`ref` 和 `children` (在您自己的组件上保留)，以及位于 Solid 的 `attr:`、`prop:` 或 `bool:` 前缀之后的上述任何一项。
 
-保留：保持原始格式的安全属性、`data:image` URL，以及您作为表达式传递给自己组件的事件处理程序 (`<MyButton onClick={fn} />`，其中 `MyButton` 是一个 `overrides` 键)，以及它们上面的裸布尔属性 (`<MyButton onClick />`)。HTML 和 markdown 输出会按原样输出组件的表达式事件处理程序，而浏览器会运行它，因此请勿将使用了您组件名称的不受信任输入渲染为要插入页面的 HTML 字符串。对于 override 仍保留为字符串的带连字符标签，React 也会这样做。一个注意事项：`data:image/svg+xml` 是允许的，但当作为顶级导航打开时可能会执行脚本，因此请谨慎处理来自不受信任来源的 SVG data URL。
+保留：保持原始格式的安全属性、`data:image` URL，以及您作为表达式传递给自己组件的事件处理程序 (`<MyButton onClick={fn} />`，其中 `MyButton` 是一个 `overrides` 键)，以及它们上面的裸布尔属性 (`<MyButton onClick />`)。React、React Native 和 Solid 会将事件处理程序作为字符串 prop 传给组件。凡是事件处理程序会落到真实元素上的地方，它都会被丢弃：HTML 和 markdown 输出中、渲染为元素的 override (`{ component: 'a' }`) 中，以及 Vue 中 (Vue 会把组件未声明的 props 传给其根元素)。
 
 危险的标签名称 (`script`、`iframe`、`style` 等) 由 [`tagfilter`](#all-options) 选项单独转义，该选项默认启用。
 
 #### options.slugify
 
-默认情况下，使用[轻量级字符规范化函数](https://github.com/quantizor/markdown-to-jsx/blob/bc2f57412332dc670f066320c0f38d0252e0f057/index.js#L261-L275)从每个标题的纯文本内容生成 HTML ID（格式标记、链接目标和图像 alt 文本不参与；脚注标记贡献其显示文本）。当多个标题生成相同的 ID 时，会自动追加数字后缀 (`foo`、`foo-1`、`foo-2`)，确保同一次解析内的每个 ID 都唯一。您可以通过向 `options.slugify` 传递一个函数来覆盖 slug 生成；该函数接收上述纯文本内容，唯一性处理仍会作用于您的函数返回值。当您在标题中使用非字母数字字符 (例如中文或日文字符) 时，这很有用。例如：
+每个标题都会获得一个由其纯文本内容生成的 HTML ID（格式标记、链接目标和图像 alt 文本不参与；脚注标记贡献其显示文本）。内置函数会把文本转为小写，保留 a 到 z 的字母 (带重音的拉丁字母会被简化，例如 `é` 变为 `e`，`ß` 变为 `ss`)、数字和连字符，把空格转为连字符，并丢弃其他所有字符，因此 `# Hello World` 得到 `id="hello-world"`。当多个标题生成相同的 ID 时，会自动追加数字后缀 (`foo`、`foo-1`、`foo-2`)，确保同一次解析内的每个 ID 都唯一。ID 为空的标题 (例如 `# !!!`) 不会带 `id` 属性。
+
+要以您自己的方式生成 ID，请将一个函数传给 `options.slugify`。该函数接收标题的纯文本和内置函数，唯一性后缀会作用于它的返回值。当标题使用拉丁字母以外的字符 (例如中文或日文，内置函数会丢弃这些字符) 时，这很有用。例如：
 
 <!-- biome-ignore format: keep example fences intact -->
 ```tsx
@@ -830,9 +836,8 @@ compiler(str, { wrapper: 'article' })
 要获得子元素数组而不使用包装器，请将 `wrapper` 设置为 `null`。这在直接使用 `compiler(…)` 时特别有用。
 
 ```tsx
-compiler('One\n\nTwo\n\nThree', { wrapper: null })[
-  /** 返回 */ ((<p>One</p>), (<p>Two</p>), (<p>Three</p>))
-]
+compiler('One\n\nTwo\n\nThree', { wrapper: null })
+// 返回 [<p>One</p>, <p>Two</p>, <p>Three</p>]
 ```
 
 要在与 `<Markdown>` 相同的 DOM 级别渲染子元素且不使用 HTML 包装器，请将 `wrapper` 设置为 `React.Fragment`。出于渲染目的，这仍会将您的子元素包装在 React 节点中，但包装元素不会显示在 DOM 中。
@@ -854,7 +859,7 @@ compiler('One\n\nTwo\n\nThree', { wrapper: null })[
 
 ### 语法高亮 (Syntax highlighting)
 
-使用带有语言注释的[围栏代码块 (Fenced code blocks)](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) 时，该语言将作为 `class="language-${language}"` 添加到 `<code>` 元素中。JSX 渲染器（React、React Native、Solid、Vue）会同时添加旧版的 `lang-${language}`。为了获得最佳效果，您可以使用 `options.overrides` 提供适当的语法高亮集成，例如下面这个使用 `highlight.js` 的示例：
+使用带有语言注释的[围栏代码块 (Fenced code blocks)](https://www.markdownguide.org/extended-syntax/#syntax-highlighting) 时，该语言将作为 `class="language-${language}"` 添加到 `<code>` 元素中。React、Solid 和 Vue 会同时添加旧版的 `lang-${language}`。React Native 不会把语言传给元素；在那里实现高亮请参阅 [React Native](#react-native)。在 Web 上，您可以使用 `options.overrides` 接入语法高亮工具，例如下面这个使用 `highlight.js` 的示例：
 
 ```html
 <!-- 将以下标签添加到页面的 <head> 中以自动加载 hljs 和样式： -->
@@ -870,7 +875,8 @@ compiler('One\n\nTwo\n\nThree', { wrapper: null })[
 ```
 
 ````tsx
-import { Markdown, RuleType } from 'markdown-to-jsx'
+import { Markdown } from 'markdown-to-jsx'
+import React from 'react'
 
 const mdContainingFencedCodeBlock = '```js\nconsole.log("你好世界!");\n```\n'
 
@@ -914,7 +920,7 @@ const shortcodeMap = {
   smile: '🙂',
 }
 
-const detector = /(:[^:]+:)/g
+const detector = /(:[^:]+:)/
 
 const replaceEmoji = (text: string): React.ReactNode => {
   return text.split(detector).map((part, index) => {
@@ -953,7 +959,7 @@ function Example() {
 
 当渲染增量到达的 Markdown 内容时（例如来自 AI/LLM API、WebSocket 或服务器发送事件），您可能会注意到原始 Markdown 语法在正确渲染之前短暂出现。这是因为像 `**粗体文本` 或 `<CustomComponent>部分内容` 这样的不完整语法在闭合分隔符到达之前被渲染为文本。
 
-`optimizeForStreaming` 选项通过检测不完整的 Markdown 结构并将其保留，直到内容完整后才渲染（在 React 和 React Native 上返回 `null`，在 HTML 上返回空字符串），从而解决这个问题。它在每一种渲染器中都能生效：
+`optimizeForStreaming` 选项会隐藏写到一半的语法，直到其闭合分隔符到达，让读者看到的是文本，而不是零散的标记。它在每一种渲染器中都能生效：
 
 ```tsx
 import Markdown from 'markdown-to-jsx/react'
@@ -988,16 +994,23 @@ function ChatMessage({ stream }) {
 
 最终渲染时请关闭该选项。启用期间，解析器无法区分写到一半的语法和已完成的文本，因此始终没有闭合配对的 `*` 或 `_`（例如 `*args` 或 `_id`）会一直被隐藏。使用 `optimizeForStreaming: false` 渲染完整消息，即可按原样显示。
 
-**它抑制的内容：**
+**它隐藏的内容：**
 
-- 未闭合的 HTML 标签（`<div>内容` 没有 `</div>`）
+以下内容的标记会被隐藏，而其文本随到随显：
+
+- 未闭合的粗体/斜体（`**文本` 或 `*文本` 没有闭合）：显示 `文本`
+- 未闭合的删除线（`~~文本` 没有闭合 `~~`）：显示 `文本`
+- 未闭合的链接（`[文本](url` 没有闭合 `)`）：显示 `文本`
+- 未闭合的 HTML 标签（`<div>内容` 没有 `</div>`）：显示 `内容`
+
+以下内容在完整之前整体隐藏：
+
 - 不完整的标签语法（`<div attr="value` 没有闭合 `>`）
 - 未闭合的 HTML 注释（`<!-- 注释` 没有 `-->`）
 - 未闭合的行内代码（`` `代码 `` 没有闭合反引号）
-- 未闭合的粗体/斜体（`**文本` 或 `*文本` 没有闭合）
-- 未闭合的删除线（`~~文本` 没有闭合 `~~`）
-- 未闭合的链接（`[文本](url` 没有闭合 `)`）
 - 不完整的表格（在第一行数据到达前只有表头行或分隔行）；表格一旦渲染就会保持不变，即便后续行继续流入也是如此，因此不会闪现原始的竖线字符，也不会在行与行之间闪烁
+
+当没有任何内容可显示时，React 和 React Native 返回 `null`。
 
 **正常渲染的内容（流式传输时内容可见）：**
 
@@ -1011,7 +1024,7 @@ function ChatMessage({ stream }) {
 
 抽象语法树 (AST) 是解析后的 Markdown 的结构化表示。AST 中的每个节点都有一个 `type` 属性来标识其类型，以及特定于类型的属性。
 
-**重要提示：** AST 中的第一个节点通常是 `RuleType.refCollection` 节点，它包含文档中发现的所有参考定义，包括脚注 (以 `^` 为前缀的键存储)。此节点在渲染期间会被跳过，但对于访问参考数据很有用。`compiler()` 和 `astToJSX()` 都会自动从 refCollection 中提取脚注并在 `<footer>` 元素中渲染。
+**重要提示：** 当文档定义了参考或脚注时，AST 中的第一个节点是 `RuleType.refCollection` 节点，它包含所有这些定义 (脚注以 `^` 为前缀的键存储)。此节点在渲染期间会被跳过，但对于访问参考数据很有用。`compiler()` 和 `astToJSX()` 都会自动从 refCollection 中提取脚注并在 `<footer>` 元素中渲染。
 
 #### 节点类型 (Node Types)
 
@@ -1033,7 +1046,7 @@ AST 由以下节点类型组成 (使用 `RuleType` 检查节点类型)：
   ```
 - `RuleType.blockQuote` - 引用 (`>`)
   ```tsx
-  { type: RuleType.blockQuote, children: [...], alert?: "note" }
+  { type: RuleType.blockQuote, children: [...], alert?: "NOTE" }
   ```
 - `RuleType.orderedList` / `RuleType.unorderedList` - 列表
   ```tsx
@@ -1047,10 +1060,10 @@ AST 由以下节点类型组成 (使用 `RuleType` 检查节点类型)：
 - `RuleType.htmlBlock` - HTML 块和 JSX 组件
 
   ```tsx
-  { type: RuleType.htmlBlock, tag: "div", attrs?: Record<string, any>, children?: ASTNode[] }
+  { type: RuleType.htmlBlock, tag: "div", attrs?: Record<string, any>, children?: ASTNode[], text?: string /* 已弃用 */ }
   ```
 
-  **注意：** PascalCase 的 JSX 组件以及带连字符的自定义元素，在开始/结束标签之间出现空行时会正确嵌套子节点，而不会让后续内容泄漏为兄弟节点。已知的 HTML 块级标签 (`div`、`figure` 以及 CommonMark 块级标签集合中的其余标签) 行为相同。未知的小写标签仍遵循 CommonMark Type 7，并在第一个空行处结束。
+  **注意：** PascalCase 的 JSX 组件以及带连字符的自定义元素，在开始/结束标签之间出现空行时会正确嵌套子节点，而不会让后续内容泄漏为兄弟节点。已知的 HTML 块级标签 (`div`、`figure` 以及 CommonMark 块级标签集合中的其余标签) 行为相同。未知的小写标签遵循 CommonMark Type 7，并在第一个空行处结束。
 
   **HTML 块解析 (v9.2+)：** HTML 块始终会被完整解析到 `children` 属性中。`renderRule` 回调可以访问所有 HTML 块中 `children` 里完整解析的 AST。
 
@@ -1060,7 +1073,7 @@ AST 由以下节点类型组成 (使用 `RuleType` 检查节点类型)：
   ```tsx
   { type: RuleType.text, text: "你好世界" }
   ```
-- `RuleType.textFormatted` - 加粗、斜体等
+- `RuleType.textFormatted` - 加粗、斜体、删除线 (`~~`) 和高亮 (`==`)，`tag` 为 `strong`、`em`、`del` 或 `mark`
   ```tsx
   { type: RuleType.textFormatted, tag: "strong", children: [...] }
   ```
@@ -1101,7 +1114,8 @@ AST 由以下节点类型组成 (使用 `RuleType` 检查节点类型)：
   ```
 - `RuleType.htmlComment` - HTML 注释节点
   ```tsx
-  { type: RuleType.htmlComment, text: "注释文本" }
+  { type: RuleType.htmlComment, text: " 注释文本 " } // 内联：标记之间的文本
+  { type: RuleType.htmlComment, text: "<!-- 注释文本 -->" } // 独占一行：整个注释，按原样输出
   ```
 - `RuleType.htmlSelfClosing` - 自闭合 HTML 标签
   ```tsx
@@ -1180,7 +1194,7 @@ console.log('code')
 使用 `RuleType` 枚举来标识 AST 节点：
 
 ```tsx
-import { RuleType } from 'markdown-to-jsx'
+import { type MarkdownToJSX, RuleType } from 'markdown-to-jsx'
 
 if (node.type === RuleType.heading) {
   const heading = node as MarkdownToJSX.HeadingNode
@@ -1226,17 +1240,21 @@ const Table = ({ columns, data, ...props }) => {
 
 **函数属性保持为字符串**以确保安全，前提是列入 `overrides` 的大写标签；任何其他标签都是 HTML，会失去其事件处理器。使用 [renderRule](#optionsrenderrule) 进行逐例处理，或参阅 [evalUnserializableExpressions](#optionsevalunserializableexpressions) 了解如何选择性启用 eval。
 
-**HTML 缩进**：HTML 块中的前导空格会根据第一行的缩进自动修剪，以避免 Markdown 语法冲突。
+**HTML 缩进**：您可以在 Markdown 中自由缩进 HTML。HTML 块中的前导空格会根据第一行的缩进进行修剪，因此其中缩进的行不会被读作代码块。
 
-**HTML 中的代码**：不要直接在 HTML div 中放置代码。请改用围栏代码块：
+**HTML 中的代码**：要在 HTML 标签内放置围栏代码块，请在开始标签之后和结束标签之前各留一个空行。如果没有这些空行，HTML 输出会按 CommonMark 的要求把围栏保留为原始文本：
 
 ````md
 <div>
+
 ```js
 var code = here();
 ```
+
 </div>
 ````
+
+**极深的嵌套**：超过固定深度的强调或引用嵌套会保持为纯文本，并且每个渲染器在超过固定深度后都会停止渲染 AST，因此专门用来耗尽调用栈的输入会被正常渲染，而不会让您的应用崩溃。
 
 ## 更新日志 (Changelog)
 

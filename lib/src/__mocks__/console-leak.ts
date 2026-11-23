@@ -1,16 +1,9 @@
-/**
- * Bun test preload: fail when a test leaks console.warn / console.error.
- *
- * Allowlisted messages are the library's intentional DEV sanitizer warnings.
- * Tests that spy on console.replace the wrapper for that test; restoring the
- * spy puts this wrapper back because preload installed it first.
- */
 import { afterEach } from 'bun:test'
 
-/** Exact first-argument prefixes for known DEV sanitizer / style-URL warnings. */
 export const ALLOWED_CONSOLE_PREFIXES = [
   'Input contains an unsafe JavaScript/VBScript/data expression, it will not be rendered.',
   'Input could not be decoded due to malformed syntax or characters, it will not be rendered.',
+  'Input is an SVG data URL outside an image, which runs script when a browser opens it as a page, it will not be rendered.',
   'Style attribute contains an unsafe URL expression, it will not be rendered.',
 ] as const
 
@@ -37,7 +30,6 @@ export function isAllowedConsoleMessage(args: unknown[]): boolean {
   return false
 }
 
-/** Drain recorded leaks (for presence tests). Clears the buffer. */
 export function drainConsoleLeaks(): ConsoleLeak[] {
   var out = leaks
   leaks = []
@@ -61,7 +53,6 @@ installLeakWrappers()
 
 afterEach(function failOnConsoleLeaks() {
   var found = drainConsoleLeaks()
-  // Spies may have replaced the wrapper; put it back for the next test.
   installLeakWrappers()
   if (found.length === 0) {
     return
