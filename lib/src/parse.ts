@@ -4122,7 +4122,7 @@ function parseFootnoteDefinition(
   }
 
   var fnEnd = lineEnd(s, i)
-  var content = s.slice(i, fnEnd).trim()
+  var content = s.slice(i, fnEnd)
   var end = fnEnd < len ? fnEnd + 1 : len
 
   while (end < len) {
@@ -4148,7 +4148,10 @@ function parseFootnoteDefinition(
   }
 
   if (state.refs && !state.refs[label]) {
-    state.refs[label] = { target: content, title: undefined }
+    state.refs[label] = {
+      target: content.slice(0, rtrim(content, 0, content.length, true)),
+      title: undefined,
+    }
   }
   return ret(end, { type: RuleType.footnote })
 }

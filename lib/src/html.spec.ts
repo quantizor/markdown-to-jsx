@@ -18,18 +18,30 @@ describe('html compiler', () => {
   })
 
   it('renders hard breaks in forceInline text and footnote bodies, and soft ones too under breaks: true', () => {
-    const footnote = 'x[^1]\n\n[^1]: a\n    b  \n    c'
+    const footnote = 'x[^1]\n\n[^1]: a  \n    b\n    c'
 
     expect([
       compiler('a  \nb\nc', { forceInline: true }),
       compiler('a  \nb\nc', { breaks: true, forceInline: true }),
       compiler(footnote),
       compiler(footnote, { breaks: true }),
+      compiler('x[^1]\n\n[^1]: a  '),
     ]).toEqual([
       '<span>a<br />\nb\nc</span>',
       '<span>a<br />\nb<br />\nc</span>',
-      '<p>x<a href="#1"><sup>1</sup></a></p><footer><div id="1">1: a\nb<br />\nc</div></footer>',
+      '<p>x<a href="#1"><sup>1</sup></a></p><footer><div id="1">1: a<br />\nb\nc</div></footer>',
       '<p>x<a href="#1"><sup>1</sup></a></p><footer><div id="1">1: a<br />\nb<br />\nc</div></footer>',
+      '<p>x<a href="#1"><sup>1</sup></a></p><footer><div id="1">1: a</div></footer>',
+    ])
+  })
+
+  it('breaks: true gives a multi-line setext heading a hyphenated id, since the break now separates its words', () => {
+    expect([
+      compiler('Foo\nbar\n==='),
+      compiler('Foo\nbar\n===', { breaks: true }),
+    ]).toEqual([
+      '<h1 id="foobar">Foo\nbar</h1>',
+      '<h1 id="foo-bar">Foo<br />\nbar</h1>',
     ])
   })
 

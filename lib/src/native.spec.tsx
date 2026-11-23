@@ -333,7 +333,7 @@ describe('compiler', () => {
   })
 
   it('drops the continuation indent of a footnote body, and breaks: true changes nothing there either, since Text already shows a soft line break as a new line', () => {
-    const footnote = 'x[^1]\n\n[^1]: a\n    b  \n    c'
+    const footnote = 'x[^1]\n\n[^1]: a  \n    b\n    c'
     const out = serialize(compiler(footnote, { breaks: true }))
 
     expect(out).toBe(serialize(compiler(footnote)))

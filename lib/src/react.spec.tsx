@@ -890,7 +890,7 @@ describe('links', () => {
   })
 
   it('renders hard breaks in forceInline text and footnote bodies, and soft ones too under breaks: true', () => {
-    const footnote = 'x[^1]\n\n[^1]: a\n    b  \n    c'
+    const footnote = 'x[^1]\n\n[^1]: a  \n    b\n    c'
     const html = (md: string, options: MarkdownToJSX.Options) => {
       render(compiler(md, options))
       return root.innerHTML
@@ -904,7 +904,7 @@ describe('links', () => {
     ]).toEqual([
       '<span>a<br/>b\nc</span>',
       '<span>a<br/>b<br/>c</span>',
-      '<div><p>x<a href="#1"><sup>1</sup></a></p><footer><div id="1">1: <!-- -->a\nb<br/>c</div></footer></div>',
+      '<div><p>x<a href="#1"><sup>1</sup></a></p><footer><div id="1">1: <!-- -->a<br/>b\nc</div></footer></div>',
       '<div><p>x<a href="#1"><sup>1</sup></a></p><footer><div id="1">1: <!-- -->a<br/>b<br/>c</div></footer></div>',
     ])
   })

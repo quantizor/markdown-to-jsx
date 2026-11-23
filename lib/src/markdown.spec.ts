@@ -215,11 +215,11 @@ describe('markdown compiler', () => {
       expect([
         compiler('a  \nb\nc', { forceInline: true }),
         compiler('a  \nb\nc', { breaks: true, forceInline: true }),
-        compiler('x[^1]\n\n[^1]: a\n    b  \n    c', { breaks: true }),
+        compiler('x[^1]\n\n[^1]: a  \n    b\n    c', { breaks: true }),
       ]).toEqual([
         'a  \nb\nc',
         'a  \nb  \nc',
-        '[^1]: a\n    b  \n    c\n\nx[^1]',
+        '[^1]: a  \n    b\n    c\n\nx[^1]',
       ])
     })
   })

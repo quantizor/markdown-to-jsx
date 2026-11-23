@@ -248,7 +248,7 @@ describe('break elements', () => {
   })
 
   it('renders hard breaks in forceInline text and footnote bodies, and soft ones too under breaks: true', () => {
-    const footnote = 'x[^1]\n\n[^1]: a\n    b  \n    c'
+    const footnote = 'x[^1]\n\n[^1]: a  \n    b\n    c'
 
     expect([
       serialize(compiler('a  \nb\nc', { forceInline: true })),
@@ -258,7 +258,7 @@ describe('break elements', () => {
     ]).toEqual([
       '<span>a<br></br>b\nc</span>',
       '<span>a<br></br>b<br></br>c</span>',
-      '<div><p>x<a><sup>1</sup></a></p><footer><div>1: a\nb<br></br>c</div></footer></div>',
+      '<div><p>x<a><sup>1</sup></a></p><footer><div>1: a<br></br>b\nc</div></footer></div>',
       '<div><p>x<a><sup>1</sup></a></p><footer><div>1: a<br></br>b<br></br>c</div></footer></div>',
     ])
   })

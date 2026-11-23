@@ -22,7 +22,7 @@ Add a corpus case when each is fixed.
 - Under `optimizeForStreaming`, an unclosed highlight (`==hi`) shows its `==` marker, while unclosed `**`, `~~`, and links hide theirs.
 - Text inside raw inline HTML children parses with line breaks off, so a hard break there is lost (`<span>a  \nb</span>` gives `<span>a \nb</span>`, CommonMark gives `<br />`) and `breaks: true` leaves its soft breaks alone, while markdown-it and marked break there. Turning `_breaks` on in inline HTML children changes published output.
 - A heading id drops a soft line break instead of reading it as a separator (`Foo\nbar\n===` gets `foobar`) while a hard break separates (`foo-bar`), so `breaks: true` renames multi-line heading ids. Treating both alike changes published ids.
-- A footnote's first line is trimmed when its definition is collected, so a hard break ending that line is lost (`[^1]: a  \n    b`), and an unindented continuation line (`[^1]: a\nb`) becomes its own paragraph instead of a lazy continuation.
+- An unindented footnote continuation line (`[^1]: a\nb`) becomes its own paragraph instead of a lazy continuation of the footnote.
 - A bare email whose domain label ends in `-` or `_` before a dot (`foo@a_.c`) stays text, while GFM and cmark-gfm link it: scanBareEmail applies hostname label rules (each label ends with a letter or digit, at most 63 characters). Matching GFM changes which text links, so it needs a maintainer call.
 
 ## Renderer drift
