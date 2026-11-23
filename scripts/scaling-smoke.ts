@@ -466,9 +466,15 @@ function cpuMs(): number {
   return (system + user) / 1000
 }
 
-function timeOnce(shape: (typeof shapes)[number], input: string): number {
+function timeOnce(
+  shape: (typeof shapes)[number],
+  input: string,
+  reps = 1
+): number {
   const t0 = cpuMs()
-  run(shape, input)
+  for (var r = 0; r < reps; r++) {
+    run(shape, input)
+  }
   return cpuMs() - t0
 }
 
@@ -501,7 +507,7 @@ function measure(
   var small = Number.POSITIVE_INFINITY
   var large = Number.POSITIVE_INFINITY
   for (var r = 0; r < runs; r++) {
-    small = Math.min(small, timeOnce(shape, smallInput))
+    small = Math.min(small, timeOnce(shape, smallInput, 4) / 4)
     large = Math.min(large, timeOnce(shape, largeInput))
   }
   return {
