@@ -56,26 +56,22 @@ Merge lexing, parsing, and transformation into as few passes as possible. Each p
 
 ### 5. String Handling
 
-**Zero-copy parsing**: Store `(start, end)` index pairs into the original source string. Slice only at output time. Eliminates all intermediate string allocations during parsing. In V8/JSC, `String.prototype.slice()` returns a view (pointer + offset + length). [[Zero-copy techniques (Go)]](https://goperf.dev/01-common-patterns/zero-copy/) [[Manish Goregaokar zero-copy]](https://manishearth.github.io/blog/2022/08/03/zero-copy-2-zero-copy-all-the-things/)
+**Zero-copy parsing**: Store `(start, end)` index pairs into the original source string. Slice only at output time. Eliminates all intermediate string allocations during parsing (the JS form: standards/performance.md, "String handling in hot paths"). [[Zero-copy techniques (Go)]](https://goperf.dev/01-common-patterns/zero-copy/) [[Manish Goregaokar zero-copy]](https://manishearth.github.io/blog/2022/08/03/zero-copy-2-zero-copy-all-the-things/)
 
 **String interning**: Deduplicate strings to integer IDs. Comparison becomes O(1) integer equality. V8 deduplicates at the scanner boundary. rustc uses an interned `Symbol` type. A broken interning function in rustc caused 59% excess peak memory and page faults. [[matklad rust interner]](https://matklad.github.io/2020/03/22/fast-simple-rust-interner.html) [[Nethercote rustc 2019]](https://blog.mozilla.org/nnethercote/2019/07/17/how-to-speed-up-the-rust-compiler-in-2019/)
 
-**Caveat -- interning vs parallelism**: OXC found that global mutex lock contention from string-cache was a bottleneck during parallel parsing. Removing it improved parallel parsing by ~30%. Interning helps single-threaded; hurts multi-threaded. [[OXC performance]](https://oxc.rs/docs/learn/performance)
+**Caveat, interning vs parallelism**: OXC found that global mutex lock contention from string-cache was a bottleneck during parallel parsing. Removing it improved parallel parsing by ~30%. Interning helps single-threaded; hurts multi-threaded. [[OXC performance]](https://oxc.rs/docs/learn/performance)
 
 **Small string optimization**: Strings <= 24 bytes stored inline without heap allocation. Covers the majority of identifiers. [[OXC AST design]](https://oxc.rs/docs/contribute/parser/ast)
 
-**SIMD string scanning**: simdjson processes 32 bytes simultaneously, producing bitsets of structural character positions. 4x faster than RapidJSON. Native `indexOf` for single chars uses SIMD internally in V8/JSC -- prefer it over manual charCodeAt loops. [[simdjson]](https://github.com/simdjson/simdjson) [[StringZilla]](https://ashvardanian.com/posts/stringzilla/)
+**SIMD string scanning**: simdjson processes 32 bytes simultaneously, producing bitsets of structural character positions. 4x faster than RapidJSON. For the JS equivalent (`indexOf` on one character) see standards/performance.md, "String handling in hot paths". [[simdjson]](https://github.com/simdjson/simdjson) [[StringZilla]](https://ashvardanian.com/posts/stringzilla/)
 
-**Rope concat in JSC/Bun**: String `+=` is faster than array-push + join for small/medium segments because JSC uses rope concatenation internally. Only use array-join for very large strings with many pieces.
+**Rope concat in JSC/Bun**: measured in this repository; see standards/performance.md, "String handling in hot paths".
 
 ### 6. Avoiding Regex Pathologies
 
 - **Thompson NFA guarantees linear time**: Tracks all states simultaneously. O(n * m) worst case where m is pattern size. No exponential blowup. Go's regexp uses this exclusively. [[Russ Cox regexp1]](https://swtch.com/~rsc/regexp/regexp1.html)
-- **Nested quantifiers cause exponential backtracking**: Patterns like `(\s*-+\s*)*` are the primary danger. [[Snyk ReDoS]](https://snyk.io/blog/redos-and-catastrophic-backtracking/)
-- **Restrict `\s` to `[ \t]`** when newlines are structurally invalid. `\s` includes `\n`, causing cross-line backtracking.
-- **Adjacent capture groups with overlapping character classes**: Cause backtracking when the delimiter is absent. Replace with charCode scans.
-- **Regex on unbounded input is inherently risky**: Prefer charCode scans that walk the string once in a single forward pass.
-- **When regex wins**: On large inputs (650K+), V8/JSC's native regex engine (compiled to machine code) can be 2x faster than JS character loops. [[ratfactor benchmarks]](http://ratfactor.com/cards/js-string-parsing)
+- **Backtracking shapes and when regex wins**: the repository's rules (nested quantifiers, `\s` across lines, adjacent overlapping groups, whole-input regex, the large-input regex advantage) are in standards/performance.md, "Bounded linear time, no backtracking". [[Snyk ReDoS]](https://snyk.io/blog/redos-and-catastrophic-backtracking/) [[ratfactor benchmarks]](http://ratfactor.com/cards/js-string-parsing)
 
 ### 7. Incremental & Tree Architecture
 
@@ -109,7 +105,7 @@ Merge lexing, parsing, and transformation into as few passes as possible. Each p
 
 ### 11. JavaScript Runtime Considerations
 
-- **Hidden classes**: Initialize all object properties in the same order in constructors. Objects with identical structure share a hidden class, enabling inline caching.
+- **Hidden classes**: objects with identical structure share a hidden class, enabling inline caching (the AST rule: standards/performance.md, "AST node representation").
 - **Short-lived objects**: Objects that die before the next minor GC (scavenge) incur near-zero GC cost.
 - **Monomorphic call sites**: Ensure functions are called with consistent argument shapes to enable JIT optimization.
 - **Vec growth strategy matters**: rustc changed Vec growth from `0, 1, 2, 4, 8, 16` to `0, 4, 8, 16`, reducing total allocations by 10%+. Similar principles apply to JS array pre-sizing. [[Nethercote rustc optimizations]](https://nnethercote.github.io/2022/02/25/how-to-speed-up-the-rust-compiler-in-2022.html)
@@ -121,7 +117,7 @@ Merge lexing, parsing, and transformation into as few passes as possible. Each p
 
 ### John Carmack
 
-"Your head is a faulty interpreter." Minimize state mutation. Maximize code analyzability. Inlining large functions (even 2000 lines) makes execution order obvious and prevents unintended call sites. Static code analysis is the most important practice -- more valuable for the mindset change than the bugs caught.
+"Your head is a faulty interpreter." Minimize state mutation. Maximize code analyzability. Inlining large functions (even 2000 lines) makes execution order obvious and prevents unintended call sites. Static code analysis is the most important practice, more valuable for the mindset change than the bugs caught.
 
 > "The real enemy addressed by inlining is unexpected dependency and mutation of state, which functional programming solves more directly."
 
@@ -129,11 +125,11 @@ Merge lexing, parsing, and transformation into as few passes as possible. Each p
 
 ### Mike Acton
 
-**The Three Big Lies**: (1) Software is a platform -- the hardware is the platform. (2) Code should model the world -- real-world IS-A relationships don't map to data transformations. (3) Code is more important than data -- the transformation of data is the only purpose of any program.
+**The Three Big Lies**: (1) Software is a platform: the hardware is the platform. (2) Code should model the world: real-world IS-A relationships don't map to data transformations. (3) Code is more important than data: the transformation of data is the only purpose of any program.
 
 > "If you don't understand the data, you don't understand the problem."
 
-10x improvements come from data layout transformations, not algorithmic cleverness. Design for the "multiple" case -- there is never "one" of anything important.
+10x improvements come from data layout transformations, not algorithmic cleverness. Design for the "multiple" case: there is never "one" of anything important.
 
 [[CppCon 2014 talk]](https://isocpp.org/blog/2015/01/cppcon-2014-data-oriented-design-and-c-mike-acton) [[Data Oriented Programming]](https://dataorientedprogramming.wordpress.com/tag/mike-acton/)
 
@@ -147,13 +143,13 @@ Polymorphism, virtual dispatch, and deep class hierarchies create indirection th
 
 ### Rob Pike
 
-**The 5 Rules**: (1) You can't tell where a program spends its time. (2) Measure before tuning. (3) Fancy algorithms are slow when n is small, and n is usually small. (4) Fancy algorithms have more bugs. (5) **Data dominates** -- if you've chosen the right data structures, the algorithms will be self-evident.
+**The 5 Rules**: (1) You can't tell where a program spends its time. (2) Measure before tuning. (3) Fancy algorithms are slow when n is small, and n is usually small. (4) Fancy algorithms have more bugs. (5) **Data dominates**: if you've chosen the right data structures, the algorithms will be self-evident.
 
 [[Pike's 5 Rules]](https://users.ece.utexas.edu/~adnan/pike.html) [[Notes on Programming in C]](http://doc.cat-v.org/bell_labs/pikestyle)
 
 ### Ken Thompson
 
-"When in doubt, use brute force." Think about *how* a bug came to be -- build a mental model and find where the model is wrong. Small teams produce better abstractions because committee designs accumulate everyone's favorite feature.
+"When in doubt, use brute force." Think about *how* a bug came to be: build a mental model and find where the model is wrong. Small teams produce better abstractions because committee designs accumulate everyone's favorite feature.
 
 [[Best advice from Ken Thompson (Pike)]](https://www.informit.com/articles/article.aspx?p=1941206)
 
@@ -209,7 +205,7 @@ Platform values (approachability, debuggability, performance, robustness, simpli
 
 ### Fabrice Bellard
 
-Deep understanding of fundamentals enables one person to build what teams cannot. TinyGL in 8,000 lines. QEMU solo through v0.7.1. Discipline and tight feedback loops -- not genius -- explain extraordinary productivity.
+Deep understanding of fundamentals enables one person to build what teams cannot. TinyGL in 8,000 lines. QEMU solo through v0.7.1. Discipline and tight feedback loops, not genius, explain extraordinary productivity.
 
 [[Bellard's Performance Craft (Koder.ai)]](https://koder.ai/blog/fabrice-bellard-performance-craftsmanship-ffmpeg-qemu)
 
@@ -227,7 +223,7 @@ STEADY goals: Simple, Timely, Efficient, Adaptable, Dependable, Yummy. Have a sp
 
 ### Chuck Moore
 
-Three-fold principle: (1) Keep it simple, (2) Do not speculate -- never include unused code, (3) Do it yourself. Code should fit in 1KB blocks -- a quantum comprehensible on a single screen. Beautiful code is never larger than this.
+Three-fold principle: (1) Keep it simple, (2) Do not speculate: never include unused code, (3) Do it yourself. Code should fit in 1KB blocks, a quantum comprehensible on a single screen. Beautiful code is never larger than this.
 
 > "Complexity is the problem. Moving it from hardware to software, or vice versa, doesn't help. Simplicity is the only answer."
 
