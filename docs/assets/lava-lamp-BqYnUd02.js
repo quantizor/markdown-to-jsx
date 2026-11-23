@@ -1,4 +1,4 @@
-import{r as p,j as ge,_ as ye}from"./index-__hg2l-5.js";function be(i){for(var e=[`var<private> P: array<vec4f, ${i}>;
+import{r as p,j as ge,_ as ye}from"./index-B2sai5-V.js";function be(i){for(var e=[`var<private> P: array<vec4f, ${i}>;
 `,`fn loadParticles() {
 `],r=0;r<i;r++)e.push(`    P[${r}u] = particles[${r}u].position;
 `);return e.push(`}
